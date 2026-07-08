@@ -28,6 +28,13 @@ struct GlobeHomeView: View {
             ScrollView {
                 VStack(spacing: Theme.Spacing.md) {
                     setupChecklistCard
+                    if let partnerTimeZone = appModel.partner.homeCity?.timeZone {
+                        TimeZoneCard(
+                            person: appModel.partner,
+                            timeZone: partnerTimeZone,
+                            comparisonTimeZone: appModel.currentUser.homeCity?.timeZone
+                        )
+                    }
                     if let myCity = appModel.currentUser.homeCity, let partnerCity = appModel.partner.homeCity, let distanceKm {
                         distanceCard(distanceKm: distanceKm, myCity: myCity, partnerCity: partnerCity)
                     } else {

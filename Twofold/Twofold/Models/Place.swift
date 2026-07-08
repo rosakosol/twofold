@@ -12,18 +12,26 @@ struct Place: Identifiable, Hashable {
     var iataCode: String?
     var latitude: Double
     var longitude: Double
+    /// IANA identifier (e.g. "Australia/Melbourne"). Nil for places added later via
+    /// live city search until that's resolved and backfilled.
+    var timeZoneIdentifier: String?
 
-    init(id: UUID = UUID(), city: String, country: String, iataCode: String? = nil, latitude: Double, longitude: Double) {
+    init(id: UUID = UUID(), city: String, country: String, iataCode: String? = nil, latitude: Double, longitude: Double, timeZoneIdentifier: String? = nil) {
         self.id = id
         self.city = city
         self.country = country
         self.iataCode = iataCode
         self.latitude = latitude
         self.longitude = longitude
+        self.timeZoneIdentifier = timeZoneIdentifier
     }
 
     var coordinate: CLLocationCoordinate2D {
         CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
+
+    var timeZone: TimeZone? {
+        timeZoneIdentifier.flatMap(TimeZone.init(identifier:))
     }
 
     static func == (lhs: Place, rhs: Place) -> Bool {
@@ -36,12 +44,12 @@ struct Place: Identifiable, Hashable {
 
     /// Curated pickable list reused by every city picker (onboarding home city, trip origin/destination, etc.)
     static let commonCities: [Place] = [
-        Place(city: "Melbourne", country: "Australia", iataCode: "MEL", latitude: -37.8136, longitude: 144.9631),
-        Place(city: "Singapore", country: "Singapore", iataCode: "SIN", latitude: 1.3521, longitude: 103.8198),
-        Place(city: "Bangkok", country: "Thailand", iataCode: "BKK", latitude: 13.7563, longitude: 100.5018),
-        Place(city: "Tokyo", country: "Japan", iataCode: "HND", latitude: 35.6762, longitude: 139.6503),
-        Place(city: "London", country: "United Kingdom", iataCode: "LHR", latitude: 51.5072, longitude: -0.1276),
-        Place(city: "New York", country: "United States", iataCode: "JFK", latitude: 40.7128, longitude: -74.0060),
-        Place(city: "Sydney", country: "Australia", iataCode: "SYD", latitude: -33.8688, longitude: 151.2093),
+        Place(city: "Melbourne", country: "Australia", iataCode: "MEL", latitude: -37.8136, longitude: 144.9631, timeZoneIdentifier: "Australia/Melbourne"),
+        Place(city: "Singapore", country: "Singapore", iataCode: "SIN", latitude: 1.3521, longitude: 103.8198, timeZoneIdentifier: "Asia/Singapore"),
+        Place(city: "Bangkok", country: "Thailand", iataCode: "BKK", latitude: 13.7563, longitude: 100.5018, timeZoneIdentifier: "Asia/Bangkok"),
+        Place(city: "Tokyo", country: "Japan", iataCode: "HND", latitude: 35.6762, longitude: 139.6503, timeZoneIdentifier: "Asia/Tokyo"),
+        Place(city: "London", country: "United Kingdom", iataCode: "LHR", latitude: 51.5072, longitude: -0.1276, timeZoneIdentifier: "Europe/London"),
+        Place(city: "New York", country: "United States", iataCode: "JFK", latitude: 40.7128, longitude: -74.0060, timeZoneIdentifier: "America/New_York"),
+        Place(city: "Sydney", country: "Australia", iataCode: "SYD", latitude: -33.8688, longitude: 151.2093, timeZoneIdentifier: "Australia/Sydney"),
     ]
 }

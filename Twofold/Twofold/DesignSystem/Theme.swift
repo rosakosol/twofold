@@ -14,6 +14,21 @@ extension Color {
         let b = Double(hexValue & 0x0000FF) / 255
         self.init(red: r, green: g, blue: b)
     }
+
+    /// Component-wise blend toward `other`, used for the timezone card's continuous day/night gradient.
+    func interpolated(to other: Color, amount: Double) -> Color {
+        let t = min(max(amount, 0), 1)
+        var (r1, g1, b1, a1) = (CGFloat(0), CGFloat(0), CGFloat(0), CGFloat(0))
+        var (r2, g2, b2, a2) = (CGFloat(0), CGFloat(0), CGFloat(0), CGFloat(0))
+        UIColor(self).getRed(&r1, green: &g1, blue: &b1, alpha: &a1)
+        UIColor(other).getRed(&r2, green: &g2, blue: &b2, alpha: &a2)
+        return Color(
+            red: r1 + (r2 - r1) * t,
+            green: g1 + (g2 - g1) * t,
+            blue: b1 + (b2 - b1) * t,
+            opacity: a1 + (a2 - a1) * t
+        )
+    }
 }
 
 enum Theme {
@@ -30,6 +45,14 @@ enum Theme {
     )
 
     static let cardBackground = Color(.secondarySystemGroupedBackground)
+
+    /// Day/night palette for the timezone card, blended continuously by hour-of-day.
+    enum DayNight {
+        static let nightTop = Color(hex: "0B1D3A")
+        static let nightBottom = Color(hex: "1B2A4A")
+        static let dayTop = Color(hex: "3E8FD9")
+        static let dayBottom = Color(hex: "F2A93C")
+    }
 
     enum Spacing {
         static let xs: CGFloat = 4

@@ -9,10 +9,10 @@
 import Foundation
 
 enum MockData {
-    static let melbourne = Place(city: "Melbourne", country: "Australia", iataCode: "MEL", latitude: -37.8136, longitude: 144.9631)
-    static let singapore = Place(city: "Singapore", country: "Singapore", iataCode: "SIN", latitude: 1.3521, longitude: 103.8198)
-    static let bangkok = Place(city: "Bangkok", country: "Thailand", iataCode: "BKK", latitude: 13.7563, longitude: 100.5018)
-    static let tokyo = Place(city: "Tokyo", country: "Japan", iataCode: "HND", latitude: 35.6762, longitude: 139.6503)
+    static let melbourne = Place(city: "Melbourne", country: "Australia", iataCode: "MEL", latitude: -37.8136, longitude: 144.9631, timeZoneIdentifier: "Australia/Melbourne")
+    static let singapore = Place(city: "Singapore", country: "Singapore", iataCode: "SIN", latitude: 1.3521, longitude: 103.8198, timeZoneIdentifier: "Asia/Singapore")
+    static let bangkok = Place(city: "Bangkok", country: "Thailand", iataCode: "BKK", latitude: 13.7563, longitude: 100.5018, timeZoneIdentifier: "Asia/Bangkok")
+    static let tokyo = Place(city: "Tokyo", country: "Japan", iataCode: "HND", latitude: 35.6762, longitude: 139.6503, timeZoneIdentifier: "Asia/Tokyo")
 
     static let dara = Person(name: "Dara", homeCity: singapore, accentColor: Person.palette[0])
     static let rosa = Person(name: "Rosa", homeCity: melbourne, accentColor: Person.palette[1])

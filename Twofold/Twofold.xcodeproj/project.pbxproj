@@ -30,7 +30,7 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		DB8C952B2FFC502100E0E71E /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+		DB8C952B2FFC502100E0E71E /* Exceptions for "Twofold" folder in "Twofold" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
@@ -43,7 +43,7 @@
 		DB8C95032FFC501C00E0E71E /* Twofold */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				DB8C952B2FFC502100E0E71E /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
+				DB8C952B2FFC502100E0E71E /* Exceptions for "Twofold" folder in "Twofold" target */,
 			);
 			path = Twofold;
 			sourceTree = "<group>";
