@@ -13,8 +13,14 @@ struct FlightTrackingView: View {
 
     private var timeRemainingLabel: String {
         guard let flight else { return "" }
-        let hours = Int(flight.timeRemaining) / 3600
-        let minutes = (Int(flight.timeRemaining) % 3600) / 60
+        let totalSeconds = Int(flight.timeRemaining)
+        let days = totalSeconds / 86_400
+        let hours = (totalSeconds % 86_400) / 3600
+        let minutes = (totalSeconds % 3600) / 60
+
+        if days > 0 {
+            return "\(days)d \(hours)h \(minutes)m"
+        }
         return "\(hours)h \(minutes)m"
     }
 

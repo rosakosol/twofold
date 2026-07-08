@@ -7,12 +7,15 @@ import SwiftUI
 
 struct GlobeHomeView: View {
     @Environment(AppModel.self) private var appModel
+    @Environment(\.scenePhase) private var scenePhase
     @State private var showingSnapshot = false
     @State private var showingPaywall = false
     @State private var showingInvite = false
     @State private var showingAddTrip = false
     @State private var showingAddFlight = false
     @State private var showingHomeCities = false
+    @State private var pendingShares: [PendingFlightShare] = []
+    @State private var reviewingShare: PendingFlightShare?
 
     private var distanceKm: Double? {
         guard let mine = appModel.currentUser.homeCity?.coordinate, let theirs = appModel.partner.homeCity?.coordinate else { return nil }
@@ -28,6 +31,7 @@ struct GlobeHomeView: View {
             ScrollView {
                 VStack(spacing: Theme.Spacing.md) {
                     setupChecklistCard
+                    pendingSharesCard
                     if let partnerTimeZone = appModel.partner.homeCity?.timeZone {
                         TimeZoneCard(
                             person: appModel.partner,
@@ -75,6 +79,13 @@ struct GlobeHomeView: View {
                         Image(systemName: "bell")
                     }
                 }
+            }
+            .sheet(item: $reviewingShare, onDismiss: refreshPendingShares) { share in
+                PendingFlightShareReviewView(share: share)
+            }
+            .onAppear(perform: refreshPendingShares)
+            .onChange(of: scenePhase) { _, newPhase in
+                if newPhase == .active { refreshPendingShares() }
             }
             .sheet(isPresented: $showingSnapshot) { SnapshotShareView() }
             .sheet(isPresented: $showingPaywall) { PaywallView() }
@@ -127,6 +138,40 @@ struct GlobeHomeView: View {
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private var pendingSharesCard: some View {
+        if let first = pendingShares.first {
+            SectionCard {
+                Button {
+                    reviewingShare = first
+                } label: {
+                    HStack {
+                        ZStack {
+                            Circle().fill(Theme.skyBlue.opacity(0.15))
+                            Image(systemName: "envelope.badge").foregroundStyle(Theme.skyBlue)
+                        }
+                        .frame(width: 36, height: 36)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(pendingShares.count == 1 ? "1 flight email to review" : "\(pendingShares.count) flight emails to review")
+                                .font(.headline)
+                            Text("Shared from Mail — tap to add the flight")
+                                .font(.caption)
+                                .foregroundStyle(Theme.subtleInk)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private func refreshPendingShares() {
+        pendingShares = PendingShareStore.all()
     }
 
     private func checklistRow(icon: String, title: String, action: @escaping () -> Void) -> some View {
