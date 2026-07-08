@@ -9,9 +9,12 @@ import SwiftUI
 
 @main
 struct TwofoldApp: App {
+    @State private var appModel = AppModel()
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootView()
+                .environment(appModel)
         }
     }
 }

@@ -1,0 +1,47 @@
+//
+//  Place.swift
+//  Twofold
+//
+
+import CoreLocation
+
+struct Place: Identifiable, Hashable {
+    let id: UUID
+    var city: String
+    var country: String
+    var iataCode: String?
+    var latitude: Double
+    var longitude: Double
+
+    init(id: UUID = UUID(), city: String, country: String, iataCode: String? = nil, latitude: Double, longitude: Double) {
+        self.id = id
+        self.city = city
+        self.country = country
+        self.iataCode = iataCode
+        self.latitude = latitude
+        self.longitude = longitude
+    }
+
+    var coordinate: CLLocationCoordinate2D {
+        CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
+
+    static func == (lhs: Place, rhs: Place) -> Bool {
+        lhs.id == rhs.id
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+
+    /// Curated pickable list reused by every city picker (onboarding home city, trip origin/destination, etc.)
+    static let commonCities: [Place] = [
+        Place(city: "Melbourne", country: "Australia", iataCode: "MEL", latitude: -37.8136, longitude: 144.9631),
+        Place(city: "Singapore", country: "Singapore", iataCode: "SIN", latitude: 1.3521, longitude: 103.8198),
+        Place(city: "Bangkok", country: "Thailand", iataCode: "BKK", latitude: 13.7563, longitude: 100.5018),
+        Place(city: "Tokyo", country: "Japan", iataCode: "HND", latitude: 35.6762, longitude: 139.6503),
+        Place(city: "London", country: "United Kingdom", iataCode: "LHR", latitude: 51.5072, longitude: -0.1276),
+        Place(city: "New York", country: "United States", iataCode: "JFK", latitude: 40.7128, longitude: -74.0060),
+        Place(city: "Sydney", country: "Australia", iataCode: "SYD", latitude: -33.8688, longitude: 151.2093),
+    ]
+}
