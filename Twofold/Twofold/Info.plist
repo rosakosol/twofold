@@ -17,11 +17,11 @@
 			<string>com.orangefinch.Twofold.google</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>com.googleusercontent.apps.1059774127438-8acds7afmhle1cblruc5n5d90mobcd0g</string>
+				<string>com.googleusercontent.apps.220566699855-vdk5b551vh0gq13s1jejk88amcgc96pm</string>
 			</array>
 		</dict>
 	</array>
 	<key>GIDClientID</key>
-	<string>1059774127438-8acds7afmhle1cblruc5n5d90mobcd0g.apps.googleusercontent.com</string>
+	<string>220566699855-vdk5b551vh0gq13s1jejk88amcgc96pm.apps.googleusercontent.com</string>
 </dict>
 </plist>

@@ -9,6 +9,7 @@ import SwiftUI
 
 struct PurchaseSuccessView: View {
     @Environment(OnboardingModel.self) private var onboarding
+    @Environment(AppModel.self) private var appModel
     @State private var didCelebrate = false
     @State private var heartScale: CGFloat = 0.6
 
@@ -18,7 +19,8 @@ struct PurchaseSuccessView: View {
 
     var body: some View {
         OnboardingScaffold(
-            title: "Welcome to Twofold ❤️",
+            progress: onboarding.progress,
+            title: "Welcome to Twofold!",
             subtitle: "Your 14-day free trial has started.",
             content: {
                 VStack(spacing: Theme.Spacing.lg) {
@@ -41,7 +43,7 @@ struct PurchaseSuccessView: View {
                 }
             },
             primaryTitle: "Continue",
-            primaryAction: { onboarding.path.append(.saveAccount) }
+            primaryAction: { appModel.finishOnboarding() }
         )
         .sensoryFeedback(.success, trigger: didCelebrate)
     }
@@ -52,4 +54,5 @@ struct PurchaseSuccessView: View {
         PurchaseSuccessView()
     }
     .environment(OnboardingModel())
+    .environment(AppModel())
 }

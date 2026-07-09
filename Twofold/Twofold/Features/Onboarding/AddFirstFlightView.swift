@@ -24,6 +24,7 @@ struct AddFirstFlightView: View {
 
     var body: some View {
         OnboardingScaffold(
+            progress: onboarding.progress,
             title: "Let's track your first flight ✈️",
             subtitle: "Add a flight for you or \(partnerName). All you need is the flight number.",
             content: {
@@ -34,6 +35,7 @@ struct AddFirstFlightView: View {
                         .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
 
                     DatePicker("Departure", selection: $date, in: Date.now..., displayedComponents: [.date, .hourAndMinute])
+                        .datePickerStyle(.compact)
                         .padding()
                         .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                 }

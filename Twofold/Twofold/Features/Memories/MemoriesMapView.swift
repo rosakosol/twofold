@@ -33,6 +33,9 @@ struct MemoriesMapView: View {
                 if let city = cityForStrip {
                     citySheet(for: city)
                         .padding(Theme.Spacing.md)
+                } else {
+                    emptyStateHint
+                        .padding(Theme.Spacing.md)
                 }
             }
             .navigationTitle("Memories")
@@ -65,6 +68,25 @@ struct MemoriesMapView: View {
                 .padding(4)
                 .background(Theme.heartRed, in: Circle())
                 .offset(x: 6, y: -6)
+        }
+    }
+
+    private var emptyStateHint: some View {
+        SectionCard {
+            HStack(spacing: Theme.Spacing.md) {
+                ZStack {
+                    Circle().fill(Theme.skyBlue.opacity(0.15))
+                    Image(systemName: "photo.badge.plus").foregroundStyle(Theme.skyBlue)
+                }
+                .frame(width: 40, height: 40)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Add your first memory").font(.headline)
+                    Text("Tap + above to save a photo from a moment together.")
+                        .font(.caption)
+                        .foregroundStyle(Theme.subtleInk)
+                }
+                Spacer(minLength: 0)
+            }
         }
     }
 

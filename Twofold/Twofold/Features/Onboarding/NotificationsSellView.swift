@@ -25,10 +25,26 @@ struct NotificationsSellView: View {
     // later onboarding screen runs, this is always the real name — no fallback needed.
     private var partnerName: String { onboarding.partnerName }
 
+    // CoupleLocationsView requires both cities before you can advance, so these are always
+    // real by the time this screen runs too. `illustrativeOriginCity` is normally the
+    // partner's city, but swaps in a random other one if the couple lives in the same city
+    // (matching what the Live Activity sell screen shows, since both read from the same
+    // cached value on `onboarding`) — otherwise this example flight would depart and arrive
+    // in the same place.
+    private var originLabel: String {
+        guard let city = onboarding.illustrativeOriginCity else { return "\(onboarding.partnerPossessive) city" }
+        if let iata = city.iataCode { return "\(city.city) (\(iata))" }
+        return city.city
+    }
+
+    private var destinationLabel: String {
+        onboarding.homeCity?.city ?? "your city"
+    }
+
     private var headline: String {
         switch onboarding.situation {
         case .liveTogetherTravelOften:
-            "Know when \(partnerName) is on their way home."
+            "Know when \(partnerName) is on \(onboarding.partnerPossessive) way home."
         default:
             "Never wonder if \(partnerName) has landed."
         }
@@ -41,12 +57,12 @@ struct NotificationsSellView: View {
             NotificationPreview(
                 emoji: "🛫",
                 title: "\(partnerName) has departed",
-                body: "QF9 departed Melbourne (MEL)."
+                body: "QF9 departed \(originLabel)."
             ),
             NotificationPreview(
                 emoji: "✈️",
                 title: "\(partnerName) is in the air",
-                body: "QF9 has departed Melbourne. We'll keep an eye on their journey"
+                body: "QF9 has departed \(originLabel). We'll keep an eye on \(onboarding.partnerPossessive) journey"
             ),
             NotificationPreview(
                 emoji: "🛬",
@@ -56,13 +72,14 @@ struct NotificationsSellView: View {
             NotificationPreview(
                 emoji: "🎉",
                 title: "\(partnerName) has landed ❤️",
-                body: "QF9 has arrived in London."
+                body: "QF9 has arrived in \(destinationLabel)."
             ),
         ]
     }
 
     var body: some View {
         OnboardingScaffold(
+            progress: onboarding.progress,
             title: headline,
             subtitle: "Get flight updates when they matter, without constantly checking.",
             content: {

@@ -13,6 +13,7 @@ enum OnboardingStep: Hashable {
     case goals
     case yourName
     case partnerName
+    case gender
     case benchmark
     case coupleLocations
     case personalizedInsight
@@ -43,6 +44,36 @@ enum OnboardingStep: Hashable {
 enum OnboardingRole {
     case inviter
     case invitee
+}
+
+/// Drives which possessive pronoun ("his"/"her"/a custom one) copy uses when referring to
+/// someone by name elsewhere in onboarding, instead of the generic "their".
+enum Gender: String, CaseIterable, Identifiable {
+    case male
+    case female
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .male: "Male"
+        case .female: "Female"
+        }
+    }
+
+    var emoji: String {
+        switch self {
+        case .male: "♂️"
+        case .female: "♀️"
+        }
+    }
+
+    var possessive: String {
+        switch self {
+        case .male: "his"
+        case .female: "her"
+        }
+    }
 }
 
 /// Which of the five relationship/travel situations most sounds like this couple —

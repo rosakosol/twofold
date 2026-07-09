@@ -14,22 +14,31 @@ struct CoupleLocationsView: View {
     // later onboarding screen runs, this is always the real name — no fallback needed.
     private var partnerName: String { onboarding.partnerName }
 
+    /// They live together, so there's only one city to ask for — it becomes both
+    /// `homeCity` and `partnerCity` on continue.
+    private var livesTogether: Bool { onboarding.situation == .liveTogetherTravelOften }
+
     var body: some View {
         OnboardingScaffold(
+            progress: onboarding.progress,
             title: "Where in the world are you two? 🌍",
             content: {
                 VStack(spacing: Theme.Spacing.md) {
-                    CityMenuPicker(label: "Your city", selection: $myCity)
-                    CityMenuPicker(label: "\(partnerName)'s city", selection: $partnerCity)
+                    if livesTogether {
+                        CityMenuPicker(label: "City", selection: $myCity)
+                    } else {
+                        CityMenuPicker(label: "Your city", selection: $myCity)
+                        CityMenuPicker(label: "\(partnerName)'s city", selection: $partnerCity)
+                    }
                 }
             },
             primaryTitle: "Continue",
             primaryAction: {
                 onboarding.homeCity = myCity
-                onboarding.partnerCity = partnerCity
+                onboarding.partnerCity = livesTogether ? myCity : partnerCity
                 onboarding.path.append(.personalizedInsight)
             },
-            primaryDisabled: myCity == nil || partnerCity == nil
+            primaryDisabled: myCity == nil || (!livesTogether && partnerCity == nil)
         )
         .onAppear {
             myCity = onboarding.homeCity

@@ -13,11 +13,7 @@ import Observation
 final class AppModel {
     var isLoadingSession = true
     var hasCouple: Bool = false
-    var couple: Couple = Couple(
-        partnerA: Person(name: "You", accentColor: Person.palette[1]),
-        partnerB: Person(name: "Partner", accentColor: Person.palette[0]),
-        startedDatingOn: .now
-    )
+    var couple: Couple = AppModel.placeholderCouple
     var trips: [Trip] = []
     var memories: [Memory] = []
 
@@ -89,14 +85,71 @@ final class AppModel {
 
     // MARK: - Session / backend sync
 
-    /// Called once at launch. Restores a session if one exists and loads real couple/trip
-    /// state; leaves `hasCouple = false` so `RootView` routes into onboarding if there's no
-    /// session, or the session hasn't finished pairing yet.
+    /// Called once at launch. Restores a session if one exists and loads real state; leaves
+    /// `hasCouple = false` only when there's genuinely no session, so `RootView` routes into
+    /// onboarding for a first-time user but never for a returning one who just hasn't paired
+    /// with a partner yet (see `loadSignedInState`).
     func restoreSession() async {
         defer { isLoadingSession = false }
         guard await BackendService.restoreSession() != nil else { return }
+        await loadSignedInState()
+    }
+
+    /// Called any time we know a Supabase session exists — at launch (`restoreSession`) or
+    /// right after a manual sign-in (`SignInView`). Being authenticated at all means
+    /// onboarding is already done, regardless of whether a `couples` row exists yet — so this
+    /// always ends with `hasCouple = true`, rather than leaving a solo (unpaired) user to fall
+    /// back into onboarding just because `fetchCoupleState` found nothing.
+    func loadSignedInState() async {
         if let state = try? await BackendService.fetchCoupleState() {
             await adopt(state)
+        } else if let profile = try? await BackendService.fetchOwnProfile() {
+            couple.partnerA = profile
+        }
+        hasCouple = true
+    }
+
+    /// Signs out and resets all local state back to the pre-auth placeholder — `RootView`
+    /// picks this up via `hasCouple` and routes back to `WelcomeView`.
+    func signOut() async {
+        try? await BackendService.signOut()
+        hasCouple = false
+        partnerConnected = false
+        inviteCode = nil
+        backendCoupleID = nil
+        pendingTripIDs = []
+        pendingMemoryIDs = []
+        pendingMemoryPhotoData = [:]
+        trips = []
+        memories = []
+        couple = Self.placeholderCouple
+    }
+
+    private static var placeholderCouple: Couple {
+        Couple(
+            partnerA: Person(name: "You", accentColor: Person.palette[1]),
+            partnerB: Person(name: "Partner", accentColor: Person.palette[0]),
+            startedDatingOn: .now
+        )
+    }
+
+    /// Persists profile edits from `SettingsView`. Each field only round-trips to the backend
+    /// if it actually changed, since `updateFirstName`/`updateHomeCity` are separate writes.
+    func updateProfile(name: String, homeCity: Place?) async {
+        let trimmedName = name.trimmingCharacters(in: .whitespaces)
+        if !trimmedName.isEmpty, trimmedName != couple.partnerA.name {
+            try? await BackendService.updateFirstName(trimmedName)
+            couple.partnerA.name = trimmedName
+        }
+        if let homeCity, homeCity.id != couple.partnerA.homeCity?.id {
+            try? await BackendService.updateHomeCity(homeCity)
+            couple.partnerA.homeCity = homeCity
+        }
+    }
+
+    func updateAvatar(imageData: Data) async {
+        if let url = try? await BackendService.uploadAvatar(imageData: imageData) {
+            couple.partnerA.avatarURL = url
         }
     }
 
@@ -163,14 +216,20 @@ final class AppModel {
         pendingMemoryIDs = stillPendingMemories
     }
 
-    /// Called once account creation succeeds — the single place everything collected during
-    /// the default onboarding flow (situation/frequency/attribution/goals stay local to
-    /// `OnboardingModel` for analytics-style use later; names/cities/drafted flight apply
-    /// here) gets persisted, since nothing could be written to Supabase before a session
-    /// existed. If a real couple already exists (the partner redeemed an invite in a race,
-    /// or this is the preserved deep-link path resuming), adopts it; otherwise the partner
-    /// stays a personalized local placeholder until real pairing happens later.
-    func completeOnboarding(_ onboarding: OnboardingModel) async {
+    /// Called once account creation succeeds — now happens *before* the paywall/trial screens
+    /// rather than after, so a real account exists to tie the subscription to. Persists
+    /// everything collected during the default onboarding flow (situation/frequency/
+    /// attribution/goals stay local to `OnboardingModel` for analytics-style use later; names/
+    /// cities/photos/drafted flight apply here) — nothing could be written to Supabase before
+    /// a session existed. Deliberately does **not** set `hasCouple = true`: `RootView` swaps
+    /// straight to `MainTabView` the instant that flips, which would skip the paywall/trial
+    /// screens still left to show. `finishOnboarding()` does that final flip once they're done.
+    ///
+    /// If a real couple already exists (the partner redeemed an invite in a race, or this is
+    /// the preserved deep-link path resuming a session that already finished pairing), there's
+    /// nothing left to onboard, so this does finish immediately — a narrow edge case where a
+    /// returning user skips straight past the paywall.
+    func applyOnboardingAccount(_ onboarding: OnboardingModel) async {
         if let state = try? await BackendService.fetchCoupleState() {
             await adopt(state)
             inviteCode = onboarding.inviteCode
@@ -204,6 +263,12 @@ final class AppModel {
         }
 
         inviteCode = onboarding.inviteCode
+    }
+
+    /// The actual last step of onboarding — called once the paywall/trial flow finishes, so
+    /// `RootView` lands the user in `MainTabView`. Account creation already happened earlier
+    /// via `applyOnboardingAccount`.
+    func finishOnboarding() {
         hasCouple = true
     }
 

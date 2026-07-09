@@ -40,6 +40,8 @@ struct OnboardingCoordinatorView: View {
             YourNameView()
         case .partnerName:
             PartnerNameView()
+        case .gender:
+            GenderView()
         case .benchmark:
             BenchmarkView()
         case .coupleLocations:

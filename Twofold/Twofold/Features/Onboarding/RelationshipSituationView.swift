@@ -10,6 +10,7 @@ struct RelationshipSituationView: View {
 
     var body: some View {
         OnboardingScaffold(
+            progress: onboarding.progress,
             title: "Which sounds most like you two?",
             content: {
                 VStack(spacing: Theme.Spacing.sm) {

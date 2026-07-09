@@ -26,6 +26,7 @@ struct AddPhotoView: View {
 
     var body: some View {
         OnboardingScaffold(
+            progress: onboarding.progress,
             title: "Add your photo",
             subtitle: subtitle,
             content: {

@@ -24,13 +24,14 @@ struct WidgetSellView: View {
     }
 
     private var partnerCityLabel: String {
-        onboarding.partnerCity?.city ?? "their city"
+        onboarding.partnerCity?.city ?? "\(onboarding.partnerPossessive) city"
     }
 
     var body: some View {
         OnboardingScaffold(
+            progress: onboarding.progress,
             title: "Twofold, right on your Home Screen.",
-            subtitle: "Add a widget to see \(partnerName)'s time, weather, and next flight without opening the app.",
+            subtitle: "Add a widget to see \(partnerName)'s time, weather, and next flight on your homescreen",
             content: {
                 VStack(spacing: Theme.Spacing.lg) {
                     VStack(spacing: Theme.Spacing.sm) {
@@ -56,12 +57,12 @@ struct WidgetSellView: View {
                         SectionCard {
                             widgetFeatureRow(icon: "clock.fill", title: "\(partnerName)'s time", subtitle: "Always know what time it is for them")
                             widgetFeatureRow(icon: "cloud.sun.fill", title: "Time & weather", subtitle: "Their local time and weather, side by side")
-                            widgetFeatureRow(icon: "airplane", title: "Flight countdown", subtitle: "Watch the time tick down to their next trip")
+                            widgetFeatureRow(icon: "airplane", title: "Flight countdown", subtitle: "Watch the time tick down to \(onboarding.partnerPossessive) next trip")
                         }
                     }
                 }
             },
-            primaryTitle: "Add to Home Screen",
+            primaryTitle: "Continue",
             primaryAction: { onboarding.path.append(.addFirstFlight) }
         )
     }

@@ -9,23 +9,49 @@
 import SwiftUI
 
 struct OnboardingScaffold<Content: View>: View {
-    @Environment(OnboardingModel.self) private var onboarding
+    /// Passed explicitly (e.g. `onboarding.progress`) rather than read from the environment,
+    /// since this scaffold is also reused by non-onboarding sheets (`AddMemoryView`,
+    /// `AddFlightView`, `HomeCitiesView`) that have no `OnboardingModel` in scope — those
+    /// simply leave it `nil` and get no progress bar.
+    var progress: Double? = nil
     let title: String
     var subtitle: String?
     @ViewBuilder var content: Content
     var primaryTitle: String?
     var primaryAction: (() -> Void)?
     var primaryDisabled: Bool = false
+    var primaryLoading: Bool = false
     var secondaryTitle: String?
     var secondaryAction: (() -> Void)?
 
+    /// Screens like `SaveAccountView` skip the shared primary/secondary button entirely (they
+    /// have their own inline buttons instead) — `.safeAreaInset` would otherwise still reserve
+    /// an empty padded, blurred-material strip at the bottom for nothing, which shows up as a
+    /// stray pale rectangle over their content.
+    private var hasBottomBar: Bool {
+        (primaryTitle != nil && primaryAction != nil) || (secondaryTitle != nil && secondaryAction != nil)
+    }
+
     var body: some View {
+        Group {
+            if hasBottomBar {
+                scrollContent
+                    .safeAreaInset(edge: .bottom) { bottomBar }
+            } else {
+                scrollContent
+            }
+        }
+        .background(Theme.backgroundGradient.ignoresSafeArea())
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var scrollContent: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
-                // Only the default "Get started" flow has a meaningful notion of progress —
-                // `onboarding.progress` is nil on the preserved deep-link invite path, so
-                // those screens simply don't show a bar.
-                if let progress = onboarding.progress {
+                // Only the default "Get started" flow passes a non-nil progress — the
+                // preserved deep-link invite path and non-onboarding callers leave it nil and
+                // simply don't show a bar.
+                if let progress {
                     ProgressView(value: progress)
                         .tint(Theme.skyBlue)
                         .padding(.top, Theme.Spacing.sm)
@@ -40,36 +66,41 @@ struct OnboardingScaffold<Content: View>: View {
                             .foregroundStyle(Theme.subtleInk)
                     }
                 }
-                .padding(.top, onboarding.progress == nil ? Theme.Spacing.lg : 0)
+                .padding(.top, progress == nil ? Theme.Spacing.lg : 0)
 
                 content
             }
             .padding(Theme.Spacing.lg)
         }
-        .safeAreaInset(edge: .bottom) {
-            VStack(spacing: Theme.Spacing.sm) {
-                if let primaryTitle, let primaryAction {
-                    Button(action: primaryAction) {
-                        Text(primaryTitle)
-                            .font(.headline)
-                            .frame(maxWidth: .infinity)
-                            .padding()
+    }
+
+    private var bottomBar: some View {
+        VStack(spacing: Theme.Spacing.sm) {
+            if let primaryTitle, let primaryAction {
+                Button(action: primaryAction) {
+                    Group {
+                        if primaryLoading {
+                            ProgressView().tint(.white)
+                        } else {
+                            Text(primaryTitle)
+                        }
                     }
-                    .background(primaryDisabled ? Theme.subtleInk.opacity(0.3) : Theme.skyBlue, in: Capsule())
-                    .foregroundStyle(.white)
-                    .disabled(primaryDisabled)
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding()
                 }
-                if let secondaryTitle, let secondaryAction {
-                    Button(secondaryTitle, action: secondaryAction)
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(Theme.subtleInk)
-                }
+                .background(primaryDisabled ? Theme.subtleInk.opacity(0.3) : Theme.skyBlue, in: Capsule())
+                .foregroundStyle(.white)
+                .disabled(primaryDisabled)
             }
-            .padding(Theme.Spacing.lg)
-            .background(.regularMaterial)
+            if let secondaryTitle, let secondaryAction {
+                Button(secondaryTitle, action: secondaryAction)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(Theme.subtleInk)
+            }
         }
-        .background(Theme.backgroundGradient.ignoresSafeArea())
-        .navigationBarTitleDisplayMode(.inline)
+        .padding(Theme.Spacing.lg)
+        .background(.regularMaterial)
     }
 }
 

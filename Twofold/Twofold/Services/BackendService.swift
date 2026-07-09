@@ -11,6 +11,7 @@ import Foundation
 import Supabase
 import GoogleSignIn
 import UIKit
+import CryptoKit
 
 enum BackendError: LocalizedError {
     case notAuthenticated
@@ -62,16 +63,36 @@ enum BackendService {
         )
     }
 
+    /// The ID token's `aud` claim matches whatever client ID *initiated* the sign-in request —
+    /// which defaults to the iOS client (`GIDClientID` in Info.plist) unless a `serverClientID`
+    /// is set. Supabase's Google provider is configured with the *Web* client (in the Supabase
+    /// dashboard), so it rejects tokens audienced for the iOS client with "Unacceptable
+    /// audience". Setting `serverClientID` here to that same Web client makes Google issue the
+    /// token audienced correctly. See https://developers.google.com/identity/sign-in/ios/backend-auth.
+    private static let googleWebClientID = "220566699855-1muier0anui8403ebqd5lpg3g288hima.apps.googleusercontent.com"
+
     /// Native Google Sign-In. `GIDClientID` (the iOS OAuth client) is read from Info.plist by
-    /// the SDK automatically; Supabase itself is told about the *Web* client via the dashboard,
-    /// since that's the audience Google puts in the ID token.
+    /// the SDK automatically as the base configuration; `googleWebClientID` above is layered on
+    /// as the `serverClientID` so Supabase can validate the resulting token.
     @discardableResult
     static func signInWithGoogle() async throws -> UUID {
         guard let presenter = topmostViewController() else { throw BackendError.notAuthenticated }
+        guard let iosClientID = GIDSignIn.sharedInstance.configuration?.clientID
+            ?? Bundle.main.object(forInfoDictionaryKey: "GIDClientID") as? String else {
+            throw BackendError.providerNotConfigured
+        }
+        GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: iosClientID, serverClientID: googleWebClientID)
+
+        // Unlike Sign in with Apple's SDK, GIDSignIn embeds whatever nonce it's given verbatim
+        // into the ID token's `nonce` claim rather than hashing it first — so *we* need to hash
+        // it before handing it to Google, then give Supabase the raw value so its own hash of
+        // that matches the token's claim. Passing the same raw nonce to both (the previous bug
+        // here) meant Supabase's hash of it could never equal the token's unhashed claim.
         let nonce = UUID().uuidString
+        let hashedNonce = Self.sha256Hex(nonce)
 
         let result: GIDSignInResult = try await withCheckedThrowingContinuation { continuation in
-            GIDSignIn.sharedInstance.signIn(withPresenting: presenter, hint: nil, additionalScopes: nil, nonce: nonce) { signInResult, error in
+            GIDSignIn.sharedInstance.signIn(withPresenting: presenter, hint: nil, additionalScopes: nil, nonce: hashedNonce) { signInResult, error in
                 if let error {
                     continuation.resume(throwing: error)
                 } else if let signInResult {
@@ -94,6 +115,10 @@ enum BackendService {
         )
         guard let userID = currentUserID else { throw BackendError.notAuthenticated }
         return userID
+    }
+
+    private static func sha256Hex(_ input: String) -> String {
+        SHA256.hash(data: Data(input.utf8)).compactMap { String(format: "%02x", $0) }.joined()
     }
 
     private static func topmostViewController() -> UIViewController? {
@@ -130,6 +155,38 @@ enum BackendService {
     /// token in the Keychain, so this succeeds silently across app relaunches.
     static func restoreSession() async -> Session? {
         try? await supabase.auth.session
+    }
+
+    static func signOut() async throws {
+        try await supabase.auth.signOut()
+    }
+
+    /// The signed-in user's own profile — used when they're authenticated but not (yet)
+    /// paired with a partner, so `AppModel` can show their real name/photo/city instead of
+    /// routing them back through onboarding just because no `couples` row exists yet.
+    static func fetchOwnProfile() async throws -> Person? {
+        guard let userID = currentUserID else { throw BackendError.notAuthenticated }
+        let rows: [ProfileRow] = try await supabase
+            .from("profiles")
+            .select()
+            .eq("id", value: userID)
+            .limit(1)
+            .execute()
+            .value
+        guard let profile = rows.first else { return nil }
+
+        var homeCity: Place?
+        if let placeID = profile.homePlaceId {
+            homeCity = try await fetchPlaces(ids: [placeID])[placeID]
+        }
+
+        return Person(
+            id: profile.id,
+            name: profile.firstName.isEmpty ? "You" : profile.firstName,
+            homeCity: homeCity,
+            accentColor: Person.palette[1],
+            avatarURL: profile.avatarPath.flatMap { avatarPublicURL(path: $0) }
+        )
     }
 
     // MARK: - Places

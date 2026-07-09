@@ -10,6 +10,7 @@ struct GoalsView: View {
 
     var body: some View {
         OnboardingScaffold(
+            progress: onboarding.progress,
             title: "What would make time apart feel easier?",
             subtitle: "Select all that apply",
             content: {

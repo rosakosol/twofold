@@ -2,10 +2,14 @@
 //  SubscriptionStore.swift
 //  Twofold
 //
-//  Real StoreKit 2. Product IDs are configured in `Twofold.storekit` at the project root
-//  for local/Simulator testing (Xcode → Product > Scheme > Edit Scheme > Run > Options >
-//  StoreKit Configuration → Twofold.storekit) — the real products still need creating in
-//  App Store Connect with final pricing before this ships.
+//  Real StoreKit 2. For local/Simulator testing, create a `.storekit` configuration file in
+//  Xcode (File > New > File > StoreKit Configuration File) with subscription products matching
+//  the IDs below, then set it in Product > Scheme > Edit Scheme > Run > Options > StoreKit
+//  Configuration — that's what makes `Product.products(for:)` return real data when run from
+//  Xcode. (`SKTestSession` looked like an alternative that would work regardless of how the app
+//  was launched, but it turns out to require an actual XCTest host process — calling it from
+//  regular app code crashes immediately, so that's not an option here.) The real products still
+//  need creating in App Store Connect with final pricing before this ships.
 //
 
 import Observation

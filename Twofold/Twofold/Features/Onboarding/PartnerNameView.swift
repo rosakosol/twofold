@@ -18,6 +18,7 @@ struct PartnerNameView: View {
 
     var body: some View {
         OnboardingScaffold(
+            progress: onboarding.progress,
             title: "And your partner? ❤️",
             content: {
                 VStack(spacing: Theme.Spacing.lg) {
@@ -41,9 +42,10 @@ struct PartnerNameView: View {
                     }
                 }
             },
-            primaryTitle: isValidating ? "Checking…" : "Continue",
+            primaryTitle: "Continue",
             primaryAction: validateAndContinue,
-            primaryDisabled: isValidating || name.trimmingCharacters(in: .whitespaces).isEmpty
+            primaryDisabled: isValidating || name.trimmingCharacters(in: .whitespaces).isEmpty,
+            primaryLoading: isValidating
         )
         .onAppear { name = onboarding.partnerName }
     }
@@ -65,7 +67,7 @@ struct PartnerNameView: View {
                 return
             }
             onboarding.partnerName = trimmed
-            onboarding.path.append(.benchmark)
+            onboarding.path.append(.gender)
         }
     }
 }

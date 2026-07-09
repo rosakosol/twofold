@@ -51,6 +51,16 @@ final class OnboardingModel {
     var partnerName: String = ""
     var partnerCity: Place?
 
+    var userGender: Gender?
+    var partnerGender: Gender?
+
+    /// The word later screens use in place of the generic "their" when referring to the
+    /// partner by name — "his"/"her" for a selected gender, or "their" as a safe default if
+    /// gender was never asked/answered.
+    var partnerPossessive: String {
+        partnerGender?.possessive ?? "their"
+    }
+
     /// Picked photos held as raw JPEG data until account creation succeeds — there's no
     /// session to upload against until then. `partnerPhotoData` is just this user's
     /// placeholder guess of their partner's photo (stored as this user's own
@@ -65,14 +75,34 @@ final class OnboardingModel {
     var draftedFlightNumber: String?
     var draftedFlightDate: Date?
 
+    /// Cache backing `illustrativeOriginCity`, picked once and reused so the notifications
+    /// and Live Activity sell screens show the same made-up departure city as each other.
+    private var cachedIllustrativeOriginCity: Place?
+
+    /// The illustrative departure city used by the notification/Live Activity sell screens'
+    /// example flight (partner's city → user's city, matching the "reunion" framing used
+    /// throughout onboarding) — unless the couple lives in the same city, which would make
+    /// that example flight depart and arrive in the same place. In that case a random other
+    /// city stands in instead, chosen once and cached so both screens agree on the same one.
+    var illustrativeOriginCity: Place? {
+        guard let homeCity, let partnerCity else { return partnerCity }
+        guard homeCity.city == partnerCity.city && homeCity.country == partnerCity.country else {
+            return partnerCity
+        }
+        if cachedIllustrativeOriginCity == nil {
+            cachedIllustrativeOriginCity = Place.commonCities.filter { $0.city != homeCity.city }.randomElement()
+        }
+        return cachedIllustrativeOriginCity
+    }
+
     /// Ordered steps of the default "Get started" flow, used to drive the progress bar.
     /// `.frequency` is sometimes skipped (haven't-met-yet couples), so progress is computed
     /// by position in this canonical list, not by raw `path.count`.
     static let defaultFlowSteps: [OnboardingStep] = [
-        .situation, .frequency, .attribution, .goals, .yourName, .partnerName,
+        .situation, .frequency, .attribution, .goals, .yourName, .partnerName, .gender,
         .benchmark, .coupleLocations, .personalizedInsight, .notificationsSell,
         .liveActivitySell, .widgetSell, .addFirstFlight, .twofoldPreview, .trialTrust,
-        .paywall, .purchaseSuccess, .saveAccount,
+        .saveAccount, .paywall, .purchaseSuccess,
     ]
 
     /// 0...1 progress through the default onboarding flow, or nil when the current step

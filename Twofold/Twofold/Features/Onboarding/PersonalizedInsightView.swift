@@ -44,13 +44,14 @@ struct PersonalizedInsightView: View {
 
     private var subtitle: String {
         if sameCity {
-            return "When \(partnerName) is away, Twofold helps you keep up with their journey home."
+            return "When \(partnerName) is away, Twofold helps you keep up with \(onboarding.partnerPossessive) journey home."
         }
-        return "That's quite the distance ❤️"
+        return "That's quite the distance 🌏"
     }
 
     var body: some View {
         OnboardingScaffold(
+            progress: onboarding.progress,
             title: title,
             subtitle: subtitle,
             content: {

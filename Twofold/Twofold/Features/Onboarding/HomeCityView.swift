@@ -14,6 +14,7 @@ struct HomeCityView: View {
 
     var body: some View {
         OnboardingScaffold(
+            progress: onboarding.progress,
             title: "Where are you based?",
             subtitle: "We'll use this to show the distance between you two.",
             content: {

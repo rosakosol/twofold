@@ -60,6 +60,7 @@ struct BenchmarkView: View {
 
     var body: some View {
         OnboardingScaffold(
+            progress: onboarding.progress,
             title: headline,
             subtitle: supportingCopy,
             content: {

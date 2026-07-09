@@ -8,6 +8,10 @@ struct TwofoldApp: App {
         WindowGroup {
             RootView()
                 .environment(appModel)
+                // Theme's palette (card backgrounds, ink colors, gradients) is all fixed-light,
+                // not dark-mode-adaptive, so letting the system switch to dark mode makes card
+                // text unreadable (dark ink on a dark system card background).
+                .preferredColorScheme(.light)
         }
     }
 }

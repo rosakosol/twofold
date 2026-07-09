@@ -8,10 +8,11 @@ import SwiftUI
 struct TripsListView: View {
     @Environment(AppModel.self) private var appModel
     @State private var filter: TripFilter = .all
+    @State private var showingAddTrip = false
 
     enum TripFilter: String, CaseIterable {
         case all = "All"
-        case seeingEachOther = "To see each other"
+        case seeingEachOther = "Reunion"
         case together = "Together"
         case personal = "Personal"
 
@@ -48,6 +49,7 @@ struct TripsListView: View {
                     .listRowInsets(EdgeInsets())
                     .padding(.vertical, Theme.Spacing.sm)
                 }
+                .listRowBackground(Color.clear)
 
                 let upcoming = filtered(appModel.upcomingTrips)
                 if !upcoming.isEmpty {
@@ -74,10 +76,60 @@ struct TripsListView: View {
                         }
                     }
                 }
+
+                if appModel.trips.isEmpty {
+                    Section {
+                        emptyStateHint
+                    }
+                    .listRowInsets(EdgeInsets())
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                }
             }
             .listStyle(.insetGrouped)
             .navigationTitle("Trips")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showingAddTrip = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                }
+            }
+            .sheet(isPresented: $showingAddTrip) {
+                NavigationStack {
+                    AddTripDetailsView(mode: .standalone, partnerName: appModel.partner.name) { _ in
+                        showingAddTrip = false
+                    }
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button("Cancel") { showingAddTrip = false }
+                        }
+                    }
+                }
+            }
         }
+    }
+
+    private var emptyStateHint: some View {
+        SectionCard {
+            HStack(spacing: Theme.Spacing.md) {
+                ZStack {
+                    Circle().fill(Theme.skyBlue.opacity(0.15))
+                    Image(systemName: "airplane.circle.fill").foregroundStyle(Theme.skyBlue)
+                }
+                .frame(width: 40, height: 40)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Add your first trip").font(.headline)
+                    Text("Tap + above to plan a reunion, a trip together, or something of your own.")
+                        .font(.caption)
+                        .foregroundStyle(Theme.subtleInk)
+                }
+                Spacer(minLength: 0)
+            }
+        }
+        .padding(Theme.Spacing.md)
     }
 }
 

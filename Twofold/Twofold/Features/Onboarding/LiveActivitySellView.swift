@@ -4,131 +4,93 @@
 //
 //  Feature-education screen only — Twofold has no working Live Activity implementation
 //  yet (that needs a separate Widget Extension target and real ActivityKit code), so the
-//  CTA here just advances onboarding rather than calling any real API.
+//  CTA here just advances onboarding rather than calling any real API. The moment-by-moment
+//  journey timeline that used to live on this mockup now belongs to the real flight-tracking
+//  screen instead (`FlightTrackingView`'s timeline + self-reported updates), not onboarding.
 //
 
 import SwiftUI
-
-private struct JourneyMoment {
-    let emoji: String
-    let title: String
-    let subtitle: String
-    let timestamp: String
-}
+import UIKit
 
 struct LiveActivitySellView: View {
     @Environment(OnboardingModel.self) private var onboarding
     @State private var pulsePhase: CGFloat = 1
-    @State private var timelineVisible = false
+    @State private var cardVisible = false
 
     // PartnerNameView requires a non-empty name before you can advance, so by the time any
     // later onboarding screen runs, this is always the real name — no fallback needed.
     private var partnerName: String { onboarding.partnerName }
 
-    /// Illustrative only — there's no real flight-status feed behind this (see the note on
-    /// the type doc above), just a sense of the range of moments Twofold can surface.
-    private var journeyMoments: [JourneyMoment] {
-        [
-            JourneyMoment(
-                emoji: "🛫",
-                title: "\(partnerName) departed",
-                subtitle: "QF9 departed Melbourne (MEL).",
-                timestamp: "6:48 PM"
-            ),
-            JourneyMoment(
-                emoji: "☁️",
-                title: "In the air",
-                subtitle: "Cruising at 35,000 ft.",
-                timestamp: "7:20 PM"
-            ),
-            JourneyMoment(
-                emoji: "🍽️",
-                title: "Meal service",
-                subtitle: "Dinner service has started.",
-                timestamp: "8:15 PM"
-            ),
-            JourneyMoment(
-                emoji: "😴",
-                title: "Time to relax",
-                subtitle: "Lights dimmed — time for \(partnerName) to rest.",
-                timestamp: "10:40 PM"
-            ),
-            JourneyMoment(
-                emoji: "🛬",
-                title: "\(partnerName) is landing soon",
-                subtitle: "Touch down is in an hour.",
-                timestamp: "1:48 AM"
-            ),
-            JourneyMoment(
-                emoji: "🎉",
-                title: "\(partnerName) has landed!",
-                subtitle: "QF9 has arrived safely in London.",
-                timestamp: "2:48 AM"
-            ),
-        ]
+    // CoupleLocationsView requires both cities before you can advance, so these are always
+    // real by the time this screen runs — the illustrative flight runs partner's city →
+    // user's city, matching the "reunion" framing used throughout onboarding.
+    // `illustrativeOriginCity` swaps in a random other city if the couple lives in the same
+    // place (same cached value the notifications sell screen reads, so the two stay
+    // consistent) — otherwise this example flight would depart and arrive in the same city.
+    private var originCity: Place? { onboarding.illustrativeOriginCity }
+    private var destinationCity: Place? { onboarding.homeCity }
+
+    private var originCode: String {
+        originCity?.iataCode?.uppercased() ?? originCity?.city.uppercased() ?? "———"
+    }
+
+    private var destinationCode: String {
+        destinationCity?.iataCode?.uppercased() ?? destinationCity?.city.uppercased() ?? "———"
+    }
+
+    /// Real math against the real cities picked earlier in onboarding, not an invented number.
+    private var distanceKm: Double? {
+        guard let originCity, let destinationCity else { return nil }
+        return Geo.distanceKm(originCity.coordinate, destinationCity.coordinate)
+    }
+
+    private var partnerImage: Image? {
+        onboarding.partnerPhotoData.flatMap(UIImage.init(data:)).map(Image.init(uiImage:))
     }
 
     var body: some View {
         OnboardingScaffold(
+            progress: onboarding.progress,
             title: "Keep \(partnerName.prefix(1).uppercased() + partnerName.dropFirst())'s journey close.",
-            subtitle: "Follow \(partnerName)'s flight from your Lock Screen without opening Twofold.",
+            subtitle: "Follow \(partnerName)'s flight from your Lock Screen",
             content: {
-                VStack(spacing: Theme.Spacing.lg) {
-                    VStack(spacing: Theme.Spacing.sm) {
-                        lockScreenMock
-                        Text("Available with Live Activities")
-                            .font(.caption2)
-                            .foregroundStyle(Theme.subtleInk)
-                            .frame(maxWidth: .infinity)
-                    }
+                VStack(spacing: Theme.Spacing.sm) {
+                    lockScreenMock
+                        .scaleEffect(cardVisible ? 1 : 0.85)
+                        .opacity(cardVisible ? 1 : 0)
+                        .offset(y: cardVisible ? 0 : 16)
 
-                    VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-                        Text("EVERY MOMENT OF THE JOURNEY")
-                            .font(.caption2.weight(.bold))
-                            .foregroundStyle(Theme.subtleInk)
-
-                        SectionCard {
-                            VStack(spacing: 0) {
-                                ForEach(Array(journeyMoments.enumerated()), id: \.offset) { index, moment in
-                                    journeyRow(moment, isLast: index == journeyMoments.count - 1)
-                                        .opacity(timelineVisible ? 1 : 0)
-                                        .offset(x: timelineVisible ? 0 : -16)
-                                        .animation(
-                                            .spring(response: 0.4, dampingFraction: 0.75).delay(Double(index) * 0.08),
-                                            value: timelineVisible
-                                        )
-                                }
-                            }
-                        }
-                    }
+                    Text("Available with Live Activities")
+                        .font(.caption2)
+                        .foregroundStyle(Theme.subtleInk)
+                        .frame(maxWidth: .infinity)
                 }
                 .onAppear {
-                    timelineVisible = true
+                    withAnimation(.spring(response: 0.55, dampingFraction: 0.75)) {
+                        cardVisible = true
+                    }
                 }
             },
-            primaryTitle: "Follow their journey",
+            primaryTitle: "Follow your partner's journey",
             primaryAction: { onboarding.path.append(.widgetSell) }
         )
     }
 
-    /// Modeled on a real Live Activity's compact-info layout (airline + duration pill up top,
-    /// big airport codes either side of the route, a status caption underneath) rather than
-    /// the app's earlier from-scratch mock — no arrival terminal/gate/bag claim row, since
-    /// Twofold has none of that data to show.
+    /// Modeled on a real Live Activity's compact-info layout — flight number up top, a big
+    /// centered time-remaining readout with distance, then big airport codes either side of
+    /// the route. No arrival terminal/gate/bag claim row, since Twofold has none of that
+    /// data to show.
     private var lockScreenMock: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+        VStack(spacing: Theme.Spacing.md) {
             HStack {
-                HStack(spacing: 6) {
-                    Text("Qantas")
-                        .font(.subheadline.weight(.bold))
-                        .foregroundStyle(.white)
-                    Text("❤️").font(.caption)
-                }
+                Text("QF9")
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(.white)
                 Spacer()
                 HStack(spacing: 4) {
                     Image(systemName: "airplane")
                         .font(.caption2)
-                    Text("2h 14m")
+                    Text("On time")
                         .font(.caption.weight(.semibold))
                 }
                 .foregroundStyle(.white)
@@ -137,30 +99,37 @@ struct LiveActivitySellView: View {
                 .background(.white.opacity(0.15), in: Capsule())
             }
 
-            Text("QF9")
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.55))
+            VStack(spacing: 2) {
+                Text("2h 14m")
+                    .font(.system(size: 40, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                if let distanceKm {
+                    Text("to go · \(distanceKm.formatted(.number.precision(.fractionLength(0)))) km")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.6))
+                }
+            }
 
             HStack(alignment: .center, spacing: Theme.Spacing.sm) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("MEL")
-                        .font(.system(size: 30, weight: .bold, design: .rounded))
+                    Text(originCode)
+                        .font(.system(size: 26, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
                     Text("6:48 PM")
-                        .font(.caption2)
-                        .foregroundStyle(.white.opacity(0.55))
+                        .font(.subheadline)
+                        .foregroundStyle(.white.opacity(0.6))
                 }
 
                 flightPath
                     .frame(maxWidth: .infinity)
 
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text("LHR")
-                        .font(.system(size: 30, weight: .bold, design: .rounded))
+                    Text(destinationCode)
+                        .font(.system(size: 26, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
                     Text("2:48 AM")
-                        .font(.caption2)
-                        .foregroundStyle(.white.opacity(0.55))
+                        .font(.subheadline)
+                        .foregroundStyle(.white.opacity(0.6))
                 }
             }
 
@@ -174,9 +143,10 @@ struct LiveActivitySellView: View {
         .background(Color.black, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 
-    /// Solid line for distance already flown, dashed for what's left, with a small plane
-    /// badge marking the current position and a hollow ring at the destination — the same
-    /// visual language real flight-tracking Live Activities use.
+    /// Solid line for distance already flown, dashed for what's left, with a hollow ring at
+    /// the destination — same visual language real flight-tracking Live Activities use. The
+    /// badge marking the current position shows the partner's own photo when one was picked
+    /// earlier in onboarding, falling back to a plane icon otherwise.
     private var flightPath: some View {
         GeometryReader { geo in
             let progressX = geo.size.width * 0.4
@@ -201,59 +171,28 @@ struct LiveActivitySellView: View {
                     .position(x: geo.size.width, y: midY)
 
                 ZStack {
-                    Circle().fill(Theme.skyBlue)
-                    Image(systemName: "airplane")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(.white)
+                    if let partnerImage {
+                        partnerImage.resizable().scaledToFill()
+                    } else {
+                        Circle().fill(Theme.skyBlue)
+                        Image(systemName: "airplane")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(.white)
+                    }
                 }
-                .frame(width: 24, height: 24)
-                .overlay(Circle().stroke(.black.opacity(0.25), lineWidth: 2))
+                .frame(width: 26, height: 26)
+                .clipShape(Circle())
+                .overlay(Circle().stroke(.white, lineWidth: 2))
                 .scaleEffect(pulsePhase)
                 .position(x: progressX, y: midY)
             }
         }
-        .frame(height: 24)
+        .frame(height: 26)
         .onAppear {
             withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
                 pulsePhase = 1.12
             }
         }
-    }
-
-    /// A real connecting rail links each emoji badge to the next, like a vertical timeline.
-    /// Every badge uses the same neutral tint — the emoji itself carries the color, so the
-    /// row doesn't need a different background per moment too.
-    private func journeyRow(_ moment: JourneyMoment, isLast: Bool) -> some View {
-        HStack(alignment: .top, spacing: Theme.Spacing.md) {
-            VStack(spacing: 0) {
-                ZStack {
-                    Circle().fill(Theme.skyBlue.opacity(0.12))
-                    Text(moment.emoji).font(.system(size: 18))
-                }
-                .frame(width: 40, height: 40)
-
-                if !isLast {
-                    Rectangle()
-                        .fill(Theme.subtleInk.opacity(0.2))
-                        .frame(width: 2)
-                        .frame(maxHeight: .infinity)
-                }
-            }
-
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text(moment.title).font(.subheadline.weight(.semibold))
-                    Spacer(minLength: Theme.Spacing.sm)
-                    Text(moment.timestamp)
-                        .font(.caption2)
-                        .foregroundStyle(Theme.subtleInk)
-                }
-                Text(moment.subtitle).font(.caption).foregroundStyle(Theme.subtleInk)
-            }
-            .padding(.top, 8)
-            .padding(.bottom, isLast ? 0 : Theme.Spacing.lg)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

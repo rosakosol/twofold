@@ -39,6 +39,7 @@ struct FrequencyView: View {
 
     var body: some View {
         OnboardingScaffold(
+            progress: onboarding.progress,
             title: heading,
             content: {
                 VStack(spacing: Theme.Spacing.sm) {

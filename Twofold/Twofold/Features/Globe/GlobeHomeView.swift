@@ -9,7 +9,7 @@ struct GlobeHomeView: View {
     @Environment(AppModel.self) private var appModel
     @Environment(\.scenePhase) private var scenePhase
     @State private var showingSnapshot = false
-    @State private var showingPaywall = false
+    @State private var showingSettings = false
     @State private var showingInvite = false
     @State private var showingAddTrip = false
     @State private var showingAddFlight = false
@@ -20,6 +20,11 @@ struct GlobeHomeView: View {
     private var distanceKm: Double? {
         guard let mine = appModel.currentUser.homeCity?.coordinate, let theirs = appModel.partner.homeCity?.coordinate else { return nil }
         return Geo.distanceKm(mine, theirs)
+    }
+
+    private var sameCity: Bool {
+        guard let mine = appModel.currentUser.homeCity, let theirs = appModel.partner.homeCity else { return false }
+        return mine.city == theirs.city && mine.country == theirs.country
     }
 
     private var soonestTrip: Trip? {
@@ -39,8 +44,12 @@ struct GlobeHomeView: View {
                             comparisonTimeZone: appModel.currentUser.homeCity?.timeZone
                         )
                     }
-                    if let myCity = appModel.currentUser.homeCity, let partnerCity = appModel.partner.homeCity, let distanceKm {
-                        distanceCard(distanceKm: distanceKm, myCity: myCity, partnerCity: partnerCity)
+                    if let myCity = appModel.currentUser.homeCity, let partnerCity = appModel.partner.homeCity {
+                        if sameCity {
+                            sameCityCard(city: myCity)
+                        } else if let distanceKm {
+                            distanceCard(distanceKm: distanceKm, myCity: myCity, partnerCity: partnerCity)
+                        }
                     } else {
                         homeCityPromptCard
                     }
@@ -59,8 +68,8 @@ struct GlobeHomeView: View {
             .navigationTitle("")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Menu {
-                        Button("Manage subscription", systemImage: "star.fill") { showingPaywall = true }
+                    Button {
+                        showingSettings = true
                     } label: {
                         Image(systemName: "line.3.horizontal")
                     }
@@ -94,7 +103,7 @@ struct GlobeHomeView: View {
                 }
             }
             .sheet(isPresented: $showingSnapshot) { SnapshotShareView() }
-            .sheet(isPresented: $showingPaywall) { NavigationStack { PaywallView() } }
+            .sheet(isPresented: $showingSettings) { SettingsView() }
             .sheet(isPresented: $showingHomeCities) { HomeCitiesView() }
             .sheet(isPresented: $showingAddFlight) { AddFlightView() }
             .sheet(isPresented: $showingInvite) {
@@ -218,6 +227,27 @@ struct GlobeHomeView: View {
                 }
             }
             .buttonStyle(.plain)
+        }
+    }
+
+    private func sameCityCard(city: Place) -> some View {
+        SectionCard {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("SAME CITY")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(Theme.subtleInk)
+                    Text("You're both in \(city.city)")
+                        .font(.title3.weight(.bold))
+                }
+                Spacer()
+                Image(systemName: "heart.fill")
+                    .font(.title2)
+                    .foregroundStyle(Theme.heartRed)
+            }
+            Text("No distance to close today — make the most of being together 💛")
+                .font(.caption)
+                .foregroundStyle(Theme.subtleInk)
         }
     }
 
