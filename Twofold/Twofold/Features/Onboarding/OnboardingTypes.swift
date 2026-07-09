@@ -18,6 +18,7 @@ enum OnboardingStep: Hashable {
     case personalizedInsight
     case notificationsSell
     case liveActivitySell
+    case widgetSell
     case addFirstFlight
     case twofoldPreview
     case trialTrust

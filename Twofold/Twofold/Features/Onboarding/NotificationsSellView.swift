@@ -10,11 +10,16 @@
 import SwiftUI
 import UserNotifications
 
+private struct NotificationPreview {
+    let emoji: String
+    let title: String
+    let body: String
+}
+
 struct NotificationsSellView: View {
     @Environment(OnboardingModel.self) private var onboarding
     @State private var isRequesting = false
-    @State private var showCard1 = false
-    @State private var showCard2 = false
+    @State private var shownCards: Set<Int> = []
 
     // PartnerNameView requires a non-empty name before you can advance, so by the time any
     // later onboarding screen runs, this is always the real name — no fallback needed.
@@ -29,36 +34,51 @@ struct NotificationsSellView: View {
         }
     }
 
+    /// Mirrors the same journey moments shown on the Live Activity sell screen, so the two
+    /// permission-selling screens feel like one connected pitch.
+    private var previews: [NotificationPreview] {
+        [
+            NotificationPreview(
+                emoji: "🛫",
+                title: "\(partnerName) has departed",
+                body: "QF9 departed Melbourne (MEL)."
+            ),
+            NotificationPreview(
+                emoji: "✈️",
+                title: "\(partnerName) is in the air",
+                body: "QF9 has departed Melbourne. We'll keep an eye on their journey"
+            ),
+            NotificationPreview(
+                emoji: "🛬",
+                title: "\(partnerName) is landing soon",
+                body: "Touch down is in an hour."
+            ),
+            NotificationPreview(
+                emoji: "🎉",
+                title: "\(partnerName) has landed ❤️",
+                body: "QF9 has arrived in London."
+            ),
+        ]
+    }
+
     var body: some View {
         OnboardingScaffold(
             title: headline,
             subtitle: "Get flight updates when they matter, without constantly checking.",
             content: {
                 VStack(spacing: Theme.Spacing.sm) {
-                    notificationPreview(
-                        emoji: "✈️",
-                        title: "\(partnerName) is in the air",
-                        body: "QF9 has departed Melbourne. We'll keep an eye on their journey"
-                    )
-                    .scaleEffect(showCard1 ? 1 : 0.8)
-                    .opacity(showCard1 ? 1 : 0)
-                    .offset(y: showCard1 ? 0 : -24)
-
-                    notificationPreview(
-                        emoji: "🛬",
-                        title: "\(partnerName) has landed ❤️",
-                        body: "QF9 has arrived in London."
-                    )
-                    .scaleEffect(showCard2 ? 1 : 0.8)
-                    .opacity(showCard2 ? 1 : 0)
-                    .offset(y: showCard2 ? 0 : -24)
+                    ForEach(Array(previews.enumerated()), id: \.offset) { index, preview in
+                        notificationPreview(preview)
+                            .scaleEffect(shownCards.contains(index) ? 1 : 0.8)
+                            .opacity(shownCards.contains(index) ? 1 : 0)
+                            .offset(y: shownCards.contains(index) ? 0 : -24)
+                    }
                 }
                 .onAppear {
-                    withAnimation(.spring(response: 0.45, dampingFraction: 0.62).delay(0.2)) {
-                        showCard1 = true
-                    }
-                    withAnimation(.spring(response: 0.45, dampingFraction: 0.62).delay(0.7)) {
-                        showCard2 = true
+                    for index in previews.indices {
+                        withAnimation(.spring(response: 0.45, dampingFraction: 0.62).delay(0.2 + Double(index) * 0.35)) {
+                            shownCards.insert(index)
+                        }
                     }
                 }
             },
@@ -66,19 +86,18 @@ struct NotificationsSellView: View {
             primaryAction: requestPermission,
             primaryDisabled: isRequesting
         )
-        .sensoryFeedback(.impact(weight: .light), trigger: showCard1)
-        .sensoryFeedback(.impact(weight: .light), trigger: showCard2)
+        .sensoryFeedback(.impact(weight: .light), trigger: shownCards)
     }
 
-    private func notificationPreview(emoji: String, title: String, body: String) -> some View {
+    private func notificationPreview(_ preview: NotificationPreview) -> some View {
         SectionCard {
             HStack(alignment: .top, spacing: Theme.Spacing.sm) {
-                Text(emoji)
+                Text(preview.emoji)
                     .font(.title2)
                     .frame(width: 28, height: 28)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.subheadline.weight(.semibold))
-                    Text(body).font(.caption).foregroundStyle(Theme.subtleInk)
+                    Text(preview.title).font(.subheadline.weight(.semibold))
+                    Text(preview.body).font(.caption).foregroundStyle(Theme.subtleInk)
                 }
                 Spacer(minLength: 0)
             }

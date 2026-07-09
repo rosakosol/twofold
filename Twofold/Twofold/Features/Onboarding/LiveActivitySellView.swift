@@ -18,7 +18,7 @@ private struct JourneyMoment {
 
 struct LiveActivitySellView: View {
     @Environment(OnboardingModel.self) private var onboarding
-    @State private var pulsePhase: CGFloat = -1
+    @State private var pulsePhase: CGFloat = 1
     @State private var timelineVisible = false
 
     // PartnerNameView requires a non-empty name before you can advance, so by the time any
@@ -103,92 +103,121 @@ struct LiveActivitySellView: View {
                     }
                 }
                 .onAppear {
-                    withAnimation(.linear(duration: 1.8).repeatForever(autoreverses: false)) {
-                        pulsePhase = 1
-                    }
                     timelineVisible = true
                 }
             },
             primaryTitle: "Follow their journey",
-            primaryAction: { onboarding.path.append(.addFirstFlight) }
+            primaryAction: { onboarding.path.append(.widgetSell) }
         )
     }
 
+    /// Modeled on a real Live Activity's compact-info layout (airline + duration pill up top,
+    /// big airport codes either side of the route, a status caption underneath) rather than
+    /// the app's earlier from-scratch mock — no arrival terminal/gate/bag claim row, since
+    /// Twofold has none of that data to show.
     private var lockScreenMock: some View {
-        VStack(spacing: Theme.Spacing.lg) {
-            Text("\(partnerName) is on the way ❤️")
-                .font(.title3.weight(.bold))
-                .foregroundStyle(.white)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity)
-
-            HStack(spacing: Theme.Spacing.sm) {
-                cityBadge(code: "MEL", gradient: [Theme.skyBlue, Theme.leafGreen])
-                flightPath
-                cityBadge(code: "LHR", gradient: [Theme.heartRed, .orange])
-            }
-
+        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
             HStack {
-                Text("2h 14m to go")
+                HStack(spacing: 6) {
+                    Text("Qantas")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(.white)
+                    Text("❤️").font(.caption)
+                }
                 Spacer()
-                Text("QF9 · On time")
+                HStack(spacing: 4) {
+                    Image(systemName: "airplane")
+                        .font(.caption2)
+                    Text("2h 14m")
+                        .font(.caption.weight(.semibold))
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(.white.opacity(0.15), in: Capsule())
             }
-            .font(.caption)
-            .foregroundStyle(.white.opacity(0.7))
+
+            Text("QF9")
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.55))
+
+            HStack(alignment: .center, spacing: Theme.Spacing.sm) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("MEL")
+                        .font(.system(size: 30, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                    Text("6:48 PM")
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.55))
+                }
+
+                flightPath
+                    .frame(maxWidth: .infinity)
+
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("LHR")
+                        .font(.system(size: 30, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                    Text("2:48 AM")
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.55))
+                }
+            }
+
+            Text("Updated just now")
+                .font(.caption2)
+                .foregroundStyle(.white.opacity(0.5))
+                .frame(maxWidth: .infinity, alignment: .center)
         }
         .padding(Theme.Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.black, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 
-    /// Stands in for a real city photo — there's no photo source for arbitrary cities, so
-    /// each gets a distinct gradient globe badge instead of a fabricated image.
-    private func cityBadge(code: String, gradient: [Color]) -> some View {
-        VStack(spacing: 4) {
-            ZStack {
-                Circle().fill(LinearGradient(colors: gradient, startPoint: .topLeading, endPoint: .bottomTrailing))
-                Image(systemName: "globe")
-                    .font(.system(size: 14))
-                    .foregroundStyle(.white)
-            }
-            .frame(width: 36, height: 36)
-            Text(code)
-                .font(.caption.weight(.bold))
-                .foregroundStyle(.white)
-        }
-    }
-
+    /// Solid line for distance already flown, dashed for what's left, with a small plane
+    /// badge marking the current position and a hollow ring at the destination — the same
+    /// visual language real flight-tracking Live Activities use.
     private var flightPath: some View {
         GeometryReader { geo in
+            let progressX = geo.size.width * 0.4
+            let midY = geo.size.height / 2
+
             ZStack {
-                ZStack {
-                    Capsule().fill(.white.opacity(0.2))
-                    Capsule()
-                        .fill(
-                            LinearGradient(
-                                colors: [.clear, Theme.skyBlue, .white, Theme.skyBlue, .clear],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .frame(width: geo.size.width * 0.55)
-                        .offset(x: pulsePhase * geo.size.width)
+                Path { path in
+                    path.move(to: CGPoint(x: 0, y: midY))
+                    path.addLine(to: CGPoint(x: progressX, y: midY))
                 }
-                .frame(height: 4)
-                .clipShape(Capsule())
+                .stroke(Theme.skyBlue, lineWidth: 2)
+
+                Path { path in
+                    path.move(to: CGPoint(x: progressX, y: midY))
+                    path.addLine(to: CGPoint(x: geo.size.width, y: midY))
+                }
+                .stroke(.white.opacity(0.3), style: StrokeStyle(lineWidth: 2, dash: [3, 4]))
+
+                Circle()
+                    .stroke(.white.opacity(0.4), lineWidth: 2)
+                    .frame(width: 8, height: 8)
+                    .position(x: geo.size.width, y: midY)
 
                 ZStack {
                     Circle().fill(Theme.skyBlue)
                     Image(systemName: "airplane")
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.system(size: 12, weight: .bold))
                         .foregroundStyle(.white)
                 }
-                .frame(width: 30, height: 30)
-                .shadow(color: .black.opacity(0.35), radius: 4, y: 2)
+                .frame(width: 24, height: 24)
+                .overlay(Circle().stroke(.black.opacity(0.25), lineWidth: 2))
+                .scaleEffect(pulsePhase)
+                .position(x: progressX, y: midY)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(height: 34)
+        .frame(height: 24)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+                pulsePhase = 1.12
+            }
+        }
     }
 
     /// A real connecting rail links each emoji badge to the next, like a vertical timeline.

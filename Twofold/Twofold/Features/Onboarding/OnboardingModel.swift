@@ -71,7 +71,7 @@ final class OnboardingModel {
     static let defaultFlowSteps: [OnboardingStep] = [
         .situation, .frequency, .attribution, .goals, .yourName, .partnerName,
         .benchmark, .coupleLocations, .personalizedInsight, .notificationsSell,
-        .liveActivitySell, .addFirstFlight, .twofoldPreview, .trialTrust,
+        .liveActivitySell, .widgetSell, .addFirstFlight, .twofoldPreview, .trialTrust,
         .paywall, .purchaseSuccess, .saveAccount,
     ]
 

@@ -50,6 +50,8 @@ struct OnboardingCoordinatorView: View {
             NotificationsSellView()
         case .liveActivitySell:
             LiveActivitySellView()
+        case .widgetSell:
+            WidgetSellView()
         case .addFirstFlight:
             AddFirstFlightView()
         case .twofoldPreview:
