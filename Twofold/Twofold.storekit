@@ -1,0 +1,129 @@
+{
+  "identifier" : "12690FBD-F4F3-43EF-9F94-B8F363D3F3DE",
+  "nonRenewingSubscriptions" : [],
+  "products" : [],
+  "settings" : {
+    "_applicationInternalID" : "0",
+    "_developerTeamID" : "0",
+    "_failTransactionsEnabled" : false,
+    "_lastSynchronizedDate" : 0,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Load Products"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Purchase"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Verification"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Store Sync"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Subscription Status"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Transaction"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Manage Subscriptions Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Refund Request Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Offer Code Redeem Sheet"
+      }
+    ]
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "2931F603-31CD-48C8-8906-AD60F62DF0FF",
+      "localizations" : [],
+      "name" : "Twofold+",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "7.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "1C670077-A067-4633-A8BE-D0430FEA308C",
+          "introductoryOffer" : {
+            "displayPrice" : "0.00",
+            "internalID" : "58C7845B-6193-4A59-ABB1-7F79CBD30959",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P2W"
+          },
+          "isFamilyShareable" : false,
+          "localizations" : [
+            {
+              "description" : "Track flights, follow journeys and stay connected — billed monthly.",
+              "displayName" : "Twofold+ Monthly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.orangefinch.Twofold.plus.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Twofold+ Monthly",
+          "subscriptionGroupID" : "2931F603-31CD-48C8-8906-AD60F62DF0FF",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : []
+        },
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "79.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "D362CE27-350A-4FFC-8721-4A4E6135416A",
+          "introductoryOffer" : {
+            "displayPrice" : "0.00",
+            "internalID" : "8F1B2A3C-7D4E-4F6A-9B1C-2E3D4F5A6B7C",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P2W"
+          },
+          "isFamilyShareable" : false,
+          "localizations" : [
+            {
+              "description" : "Track flights, follow journeys and stay connected — our best value, billed yearly. Placeholder price pending final App Store Connect pricing.",
+              "displayName" : "Twofold+ Yearly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.orangefinch.Twofold.plus.yearly",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Twofold+ Yearly",
+          "subscriptionGroupID" : "2931F603-31CD-48C8-8906-AD60F62DF0FF",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : []
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

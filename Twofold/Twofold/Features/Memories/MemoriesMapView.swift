@@ -10,6 +10,7 @@ struct MemoriesMapView: View {
     @Environment(AppModel.self) private var appModel
     @State private var selectedCity: Place?
     @State private var cameraPosition: MapCameraPosition = .automatic
+    @State private var showingAddMemory = false
 
     private var cityForStrip: Place? {
         selectedCity ?? appModel.citiesWithMemories.first
@@ -36,6 +37,18 @@ struct MemoriesMapView: View {
             }
             .navigationTitle("Memories")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showingAddMemory = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                }
+            }
+            .sheet(isPresented: $showingAddMemory) {
+                AddMemoryView()
+            }
         }
     }
 
@@ -73,7 +86,7 @@ struct MemoriesMapView: View {
                         NavigationLink {
                             MemoryDetailView(memory: memory)
                         } label: {
-                            MemoryPhotoPlaceholder(memory: memory)
+                            MemoryPhotoView(memory: memory)
                                 .frame(width: 96, height: 96)
                         }
                         .buttonStyle(.plain)

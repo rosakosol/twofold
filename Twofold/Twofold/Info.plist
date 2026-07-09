@@ -12,6 +12,16 @@
 				<string>twofold</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.orangefinch.Twofold.google</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.1059774127438-8acds7afmhle1cblruc5n5d90mobcd0g</string>
+			</array>
+		</dict>
 	</array>
+	<key>GIDClientID</key>
+	<string>1059774127438-8acds7afmhle1cblruc5n5d90mobcd0g.apps.googleusercontent.com</string>
 </dict>
 </plist>

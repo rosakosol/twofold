@@ -9,10 +9,20 @@ struct RootView: View {
     @Environment(AppModel.self) private var appModel
 
     var body: some View {
-        if appModel.hasCouple {
-            MainTabView()
-        } else {
-            OnboardingCoordinatorView()
+        Group {
+            if appModel.isLoadingSession {
+                ZStack {
+                    Theme.backgroundGradient.ignoresSafeArea()
+                    ProgressView()
+                }
+            } else if appModel.hasCouple {
+                MainTabView()
+            } else {
+                OnboardingCoordinatorView()
+            }
+        }
+        .task {
+            await appModel.restoreSession()
         }
     }
 }

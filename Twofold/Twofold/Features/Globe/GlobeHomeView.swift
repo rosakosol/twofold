@@ -83,18 +83,23 @@ struct GlobeHomeView: View {
             .sheet(item: $reviewingShare, onDismiss: refreshPendingShares) { share in
                 PendingFlightShareReviewView(share: share)
             }
-            .onAppear(perform: refreshPendingShares)
+            .onAppear {
+                refreshPendingShares()
+                Task { await appModel.refreshCoupleStateIfNeeded() }
+            }
             .onChange(of: scenePhase) { _, newPhase in
-                if newPhase == .active { refreshPendingShares() }
+                if newPhase == .active {
+                    refreshPendingShares()
+                    Task { await appModel.refreshCoupleStateIfNeeded() }
+                }
             }
             .sheet(isPresented: $showingSnapshot) { SnapshotShareView() }
-            .sheet(isPresented: $showingPaywall) { PaywallView() }
+            .sheet(isPresented: $showingPaywall) { NavigationStack { PaywallView() } }
             .sheet(isPresented: $showingHomeCities) { HomeCitiesView() }
             .sheet(isPresented: $showingAddFlight) { AddFlightView() }
             .sheet(isPresented: $showingInvite) {
                 NavigationStack {
-                    ShareInviteView(code: appModel.inviteCode ?? InviteCode.generate(firstName: appModel.currentUser.name)) {
-                        appModel.partnerConnected = true
+                    ShareInviteView(code: appModel.inviteCode ?? "") {
                         showingInvite = false
                     }
                 }
@@ -123,8 +128,14 @@ struct GlobeHomeView: View {
 
                 if appModel.needsPartnerInvite {
                     checklistRow(icon: "person.badge.plus", title: "Invite \(appModel.partner.name) to finish setting up Twofold") {
-                        appModel.inviteCode = appModel.inviteCode ?? InviteCode.generate(firstName: appModel.currentUser.name)
-                        showingInvite = true
+                        Task {
+                            if appModel.inviteCode == nil {
+                                appModel.inviteCode = try? await BackendService.createInviteCode(firstName: appModel.currentUser.name)
+                            }
+                            if appModel.inviteCode != nil {
+                                showingInvite = true
+                            }
+                        }
                     }
                 }
                 if appModel.needsFirstTrip {

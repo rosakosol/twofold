@@ -12,7 +12,7 @@ struct MemoryDetailView: View {
         ScrollView {
             VStack(spacing: Theme.Spacing.lg) {
                 VStack(spacing: Theme.Spacing.sm) {
-                    MemoryPhotoPlaceholder(memory: memory, cornerRadius: 12)
+                    MemoryPhotoView(memory: memory, cornerRadius: 12)
                         .frame(height: 320)
                         .padding(Theme.Spacing.sm)
                         .background(.white, in: RoundedRectangle(cornerRadius: 16, style: .continuous))

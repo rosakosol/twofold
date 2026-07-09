@@ -37,6 +37,7 @@ struct AddTripDetailsView: View {
     @State private var traveler: TripTraveler = .you
     @State private var wantsFlight: Bool
     @State private var flightNumber: String
+    @State private var isSaving = false
 
     init(mode: Mode, partnerName: String = "Partner", prefill: Prefill? = nil, onSave: @escaping (Trip) -> Void = { _ in }) {
         self.mode = mode
@@ -92,21 +93,25 @@ struct AddTripDetailsView: View {
             },
             primaryTitle: "Save trip",
             primaryAction: save,
-            primaryDisabled: origin == nil || destination == nil
+            primaryDisabled: origin == nil || destination == nil || isSaving
         )
     }
 
     private func save() {
         guard let origin, let destination else { return }
-        let trip = appModel.addTrip(
-            origin: origin,
-            destination: destination,
-            departureDate: departureDate,
-            arrivalDate: returnDate,
-            traveler: traveler,
-            flightNumber: wantsFlight ? flightNumber : nil
-        )
-        onSave(trip)
+        isSaving = true
+        Task {
+            let trip = await appModel.addTrip(
+                origin: origin,
+                destination: destination,
+                departureDate: departureDate,
+                arrivalDate: returnDate,
+                traveler: traveler,
+                flightNumber: wantsFlight ? flightNumber : nil
+            )
+            isSaving = false
+            onSave(trip)
+        }
     }
 }
 

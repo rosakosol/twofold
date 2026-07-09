@@ -59,8 +59,10 @@ struct AddFlightView: View {
 
     private func save() {
         guard let selectedTripID else { return }
-        appModel.addFlight(to: selectedTripID, flightNumber: flightNumber)
-        dismiss()
+        Task {
+            await appModel.addFlight(to: selectedTripID, flightNumber: flightNumber)
+            dismiss()
+        }
     }
 }
 

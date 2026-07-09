@@ -11,6 +11,7 @@ import SwiftUI
 struct OnboardingRevealView: View {
     @Environment(OnboardingModel.self) private var onboarding
     @Environment(AppModel.self) private var appModel
+    @State private var isFinishing = false
 
     private var me: Person {
         Person(name: onboarding.firstName.isEmpty ? "You" : onboarding.firstName, accentColor: Person.palette[1])
@@ -71,15 +72,26 @@ struct OnboardingRevealView: View {
             Spacer()
 
             Button {
-                appModel.completeOnboarding(onboarding)
+                isFinishing = true
+                Task {
+                    await appModel.completeOnboarding(onboarding)
+                    isFinishing = false
+                }
             } label: {
-                Text("Go to Twofold")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Theme.skyBlue, in: Capsule())
-                    .foregroundStyle(.white)
+                Group {
+                    if isFinishing {
+                        ProgressView().tint(.white)
+                    } else {
+                        Text("Go to Twofold")
+                    }
+                }
+                .font(.headline)
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Theme.skyBlue, in: Capsule())
+                .foregroundStyle(.white)
             }
+            .disabled(isFinishing)
             .padding(.horizontal, Theme.Spacing.lg)
             .padding(.bottom, Theme.Spacing.xl)
         }

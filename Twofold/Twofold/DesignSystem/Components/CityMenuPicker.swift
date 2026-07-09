@@ -5,18 +5,18 @@
 
 import SwiftUI
 
-/// A menu-style picker over `Place.commonCities`, reused by trip origin/destination
-/// pickers and the home-city pickers.
+/// A button that opens live city search (`CitySearchView`), reused by trip
+/// origin/destination pickers, home-city pickers, and the add-memory location field.
 struct CityMenuPicker: View {
     let label: String
     @Binding var selection: Place?
     var placeholder: String = "Select a city"
 
+    @State private var showingSearch = false
+
     var body: some View {
-        Menu {
-            ForEach(Place.commonCities) { place in
-                Button("\(place.city), \(place.country)") { selection = place }
-            }
+        Button {
+            showingSearch = true
         } label: {
             HStack {
                 Text(label).foregroundStyle(Theme.subtleInk)
@@ -29,6 +29,12 @@ struct CityMenuPicker: View {
             }
             .padding()
             .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .sheet(isPresented: $showingSearch) {
+            CitySearchView { place in
+                selection = place
+            }
         }
     }
 }

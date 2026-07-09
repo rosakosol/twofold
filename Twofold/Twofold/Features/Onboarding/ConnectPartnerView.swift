@@ -7,6 +7,8 @@ import SwiftUI
 
 struct ConnectPartnerView: View {
     @Environment(OnboardingModel.self) private var onboarding
+    @State private var isCreatingCode = false
+    @State private var errorMessage: String?
 
     var body: some View {
         VStack(spacing: Theme.Spacing.xl) {
@@ -29,8 +31,17 @@ struct ConnectPartnerView: View {
 
             VStack(spacing: Theme.Spacing.md) {
                 Button {
-                    onboarding.inviteCode = InviteCode.generate(firstName: onboarding.firstName)
-                    onboarding.path.append(.shareInvite)
+                    isCreatingCode = true
+                    errorMessage = nil
+                    Task {
+                        do {
+                            onboarding.inviteCode = try await BackendService.createInviteCode(firstName: onboarding.firstName)
+                            onboarding.path.append(.shareInvite)
+                        } catch {
+                            errorMessage = error.localizedDescription
+                        }
+                        isCreatingCode = false
+                    }
                 } label: {
                     Text("Invite my partner")
                         .font(.headline)
@@ -39,6 +50,7 @@ struct ConnectPartnerView: View {
                         .background(Theme.skyBlue, in: Capsule())
                         .foregroundStyle(.white)
                 }
+                .disabled(isCreatingCode)
 
                 Button {
                     onboarding.path.append(.enterPartnerCode)
@@ -49,6 +61,12 @@ struct ConnectPartnerView: View {
                         .padding()
                         .background(Theme.cardBackground, in: Capsule())
                         .foregroundStyle(Theme.ink)
+                }
+
+                if let errorMessage {
+                    Text(errorMessage)
+                        .font(.caption)
+                        .foregroundStyle(Theme.heartRed)
                 }
 
                 Button("Skip for now") {

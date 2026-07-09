@@ -12,8 +12,12 @@ struct Memory: Identifiable, Hashable {
     var place: Place
     var date: Date
     var note: String
-    /// Placeholder gradient seed until real photo assets exist.
+    /// Gradient seed used for the placeholder shown while there's no photo (or one hasn't
+    /// loaded yet) — derived from `id` for real memories so it's stable across loads.
     var photoSeed: Int
+    /// Signed URL for the uploaded photo, if any. `memory-photos` is a private bucket, so
+    /// this is time-limited rather than a stable public URL — re-resolved on every fetch.
+    var photoURL: URL?
 
     init(
         id: UUID = UUID(),
@@ -22,7 +26,8 @@ struct Memory: Identifiable, Hashable {
         place: Place,
         date: Date,
         note: String,
-        photoSeed: Int
+        photoSeed: Int? = nil,
+        photoURL: URL? = nil
     ) {
         self.id = id
         self.title = title
@@ -30,6 +35,7 @@ struct Memory: Identifiable, Hashable {
         self.place = place
         self.date = date
         self.note = note
-        self.photoSeed = photoSeed
+        self.photoSeed = photoSeed ?? abs(id.hashValue % 4)
+        self.photoURL = photoURL
     }
 }

@@ -2,10 +2,9 @@
 //  HomeCitiesView.swift
 //  Twofold
 //
-//  Progressive home-card sheet for setting both partners' home cities. Your own city
-//  may already be set from onboarding; your partner's stays unset in this backend-less
-//  demo until they'd complete their own onboarding on their own device, so this screen
-//  doubles as a stand-in for "set it on their behalf" for demo purposes.
+//  Progressive home-card sheet for setting your home city. Your partner's city can only be
+//  set from their own signed-in session — RLS blocks writing another profile's row — so
+//  their picker here is read-only, showing whatever they've set (or a "not set yet" hint).
 //
 
 import SwiftUI
@@ -14,7 +13,7 @@ struct HomeCitiesView: View {
     @Environment(AppModel.self) private var appModel
     @Environment(\.dismiss) private var dismiss
     @State private var mine: Place?
-    @State private var partners: Place?
+    @State private var isSaving = false
 
     var body: some View {
         NavigationStack {
@@ -24,12 +23,13 @@ struct HomeCitiesView: View {
                 content: {
                     VStack(spacing: Theme.Spacing.md) {
                         CityMenuPicker(label: "Your city", selection: $mine)
-                        CityMenuPicker(label: "\(appModel.partner.name)'s city", selection: $partners)
+                        CityMenuPicker(label: "\(appModel.partner.name)'s city", selection: .constant(appModel.partner.homeCity), placeholder: "Not set yet")
+                            .disabled(true)
                     }
                 },
                 primaryTitle: "Save",
                 primaryAction: save,
-                primaryDisabled: mine == nil && partners == nil
+                primaryDisabled: mine == nil || isSaving
             )
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -38,15 +38,18 @@ struct HomeCitiesView: View {
             }
             .onAppear {
                 mine = appModel.currentUser.homeCity
-                partners = appModel.partner.homeCity
             }
         }
     }
 
     private func save() {
-        if let mine { appModel.setHomeCity(for: appModel.currentUser.id, city: mine) }
-        if let partners { appModel.setHomeCity(for: appModel.partner.id, city: partners) }
-        dismiss()
+        guard let mine else { return }
+        isSaving = true
+        Task {
+            await appModel.setHomeCity(for: appModel.currentUser.id, city: mine)
+            isSaving = false
+            dismiss()
+        }
     }
 }
 

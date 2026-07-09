@@ -39,7 +39,7 @@ struct WelcomeView: View {
                 VStack(spacing: Theme.Spacing.md) {
                     Button {
                         onboarding.role = .inviter
-                        onboarding.path.append(.createAccount)
+                        onboarding.path.append(.situation)
                     } label: {
                         Text("Get started")
                             .font(.headline)

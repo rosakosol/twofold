@@ -20,11 +20,12 @@ struct ShareInviteView: View {
 
     /// Convenience initializer for the onboarding NavigationStack destination, which reads
     /// its code from the shared `OnboardingModel` and advances to the next onboarding step.
+    /// The code is already created for real by `ConnectPartnerView` before pushing here —
+    /// pairing itself isn't confirmed until the partner actually redeems it, so this just
+    /// advances rather than pretending they're connected.
     init(onboarding: OnboardingModel) {
-        self.code = onboarding.inviteCode ?? InviteCode.generate(firstName: onboarding.firstName)
+        self.code = onboarding.inviteCode ?? ""
         self.onContinue = {
-            onboarding.inviteCode = onboarding.inviteCode ?? InviteCode.generate(firstName: onboarding.firstName)
-            onboarding.isPartnerConnected = true
             onboarding.path.append(.nextTrip)
         }
     }

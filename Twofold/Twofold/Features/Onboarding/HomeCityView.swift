@@ -7,7 +7,10 @@ import SwiftUI
 
 struct HomeCityView: View {
     @Environment(OnboardingModel.self) private var onboarding
+    @Environment(AppModel.self) private var appModel
     @State private var selected: Place?
+    @State private var isSaving = false
+    @State private var errorMessage: String?
 
     var body: some View {
         OnboardingScaffold(
@@ -15,16 +18,17 @@ struct HomeCityView: View {
             subtitle: "We'll use this to show the distance between you two.",
             content: {
                 VStack(spacing: Theme.Spacing.sm) {
-                    ForEach(Place.commonCities) { place in
-                        OnboardingOptionRow(title: "\(place.city), \(place.country)", isSelected: selected?.id == place.id) {
-                            selected = place
-                        }
+                    CityMenuPicker(label: "Your city", selection: $selected)
+                    if let errorMessage {
+                        Text(errorMessage)
+                            .font(.caption)
+                            .foregroundStyle(Theme.heartRed)
                     }
                 }
             },
             primaryTitle: "Continue",
             primaryAction: { advance() },
-            primaryDisabled: false,
+            primaryDisabled: isSaving,
             secondaryTitle: "Skip for now",
             secondaryAction: { advance() }
         )
@@ -32,10 +36,23 @@ struct HomeCityView: View {
 
     private func advance() {
         onboarding.homeCity = selected
-        if onboarding.role == .inviter {
-            onboarding.path.append(.relationshipContext)
-        } else {
-            onboarding.path.append(.connectedReveal)
+        isSaving = true
+        errorMessage = nil
+        Task {
+            do {
+                if let selected {
+                    try await BackendService.updateHomeCity(selected)
+                    appModel.couple.partnerA.homeCity = selected
+                }
+                if onboarding.role == .invitee {
+                    try await BackendService.redeemInviteCode(onboarding.inviteCode ?? "")
+                    onboarding.isPartnerConnected = true
+                }
+                onboarding.path.append(.addPhoto)
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+            isSaving = false
         }
     }
 }
@@ -45,4 +62,5 @@ struct HomeCityView: View {
         HomeCityView()
     }
     .environment(OnboardingModel())
+    .environment(AppModel())
 }
