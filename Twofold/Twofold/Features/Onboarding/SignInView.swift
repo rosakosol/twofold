@@ -13,6 +13,11 @@
 import SwiftUI
 
 struct SignInView: View {
+    /// Called when the user says they have an invite code rather than an existing account —
+    /// the presenter (WelcomeView) dismisses this sheet and routes onboarding into the
+    /// invitee flow. Optional so the preview / other call sites can omit it.
+    var onUseInvite: (() -> Void)?
+
     @Environment(AppModel.self) private var appModel
     @Environment(\.dismiss) private var dismiss
 
@@ -84,6 +89,17 @@ struct SignInView: View {
                             onError: { errorMessage = $0 },
                             isSubmitting: $isSubmitting
                         )
+
+                        if let onUseInvite {
+                            Button {
+                                onUseInvite()
+                            } label: {
+                                Text("Have an invite code instead?")
+                                    .font(.subheadline.weight(.medium))
+                                    .foregroundStyle(Theme.skyBlue)
+                            }
+                            .padding(.top, Theme.Spacing.sm)
+                        }
                     }
                     .padding(.horizontal, Theme.Spacing.lg)
                 }

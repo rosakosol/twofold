@@ -9,9 +9,11 @@ import MapKit
 struct WelcomeView: View {
     @Environment(OnboardingModel.self) private var onboarding
     @State private var showingSignIn = false
-    private static let globeCenter = CLLocationCoordinate2D(latitude: 15, longitude: 20)
+    // Centered further east/south than a plain Europe/Africa view so Australia is in frame
+    // alongside Asia and Africa; distance bumped up slightly to fit that wider span.
+    private static let globeCenter = CLLocationCoordinate2D(latitude: -15, longitude: 100)
     @State private var globeCamera: MapCameraPosition = .camera(
-        MapCamera(centerCoordinate: globeCenter, distance: 24_000_000, heading: 0, pitch: 0)
+        MapCamera(centerCoordinate: globeCenter, distance: 30_000_000, heading: 0, pitch: 0)
     )
 
     var body: some View {
@@ -23,13 +25,13 @@ struct WelcomeView: View {
             // -180...180, so animating heading 0→360 is what actually keeps this valid; 360
             // renders identically to 0, so the reset at each loop is seamless.
             Map(position: $globeCamera, interactionModes: [])
-                .mapStyle(.hybrid(elevation: .realistic))
+                .mapStyle(.imagery(elevation: .realistic))
                 .allowsHitTesting(false)
                 .ignoresSafeArea()
                 .onAppear {
                     withAnimation(.linear(duration: 90).repeatForever(autoreverses: false)) {
                         globeCamera = .camera(
-                            MapCamera(centerCoordinate: Self.globeCenter, distance: 24_000_000, heading: 360, pitch: 0)
+                            MapCamera(centerCoordinate: Self.globeCenter, distance: 30_000_000, heading: 360, pitch: 0)
                         )
                     }
                 }
@@ -44,19 +46,14 @@ struct WelcomeView: View {
             VStack(spacing: Theme.Spacing.lg) {
                 Spacer()
 
-                VStack(spacing: Theme.Spacing.sm) {
+                VStack(spacing: Theme.Spacing.md) {
                     Image(systemName: "heart.text.square")
-                        .font(.system(size: 40))
+                        .font(.system(size: 72))
                         .foregroundStyle(.white)
                     Text("twofold")
-                        .font(.system(.title, design: .serif))
+                        .font(.system(size: 56, weight: .regular, design: .serif))
                         .foregroundStyle(.white)
                 }
-
-                Text("Feel closer, even when\nyou're far apart.")
-                    .font(.system(.largeTitle, design: .rounded, weight: .semibold))
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(.white)
 
                 Spacer()
 
@@ -74,19 +71,9 @@ struct WelcomeView: View {
                     }
 
                     Button {
-                        onboarding.role = .invitee
-                        onboarding.hasAccount = false
-                        onboarding.path.append(.enterPartnerCode)
-                    } label: {
-                        Text("I have an invite")
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(.white)
-                    }
-
-                    Button {
                         showingSignIn = true
                     } label: {
-                        Text("Already have an account? Sign in")
+                        Text("I have an account or invite")
                             .font(.subheadline.weight(.medium))
                             .foregroundStyle(.white)
                     }
@@ -95,7 +82,14 @@ struct WelcomeView: View {
                 .padding(.bottom, Theme.Spacing.xl)
             }
         }
-        .sheet(isPresented: $showingSignIn) { SignInView() }
+        .sheet(isPresented: $showingSignIn) {
+            SignInView(onUseInvite: {
+                showingSignIn = false
+                onboarding.role = .invitee
+                onboarding.hasAccount = false
+                onboarding.path.append(.enterPartnerCode)
+            })
+        }
     }
 }
 
