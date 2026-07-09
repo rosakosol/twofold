@@ -11,7 +11,7 @@ struct WelcomeView: View {
     @State private var showingSignIn = false
     // Centered further east/south than a plain Europe/Africa view so Australia is in frame
     // alongside Asia and Africa; distance bumped up slightly to fit that wider span.
-    private static let globeCenter = CLLocationCoordinate2D(latitude: -15, longitude: 100)
+    private static let globeCenter = CLLocationCoordinate2D(latitude: -20, longitude: 115)
     @State private var globeCamera: MapCameraPosition = .camera(
         MapCamera(centerCoordinate: globeCenter, distance: 30_000_000, heading: 0, pitch: 0)
     )
