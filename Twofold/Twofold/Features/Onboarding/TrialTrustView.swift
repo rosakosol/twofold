@@ -17,7 +17,6 @@ struct TrialTrustView: View {
 
     var body: some View {
         OnboardingScaffold(
-            progress: onboarding.progress,
             title: "We want you to try Twofold for free",
             content: {
                 VStack(alignment: .leading, spacing: Theme.Spacing.lg) {

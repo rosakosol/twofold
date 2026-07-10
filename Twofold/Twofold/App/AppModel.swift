@@ -54,12 +54,13 @@ final class AppModel {
 
     var stats: MockData.RelationshipStats {
         let totalDistance = trips.reduce(0) { $0 + $1.distanceKm }
+        let daysTogether = max(0, Calendar.current.dateComponents([.day], from: couple.startedDatingOn, to: .now).day ?? 0)
         return MockData.RelationshipStats(
             totalDistanceKm: totalDistance,
             tripCount: trips.count,
             flightCount: trips.filter { $0.flight != nil }.count,
             countryCount: Set(trips.flatMap { [$0.origin.country, $0.destination.country] }).count,
-            daysTogether: 0,
+            daysTogether: daysTogether,
             earthMultiple: totalDistance / Geo.earthCircumferenceKm
         )
     }
@@ -260,6 +261,11 @@ final class AppModel {
         }
         if let partnerCity = onboarding.partnerCity {
             couple.partnerB.homeCity = partnerCity
+        }
+
+        if let anniversaryDate = onboarding.anniversaryDate {
+            try? await BackendService.updateAnniversaryDate(anniversaryDate)
+            couple.startedDatingOn = anniversaryDate
         }
 
         inviteCode = onboarding.inviteCode

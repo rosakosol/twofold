@@ -19,28 +19,7 @@ struct BenchmarkView: View {
         if onboarding.situation == .haventMetYet {
             return "You haven't met \(partnerName) in person yet ❤️"
         }
-        guard let frequency = onboarding.frequency else {
-            return "Time apart adds up ❤️"
-        }
-        return "You told us you see \(partnerName) \(frequencyPhrase(frequency))."
-    }
-
-    private func frequencyPhrase(_ frequency: TravelFrequency) -> String {
-        switch frequency {
-        case .everyFewWeeks: "every few weeks"
-        case .every1to2Months: "every 1–2 months"
-        case .every3to4Months: "every 3–4 months"
-        case .aFewTimesAYear: "a few times a year"
-        case .everyFewMonths: "every few months"
-        case .mostMonths: "most months"
-        case .aFewTimesAMonth: "a few times a month"
-        case .almostEveryWeek: "almost every week"
-        case .lessThanAMonth: "for less than a month"
-        case .oneToThreeMonths: "for 1–3 months"
-        case .threeToSixMonths: "for 3–6 months"
-        case .sixToTwelveMonths: "for 6–12 months"
-        case .notSureYet: "— and you're not sure yet how long"
-        }
+        return "Time apart adds up ❤️"
     }
 
     private var supportingCopy: String {
@@ -60,7 +39,6 @@ struct BenchmarkView: View {
 
     var body: some View {
         OnboardingScaffold(
-            progress: onboarding.progress,
             title: headline,
             subtitle: supportingCopy,
             content: {

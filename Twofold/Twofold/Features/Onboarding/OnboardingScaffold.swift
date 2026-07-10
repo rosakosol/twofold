@@ -9,13 +9,13 @@
 import SwiftUI
 
 struct OnboardingScaffold<Content: View>: View {
-    /// Passed explicitly (e.g. `onboarding.progress`) rather than read from the environment,
-    /// since this scaffold is also reused by non-onboarding sheets (`AddMemoryView`,
-    /// `AddFlightView`, `HomeCitiesView`) that have no `OnboardingModel` in scope — those
-    /// simply leave it `nil` and get no progress bar.
-    var progress: Double? = nil
     let title: String
     var subtitle: String?
+    /// Centers the title/subtitle and vertically centers the whole title+content block in
+    /// the screen, instead of the default top-anchored, leading-aligned layout — used by the
+    /// handful of screens that want a calmer, single-focus feel (name entry, city entry, the
+    /// anniversary date picker) rather than the list-like screens most of onboarding uses.
+    var centered: Bool = false
     @ViewBuilder var content: Content
     var primaryTitle: String?
     var primaryAction: (() -> Void)?
@@ -46,31 +46,33 @@ struct OnboardingScaffold<Content: View>: View {
     }
 
     private var scrollContent: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
-                // Only the default "Get started" flow passes a non-nil progress — the
-                // preserved deep-link invite path and non-onboarding callers leave it nil and
-                // simply don't show a bar.
-                if let progress {
-                    ProgressView(value: progress)
-                        .tint(Theme.skyBlue)
-                        .padding(.top, Theme.Spacing.sm)
-                }
-
-                VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-                    Text(title)
-                        .font(.system(.title, design: .rounded, weight: .bold))
-                    if let subtitle {
-                        Text(subtitle)
-                            .font(.body)
-                            .foregroundStyle(Theme.subtleInk)
+        GeometryReader { geo in
+            ScrollView {
+                VStack(alignment: centered ? .center : .leading, spacing: Theme.Spacing.lg) {
+                    VStack(alignment: centered ? .center : .leading, spacing: Theme.Spacing.sm) {
+                        Text(title)
+                            .font(.system(.title, design: .rounded, weight: .bold))
+                            .multilineTextAlignment(centered ? .center : .leading)
+                        if let subtitle {
+                            Text(subtitle)
+                                .font(.body)
+                                .foregroundStyle(Theme.subtleInk)
+                                .multilineTextAlignment(centered ? .center : .leading)
+                        }
                     }
-                }
-                .padding(.top, progress == nil ? Theme.Spacing.lg : 0)
+                    .frame(maxWidth: .infinity, alignment: centered ? .center : .leading)
+                    .padding(.top, centered ? 0 : Theme.Spacing.lg)
 
-                content
+                    content
+                }
+                .padding(Theme.Spacing.lg)
+                // Centers the whole title+content block vertically within the available
+                // height (rather than top-anchoring it), for the handful of screens that
+                // opt into `centered`. `minHeight` only kicks in when content is shorter
+                // than the screen — a tall keyboard-open or long-content case still scrolls
+                // normally instead of being forced to a fixed height.
+                .frame(minHeight: centered ? geo.size.height : nil, alignment: .center)
             }
-            .padding(Theme.Spacing.lg)
         }
     }
 

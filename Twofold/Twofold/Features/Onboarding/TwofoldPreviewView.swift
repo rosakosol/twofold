@@ -31,7 +31,6 @@ struct TwofoldPreviewView: View {
 
     var body: some View {
         OnboardingScaffold(
-            progress: onboarding.progress,
             title: "Your Twofold is ready ❤️",
             content: {
                 VStack(spacing: Theme.Spacing.md) {

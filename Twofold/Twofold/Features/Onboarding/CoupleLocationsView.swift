@@ -20,8 +20,8 @@ struct CoupleLocationsView: View {
 
     var body: some View {
         OnboardingScaffold(
-            progress: onboarding.progress,
             title: "Where in the world are you two? 🌍",
+            centered: true,
             content: {
                 VStack(spacing: Theme.Spacing.md) {
                     if livesTogether {
@@ -36,7 +36,7 @@ struct CoupleLocationsView: View {
             primaryAction: {
                 onboarding.homeCity = myCity
                 onboarding.partnerCity = livesTogether ? myCity : partnerCity
-                onboarding.path.append(.personalizedInsight)
+                onboarding.path.append(.anniversaryDate)
             },
             primaryDisabled: myCity == nil || (!livesTogether && partnerCity == nil)
         )

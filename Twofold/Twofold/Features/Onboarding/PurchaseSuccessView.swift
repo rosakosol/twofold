@@ -19,7 +19,6 @@ struct PurchaseSuccessView: View {
 
     var body: some View {
         OnboardingScaffold(
-            progress: onboarding.progress,
             title: "Welcome to Twofold!",
             subtitle: "Your 14-day free trial has started.",
             content: {

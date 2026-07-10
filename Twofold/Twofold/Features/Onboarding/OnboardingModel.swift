@@ -50,6 +50,7 @@ final class OnboardingModel {
     /// from the home screen's setup checklist.
     var partnerName: String = ""
     var partnerCity: Place?
+    var anniversaryDate: Date?
 
     var userGender: Gender?
     var partnerGender: Gender?
@@ -93,25 +94,6 @@ final class OnboardingModel {
             cachedIllustrativeOriginCity = Place.commonCities.filter { $0.city != homeCity.city }.randomElement()
         }
         return cachedIllustrativeOriginCity
-    }
-
-    /// Ordered steps of the default "Get started" flow, used to drive the progress bar.
-    /// `.frequency` is sometimes skipped (haven't-met-yet couples), so progress is computed
-    /// by position in this canonical list, not by raw `path.count`.
-    static let defaultFlowSteps: [OnboardingStep] = [
-        .situation, .frequency, .attribution, .goals, .yourName, .partnerName, .gender,
-        .benchmark, .coupleLocations, .personalizedInsight, .notificationsSell,
-        .liveActivitySell, .widgetSell, .addFirstFlight, .twofoldPreview, .trialTrust,
-        .saveAccount, .paywall, .purchaseSuccess,
-    ]
-
-    /// 0...1 progress through the default onboarding flow, or nil when the current step
-    /// isn't part of it (e.g. the preserved deep-link invite path), so those screens simply
-    /// don't show a progress bar at all.
-    var progress: Double? {
-        guard let currentStep = path.last,
-              let index = Self.defaultFlowSteps.firstIndex(of: currentStep) else { return nil }
-        return Double(index + 1) / Double(Self.defaultFlowSteps.count)
     }
 
     func resetForNewInvite(code: String) {

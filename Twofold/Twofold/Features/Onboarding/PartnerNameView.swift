@@ -18,8 +18,8 @@ struct PartnerNameView: View {
 
     var body: some View {
         OnboardingScaffold(
-            progress: onboarding.progress,
             title: "And your partner? ❤️",
+            centered: true,
             content: {
                 VStack(spacing: Theme.Spacing.lg) {
                     RoundPhotoPicker(placeholderSystemImage: "person.fill", initialImageData: onboarding.partnerPhotoData) { data in

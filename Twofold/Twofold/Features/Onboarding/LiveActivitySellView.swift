@@ -50,7 +50,6 @@ struct LiveActivitySellView: View {
 
     var body: some View {
         OnboardingScaffold(
-            progress: onboarding.progress,
             title: "Keep \(partnerName.prefix(1).uppercased() + partnerName.dropFirst())'s journey close.",
             subtitle: "Follow \(partnerName)'s flight from your Lock Screen",
             content: {
@@ -72,7 +71,7 @@ struct LiveActivitySellView: View {
                 }
             },
             primaryTitle: "Follow your partner's journey",
-            primaryAction: { onboarding.path.append(.widgetSell) }
+            primaryAction: { onboarding.path.append(.memoriesSell) }
         )
     }
 
@@ -140,7 +139,27 @@ struct LiveActivitySellView: View {
         }
         .padding(Theme.Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.black, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .background { skyBackground }
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+    }
+
+    /// Dusk sky gradient with a faint airplane silhouette, standing in for the aircraft photo
+    /// a real Live Activity background would use — a dark overlay keeps the existing white
+    /// text readable on top of it, same contrast the plain black background had.
+    private var skyBackground: some View {
+        ZStack {
+            LinearGradient(
+                colors: [Color(hex: "1B2A4A"), Color(hex: "3E5C8A"), Color(hex: "C97B5A")],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            Image(systemName: "airplane")
+                .font(.system(size: 130))
+                .foregroundStyle(.white.opacity(0.08))
+                .rotationEffect(.degrees(45))
+                .offset(x: 60, y: -30)
+            Color.black.opacity(0.28)
+        }
     }
 
     /// Solid line for distance already flown, dashed for what's left, with a hollow ring at

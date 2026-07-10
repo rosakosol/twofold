@@ -51,7 +51,6 @@ struct PersonalizedInsightView: View {
 
     var body: some View {
         OnboardingScaffold(
-            progress: onboarding.progress,
             title: title,
             subtitle: subtitle,
             content: {

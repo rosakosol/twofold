@@ -16,16 +16,20 @@ enum OnboardingStep: Hashable {
     case gender
     case benchmark
     case coupleLocations
+    case anniversaryDate
     case personalizedInsight
     case notificationsSell
     case liveActivitySell
+    case memoriesSell
+    case mapSell
     case widgetSell
+    case saveAccount
+    case invitePartner
     case addFirstFlight
     case twofoldPreview
     case trialTrust
     case paywall
     case purchaseSuccess
-    case saveAccount
 
     // Preserved deep-link / manual-invite path
     case createAccount

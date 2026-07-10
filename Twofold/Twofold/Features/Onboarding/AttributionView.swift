@@ -10,7 +10,6 @@ struct AttributionView: View {
 
     var body: some View {
         OnboardingScaffold(
-            progress: onboarding.progress,
             title: "Where did you hear about us?",
             content: {
                 VStack(spacing: Theme.Spacing.sm) {

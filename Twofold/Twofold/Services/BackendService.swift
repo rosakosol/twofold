@@ -310,6 +310,22 @@ enum BackendService {
             .execute()
     }
 
+    private struct AnniversaryDateUpdate: Encodable {
+        var anniversaryDate: String
+        enum CodingKeys: String, CodingKey { case anniversaryDate = "anniversary_date" }
+    }
+
+    /// Stored on `profiles` (like `home_place_id`) rather than `couples.started_dating_on` —
+    /// collected during onboarding, before a real couple exists yet.
+    static func updateAnniversaryDate(_ date: Date) async throws {
+        guard let userID = currentUserID else { throw BackendError.notAuthenticated }
+        try await supabase
+            .from("profiles")
+            .update(AnniversaryDateUpdate(anniversaryDate: Self.dateOnlyFormatter.string(from: date)))
+            .eq("id", value: userID)
+            .execute()
+    }
+
     // MARK: - Avatar
 
     private struct AvatarPathUpdate: Encodable {

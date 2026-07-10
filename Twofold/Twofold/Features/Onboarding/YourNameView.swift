@@ -13,11 +13,11 @@ struct YourNameView: View {
 
     var body: some View {
         OnboardingScaffold(
-            progress: onboarding.progress,
             title: "What should we call you?",
+            centered: true,
             content: {
                 VStack(spacing: Theme.Spacing.lg) {
-                    RoundPhotoPicker(initialImageData: onboarding.selfPhotoData) { data in
+                    RoundPhotoPicker(placeholderSystemImage: "person.fill", initialImageData: onboarding.selfPhotoData) { data in
                         onboarding.selfPhotoData = data
                     }
                     .frame(maxWidth: .infinity)

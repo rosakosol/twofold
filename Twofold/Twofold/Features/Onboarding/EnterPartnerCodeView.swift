@@ -13,7 +13,6 @@ struct EnterPartnerCodeView: View {
 
     var body: some View {
         OnboardingScaffold(
-            progress: onboarding.progress,
             title: "Enter your partner's code",
             subtitle: "It looks like NAME-1234.",
             content: {

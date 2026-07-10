@@ -3,17 +3,19 @@
 //  Twofold
 //
 //  Feature-education screen only, same as LiveActivitySellView — Twofold has no Widget
-//  Extension target yet, so these are mockups of what Home Screen widgets could show, not a
-//  real WidgetKit implementation. The timezone widgets reuse TimeZoneCard's real day/night
-//  math and the partner's actual timezone (already collected by CoupleLocationsView) rather
-//  than fabricating a time; the weather panel has no real data source behind it at all, so
-//  it's flagged as illustrative below.
+//  Extension target yet, so these are mockups of what Home Screen/Lock Screen widgets could
+//  show, not a real WidgetKit implementation. A swipeable one-page-per-widget carousel,
+//  matching the reference flow's "Stay Updated with Widgets" pattern, rather than stacking
+//  every mockup on one screen. The timezone/days-together widgets use real data collected
+//  earlier in onboarding (partner's timezone, the anniversary date); the weather panel has no
+//  real data source behind it at all, so it's flagged as illustrative below.
 //
 
 import SwiftUI
 
 struct WidgetSellView: View {
     @Environment(OnboardingModel.self) private var onboarding
+    @State private var page = 0
 
     // PartnerNameView requires a non-empty name before you can advance, so by the time any
     // later onboarding screen runs, this is always the real name — no fallback needed.
@@ -27,27 +29,53 @@ struct WidgetSellView: View {
         onboarding.partnerCity?.city ?? "\(onboarding.partnerPossessive) city"
     }
 
+    private var daysTogether: Int? {
+        guard let anniversaryDate = onboarding.anniversaryDate else { return nil }
+        return max(0, Calendar.current.dateComponents([.day], from: anniversaryDate, to: .now).day ?? 0)
+    }
+
+    private struct WidgetPage {
+        let widget: AnyView
+        let caption: String
+    }
+
+    private var pages: [WidgetPage] {
+        var pages = [
+            WidgetPage(widget: AnyView(timezoneWidget), caption: "\(partnerName)'s time on your Home Screen"),
+        ]
+        if let daysTogether {
+            pages.append(WidgetPage(widget: AnyView(daysTogetherWidget(daysTogether)), caption: "Days together on your Lock Screen"))
+        }
+        pages.append(WidgetPage(widget: AnyView(countdownWidget), caption: "Flight countdown on your Home Screen"))
+        pages.append(WidgetPage(widget: AnyView(largeWidget), caption: "Time & weather, side by side"))
+        return pages
+    }
+
     var body: some View {
         OnboardingScaffold(
-            progress: onboarding.progress,
             title: "Twofold, right on your Home Screen.",
-            subtitle: "Add a widget to see \(partnerName)'s time, weather, and next flight on your homescreen",
+            subtitle: "Swipe to see what you can add.",
             content: {
-                VStack(spacing: Theme.Spacing.lg) {
-                    VStack(spacing: Theme.Spacing.sm) {
-                        HStack(spacing: Theme.Spacing.sm) {
-                            timezoneWidget
-                            countdownWidget
+                VStack(spacing: Theme.Spacing.sm) {
+                    TabView(selection: $page) {
+                        ForEach(Array(pages.enumerated()), id: \.offset) { index, widgetPage in
+                            widgetPage.widget
+                                .frame(height: 220)
+                                .padding(.horizontal, Theme.Spacing.xl)
+                                .tag(index)
                         }
-                        .frame(height: 150)
-
-                        largeWidget
-
-                        Text("Available as Home Screen widgets")
-                            .font(.caption2)
-                            .foregroundStyle(Theme.subtleInk)
-                            .frame(maxWidth: .infinity)
                     }
+                    .tabViewStyle(.page(indexDisplayMode: .always))
+                    .indexViewStyle(.page(backgroundDisplayMode: .always))
+                    .frame(height: 260)
+
+                    // Lives outside the TabView entirely so the native page-dot indicator
+                    // (drawn inside the TabView's own bottom inset) never overlaps it.
+                    Text(pages[page].caption)
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(Theme.subtleInk)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
 
                     VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
                         Text("THREE WAYS TO STAY CLOSE")
@@ -63,7 +91,7 @@ struct WidgetSellView: View {
                 }
             },
             primaryTitle: "Continue",
-            primaryAction: { onboarding.path.append(.addFirstFlight) }
+            primaryAction: { onboarding.path.append(.saveAccount) }
         )
     }
 
@@ -78,26 +106,57 @@ struct WidgetSellView: View {
 
         return VStack(alignment: .leading, spacing: 4) {
             Image(systemName: isDaytime ? "sun.max.fill" : "moon.stars.fill")
-                .font(.subheadline)
+                .font(.title3)
             Spacer()
             Text(TimeZoneCard.timeString(in: partnerTimeZone, at: .now))
-                .font(.system(size: 26, weight: .bold, design: .rounded))
+                .font(.system(size: 40, weight: .bold, design: .rounded))
             Text(partnerCityLabel)
-                .font(.caption2)
+                .font(.subheadline)
                 .opacity(0.85)
         }
         .foregroundStyle(.white)
-        .padding(Theme.Spacing.md)
+        .padding(Theme.Spacing.lg)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .background(dayNightGradient(daylight: daylight))
         .overlay(alignment: .topTrailing) {
             Image(systemName: isDaytime ? "sun.max.fill" : "moon.stars.fill")
-                .font(.system(size: 64))
+                .font(.system(size: 88))
                 .opacity(0.16)
                 .foregroundStyle(.white)
-                .offset(x: 14, y: -10)
+                .offset(x: 18, y: -14)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .widgetDepth()
+    }
+
+    /// Uses the real anniversary date collected earlier in onboarding — not a fabricated
+    /// number — same pink/heart language as the rest of the app's romantic framing.
+    private func daysTogetherWidget(_ days: Int) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Image(systemName: "heart.fill")
+                .font(.title3)
+            Spacer()
+            Text("\(days)")
+                .font(.system(size: 44, weight: .bold, design: .rounded))
+            Text("days together")
+                .font(.subheadline)
+                .opacity(0.85)
+        }
+        .foregroundStyle(.white)
+        .padding(Theme.Spacing.lg)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .background(
+            LinearGradient(colors: [Color(hex: "8A2E4C"), Theme.heartRed], startPoint: .topLeading, endPoint: .bottomTrailing)
+        )
+        .overlay(alignment: .topTrailing) {
+            Image(systemName: "heart.fill")
+                .font(.system(size: 88))
+                .opacity(0.18)
+                .foregroundStyle(.white)
+                .offset(x: 18, y: -14)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .widgetDepth()
     }
 
     /// Deep-blue "world" gradient (same family as the app's earth-themed snapshot palette)
@@ -106,35 +165,35 @@ struct WidgetSellView: View {
     private var countdownWidget: some View {
         VStack(alignment: .leading, spacing: 4) {
             Image(systemName: "airplane.departure")
-                .font(.subheadline)
+                .font(.title3)
             Spacer()
             Text("2h 14m")
-                .font(.system(size: 24, weight: .bold, design: .rounded))
+                .font(.system(size: 36, weight: .bold, design: .rounded))
             Text("until \(partnerName) lands")
-                .font(.caption2)
+                .font(.subheadline)
                 .opacity(0.85)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
         }
         .foregroundStyle(.white)
-        .padding(Theme.Spacing.md)
+        .padding(Theme.Spacing.lg)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .background(
             LinearGradient(colors: [Color(hex: "0B3D91"), Color(hex: "1C7ED6")], startPoint: .topLeading, endPoint: .bottomTrailing)
         )
         .overlay(alignment: .bottomTrailing) {
             Image(systemName: "globe.americas.fill")
-                .font(.system(size: 64))
+                .font(.system(size: 88))
                 .opacity(0.18)
                 .foregroundStyle(.white)
-                .offset(x: 16, y: 16)
+                .offset(x: 22, y: 22)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .widgetDepth()
     }
 
-    /// Same day/night gradient as the small timezone widget, with a sun/moon watermark behind
-    /// the time half and a matching cloud watermark behind the weather half, so both sides of
-    /// the combined widget carry the same "big translucent icon" language as the rest of the app.
+    /// Same day/night gradient as the timezone widget, with a sun/moon watermark behind the
+    /// time half and a matching cloud watermark behind the weather half.
     private var largeWidget: some View {
         let hour = TimeZoneCard.hourFraction(in: partnerTimeZone, at: .now)
         let daylight = TimeZoneCard.daylightFactor(hour: hour)
@@ -146,16 +205,16 @@ struct WidgetSellView: View {
                     .font(.subheadline)
                 Spacer()
                 Text(TimeZoneCard.timeString(in: partnerTimeZone, at: .now))
-                    .font(.system(size: 26, weight: .bold, design: .rounded))
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
                 Text(partnerCityLabel)
-                    .font(.caption2)
+                    .font(.caption)
                     .opacity(0.85)
             }
             .padding(Theme.Spacing.md)
             .frame(maxWidth: .infinity, alignment: .leading)
             .overlay(alignment: .topTrailing) {
                 Image(systemName: isDaytime ? "sun.max.fill" : "moon.stars.fill")
-                    .font(.system(size: 56))
+                    .font(.system(size: 60))
                     .opacity(0.16)
                     .foregroundStyle(.white)
                     .offset(x: 10, y: -8)
@@ -170,26 +229,26 @@ struct WidgetSellView: View {
                     .font(.subheadline)
                 Spacer()
                 Text("18°")
-                    .font(.system(size: 26, weight: .bold, design: .rounded))
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
                 Text("Partly cloudy")
-                    .font(.caption2)
+                    .font(.caption)
                     .opacity(0.85)
             }
             .padding(Theme.Spacing.md)
             .frame(maxWidth: .infinity, alignment: .leading)
             .overlay(alignment: .topTrailing) {
                 Image(systemName: "cloud.sun.fill")
-                    .font(.system(size: 56))
+                    .font(.system(size: 60))
                     .opacity(0.16)
                     .foregroundStyle(.white)
                     .offset(x: 10, y: -8)
             }
         }
         .foregroundStyle(.white)
-        .frame(maxWidth: .infinity)
-        .frame(height: 130)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(dayNightGradient(daylight: daylight))
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .widgetDepth()
     }
 
     private func dayNightGradient(daylight: Double) -> some View {
@@ -221,6 +280,30 @@ struct WidgetSellView: View {
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// Glassy top highlight + hairline border + a two-layer shadow (tight/dark for definition,
+/// soft/wide for lift) — the flat single shadow the widget mockups used before read as plain
+/// color tiles; this gives them the subtle dimensionality real Home Screen widgets have.
+private extension View {
+    func widgetDepth(cornerRadius: CGFloat = 28) -> some View {
+        self
+            .overlay(alignment: .top) {
+                LinearGradient(colors: [.white.opacity(0.22), .clear], startPoint: .top, endPoint: .bottom)
+                    .frame(height: 70)
+                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                    .allowsHitTesting(false)
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(
+                        LinearGradient(colors: [.white.opacity(0.4), .white.opacity(0.05)], startPoint: .topLeading, endPoint: .bottomTrailing),
+                        lineWidth: 1
+                    )
+            )
+            .shadow(color: .black.opacity(0.1), radius: 3, y: 2)
+            .shadow(color: .black.opacity(0.22), radius: 18, y: 12)
     }
 }
 

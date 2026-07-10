@@ -24,9 +24,8 @@ struct AddFirstFlightView: View {
 
     var body: some View {
         OnboardingScaffold(
-            progress: onboarding.progress,
             title: "Let's track your first flight ✈️",
-            subtitle: "Add a flight for you or \(partnerName). All you need is the flight number.",
+            subtitle: "Add a flight for you or \(partnerName)",
             content: {
                 VStack(spacing: Theme.Spacing.md) {
                     TextField("Flight number, e.g. QF9", text: $flightNumber)
@@ -43,7 +42,7 @@ struct AddFirstFlightView: View {
             primaryTitle: "Find flight",
             primaryAction: save,
             primaryDisabled: flightNumber.trimmingCharacters(in: .whitespaces).isEmpty || isSaving,
-            secondaryTitle: "I don't have a flight yet",
+            secondaryTitle: "Add this later",
             secondaryAction: { onboarding.path.append(.twofoldPreview) }
         )
     }

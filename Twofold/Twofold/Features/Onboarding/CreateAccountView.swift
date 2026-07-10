@@ -33,7 +33,6 @@ struct CreateAccountView: View {
 
     var body: some View {
         OnboardingScaffold(
-            progress: onboarding.progress,
             title: isInvitee ? "Join \(onboarding.inviterName ?? "your partner")" : "Create your account",
             subtitle: isInvitee ? "Just the basics — you can fill in the rest later." : "Keep it quick — first name, email, and a password.",
             content: {

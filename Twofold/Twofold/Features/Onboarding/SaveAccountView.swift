@@ -2,12 +2,14 @@
 //  SaveAccountView.swift
 //  Twofold
 //
-//  Sits right before the paywall — a real account needs to exist before the trial/subscription
-//  can be tied to it. Everything collected so far (situation, frequency, attribution, goals,
-//  names, cities, photos, drafted flight) has been sitting in `OnboardingModel` only — nothing
+//  Sits right after the feature "sell" screens, before the real partner-invite screen — the
+//  user's already seen the value (notifications, Live Activities, memories, widgets) before
+//  hitting this friction, and a real account needs to exist before a real invite code can be
+//  generated. Everything collected so far (situation, frequency, attribution, goals, names,
+//  cities, photos, anniversary date) has been sitting in `OnboardingModel` only — nothing
 //  persists until this succeeds, at which point `AppModel.applyOnboardingAccount` applies all
 //  of it in one shot. `RootView` doesn't swap to `MainTabView` yet, though — that only happens
-//  once `AppModel.finishOnboarding()` runs, after the paywall/trial screens that still follow.
+//  once `AppModel.finishOnboarding()` runs, after the invite/paywall/trial screens that follow.
 //
 
 import SwiftUI
@@ -32,9 +34,8 @@ struct SaveAccountView: View {
 
     var body: some View {
         OnboardingScaffold(
-            progress: onboarding.progress,
             title: "Complete your setup",
-            subtitle: "Sign in with Apple or Google, or create an account with email, to save your progress before your free trial starts.",
+            subtitle: "Sign in with Apple or Google, or create an account with email, so you can invite \(onboarding.partnerName) and save your progress.",
             content: {
                 VStack(spacing: Theme.Spacing.md) {
                     AppleGoogleSignInButtons(
@@ -127,10 +128,10 @@ struct SaveAccountView: View {
             onboarding.firstName = providedFirstName
         }
         await appModel.applyOnboardingAccount(onboarding)
-        // `applyOnboardingAccount` finishes onboarding immediately (skipping the paywall) in
-        // the rare case where a real couple already existed — only advance otherwise.
+        // `applyOnboardingAccount` finishes onboarding immediately (skipping the rest of the
+        // flow) in the rare case where a real couple already existed — only advance otherwise.
         if !appModel.hasCouple {
-            onboarding.path.append(.paywall)
+            onboarding.path.append(.invitePartner)
         }
     }
 }

@@ -21,7 +21,6 @@ struct GenderView: View {
 
     var body: some View {
         OnboardingScaffold(
-            progress: onboarding.progress,
             title: "A couple more details.",
             subtitle: "This helps us personalize how Twofold talks about you two.",
             content: {

@@ -46,14 +46,22 @@ struct OnboardingCoordinatorView: View {
             BenchmarkView()
         case .coupleLocations:
             CoupleLocationsView()
+        case .anniversaryDate:
+            AnniversaryDateView()
         case .personalizedInsight:
             PersonalizedInsightView()
         case .notificationsSell:
             NotificationsSellView()
         case .liveActivitySell:
             LiveActivitySellView()
+        case .memoriesSell:
+            MemoriesSellView()
+        case .mapSell:
+            MapSellView()
         case .widgetSell:
             WidgetSellView()
+        case .invitePartner:
+            InvitePartnerView()
         case .addFirstFlight:
             AddFirstFlightView()
         case .twofoldPreview:
