@@ -52,10 +52,7 @@ struct StatsView: View {
 
     private var passportCard: some View {
         SectionCard {
-            Text("MY TWOFOLD PASSPORT")
-                .font(.caption.weight(.bold))
-                .foregroundStyle(Theme.subtleInk)
-                .tracking(1)
+            TwofoldBrandMark(color: Theme.ink, size: 32, textStyle: .title3)
                 .frame(maxWidth: .infinity, alignment: .center)
 
             // Hero — same voice and type treatment as the All Flight Stats page.
@@ -76,13 +73,13 @@ struct StatsView: View {
 
             coupleFlightPath
 
-            HStack(alignment: .top, spacing: Theme.Spacing.lg) {
+            HStack(alignment: .top, spacing: Theme.Spacing.sm) {
                 passportStat(label: "Flights", value: "\(flightStats.flightCount)")
                 passportStat(label: "Flight time", value: FlightStats.duration(flightStats.totalFlightTime))
                 passportStat(label: "Airports", value: "\(flightStats.airports.count)")
                 passportStat(label: "Airlines", value: "\(flightStats.airlines.count)")
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity)
 
             NavigationLink {
                 FullStatsView()
@@ -137,17 +134,19 @@ struct StatsView: View {
     }
 
     private func passportStat(label: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(spacing: 2) {
             Text(label.uppercased())
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(Theme.subtleInk)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
             Text(value)
                 .font(.system(size: 22, weight: .bold, design: .rounded))
                 .foregroundStyle(Theme.ink)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity)
     }
 }
 
@@ -344,6 +343,9 @@ private struct FullStatsView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    /// Matches `SnapshotThemeCard`'s format exactly (brand mark up top, single rounded gradient
+    /// card, same corner radius/width) so every image Twofold generates — the Snapshot card and
+    /// each individual Full Flight Stats card — reads as the same shareable format.
     @MainActor
     private func renderedCard<Rows: View>(
         title: String,
@@ -351,19 +353,20 @@ private struct FullStatsView: View {
         unit: String?,
         @ViewBuilder rows: () -> Rows
     ) -> Image {
-        let card = VStack(alignment: .leading, spacing: Theme.Spacing.md) {
-            sectionHeader(title: title, value: value, unit: unit)
-            rows()
-            Text("twofold")
-                .font(.system(.caption, design: .serif))
-                .foregroundStyle(Theme.subtleInk)
-                .frame(maxWidth: .infinity, alignment: .center)
+        let card = VStack(spacing: Theme.Spacing.lg) {
+            TwofoldBrandMark(color: Theme.ink, size: 28, textStyle: .title3)
+                .padding(.top, Theme.Spacing.lg)
+
+            VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+                sectionHeader(title: title, value: value, unit: unit)
+                rows()
+            }
+            .padding(.bottom, Theme.Spacing.lg)
         }
-        .padding(Theme.Spacing.md)
-        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-        .padding(Theme.Spacing.lg)
+        .padding(.horizontal, Theme.Spacing.lg)
+        .frame(width: 360)
         .background(Theme.backgroundGradient)
-        .frame(width: 380)
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
 
         let renderer = ImageRenderer(content: card)
         renderer.scale = displayScale
@@ -428,10 +431,10 @@ private struct FullStatsView: View {
 
 // MARK: - Flight stats math
 
-/// Everything the passport card and full-stats page show, computed from real trips.
-/// Flight-specific numbers only count trips that have a flight attached; the countries
-/// list uses all trips (matching the long-standing `AppModel.stats.countryCount`).
-private struct FlightStats {
+/// Everything the passport card, snapshot card, and full-stats page show, computed from
+/// real trips. Flight-specific numbers only count trips that have a flight attached; the
+/// countries list uses all trips (matching the long-standing `AppModel.stats.countryCount`).
+struct FlightStats {
     struct Ranked: Identifiable {
         let name: String
         let count: Int

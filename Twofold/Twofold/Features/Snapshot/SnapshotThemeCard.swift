@@ -6,25 +6,32 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct SnapshotThemeCard: View {
     let couple: Couple
+    let trips: [Trip]
     let stats: MockData.RelationshipStats
     let theme: SnapshotTheme
+    /// Real satellite Earth imagery for the `.earth` theme, generated once by the caller via
+    /// `MKMapSnapshotter` (see `SnapshotShareView`) and passed down — `nil` while it's still
+    /// loading, or for any other theme, in which case the flat gradient shows on its own.
+    var earthGlobeImage: UIImage? = nil
+
+    private var flightStats: FlightStats {
+        FlightStats(trips: trips, couple: couple)
+    }
 
     var body: some View {
         VStack(spacing: Theme.Spacing.lg) {
             VStack(spacing: Theme.Spacing.xs) {
-                HStack(spacing: Theme.Spacing.xs) {
-                    Image(systemName: "heart.text.square")
-                    Text("twofold").font(.system(.title2, design: .serif))
-                }
-                .foregroundStyle(theme.primaryTextColor)
+                TwofoldBrandMark(color: theme.primaryTextColor, size: 32, textStyle: .title2)
 
                 Text(couple.sharesHomeCity ? "SEE HOW FAR YOU'VE GONE TOGETHER." : "SEE HOW FAR YOU'VE GONE FOR EACH OTHER.")
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(theme.primaryTextColor.opacity(0.6))
                     .tracking(1)
+                    .multilineTextAlignment(.center)
             }
             .padding(.top, Theme.Spacing.lg)
 
@@ -56,42 +63,57 @@ struct SnapshotThemeCard: View {
             }
 
             HStack(spacing: 0) {
-                statColumn(value: "\(stats.tripCount)", label: "TRIPS")
+                statColumn(value: "\(flightStats.flightCount)", label: "FLIGHTS")
                 Divider().frame(height: 32)
-                statColumn(value: "\(stats.flightCount)", label: "FLIGHTS")
+                statColumn(value: FlightStats.duration(flightStats.totalFlightTime), label: "FLIGHT TIME")
                 Divider().frame(height: 32)
-                statColumn(value: "\(stats.countryCount)", label: "COUNTRIES")
+                statColumn(value: "\(flightStats.airports.count)", label: "AIRPORTS")
                 Divider().frame(height: 32)
-                statColumn(value: "\(stats.daysTogether)", label: "DAYS TOGETHER")
+                statColumn(value: "\(flightStats.airlines.count)", label: "AIRLINES")
             }
             .padding(Theme.Spacing.md)
             .background(theme.primaryTextColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-
-            VStack(spacing: 2) {
-                Text("Different places. Same us.")
-                    .font(.caption)
-                    .foregroundStyle(theme.primaryTextColor.opacity(0.7))
-                Text("Always worth it.")
-                    .font(.caption.italic().weight(.semibold))
-                    .foregroundStyle(theme.accentTextColor)
-            }
-            .padding(.bottom, Theme.Spacing.lg)
         }
         .padding(.horizontal, Theme.Spacing.lg)
-        .frame(width: 320)
-        .background(theme.gradient)
+        .frame(maxWidth: .infinity)
+        .background { themeBackground }
         .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+    }
+
+    /// The `.earth` theme layers real satellite Earth imagery under its usual blue gradient
+    /// (kept at reduced opacity as a tint, so the existing white text stays legible) instead
+    /// of showing a flat color fill on its own. Every other theme is unaffected.
+    @ViewBuilder
+    private var themeBackground: some View {
+        if theme == .earth, let earthGlobeImage {
+            ZStack {
+                Image(uiImage: earthGlobeImage)
+                    .resizable()
+                    .scaledToFill()
+                theme.gradient.opacity(0.55)
+            }
+        } else {
+            theme.gradient
+        }
     }
 
     private func statColumn(value: String, label: String) -> some View {
         VStack(spacing: 2) {
-            Text(value).font(.headline).foregroundStyle(theme.primaryTextColor)
-            Text(label).font(.system(size: 9, weight: .semibold)).foregroundStyle(theme.primaryTextColor.opacity(0.6))
+            Text(value)
+                .font(.headline)
+                .foregroundStyle(theme.primaryTextColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+            Text(label)
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(theme.primaryTextColor.opacity(0.6))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
         }
         .frame(maxWidth: .infinity)
     }
 }
 
 #Preview {
-    SnapshotThemeCard(couple: MockData.couple, stats: MockData.stats, theme: .classic)
+    SnapshotThemeCard(couple: MockData.couple, trips: [], stats: MockData.stats, theme: .classic)
 }
