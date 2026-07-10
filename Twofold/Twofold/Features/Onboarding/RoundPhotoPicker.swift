@@ -15,12 +15,19 @@ import UIKit
 struct RoundPhotoPicker: View {
     var placeholderSystemImage: String = "camera.fill"
     var initialImageData: Data?
+    /// Falls back to the existing remote photo (e.g. `Person.avatarURL`) when there's no local
+    /// `initialImageData` to seed from — without this, a screen like Settings that only ever
+    /// knows the avatar as a URL would show the empty "add a photo" state even when a photo is
+    /// already set, which reads as "my photo didn't save" even though it did.
+    var initialImageURL: URL?
     var size: CGFloat = 100
     var onPick: (Data) -> Void
 
     @State private var selectedItem: PhotosPickerItem?
     @State private var previewImage: Image?
     @State private var isLoading = false
+
+    private var hasImage: Bool { previewImage != nil || initialImageURL != nil }
 
     var body: some View {
         PhotosPicker(selection: $selectedItem, matching: .images) {
@@ -29,26 +36,16 @@ struct RoundPhotoPicker: View {
                     previewImage
                         .resizable()
                         .scaledToFill()
+                } else if let initialImageURL {
+                    AsyncImage(url: initialImageURL) { phase in
+                        if let image = phase.image {
+                            image.resizable().scaledToFill()
+                        } else {
+                            placeholderContent
+                        }
+                    }
                 } else {
-                    // Soft brand-gradient fill with a dashed ring and a "+" badge (below), so
-                    // the empty state reads as an inviting "add a photo" spot rather than a
-                    // plain gray circle.
-                    Circle().fill(
-                        LinearGradient(
-                            colors: [Theme.skyBlue.opacity(0.22), Theme.leafGreen.opacity(0.22)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    Image(systemName: placeholderSystemImage)
-                        .font(.system(size: size * 0.34))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [Theme.skyBlue, Theme.leafGreen],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
+                    placeholderContent
                 }
                 if isLoading {
                     Circle().fill(.black.opacity(0.3))
@@ -58,7 +55,7 @@ struct RoundPhotoPicker: View {
             .frame(width: size, height: size)
             .clipShape(Circle())
             .overlay {
-                if previewImage == nil {
+                if !hasImage {
                     Circle().strokeBorder(
                         LinearGradient(
                             colors: [Theme.skyBlue, Theme.leafGreen],
@@ -70,7 +67,7 @@ struct RoundPhotoPicker: View {
                 }
             }
             .overlay(alignment: .bottomTrailing) {
-                if previewImage == nil {
+                if !hasImage {
                     ZStack {
                         Circle().fill(Theme.skyBlue)
                         Image(systemName: "plus")
@@ -89,6 +86,29 @@ struct RoundPhotoPicker: View {
         }
         .onChange(of: selectedItem) { _, newItem in
             Task { await load(newItem) }
+        }
+    }
+
+    // Soft brand-gradient fill with a dashed ring and a "+" badge (drawn separately above), so
+    // the empty state reads as an inviting "add a photo" spot rather than a plain gray circle.
+    private var placeholderContent: some View {
+        ZStack {
+            Circle().fill(
+                LinearGradient(
+                    colors: [Theme.skyBlue.opacity(0.22), Theme.leafGreen.opacity(0.22)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            Image(systemName: placeholderSystemImage)
+                .font(.system(size: size * 0.34))
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [Theme.skyBlue, Theme.leafGreen],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
         }
     }
 

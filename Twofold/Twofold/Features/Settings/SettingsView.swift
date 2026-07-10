@@ -3,8 +3,11 @@
 //  Twofold
 //
 //  Reached from GlobeHomeView's toolbar. Owns the signed-in user's own profile editing
-//  (name/photo/home city — never the partner's, matching the RLS-enforced "own row only"
-//  rule already used throughout BackendService) plus subscription management and sign-out.
+//  (name/photo/home city). For the partner: their photo and name are always personal and
+//  always editable (your own custom pick/nickname, independent of what they've set for
+//  themselves or for you) — but their home city is only a guess you can set before real
+//  pairing happens, since it's shared/real data once paired. Also owns the couple's
+//  anniversary date, subscription management, and sign-out.
 //
 
 import SwiftUI
@@ -15,7 +18,11 @@ struct SettingsView: View {
 
     @State private var name: String = ""
     @State private var homeCity: Place?
+    @State private var partnerName: String = ""
+    @State private var partnerCity: Place?
+    @State private var anniversaryDate: Date = .now
     @State private var isSaving = false
+    @State private var avatarError: String?
     @State private var showingPaywall = false
     @State private var showingSignOutConfirm = false
     @State private var isSigningOut = false
@@ -24,10 +31,19 @@ struct SettingsView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: Theme.Spacing.md) {
-                    RoundPhotoPicker(placeholderSystemImage: "person.fill", size: 96) { data in
-                        Task { await appModel.updateAvatar(imageData: data) }
+                    RoundPhotoPicker(placeholderSystemImage: "person.fill", initialImageURL: appModel.currentUser.avatarURL, size: 96) { data in
+                        Task {
+                            let success = await appModel.updateAvatar(imageData: data)
+                            avatarError = success ? nil : "Couldn't save your photo — check your connection and try again."
+                        }
                     }
                     .padding(.top, Theme.Spacing.md)
+
+                    if let avatarError {
+                        Text(avatarError)
+                            .font(.caption)
+                            .foregroundStyle(Theme.heartRed)
+                    }
 
                     SectionCard {
                         Text("Your profile").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.subtleInk)
@@ -37,6 +53,14 @@ struct SettingsView: View {
                             .padding()
                             .background(Theme.backgroundGradient.opacity(0.4), in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                         CityMenuPicker(label: "Home city", selection: $homeCity)
+                    }
+
+                    partnerCard
+
+                    SectionCard {
+                        Text("Anniversary").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.subtleInk)
+                        DatePicker("Together since", selection: $anniversaryDate, in: ...Date.now, displayedComponents: .date)
+                            .datePickerStyle(.compact)
                     }
 
                     SectionCard {
@@ -79,6 +103,14 @@ struct SettingsView: View {
                         Task {
                             isSaving = true
                             await appModel.updateProfile(name: name, homeCity: homeCity)
+                            // The nickname is always personal, paired or not — but the city is
+                            // only ever a guess pre-pairing (shared/real once paired, and
+                            // SettingsView doesn't even show an editable field for it then).
+                            await appModel.updatePartnerName(partnerName)
+                            if !appModel.partnerConnected, let partnerCity {
+                                await appModel.updatePartnerHomeCity(partnerCity)
+                            }
+                            await appModel.updateAnniversaryDate(anniversaryDate)
                             isSaving = false
                             dismiss()
                         }
@@ -89,6 +121,9 @@ struct SettingsView: View {
             .onAppear {
                 name = appModel.currentUser.name
                 homeCity = appModel.currentUser.homeCity
+                partnerName = appModel.partner.name
+                partnerCity = appModel.partner.homeCity
+                anniversaryDate = appModel.couple.startedDatingOn
             }
             .sheet(isPresented: $showingPaywall) {
                 NavigationStack { PaywallView() }
@@ -101,6 +136,45 @@ struct SettingsView: View {
                     }
                 }
                 Button("Cancel", role: .cancel) {}
+            }
+        }
+    }
+
+    private var partnerCard: some View {
+        SectionCard {
+            Text("Partner")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Theme.subtleInk)
+
+            RoundPhotoPicker(placeholderSystemImage: "person.fill", initialImageURL: appModel.partner.avatarURL, size: 96) { data in
+                Task { await appModel.updatePartnerAvatar(imageData: data) }
+            }
+            .frame(maxWidth: .infinity)
+
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                TextField("Their name", text: $partnerName)
+                    .textContentType(.givenName)
+                    .textInputAutocapitalization(.words)
+                    .padding()
+                    .background(Theme.backgroundGradient.opacity(0.4), in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                // A nickname is always personal — your partner has their own independent name
+                // for you, and neither side ever overwrites the other's.
+                Text("Just for you — they won't see this name.")
+                    .font(.caption2)
+                    .foregroundStyle(Theme.subtleInk)
+            }
+
+            if appModel.partnerConnected {
+                // Unlike the name, home city is shared/real once paired — not a personal guess.
+                HStack {
+                    Text("City").foregroundStyle(Theme.subtleInk)
+                    Spacer()
+                    Text(appModel.partner.homeCity?.city ?? "—").foregroundStyle(Theme.ink)
+                }
+                .padding()
+                .background(Theme.backgroundGradient.opacity(0.4), in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+            } else {
+                CityMenuPicker(label: "Their city", selection: $partnerCity)
             }
         }
     }

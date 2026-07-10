@@ -161,10 +161,23 @@ enum BackendService {
         try await supabase.auth.signOut()
     }
 
+    /// Everything about a solo (pre-pairing) user worth restoring on relaunch: their own
+    /// profile, plus the anniversary date, their own custom photo of their partner (always
+    /// personal), and their own nickname for their partner (also always personal — see
+    /// `updatePartnerNickname`). `partnerHomeCity` is different: it's only ever a guess until
+    /// a real couple exists, since once paired the city is shared/real, not personal.
+    struct OwnProfileState {
+        var person: Person
+        var partnerName: String?
+        var partnerHomeCity: Place?
+        var partnerAvatarURL: URL?
+        var anniversaryDate: Date?
+    }
+
     /// The signed-in user's own profile — used when they're authenticated but not (yet)
     /// paired with a partner, so `AppModel` can show their real name/photo/city instead of
     /// routing them back through onboarding just because no `couples` row exists yet.
-    static func fetchOwnProfile() async throws -> Person? {
+    static func fetchOwnProfile() async throws -> OwnProfileState? {
         guard let userID = currentUserID else { throw BackendError.notAuthenticated }
         let rows: [ProfileRow] = try await supabase
             .from("profiles")
@@ -175,17 +188,25 @@ enum BackendService {
             .value
         guard let profile = rows.first else { return nil }
 
-        var homeCity: Place?
-        if let placeID = profile.homePlaceId {
-            homeCity = try await fetchPlaces(ids: [placeID])[placeID]
-        }
+        var placeIDs: [UUID] = []
+        if let id = profile.homePlaceId { placeIDs.append(id) }
+        if let id = profile.partnerHomePlaceId { placeIDs.append(id) }
+        let places = try await fetchPlaces(ids: placeIDs)
 
-        return Person(
+        let person = Person(
             id: profile.id,
             name: profile.firstName.isEmpty ? "You" : profile.firstName,
-            homeCity: homeCity,
+            homeCity: profile.homePlaceId.flatMap { places[$0] },
             accentColor: Person.palette[1],
             avatarURL: profile.avatarPath.flatMap { avatarPublicURL(path: $0) }
+        )
+
+        return OwnProfileState(
+            person: person,
+            partnerName: profile.partnerName,
+            partnerHomeCity: profile.partnerHomePlaceId.flatMap { places[$0] },
+            partnerAvatarURL: profile.partnerAvatarPath.flatMap { avatarPublicURL(path: $0) },
+            anniversaryDate: profile.anniversaryDate.flatMap { Self.dateOnlyFormatter.date(from: $0) }
         )
     }
 
@@ -283,6 +304,9 @@ enum BackendService {
         var homePlaceId: UUID?
         var avatarPath: String?
         var partnerAvatarPath: String?
+        var partnerName: String?
+        var partnerHomePlaceId: UUID?
+        var anniversaryDate: String?
 
         enum CodingKeys: String, CodingKey {
             case id
@@ -290,6 +314,9 @@ enum BackendService {
             case homePlaceId = "home_place_id"
             case avatarPath = "avatar_path"
             case partnerAvatarPath = "partner_avatar_path"
+            case partnerName = "partner_name"
+            case partnerHomePlaceId = "partner_home_place_id"
+            case anniversaryDate = "anniversary_date"
         }
     }
 
@@ -306,6 +333,44 @@ enum BackendService {
         try await supabase
             .from("profiles")
             .update(HomeCityUpdate(homePlaceId: placeID))
+            .eq("id", value: userID)
+            .execute()
+    }
+
+    private struct PartnerNameUpdate: Encodable {
+        var partnerName: String
+        enum CodingKeys: String, CodingKey { case partnerName = "partner_name" }
+    }
+
+    /// Stored on the signed-in user's own profile row — this is always *their own, personal*
+    /// name for their partner (a nickname, a pet name, however they think of them), never the
+    /// partner's real data. Unlike `updatePartnerHomeCityGuess`, this stays in effect even
+    /// after real pairing — two partners can each have a different name for the other, and
+    /// neither overwrites the other's. Falls back to the partner's real `first_name` only when
+    /// this is empty (see `fetchCoupleState`'s `person(for:nameOverride:...)`).
+    static func updatePartnerNickname(_ name: String) async throws {
+        guard let userID = currentUserID else { throw BackendError.notAuthenticated }
+        try await supabase
+            .from("profiles")
+            .update(PartnerNameUpdate(partnerName: name))
+            .eq("id", value: userID)
+            .execute()
+    }
+
+    private struct PartnerHomeCityUpdate: Encodable {
+        var partnerHomePlaceId: UUID
+        enum CodingKeys: String, CodingKey { case partnerHomePlaceId = "partner_home_place_id" }
+    }
+
+    /// Unlike `updatePartnerNickname`, this one *is* just a pre-pairing guess — the signed-in
+    /// user's best guess at their partner's city, superseded by the partner's own real
+    /// `home_place_id` once actually paired (home city is shared/real, not personal).
+    static func updatePartnerHomeCityGuess(_ place: Place) async throws {
+        guard let userID = currentUserID else { throw BackendError.notAuthenticated }
+        let placeID = try await findOrCreatePlaceID(place)
+        try await supabase
+            .from("profiles")
+            .update(PartnerHomeCityUpdate(partnerHomePlaceId: placeID))
             .eq("id", value: userID)
             .execute()
     }
@@ -342,6 +407,20 @@ enum BackendService {
         try? supabase.storage.from("avatars").getPublicURL(path: path)
     }
 
+    /// Every avatar lives at a fixed, deterministic path (`{userID}/avatar.jpg`) so re-uploads
+    /// overwrite rather than accumulate — but that means `avatarPublicURL` returns the exact
+    /// same URL string before and after a re-upload, and `AsyncImage`/`URLCache` then keep
+    /// showing the stale cached image instead of fetching the new one. Appending a
+    /// cache-busting query item makes each fresh upload's URL genuinely new. Only used right
+    /// after an upload succeeds — regular reads (`fetchCoupleState`, `fetchOwnProfile`) still
+    /// use the plain cacheable URL, since nothing changed for those.
+    private static func freshAvatarURL(path: String) -> URL? {
+        guard let base = avatarPublicURL(path: path),
+              var components = URLComponents(url: base, resolvingAgainstBaseURL: false) else { return nil }
+        components.queryItems = [URLQueryItem(name: "v", value: "\(Int(Date().timeIntervalSince1970 * 1000))")]
+        return components.url
+    }
+
     /// Uploads the signed-in user's profile photo (JPEG data), points their profile at it,
     /// and returns the public URL for immediate local use.
     @discardableResult
@@ -361,7 +440,7 @@ enum BackendService {
             .eq("id", value: userID)
             .execute()
 
-        guard let url = avatarPublicURL(path: path) else { throw BackendError.avatarURLFailed }
+        guard let url = freshAvatarURL(path: path) else { throw BackendError.avatarURLFailed }
         return url
     }
 
@@ -386,7 +465,7 @@ enum BackendService {
             .eq("id", value: userID)
             .execute()
 
-        guard let url = avatarPublicURL(path: path) else { throw BackendError.avatarURLFailed }
+        guard let url = freshAvatarURL(path: path) else { throw BackendError.avatarURLFailed }
         return url
     }
 
@@ -508,11 +587,12 @@ enum BackendService {
         for row in memoryRows { placeIDs.insert(row.placeId) }
         let places = try await fetchPlaces(ids: Array(placeIDs))
 
-        func person(for profile: ProfileRow, avatarOverridePath: String?, paletteIndex: Int) -> Person {
+        func person(for profile: ProfileRow, nameOverride: String?, avatarOverridePath: String?, paletteIndex: Int) -> Person {
             let avatarPath = avatarOverridePath ?? profile.avatarPath
+            let name = (nameOverride?.isEmpty == false) ? nameOverride! : (profile.firstName.isEmpty ? "Partner" : profile.firstName)
             return Person(
                 id: profile.id,
-                name: profile.firstName.isEmpty ? "Partner" : profile.firstName,
+                name: name,
                 homeCity: profile.homePlaceId.flatMap { places[$0] },
                 accentColor: Person.palette[paletteIndex],
                 avatarURL: avatarPath.flatMap { avatarPublicURL(path: $0) }
@@ -521,11 +601,14 @@ enum BackendService {
 
         let couple = Couple(
             id: coupleRow.id,
-            // My own avatar is always my own choice — nobody overrides how I see myself.
-            partnerA: person(for: meProfile, avatarOverridePath: nil, paletteIndex: 1),
-            // My partner's avatar, as *I* see them: my own custom pick if I've set one,
-            // otherwise whatever photo they picked for themselves.
-            partnerB: person(for: partnerProfile, avatarOverridePath: meProfile.partnerAvatarPath, paletteIndex: 0),
+            // Nobody overrides how I see myself — my own name and avatar are always my own.
+            partnerA: person(for: meProfile, nameOverride: nil, avatarOverridePath: nil, paletteIndex: 1),
+            // My partner, as *I* personally see them: a nickname if I've set one (independent
+            // of whatever nickname, if any, they've set for me — each side's `partner_name`
+            // lives on their own profile row), otherwise their real first name. Same idea for
+            // the avatar — my own custom photo of them if I've set one, otherwise their own.
+            // Home city is never overridden — that one's always shared/real once paired.
+            partnerB: person(for: partnerProfile, nameOverride: meProfile.partnerName, avatarOverridePath: meProfile.partnerAvatarPath, paletteIndex: 0),
             startedDatingOn: .now
         )
 

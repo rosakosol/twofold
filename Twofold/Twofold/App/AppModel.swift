@@ -105,7 +105,19 @@ final class AppModel {
         if let state = try? await BackendService.fetchCoupleState() {
             await adopt(state)
         } else if let profile = try? await BackendService.fetchOwnProfile() {
-            couple.partnerA = profile
+            couple.partnerA = profile.person
+            if let partnerName = profile.partnerName, !partnerName.isEmpty {
+                couple.partnerB.name = partnerName
+            }
+            if let partnerHomeCity = profile.partnerHomeCity {
+                couple.partnerB.homeCity = partnerHomeCity
+            }
+            if let partnerAvatarURL = profile.partnerAvatarURL {
+                couple.partnerB.avatarURL = partnerAvatarURL
+            }
+            if let anniversaryDate = profile.anniversaryDate {
+                couple.startedDatingOn = anniversaryDate
+            }
         }
         hasCouple = true
     }
@@ -148,10 +160,51 @@ final class AppModel {
         }
     }
 
-    func updateAvatar(imageData: Data) async {
+    @discardableResult
+    func updateAvatar(imageData: Data) async -> Bool {
         if let url = try? await BackendService.uploadAvatar(imageData: imageData) {
             couple.partnerA.avatarURL = url
+            return true
         }
+        return false
+    }
+
+    /// Always editable, paired or not — this is *your own, personal* name for your partner
+    /// (a nickname, a pet name, whatever you call them), never their real account data. Your
+    /// partner has their own independent nickname for you, if they've set one; neither side
+    /// overwrites the other's. See `BackendService.updatePartnerNickname`.
+    func updatePartnerName(_ name: String) async {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty, trimmed != couple.partnerB.name else { return }
+        try? await BackendService.updatePartnerNickname(trimmed)
+        couple.partnerB.name = trimmed
+    }
+
+    /// Unlike the name (always personal), the city is shared/real once paired — only
+    /// meaningful to set here before that, as a personalization guess. `SettingsView` disables
+    /// this field once `partnerConnected` is true.
+    func updatePartnerHomeCity(_ city: Place) async {
+        guard city.id != couple.partnerB.homeCity?.id else { return }
+        try? await BackendService.updatePartnerHomeCityGuess(city)
+        couple.partnerB.homeCity = city
+    }
+
+    /// Always personal, paired or not — it's always *your own* custom photo of your partner,
+    /// independent of whatever avatar they picked for themselves (see
+    /// `BackendService.uploadPartnerAvatar`).
+    @discardableResult
+    func updatePartnerAvatar(imageData: Data) async -> Bool {
+        if let url = try? await BackendService.uploadPartnerAvatar(imageData: imageData) {
+            couple.partnerB.avatarURL = url
+            return true
+        }
+        return false
+    }
+
+    func updateAnniversaryDate(_ date: Date) async {
+        guard date != couple.startedDatingOn else { return }
+        try? await BackendService.updateAnniversaryDate(date)
+        couple.startedDatingOn = date
     }
 
     /// Re-checks backend couple state without touching `isLoadingSession` — picks up a
@@ -257,9 +310,11 @@ final class AppModel {
         }
 
         if !onboarding.partnerName.isEmpty {
+            try? await BackendService.updatePartnerNickname(onboarding.partnerName)
             couple.partnerB.name = onboarding.partnerName
         }
         if let partnerCity = onboarding.partnerCity {
+            try? await BackendService.updatePartnerHomeCityGuess(partnerCity)
             couple.partnerB.homeCity = partnerCity
         }
 
