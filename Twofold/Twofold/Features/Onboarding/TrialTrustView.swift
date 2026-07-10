@@ -43,7 +43,7 @@ struct TrialTrustView: View {
                     .onAppear {
                         for index in points.indices {
                             withAnimation(.spring(response: 0.45, dampingFraction: 0.7).delay(0.15 + Double(index) * 0.15)) {
-                                shownPoints.insert(index)
+                                _ = shownPoints.insert(index)
                             }
                         }
                     }

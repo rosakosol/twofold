@@ -94,7 +94,7 @@ struct NotificationsSellView: View {
                 .onAppear {
                     for index in previews.indices {
                         withAnimation(.spring(response: 0.45, dampingFraction: 0.62).delay(0.2 + Double(index) * 0.35)) {
-                            shownCards.insert(index)
+                            _ = shownCards.insert(index)
                         }
                     }
                 }

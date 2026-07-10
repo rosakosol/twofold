@@ -22,12 +22,7 @@ struct StatsView: View {
                             .font(.headline)
                             .foregroundStyle(Theme.subtleInk)
 
-                        (Text(appModel.stats.totalDistanceKm, format: .number.precision(.fractionLength(0)))
-                            .font(.system(size: 44, weight: .bold, design: .rounded))
-                            .foregroundStyle(Theme.skyBlue)
-                        + Text(" km")
-                            .font(.title.weight(.bold))
-                            .foregroundStyle(Theme.leafGreen))
+                        Text("\(Text(appModel.stats.totalDistanceKm, format: .number.precision(.fractionLength(0))).font(.system(size: 44, weight: .bold, design: .rounded)).foregroundStyle(Theme.skyBlue))\(Text(" km").font(.title.weight(.bold)).foregroundStyle(Theme.leafGreen))")
 
                         Text("for each other")
                             .font(.headline)

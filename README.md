@@ -577,6 +577,93 @@ Update trip and partner travel state
 
 Twofold should use event-driven flight tracking rather than continuously polling flight status.
 
+## Current Implementation
+
+This section documents the actual native iOS codebase as it exists today (SwiftUI, Xcode project at `Twofold/Twofold.xcodeproj`), as distinct from the product vision above. Some of what's described above is fully real and backend-connected already; other parts are still UI-only groundwork waiting to be wired up.
+
+### Tech Stack
+
+* **SwiftUI** (`@Observable` state, `NavigationStack`-based navigation throughout)
+* **Supabase** — auth, Postgres backend, and file storage (`Services/SupabaseClient.swift`, `Services/BackendService.swift` — every backend call in the app goes through this one file)
+* **Sign in with Apple** and **Google Sign-In**, alongside email/password
+* **MapKit** — the relationship globe is a real 3D globe (`Map` at extreme camera distance with `.hybrid`/`.imagery` styles), not a custom 3D engine
+* **StoreKit 2** — real subscription purchase flow, testable locally via a `.storekit` configuration file wired into the Xcode scheme
+* **PhotosUI** — profile photo and memory photo picking
+
+### Xcode Targets
+
+* **Twofold** — the main app
+* **TwofoldShareExtension** — a Share Extension for importing forwarded flight confirmation emails/screenshots. It deliberately does almost nothing itself (queues the shared text into an App Group container); parsing happens back in the main app via a Supabase Edge Function (`Services/FlightEmailParsingService.swift`) and a review screen (`PendingFlightShareReviewView`)
+* **TwofoldTests** / **TwofoldUITests** — test targets (currently mostly boilerplate)
+* No Widget Extension target exists yet, which is why Live Activities aren't wired up — see "What's real vs. not yet" below
+
+### Directory Structure (`Twofold/Twofold/`)
+
+* `App/` — `AppModel.swift`, the single `@Observable` root store (session, couple, trips, memories)
+* `Navigation/` — `RootView.swift` (session-gated: loading → onboarding → main app), `MainTabView.swift` (Globe / Trips / Memories / Stats tabs)
+* `Features/Onboarding/` — the full onboarding flow (every screen listed below)
+* `Features/Globe/` — home screen, relationship globe, home-city picker, timezone card
+* `Features/Trips/` — trip list, filtering, row UI
+* `Features/Flights/` — live flight tracking screen, add-flight sheet, pending-share review
+* `Features/Memories/` — memory map, add-memory sheet, memory detail
+* `Features/Stats/` — relationship statistics screen
+* `Features/Paywall/` — `SubscriptionStore.swift` (real StoreKit 2) and `PaywallView.swift`
+* `Features/Settings/` — profile editing (name/photo/home city), manage subscription, sign out
+* `Features/Snapshot/` — shareable journey snapshot generation
+* `DesignSystem/` — `Theme.swift` (colors/spacing/fonts) and shared components (`SectionCard`, `AvatarView`, `CityMenuPicker`, etc.)
+* `Models/` — backend-agnostic value types (`Person`, `Couple`, `Trip`, `Flight`, `Place`, `Memory`, `Geo`)
+* `Services/` — `BackendService.swift`, `SupabaseClient.swift`, `CitySearchCompleter.swift`, `FlightEmailParsingService.swift`, `NameModerationService.swift`
+* `LiveActivity/` — `JourneyActivityAttributes.swift`, an `ActivityAttributes` struct only — scaffolding for a Live Activity that doesn't run anywhere yet
+* `Mock/` — `MockData.swift`, used by SwiftUI previews
+
+### Onboarding — every screen, in flow order
+
+`WelcomeView` is the entry point for both of the two paths below.
+
+**1. Default "Get started" flow** (`OnboardingModel.defaultFlowSteps` — drives the progress bar shown on every screen in this list). Everything is collected as local personalization first; no account exists until step 18.
+
+1. `WelcomeView` — hero screen with the animated globe background, "Get started" / "I have an account or invite"
+2. `RelationshipSituationView` — long distance / live together but travel often / temporarily apart / haven't met yet / something else
+3. `FrequencyView` — how often you see each other (options shown depend on the answer to step 2)
+4. `AttributionView` — how they heard about Twofold
+5. `GoalsView` — multi-select: what would make time apart easier
+6. `YourNameView`
+7. `PartnerNameView`
+8. `GenderView` — yours and your partner's, Male ♂️ / Female ♀️ cards
+9. `BenchmarkView` — recognition copy generated from situation + frequency + name
+10. `CoupleLocationsView` — home cities (collapses to a single "City" field if step 2 was "live together")
+11. `PersonalizedInsightView` — distance/timezone reward screen
+12. `NotificationsSellView` — mock notification previews; the permission request itself is real
+13. `LiveActivitySellView` — Lock Screen/Dynamic Island marketing screen (no real Live Activity behind it yet)
+14. `WidgetSellView` — Home Screen widget marketing screen
+15. `AddFirstFlightView` — optional first flight number + date
+16. `TwofoldPreviewView` — preview of everything set up so far
+17. `TrialTrustView` — free-trial reassurance screen
+18. `SaveAccountView` — real account creation (Apple/Google/email) — everything collected above is persisted to the backend here
+19. `PaywallView` — real StoreKit 2 purchase flow
+20. `PurchaseSuccessView` — success screen, hands off into `MainTabView`
+
+**2. Preserved deep-link / manual-invite path** — for someone opening a real partner's invite link, or choosing "I have an account or invite" → "Have an invite code instead?" from `SignInView`:
+
+* `SignInView` — email/password or Apple/Google sign-in for a *returning* user; presented as a sheet from `WelcomeView`, not part of the step list above
+* `EnterPartnerCodeView` — manual invite code entry
+* `JoinInviteView` — landing screen for a real invite deep link
+* `CreateAccountView` — account creation for the invitee
+* `HomeCityView`
+* `AddPhotoView`
+* `ConnectedRevealView` — confirms pairing succeeded
+* `ConnectPartnerView` / `ShareInviteView` — the inviter's side: generate and share an invite code
+* `NextTripView` / `AddTripDetailsView` (`mode: .onboarding`) — optionally add a first trip
+* `OnboardingRevealView` — final reveal before landing in the app
+
+`AddTripDetailsView` is also reused entirely outside onboarding (`mode: .standalone`) — it's the same sheet the home screen's "Add your next trip" card and the Trips tab's own add button both open.
+
+### What's real vs. not yet
+
+* **Real, backend-connected**: auth (Apple/Google/email), couple pairing via invite codes, home cities, trips, memories (with photo upload), relationship stats, profile editing, sign-out, StoreKit 2 purchases (locally testable now; real App Store Connect products still needed before shipping)
+* **Real but self-reported**: flight tracking — there's no aviation-schedule API integration yet, so flight numbers/times are exactly what the user enters, not independently verified. Wiring up a real provider is intentionally on hold for now.
+* **UI-only / not wired up yet**: Live Activities (marketing screen only, no `ActivityKit` calls, no Widget Extension target), push notifications (permission is requested for real, but nothing server-side sends a push yet — the "Get notified when they land" toggle on the flight tracking screen is currently cosmetic)
+
 ## Future Ideas
 
 Potential future features include:

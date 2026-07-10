@@ -15,6 +15,7 @@ struct WelcomeView: View {
     @State private var globeCamera: MapCameraPosition = .camera(
         MapCamera(centerCoordinate: globeCenter, distance: 30_000_000, heading: 0, pitch: 0)
     )
+    @State private var iconPulsing = false
 
     var body: some View {
         ZStack {
@@ -47,9 +48,16 @@ struct WelcomeView: View {
                 Spacer()
 
                 VStack(spacing: Theme.Spacing.md) {
-                    Image(systemName: "heart.text.square")
-                        .font(.system(size: 72))
-                        .foregroundStyle(.white)
+                    Image("GlobeHeart")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 96, height: 96)
+                        .scaleEffect(iconPulsing ? 1.08 : 1.0)
+                        .onAppear {
+                            withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) {
+                                iconPulsing = true
+                            }
+                        }
                     Text("twofold")
                         .font(.system(size: 56, weight: .regular, design: .serif))
                         .foregroundStyle(.white)
