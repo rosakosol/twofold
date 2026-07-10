@@ -38,8 +38,20 @@ enum Theme {
     static let ink = Color(hex: "1C2A38")
     static let subtleInk = Color(hex: "5B6B7A")
 
+    /// Bottom color of `backgroundGradient`, exposed so pinned bottom bars can fade
+    /// scrolled content into the exact color the screen background ends on.
+    static let backgroundBottom = Color(hex: "E4F4E6")
+
     static let backgroundGradient = LinearGradient(
-        colors: [Color(hex: "D9EEF9"), Color(hex: "E4F4E6")],
+        colors: [Color(hex: "D9EEF9"), backgroundBottom],
+        startPoint: .top,
+        endPoint: .bottom
+    )
+
+    /// Blue gradient for primary action buttons — lighter at the top, deeper at the
+    /// bottom (centered on `skyBlue`) to give the capsule a subtle sense of depth.
+    static let primaryButtonGradient = LinearGradient(
+        colors: [Color(hex: "6EC1F0"), Color(hex: "3D8FC9")],
         startPoint: .top,
         endPoint: .bottom
     )

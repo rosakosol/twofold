@@ -21,7 +21,7 @@ struct SnapshotThemeCard: View {
                 }
                 .foregroundStyle(theme.primaryTextColor)
 
-                Text("SEE HOW FAR YOU'VE GONE FOR EACH OTHER.")
+                Text(couple.sharesHomeCity ? "SEE HOW FAR YOU'VE GONE TOGETHER." : "SEE HOW FAR YOU'VE GONE FOR EACH OTHER.")
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(theme.primaryTextColor.opacity(0.6))
                     .tracking(1)
@@ -37,7 +37,7 @@ struct SnapshotThemeCard: View {
                     .font(.system(size: 52, weight: .bold, design: .rounded))
                     .foregroundStyle(theme.accentTextColor)
 
-                Text("for each other ♡")
+                Text(couple.sharesHomeCity ? "together ♡" : "for each other ♡")
                     .font(.subheadline.italic())
                     .foregroundStyle(theme.primaryTextColor.opacity(0.8))
             }

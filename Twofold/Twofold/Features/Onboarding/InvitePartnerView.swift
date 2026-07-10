@@ -35,7 +35,7 @@ struct InvitePartnerView: View {
 
     var body: some View {
         OnboardingScaffold(
-            title: "Connect with \(onboarding.partnerName) ❤️",
+            title: "Connect with \(onboarding.partnerName) 💞",
             subtitle: "Send them your code, or enter theirs to connect right now.",
             content: {
                 VStack(spacing: Theme.Spacing.lg) {

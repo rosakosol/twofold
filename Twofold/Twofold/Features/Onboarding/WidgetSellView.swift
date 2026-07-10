@@ -53,7 +53,7 @@ struct WidgetSellView: View {
 
     var body: some View {
         OnboardingScaffold(
-            title: "Twofold, right on your Home Screen.",
+            title: "Stay updated with Widgets",
             subtitle: "Swipe to see what you can add.",
             content: {
                 VStack(spacing: Theme.Spacing.sm) {

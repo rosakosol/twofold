@@ -26,8 +26,7 @@ struct OnboardingScaffold<Content: View>: View {
 
     /// Screens like `SaveAccountView` skip the shared primary/secondary button entirely (they
     /// have their own inline buttons instead) — `.safeAreaInset` would otherwise still reserve
-    /// an empty padded, blurred-material strip at the bottom for nothing, which shows up as a
-    /// stray pale rectangle over their content.
+    /// an empty padded strip at the bottom for nothing, needlessly pushing their content up.
     private var hasBottomBar: Bool {
         (primaryTitle != nil && primaryAction != nil) || (secondaryTitle != nil && secondaryAction != nil)
     }
@@ -91,7 +90,12 @@ struct OnboardingScaffold<Content: View>: View {
                     .frame(maxWidth: .infinity)
                     .padding()
                 }
-                .background(primaryDisabled ? Theme.subtleInk.opacity(0.3) : Theme.skyBlue, in: Capsule())
+                .background(
+                    primaryDisabled
+                        ? AnyShapeStyle(Theme.subtleInk.opacity(0.3))
+                        : AnyShapeStyle(Theme.primaryButtonGradient),
+                    in: Capsule()
+                )
                 .foregroundStyle(.white)
                 .disabled(primaryDisabled)
             }
@@ -102,7 +106,21 @@ struct OnboardingScaffold<Content: View>: View {
             }
         }
         .padding(Theme.Spacing.lg)
-        .background(.regularMaterial)
+        // Soft scrim: scrolled content dissolves as it passes under the pinned buttons
+        // instead of showing through at full strength. Fades from clear at the top edge
+        // to the exact bottom color of `backgroundGradient`, so the strip reads as part
+        // of the seamless background rather than a bar.
+        .background(
+            LinearGradient(
+                stops: [
+                    .init(color: Theme.backgroundBottom.opacity(0), location: 0),
+                    .init(color: Theme.backgroundBottom, location: 0.4),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+        )
     }
 }
 

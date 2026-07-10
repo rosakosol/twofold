@@ -339,13 +339,13 @@ The first tracked flight allows couples to experience Twofold's live flight expe
 
 ### Twofold+
 
-**A$9.99/month**
+**A$7.99/month**
 
-**A$69.99/year**
+**A$49.99/year**
 
 Includes:
 
-* Up to 10 live tracked flights per month
+* Up to 5 live tracked flights per month
 * Flight departure notifications
 * Landing soon notifications
 * Flight arrival notifications
@@ -367,7 +367,7 @@ Designed for most long-distance couples.
 
 Includes:
 
-* Up to 100 live tracked flights per month
+* Up to 50 live tracked flights per month
 * Flight departure notifications
 * Landing soon notifications
 * Flight arrival notifications

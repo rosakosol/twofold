@@ -8,37 +8,48 @@ import MapKit
 
 struct WelcomeView: View {
     @Environment(OnboardingModel.self) private var onboarding
+
     @State private var showingSignIn = false
+    @State private var iconPulsing = false
+
     // Centered further east/south than a plain Europe/Africa view so Australia is in frame
     // alongside Asia and Africa; distance bumped up slightly to fit that wider span.
-    private static let globeCenter = CLLocationCoordinate2D(latitude: -20, longitude: 115)
-    @State private var globeCamera: MapCameraPosition = .camera(
-        MapCamera(centerCoordinate: globeCenter, distance: 30_000_000, heading: 0, pitch: 0)
+    private static let globeCenter = CLLocationCoordinate2D(
+        latitude: -20,
+        longitude: 115
     )
-    @State private var iconPulsing = false
+
+    @State private var globeCamera: MapCameraPosition = .camera(
+        MapCamera(
+            centerCoordinate: globeCenter,
+            distance: 30_000_000,
+            heading: 0,
+            pitch: 0
+        )
+    )
 
     var body: some View {
         ZStack {
-            // Same real MapKit-as-3D-globe technique used throughout the app (see
-            // RelationshipGlobeView) — not an SF Symbol watermark — with a slow continuous
-            // rotation, faded under the gradient so the welcome copy stays readable. Spins via
-            // `heading` (not `centerCoordinate`) — MapKit throws if longitude ever leaves
-            // -180...180, so animating heading 0→360 is what actually keeps this valid; 360
-            // renders identically to 0, so the reset at each loop is seamless.
-            Map(position: $globeCamera, interactionModes: [])
-                .mapStyle(.imagery(elevation: .realistic))
-                .allowsHitTesting(false)
-                .ignoresSafeArea()
-                .onAppear {
-                    withAnimation(.linear(duration: 90).repeatForever(autoreverses: false)) {
-                        globeCamera = .camera(
-                            MapCamera(centerCoordinate: Self.globeCenter, distance: 30_000_000, heading: 360, pitch: 0)
-                        )
-                    }
-                }
+            // Same real MapKit-as-3D-globe technique used throughout the app.
+            // This globe is decorative rather than interactive.
+            Map(
+                position: $globeCamera,
+                interactionModes: []
+            )
+            .mapStyle(
+                .imagery(elevation: .realistic)
+            )
+            .allowsHitTesting(false)
+            .ignoresSafeArea()
+            .padding(.bottom, -80)
 
+            // Twofold brand wash
             LinearGradient(
-                colors: [Color(hex: "1E3A5F").opacity(0.82), Color(hex: "3E7CA6").opacity(0.78), Color(hex: "6FBF8B").opacity(0.82)],
+                colors: [
+                    Color(hex: "1E3A5F").opacity(0.82),
+                    Color(hex: "3E7CA6").opacity(0.78),
+                    Color(hex: "6FBF8B").opacity(0.82),
+                ],
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -47,23 +58,44 @@ struct WelcomeView: View {
             VStack(spacing: Theme.Spacing.lg) {
                 Spacer()
 
+                // MARK: - Brand
+
                 VStack(spacing: Theme.Spacing.md) {
                     Image("GlobeHeart")
                         .resizable()
                         .scaledToFit()
-                        .frame(width: 96, height: 96)
-                        .scaleEffect(iconPulsing ? 1.08 : 1.0)
+                        .frame(
+                            width: 96,
+                            height: 96
+                        )
+                        .scaleEffect(
+                            iconPulsing ? 1.08 : 1.0
+                        )
                         .onAppear {
-                            withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) {
+                            withAnimation(
+                                .easeInOut(duration: 1.1)
+                                .repeatForever(
+                                    autoreverses: true
+                                )
+                            ) {
                                 iconPulsing = true
                             }
                         }
+
                     Text("twofold")
-                        .font(.system(size: 56, weight: .regular, design: .serif))
+                        .font(
+                            .system(
+                                size: 56,
+                                weight: .regular,
+                                design: .serif
+                            )
+                        )
                         .foregroundStyle(.white)
                 }
 
                 Spacer()
+
+                // MARK: - Actions
 
                 VStack(spacing: Theme.Spacing.md) {
                     Button {
@@ -82,21 +114,35 @@ struct WelcomeView: View {
                         showingSignIn = true
                     } label: {
                         Text("I have an account or invite")
-                            .font(.subheadline.weight(.medium))
+                            .font(
+                                .subheadline.weight(.medium)
+                            )
                             .foregroundStyle(.white)
                     }
                 }
-                .padding(.horizontal, Theme.Spacing.lg)
-                .padding(.bottom, Theme.Spacing.xl)
+                .padding(
+                    .horizontal,
+                    Theme.Spacing.lg
+                )
+                .padding(
+                    .bottom,
+                    Theme.Spacing.xl
+                )
             }
         }
-        .sheet(isPresented: $showingSignIn) {
-            SignInView(onUseInvite: {
-                showingSignIn = false
-                onboarding.role = .invitee
-                onboarding.hasAccount = false
-                onboarding.path.append(.enterPartnerCode)
-            })
+        .sheet(
+            isPresented: $showingSignIn
+        ) {
+            SignInView(
+                onUseInvite: {
+                    showingSignIn = false
+                    onboarding.role = .invitee
+                    onboarding.hasAccount = false
+                    onboarding.path.append(
+                        .enterPartnerCode
+                    )
+                }
+            )
         }
     }
 }

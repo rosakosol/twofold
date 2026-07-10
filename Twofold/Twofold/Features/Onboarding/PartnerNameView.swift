@@ -14,11 +14,10 @@ struct PartnerNameView: View {
     @Environment(OnboardingModel.self) private var onboarding
     @State private var name: String = ""
     @State private var errorMessage: String?
-    @State private var isValidating = false
 
     var body: some View {
         OnboardingScaffold(
-            title: "And your partner? ❤️",
+            title: "And your partner?",
             centered: true,
             content: {
                 VStack(spacing: Theme.Spacing.lg) {
@@ -44,8 +43,7 @@ struct PartnerNameView: View {
             },
             primaryTitle: "Continue",
             primaryAction: validateAndContinue,
-            primaryDisabled: isValidating || name.trimmingCharacters(in: .whitespaces).isEmpty,
-            primaryLoading: isValidating
+            primaryDisabled: name.trimmingCharacters(in: .whitespaces).isEmpty
         )
         .onAppear { name = onboarding.partnerName }
     }
@@ -57,18 +55,14 @@ struct PartnerNameView: View {
             return
         }
 
-        errorMessage = nil
-        isValidating = true
-        Task {
-            let offensive = await NameModerationService.isOffensive(trimmed)
-            isValidating = false
-            guard !offensive else {
-                errorMessage = "Please enter an appropriate name."
-                return
-            }
-            onboarding.partnerName = trimmed
-            onboarding.path.append(.gender)
+        guard !NameValidator.isInappropriate(trimmed) else {
+            errorMessage = "Please enter an appropriate name."
+            return
         }
+
+        errorMessage = nil
+        onboarding.partnerName = trimmed
+        onboarding.path.append(.gender)
     }
 }
 

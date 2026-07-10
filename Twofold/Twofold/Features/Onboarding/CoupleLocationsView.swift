@@ -20,7 +20,7 @@ struct CoupleLocationsView: View {
 
     var body: some View {
         OnboardingScaffold(
-            title: "Where in the world are you two? 🌍",
+            title: "Where are you two based? 🌍",
             centered: true,
             content: {
                 VStack(spacing: Theme.Spacing.md) {

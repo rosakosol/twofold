@@ -30,10 +30,25 @@ struct RoundPhotoPicker: View {
                         .resizable()
                         .scaledToFill()
                 } else {
-                    Circle().fill(Theme.cardBackground)
+                    // Soft brand-gradient fill with a dashed ring and a "+" badge (below), so
+                    // the empty state reads as an inviting "add a photo" spot rather than a
+                    // plain gray circle.
+                    Circle().fill(
+                        LinearGradient(
+                            colors: [Theme.skyBlue.opacity(0.22), Theme.leafGreen.opacity(0.22)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
                     Image(systemName: placeholderSystemImage)
-                        .font(.title2)
-                        .foregroundStyle(Theme.subtleInk)
+                        .font(.system(size: size * 0.34))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [Theme.skyBlue, Theme.leafGreen],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
                 }
                 if isLoading {
                     Circle().fill(.black.opacity(0.3))
@@ -42,6 +57,30 @@ struct RoundPhotoPicker: View {
             }
             .frame(width: size, height: size)
             .clipShape(Circle())
+            .overlay {
+                if previewImage == nil {
+                    Circle().strokeBorder(
+                        LinearGradient(
+                            colors: [Theme.skyBlue, Theme.leafGreen],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        style: StrokeStyle(lineWidth: 2, dash: [6, 5])
+                    )
+                }
+            }
+            .overlay(alignment: .bottomTrailing) {
+                if previewImage == nil {
+                    ZStack {
+                        Circle().fill(Theme.skyBlue)
+                        Image(systemName: "plus")
+                            .font(.system(size: size * 0.14, weight: .bold))
+                            .foregroundStyle(.white)
+                    }
+                    .frame(width: size * 0.3, height: size * 0.3)
+                    .overlay(Circle().strokeBorder(.white, lineWidth: 2))
+                }
+            }
         }
         .buttonStyle(.plain)
         .onAppear {

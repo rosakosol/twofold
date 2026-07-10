@@ -18,6 +18,14 @@ struct Couple: Identifiable, Hashable {
         self.startedDatingOn = startedDatingOn
     }
 
+    /// Whether both partners share the same home city — used to soften copy that would
+    /// otherwise frame all travel as done "for each other" (stats hero, snapshot card),
+    /// which doesn't fit couples who live together and travel side by side.
+    var sharesHomeCity: Bool {
+        guard let a = partnerA.homeCity, let b = partnerB.homeCity else { return false }
+        return a.city == b.city && a.country == b.country
+    }
+
     func partner(_ id: Person.ID) -> Person? {
         [partnerA, partnerB].first { $0.id == id }
     }

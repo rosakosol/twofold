@@ -17,7 +17,7 @@ struct MainTabView: View {
             Tab("Memories", systemImage: "photo.on.rectangle.angled") {
                 MemoriesMapView()
             }
-            Tab("Stats", systemImage: "chart.bar.fill") {
+            Tab("Passport", systemImage: "book.closed.fill") {
                 StatsView()
             }
         }

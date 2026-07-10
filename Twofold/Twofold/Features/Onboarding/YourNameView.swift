@@ -9,11 +9,10 @@ struct YourNameView: View {
     @Environment(OnboardingModel.self) private var onboarding
     @State private var name: String = ""
     @State private var errorMessage: String?
-    @State private var isValidating = false
 
     var body: some View {
         OnboardingScaffold(
-            title: "What should we call you?",
+            title: "What's your name?",
             centered: true,
             content: {
                 VStack(spacing: Theme.Spacing.lg) {
@@ -23,7 +22,7 @@ struct YourNameView: View {
                     .frame(maxWidth: .infinity)
 
                     VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                        TextField("First name", text: $name)
+                        TextField("Your name", text: $name)
                             .textContentType(.givenName)
                             .padding()
                             .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
@@ -39,8 +38,7 @@ struct YourNameView: View {
             },
             primaryTitle: "Continue",
             primaryAction: validateAndContinue,
-            primaryDisabled: isValidating || name.trimmingCharacters(in: .whitespaces).isEmpty,
-            primaryLoading: isValidating
+            primaryDisabled: name.trimmingCharacters(in: .whitespaces).isEmpty
         )
         .onAppear { name = onboarding.firstName }
     }
@@ -52,18 +50,14 @@ struct YourNameView: View {
             return
         }
 
-        errorMessage = nil
-        isValidating = true
-        Task {
-            let offensive = await NameModerationService.isOffensive(trimmed)
-            isValidating = false
-            guard !offensive else {
-                errorMessage = "Please enter an appropriate name."
-                return
-            }
-            onboarding.firstName = trimmed
-            onboarding.path.append(.partnerName)
+        guard !NameValidator.isInappropriate(trimmed) else {
+            errorMessage = "Please enter an appropriate name."
+            return
         }
+
+        errorMessage = nil
+        onboarding.firstName = trimmed
+        onboarding.path.append(.partnerName)
     }
 }
 

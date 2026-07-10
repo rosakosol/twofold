@@ -50,19 +50,14 @@ struct LiveActivitySellView: View {
 
     var body: some View {
         OnboardingScaffold(
-            title: "Keep \(partnerName.prefix(1).uppercased() + partnerName.dropFirst())'s journey close.",
-            subtitle: "Follow \(partnerName)'s flight from your Lock Screen",
+            title: "Keep \(partnerName.prefix(1).uppercased() + partnerName.dropFirst())'s journey close",
+            subtitle: "Follow \(partnerName)'s flight from your Lock Screen with Live Activities.",
             content: {
                 VStack(spacing: Theme.Spacing.sm) {
                     lockScreenMock
                         .scaleEffect(cardVisible ? 1 : 0.85)
                         .opacity(cardVisible ? 1 : 0)
                         .offset(y: cardVisible ? 0 : 16)
-
-                    Text("Available with Live Activities")
-                        .font(.caption2)
-                        .foregroundStyle(Theme.subtleInk)
-                        .frame(maxWidth: .infinity)
                 }
                 .onAppear {
                     withAnimation(.spring(response: 0.55, dampingFraction: 0.75)) {
@@ -70,7 +65,7 @@ struct LiveActivitySellView: View {
                     }
                 }
             },
-            primaryTitle: "Follow your partner's journey",
+            primaryTitle: "Continue",
             primaryAction: { onboarding.path.append(.memoriesSell) }
         )
     }
@@ -114,7 +109,7 @@ struct LiveActivitySellView: View {
                     Text(originCode)
                         .font(.system(size: 26, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
-                    Text("6:48 PM")
+                    Text("6:30 PM")
                         .font(.subheadline)
                         .foregroundStyle(.white.opacity(0.6))
                 }
@@ -126,7 +121,7 @@ struct LiveActivitySellView: View {
                     Text(destinationCode)
                         .font(.system(size: 26, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
-                    Text("2:48 AM")
+                    Text("2:30 AM")
                         .font(.subheadline)
                         .foregroundStyle(.white.opacity(0.6))
                 }
@@ -156,7 +151,7 @@ struct LiveActivitySellView: View {
             Image(systemName: "airplane")
                 .font(.system(size: 130))
                 .foregroundStyle(.white.opacity(0.08))
-                .rotationEffect(.degrees(45))
+                .rotationEffect(.degrees(-45))
                 .offset(x: 60, y: -30)
             Color.black.opacity(0.28)
         }

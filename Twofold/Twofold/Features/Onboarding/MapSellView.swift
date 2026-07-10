@@ -28,10 +28,6 @@ struct MapSellView: View {
                             .scaleEffect(mapVisible ? 1 : 0.9)
                             .opacity(mapVisible ? 1 : 0)
                     }
-
-                    Text("Available on the Memories map")
-                        .font(.caption2)
-                        .foregroundStyle(Theme.subtleInk)
                 }
                 .onAppear {
                     withAnimation(.spring(response: 0.55, dampingFraction: 0.7).delay(0.1)) {

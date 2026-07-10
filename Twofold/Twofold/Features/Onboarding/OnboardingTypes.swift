@@ -14,7 +14,6 @@ enum OnboardingStep: Hashable {
     case yourName
     case partnerName
     case gender
-    case benchmark
     case coupleLocations
     case anniversaryDate
     case personalizedInsight
@@ -50,7 +49,7 @@ enum OnboardingRole {
     case invitee
 }
 
-/// Drives which possessive pronoun ("his"/"her"/a custom one) copy uses when referring to
+/// Drives which possessive pronoun ("his"/"her"/) copy uses when referring to
 /// someone by name elsewhere in onboarding, instead of the generic "their".
 enum Gender: String, CaseIterable, Identifiable {
     case male
@@ -82,8 +81,6 @@ enum Gender: String, CaseIterable, Identifiable {
 
 /// Which of the five relationship/travel situations most sounds like this couple —
 /// drives the copy and conditional frequency options throughout the rest of onboarding.
-/// "Live together but travel often" and "often take separate trips" used to be separate
-/// cards but described the same thing, so they're merged into one.
 enum RelationshipSituation: String, CaseIterable, Identifiable {
     case longDistance
     case liveTogetherTravelOften
@@ -96,7 +93,7 @@ enum RelationshipSituation: String, CaseIterable, Identifiable {
     var emoji: String {
         switch self {
         case .longDistance: "🌍"
-        case .liveTogetherTravelOften: "🏠✈️"
+        case .liveTogetherTravelOften: "✈️"
         case .temporarilyApart: "📦"
         case .haventMetYet: "💌"
         case .other: "❤️"
@@ -118,7 +115,7 @@ enum RelationshipSituation: String, CaseIterable, Identifiable {
         case .longDistance: "We live in different cities or countries"
         case .liveTogetherTravelOften: "Work trips and time apart from home"
         case .temporarilyApart: "The distance isn't forever"
-        case .haventMetYet: "We're getting to know each other before meeting in person"
+        case .haventMetYet: "We're counting down to our first meeting in person"
         case .other: nil
         }
     }
@@ -126,10 +123,10 @@ enum RelationshipSituation: String, CaseIterable, Identifiable {
 
 /// Flat set of every option shown across the three conditional frequency branches —
 /// `FrequencyView` filters to the relevant subset based on `RelationshipSituation`, but a
-/// single type keeps downstream copy (benchmark screen) simple to switch over.
+/// single type keeps downstream copy simple to switch over.
 enum TravelFrequency: String, CaseIterable, Identifiable {
     case everyFewWeeks = "Every few weeks"
-    case every1to2Months = "Every 1–2 months"
+    case every1to2Months = "Every 1-2 months"
     case every3to4Months = "Every 3–4 months"
     case aFewTimesAYear = "A few times a year"
     case everyFewMonths = "Every few months"
@@ -137,7 +134,7 @@ enum TravelFrequency: String, CaseIterable, Identifiable {
     case aFewTimesAMonth = "A few times a month"
     case almostEveryWeek = "Almost every week"
     case lessThanAMonth = "Less than a month"
-    case oneToThreeMonths = "1–3 months"
+    case oneToThreeMonths = "1-3 months"
     case threeToSixMonths = "3–6 months"
     case sixToTwelveMonths = "6–12 months"
     case notSureYet = "We're not sure yet"
@@ -182,7 +179,7 @@ enum OnboardingGoal: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .knowWhenLands: "Know when my partner lands"
+        case .knowWhenLands: "Know when my partner travels"
         case .countdown: "Count down until we're together"
         case .trackTrips: "Keep track of our trips"
         case .lookBack: "Look back at where we've been"

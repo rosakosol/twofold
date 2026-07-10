@@ -245,7 +245,7 @@ struct GlobeHomeView: View {
                     .font(.title2)
                     .foregroundStyle(Theme.heartRed)
             }
-            Text("No distance to close today — make the most of being together 💛")
+            Text("No distance to close right now - make the most of being together 💛")
                 .font(.caption)
                 .foregroundStyle(Theme.subtleInk)
         }

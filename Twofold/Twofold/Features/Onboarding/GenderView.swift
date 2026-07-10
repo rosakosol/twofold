@@ -21,8 +21,8 @@ struct GenderView: View {
 
     var body: some View {
         OnboardingScaffold(
-            title: "A couple more details.",
-            subtitle: "This helps us personalize how Twofold talks about you two.",
+            title: "A couple more details",
+            subtitle: "This helps us personalise how Twofold talks about you two.",
             content: {
                 VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
                     genderSection(title: "Your gender", selection: $userGender)
@@ -33,7 +33,7 @@ struct GenderView: View {
             primaryAction: {
                 onboarding.userGender = userGender
                 onboarding.partnerGender = partnerGender
-                onboarding.path.append(.benchmark)
+                onboarding.path.append(.coupleLocations)
             },
             primaryDisabled: userGender == nil || partnerGender == nil
         )
