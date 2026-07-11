@@ -1118,6 +1118,298 @@ enum BackendService {
             try? await supabase.storage.from("memory-photos").remove(paths: photoPaths)
         }
     }
+
+    // MARK: - Games
+
+    private struct GameSessionRow: Decodable {
+        var id: UUID
+        var coupleId: UUID
+        var gameType: GameType
+        var initiatorId: UUID
+        var status: GameSessionStatus
+        var currentRound: Int
+        var totalRounds: Int
+        var startedAt: Date?
+        var completedAt: Date?
+        var createdAt: Date
+        var updatedAt: Date
+
+        enum CodingKeys: String, CodingKey {
+            case id, status
+            case coupleId = "couple_id"
+            case gameType = "game_type"
+            case initiatorId = "initiator_id"
+            case currentRound = "current_round"
+            case totalRounds = "total_rounds"
+            case startedAt = "started_at"
+            case completedAt = "completed_at"
+            case createdAt = "created_at"
+            case updatedAt = "updated_at"
+        }
+
+        func toModel() -> GameSession {
+            GameSession(
+                id: id, coupleID: coupleId, gameType: gameType, initiatorID: initiatorId, status: status,
+                currentRound: currentRound, totalRounds: totalRounds, startedAt: startedAt, completedAt: completedAt,
+                createdAt: createdAt, updatedAt: updatedAt
+            )
+        }
+    }
+
+    private struct GameSessionRoundRow: Decodable {
+        var id: UUID
+        var sessionId: UUID
+        var roundNumber: Int
+        var contentId: UUID
+        var discussionStatus: DiscussionRoundStatus?
+
+        enum CodingKeys: String, CodingKey {
+            case id
+            case sessionId = "session_id"
+            case roundNumber = "round_number"
+            case contentId = "content_id"
+            case discussionStatus = "discussion_status"
+        }
+
+        func toModel() -> GameSessionRound {
+            GameSessionRound(id: id, sessionID: sessionId, roundNumber: roundNumber, contentID: contentId, discussionStatus: discussionStatus)
+        }
+    }
+
+    private struct GameResponseRow: Decodable {
+        var id: UUID
+        var sessionId: UUID
+        var roundNumber: Int
+        var responderId: UUID
+        var answer: GameAnswerPayload
+        var isCorrect: Bool?
+        var createdAt: Date
+
+        enum CodingKeys: String, CodingKey {
+            case id, answer
+            case sessionId = "session_id"
+            case roundNumber = "round_number"
+            case responderId = "responder_id"
+            case isCorrect = "is_correct"
+            case createdAt = "created_at"
+        }
+
+        func toModel() -> GameResponse {
+            GameResponse(id: id, sessionID: sessionId, roundNumber: roundNumber, responderID: responderId, answerValue: answer.value, isCorrect: isCorrect, createdAt: createdAt)
+        }
+    }
+
+    private struct GameResponseInsert: Encodable {
+        var sessionId: UUID
+        var roundNumber: Int
+        var responderId: UUID
+        var answer: GameAnswerPayload
+        var isCorrect: Bool?
+
+        enum CodingKeys: String, CodingKey {
+            case answer
+            case sessionId = "session_id"
+            case roundNumber = "round_number"
+            case responderId = "responder_id"
+            case isCorrect = "is_correct"
+        }
+    }
+
+    private struct TriviaQuestionRow: Decodable {
+        var id: UUID
+        var category: String
+        var question: String
+        var options: [String]
+        var correctAnswer: String
+        var explanation: String?
+        var difficulty: String?
+        var active: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case id, category, question, options, explanation, difficulty, active
+            case correctAnswer = "correct_answer"
+        }
+
+        func toModel() -> TriviaQuestion {
+            TriviaQuestion(id: id, category: category, question: question, options: options, correctAnswer: correctAnswer, explanation: explanation, difficulty: difficulty, active: active)
+        }
+    }
+
+    private struct MoreLikelyPromptRow: Decodable {
+        var id: UUID
+        var prompt: String
+        var active: Bool
+
+        func toModel() -> MoreLikelyPrompt { MoreLikelyPrompt(id: id, prompt: prompt, active: active) }
+    }
+
+    private struct ThisOrThatPromptRow: Decodable {
+        var id: UUID
+        var optionA: String
+        var optionB: String
+        var active: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case id, active
+            case optionA = "option_a"
+            case optionB = "option_b"
+        }
+
+        func toModel() -> ThisOrThatPrompt { ThisOrThatPrompt(id: id, optionA: optionA, optionB: optionB, active: active) }
+    }
+
+    private struct DiscussionTopicRow: Decodable {
+        var id: UUID
+        var topic: String
+        var active: Bool
+
+        func toModel() -> DiscussionTopic { DiscussionTopic(id: id, topic: topic, active: active) }
+    }
+
+    struct GameSessionDetail {
+        var session: GameSession
+        var rounds: [GameSessionRound]
+        /// Keyed by `game_session_rounds.content_id`, resolved against whichever content table
+        /// matches the session's game type.
+        var content: [UUID: GameRoundContent]
+        /// Whatever's currently visible to the caller — their own responses always; their
+        /// partner's only once both have answered the same round (enforced by RLS, not by
+        /// this client filtering anything out).
+        var responses: [GameResponse]
+    }
+
+    static func startGameSession(gameType: GameType) async throws -> UUID {
+        struct Params: Encodable {
+            var pGameType: String
+            enum CodingKeys: String, CodingKey { case pGameType = "p_game_type" }
+        }
+        let id: UUID = try await supabase
+            .rpc("start_game_session", params: Params(pGameType: gameType.rawValue))
+            .execute()
+            .value
+        return id
+    }
+
+    static func abandonGameSession(id: UUID) async throws {
+        struct Params: Encodable {
+            var pSessionId: UUID
+            enum CodingKeys: String, CodingKey { case pSessionId = "p_session_id" }
+        }
+        try await supabase.rpc("abandon_game_session", params: Params(pSessionId: id)).execute()
+    }
+
+    static func markDiscussionRound(roundID: UUID, status: DiscussionRoundStatus) async throws {
+        struct Params: Encodable {
+            var pRoundId: UUID
+            var pStatus: String
+            enum CodingKeys: String, CodingKey {
+                case pRoundId = "p_round_id"
+                case pStatus = "p_status"
+            }
+        }
+        try await supabase.rpc("mark_discussion_round", params: Params(pRoundId: roundID, pStatus: status.rawValue)).execute()
+    }
+
+    /// Relies on RLS to scope results to the caller's own couple — no couple id is passed or
+    /// needed client-side.
+    static func fetchGameSessions(status: GameSessionStatus? = nil) async throws -> [GameSession] {
+        var query = supabase.from("game_sessions").select()
+        if let status {
+            query = query.eq("status", value: status.rawValue)
+        }
+        let rows: [GameSessionRow] = try await query.order("updated_at", ascending: false).execute().value
+        return rows.map { $0.toModel() }
+    }
+
+    static func fetchGameSession(id: UUID) async throws -> GameSessionDetail {
+        let sessionRow: GameSessionRow = try await supabase
+            .from("game_sessions")
+            .select()
+            .eq("id", value: id)
+            .single()
+            .execute()
+            .value
+        let session = sessionRow.toModel()
+
+        let roundRows: [GameSessionRoundRow] = try await supabase
+            .from("game_session_rounds")
+            .select()
+            .eq("session_id", value: id)
+            .order("round_number")
+            .execute()
+            .value
+        let rounds = roundRows.map { $0.toModel() }
+
+        let responseRows: [GameResponseRow] = try await supabase
+            .from("game_responses")
+            .select()
+            .eq("session_id", value: id)
+            .execute()
+            .value
+        let responses = responseRows.map { $0.toModel() }
+
+        let content = try await resolveContent(gameType: session.gameType, contentIDs: rounds.map(\.contentID))
+
+        return GameSessionDetail(session: session, rounds: rounds, content: content, responses: responses)
+    }
+
+    private static func resolveContent(gameType: GameType, contentIDs: [UUID]) async throws -> [UUID: GameRoundContent] {
+        let unique = Array(Set(contentIDs))
+        guard !unique.isEmpty else { return [:] }
+        switch gameType {
+        case .travelTrivia:
+            let rows: [TriviaQuestionRow] = try await supabase.from("trivia_questions").select().in("id", values: unique).execute().value
+            return Dictionary(uniqueKeysWithValues: rows.map { ($0.id, GameRoundContent.trivia($0.toModel())) })
+        case .moreLikely:
+            let rows: [MoreLikelyPromptRow] = try await supabase.from("more_likely_prompts").select().in("id", values: unique).execute().value
+            return Dictionary(uniqueKeysWithValues: rows.map { ($0.id, GameRoundContent.moreLikely($0.toModel())) })
+        case .thisOrThat:
+            let rows: [ThisOrThatPromptRow] = try await supabase.from("this_or_that_prompts").select().in("id", values: unique).execute().value
+            return Dictionary(uniqueKeysWithValues: rows.map { ($0.id, GameRoundContent.thisOrThat($0.toModel())) })
+        case .discussBeforeTravelling:
+            let rows: [DiscussionTopicRow] = try await supabase.from("discussion_topics").select().in("id", values: unique).execute().value
+            return Dictionary(uniqueKeysWithValues: rows.map { ($0.id, GameRoundContent.discuss($0.toModel())) })
+        }
+    }
+
+    static func submitGameResponse(sessionID: UUID, roundNumber: Int, answerValue: String, isCorrect: Bool? = nil) async throws {
+        guard let userID = currentUserID else { throw BackendError.notAuthenticated }
+        try await supabase
+            .from("game_responses")
+            .insert(
+                GameResponseInsert(
+                    sessionId: sessionID,
+                    roundNumber: roundNumber,
+                    responderId: userID,
+                    answer: GameAnswerPayload(value: answerValue),
+                    isCorrect: isCorrect
+                )
+            )
+            .execute()
+    }
+
+    /// Mirrors `subscribeToFlightUpdates`, but the stream deliberately carries no payload —
+    /// per the reveal design, the client always re-fetches via the RLS-protected select on any
+    /// change rather than trusting realtime payload contents for sensitive round data.
+    static func subscribeToGameSession(id: UUID) -> (channel: RealtimeChannelV2, stream: AsyncStream<Void>) {
+        let channel = supabase.channel("game_session_\(id.uuidString)")
+        let responseInsertions = channel.postgresChange(InsertAction.self, table: "game_responses", filter: .eq("session_id", value: id.uuidString))
+        let sessionUpdates = channel.postgresChange(UpdateAction.self, table: "game_sessions", filter: .eq("id", value: id.uuidString))
+
+        let (stream, continuation) = AsyncStream<Void>.makeStream()
+        Task {
+            try? await channel.subscribeWithError()
+            async let insertionsTask: Void = {
+                for await _ in responseInsertions { continuation.yield(()) }
+            }()
+            async let updatesTask: Void = {
+                for await _ in sessionUpdates { continuation.yield(()) }
+            }()
+            _ = await (insertionsTask, updatesTask)
+            continuation.finish()
+        }
+        return (channel, stream)
+    }
 }
 
 private extension TripCategory {

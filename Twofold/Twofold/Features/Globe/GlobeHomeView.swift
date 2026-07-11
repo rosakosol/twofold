@@ -64,6 +64,7 @@ struct GlobeHomeView: View {
                     }
                     if appModel.partnerConnected {
                         DrawingPadCard()
+                        RecommendedGamesSection()
                     }
                 }
                 .padding(Theme.Spacing.md)
