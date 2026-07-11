@@ -92,15 +92,15 @@ final class AppModel {
     }
 
     func memories(in place: Place) -> [Memory] {
-        memories.filter { $0.place.id == place.id }
+        memories.filter { $0.place?.id == place.id }
     }
 
     var citiesWithMemories: [Place] {
         var seen = Set<UUID>()
         return memories.compactMap { memory in
-            guard !seen.contains(memory.place.id) else { return nil }
-            seen.insert(memory.place.id)
-            return memory.place
+            guard let place = memory.place, !seen.contains(place.id) else { return nil }
+            seen.insert(place.id)
+            return place
         }
     }
 
@@ -192,13 +192,9 @@ final class AppModel {
         }
     }
 
-    @discardableResult
-    func updateAvatar(imageData: Data) async -> Bool {
-        if let url = try? await BackendService.uploadAvatar(imageData: imageData) {
-            couple.partnerA.avatarURL = url
-            return true
-        }
-        return false
+    func updateAvatar(imageData: Data) async throws {
+        let url = try await BackendService.uploadAvatar(imageData: imageData)
+        couple.partnerA.avatarURL = url
     }
 
     /// Always editable, paired or not — this is *your own, personal* name for your partner
@@ -224,13 +220,9 @@ final class AppModel {
     /// Always personal, paired or not — it's always *your own* custom photo of your partner,
     /// independent of whatever avatar they picked for themselves (see
     /// `BackendService.uploadPartnerAvatar`).
-    @discardableResult
-    func updatePartnerAvatar(imageData: Data) async -> Bool {
-        if let url = try? await BackendService.uploadPartnerAvatar(imageData: imageData) {
-            couple.partnerB.avatarURL = url
-            return true
-        }
-        return false
+    func updatePartnerAvatar(imageData: Data) async throws {
+        let url = try await BackendService.uploadPartnerAvatar(imageData: imageData)
+        couple.partnerB.avatarURL = url
     }
 
     func updateAnniversaryDate(_ date: Date) async {
@@ -451,8 +443,8 @@ final class AppModel {
     }
 
     @discardableResult
-    func addMemory(title: String, place: Place, date: Date, emoji: String, note: String, imagesData: [Data]) async -> Memory {
-        let memory = Memory(title: title, emoji: emoji, place: place, date: date, note: note)
+    func addMemory(title: String, place: Place?, date: Date, note: String, imagesData: [Data]) async -> Memory {
+        let memory = Memory(title: title, place: place, date: date, note: note)
         memories.append(memory)
 
         guard let backendCoupleID else {

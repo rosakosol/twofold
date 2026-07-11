@@ -700,7 +700,7 @@ enum BackendService {
 
         var placeIDs = Set([partnerAProfile.homePlaceId, partnerBProfile.homePlaceId].compactMap { $0 })
         for row in tripRows { placeIDs.insert(row.originId); placeIDs.insert(row.destinationId) }
-        for row in memoryRows { placeIDs.insert(row.placeId) }
+        for row in memoryRows { if let placeId = row.placeId { placeIDs.insert(placeId) } }
         let places = try await fetchPlaces(ids: Array(placeIDs))
 
         func person(for profile: ProfileRow, nameOverride: String?, avatarOverridePath: String?, paletteIndex: Int) -> Person {
@@ -758,7 +758,7 @@ enum BackendService {
 
         var memories: [Memory] = []
         for row in memoryRows {
-            guard let place = places[row.placeId] else { continue }
+            let place = row.placeId.flatMap { places[$0] }
             let photoRows = (photoRowsByMemory[row.id] ?? []).sorted { $0.position < $1.position }
             var photos: [MemoryPhoto] = []
             for photoRow in photoRows {
@@ -770,7 +770,6 @@ enum BackendService {
                 Memory(
                     id: row.id,
                     title: row.title,
-                    emoji: row.emoji,
                     place: place,
                     date: row.occurredAt,
                     note: row.note,
@@ -1468,14 +1467,13 @@ enum BackendService {
 
     private struct MemoryRow: Decodable {
         var id: UUID
-        var placeId: UUID
+        var placeId: UUID?
         var title: String
-        var emoji: String
         var note: String
         var occurredAt: Date
 
         enum CodingKeys: String, CodingKey {
-            case id, title, emoji, note
+            case id, title, note
             case placeId = "place_id"
             case occurredAt = "occurred_at"
         }
@@ -1484,14 +1482,13 @@ enum BackendService {
     private struct MemoryInsert: Encodable {
         var id: UUID
         var coupleId: UUID
-        var placeId: UUID
+        var placeId: UUID?
         var title: String
-        var emoji: String
         var note: String
         var occurredAt: Date
 
         enum CodingKeys: String, CodingKey {
-            case id, title, emoji, note
+            case id, title, note
             case coupleId = "couple_id"
             case placeId = "place_id"
             case occurredAt = "occurred_at"
@@ -1499,14 +1496,13 @@ enum BackendService {
     }
 
     private struct MemoryUpdate: Encodable {
-        var placeId: UUID
+        var placeId: UUID?
         var title: String
-        var emoji: String
         var note: String
         var occurredAt: Date
 
         enum CodingKeys: String, CodingKey {
-            case title, emoji, note
+            case title, note
             case placeId = "place_id"
             case occurredAt = "occurred_at"
         }
@@ -1558,7 +1554,10 @@ enum BackendService {
 
     @discardableResult
     static func insertMemory(coupleID: UUID, memory: Memory, photoPaths: [String]) async throws -> [MemoryPhoto] {
-        let placeID = try await findOrCreatePlaceID(memory.place)
+        var placeID: UUID?
+        if let place = memory.place {
+            placeID = try await findOrCreatePlaceID(place)
+        }
         try await supabase
             .from("memories")
             .insert(
@@ -1567,7 +1566,6 @@ enum BackendService {
                     coupleId: coupleID,
                     placeId: placeID,
                     title: memory.title,
-                    emoji: memory.emoji,
                     note: memory.note,
                     occurredAt: memory.date
                 )
@@ -1578,14 +1576,16 @@ enum BackendService {
     }
 
     static func updateMemory(_ memory: Memory) async throws {
-        let placeID = try await findOrCreatePlaceID(memory.place)
+        var placeID: UUID?
+        if let place = memory.place {
+            placeID = try await findOrCreatePlaceID(place)
+        }
         try await supabase
             .from("memories")
             .update(
                 MemoryUpdate(
                     placeId: placeID,
                     title: memory.title,
-                    emoji: memory.emoji,
                     note: memory.note,
                     occurredAt: memory.date
                 )

@@ -9,6 +9,7 @@ struct RootView: View {
     @Environment(AppModel.self) private var appModel
     @Environment(\.scenePhase) private var scenePhase
     @State private var subscriptionStore = SubscriptionStore()
+    @State private var pendingInviteCode: String?
 
     var body: some View {
         Group {
@@ -37,6 +38,17 @@ struct RootView: View {
             if newPhase == .active {
                 Task { await checkSubscription() }
             }
+        }
+        // Only meaningful once signed in — `OnboardingCoordinatorView` has its own `onOpenURL`
+        // for the pre-account case (that branch isn't mounted here, so there's no double
+        // handling). This is what makes an invite link work for anyone who already has an
+        // account, paired or not — previously it was a silent no-op for them.
+        .onOpenURL { url in
+            guard appModel.hasCouple, let code = InviteCode.code(from: url) else { return }
+            pendingInviteCode = code
+        }
+        .sheet(isPresented: Binding(get: { pendingInviteCode != nil }, set: { if !$0 { pendingInviteCode = nil } })) {
+            RedeemPartnerCodeView(prefilledCode: pendingInviteCode)
         }
     }
 

@@ -55,7 +55,14 @@ struct ShareInviteView: View {
             Spacer()
 
             VStack(spacing: Theme.Spacing.md) {
-                ShareLink(item: shareURL) {
+                // Leads with the plain code as readable text, not just the link — so it still
+                // works for someone who doesn't have Twofold installed yet and opens this in a
+                // context where the link's own landing page won't immediately resolve.
+                ShareLink(
+                    item: shareURL,
+                    subject: Text("Join me on Twofold"),
+                    message: Text("Join me on Twofold — download the app and enter code \(code), or tap this link if you already have it installed:")
+                ) {
                     Label("Share invite", systemImage: "square.and.arrow.up")
                         .font(.headline)
                         .frame(maxWidth: .infinity)

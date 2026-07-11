@@ -42,8 +42,9 @@ struct MemoryPhotoView: View {
     private var placeholder: some View {
         ZStack {
             LinearGradient(colors: gradientColors, startPoint: .topLeading, endPoint: .bottomTrailing)
-            Text(memory.emoji)
-                .font(.system(size: 32))
+            Image(systemName: "photo.fill")
+                .font(.system(size: 28))
+                .foregroundStyle(.white.opacity(0.85))
         }
     }
 }

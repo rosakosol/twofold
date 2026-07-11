@@ -15,7 +15,6 @@ struct AddMemoryView: View {
     @State private var title: String
     @State private var place: Place?
     @State private var date: Date
-    @State private var emoji: String
     @State private var note: String
     @State private var existingPhotos: [MemoryPhoto]
 
@@ -41,7 +40,6 @@ struct AddMemoryView: View {
         _title = State(initialValue: existingMemory?.title ?? "")
         _place = State(initialValue: existingMemory?.place)
         _date = State(initialValue: existingMemory?.date ?? .now)
-        _emoji = State(initialValue: existingMemory?.emoji ?? "💛")
         _note = State(initialValue: existingMemory?.note ?? "")
         _existingPhotos = State(initialValue: existingMemory?.photos ?? [])
     }
@@ -49,7 +47,7 @@ struct AddMemoryView: View {
     private var isEditing: Bool { existingMemory != nil }
 
     private var canSave: Bool {
-        !title.trimmingCharacters(in: .whitespaces).isEmpty && place != nil && !isSaving
+        !title.trimmingCharacters(in: .whitespaces).isEmpty && !isSaving
     }
 
     var body: some View {
@@ -96,11 +94,8 @@ struct AddMemoryView: View {
     }
 
     private var titleRow: some View {
-        HStack(spacing: Theme.Spacing.sm) {
-            EmojiPickerButton(emoji: $emoji)
-            TextField("Memory title", text: $title)
-                .font(.title2.weight(.bold))
-        }
+        TextField("Memory title", text: $title)
+            .font(.title2.weight(.bold))
     }
 
     private var dateLocationSummary: some View {
@@ -311,7 +306,6 @@ struct AddMemoryView: View {
     }
 
     private func save() {
-        guard let place else { return }
         isSaving = true
         errorMessage = nil
         let trimmedTitle = title.trimmingCharacters(in: .whitespaces)
@@ -323,11 +317,10 @@ struct AddMemoryView: View {
                 existingMemory.title = trimmedTitle
                 existingMemory.place = place
                 existingMemory.date = date
-                existingMemory.emoji = emoji
                 existingMemory.note = trimmedNote
                 await appModel.updateMemory(existingMemory, newImagesData: imagesData)
             } else {
-                await appModel.addMemory(title: trimmedTitle, place: place, date: date, emoji: emoji, note: trimmedNote, imagesData: imagesData)
+                await appModel.addMemory(title: trimmedTitle, place: place, date: date, note: trimmedNote, imagesData: imagesData)
             }
             isSaving = false
             dismiss()

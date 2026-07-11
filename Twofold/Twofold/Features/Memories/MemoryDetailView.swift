@@ -30,11 +30,13 @@ struct MemoryDetailView: View {
                             .padding(.top, Theme.Spacing.lg)
 
                         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-                            Text("\(memory.title) \(memory.emoji)")
+                            Text(memory.title)
                                 .font(.title2.weight(.bold))
-                            Text(memory.place.city)
-                                .font(.subheadline)
-                                .foregroundStyle(Theme.subtleInk)
+                            if let place = memory.place {
+                                Text(place.city)
+                                    .font(.subheadline)
+                                    .foregroundStyle(Theme.subtleInk)
+                            }
                             Text(memory.date, format: .dateTime.day().month(.abbreviated).year().hour().minute())
                                 .font(.caption)
                                 .foregroundStyle(Theme.subtleInk)

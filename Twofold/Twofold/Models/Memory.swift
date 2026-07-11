@@ -17,8 +17,8 @@ struct MemoryPhoto: Identifiable, Hashable {
 struct Memory: Identifiable, Hashable {
     let id: UUID
     var title: String
-    var emoji: String
-    var place: Place
+    /// Optional — a memory doesn't need a place to be worth saving.
+    var place: Place?
     var date: Date
     var note: String
     /// Gradient seed used for the placeholder shown while there's no photo (or one hasn't
@@ -33,8 +33,7 @@ struct Memory: Identifiable, Hashable {
     init(
         id: UUID = UUID(),
         title: String,
-        emoji: String,
-        place: Place,
+        place: Place?,
         date: Date,
         note: String,
         photoSeed: Int? = nil,
@@ -42,7 +41,6 @@ struct Memory: Identifiable, Hashable {
     ) {
         self.id = id
         self.title = title
-        self.emoji = emoji
         self.place = place
         self.date = date
         self.note = note

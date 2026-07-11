@@ -157,7 +157,7 @@ struct TripsListView: View {
                 Spacer(minLength: 0)
             }
         }
-        .padding(Theme.Spacing.md)
+        .padding(.vertical, Theme.Spacing.sm)
     }
 }
 

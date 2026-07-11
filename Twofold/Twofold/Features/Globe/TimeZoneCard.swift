@@ -15,11 +15,15 @@ struct TimeZoneCard: View {
     var comparisonTimeZone: TimeZone?
     /// When the couple lives in the same city, "It's 3pm for Rosa right now" / "It's 3pm for
     /// you" reads as redundant (it's the same time, said twice) — this collapses it to one
-    /// plain "It's 3pm right now" line instead.
+    /// plain "It's 3pm right now in {city}" line instead.
     var sameCity: Bool = false
+    var cityName: String?
+    /// Nil until fetched (or if WeatherKit isn't available) — rendered only when present, never
+    /// faked. In the same-city case this is one shared reading; otherwise it's `person`'s city.
+    var weather: CurrentWeatherReading?
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 60)) { context in
+        TimelineView(.periodic(from: .now, by: 15)) { context in
             cardBody(at: context.date)
         }
     }
@@ -34,10 +38,15 @@ struct TimeZoneCard: View {
                 Image(systemName: isDaytime ? "sun.max.fill" : "moon.stars.fill")
                     .font(.subheadline)
                 Text(sameCity
-                    ? "It's \(Self.timeString(in: timeZone, at: date)) right now"
+                    ? "It's \(Self.timeString(in: timeZone, at: date)) right now\(cityName.map { " in \($0)" } ?? "")"
                     : "It's \(Self.timeString(in: timeZone, at: date)) for \(person.name) right now")
                     .font(.headline)
                     .fixedSize(horizontal: false, vertical: true)
+
+                if let weather {
+                    Spacer(minLength: Theme.Spacing.xs)
+                    weatherBadge(weather)
+                }
             }
 
             if !sameCity, let comparisonTimeZone {
@@ -70,6 +79,16 @@ struct TimeZoneCard: View {
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
     }
 
+    private func weatherBadge(_ weather: CurrentWeatherReading) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: weather.symbolName)
+                .symbolRenderingMode(.multicolor)
+            Text(weather.temperatureLabel)
+        }
+        .font(.subheadline.weight(.medium))
+        .foregroundStyle(.white)
+    }
+
     static func hourFraction(in timeZone: TimeZone, at date: Date) -> Double {
         var calendar = Calendar.current
         calendar.timeZone = timeZone
@@ -91,6 +110,7 @@ struct TimeZoneCard: View {
     VStack(spacing: Theme.Spacing.md) {
         TimeZoneCard(person: MockData.rosa, timeZone: TimeZone(identifier: "Australia/Melbourne")!, comparisonTimeZone: TimeZone(identifier: "Asia/Singapore"))
         TimeZoneCard(person: MockData.dara, timeZone: TimeZone(identifier: "Asia/Singapore")!, comparisonTimeZone: TimeZone(identifier: "Australia/Melbourne"))
+        TimeZoneCard(person: MockData.rosa, timeZone: TimeZone(identifier: "Australia/Melbourne")!, sameCity: true, cityName: "Melbourne", weather: CurrentWeatherReading(symbolName: "cloud.sun.fill", temperatureC: 18))
     }
     .padding()
     .background(Theme.backgroundGradient)

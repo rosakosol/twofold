@@ -32,7 +32,6 @@ struct MemoriesView: View {
             }
             .background(Theme.backgroundGradient.ignoresSafeArea())
             .navigationTitle("Memories")
-            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {

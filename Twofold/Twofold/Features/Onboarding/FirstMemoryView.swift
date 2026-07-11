@@ -15,7 +15,6 @@ struct FirstMemoryView: View {
     @Environment(AppModel.self) private var appModel
     @State private var title = ""
     @State private var note = ""
-    @State private var emoji = "💛"
     @State private var isSaving = false
 
     var body: some View {
@@ -24,13 +23,10 @@ struct FirstMemoryView: View {
             subtitle: "A moment, a place, a feeling — you can always add more later.",
             content: {
                 VStack(spacing: Theme.Spacing.md) {
-                    HStack(spacing: Theme.Spacing.sm) {
-                        EmojiPickerButton(emoji: $emoji)
-                        TextField("Memory title", text: $title)
-                            .font(.title3.weight(.semibold))
-                            .padding()
-                            .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-                    }
+                    TextField("Memory title", text: $title)
+                        .font(.title3.weight(.semibold))
+                        .padding()
+                        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
 
                     TextField("Write a few words about this memory", text: $note, axis: .vertical)
                         .lineLimit(4...8)
@@ -47,17 +43,13 @@ struct FirstMemoryView: View {
     }
 
     private func save() {
-        guard let place = onboarding.homeCity ?? onboarding.partnerCity else {
-            onboarding.path.append(.twofoldPreview)
-            return
-        }
+        let place = onboarding.homeCity ?? onboarding.partnerCity
         isSaving = true
         Task {
             await appModel.addMemory(
                 title: title.trimmingCharacters(in: .whitespaces),
                 place: place,
                 date: .now,
-                emoji: emoji,
                 note: note.trimmingCharacters(in: .whitespacesAndNewlines),
                 imagesData: []
             )

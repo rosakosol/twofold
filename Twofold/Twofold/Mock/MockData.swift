@@ -114,7 +114,6 @@ enum MockData {
     static let memories: [Memory] = [
         Memory(
             title: "First night in Singapore",
-            emoji: "❤️",
             place: singapore,
             date: DateComponents(calendar: .current, year: 2024, month: 4, day: 7).date ?? .now,
             note: "Our first night together in Singapore. We stayed up way too late talking about everything and nothing.",
@@ -122,7 +121,6 @@ enum MockData {
         ),
         Memory(
             title: "Marina Bay Sands rooftop",
-            emoji: "🌃",
             place: singapore,
             date: DateComponents(calendar: .current, year: 2024, month: 4, day: 8).date ?? .now,
             note: "The view from the rooftop bar was unreal. We stayed until the lights across the bay turned off one by one.",
@@ -130,7 +128,6 @@ enum MockData {
         ),
         Memory(
             title: "Our favourite café",
-            emoji: "☕️",
             place: singapore,
             date: DateComponents(calendar: .current, year: 2024, month: 4, day: 9).date ?? .now,
             note: "We came back to this café three days in a row. Now it's just \"our place\".",
@@ -138,7 +135,6 @@ enum MockData {
         ),
         Memory(
             title: "The last coffee before the airport",
-            emoji: "✈️",
             place: singapore,
             date: DateComponents(calendar: .current, year: 2024, month: 4, day: 10).date ?? .now,
             note: "Neither of us said much. We didn't need to.",
@@ -146,7 +142,6 @@ enum MockData {
         ),
         Memory(
             title: "Weekend in Bangkok",
-            emoji: "🛺",
             place: bangkok,
             date: DateComponents(calendar: .current, year: 2024, month: 3, day: 4).date ?? .now,
             note: "Street food, night markets, and way too many photos.",

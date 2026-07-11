@@ -11,11 +11,14 @@ struct GlobeHomeView: View {
     @State private var showingSnapshot = false
     @State private var showingSettings = false
     @State private var showingInvite = false
+    @State private var showingRedeemCode = false
     @State private var showingAddTrip = false
     @State private var showingAddFlight = false
     @State private var showingHomeCities = false
     @State private var pendingShares: [PendingFlightShare] = []
     @State private var reviewingShare: PendingFlightShare?
+    @State private var weatherReading: CurrentWeatherReading?
+    @State private var weatherFetchedForCityID: UUID?
 
     private var distanceKm: Double? {
         guard let mine = appModel.currentUser.homeCity?.coordinate, let theirs = appModel.partner.homeCity?.coordinate else { return nil }
@@ -42,7 +45,9 @@ struct GlobeHomeView: View {
                             person: appModel.partner,
                             timeZone: partnerTimeZone,
                             comparisonTimeZone: appModel.currentUser.homeCity?.timeZone,
-                            sameCity: sameCity
+                            sameCity: sameCity,
+                            cityName: appModel.partner.homeCity?.city,
+                            weather: weatherReading
                         )
                     }
                     if let myCity = appModel.currentUser.homeCity, let partnerCity = appModel.partner.homeCity {
@@ -103,12 +108,14 @@ struct GlobeHomeView: View {
                 refreshPendingShares()
                 Task { await appModel.refreshCoupleStateIfNeeded() }
                 Task { await appModel.refreshFlights() }
+                Task { await refreshWeatherIfNeeded() }
             }
             .onChange(of: scenePhase) { _, newPhase in
                 if newPhase == .active {
                     refreshPendingShares()
                     Task { await appModel.refreshCoupleStateIfNeeded() }
                     Task { await appModel.refreshFlights() }
+                    Task { await refreshWeatherIfNeeded() }
                 }
             }
             .sheet(isPresented: $showingSnapshot) { SnapshotShareView() }
@@ -121,6 +128,9 @@ struct GlobeHomeView: View {
                         showingInvite = false
                     }
                 }
+            }
+            .sheet(isPresented: $showingRedeemCode) {
+                RedeemPartnerCodeView()
             }
             .sheet(isPresented: $showingAddTrip) {
                 NavigationStack {
@@ -154,6 +164,11 @@ struct GlobeHomeView: View {
                                 showingInvite = true
                             }
                         }
+                    }
+                }
+                if appModel.needsPartnerInvite {
+                    checklistRow(icon: .system("person.fill.checkmark"), title: "Have a code from \(appModel.partner.name)? Enter it") {
+                        showingRedeemCode = true
                     }
                 }
                 if appModel.needsFirstTrip {
@@ -201,6 +216,15 @@ struct GlobeHomeView: View {
 
     private func refreshPendingShares() {
         pendingShares = PendingShareStore.all()
+    }
+
+    /// Only re-fetches when the relevant city actually changes — WeatherKit calls aren't free,
+    /// and the time card only needs a fresh reading roughly hourly, not on every foreground.
+    private func refreshWeatherIfNeeded() async {
+        guard let city = appModel.partner.homeCity else { return }
+        guard weatherFetchedForCityID != city.id else { return }
+        weatherFetchedForCityID = city.id
+        weatherReading = await TwofoldWeatherService.currentWeather(for: city)
     }
     
     enum ChecklistIcon {

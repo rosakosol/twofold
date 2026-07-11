@@ -12,5 +12,11 @@
 	</array>
 	<key>aps-environment</key>
 	<string>development</string>
+	<key>com.apple.developer.weatherkit</key>
+	<true/>
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:www.twofoldapp.com.au</string>
+	</array>
 </dict>
 </plist>

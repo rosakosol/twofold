@@ -23,9 +23,13 @@ struct SettingsView: View {
     @State private var anniversaryDate: Date = .now
     @State private var isSaving = false
     @State private var avatarError: String?
+    @State private var partnerAvatarError: String?
     @State private var showingPaywall = false
     @State private var showingSignOutConfirm = false
     @State private var isSigningOut = false
+    @State private var showingShareInvite = false
+    @State private var showingRedeemCode = false
+    @State private var isCreatingInvite = false
 
     var body: some View {
         NavigationStack {
@@ -33,8 +37,12 @@ struct SettingsView: View {
                 VStack(spacing: Theme.Spacing.md) {
                     RoundPhotoPicker(placeholderSystemImage: "person.fill", initialImageURL: appModel.currentUser.avatarURL, size: 96) { data in
                         Task {
-                            let success = await appModel.updateAvatar(imageData: data)
-                            avatarError = success ? nil : "Couldn't save your photo — check your connection and try again."
+                            do {
+                                try await appModel.updateAvatar(imageData: data)
+                                avatarError = nil
+                            } catch {
+                                avatarError = error.localizedDescription
+                            }
                         }
                     }
                     .padding(.top, Theme.Spacing.md)
@@ -56,6 +64,10 @@ struct SettingsView: View {
                     }
 
                     partnerCard
+
+                    if !appModel.partnerConnected {
+                        partnerConnectionCard
+                    }
 
                     SectionCard {
                         Text("Anniversary").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.subtleInk)
@@ -147,9 +159,23 @@ struct SettingsView: View {
                 .foregroundStyle(Theme.subtleInk)
 
             RoundPhotoPicker(placeholderSystemImage: "person.fill", initialImageURL: appModel.partner.avatarURL, size: 96) { data in
-                Task { await appModel.updatePartnerAvatar(imageData: data) }
+                Task {
+                    do {
+                        try await appModel.updatePartnerAvatar(imageData: data)
+                        partnerAvatarError = nil
+                    } catch {
+                        partnerAvatarError = error.localizedDescription
+                    }
+                }
             }
             .frame(maxWidth: .infinity)
+
+            if let partnerAvatarError {
+                Text(partnerAvatarError)
+                    .font(.caption)
+                    .foregroundStyle(Theme.heartRed)
+                    .frame(maxWidth: .infinity)
+            }
 
             VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                 TextField("Their name", text: $partnerName)
@@ -176,6 +202,63 @@ struct SettingsView: View {
             } else {
                 CityMenuPicker(label: "Their city", selection: $partnerCity)
             }
+        }
+    }
+
+    /// Either direction of pairing, reachable permanently (not just during onboarding) — closes
+    /// the gap where someone who already made their own account had no way to link up with a
+    /// partner who invited them, or to send their own invite after the fact.
+    private var partnerConnectionCard: some View {
+        SectionCard {
+            Text("Connect with your partner")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Theme.subtleInk)
+
+            Button {
+                Task {
+                    isCreatingInvite = true
+                    if appModel.inviteCode == nil {
+                        appModel.inviteCode = try? await BackendService.createInviteCode(firstName: appModel.currentUser.name)
+                    }
+                    isCreatingInvite = false
+                    if appModel.inviteCode != nil { showingShareInvite = true }
+                }
+            } label: {
+                HStack {
+                    if isCreatingInvite {
+                        ProgressView()
+                    } else {
+                        Label("Share my invite code", systemImage: "square.and.arrow.up")
+                            .foregroundStyle(Theme.ink)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
+                }
+            }
+            .buttonStyle(.plain)
+            .disabled(isCreatingInvite)
+
+            Button {
+                showingRedeemCode = true
+            } label: {
+                HStack {
+                    Label("Enter their code", systemImage: "person.fill.checkmark")
+                        .foregroundStyle(Theme.ink)
+                    Spacer()
+                    Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
+                }
+            }
+            .buttonStyle(.plain)
+        }
+        .sheet(isPresented: $showingShareInvite) {
+            NavigationStack {
+                ShareInviteView(code: appModel.inviteCode ?? "") {
+                    showingShareInvite = false
+                }
+            }
+        }
+        .sheet(isPresented: $showingRedeemCode) {
+            RedeemPartnerCodeView()
         }
     }
 }
