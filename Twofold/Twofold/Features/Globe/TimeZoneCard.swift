@@ -13,6 +13,10 @@ struct TimeZoneCard: View {
     let person: Person
     let timeZone: TimeZone
     var comparisonTimeZone: TimeZone?
+    /// When the couple lives in the same city, "It's 3pm for Rosa right now" / "It's 3pm for
+    /// you" reads as redundant (it's the same time, said twice) — this collapses it to one
+    /// plain "It's 3pm right now" line instead.
+    var sameCity: Bool = false
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 60)) { context in
@@ -29,12 +33,14 @@ struct TimeZoneCard: View {
             HStack(spacing: Theme.Spacing.xs) {
                 Image(systemName: isDaytime ? "sun.max.fill" : "moon.stars.fill")
                     .font(.subheadline)
-                Text("It's \(Self.timeString(in: timeZone, at: date)) for \(person.name) right now")
+                Text(sameCity
+                    ? "It's \(Self.timeString(in: timeZone, at: date)) right now"
+                    : "It's \(Self.timeString(in: timeZone, at: date)) for \(person.name) right now")
                     .font(.headline)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            if let comparisonTimeZone {
+            if !sameCity, let comparisonTimeZone {
                 Text("It's \(Self.timeString(in: comparisonTimeZone, at: date)) for you")
                     .font(.caption)
                     .opacity(0.85)

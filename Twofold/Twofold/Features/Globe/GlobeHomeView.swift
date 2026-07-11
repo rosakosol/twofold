@@ -41,7 +41,8 @@ struct GlobeHomeView: View {
                         TimeZoneCard(
                             person: appModel.partner,
                             timeZone: partnerTimeZone,
-                            comparisonTimeZone: appModel.currentUser.homeCity?.timeZone
+                            comparisonTimeZone: appModel.currentUser.homeCity?.timeZone,
+                            sameCity: sameCity
                         )
                     }
                     if let myCity = appModel.currentUser.homeCity, let partnerCity = appModel.partner.homeCity {
