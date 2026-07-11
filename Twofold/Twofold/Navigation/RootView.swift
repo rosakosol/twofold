@@ -46,7 +46,7 @@ struct RootView: View {
     /// since there's nothing to gate yet.
     private func checkSubscription() async {
         guard appModel.hasCouple else { return }
-        await subscriptionStore.loadProducts()
+        await subscriptionStore.refreshEntitlementsOnly()
         try? await BackendService.updateSubscriptionStatus(active: subscriptionStore.isSubscribed)
         if let active = try? await BackendService.fetchSubscriptionActive() {
             appModel.isSubscriptionActive = active

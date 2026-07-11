@@ -62,6 +62,8 @@ struct OnboardingCoordinatorView: View {
             InvitePartnerView()
         case .addFirstFlight:
             AddFirstFlightView()
+        case .firstMemory:
+            FirstMemoryView()
         case .twofoldPreview:
             TwofoldPreviewView()
         case .trialTrust:

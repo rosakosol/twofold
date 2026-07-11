@@ -368,9 +368,8 @@ final class AppModel {
     }
 
     @discardableResult
-    func addTrip(origin: Place, destination: Place, departureDate: Date, arrivalDate: Date, traveler: TripTraveler, flightNumber: String?) async -> Trip {
+    func addTrip(origin: Place, destination: Place, departureDate: Date, arrivalDate: Date, traveler: TripTraveler, category: TripCategory, flightNumber: String?) async -> Trip {
         let travelerID = traveler == .partner ? partner.id : currentUser.id
-        let category: TripCategory = traveler == .both ? .together : .seeingEachOther
         let distance = Geo.distanceKm(origin.coordinate, destination.coordinate)
 
         var trip = Trip(

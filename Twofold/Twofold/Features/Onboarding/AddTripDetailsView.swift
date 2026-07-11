@@ -35,6 +35,7 @@ struct AddTripDetailsView: View {
     @State private var departureDate: Date
     @State private var returnDate: Date
     @State private var traveler: TripTraveler = .you
+    @State private var category: TripCategory = .seeingEachOther
     @State private var wantsFlight: Bool
     @State private var flightNumber: String
     @State private var isSaving = false
@@ -78,6 +79,16 @@ struct AddTripDetailsView: View {
                         .pickerStyle(.segmented)
                     }
 
+                    VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                        Text("Reason for travel").font(.caption).foregroundStyle(Theme.subtleInk)
+                        Picker("Reason for travel", selection: $category) {
+                            ForEach(TripCategory.allCases, id: \.self) { option in
+                                Text(option.shortLabel).tag(option)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                    }
+
                     VStack(spacing: Theme.Spacing.sm) {
                         Toggle("Add a flight", isOn: $wantsFlight)
                         if wantsFlight {
@@ -107,6 +118,7 @@ struct AddTripDetailsView: View {
                 departureDate: departureDate,
                 arrivalDate: returnDate,
                 traveler: traveler,
+                category: category,
                 flightNumber: wantsFlight ? flightNumber : nil
             )
             isSaving = false

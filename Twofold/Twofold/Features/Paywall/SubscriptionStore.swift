@@ -116,6 +116,16 @@ final class SubscriptionStore {
         await refreshEntitlements()
     }
 
+    /// Just the entitlement check, without the product/pricing catalog fetch — for callers
+    /// that only need `isSubscribed` (e.g. `RootView`'s gate check). Calling the full
+    /// `loadProducts()` from two places at once (this store's own instance *and*
+    /// `PaywallView`'s separate instance, both firing around cold launch) was hammering the
+    /// local StoreKit test session with two concurrent `Product.products(for:)` catalog
+    /// fetches for the same IDs, which is what broke `PaywallView`'s own product loading.
+    func refreshEntitlementsOnly() async {
+        await refreshEntitlements()
+    }
+
     /// Returns `true` on a completed (verified) purchase. `false` covers both user
     /// cancellation and a pending purchase (e.g. requires parental approval) — neither is
     /// an error, so `purchaseError` is only set for genuine failures.

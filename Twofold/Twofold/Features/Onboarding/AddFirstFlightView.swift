@@ -43,7 +43,7 @@ struct AddFirstFlightView: View {
             primaryAction: save,
             primaryDisabled: flightNumber.trimmingCharacters(in: .whitespaces).isEmpty || isSaving,
             secondaryTitle: "Add this later",
-            secondaryAction: { onboarding.path.append(.twofoldPreview) }
+            secondaryAction: { onboarding.path.append(.firstMemory) }
         )
     }
 
@@ -52,7 +52,7 @@ struct AddFirstFlightView: View {
         onboarding.draftedFlightDate = date
 
         guard let origin = onboarding.partnerCity, let destination = onboarding.homeCity else {
-            onboarding.path.append(.twofoldPreview)
+            onboarding.path.append(.firstMemory)
             return
         }
 
@@ -64,6 +64,7 @@ struct AddFirstFlightView: View {
                 departureDate: date,
                 arrivalDate: date.addingTimeInterval(3600 * 4),
                 traveler: .partner,
+                category: .seeingEachOther,
                 flightNumber: onboarding.draftedFlightNumber
             )
             isSaving = false

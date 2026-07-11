@@ -78,7 +78,7 @@ struct PersonalizedInsightView: View {
                     .offset(y: stage >= 1 ? 0 : 12)
 
                 VStack(spacing: Theme.Spacing.xs) {
-                    Text("\(Text(displayedKm, format: .number.precision(.fractionLength(0))).font(.system(size: 54, weight: .bold, design: .rounded).monospacedDigit()).foregroundStyle(Theme.skyBlue)) \(Text("km").font(.title.weight(.bold)).foregroundStyle(Theme.leafGreen))")
+                    Text("\(Text(displayedKm, format: .number.precision(.fractionLength(0))).font(.system(size: 42, weight: .bold, design: .rounded).monospacedDigit()).foregroundStyle(Theme.skyBlue)) \(Text("km").font(.title2.weight(.bold)).foregroundStyle(Theme.leafGreen))")
                     Text("apart")
                         .font(.headline)
                         .foregroundStyle(Theme.subtleInk)
@@ -87,8 +87,10 @@ struct PersonalizedInsightView: View {
                 .opacity(stage >= 2 ? 1 : 0)
 
                 Text(Self.comparison(for: distanceKm))
-                    .font(.title3.weight(.medium))
+                    .font(.subheadline.weight(.medium))
                     .foregroundStyle(Theme.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
                     .opacity(stage >= 3 ? 1 : 0)
@@ -189,18 +191,28 @@ struct PersonalizedInsightView: View {
         .shadow(color: .black.opacity(0.2), radius: 4, y: 2)
     }
 
-    /// A region framing both cities with breathing room. Doesn't special-case the antimeridian
-    /// (e.g. Sydney–Los Angeles frames the long way around) — acceptable for a decorative map.
+    /// A region framing both cities with breathing room, computed via `MKMapPoint`/`MKMapRect`
+    /// (Mercator projection space) rather than naive lat/lon degree arithmetic. The old
+    /// approach produced spans of 150–340+ degrees for genuinely distant pairs (e.g.
+    /// Melbourne–London) — MapKit doesn't reliably render annotations/polylines for a region
+    /// that wide, so the map looked static and empty for exactly the couples this screen is
+    /// most dramatic for. `MKMapRect` handles arbitrary distances (including near-antipodal
+    /// pairs) correctly since it's the same projection math MapKit uses internally.
     private static func region(containing a: CLLocationCoordinate2D, _ b: CLLocationCoordinate2D) -> MKCoordinateRegion {
-        let center = CLLocationCoordinate2D(
-            latitude: (a.latitude + b.latitude) / 2,
-            longitude: (a.longitude + b.longitude) / 2
+        let pointA = MKMapPoint(a)
+        let pointB = MKMapPoint(b)
+        // A minimum size in map points (~ a couple hundred km) so two very close (but not
+        // identical-city) coordinates don't produce a near-zero rect that zooms in absurdly.
+        let minSize = 2_000_000.0
+        let rect = MKMapRect(
+            x: min(pointA.x, pointB.x),
+            y: min(pointA.y, pointB.y),
+            width: max(abs(pointA.x - pointB.x), minSize),
+            height: max(abs(pointA.y - pointB.y), minSize)
         )
-        let span = MKCoordinateSpan(
-            latitudeDelta: min(max(abs(a.latitude - b.latitude) * 1.7, 4), 160),
-            longitudeDelta: min(max(abs(a.longitude - b.longitude) * 1.7, 4), 340)
-        )
-        return MKCoordinateRegion(center: center, span: span)
+        // 40% padding on each side so the markers sit inside the frame, not glued to its edges.
+        let padded = rect.insetBy(dx: -rect.width * 0.4, dy: -rect.height * 0.4)
+        return MKCoordinateRegion(padded)
     }
 
     // MARK: - Comparison copy

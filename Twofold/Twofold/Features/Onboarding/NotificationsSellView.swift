@@ -192,7 +192,7 @@ struct NotificationsSellView: View {
 
                 // MARK: Floating notification stack
 
-                VStack(spacing: -42) {
+                VStack(spacing: -58) {
                     ForEach(
                         Array(previews.enumerated()),
                         id: \.offset
@@ -313,13 +313,13 @@ struct NotificationsSellView: View {
                 )
             }
             .shadow(
-                color: Color.black.opacity(0.22),
-                radius: 20,
+                color: Color.black.opacity(0.18),
+                radius: 10,
                 x: 0,
-                y: 10
+                y: 6
             )
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 28)
     }
 
     // MARK: - Animation

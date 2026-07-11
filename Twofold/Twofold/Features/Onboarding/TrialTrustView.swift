@@ -19,16 +19,17 @@ struct TrialTrustView: View {
     var body: some View {
         OnboardingScaffold(
             title: "We want you to try Twofold for free",
+            centered: true,
             content: {
                 VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
                     // Same pulsing GlobeHeart mark as the welcome screen, bookending onboarding.
                     Image("GlobeHeart")
                         .resizable()
                         .scaledToFit()
-                        .frame(width: 140, height: 140)
+                        .frame(width: 92, height: 92)
                         .scaleEffect(iconPulsing ? 1.08 : 1.0)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, Theme.Spacing.lg)
+                        .padding(.vertical, Theme.Spacing.sm)
                         .onAppear {
                             withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) {
                                 iconPulsing = true

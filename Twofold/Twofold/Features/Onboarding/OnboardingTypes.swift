@@ -25,6 +25,7 @@ enum OnboardingStep: Hashable {
     case saveAccount
     case invitePartner
     case addFirstFlight
+    case firstMemory
     case twofoldPreview
     case trialTrust
     case paywall

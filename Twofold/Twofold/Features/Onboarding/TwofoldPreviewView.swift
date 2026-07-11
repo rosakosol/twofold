@@ -21,6 +21,21 @@ struct TwofoldPreviewView: View {
         return max(0, days)
     }
 
+    private var sameCity: Bool {
+        guard let mine = onboarding.homeCity, let theirs = onboarding.partnerCity else { return false }
+        return mine.city == theirs.city && mine.country == theirs.country
+    }
+
+    private var distanceKm: Double? {
+        guard !sameCity, let mine = onboarding.homeCity?.coordinate, let theirs = onboarding.partnerCity?.coordinate else { return nil }
+        return Geo.distanceKm(mine, theirs)
+    }
+
+    private var daysTogether: Int? {
+        guard let anniversaryDate = onboarding.anniversaryDate else { return nil }
+        return max(0, Calendar.current.dateComponents([.day], from: anniversaryDate, to: .now).day ?? 0)
+    }
+
     private var selfImage: Image? {
         onboarding.selfPhotoData.flatMap(UIImage.init(data:)).map(Image.init(uiImage:))
     }
@@ -73,6 +88,23 @@ struct TwofoldPreviewView: View {
                                     }
                                 }
                                 Spacer(minLength: 0)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    } else if daysTogether != nil || distanceKm != nil {
+                        SectionCard {
+                            HStack(spacing: Theme.Spacing.lg) {
+                                if let daysTogether {
+                                    StatTile(icon: "heart.fill", value: "\(daysTogether)", label: "Days together", tint: Theme.heartRed)
+                                }
+                                if let distanceKm {
+                                    StatTile(
+                                        icon: "globe",
+                                        value: "\(distanceKm.formatted(.number.precision(.fractionLength(0)))) km",
+                                        label: "Apart",
+                                        tint: Theme.skyBlue
+                                    )
+                                }
                             }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)

@@ -9,6 +9,7 @@ struct TripsListView: View {
     @Environment(AppModel.self) private var appModel
     @State private var filter: TripFilter = .all
     @State private var showingAddTrip = false
+    @State private var showingAddFlight = false
 
     enum TripFilter: String, CaseIterable {
         case all = "All"
@@ -87,11 +88,22 @@ struct TripsListView: View {
                 }
             }
             .listStyle(.insetGrouped)
+            .scrollContentBackground(.hidden)
+            .background(Theme.backgroundGradient.ignoresSafeArea())
             .navigationTitle("Trips")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showingAddTrip = true
+                    Menu {
+                        Button {
+                            showingAddTrip = true
+                        } label: {
+                            Label("Add Trip", systemImage: "airplane")
+                        }
+                        Button {
+                            showingAddFlight = true
+                        } label: {
+                            Label("Add Flight", systemImage: "ticket")
+                        }
                     } label: {
                         Image(systemName: "plus")
                     }
@@ -108,6 +120,9 @@ struct TripsListView: View {
                         }
                     }
                 }
+            }
+            .sheet(isPresented: $showingAddFlight) {
+                AddFlightView()
             }
         }
     }
