@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Twofold — See how far you've gone for each other</title>
+  <meta name="description" content="Twofold turns your long-distance relationship into a living map. Track flights, watch the distance close, and relive every trip you've taken to see each other. Available now on iOS." />
+
+  <meta property="og:title" content="Twofold — See how far you've gone for each other" />
+  <meta property="og:description" content="Track flights, visualise your relationship across the world, and save memories to the places they happened." />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="/assets/globe-heart.png" />
+
+  <link rel="icon" href="/assets/favicon-32.png" sizes="32x32" />
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="nav">
+    <div class="wrap nav-inner">
+      <a class="brand" href="#top">
+        <img src="/assets/globe-heart.png" alt="" width="28" height="28" />
+        <span>twofold</span>
+      </a>
+      <a class="nav-cta" href="#waitlist">Android waitlist</a>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="wrap hero-inner">
+        <div class="hero-copy">
+          <p class="eyebrow">Built for long-distance couples</p>
+          <h1>See how far you've gone<br />for each other.</h1>
+          <p class="lede">
+            Twofold turns your long-distance relationship into a living map — track flights in
+            real time, watch the distance between you close, and relive every trip you've taken
+            just to be together.
+          </p>
+          <div class="cta-row">
+            <!-- TODO: replace href with the real apps.apple.com/app/idXXXXXXXXXX link once the App Store listing is live -->
+            <a class="appstore-badge" href="https://apps.apple.com/app/id0000000000" aria-label="Download Twofold on the App Store">
+              <svg viewBox="0 0 384 512" aria-hidden="true"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141 0 184.5 0 273.5c0 26.3 4.8 53.5 14.4 81.6 12.8 37.4 59 129.1 107.2 127.6 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-84.2 102.6-121.7-65.2-30.7-57.7-90-57.7-92.3zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg>
+              <span class="badge-text">
+                <small>Download on the</small>
+                <strong>App&nbsp;Store</strong>
+              </span>
+            </a>
+            <a class="secondary-cta" href="#waitlist">Get notified for Android →</a>
+          </div>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <div class="art-glow"></div>
+          <img src="/assets/globe-heart.png" alt="" class="art-globe" />
+        </div>
+      </div>
+    </section>
+
+    <section class="stat-strip">
+      <div class="wrap stat-strip-inner">
+        <p><strong>84,392 km</strong> travelled for each other — that's more than twice around the Earth.</p>
+      </div>
+    </section>
+
+    <section class="features">
+      <div class="wrap">
+        <h2>Everything your distance deserves</h2>
+        <div class="feature-grid">
+          <article class="feature-card">
+            <div class="feature-icon">🌍</div>
+            <h3>Relationship Globe</h3>
+            <p>An interactive 3D globe showing both of you, your current distance apart, and every journey you've taken to close it.</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon">✈️</div>
+            <h3>Live Flight Tracking</h3>
+            <p>Follow each other's flights in real time and get a notification the moment your partner lands.</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon">📍</div>
+            <h3>Memories</h3>
+            <p>Save photos and moments to the exact places they happened, building a map of your story together.</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon">🎮</div>
+            <h3>Couple Games</h3>
+            <p>Bite-sized games built for two, made to close the distance even when you can't be in the same room.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="waitlist" class="waitlist">
+      <div class="wrap waitlist-inner">
+        <h2>Twofold for Android is coming</h2>
+        <p>We're building the Android version next. Leave your email and we'll let you know the moment it's ready — no spam, just one message when it ships.</p>
+
+        <form id="waitlist-form" class="waitlist-form" novalidate>
+          <div class="field-row">
+            <label class="sr-only" for="waitlist-email">Email address</label>
+            <input
+              id="waitlist-email"
+              name="email"
+              type="email"
+              inputmode="email"
+              autocomplete="email"
+              placeholder="you@example.com"
+              required
+            />
+            <!-- Honeypot: hidden from real users, bots tend to fill every field -->
+            <input class="hp-field" type="text" name="company" tabindex="-1" autocomplete="off" aria-hidden="true" />
+            <button type="submit">Join waitlist</button>
+          </div>
+          <p class="form-status" id="waitlist-status" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer-inner">
+      <div class="brand">
+        <img src="/assets/globe-heart.png" alt="" width="20" height="20" />
+        <span>twofold</span>
+      </div>
+      <p>© <span id="year"></span> Twofold. Made for the couples doing long distance.</p>
+    </div>
+  </footer>
+
+  <script src="/script.js"></script>
+</body>
+</html>

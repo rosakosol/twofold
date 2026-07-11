@@ -1,0 +1,14 @@
+name = "twofold-site"
+pages_build_output_dir = "."
+compatibility_date = "2025-07-01"
+
+# Non-secret config. Update these once your sending domain is verified in Resend.
+[vars]
+FROM_EMAIL = "Twofold <hello@twofoldapp.com.au>"
+NOTIFY_EMAIL = "hello@twofoldapp.com.au"
+
+# Created via `wrangler d1 create twofold-waitlist` — replace database_id with the id it prints.
+[[d1_databases]]
+binding = "DB"
+database_name = "twofold-waitlist"
+database_id = "43b7720f-3a3e-4b11-ad8a-0dee5d6bc26d"
