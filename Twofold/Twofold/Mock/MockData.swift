@@ -28,19 +28,24 @@ enum MockData {
         let departure = Calendar.current.date(byAdding: .hour, value: -3, to: .now) ?? .now
         let arrival = Calendar.current.date(byAdding: .hour, value: 4, to: .now) ?? .now
         return Flight(
-            flightNumber: "QF35",
-            origin: singapore,
-            destination: melbourne,
+            faFlightID: "QFA35-mock",
+            flightNumberIATA: "QF35",
+            airlineName: "Qantas",
+            airlineCode: "QF",
+            origin: FlightAirport(iata: singapore.iataCode, name: nil, city: singapore.city, timezone: singapore.timeZoneIdentifier, latitude: singapore.latitude, longitude: singapore.longitude),
+            destination: FlightAirport(iata: melbourne.iataCode, name: nil, city: melbourne.city, timezone: melbourne.timeZoneIdentifier, latitude: melbourne.latitude, longitude: melbourne.longitude),
+            scheduledOut: departure,
+            scheduledIn: arrival,
+            actualOut: departure,
+            actualOff: departure,
             status: .inAir,
-            scheduledDeparture: departure,
-            scheduledArrival: arrival,
-            progress: 0.45,
-            timeline: [
-                FlightTimelineEvent(kind: .departed, time: departure, isComplete: true),
-                FlightTimelineEvent(kind: .inAir, time: departure.addingTimeInterval(3 * 3600), isComplete: true),
-                FlightTimelineEvent(kind: .landingSoon, time: arrival.addingTimeInterval(-1800), isComplete: false),
-                FlightTimelineEvent(kind: .arrived, time: arrival, isComplete: false),
-            ]
+            positionLatitude: (singapore.latitude + melbourne.latitude) / 2,
+            positionLongitude: (singapore.longitude + melbourne.longitude) / 2,
+            positionAltitude: 38000,
+            positionGroundspeed: 480,
+            positionHeading: 165,
+            positionUpdatedAt: .now,
+            lastRefreshedAt: .now
         )
     }()
 
@@ -55,16 +60,20 @@ enum MockData {
         flight: activeFlight
     )
 
-    static let pastLandedFlight = Flight(
-        flightNumber: "QF34",
-        origin: melbourne,
-        destination: singapore,
-        status: .arrived,
-        scheduledDeparture: Calendar.current.date(byAdding: .day, value: -80, to: .now) ?? .now,
-        scheduledArrival: Calendar.current.date(byAdding: .day, value: -80, to: .now) ?? .now,
-        progress: 1,
-        timeline: []
-    )
+    static let pastLandedFlight: Flight = {
+        let day = Calendar.current.date(byAdding: .day, value: -80, to: .now) ?? .now
+        return Flight(
+            flightNumberIATA: "QF34",
+            origin: FlightAirport(iata: melbourne.iataCode, name: nil, city: melbourne.city, timezone: melbourne.timeZoneIdentifier, latitude: melbourne.latitude, longitude: melbourne.longitude),
+            destination: FlightAirport(iata: singapore.iataCode, name: nil, city: singapore.city, timezone: singapore.timeZoneIdentifier, latitude: singapore.latitude, longitude: singapore.longitude),
+            scheduledOut: day,
+            scheduledIn: day,
+            actualOut: day,
+            actualIn: day,
+            status: .arrived,
+            trackingEnabled: false
+        )
+    }()
 
     static let pastTrip = Trip(
         travelerID: rosa.id,

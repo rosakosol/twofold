@@ -423,3 +423,40 @@ entrypoint = "./functions/parse-flight-email/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/parse-flight-email/*.html" ]
+
+# Client-callable — requires a real user access token in Authorization, so the platform-level
+# JWT check stays on (default verify_jwt = true).
+[functions.resolve-flight]
+enabled = true
+verify_jwt = true
+import_map = "./functions/resolve-flight/deno.json"
+entrypoint = "./functions/resolve-flight/index.ts"
+
+[functions.add-flight]
+enabled = true
+verify_jwt = true
+import_map = "./functions/add-flight/deno.json"
+entrypoint = "./functions/add-flight/index.ts"
+
+[functions.refresh-flight]
+enabled = true
+verify_jwt = true
+import_map = "./functions/refresh-flight/deno.json"
+entrypoint = "./functions/refresh-flight/index.ts"
+
+# Cron-only (see supabase/migrations/20260712000100_flight_refresh_cron.sql) — called with the
+# service role key as a bearer token, which the function itself checks explicitly. Platform-level
+# JWT verification is turned off since this is a system caller, not a user session.
+[functions.refresh-due-flights]
+enabled = true
+verify_jwt = false
+import_map = "./functions/refresh-due-flights/deno.json"
+entrypoint = "./functions/refresh-due-flights/index.ts"
+
+# Public webhook receiver called by AeroAPI, not by our own clients — authenticated via a shared
+# `?token=` query param instead of a Supabase JWT, so platform-level JWT verification is off.
+[functions.aeroapi-webhook]
+enabled = true
+verify_jwt = false
+import_map = "./functions/aeroapi-webhook/deno.json"
+entrypoint = "./functions/aeroapi-webhook/index.ts"

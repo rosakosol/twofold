@@ -52,13 +52,26 @@ struct TripsListView: View {
                 }
                 .listRowBackground(Color.clear)
 
+                let untetheredFlights = appModel.flights.filter { $0.tripID == nil }
+                if !untetheredFlights.isEmpty {
+                    Section("Tracked flights") {
+                        ForEach(untetheredFlights) { flight in
+                            NavigationLink {
+                                FlightTrackingView(flight: flight)
+                            } label: {
+                                FlightRowView(flight: flight)
+                            }
+                        }
+                    }
+                }
+
                 let upcoming = filtered(appModel.upcomingTrips)
                 if !upcoming.isEmpty {
                     Section("Upcoming") {
                         ForEach(upcoming) { trip in
-                            if trip.isActive {
+                            if trip.isActive, let flight = trip.flight {
                                 NavigationLink {
-                                    FlightTrackingView(trip: trip)
+                                    FlightTrackingView(flight: flight)
                                 } label: {
                                     TripRowView(trip: trip, traveler: traveler(for: trip))
                                 }

@@ -54,13 +54,15 @@ struct GlobeHomeView: View {
                     } else {
                         homeCityPromptCard
                     }
-                    if let soonestTrip {
+                    if let flight = appModel.activeOrUpcomingFlight {
                         NavigationLink {
-                            FlightTrackingView(trip: soonestTrip)
+                            FlightTrackingView(flight: flight)
                         } label: {
-                            nextReunionCard(trip: soonestTrip)
+                            activeFlightCard(flight: flight)
                         }
                         .buttonStyle(.plain)
+                    } else if let soonestTrip {
+                        nextReunionCard(trip: soonestTrip)
                     }
                     if appModel.partnerConnected {
                         DrawingPadCard()
@@ -100,11 +102,13 @@ struct GlobeHomeView: View {
             .onAppear {
                 refreshPendingShares()
                 Task { await appModel.refreshCoupleStateIfNeeded() }
+                Task { await appModel.refreshFlights() }
             }
             .onChange(of: scenePhase) { _, newPhase in
                 if newPhase == .active {
                     refreshPendingShares()
                     Task { await appModel.refreshCoupleStateIfNeeded() }
+                    Task { await appModel.refreshFlights() }
                 }
             }
             .sheet(isPresented: $showingSnapshot) { SnapshotShareView() }
@@ -282,6 +286,51 @@ struct GlobeHomeView: View {
             RelationshipGlobeView(couple: appModel.couple, partnerACity: myCity, partnerBCity: partnerCity, activeTrip: appModel.activeTrip)
                 .frame(height: 260)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+        }
+    }
+
+    /// A live, AeroAPI-backed flight (or a self-reported one — either way, whatever
+    /// `Flight` actually has) — supersedes `nextReunionCard` whenever one exists, since it
+    /// carries real status/countdown instead of just a trip's planned dates.
+    private func activeFlightCard(flight: Flight) -> some View {
+        SectionCard {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(flight.status.isActivelyTracked ? "TRACKING NOW" : "NEXT FLIGHT")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(Theme.subtleInk)
+                    Text([flight.airlineName, flight.displayNumber].compactMap { $0 }.joined(separator: " · "))
+                        .font(.subheadline.weight(.semibold))
+                }
+                Spacer()
+                PillBadge(text: flight.status.displayLabel, tint: flight.status.semanticColor)
+            }
+
+            HStack(spacing: Theme.Spacing.xs) {
+                Text(flight.origin.displayCode)
+                Image(systemName: "arrow.right")
+                Text(flight.destination.displayCode)
+            }
+            .font(.title3.weight(.bold))
+
+            Text(flight.countdownSummary)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(Theme.skyBlue)
+
+            GeometryReader { proxy in
+                Capsule().fill(Theme.skyBlue.opacity(0.15)).frame(height: 5)
+                    .overlay(alignment: .leading) {
+                        Capsule().fill(flight.status.semanticColor).frame(width: proxy.size.width * flight.progress, height: 5)
+                    }
+            }
+            .frame(height: 5)
+
+            if flight.status.isActivelyTracked {
+                FlightMapView(flight: flight, interactive: false)
+                    .frame(height: 140)
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                    .allowsHitTesting(false)
+            }
         }
     }
 

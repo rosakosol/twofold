@@ -61,6 +61,6 @@ struct Trip: Identifiable, Hashable {
 
     var isActive: Bool {
         guard let flight else { return false }
-        return departureDate <= .now && [.departed, .inAir, .landingSoon].contains(flight.status)
+        return flight.status.isActivelyTracked
     }
 }

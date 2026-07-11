@@ -12,7 +12,8 @@ struct TripRowView: View {
     private var statusBadge: (text: String, tint: Color)? {
         guard let flight = trip.flight else { return nil }
         switch flight.status {
-        case .arrived: return ("Landed", Theme.leafGreen)
+        case .arrived, .landed: return ("Landed", Theme.leafGreen)
+        case .boarding: return ("Boarding", Theme.skyBlue)
         case .departed: return ("Departed", Theme.skyBlue)
         case .inAir: return ("In the air", Theme.skyBlue)
         case .landingSoon: return ("Landing soon", Theme.heartRed)

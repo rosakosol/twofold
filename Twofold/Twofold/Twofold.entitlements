@@ -10,5 +10,7 @@
 	<array>
 		<string>group.com.orangefinch.Twofold</string>
 	</array>
+	<key>aps-environment</key>
+	<string>development</string>
 </dict>
 </plist>

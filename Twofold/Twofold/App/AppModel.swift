@@ -16,6 +16,9 @@ final class AppModel {
     var couple: Couple = AppModel.placeholderCouple
     var trips: [Trip] = []
     var memories: [Memory] = []
+    /// Every flight for the couple, independent of trip linkage — the authoritative list.
+    /// See `Trip.flight` for the trip-scoped mirror kept for backward-compat UI.
+    var flights: [Flight] = []
     /// Home-screen doodle pads — only meaningful once paired, since there's no partner pad to
     /// compare against (and nowhere real to save to) before then.
     var myDrawingURL: URL?
@@ -51,6 +54,14 @@ final class AppModel {
 
     var activeTrip: Trip? {
         trips.first { $0.isActive }
+    }
+
+    /// The couple's most relevant tracked flight for the Globe home card — whichever is
+    /// currently in progress, or failing that, whichever hasn't departed yet, soonest first.
+    /// Cancelled flights are excluded (nothing useful to show live for those).
+    var activeOrUpcomingFlight: Flight? {
+        let relevant = flights.filter { !$0.cancelled && ($0.status.isActivelyTracked || ($0.bestArrival ?? .distantPast) > .now) }
+        return relevant.sorted { ($0.bestDeparture ?? .distantFuture) < ($1.bestDeparture ?? .distantFuture) }.first
     }
 
     var upcomingTrips: [Trip] {
@@ -155,6 +166,7 @@ final class AppModel {
         pendingMemoryPhotoData = [:]
         trips = []
         memories = []
+        flights = []
         couple = Self.placeholderCouple
     }
 
@@ -264,6 +276,7 @@ final class AppModel {
         backendCoupleID = state.couple.id
         trips = state.trips
         memories = state.memories
+        flights = state.flights
         partnerConnected = true
         hasCouple = true
         isSubscriptionActive = state.subscriptionActive
@@ -383,19 +396,11 @@ final class AppModel {
         )
 
         if let flightNumber, !flightNumber.isEmpty {
-            trip.flight = Flight(
-                flightNumber: flightNumber,
-                origin: origin,
-                destination: destination,
-                status: .scheduled,
-                scheduledDeparture: departureDate,
-                scheduledArrival: arrivalDate,
-                progress: 0,
-                timeline: []
-            )
+            trip.flight = Flight(selfReportedNumber: flightNumber, origin: origin, destination: destination, scheduledDeparture: departureDate, scheduledArrival: arrivalDate)
         }
 
         trips.append(trip)
+        if let flight = trip.flight { flights.append(flight) }
 
         if let backendCoupleID {
             do {
@@ -410,23 +415,39 @@ final class AppModel {
         return trip
     }
 
-    func addFlight(to tripID: Trip.ID, flightNumber: String) async {
-        guard let index = trips.firstIndex(where: { $0.id == tripID }) else { return }
-        let trip = trips[index]
-        let flight = Flight(
-            flightNumber: flightNumber,
-            origin: trip.origin,
-            destination: trip.destination,
-            status: .scheduled,
-            scheduledDeparture: trip.departureDate,
-            scheduledArrival: trip.arrivalDate,
-            progress: 0,
-            timeline: []
-        )
-        trips[index].flight = flight
+    /// Re-pulls the full flight list from the backend — called after the Add Flight search
+    /// flow resolves a real AeroAPI-tracked flight (via the `add-flight` Edge Function, which
+    /// writes the row server-side, so there's nothing to merge locally) and by
+    /// `FlightDetailView` after an on-demand refresh.
+    func refreshFlights() async {
+        guard let backendCoupleID else { return }
+        if let fresh = try? await BackendService.fetchFlights(coupleID: backendCoupleID) {
+            flights = fresh
+            for index in trips.indices {
+                trips[index].flight = fresh.first { $0.tripID == trips[index].id }
+            }
+        }
+    }
 
-        guard !pendingTripIDs.contains(tripID) else { return }
-        try? await BackendService.insertFlight(tripID: tripID, flight: flight)
+    /// Freeform trip prep notes — reused by the Flight Detail screen's "Trip checklist" card
+    /// rather than inventing a separate checklist feature/table.
+    func updateTripNotes(_ trip: Trip) async {
+        guard let index = trips.firstIndex(where: { $0.id == trip.id }) else { return }
+        trips[index].notes = trip.notes
+        try? await BackendService.updateTripNotes(tripID: trip.id, notes: trip.notes)
+    }
+
+    /// Registers this device's APNs token against the signed-in profile so
+    /// `send-flight-notification` (server-side) has somewhere to deliver to. Safe to call
+    /// repeatedly — the backend upserts on the token itself.
+    func registerPushToken(_ tokenData: Data) async {
+        let token = tokenData.map { String(format: "%02x", $0) }.joined()
+        #if DEBUG
+        let environment = "sandbox"
+        #else
+        let environment = "production"
+        #endif
+        try? await BackendService.registerDeviceToken(token, environment: environment)
     }
 
     @discardableResult

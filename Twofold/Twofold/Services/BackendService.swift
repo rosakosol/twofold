@@ -151,6 +151,13 @@ enum BackendService {
         supabase.auth.currentSession?.user.id
     }
 
+    /// Forwarded as the `Authorization` header when calling Edge Functions that need to know
+    /// who's calling (e.g. `resolve-flight`/`add-flight`/`refresh-flight` — see
+    /// `AeroFlightService`) so the function can build a request-scoped, RLS-respecting client.
+    static var currentAccessToken: String? {
+        supabase.auth.currentSession?.accessToken
+    }
+
     /// Restores a persisted session (if any) on launch. supabase-swift keeps the refresh
     /// token in the Keychain, so this succeeds silently across app relaunches.
     static func restoreSession() async -> Session? {
@@ -615,6 +622,9 @@ enum BackendService {
         var couple: Couple
         var trips: [Trip]
         var memories: [Memory]
+        /// Every flight for the couple — the authoritative list. Trip-linked flights are also
+        /// mirrored onto `trip.flight` for backward compatibility with trip-scoped UI.
+        var flights: [Flight]
         /// "Your partner doesn't pay anything" — access is granted if *either* partner's
         /// device last reported an active local StoreKit entitlement.
         var subscriptionActive: Bool
@@ -659,17 +669,14 @@ enum BackendService {
             .execute()
             .value
 
-        let flightRows: [FlightRow]
-        if tripRows.isEmpty {
-            flightRows = []
-        } else {
-            flightRows = try await supabase
-                .from("flights")
-                .select()
-                .in("trip_id", values: tripRows.map(\.id))
-                .execute()
-                .value
-        }
+        // Flights are couple-scoped directly (not joined through trips) — a flight can exist
+        // with no trip link at all.
+        let flightRows: [FlightRow] = try await supabase
+            .from("flights")
+            .select()
+            .eq("couple_id", value: coupleRow.id)
+            .execute()
+            .value
 
         let memoryRows: [MemoryRow] = try await supabase
             .from("memories")
@@ -693,7 +700,6 @@ enum BackendService {
 
         var placeIDs = Set([partnerAProfile.homePlaceId, partnerBProfile.homePlaceId].compactMap { $0 })
         for row in tripRows { placeIDs.insert(row.originId); placeIDs.insert(row.destinationId) }
-        for row in flightRows { placeIDs.insert(row.originId); placeIDs.insert(row.destinationId) }
         for row in memoryRows { placeIDs.insert(row.placeId) }
         let places = try await fetchPlaces(ids: Array(placeIDs))
 
@@ -722,7 +728,11 @@ enum BackendService {
             startedDatingOn: .now
         )
 
-        let flightsByTrip = Dictionary(uniqueKeysWithValues: flightRows.map { ($0.tripId, $0) })
+        let flights = flightRows.map { Self.makeFlight(from: $0) }
+        // A trip can have at most one *meaningfully* linked flight for the existing trip-scoped
+        // UI (TripsListView, GlobeHomeView's reunion card) — first-match is fine since that's
+        // the only shape the current add-flight flows ever produce.
+        let flightsByTrip = Dictionary(flights.compactMap { flight in flight.tripID.map { ($0, flight) } }, uniquingKeysWith: { first, _ in first })
 
         let trips: [Trip] = tripRows.compactMap { row in
             guard let origin = places[row.originId],
@@ -740,11 +750,7 @@ enum BackendService {
                 distanceKm: row.distanceKm,
                 notes: row.notes
             )
-            if let flightRow = flightsByTrip[row.id],
-               let flightOrigin = places[flightRow.originId],
-               let flightDestination = places[flightRow.destinationId] {
-                trip.flight = Self.makeFlight(from: flightRow, origin: flightOrigin, destination: flightDestination)
-            }
+            trip.flight = flightsByTrip[row.id]
             return trip
         }
 
@@ -777,6 +783,7 @@ enum BackendService {
             couple: couple,
             trips: trips,
             memories: memories,
+            flights: flights,
             subscriptionActive: meProfile.subscriptionActive || partnerProfile.subscriptionActive
         )
     }
@@ -828,59 +835,523 @@ enum BackendService {
         }
     }
 
+    /// Flights are couple-scoped (not trip-scoped) — `tripId` is an optional link, not a
+    /// join key. `status`/`progress`/`timeline` on the app-side `Flight` model are computed
+    /// from these raw timestamps rather than duplicated here.
     private struct FlightRow: Decodable {
         var id: UUID
-        var tripId: UUID
-        var flightNumber: String
-        var originId: UUID
-        var destinationId: UUID
-        var scheduledDeparture: Date
-        var scheduledArrival: Date
+        var tripId: UUID?
+        var coupleId: UUID
+        var createdBy: UUID?
+        var faFlightId: String?
+        var flightNumberIata: String
+        var flightNumberIcao: String?
+        var airlineName: String?
+        var airlineCode: String?
+        var airlineLogoUrl: String?
+        var originIata: String?
+        var originIcao: String?
+        var originName: String?
+        var originCity: String?
+        var originTimezone: String?
+        var originLatitude: Double?
+        var originLongitude: Double?
+        var destinationIata: String?
+        var destinationIcao: String?
+        var destinationName: String?
+        var destinationCity: String?
+        var destinationTimezone: String?
+        var destinationLatitude: Double?
+        var destinationLongitude: Double?
+        var aircraftType: String?
+        var registration: String?
+        var route: String?
+        var scheduledOut: Date?
+        var scheduledOff: Date?
+        var scheduledOn: Date?
+        var scheduledIn: Date?
+        var estimatedOut: Date?
+        var estimatedOff: Date?
+        var estimatedOn: Date?
+        var estimatedIn: Date?
+        var actualOut: Date?
+        var actualOff: Date?
+        var actualOn: Date?
+        var actualIn: Date?
+        var departureDelaySeconds: Int?
+        var arrivalDelaySeconds: Int?
+        var terminalOrigin: String?
+        var gateOrigin: String?
+        var terminalDestination: String?
+        var gateDestination: String?
+        var baggageClaim: String?
+        var cancelled: Bool
+        var diverted: Bool
+        var status: String
+        var positionLatitude: Double?
+        var positionLongitude: Double?
+        var positionAltitude: Double?
+        var positionGroundspeed: Double?
+        var positionHeading: Double?
+        var positionUpdatedAt: Date?
+        var weatherOrigin: FlightWeather?
+        var weatherDestination: FlightWeather?
+        var lastRefreshedAt: Date?
+        var trackingEnabled: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case id, cancelled, diverted, status, route, registration
+            case tripId = "trip_id"
+            case coupleId = "couple_id"
+            case createdBy = "created_by"
+            case faFlightId = "fa_flight_id"
+            case flightNumberIata = "flight_number_iata"
+            case flightNumberIcao = "flight_number_icao"
+            case airlineName = "airline_name"
+            case airlineCode = "airline_code"
+            case airlineLogoUrl = "airline_logo_url"
+            case originIata = "origin_iata"
+            case originIcao = "origin_icao"
+            case originName = "origin_name"
+            case originCity = "origin_city"
+            case originTimezone = "origin_timezone"
+            case originLatitude = "origin_latitude"
+            case originLongitude = "origin_longitude"
+            case destinationIata = "destination_iata"
+            case destinationIcao = "destination_icao"
+            case destinationName = "destination_name"
+            case destinationCity = "destination_city"
+            case destinationTimezone = "destination_timezone"
+            case destinationLatitude = "destination_latitude"
+            case destinationLongitude = "destination_longitude"
+            case aircraftType = "aircraft_type"
+            case scheduledOut = "scheduled_out"
+            case scheduledOff = "scheduled_off"
+            case scheduledOn = "scheduled_on"
+            case scheduledIn = "scheduled_in"
+            case estimatedOut = "estimated_out"
+            case estimatedOff = "estimated_off"
+            case estimatedOn = "estimated_on"
+            case estimatedIn = "estimated_in"
+            case actualOut = "actual_out"
+            case actualOff = "actual_off"
+            case actualOn = "actual_on"
+            case actualIn = "actual_in"
+            case departureDelaySeconds = "departure_delay_seconds"
+            case arrivalDelaySeconds = "arrival_delay_seconds"
+            case terminalOrigin = "terminal_origin"
+            case gateOrigin = "gate_origin"
+            case terminalDestination = "terminal_destination"
+            case gateDestination = "gate_destination"
+            case baggageClaim = "baggage_claim"
+            case positionLatitude = "position_latitude"
+            case positionLongitude = "position_longitude"
+            case positionAltitude = "position_altitude"
+            case positionGroundspeed = "position_groundspeed"
+            case positionHeading = "position_heading"
+            case positionUpdatedAt = "position_updated_at"
+            case weatherOrigin = "weather_origin"
+            case weatherDestination = "weather_destination"
+            case lastRefreshedAt = "last_refreshed_at"
+            case trackingEnabled = "tracking_enabled"
+        }
+    }
+
+    private static func makeFlight(from row: FlightRow) -> Flight {
+        Flight(
+            id: row.id,
+            tripID: row.tripId,
+            coupleID: row.coupleId,
+            createdBy: row.createdBy,
+            faFlightID: row.faFlightId,
+            flightNumberIATA: row.flightNumberIata,
+            flightNumberICAO: row.flightNumberIcao,
+            airlineName: row.airlineName,
+            airlineCode: row.airlineCode,
+            airlineLogoURL: row.airlineLogoUrl.flatMap(URL.init(string:)),
+            origin: FlightAirport(iata: row.originIata, icao: row.originIcao, name: row.originName, city: row.originCity, timezone: row.originTimezone, latitude: row.originLatitude, longitude: row.originLongitude),
+            destination: FlightAirport(iata: row.destinationIata, icao: row.destinationIcao, name: row.destinationName, city: row.destinationCity, timezone: row.destinationTimezone, latitude: row.destinationLatitude, longitude: row.destinationLongitude),
+            aircraftType: row.aircraftType,
+            registration: row.registration,
+            route: row.route,
+            scheduledOut: row.scheduledOut,
+            scheduledOff: row.scheduledOff,
+            scheduledOn: row.scheduledOn,
+            scheduledIn: row.scheduledIn,
+            estimatedOut: row.estimatedOut,
+            estimatedOff: row.estimatedOff,
+            estimatedOn: row.estimatedOn,
+            estimatedIn: row.estimatedIn,
+            actualOut: row.actualOut,
+            actualOff: row.actualOff,
+            actualOn: row.actualOn,
+            actualIn: row.actualIn,
+            departureDelaySeconds: row.departureDelaySeconds,
+            arrivalDelaySeconds: row.arrivalDelaySeconds,
+            terminalOrigin: row.terminalOrigin,
+            gateOrigin: row.gateOrigin,
+            terminalDestination: row.terminalDestination,
+            gateDestination: row.gateDestination,
+            baggageClaim: row.baggageClaim,
+            cancelled: row.cancelled,
+            diverted: row.diverted,
+            status: FlightStatus(rawValue: row.status) ?? .scheduled,
+            positionLatitude: row.positionLatitude,
+            positionLongitude: row.positionLongitude,
+            positionAltitude: row.positionAltitude,
+            positionGroundspeed: row.positionGroundspeed,
+            positionHeading: row.positionHeading,
+            positionUpdatedAt: row.positionUpdatedAt,
+            weatherOrigin: row.weatherOrigin,
+            weatherDestination: row.weatherDestination,
+            lastRefreshedAt: row.lastRefreshedAt,
+            trackingEnabled: row.trackingEnabled
+        )
+    }
+
+    /// Client-insertable only for a *self-reported* flight (no `fa_flight_id`) — matches the
+    /// narrow RLS exception in the flights table. Real AeroAPI-tracked flights are written
+    /// only by the `add-flight`/`refresh-flight` Edge Functions using the service role key.
+    private struct SelfReportedFlightInsert: Encodable {
+        var id: UUID
+        var coupleId: UUID
+        var tripId: UUID?
+        var createdBy: UUID
+        var flightNumberIata: String
+        var originIata: String?
+        var originCity: String?
+        var originTimezone: String?
+        var originLatitude: Double?
+        var originLongitude: Double?
+        var destinationIata: String?
+        var destinationCity: String?
+        var destinationTimezone: String?
+        var destinationLatitude: Double?
+        var destinationLongitude: Double?
+        var scheduledOut: Date?
+        var scheduledIn: Date?
+        var status: String
+
+        enum CodingKeys: String, CodingKey {
+            case id, status
+            case coupleId = "couple_id"
+            case tripId = "trip_id"
+            case createdBy = "created_by"
+            case flightNumberIata = "flight_number_iata"
+            case originIata = "origin_iata"
+            case originCity = "origin_city"
+            case originTimezone = "origin_timezone"
+            case originLatitude = "origin_latitude"
+            case originLongitude = "origin_longitude"
+            case destinationIata = "destination_iata"
+            case destinationCity = "destination_city"
+            case destinationTimezone = "destination_timezone"
+            case destinationLatitude = "destination_latitude"
+            case destinationLongitude = "destination_longitude"
+            case scheduledOut = "scheduled_out"
+            case scheduledIn = "scheduled_in"
+        }
+    }
+
+    @discardableResult
+    static func insertSelfReportedFlight(coupleID: UUID, tripID: UUID?, flight: Flight) async throws -> UUID {
+        guard let userID = currentUserID else { throw BackendError.notAuthenticated }
+        let insert = SelfReportedFlightInsert(
+            id: flight.id,
+            coupleId: coupleID,
+            tripId: tripID,
+            createdBy: userID,
+            flightNumberIata: flight.flightNumberIATA,
+            originIata: flight.origin.iata,
+            originCity: flight.origin.city,
+            originTimezone: flight.origin.timezone,
+            originLatitude: flight.origin.latitude,
+            originLongitude: flight.origin.longitude,
+            destinationIata: flight.destination.iata,
+            destinationCity: flight.destination.city,
+            destinationTimezone: flight.destination.timezone,
+            destinationLatitude: flight.destination.latitude,
+            destinationLongitude: flight.destination.longitude,
+            scheduledOut: flight.scheduledOut,
+            scheduledIn: flight.scheduledIn,
+            status: "scheduled"
+        )
+        try await supabase.from("flights").insert(insert).execute()
+        return flight.id
+    }
+
+    static func fetchFlights(coupleID: UUID) async throws -> [Flight] {
+        let rows: [FlightRow] = try await supabase
+            .from("flights")
+            .select()
+            .eq("couple_id", value: coupleID)
+            .execute()
+            .value
+        return rows.map(Self.makeFlight)
+    }
+
+    static func fetchFlight(id: UUID) async throws -> Flight? {
+        let rows: [FlightRow] = try await supabase
+            .from("flights")
+            .select()
+            .eq("id", value: id)
+            .limit(1)
+            .execute()
+            .value
+        return rows.first.map(Self.makeFlight)
+    }
+
+    // MARK: - Flight status events (provider-sourced) & notification preferences
+
+    private struct FlightStatusEventRow: Decodable {
+        var id: UUID
+        var flightId: UUID
+        var type: FlightStatusEventType
+        var previousValue: String?
+        var newValue: String?
+        var occurredAt: Date
+        var source: String
+
+        enum CodingKeys: String, CodingKey {
+            case id, type, source
+            case flightId = "flight_id"
+            case previousValue = "previous_value"
+            case newValue = "new_value"
+            case occurredAt = "occurred_at"
+        }
+
+        func toModel() -> FlightStatusEvent {
+            FlightStatusEvent(id: id, flightID: flightId, type: type, previousValue: previousValue, newValue: newValue, occurredAt: occurredAt, source: source)
+        }
+    }
+
+    static func fetchFlightStatusEvents(flightID: UUID) async throws -> [FlightStatusEvent] {
+        let rows: [FlightStatusEventRow] = try await supabase
+            .from("flight_status_events")
+            .select()
+            .eq("flight_id", value: flightID)
+            .order("occurred_at", ascending: false)
+            .execute()
+            .value
+        return rows.map { $0.toModel() }
+    }
+
+    /// Mirrors `subscribeToFlightUpdates` — a Realtime channel of newly-inserted provider
+    /// events, written server-side by the AeroAPI sync pipeline.
+    static func subscribeToFlightStatusEvents(flightID: UUID) -> (channel: RealtimeChannelV2, stream: AsyncStream<FlightStatusEvent>) {
+        let channel = supabase.channel("flight_status_events_\(flightID.uuidString)")
+        let insertions = channel.postgresChange(
+            InsertAction.self,
+            table: "flight_status_events",
+            filter: .eq("flight_id", value: flightID.uuidString)
+        )
+
+        let (stream, continuation) = AsyncStream<FlightStatusEvent>.makeStream()
+        Task {
+            try? await channel.subscribeWithError()
+            for await insertion in insertions {
+                guard let row = try? insertion.decodeRecord(as: FlightStatusEventRow.self, decoder: AnyJSON.decoder) else { continue }
+                continuation.yield(row.toModel())
+            }
+            continuation.finish()
+        }
+        return (channel, stream)
+    }
+
+    private struct NotificationPreferencesRow: Codable {
+        var flightId: UUID
+        var profileId: UUID
+        var gateTerminalChanges: Bool
+        var delayOrCancellation: Bool
+        var departure: Bool
+        var landing: Bool
+        var arrivalAtGate: Bool
+        var baggageClaimUpdate: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case flightId = "flight_id"
+            case profileId = "profile_id"
+            case gateTerminalChanges = "gate_terminal_changes"
+            case delayOrCancellation = "delay_or_cancellation"
+            case departure, landing
+            case arrivalAtGate = "arrival_at_gate"
+            case baggageClaimUpdate = "baggage_claim_update"
+        }
+
+        func toModel() -> FlightNotificationPreferences {
+            FlightNotificationPreferences(
+                flightID: flightId, profileID: profileId,
+                gateTerminalChanges: gateTerminalChanges, delayOrCancellation: delayOrCancellation,
+                departure: departure, landing: landing,
+                arrivalAtGate: arrivalAtGate, baggageClaimUpdate: baggageClaimUpdate
+            )
+        }
+    }
+
+    static func fetchNotificationPreferences(flightID: UUID) async throws -> FlightNotificationPreferences? {
+        guard let userID = currentUserID else { throw BackendError.notAuthenticated }
+        let rows: [NotificationPreferencesRow] = try await supabase
+            .from("flight_notification_preferences")
+            .select()
+            .eq("flight_id", value: flightID)
+            .eq("profile_id", value: userID)
+            .limit(1)
+            .execute()
+            .value
+        return rows.first?.toModel()
+    }
+
+    static func upsertNotificationPreferences(_ prefs: FlightNotificationPreferences) async throws {
+        try await supabase
+            .from("flight_notification_preferences")
+            .upsert(NotificationPreferencesRow(
+                flightId: prefs.flightID, profileId: prefs.profileID,
+                gateTerminalChanges: prefs.gateTerminalChanges, delayOrCancellation: prefs.delayOrCancellation,
+                departure: prefs.departure, landing: prefs.landing,
+                arrivalAtGate: prefs.arrivalAtGate, baggageClaimUpdate: prefs.baggageClaimUpdate
+            ), onConflict: "flight_id,profile_id")
+            .execute()
+    }
+
+    // MARK: - Flight documents (boarding passes / travel docs)
+
+    private struct FlightDocumentRow: Decodable {
+        var id: UUID
+        var flightId: UUID?
+        var tripId: UUID?
+        var uploadedBy: UUID
+        var docType: FlightDocumentType
+        var filePath: String
+        var originalFilename: String?
+        var contentType: String?
+        var createdAt: Date
 
         enum CodingKeys: String, CodingKey {
             case id
+            case flightId = "flight_id"
             case tripId = "trip_id"
-            case flightNumber = "flight_number"
-            case originId = "origin_id"
-            case destinationId = "destination_id"
-            case scheduledDeparture = "scheduled_departure"
-            case scheduledArrival = "scheduled_arrival"
+            case uploadedBy = "uploaded_by"
+            case docType = "doc_type"
+            case filePath = "file_path"
+            case originalFilename = "original_filename"
+            case contentType = "content_type"
+            case createdAt = "created_at"
         }
     }
 
-    private struct FlightInsert: Encodable {
-        var tripId: UUID
-        var flightNumber: String
-        var originId: UUID
-        var destinationId: UUID
-        var scheduledDeparture: Date
-        var scheduledArrival: Date
+    private struct FlightDocumentInsert: Encodable {
+        var flightId: UUID?
+        var tripId: UUID?
+        var uploadedBy: UUID
+        var docType: String
+        var filePath: String
+        var originalFilename: String?
+        var contentType: String?
 
         enum CodingKeys: String, CodingKey {
+            case flightId = "flight_id"
             case tripId = "trip_id"
-            case flightNumber = "flight_number"
-            case originId = "origin_id"
-            case destinationId = "destination_id"
-            case scheduledDeparture = "scheduled_departure"
-            case scheduledArrival = "scheduled_arrival"
+            case uploadedBy = "uploaded_by"
+            case docType = "doc_type"
+            case filePath = "file_path"
+            case originalFilename = "original_filename"
+            case contentType = "content_type"
         }
     }
 
-    /// `status`/`progress`/`timeline` are always derived client-side from now vs.
-    /// scheduled departure/arrival — see `Flight`'s own computed properties — so the row
-    /// only carries schedule + identity.
-    private static func makeFlight(from row: FlightRow, origin: Place, destination: Place) -> Flight {
-        Flight(
-            id: row.id,
-            flightNumber: row.flightNumber,
-            origin: origin,
-            destination: destination,
-            status: .scheduled,
-            scheduledDeparture: row.scheduledDeparture,
-            scheduledArrival: row.scheduledArrival,
-            progress: 0,
-            timeline: []
+    static func flightDocumentSignedURL(path: String) async throws -> URL {
+        try await supabase.storage.from("flight-documents").createSignedURL(path: path, expiresIn: 3600)
+    }
+
+    static func uploadFlightDocument(coupleID: UUID, parentID: UUID, data: Data, contentType: String, fileExtension: String) async throws -> String {
+        let path = "\(coupleID)/\(parentID)/\(UUID().uuidString).\(fileExtension)"
+        try await supabase.storage.from("flight-documents").upload(
+            path,
+            data: data,
+            options: FileOptions(contentType: contentType, upsert: true)
         )
+        return path
+    }
+
+    @discardableResult
+    static func insertFlightDocument(coupleID: UUID, flightID: UUID?, tripID: UUID?, docType: FlightDocumentType, data: Data, contentType: String, fileExtension: String, originalFilename: String?) async throws -> FlightDocument {
+        guard let userID = currentUserID else { throw BackendError.notAuthenticated }
+        let parentID = flightID ?? tripID
+        guard let parentID else { throw BackendError.notAuthenticated }
+        let path = try await uploadFlightDocument(coupleID: coupleID, parentID: parentID, data: data, contentType: contentType, fileExtension: fileExtension)
+
+        let insert = FlightDocumentInsert(
+            flightId: flightID, tripId: tripID, uploadedBy: userID,
+            docType: docType.rawValue, filePath: path, originalFilename: originalFilename, contentType: contentType
+        )
+        let rows: [FlightDocumentRow] = try await supabase
+            .from("flight_documents")
+            .insert(insert)
+            .select()
+            .execute()
+            .value
+        guard let row = rows.first else { throw BackendError.avatarURLFailed }
+        let url = try? await flightDocumentSignedURL(path: row.filePath)
+        return FlightDocument(id: row.id, flightID: row.flightId, tripID: row.tripId, uploadedBy: row.uploadedBy, docType: row.docType, filePath: row.filePath, originalFilename: row.originalFilename, contentType: row.contentType, createdAt: row.createdAt, url: url)
+    }
+
+    static func fetchFlightDocuments(flightID: UUID? = nil, tripID: UUID? = nil) async throws -> [FlightDocument] {
+        var query = supabase.from("flight_documents").select()
+        if let flightID {
+            query = query.eq("flight_id", value: flightID)
+        } else if let tripID {
+            query = query.eq("trip_id", value: tripID)
+        } else {
+            return []
+        }
+        let rows: [FlightDocumentRow] = try await query.order("created_at", ascending: false).execute().value
+
+        var documents: [FlightDocument] = []
+        for row in rows {
+            let url = try? await flightDocumentSignedURL(path: row.filePath)
+            documents.append(FlightDocument(id: row.id, flightID: row.flightId, tripID: row.tripId, uploadedBy: row.uploadedBy, docType: row.docType, filePath: row.filePath, originalFilename: row.originalFilename, contentType: row.contentType, createdAt: row.createdAt, url: url))
+        }
+        return documents
+    }
+
+    static func deleteFlightDocument(id: UUID) async throws {
+        try await supabase.from("flight_documents").delete().eq("id", value: id).execute()
+    }
+
+    // MARK: - Push device tokens
+
+    private struct DeviceTokenUpsert: Encodable {
+        var profileId: UUID
+        var apnsToken: String
+        var environment: String
+        var lastSeenAt: Date
+
+        enum CodingKeys: String, CodingKey {
+            case profileId = "profile_id"
+            case apnsToken = "apns_token"
+            case environment
+            case lastSeenAt = "last_seen_at"
+        }
+    }
+
+    static func registerDeviceToken(_ token: String, environment: String) async throws {
+        guard let userID = currentUserID else { throw BackendError.notAuthenticated }
+        try await supabase
+            .from("device_push_tokens")
+            .upsert(DeviceTokenUpsert(profileId: userID, apnsToken: token, environment: environment, lastSeenAt: .now), onConflict: "apns_token")
+            .execute()
+    }
+
+    private struct TripNotesUpdate: Encodable {
+        var notes: String?
+    }
+
+    static func updateTripNotes(tripID: UUID, notes: String?) async throws {
+        try await supabase
+            .from("trips")
+            .update(TripNotesUpdate(notes: notes))
+            .eq("id", value: tripID)
+            .execute()
     }
 
     /// Inserts a trip (and its flight, if it has one) using the client-generated ids already
@@ -907,37 +1378,8 @@ enum BackendService {
             .execute()
 
         if let flight = trip.flight {
-            try await insertFlight(tripID: trip.id, flight: flight, originID: originID, destinationID: destinationID)
+            try await insertSelfReportedFlight(coupleID: coupleID, tripID: trip.id, flight: flight)
         }
-    }
-
-    static func insertFlight(tripID: UUID, flight: Flight, originID: UUID? = nil, destinationID: UUID? = nil) async throws {
-        let resolvedOriginID: UUID
-        if let originID {
-            resolvedOriginID = originID
-        } else {
-            resolvedOriginID = try await findOrCreatePlaceID(flight.origin)
-        }
-        let resolvedDestinationID: UUID
-        if let destinationID {
-            resolvedDestinationID = destinationID
-        } else {
-            resolvedDestinationID = try await findOrCreatePlaceID(flight.destination)
-        }
-
-        try await supabase
-            .from("flights")
-            .insert(
-                FlightInsert(
-                    tripId: tripID,
-                    flightNumber: flight.flightNumber,
-                    originId: resolvedOriginID,
-                    destinationId: resolvedDestinationID,
-                    scheduledDeparture: flight.scheduledDeparture,
-                    scheduledArrival: flight.scheduledArrival
-                )
-            )
-            .execute()
     }
 
     // MARK: - Flight updates (self-reported)
