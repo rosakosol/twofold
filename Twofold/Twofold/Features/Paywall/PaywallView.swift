@@ -12,31 +12,39 @@ import SwiftUI
 import StoreKit
 
 struct PaywallView: View {
-    enum Period {
-        case monthly
-        case yearly
-    }
-
     /// Called once a purchase actually completes. Onboarding uses this to advance to the
     /// success screen; the settings entry point leaves it as a no-op and just dismisses.
     var onSubscribed: () -> Void = {}
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(AppModel.self) private var appModel
     @State private var store = SubscriptionStore()
-    @State private var selectedPeriod: Period = .yearly
+    @State private var selectedTier: SubscriptionTier = .plus
+    @State private var selectedPeriod: BillingPeriod = .monthly
+    @State private var heartPulsing = false
+    @State private var dashPhase: CGFloat = 0
 
     private var selectedProduct: Product? {
-        selectedPeriod == .yearly ? store.yearlyProduct : store.monthlyProduct
+        store.product(tier: selectedTier, period: selectedPeriod)
     }
 
     var body: some View {
         ScrollView {
             VStack(spacing: Theme.Spacing.lg) {
-                trialTimeline
+                coupleHeader
+
+                tierTabs
+
+                Text("Your partner doesn't pay anything — one subscription covers you both.")
+                    .font(.caption)
+                    .foregroundStyle(Theme.subtleInk)
+                    .multilineTextAlignment(.center)
+
+                featureList
 
                 VStack(spacing: Theme.Spacing.sm) {
-                    planCard(.yearly, product: store.yearlyProduct, badge: "Best value")
-                    planCard(.monthly, product: store.monthlyProduct, badge: nil)
+                    planCard(.monthly)
+                    planCard(.yearly)
                 }
 
                 if let error = store.purchaseError {
@@ -48,6 +56,8 @@ struct PaywallView: View {
                 ctaSection
                 footerLinks
             }
+            .frame(maxWidth: .infinity)
+            .multilineTextAlignment(.center)
             .padding(Theme.Spacing.md)
         }
         .background(Theme.backgroundGradient.ignoresSafeArea())
@@ -60,47 +70,98 @@ struct PaywallView: View {
             }
         }
         .task { await store.loadProducts() }
-    }
-
-    private var trialTimeline: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
-            timelineRow(label: "TODAY", title: "Unlock all Twofold features", subtitle: "Track flights, follow journeys and stay connected.", icon: "lock.open.fill")
-            timelineRow(label: "DAY 10", title: "We'll send you a reminder", subtitle: "No surprises.", icon: "bell.fill")
-            timelineRow(label: "DAY 14", title: "Your membership begins", subtitle: "Cancel anytime before.", icon: "checkmark.seal.fill")
+        .onAppear {
+            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
+                heartPulsing = true
+            }
+            withAnimation(.linear(duration: 0.6).repeatForever(autoreverses: false)) {
+                dashPhase = -12
+            }
         }
     }
 
-    private func timelineRow(label: String, title: String, subtitle: String, icon: String) -> some View {
-        HStack(alignment: .top, spacing: Theme.Spacing.md) {
+    /// You + partner, joined by an animated dashed "flight path" with a pulsing heart at the
+    /// midpoint — the same connecting-route motif as `RelationshipGlobeView`'s active journey
+    /// line, just without a map underneath it.
+    private var coupleHeader: some View {
+        HStack(spacing: Theme.Spacing.sm) {
+            AvatarView(person: appModel.currentUser, size: 56, showsRing: true)
+
             ZStack {
-                Circle().fill(Theme.skyBlue.opacity(0.15))
-                Image(systemName: icon).foregroundStyle(Theme.skyBlue)
+                HorizontalLine()
+                    .stroke(Theme.skyBlue.opacity(0.4), style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: [6, 6], dashPhase: dashPhase))
+                    .frame(height: 2)
+
+                ZStack {
+                    Circle().fill(.white)
+                    Image(systemName: "heart.fill")
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.heartRed)
+                        .scaleEffect(heartPulsing ? 1.2 : 0.9)
+                }
+                .frame(width: 32, height: 32)
+                .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
             }
-            .frame(width: 36, height: 36)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(label).font(.caption2.weight(.bold)).foregroundStyle(Theme.subtleInk)
-                Text(title).font(.subheadline.weight(.semibold))
-                Text(subtitle).font(.caption).foregroundStyle(Theme.subtleInk)
-            }
-            Spacer(minLength: 0)
+            .frame(maxWidth: .infinity)
+
+            AvatarView(person: appModel.partner, size: 56, showsRing: true)
         }
     }
 
-    private func planCard(_ period: Period, product: Product?, badge: String?) -> some View {
+    private var tierTabs: some View {
+        VStack(spacing: 4) {
+            HStack {
+                Spacer()
+                Label("Best for frequent flyers", systemImage: "arrow.turn.right.down")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(Theme.heartRed)
+                    .padding(.trailing, Theme.Spacing.md)
+            }
+
+            HStack(spacing: 4) {
+                ForEach(SubscriptionTier.allCases, id: \.self) { tier in
+                    tierTabButton(tier)
+                }
+            }
+            .padding(4)
+            .background(Theme.cardBackground, in: Capsule())
+        }
+    }
+
+    private func tierTabButton(_ tier: SubscriptionTier) -> some View {
+        let isSelected = selectedTier == tier
+        return Button {
+            selectedTier = tier
+        } label: {
+            Text(tier.displayName)
+                .font(.subheadline.weight(.semibold))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, Theme.Spacing.sm)
+                .foregroundStyle(isSelected ? .white : Theme.ink)
+                .background(isSelected ? AnyShapeStyle(Theme.skyBlue) : AnyShapeStyle(.clear), in: Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func planCard(_ period: BillingPeriod) -> some View {
         let isSelected = selectedPeriod == period
+        let product = store.product(tier: selectedTier, period: period)
         return Button {
             selectedPeriod = period
         } label: {
             HStack {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: Theme.Spacing.xs) {
                         Text(period == .yearly ? "Yearly" : "Monthly").font(.headline)
-                        if let badge {
-                            PillBadge(text: badge, tint: Theme.leafGreen)
+                        if period == .yearly, let discount = store.yearlyDiscountPercent(tier: selectedTier) {
+                            PillBadge(text: "Save \(discount)%", tint: Theme.leafGreen)
                         }
                     }
                     if let product {
-                        Text("\(product.displayPrice) / \(product.subscription?.subscriptionPeriod.displayLabel ?? "")")
+                        Text("\(product.displayPrice) / \(period == .yearly ? "year" : "month") for 2 users")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(Theme.ink)
+                        Text("\(perUserPerMonthText(product)) / user / month")
                             .font(.caption)
                             .foregroundStyle(Theme.subtleInk)
                     } else {
@@ -121,6 +182,27 @@ struct PaywallView: View {
             )
         }
         .buttonStyle(.plain)
+    }
+
+    private func perUserPerMonthText(_ product: Product) -> String {
+        let monthsInPeriod: Decimal = selectedPeriod == .yearly ? 12 : 1
+        let perUserPerMonth = product.price / monthsInPeriod / 2
+        return perUserPerMonth.formatted(product.priceFormatStyle)
+    }
+
+    private var featureList: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+            ForEach(selectedTier.features, id: \.self) { feature in
+                HStack(alignment: .top, spacing: Theme.Spacing.sm) {
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.leafGreen)
+                    Text(feature).font(.subheadline).multilineTextAlignment(.leading)
+                    Spacer(minLength: 0)
+                }
+            }
+        }
+        .padding(Theme.Spacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
     }
 
     private var ctaSection: some View {
@@ -175,8 +257,18 @@ struct PaywallView: View {
     }
 }
 
+private struct HorizontalLine: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX, y: rect.midY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
+        return path
+    }
+}
+
 #Preview {
     NavigationStack {
         PaywallView()
     }
+    .environment(AppModel())
 }

@@ -15,10 +15,57 @@
 import Observation
 import StoreKit
 
+enum SubscriptionTier: CaseIterable {
+    case plus, premium
+
+    var displayName: String {
+        switch self {
+        case .plus: "Plus"
+        case .premium: "Premium"
+        }
+    }
+
+    /// Shown on the paywall's plan cards, bottom-to-top ("everything in Plus" first for Premium).
+    var features: [String] {
+        switch self {
+        case .plus:
+            [
+                "Twofold Plus for you and your partner",
+                "500+ couple games and questions",
+                "Unlimited memories",
+                "Unlimited trips",
+                "Track up to 5 flights per month",
+                "Widgets",
+            ]
+        case .premium:
+            [
+                "Everything in Plus",
+                "Track up to 20 flights per month — perfect for frequent flyers",
+            ]
+        }
+    }
+}
+
+enum BillingPeriod {
+    case monthly, yearly
+}
+
 @Observable
 final class SubscriptionStore {
-    static let monthlyProductID = "com.orangefinch.Twofold.plus.monthly"
-    static let yearlyProductID = "com.orangefinch.Twofold.plus.yearly"
+    private static func productID(tier: SubscriptionTier, period: BillingPeriod) -> String {
+        switch (tier, period) {
+        case (.plus, .monthly): "com.orangefinch.Twofold.plus.monthly"
+        case (.plus, .yearly): "com.orangefinch.Twofold.plus.yearly"
+        case (.premium, .monthly): "com.orangefinch.Twofold.premium.monthly"
+        case (.premium, .yearly): "com.orangefinch.Twofold.premium.yearly"
+        }
+    }
+
+    private static var allProductIDs: [String] {
+        SubscriptionTier.allCases.flatMap { tier in
+            [BillingPeriod.monthly, .yearly].map { productID(tier: tier, period: $0) }
+        }
+    }
 
     var products: [Product] = []
     var isLoadingProducts = false
@@ -29,8 +76,22 @@ final class SubscriptionStore {
     private var updatesTask: Task<Void, Never>?
 
     var isSubscribed: Bool { !purchasedProductIDs.isEmpty }
-    var monthlyProduct: Product? { products.first { $0.id == Self.monthlyProductID } }
-    var yearlyProduct: Product? { products.first { $0.id == Self.yearlyProductID } }
+
+    func product(tier: SubscriptionTier, period: BillingPeriod) -> Product? {
+        products.first { $0.id == Self.productID(tier: tier, period: period) }
+    }
+
+    /// The discount of the yearly plan vs. paying monthly for a year, e.g. `50` for 50% off.
+    /// `nil` if either product hasn't loaded yet, or there's genuinely no discount to show.
+    func yearlyDiscountPercent(tier: SubscriptionTier) -> Int? {
+        guard let monthly = product(tier: tier, period: .monthly),
+              let yearly = product(tier: tier, period: .yearly),
+              monthly.price > 0 else { return nil }
+        let annualizedMonthly = monthly.price * 12
+        let discount = (annualizedMonthly - yearly.price) / annualizedMonthly
+        let percent = NSDecimalNumber(decimal: discount * 100).intValue
+        return percent > 0 ? percent : nil
+    }
 
     init() {
         updatesTask = Task { [weak self] in
@@ -48,7 +109,7 @@ final class SubscriptionStore {
         isLoadingProducts = true
         defer { isLoadingProducts = false }
         do {
-            products = try await Product.products(for: [Self.monthlyProductID, Self.yearlyProductID])
+            products = try await Product.products(for: Self.allProductIDs)
         } catch {
             purchaseError = error.localizedDescription
         }

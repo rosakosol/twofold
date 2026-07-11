@@ -7,13 +7,13 @@ import SwiftUI
 
 struct TrialTrustView: View {
     @Environment(OnboardingModel.self) private var onboarding
-    @State private var shownPoints: Set<Int> = []
+    @State private var shownRows: Set<Int> = []
     @State private var iconPulsing = false
 
-    private let points = [
-        "No payment due today",
-        "Full access for 14 days",
-        "Cancel anytime",
+    private let timeline: [(label: String, title: String, subtitle: String, icon: String)] = [
+        ("TODAY", "Unlock all Twofold features", "Track flights, follow journeys and stay connected.", "lock.open.fill"),
+        ("DAY 10", "We'll send you a reminder", "No surprises.", "bell.fill"),
+        ("DAY 14", "Your membership begins", "Cancel anytime before.", "checkmark.seal.fill"),
     ]
 
     var body: some View {
@@ -35,25 +35,18 @@ struct TrialTrustView: View {
                             }
                         }
 
-                    VStack(alignment: .leading, spacing: Theme.Spacing.md) {
-                        ForEach(Array(points.enumerated()), id: \.offset) { index, point in
-                            HStack(spacing: Theme.Spacing.sm) {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(Theme.leafGreen)
-                                Text(point)
-                                    .font(.subheadline.weight(.medium))
-                            }
-                            .opacity(shownPoints.contains(index) ? 1 : 0)
-                            .offset(x: shownPoints.contains(index) ? 0 : -16)
+                    VStack(spacing: Theme.Spacing.lg) {
+                        ForEach(Array(timeline.enumerated()), id: \.offset) { index, row in
+                            timelineRow(label: row.label, title: row.title, subtitle: row.subtitle, icon: row.icon)
+                                .opacity(shownRows.contains(index) ? 1 : 0)
+                                .offset(x: shownRows.contains(index) ? 0 : -16)
                         }
                     }
-                    .padding(Theme.Spacing.md)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                    .frame(maxWidth: .infinity)
                     .onAppear {
-                        for index in points.indices {
+                        for index in timeline.indices {
                             withAnimation(.spring(response: 0.45, dampingFraction: 0.7).delay(0.15 + Double(index) * 0.15)) {
-                                _ = shownPoints.insert(index)
+                                _ = shownRows.insert(index)
                             }
                         }
                     }
@@ -69,6 +62,22 @@ struct TrialTrustView: View {
             // the flow (after the widget sell), so going there again looped users back to sign-in.
             primaryAction: { onboarding.path.append(.paywall) }
         )
+    }
+
+    private func timelineRow(label: String, title: String, subtitle: String, icon: String) -> some View {
+        HStack(alignment: .top, spacing: Theme.Spacing.md) {
+            ZStack {
+                Circle().fill(Theme.skyBlue.opacity(0.15))
+                Image(systemName: icon).foregroundStyle(Theme.skyBlue)
+            }
+            .frame(width: 36, height: 36)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label).font(.caption2.weight(.bold)).foregroundStyle(Theme.subtleInk)
+                Text(title).font(.subheadline.weight(.semibold))
+                Text(subtitle).font(.caption).foregroundStyle(Theme.subtleInk)
+            }
+            Spacer(minLength: 0)
+        }
     }
 }
 
