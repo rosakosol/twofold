@@ -10,47 +10,32 @@ struct MemoriesMapView: View {
     @Environment(AppModel.self) private var appModel
     @State private var selectedCity: Place?
     @State private var cameraPosition: MapCameraPosition = .automatic
-    @State private var showingAddMemory = false
 
     private var cityForStrip: Place? {
         selectedCity ?? appModel.citiesWithMemories.first
     }
 
     var body: some View {
-        NavigationStack {
-            ZStack(alignment: .bottom) {
-                Map(position: $cameraPosition, selection: $selectedCity) {
-                    ForEach(appModel.citiesWithMemories) { city in
-                        Annotation(city.city, coordinate: city.coordinate) {
-                            memoryPin(for: city)
-                                .onTapGesture { selectedCity = city }
-                        }
-                        .tag(city)
+        ZStack(alignment: .bottom) {
+            Map(position: $cameraPosition, selection: $selectedCity) {
+                ForEach(appModel.citiesWithMemories) { city in
+                    Annotation(city.city, coordinate: city.coordinate) {
+                        memoryPin(for: city)
+                            .onTapGesture { selectedCity = city }
                     }
+                    .tag(city)
                 }
-                .mapStyle(.standard(elevation: .realistic))
+            }
+            .mapStyle(.standard(elevation: .realistic))
 
-                if let city = cityForStrip {
-                    citySheet(for: city)
-                        .padding(Theme.Spacing.md)
-                } else {
-                    emptyStateHint
-                        .padding(Theme.Spacing.md)
-                }
-            }
-            .navigationTitle("Memories")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showingAddMemory = true
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                }
-            }
-            .sheet(isPresented: $showingAddMemory) {
-                AddMemoryView()
+            if let city = cityForStrip {
+                citySheet(for: city)
+                    .padding(Theme.Spacing.md)
+                    .padding(.bottom, 56)
+            } else {
+                emptyStateHint
+                    .padding(Theme.Spacing.md)
+                    .padding(.bottom, 56)
             }
         }
     }

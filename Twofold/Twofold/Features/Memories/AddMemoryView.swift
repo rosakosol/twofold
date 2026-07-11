@@ -10,18 +10,43 @@ struct AddMemoryView: View {
     @Environment(AppModel.self) private var appModel
     @Environment(\.dismiss) private var dismiss
 
-    private static let emojiOptions = ["💛", "📍", "✈️", "🌅", "🍜", "🎉", "🏖️", "🎂"]
+    private let existingMemory: Memory?
 
-    @State private var title: String = ""
+    @State private var title: String
     @State private var place: Place?
-    @State private var date: Date = .now
-    @State private var emoji: String = "💛"
-    @State private var note: String = ""
-    @State private var selectedItem: PhotosPickerItem?
-    @State private var previewImage: Image?
-    @State private var imageData: Data?
+    @State private var date: Date
+    @State private var emoji: String
+    @State private var note: String
+    @State private var existingPhotos: [MemoryPhoto]
+
+    @State private var pendingPhotos: [PendingPhoto] = []
+    @State private var loadedItemKeys: Set<String> = []
+    @State private var selectedItems: [PhotosPickerItem] = []
+
     @State private var isSaving = false
     @State private var errorMessage: String?
+
+    @State private var showingDatePicker = false
+    @State private var showingTimePicker = false
+    @State private var showingLocationSearch = false
+
+    private struct PendingPhoto: Identifiable {
+        let id = UUID()
+        var image: Image
+        var data: Data
+    }
+
+    init(existingMemory: Memory? = nil) {
+        self.existingMemory = existingMemory
+        _title = State(initialValue: existingMemory?.title ?? "")
+        _place = State(initialValue: existingMemory?.place)
+        _date = State(initialValue: existingMemory?.date ?? .now)
+        _emoji = State(initialValue: existingMemory?.emoji ?? "💛")
+        _note = State(initialValue: existingMemory?.note ?? "")
+        _existingPhotos = State(initialValue: existingMemory?.photos ?? [])
+    }
+
+    private var isEditing: Bool { existingMemory != nil }
 
     private var canSave: Bool {
         !title.trimmingCharacters(in: .whitespaces).isEmpty && place != nil && !isSaving
@@ -29,29 +54,16 @@ struct AddMemoryView: View {
 
     var body: some View {
         NavigationStack {
-            OnboardingScaffold(
-                title: "Add a memory",
-                subtitle: "Keep a moment from this trip or place.",
-                content: {
-                    VStack(spacing: Theme.Spacing.md) {
-                        photoPicker
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+                        titleRow
+                        dateLocationSummary
+                        noteField
 
-                        TextField("Title", text: $title)
-                            .textFieldStyle()
-
-                        CityMenuPicker(label: "Where", selection: $place)
-
-                        DatePicker("When", selection: $date, in: ...Date.now, displayedComponents: .date)
-                            .padding()
-                            .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-
-                        emojiPicker
-
-                        TextEditor(text: $note)
-                            .frame(height: 100)
-                            .scrollContentBackground(.hidden)
-                            .padding(Theme.Spacing.sm)
-                            .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                        if !existingPhotos.isEmpty || !pendingPhotos.isEmpty {
+                            photoStrip
+                        }
 
                         if let errorMessage {
                             Text(errorMessage)
@@ -59,77 +71,242 @@ struct AddMemoryView: View {
                                 .foregroundStyle(Theme.heartRed)
                         }
                     }
-                },
-                primaryTitle: "Save memory",
-                primaryAction: save,
-                primaryDisabled: !canSave
-            )
+                    .padding(Theme.Spacing.lg)
+                    .padding(.bottom, 72)
+                }
+                bottomBar
+            }
+            .background(Theme.backgroundGradient.ignoresSafeArea())
+            .navigationTitle(isEditing ? "Edit memory" : "Add a memory")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Cancel") { dismiss() }
                 }
             }
-        }
-        .onChange(of: selectedItem) { _, newItem in
-            Task { await loadPhoto(newItem) }
+            .onChange(of: selectedItems) { _, newItems in
+                Task { await loadNewPhotos(newItems) }
+            }
+            .sheet(isPresented: $showingLocationSearch) {
+                MemoryLocationSearchView { selected in place = selected }
+            }
+            .sheet(isPresented: $showingDatePicker) { datePickerSheet }
+            .sheet(isPresented: $showingTimePicker) { timePickerSheet }
         }
     }
 
-    private var photoPicker: some View {
-        PhotosPicker(selection: $selectedItem, matching: .images) {
-            ZStack {
-                if let previewImage {
-                    previewImage.resizable().scaledToFill()
-                } else {
-                    RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                        .fill(Theme.cardBackground)
-                    VStack(spacing: Theme.Spacing.xs) {
-                        Image(systemName: "photo.badge.plus")
-                            .font(.title2)
-                        Text("Add a photo").font(.caption)
-                    }
+    private var titleRow: some View {
+        HStack(spacing: Theme.Spacing.sm) {
+            EmojiPickerButton(emoji: $emoji)
+            TextField("Memory title", text: $title)
+                .font(.title2.weight(.bold))
+        }
+    }
+
+    private var dateLocationSummary: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(date, format: .dateTime.day().month(.abbreviated).year().hour().minute())
+                .font(.subheadline)
+                .foregroundStyle(Theme.subtleInk)
+            if let place {
+                Text(place.city)
+                    .font(.subheadline)
                     .foregroundStyle(Theme.subtleInk)
-                }
             }
-            .frame(maxWidth: .infinity)
-            .frame(height: 180)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         }
-        .buttonStyle(.plain)
     }
 
-    private var emojiPicker: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-            Text("Emoji").font(.caption).foregroundStyle(Theme.subtleInk)
+    private var noteField: some View {
+        TextField("Write a few words about this memory", text: $note, axis: .vertical)
+            .lineLimit(6...12)
+            .padding(Theme.Spacing.sm)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+    }
+
+    private var photoStrip: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: Theme.Spacing.sm) {
-                ForEach(Self.emojiOptions, id: \.self) { option in
-                    Button {
-                        emoji = option
-                    } label: {
-                        Text(option)
-                            .font(.title3)
-                            .frame(width: 40, height: 40)
-                            .background(Theme.cardBackground, in: Circle())
-                            .overlay(
-                                Circle().strokeBorder(emoji == option ? Theme.skyBlue : .clear, lineWidth: 2)
-                            )
+                ForEach(existingPhotos) { photo in
+                    photoThumbnail(url: photo.url) { removeExistingPhoto(photo) }
+                }
+                ForEach(pendingPhotos) { pending in
+                    photoThumbnail(image: pending.image) {
+                        pendingPhotos.removeAll { $0.id == pending.id }
                     }
-                    .buttonStyle(.plain)
                 }
             }
         }
     }
 
-    private func loadPhoto(_ item: PhotosPickerItem?) async {
-        guard let item else { return }
-        do {
-            guard let data = try await item.loadTransferable(type: Data.self),
-                  let uiImage = UIImage(data: data) else { return }
-            let resized = uiImage.resized(maxDimension: 1024)
-            imageData = resized.jpegData(compressionQuality: 0.8)
-            previewImage = Image(uiImage: resized)
-        } catch {
-            errorMessage = error.localizedDescription
+    private func photoThumbnail(url: URL, remove: @escaping () -> Void) -> some View {
+        ZStack(alignment: .topTrailing) {
+            AsyncImage(url: url) { phase in
+                if let image = phase.image {
+                    image.resizable().scaledToFill()
+                } else {
+                    Theme.cardBackground
+                }
+            }
+            .frame(width: 72, height: 72)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            removeButton(action: remove)
+        }
+    }
+
+    private func photoThumbnail(image: Image, remove: @escaping () -> Void) -> some View {
+        ZStack(alignment: .topTrailing) {
+            image.resizable().scaledToFill()
+                .frame(width: 72, height: 72)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            removeButton(action: remove)
+        }
+    }
+
+    private func removeButton(action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: "xmark.circle.fill")
+                .symbolRenderingMode(.palette)
+                .foregroundStyle(.white, .black.opacity(0.6))
+                .font(.title3)
+        }
+        .padding(4)
+    }
+
+    private var bottomBar: some View {
+        HStack(spacing: Theme.Spacing.sm) {
+            PhotosPicker(selection: $selectedItems, maxSelectionCount: 8, matching: .images) {
+                iconCircle("photo.badge.plus")
+            }
+            Button { showingDatePicker = true } label: { iconCircle("calendar") }
+            Button { showingTimePicker = true } label: { iconCircle("clock") }
+            Button { showingLocationSearch = true } label: {
+                iconCircle(place == nil ? "mappin" : "mappin.circle.fill")
+            }
+
+            Spacer()
+
+            Button(action: save) {
+                Group {
+                    if isSaving {
+                        ProgressView().tint(.white)
+                    } else {
+                        Text("Save")
+                    }
+                }
+                .font(.headline)
+                .foregroundStyle(.white)
+                .padding(.horizontal, Theme.Spacing.lg)
+                .padding(.vertical, Theme.Spacing.sm)
+            }
+            .background(
+                canSave ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.subtleInk.opacity(0.3)),
+                in: Capsule()
+            )
+            .disabled(!canSave)
+        }
+        .padding(Theme.Spacing.md)
+        .background(
+            LinearGradient(
+                stops: [
+                    .init(color: Theme.backgroundBottom.opacity(0), location: 0),
+                    .init(color: Theme.backgroundBottom, location: 0.4),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+        )
+    }
+
+    private func iconCircle(_ systemImage: String) -> some View {
+        Image(systemName: systemImage)
+            .font(.headline)
+            .foregroundStyle(Theme.ink)
+            .frame(width: 40, height: 40)
+            .background(Theme.cardBackground, in: Circle())
+    }
+
+    private var datePickerSheet: some View {
+        NavigationStack {
+            DatePicker("Date", selection: dateOnlyBinding, in: ...Date.now, displayedComponents: .date)
+                .datePickerStyle(.graphical)
+                .padding()
+                .navigationTitle("When")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { showingDatePicker = false }
+                    }
+                }
+        }
+        .presentationDetents([.medium])
+    }
+
+    private var timePickerSheet: some View {
+        NavigationStack {
+            DatePicker("Time", selection: timeOnlyBinding, displayedComponents: .hourAndMinute)
+                .datePickerStyle(.wheel)
+                .labelsHidden()
+                .padding()
+                .navigationTitle("What time?")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { showingTimePicker = false }
+                    }
+                }
+        }
+        .presentationDetents([.height(300)])
+    }
+
+    /// Writes the picked calendar day into `date` while preserving whatever time-of-day is
+    /// already set (and vice versa for `timeOnlyBinding`) — the two pickers edit the same
+    /// underlying `Date` independently, the way separate date/time icons imply they should.
+    private var dateOnlyBinding: Binding<Date> {
+        Binding(
+            get: { date },
+            set: { newValue in
+                let calendar = Calendar.current
+                let time = calendar.dateComponents([.hour, .minute], from: date)
+                var components = calendar.dateComponents([.year, .month, .day], from: newValue)
+                components.hour = time.hour
+                components.minute = time.minute
+                date = calendar.date(from: components) ?? newValue
+            }
+        )
+    }
+
+    private var timeOnlyBinding: Binding<Date> {
+        Binding(
+            get: { date },
+            set: { newValue in
+                let calendar = Calendar.current
+                let time = calendar.dateComponents([.hour, .minute], from: newValue)
+                var components = calendar.dateComponents([.year, .month, .day], from: date)
+                components.hour = time.hour
+                components.minute = time.minute
+                date = calendar.date(from: components) ?? newValue
+            }
+        )
+    }
+
+    private func removeExistingPhoto(_ photo: MemoryPhoto) {
+        existingPhotos.removeAll { $0.id == photo.id }
+        guard let existingMemory else { return }
+        Task { await appModel.removePhoto(photo, from: existingMemory) }
+    }
+
+    private func loadNewPhotos(_ items: [PhotosPickerItem]) async {
+        for item in items {
+            let key = item.itemIdentifier ?? UUID().uuidString
+            guard !loadedItemKeys.contains(key) else { continue }
+            loadedItemKeys.insert(key)
+            guard let data = try? await item.loadTransferable(type: Data.self),
+                  let uiImage = UIImage(data: data) else { continue }
+            let resized = uiImage.resized(maxDimension: 1600)
+            guard let jpeg = resized.jpegData(compressionQuality: 0.8) else { continue }
+            pendingPhotos.append(PendingPhoto(image: Image(uiImage: resized), data: jpeg))
         }
     }
 
@@ -137,26 +314,24 @@ struct AddMemoryView: View {
         guard let place else { return }
         isSaving = true
         errorMessage = nil
+        let trimmedTitle = title.trimmingCharacters(in: .whitespaces)
+        let trimmedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        let imagesData = pendingPhotos.map(\.data)
+
         Task {
-            await appModel.addMemory(
-                title: title.trimmingCharacters(in: .whitespaces),
-                place: place,
-                date: date,
-                emoji: emoji,
-                note: note.trimmingCharacters(in: .whitespacesAndNewlines),
-                imageData: imageData
-            )
+            if var existingMemory {
+                existingMemory.title = trimmedTitle
+                existingMemory.place = place
+                existingMemory.date = date
+                existingMemory.emoji = emoji
+                existingMemory.note = trimmedNote
+                await appModel.updateMemory(existingMemory, newImagesData: imagesData)
+            } else {
+                await appModel.addMemory(title: trimmedTitle, place: place, date: date, emoji: emoji, note: trimmedNote, imagesData: imagesData)
+            }
             isSaving = false
             dismiss()
         }
-    }
-}
-
-private extension View {
-    func textFieldStyle() -> some View {
-        self
-            .padding()
-            .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
     }
 }
 

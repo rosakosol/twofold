@@ -62,6 +62,9 @@ struct GlobeHomeView: View {
                         }
                         .buttonStyle(.plain)
                     }
+                    if appModel.partnerConnected {
+                        DrawingPadCard()
+                    }
                 }
                 .padding(Theme.Spacing.md)
             }

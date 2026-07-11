@@ -469,6 +469,36 @@ enum BackendService {
         return url
     }
 
+    // MARK: - Drawing pads
+
+    /// Each person's home-screen doodle lives at one fixed path, so a re-save overwrites
+    /// rather than accumulates — no separate DB row needed, the path is fully deterministic.
+    private static func drawingPadPath(coupleID: UUID, personID: UUID) -> String {
+        "\(coupleID)/\(personID)/pad.png"
+    }
+
+    static func drawingPadPublicURL(coupleID: UUID, personID: UUID) -> URL? {
+        try? supabase.storage.from("drawing-pads").getPublicURL(path: drawingPadPath(coupleID: coupleID, personID: personID))
+    }
+
+    /// Uploads the signed-in user's drawing pad and returns a cache-busted URL for immediate
+    /// local display — same staleness fix as `freshAvatarURL`, since the path never changes.
+    @discardableResult
+    static func uploadDrawingPad(coupleID: UUID, personID: UUID, imageData: Data) async throws -> URL {
+        let path = drawingPadPath(coupleID: coupleID, personID: personID)
+        try await supabase.storage.from("drawing-pads").upload(
+            path,
+            data: imageData,
+            options: FileOptions(contentType: "image/png", upsert: true)
+        )
+        guard let base = drawingPadPublicURL(coupleID: coupleID, personID: personID),
+              var components = URLComponents(url: base, resolvingAgainstBaseURL: false) else {
+            throw BackendError.avatarURLFailed
+        }
+        components.queryItems = [URLQueryItem(name: "v", value: "\(Int(Date().timeIntervalSince1970 * 1000))")]
+        return components.url ?? base
+    }
+
     // MARK: - Couple pairing
 
     private struct CoupleRow: Decodable {
@@ -581,6 +611,19 @@ enum BackendService {
             .execute()
             .value
 
+        let memoryPhotoRows: [MemoryPhotoRow]
+        if memoryRows.isEmpty {
+            memoryPhotoRows = []
+        } else {
+            memoryPhotoRows = try await supabase
+                .from("memory_photos")
+                .select()
+                .in("memory_id", values: memoryRows.map(\.id))
+                .order("position")
+                .execute()
+                .value
+        }
+
         var placeIDs = Set([partnerAProfile.homePlaceId, partnerBProfile.homePlaceId].compactMap { $0 })
         for row in tripRows { placeIDs.insert(row.originId); placeIDs.insert(row.destinationId) }
         for row in flightRows { placeIDs.insert(row.originId); placeIDs.insert(row.destinationId) }
@@ -638,12 +681,17 @@ enum BackendService {
             return trip
         }
 
+        let photoRowsByMemory = Dictionary(grouping: memoryPhotoRows, by: \.memoryId)
+
         var memories: [Memory] = []
         for row in memoryRows {
             guard let place = places[row.placeId] else { continue }
-            var photoURL: URL?
-            if let photoPath = row.photoPath {
-                photoURL = try? await memoryPhotoSignedURL(path: photoPath)
+            let photoRows = (photoRowsByMemory[row.id] ?? []).sorted { $0.position < $1.position }
+            var photos: [MemoryPhoto] = []
+            for photoRow in photoRows {
+                if let url = try? await memoryPhotoSignedURL(path: photoRow.photoPath) {
+                    photos.append(MemoryPhoto(id: photoRow.id, path: photoRow.photoPath, url: url))
+                }
             }
             memories.append(
                 Memory(
@@ -651,9 +699,9 @@ enum BackendService {
                     title: row.title,
                     emoji: row.emoji,
                     place: place,
-                    date: row.occurredOnDate ?? .now,
+                    date: row.occurredAt,
                     note: row.note,
-                    photoURL: photoURL
+                    photos: photos
                 )
             )
         }
@@ -910,18 +958,12 @@ enum BackendService {
         var title: String
         var emoji: String
         var note: String
-        var photoPath: String?
-        var occurredOn: String
+        var occurredAt: Date
 
         enum CodingKeys: String, CodingKey {
             case id, title, emoji, note
             case placeId = "place_id"
-            case photoPath = "photo_path"
-            case occurredOn = "occurred_on"
-        }
-
-        var occurredOnDate: Date? {
-            BackendService.dateOnlyFormatter.date(from: occurredOn)
+            case occurredAt = "occurred_at"
         }
     }
 
@@ -932,15 +974,52 @@ enum BackendService {
         var title: String
         var emoji: String
         var note: String
-        var photoPath: String?
-        var occurredOn: String
+        var occurredAt: Date
 
         enum CodingKeys: String, CodingKey {
             case id, title, emoji, note
             case coupleId = "couple_id"
             case placeId = "place_id"
+            case occurredAt = "occurred_at"
+        }
+    }
+
+    private struct MemoryUpdate: Encodable {
+        var placeId: UUID
+        var title: String
+        var emoji: String
+        var note: String
+        var occurredAt: Date
+
+        enum CodingKeys: String, CodingKey {
+            case title, emoji, note
+            case placeId = "place_id"
+            case occurredAt = "occurred_at"
+        }
+    }
+
+    private struct MemoryPhotoRow: Decodable {
+        var id: UUID
+        var memoryId: UUID
+        var photoPath: String
+        var position: Int
+
+        enum CodingKeys: String, CodingKey {
+            case id, position
+            case memoryId = "memory_id"
             case photoPath = "photo_path"
-            case occurredOn = "occurred_on"
+        }
+    }
+
+    private struct MemoryPhotoInsert: Encodable {
+        var memoryId: UUID
+        var photoPath: String
+        var position: Int
+
+        enum CodingKeys: String, CodingKey {
+            case position
+            case memoryId = "memory_id"
+            case photoPath = "photo_path"
         }
     }
 
@@ -950,8 +1029,11 @@ enum BackendService {
         try await supabase.storage.from("memory-photos").createSignedURL(path: path, expiresIn: 3600)
     }
 
+    /// Path includes a fresh photo id per upload (unlike the old single-photo `{coupleID}/{memoryID}.jpg`
+    /// scheme) so a memory can hold more than one photo — the couple id stays the leading path
+    /// segment since that's what the storage RLS policies key off.
     static func uploadMemoryPhoto(coupleID: UUID, memoryID: UUID, imageData: Data) async throws -> String {
-        let path = "\(coupleID)/\(memoryID).jpg"
+        let path = "\(coupleID)/\(memoryID)/\(UUID().uuidString).jpg"
         try await supabase.storage.from("memory-photos").upload(
             path,
             data: imageData,
@@ -960,7 +1042,8 @@ enum BackendService {
         return path
     }
 
-    static func insertMemory(coupleID: UUID, memory: Memory, photoPath: String?) async throws {
+    @discardableResult
+    static func insertMemory(coupleID: UUID, memory: Memory, photoPaths: [String]) async throws -> [MemoryPhoto] {
         let placeID = try await findOrCreatePlaceID(memory.place)
         try await supabase
             .from("memories")
@@ -972,11 +1055,68 @@ enum BackendService {
                     title: memory.title,
                     emoji: memory.emoji,
                     note: memory.note,
-                    photoPath: photoPath,
-                    occurredOn: dateOnlyFormatter.string(from: memory.date)
+                    occurredAt: memory.date
                 )
             )
             .execute()
+
+        return try await addMemoryPhotos(memoryID: memory.id, photoPaths: photoPaths, startingPosition: 0)
+    }
+
+    static func updateMemory(_ memory: Memory) async throws {
+        let placeID = try await findOrCreatePlaceID(memory.place)
+        try await supabase
+            .from("memories")
+            .update(
+                MemoryUpdate(
+                    placeId: placeID,
+                    title: memory.title,
+                    emoji: memory.emoji,
+                    note: memory.note,
+                    occurredAt: memory.date
+                )
+            )
+            .eq("id", value: memory.id)
+            .execute()
+    }
+
+    /// Appends photos to an existing memory (used both for the initial save and later edits),
+    /// returning them with resolved signed URLs ready for local state.
+    @discardableResult
+    static func addMemoryPhotos(memoryID: UUID, photoPaths: [String], startingPosition: Int) async throws -> [MemoryPhoto] {
+        guard !photoPaths.isEmpty else { return [] }
+        let inserts = photoPaths.enumerated().map { index, path in
+            MemoryPhotoInsert(memoryId: memoryID, photoPath: path, position: startingPosition + index)
+        }
+        let rows: [MemoryPhotoRow] = try await supabase
+            .from("memory_photos")
+            .insert(inserts)
+            .select()
+            .execute()
+            .value
+
+        var photos: [MemoryPhoto] = []
+        for row in rows.sorted(by: { $0.position < $1.position }) {
+            if let url = try? await memoryPhotoSignedURL(path: row.photoPath) {
+                photos.append(MemoryPhoto(id: row.id, path: row.photoPath, url: url))
+            }
+        }
+        return photos
+    }
+
+    static func deleteMemoryPhoto(id: UUID, path: String) async throws {
+        try await supabase.from("memory_photos").delete().eq("id", value: id).execute()
+        try? await supabase.storage.from("memory-photos").remove(paths: [path])
+    }
+
+    /// `memory_photos` rows cascade-delete with the memory automatically; the underlying
+    /// storage objects don't (storage isn't linked by a DB foreign key), so they're removed
+    /// explicitly here using the paths the caller already has in local state.
+    static func deleteMemory(id: UUID, photoPaths: [String]) async throws {
+        try await supabase.from("memories").delete().eq("id", value: id).execute()
+        if !photoPaths.isEmpty {
+            try? await supabase.storage.from("memory-photos").remove(paths: photoPaths)
+        }
     }
 }
 

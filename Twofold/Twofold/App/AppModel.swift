@@ -16,6 +16,10 @@ final class AppModel {
     var couple: Couple = AppModel.placeholderCouple
     var trips: [Trip] = []
     var memories: [Memory] = []
+    /// Home-screen doodle pads — only meaningful once paired, since there's no partner pad to
+    /// compare against (and nowhere real to save to) before then.
+    var myDrawingURL: URL?
+    var partnerDrawingURL: URL?
 
     /// Whether the partner has actually redeemed an invite and joined — confirmed by the
     /// backend (an active `couples` row exists), not assumed the moment a code is shared.
@@ -28,9 +32,9 @@ final class AppModel {
     /// yet). Flushed to the backend the moment a real couple shows up.
     private var pendingTripIDs: Set<Trip.ID> = []
     private var pendingMemoryIDs: Set<Memory.ID> = []
-    /// A pending memory's photo can't be uploaded until there's a real couple to namespace the
-    /// storage path under — held here so it isn't silently dropped, and uploaded once paired.
-    private var pendingMemoryPhotoData: [Memory.ID: Data] = [:]
+    /// A pending memory's photos can't be uploaded until there's a real couple to namespace the
+    /// storage path under — held here so they aren't silently dropped, and uploaded once paired.
+    private var pendingMemoryPhotoData: [Memory.ID: [Data]] = [:]
 
     var currentUser: Person { couple.partnerA }
     var partner: Person { couple.partnerB }
@@ -217,6 +221,22 @@ final class AppModel {
         }
     }
 
+    /// Drawing pad paths are fully deterministic (`{coupleID}/{personID}/pad.png`), so unlike
+    /// trips/memories there's nothing to "fetch" beyond just pointing at the URL — this just
+    /// primes both URLs so the pad previews have something to render on first appearance.
+    func loadDrawingPads() {
+        guard let backendCoupleID else { return }
+        myDrawingURL = BackendService.drawingPadPublicURL(coupleID: backendCoupleID, personID: currentUser.id)
+        partnerDrawingURL = BackendService.drawingPadPublicURL(coupleID: backendCoupleID, personID: partner.id)
+    }
+
+    /// Only available once paired — there's no couple to namespace the storage path under
+    /// beforehand, and no partner pad to make the feature meaningful yet.
+    func saveMyDrawing(imageData: Data) async {
+        guard let backendCoupleID else { return }
+        myDrawingURL = try? await BackendService.uploadDrawingPad(coupleID: backendCoupleID, personID: currentUser.id, imageData: imageData)
+    }
+
     /// Adopts real couple/trip/memory rows from the backend, flushing anything that was added
     /// locally before pairing completed (drafted during onboarding, or via the home screen's
     /// "add a trip"/"add a memory" cards while still solo).
@@ -253,14 +273,11 @@ final class AppModel {
         for memory in localOnlyMemories {
             var synced = memory
             do {
-                var photoPath: String?
-                if let imageData = pendingMemoryPhotoData[memory.id] {
-                    photoPath = try await BackendService.uploadMemoryPhoto(coupleID: state.couple.id, memoryID: memory.id, imageData: imageData)
+                var photoPaths: [String] = []
+                for imageData in pendingMemoryPhotoData[memory.id] ?? [] {
+                    photoPaths.append(try await BackendService.uploadMemoryPhoto(coupleID: state.couple.id, memoryID: memory.id, imageData: imageData))
                 }
-                try await BackendService.insertMemory(coupleID: state.couple.id, memory: memory, photoPath: photoPath)
-                if let photoPath {
-                    synced.photoURL = try? await BackendService.memoryPhotoSignedURL(path: photoPath)
-                }
+                synced.photos = try await BackendService.insertMemory(coupleID: state.couple.id, memory: memory, photoPaths: photoPaths)
                 pendingMemoryPhotoData.removeValue(forKey: memory.id)
             } catch {
                 stillPendingMemories.insert(memory.id)
@@ -397,32 +414,66 @@ final class AppModel {
     }
 
     @discardableResult
-    func addMemory(title: String, place: Place, date: Date, emoji: String, note: String, imageData: Data?) async -> Memory {
-        var memory = Memory(title: title, emoji: emoji, place: place, date: date, note: note)
+    func addMemory(title: String, place: Place, date: Date, emoji: String, note: String, imagesData: [Data]) async -> Memory {
+        let memory = Memory(title: title, emoji: emoji, place: place, date: date, note: note)
         memories.append(memory)
 
         guard let backendCoupleID else {
             pendingMemoryIDs.insert(memory.id)
-            if let imageData { pendingMemoryPhotoData[memory.id] = imageData }
+            if !imagesData.isEmpty { pendingMemoryPhotoData[memory.id] = imagesData }
             return memory
         }
 
         do {
-            var photoPath: String?
-            if let imageData {
-                photoPath = try await BackendService.uploadMemoryPhoto(coupleID: backendCoupleID, memoryID: memory.id, imageData: imageData)
+            var photoPaths: [String] = []
+            for imageData in imagesData {
+                photoPaths.append(try await BackendService.uploadMemoryPhoto(coupleID: backendCoupleID, memoryID: memory.id, imageData: imageData))
             }
-            try await BackendService.insertMemory(coupleID: backendCoupleID, memory: memory, photoPath: photoPath)
-            if let photoPath, let index = memories.firstIndex(where: { $0.id == memory.id }) {
-                memory.photoURL = try? await BackendService.memoryPhotoSignedURL(path: photoPath)
-                memories[index].photoURL = memory.photoURL
+            let photos = try await BackendService.insertMemory(coupleID: backendCoupleID, memory: memory, photoPaths: photoPaths)
+            if let index = memories.firstIndex(where: { $0.id == memory.id }) {
+                memories[index].photos = photos
             }
         } catch {
             pendingMemoryIDs.insert(memory.id)
-            if let imageData { pendingMemoryPhotoData[memory.id] = imageData }
+            if !imagesData.isEmpty { pendingMemoryPhotoData[memory.id] = imagesData }
         }
 
-        return memory
+        return memories.first { $0.id == memory.id } ?? memory
+    }
+
+    /// Edits an existing memory's fields in place, optionally appending new photos in the
+    /// same call — both persisted best-effort, matching `addMemory`'s error handling.
+    func updateMemory(_ memory: Memory, newImagesData: [Data] = []) async {
+        guard let index = memories.firstIndex(where: { $0.id == memory.id }) else { return }
+        memories[index] = memory
+
+        do {
+            try await BackendService.updateMemory(memory)
+            if !newImagesData.isEmpty, let backendCoupleID {
+                var photoPaths: [String] = []
+                for imageData in newImagesData {
+                    photoPaths.append(try await BackendService.uploadMemoryPhoto(coupleID: backendCoupleID, memoryID: memory.id, imageData: imageData))
+                }
+                let newPhotos = try await BackendService.addMemoryPhotos(memoryID: memory.id, photoPaths: photoPaths, startingPosition: memory.photos.count)
+                memories[index].photos.append(contentsOf: newPhotos)
+            }
+        } catch {
+            // Best-effort for now; local edit stands even if the write failed.
+        }
+    }
+
+    func removePhoto(_ photo: MemoryPhoto, from memory: Memory) async {
+        guard let index = memories.firstIndex(where: { $0.id == memory.id }) else { return }
+        memories[index].photos.removeAll { $0.id == photo.id }
+        try? await BackendService.deleteMemoryPhoto(id: photo.id, path: photo.path)
+    }
+
+    func deleteMemory(_ memory: Memory) async {
+        memories.removeAll { $0.id == memory.id }
+        pendingMemoryIDs.remove(memory.id)
+        pendingMemoryPhotoData.removeValue(forKey: memory.id)
+        guard backendCoupleID != nil else { return }
+        try? await BackendService.deleteMemory(id: memory.id, photoPaths: memory.photos.map(\.path))
     }
 
     /// Only ever writes the signed-in user's own city — RLS blocks updating a partner's

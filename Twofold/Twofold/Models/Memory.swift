@@ -5,6 +5,15 @@
 
 import Foundation
 
+/// One uploaded photo attached to a memory. Identified by its `memory_photos` row id so an
+/// individual photo can be removed later without touching the rest of the set.
+struct MemoryPhoto: Identifiable, Hashable {
+    let id: UUID
+    var path: String
+    /// Signed URL, re-resolved on every fetch since `memory-photos` is a private bucket.
+    var url: URL
+}
+
 struct Memory: Identifiable, Hashable {
     let id: UUID
     var title: String
@@ -15,9 +24,11 @@ struct Memory: Identifiable, Hashable {
     /// Gradient seed used for the placeholder shown while there's no photo (or one hasn't
     /// loaded yet) — derived from `id` for real memories so it's stable across loads.
     var photoSeed: Int
-    /// Signed URL for the uploaded photo, if any. `memory-photos` is a private bucket, so
-    /// this is time-limited rather than a stable public URL — re-resolved on every fetch.
-    var photoURL: URL?
+    /// Photos in display order, if any.
+    var photos: [MemoryPhoto]
+
+    var photoURLs: [URL] { photos.map(\.url) }
+    var photoURL: URL? { photos.first?.url }
 
     init(
         id: UUID = UUID(),
@@ -27,7 +38,7 @@ struct Memory: Identifiable, Hashable {
         date: Date,
         note: String,
         photoSeed: Int? = nil,
-        photoURL: URL? = nil
+        photos: [MemoryPhoto] = []
     ) {
         self.id = id
         self.title = title
@@ -36,6 +47,6 @@ struct Memory: Identifiable, Hashable {
         self.date = date
         self.note = note
         self.photoSeed = photoSeed ?? abs(id.hashValue % 4)
-        self.photoURL = photoURL
+        self.photos = photos
     }
 }
