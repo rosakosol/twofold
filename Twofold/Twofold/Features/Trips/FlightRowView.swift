@@ -12,11 +12,7 @@ struct FlightRowView: View {
 
     var body: some View {
         HStack(spacing: Theme.Spacing.md) {
-            ZStack {
-                Circle().fill(flight.status.semanticColor.opacity(0.15))
-                Image(systemName: flight.status.icon).foregroundStyle(flight.status.semanticColor)
-            }
-            .frame(width: 44, height: 44)
+            AirlineLogoView(url: flight.displayLogoURL, size: 44)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(flight.countdownSummary)
@@ -29,7 +25,7 @@ struct FlightRowView: View {
                 }
                 .font(.headline)
 
-                Text("\(flight.displayNumber)\(flight.scheduledOut.map { " · \($0.formatted(.dateTime.day().month(.abbreviated)))" } ?? "")")
+                Text("\([flight.airlineName, flight.displayNumber].compactMap { $0 }.joined(separator: " · "))\(flight.scheduledOut.map { " · \($0.formatted(.dateTime.day().month(.abbreviated)))" } ?? "")")
                     .font(.caption)
                     .foregroundStyle(Theme.subtleInk)
             }

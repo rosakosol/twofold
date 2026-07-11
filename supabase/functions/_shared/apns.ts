@@ -1,60 +1,126 @@
-// Minimal HTTP/2 APNs token-auth sender. Deliberately inert until real Apple Push credentials
-// are configured: if APNS_KEY_ID / APNS_TEAM_ID / APNS_AUTH_KEY / APNS_BUNDLE_ID aren't all set,
-// every call is a safe no-op (logged, never thrown) so the flight-sync pipeline never breaks on
-// a missing push credential during early development.
+// Minimal HTTP/2 APNs token-auth sender. Sandbox and production use *separate* signing
+// identities (Apple issues a distinct key per APNs environment) — this file was originally
+// written expecting one shared key/team, then updated once real credentials existed:
+// APNS_KEY_ID_SANDBOX / APNS_KEY_ID_PRODUCTION and APNS_PRIVATE_KEY_BASE64_SANDBOX /
+// APNS_PRIVATE_KEY_BASE64_PRODUCTION, plus APNS_TEAM_ID and APNS_BUNDLE_ID (shared across both —
+// the team and bundle identifier don't change per environment). Still a safe no-op (logged, never
+// thrown) if any of an environment's required secrets are missing.
 //
-// Signs a short-lived ES256 JWT per Apple's token-auth scheme and caches it for ~55 minutes
-// (Apple tokens are valid up to 1 hour) rather than re-signing on every send.
+// Signs a short-lived ES256 JWT per Apple's token-auth scheme and caches it per environment for
+// ~55 minutes (Apple tokens are valid up to 1 hour) rather than re-signing on every send.
 
 import { importPKCS8, SignJWT } from "npm:jose@^5";
 
+type ApnsEnvironment = "sandbox" | "production";
+
 const TOKEN_TTL_MS = 55 * 60 * 1000;
 
-let cachedToken: { jwt: string; signedAt: number } | null = null;
+const tokenCache = new Map<ApnsEnvironment, { jwt: string; signedAt: number }>();
+const keyCache = new Map<ApnsEnvironment, CryptoKey>();
 
-function hasApnsConfig(): boolean {
+function keyIdSecretName(environment: ApnsEnvironment): string {
+  return environment === "sandbox" ? "APNS_KEY_ID_SANDBOX" : "APNS_KEY_ID_PRODUCTION";
+}
+
+function privateKeySecretName(environment: ApnsEnvironment): string {
+  return environment === "sandbox" ? "APNS_PRIVATE_KEY_BASE64_SANDBOX" : "APNS_PRIVATE_KEY_BASE64_PRODUCTION";
+}
+
+function hasApnsConfig(environment: ApnsEnvironment): boolean {
   return Boolean(
-    Deno.env.get("APNS_KEY_ID") &&
+    Deno.env.get(keyIdSecretName(environment)) &&
       Deno.env.get("APNS_TEAM_ID") &&
-      Deno.env.get("APNS_AUTH_KEY") &&
+      Deno.env.get(privateKeySecretName(environment)) &&
       Deno.env.get("APNS_BUNDLE_ID"),
   );
 }
 
-async function getApnsJwt(): Promise<string> {
-  const now = Date.now();
-  if (cachedToken && now - cachedToken.signedAt < TOKEN_TTL_MS) {
-    return cachedToken.jwt;
+/// Apple's .p8 key is normally downloaded as PEM text. Handles whichever of these the secret
+/// actually holds, so a mismatch in how it was encoded doesn't silently produce an unusable key:
+///   1. The raw PEM text itself (no base64 wrapping at all)
+///   2. Base64 of the *entire* PEM text (e.g. `base64 -i AuthKey_XXXX.p8`) — the common case
+///   3. Base64 of just the raw DER key bytes, with no PEM armor — wrapped back into PEM here
+function normalizeToPem(secretValue: string): string {
+  const trimmed = secretValue.trim();
+  if (trimmed.includes("-----BEGIN")) return trimmed;
+
+  try {
+    const decoded = atob(trimmed);
+    if (decoded.includes("-----BEGIN")) return decoded;
+  } catch {
+    // Not valid base64 — fall through and treat the original value as raw key bytes below.
   }
 
-  const keyId = Deno.env.get("APNS_KEY_ID")!;
-  const teamId = Deno.env.get("APNS_TEAM_ID")!;
-  const authKeyPem = Deno.env.get("APNS_AUTH_KEY")!;
+  const body = trimmed.match(/.{1,64}/g)?.join("\n") ?? trimmed;
+  return `-----BEGIN PRIVATE KEY-----\n${body}\n-----END PRIVATE KEY-----`;
+}
 
-  const privateKey = await importPKCS8(authKeyPem, "ES256");
+async function getSigningKey(environment: ApnsEnvironment): Promise<CryptoKey> {
+  const cached = keyCache.get(environment);
+  if (cached) return cached;
+
+  const pem = normalizeToPem(Deno.env.get(privateKeySecretName(environment))!);
+  const key = await importPKCS8(pem, "ES256");
+  keyCache.set(environment, key);
+  return key;
+}
+
+async function getApnsJwt(environment: ApnsEnvironment): Promise<string> {
+  const now = Date.now();
+  const cached = tokenCache.get(environment);
+  if (cached && now - cached.signedAt < TOKEN_TTL_MS) {
+    return cached.jwt;
+  }
+
+  const keyId = Deno.env.get(keyIdSecretName(environment))!;
+  const teamId = Deno.env.get("APNS_TEAM_ID")!;
+  const privateKey = await getSigningKey(environment);
+
   const jwt = await new SignJWT({})
     .setProtectedHeader({ alg: "ES256", kid: keyId })
     .setIssuer(teamId)
     .setIssuedAt()
     .sign(privateKey);
 
-  cachedToken = { jwt, signedAt: now };
+  tokenCache.set(environment, { jwt, signedAt: now });
   return jwt;
+}
+
+/// Diagnostic only — reports whether each environment's secrets are present and whether the
+/// private key actually parses as a valid ES256 key, without ever returning key material or an
+/// APNs token. Used by aeroapi-webhook's token-gated `?diag=apns` branch to sanity-check the
+/// APNS_PRIVATE_KEY_BASE64_* encoding assumption against the real secrets post-setup.
+export async function diagnoseApnsConfig(): Promise<Record<ApnsEnvironment, { configured: boolean; keyParses: boolean; error?: string }>> {
+  const result = {} as Record<ApnsEnvironment, { configured: boolean; keyParses: boolean; error?: string }>;
+  for (const environment of ["sandbox", "production"] as ApnsEnvironment[]) {
+    const configured = hasApnsConfig(environment);
+    if (!configured) {
+      result[environment] = { configured: false, keyParses: false };
+      continue;
+    }
+    try {
+      await getSigningKey(environment);
+      result[environment] = { configured: true, keyParses: true };
+    } catch (err) {
+      result[environment] = { configured: true, keyParses: false, error: (err as Error).message };
+    }
+  }
+  return result;
 }
 
 export async function sendAPNs(
   deviceToken: string,
-  environment: "sandbox" | "production",
+  environment: ApnsEnvironment,
   title: string,
   body: string,
 ): Promise<void> {
-  if (!hasApnsConfig()) {
-    console.log("[apns] skipping send — APNs secrets not configured yet");
+  if (!hasApnsConfig(environment)) {
+    console.log(`[apns] skipping send — ${environment} APNs secrets not configured yet`);
     return;
   }
 
   try {
-    const jwt = await getApnsJwt();
+    const jwt = await getApnsJwt(environment);
     const bundleId = Deno.env.get("APNS_BUNDLE_ID")!;
     const host = environment === "sandbox" ? "api.sandbox.push.apple.com" : "api.push.apple.com";
 
@@ -70,10 +136,13 @@ export async function sendAPNs(
     });
 
     if (!res.ok) {
-      console.error(`[apns] send failed with status ${res.status}`);
+      console.error(`[apns] send failed with status ${res.status} (${environment})`);
       await res.arrayBuffer().catch(() => undefined);
+      // A stale/invalid cached JWT (e.g. Apple rejected it) shouldn't poison every subsequent
+      // send until the 55-minute TTL naturally expires — clear it so the next call re-signs.
+      if (res.status === 403) tokenCache.delete(environment);
     }
   } catch (err) {
-    console.error("[apns] send threw:", (err as Error).message);
+    console.error(`[apns] send threw (${environment}):`, (err as Error).message);
   }
 }

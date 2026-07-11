@@ -11,6 +11,7 @@ import {
   fetchFlightByFaId,
   fetchPosition,
 } from "./aeroapi.ts";
+import { lookupAirlineName } from "./airlines.ts";
 import { deriveFlightStatus, type FlightStatus } from "./flight-status.ts";
 import { notifyForEvent } from "./notify.ts";
 
@@ -135,11 +136,12 @@ export function mapAeroFlightToRow(aeroFlight: AeroFlight): MappedAeroFields {
     fa_flight_id: aeroFlight.fa_flight_id ?? null,
     flight_number_iata: aeroFlight.ident_iata ?? aeroFlight.ident ?? null,
     flight_number_icao: aeroFlight.ident_icao ?? null,
-    // AeroAPI's /flights response only exposes an operator *code* (ICAO/IATA), not a display
-    // name, in the field list confirmed from the docs — left null rather than guessed. Flag for
-    // follow-up: either a static airline-code -> name table client-side, or an /operators/{id}
-    // lookup if AeroAPI exposes one.
-    airline_name: null,
+    // AeroAPI's /flights response only exposes an operator *code* (ICAO/IATA), never a display
+    // name (confirmed absent from the documented field list, and AeroAPI has no name/logo
+    // lookup endpoint at all per FlightAware's own support forum) — resolved against a curated
+    // code -> name table for major airlines; stays null for anything not in that table rather
+    // than guessing.
+    airline_name: lookupAirlineName(aeroFlight.operator_iata, aeroFlight.operator_icao, aeroFlight.operator),
     airline_code: aeroFlight.operator_iata ?? aeroFlight.operator_icao ?? aeroFlight.operator ?? null,
     airline_logo_url: null,
     origin_iata: aeroFlight.origin?.code_iata ?? null,

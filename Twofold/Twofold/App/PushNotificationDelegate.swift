@@ -10,9 +10,8 @@
 //
 //  This makes the app capable of *receiving* a device token and uploading it
 //  (AppModel.registerPushToken -> BackendService.registerDeviceToken), which is the
-//  prerequisite for real push delivery — actually sending one still requires the
-//  APNS_KEY_ID/APNS_TEAM_ID/APNS_AUTH_KEY/APNS_BUNDLE_ID secrets to be set server-side (see
-//  supabase/functions/_shared/apns.ts, which safely no-ops until then).
+//  prerequisite for real push delivery — actual sending happens server-side in
+//  supabase/functions/_shared/apns.ts, using separate sandbox/production APNs credentials.
 //
 
 import UIKit

@@ -2,12 +2,20 @@
 //  FlightDocument.swift
 //  Twofold
 //
-//  Boarding passes / travel documents attached to a flight or a linked trip — user-uploaded,
-//  clearly distinct from live provider data. Mirrors the `MemoryPhoto` pattern: private
-//  storage, signed URL resolved on fetch.
-//
 
 import Foundation
+
+enum FlightDocumentIcon: Hashable {
+    case system(String)
+    case asset(String)
+
+    var name: String {
+        switch self {
+        case .system(let name), .asset(let name):
+            return name
+        }
+    }
+}
 
 enum FlightDocumentType: String, Codable, CaseIterable, Hashable {
     case boardingPass = "boarding_pass"
@@ -16,17 +24,23 @@ enum FlightDocumentType: String, Codable, CaseIterable, Hashable {
 
     var label: String {
         switch self {
-        case .boardingPass: "Boarding pass"
-        case .itinerary: "Travel documents"
-        case .other: "Document"
+        case .boardingPass:
+            return "Boarding pass"
+        case .itinerary:
+            return "Travel documents"
+        case .other:
+            return "Document"
         }
     }
 
-    var icon: String {
+    var icon: FlightDocumentIcon {
         switch self {
-        case .boardingPass: "ticket.fill"
-        case .itinerary: "doc.text.fill"
-        case .other: "paperclip"
+        case .boardingPass:
+            return .asset("boarding-pass")      // Your Assets.xcassets image
+        case .itinerary:
+            return .system("doc.text.fill")
+        case .other:
+            return .system("paperclip")
         }
     }
 }

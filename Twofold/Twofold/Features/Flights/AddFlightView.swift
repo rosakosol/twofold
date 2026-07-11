@@ -16,10 +16,17 @@ struct AddFlightView: View {
         case flightNumber = "Find by Flight Number"
         case route = "Find by Route"
 
-        var icon: String {
+        enum Icon {
+            case system(String)
+            case asset(String)
+        }
+
+        var icon: Icon {
             switch self {
-            case .flightNumber: "ticket.fill"
-            case .route: "arrow.triangle.swap"
+            case .flightNumber:
+                return .asset("boarding-pass") // Assets.xcassets
+            case .route:
+                return .system("arrow.triangle.swap")
             }
         }
     }
@@ -29,9 +36,9 @@ struct AddFlightView: View {
 
     @State private var searchMode: SearchMode = .flightNumber
     @State private var flightNumber = ""
-    @State private var originHint: Place?
-    @State private var routeOrigin: Place?
-    @State private var routeDestination: Place?
+    @State private var originHint = ""
+    @State private var routeOrigin = ""
+    @State private var routeDestination = ""
     @State private var date = Date.now
 
     @State private var isSearching = false
@@ -40,10 +47,18 @@ struct AddFlightView: View {
     @State private var candidates: [AeroFlightCandidate] = []
     @State private var selectedCandidate: AeroFlightCandidate?
 
+    /// Any real IATA (3-letter) or ICAO (4-letter) airport code — AeroAPI itself accepts either,
+    /// so this isn't limited to Twofold's own curated `Place.commonCities` list the way an
+    /// in-app city picker would be.
+    private func isValidAirportCode(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespaces)
+        return (3...4).contains(trimmed.count) && trimmed.allSatisfy(\.isLetter)
+    }
+
     private var canSearch: Bool {
         switch searchMode {
         case .flightNumber: !flightNumber.trimmingCharacters(in: .whitespaces).isEmpty
-        case .route: routeOrigin != nil && routeDestination != nil
+        case .route: isValidAirportCode(routeOrigin) && isValidAirportCode(routeDestination)
         }
     }
 
@@ -108,7 +123,8 @@ struct AddFlightView: View {
             HStack {
                 ZStack {
                     Circle().fill(Theme.skyBlue.opacity(0.15))
-                    Image(systemName: mode.icon).foregroundStyle(Theme.skyBlue)
+                    modeIcon(mode.icon)
+                        .foregroundStyle(Theme.skyBlue)
                 }
                 .frame(width: 36, height: 36)
                 Text(mode.rawValue)
@@ -123,6 +139,20 @@ struct AddFlightView: View {
             .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         }
         .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private func modeIcon(_ icon: SearchMode.Icon) -> some View {
+        switch icon {
+        case .asset(let name):
+            Image(name)
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 18, height: 18)
+        case .system(let name):
+            Image(systemName: name)
+        }
     }
 
     // MARK: - Inputs
@@ -140,17 +170,25 @@ struct AddFlightView: View {
                 DatePicker("Departure date", selection: $date, displayedComponents: [.date])
                     .padding()
                     .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-                CityMenuPicker(label: "Origin (optional)", selection: $originHint, placeholder: "Any airport")
+                airportCodeField("Origin (optional) — e.g. MEL or YMML", text: $originHint)
             }
         case .route:
             VStack(spacing: Theme.Spacing.sm) {
-                CityMenuPicker(label: "From", selection: $routeOrigin)
-                CityMenuPicker(label: "To", selection: $routeDestination)
+                airportCodeField("From — e.g. MEL or YMML", text: $routeOrigin)
+                airportCodeField("To — e.g. SIN or WSSS", text: $routeDestination)
                 DatePicker("Departure date", selection: $date, displayedComponents: [.date])
                     .padding()
                     .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
             }
         }
+    }
+
+    private func airportCodeField(_ placeholder: String, text: Binding<String>) -> some View {
+        TextField(placeholder, text: text)
+            .textInputAutocapitalization(.characters)
+            .autocorrectionDisabled()
+            .padding()
+            .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
     }
 
     // MARK: - Results
@@ -193,6 +231,7 @@ struct AddFlightView: View {
         } label: {
             VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                 HStack {
+                    AirlineLogoView(url: candidate.logoURL, size: 22)
                     Text(candidate.displayFlightNumber).font(.headline)
                     if candidate.isCodeshare == true {
                         PillBadge(text: "Codeshare", tint: Theme.subtleInk)
@@ -244,12 +283,14 @@ struct AddFlightView: View {
         searchError = nil
         Task {
             do {
+                let trimmedOriginHint = originHint.trimmingCharacters(in: .whitespaces)
                 switch searchMode {
                 case .flightNumber:
-                    candidates = try await AeroFlightService.searchByFlightNumber(flightNumber, date: date, originIata: originHint?.iataCode)
+                    candidates = try await AeroFlightService.searchByFlightNumber(flightNumber, date: date, originIata: trimmedOriginHint.isEmpty ? nil : trimmedOriginHint)
                 case .route:
-                    guard let originIata = routeOrigin?.iataCode, let destinationIata = routeDestination?.iataCode else { return }
-                    candidates = try await AeroFlightService.searchByRoute(originIata: originIata, destinationIata: destinationIata, date: date)
+                    let originCode = routeOrigin.trimmingCharacters(in: .whitespaces)
+                    let destinationCode = routeDestination.trimmingCharacters(in: .whitespaces)
+                    candidates = try await AeroFlightService.searchByRoute(originIata: originCode, destinationIata: destinationCode, date: date)
                 }
             } catch {
                 searchError = (error as? AeroFlightError)?.errorDescription ?? "Something went wrong. Try again."
@@ -282,7 +323,15 @@ private struct FlightConfirmationView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.Spacing.md) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(candidate.displayFlightNumber).font(.title2.weight(.bold))
+                        HStack(spacing: Theme.Spacing.sm) {
+                            AirlineLogoView(url: candidate.logoURL, size: 32)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(candidate.displayFlightNumber).font(.title2.weight(.bold))
+                                if let operatorName = candidate.operatorName {
+                                    Text(operatorName).font(.caption).foregroundStyle(Theme.subtleInk)
+                                }
+                            }
+                        }
                         HStack(spacing: Theme.Spacing.xs) {
                             Text(candidate.origin?.city ?? candidate.origin?.iata ?? "—")
                             Image(systemName: "arrow.right")

@@ -185,7 +185,7 @@ struct PaywallView: View {
                         Text("\(product.displayPrice) / \(period == .yearly ? "year" : "month") for 2 users")
                             .font(.subheadline.weight(.medium))
                             .foregroundStyle(Theme.ink)
-                        Text("\(perUserPerMonthText(product)) / user / month")
+                        Text("\(perUserPerMonthText(product)) / person / month")
                             .font(.caption)
                             .foregroundStyle(Theme.subtleInk)
                     } else {
@@ -209,7 +209,17 @@ struct PaywallView: View {
     }
 
     private func perUserPerMonthText(_ product: Product) -> String {
-        let monthsInPeriod: Decimal = selectedPeriod == .yearly ? 12 : 1
+        let monthsInPeriod: Decimal
+
+        switch product.subscription?.subscriptionPeriod.unit {
+        case .year:
+            monthsInPeriod = 12
+        case .month:
+            monthsInPeriod = 1
+        default:
+            monthsInPeriod = 1
+        }
+
         let perUserPerMonth = product.price / monthsInPeriod / 2
         return perUserPerMonth.formatted(product.priceFormatStyle)
     }

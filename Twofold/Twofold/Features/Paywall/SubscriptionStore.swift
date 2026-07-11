@@ -31,16 +31,19 @@ enum SubscriptionTier: CaseIterable {
         case .plus:
             [
                 "Twofold Plus for you and your partner",
-                "500+ couple games and questions",
+                "Access to couple games and questions",
                 "Unlimited memories",
                 "Unlimited trips",
                 "Track up to 5 flights per month",
-                "Widgets",
+                "Basic memory and trip export",
+                "Basic Widgets",
             ]
         case .premium:
             [
                 "Everything in Plus",
-                "Track up to 20 flights per month — perfect for frequent flyers",
+                "Track up to 20 flights per month - perfect for frequent flyers",
+                "Advanced memory and trip export",
+                "Premium Widgets",
             ]
         }
     }

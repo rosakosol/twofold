@@ -312,6 +312,11 @@ struct Flight: Identifiable, Hashable {
 
     var flightNumber: String { flightNumberIATA }
 
+    /// The stored value (from `airline_logo_url`, currently never populated server-side since
+    /// AeroAPI doesn't supply one) if present, otherwise derived from the airline code — see
+    /// `AirlineLogo`.
+    var displayLogoURL: URL? { airlineLogoURL ?? AirlineLogo.url(forIATACode: airlineCode) }
+
     /// Airline code prefixed onto the number when AeroAPI hasn't already included it
     /// (self-reported flights are entered as a single free-text field, so this is a no-op
     /// for those — `flightNumberIATA` already reads e.g. "QF35").

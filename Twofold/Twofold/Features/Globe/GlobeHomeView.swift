@@ -145,7 +145,7 @@ struct GlobeHomeView: View {
                     .font(.headline)
 
                 if appModel.needsPartnerInvite {
-                    checklistRow(icon: "person.badge.plus", title: "Invite \(appModel.partner.name) to finish setting up Twofold") {
+                    checklistRow(icon: .system("person.badge.plus"), title: "Invite \(appModel.partner.name) to finish setting up Twofold") {
                         Task {
                             if appModel.inviteCode == nil {
                                 appModel.inviteCode = try? await BackendService.createInviteCode(firstName: appModel.currentUser.name)
@@ -157,13 +157,13 @@ struct GlobeHomeView: View {
                     }
                 }
                 if appModel.needsFirstTrip {
-                    checklistRow(icon: "airplane.departure", title: "Add your next trip") { showingAddTrip = true }
+                    checklistRow(icon: .system("airplane.departure"), title: "Add your next trip") { showingAddTrip = true }
                 }
                 if appModel.needsFirstFlight {
-                    checklistRow(icon: "ticket", title: "Add your first flight") { showingAddFlight = true }
+                    checklistRow(icon: .asset("boarding-pass"), title: "Add your first flight") { showingAddFlight = true }
                 }
                 if appModel.needsHomeCities {
-                    checklistRow(icon: "house", title: "Set your home cities") { showingHomeCities = true }
+                    checklistRow(icon: .system("house"), title: "Set your home cities") { showingHomeCities = true }
                 }
             }
         }
@@ -202,11 +202,30 @@ struct GlobeHomeView: View {
     private func refreshPendingShares() {
         pendingShares = PendingShareStore.all()
     }
+    
+    enum ChecklistIcon {
+        case system(String)
+        case asset(String)
+    }
 
-    private func checklistRow(icon: String, title: String, action: @escaping () -> Void) -> some View {
+    private func checklistRow(icon: ChecklistIcon, title: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack {
-                Image(systemName: icon).foregroundStyle(Theme.skyBlue).frame(width: 24)
+                Group {
+                    switch icon {
+                    case .asset(let name):
+                        Image(name)
+                            .renderingMode(.template)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 18, height: 18)
+                    case .system(let name):
+                        Image(systemName: name)
+                    }
+                }
+                .foregroundStyle(Theme.skyBlue)
+                .frame(width: 24)
+
                 Text(title)
                     .font(.subheadline)
                     .foregroundStyle(Theme.ink)
@@ -254,7 +273,7 @@ struct GlobeHomeView: View {
                     .font(.title2)
                     .foregroundStyle(Theme.heartRed)
             }
-            Text("No distance to close right now - make the most of being together 💛")
+            Text("No distance to close right now 💛")
                 .font(.caption)
                 .foregroundStyle(Theme.subtleInk)
         }
@@ -299,8 +318,11 @@ struct GlobeHomeView: View {
                     Text(flight.status.isActivelyTracked ? "TRACKING NOW" : "NEXT FLIGHT")
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(Theme.subtleInk)
-                    Text([flight.airlineName, flight.displayNumber].compactMap { $0 }.joined(separator: " · "))
-                        .font(.subheadline.weight(.semibold))
+                    HStack(spacing: Theme.Spacing.xs) {
+                        AirlineLogoView(url: flight.displayLogoURL, size: 18)
+                        Text([flight.airlineName, flight.displayNumber].compactMap { $0 }.joined(separator: " · "))
+                            .font(.subheadline.weight(.semibold))
+                    }
                 }
                 Spacer()
                 PillBadge(text: flight.status.displayLabel, tint: flight.status.semanticColor)

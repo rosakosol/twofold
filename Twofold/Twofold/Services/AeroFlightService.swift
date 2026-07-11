@@ -41,6 +41,7 @@ struct AeroFlightCandidate: Identifiable, Decodable, Hashable {
     var id: String { faFlightId }
 
     var displayFlightNumber: String { flightNumberIata ?? identIata ?? identIcao ?? "—" }
+    var logoURL: URL? { AirlineLogo.url(forIATACode: operatorIata) }
 }
 
 enum AeroFlightError: LocalizedError {

@@ -117,9 +117,12 @@ struct FlightTrackingView: View {
                 .multilineTextAlignment(.center)
 
             if flight.airlineName != nil || !flight.flightNumberIATA.isEmpty {
-                Text([flight.airlineName, flight.displayNumber].compactMap { $0 }.joined(separator: " · "))
-                    .font(.subheadline)
-                    .foregroundStyle(Theme.subtleInk)
+                HStack(spacing: Theme.Spacing.xs) {
+                    AirlineLogoView(url: flight.displayLogoURL, size: 20)
+                    Text([flight.airlineName, flight.displayNumber].compactMap { $0 }.joined(separator: " · "))
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.subtleInk)
+                }
             }
 
             HStack(spacing: Theme.Spacing.sm) {
@@ -392,14 +395,14 @@ struct FlightTrackingView: View {
             Text("Trip preparation").font(.subheadline.weight(.semibold))
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: Theme.Spacing.sm) {
-                    documentActionCard(type: .boardingPass, icon: "ticket.fill", title: "Boarding pass")
-                    documentActionCard(type: .itinerary, icon: "doc.text.fill", title: "Travel documents")
+                    documentActionCard(type: .boardingPass, title: "Boarding pass")
+                    documentActionCard(type: .itinerary, title: "Travel documents")
                     if linkedTrip != nil {
                         Button {
                             tripNotesDraft = linkedTrip?.notes ?? ""
                             showingTripNotes = true
                         } label: {
-                            documentCardLabel(icon: "checklist", title: "Trip checklist")
+                            documentCardLabel(icon: .system("checklist"), title: "Trip checklist")
                         }
                         .buttonStyle(.plain)
                     }
@@ -409,7 +412,8 @@ struct FlightTrackingView: View {
             if !documents.isEmpty {
                 ForEach(documents) { document in
                     HStack {
-                        Image(systemName: document.docType.icon).foregroundStyle(Theme.skyBlue)
+                        flightDocumentIcon(document.docType.icon, size: 16)
+                            .foregroundStyle(Theme.skyBlue)
                         Text(document.originalFilename ?? document.docType.label).font(.caption)
                         Spacer()
                         if let url = document.url {
@@ -427,28 +431,54 @@ struct FlightTrackingView: View {
         }
     }
 
-    private func documentActionCard(type: FlightDocumentType, icon: String, title: String) -> some View {
+    private func documentActionCard(type: FlightDocumentType, title: String) -> some View {
         Button {
             pendingDocType = type
         } label: {
-            documentCardLabel(icon: icon, title: title)
+            documentCardLabel(icon: type.icon, title: title)
         }
         .buttonStyle(.plain)
         .disabled(isUploadingDocument)
     }
 
-    private func documentCardLabel(icon: String, title: String) -> some View {
+    /// Renders either a bundled asset (e.g. the boarding-pass glyph, tinted like an SF Symbol
+    /// via `.renderingMode(.template)`) or a system symbol, from the same `FlightDocumentIcon`
+    /// value — shared between the action cards and the uploaded-documents list row.
+    private func flightDocumentIcon(_ icon: FlightDocumentIcon, size: CGFloat) -> some View {
+        Group {
+            switch icon {
+            case .asset(let name):
+                Image(name)
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: size, height: size)
+            case .system(let name):
+                Image(systemName: name)
+                    .font(.system(size: size))
+            }
+        }
+    }
+
+    private func documentCardLabel(icon: FlightDocumentIcon, title: String) -> some View {
         VStack(spacing: Theme.Spacing.xs) {
             ZStack {
                 Circle().fill(Theme.skyBlue.opacity(0.15))
-                Image(systemName: icon).foregroundStyle(Theme.skyBlue)
+                flightDocumentIcon(icon, size: 20)
+                    .foregroundStyle(Theme.skyBlue)
             }
             .frame(width: 40, height: 40)
-            Text(title).font(.caption.weight(.medium)).multilineTextAlignment(.center)
+
+            Text(title)
+                .font(.caption.weight(.medium))
+                .multilineTextAlignment(.center)
         }
         .frame(width: 92)
         .padding(Theme.Spacing.sm)
-        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+        .background(
+            Theme.cardBackground,
+            in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+        )
     }
 
     private var tripNotesSheet: some View {

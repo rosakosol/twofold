@@ -12,6 +12,7 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { fetchFlightByFaId, registerWebhookEndpoint, resolveFlightByIdent } from "../_shared/aeroapi.ts";
+import { diagnoseApnsConfig } from "../_shared/apns.ts";
 import { type FlightRow, syncFlight } from "../_shared/flight-sync.ts";
 
 // AeroAPI's webhook payload shape isn't fully confirmed — pull whatever's available defensively
@@ -63,6 +64,13 @@ Deno.serve(async (req) => {
       console.error("[aeroapi-webhook] self-registration failed:", (err as Error).message);
       return Response.json({ error: "Registration failed" }, { status: 502 });
     }
+  }
+
+  // Diagnostic: GET .../aeroapi-webhook?token=<AEROAPI_WEBHOOK_TOKEN>&diag=apns confirms each
+  // APNs environment's secrets are present and the private key actually parses as valid ES256 —
+  // never returns key material or a signed token, just booleans, so it's safe to call anytime.
+  if (req.method === "GET" && url.searchParams.get("diag") === "apns") {
+    return Response.json(await diagnoseApnsConfig());
   }
 
   if (req.method !== "POST") {

@@ -8,6 +8,7 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { type AeroFlight, resolveFlightByIdent, searchRoute } from "../_shared/aeroapi.ts";
+import { lookupAirlineName } from "../_shared/airlines.ts";
 import { deriveFlightStatus } from "../_shared/flight-status.ts";
 
 interface NumberModeInput {
@@ -51,7 +52,7 @@ function toCandidate(f: AeroFlight) {
     faFlightId: f.fa_flight_id,
     identIata: f.ident_iata ?? null,
     identIcao: f.ident_icao ?? null,
-    operatorName: null, // not available on this endpoint — see _shared/flight-sync.ts's mapping comment
+    operatorName: lookupAirlineName(f.operator_iata, f.operator_icao, f.operator),
     operatorIata: f.operator_iata ?? f.operator_icao ?? f.operator ?? null,
     flightNumberIata: f.ident_iata ?? f.ident ?? null,
     aircraftType: f.aircraft_type ?? null,
