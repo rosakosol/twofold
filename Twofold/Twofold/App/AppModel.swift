@@ -21,6 +21,11 @@ final class AppModel {
     var myDrawingURL: URL?
     var partnerDrawingURL: URL?
 
+    /// "Your partner doesn't pay anything" — true if *either* partner's device last reported
+    /// an active local StoreKit entitlement (see `BackendService.fetchSubscriptionActive`).
+    /// `RootView` gates all of `MainTabView` behind this once `hasCouple` is true.
+    var isSubscriptionActive = false
+
     /// Whether the partner has actually redeemed an invite and joined — confirmed by the
     /// backend (an active `couples` row exists), not assumed the moment a code is shared.
     var partnerConnected: Bool = false
@@ -122,8 +127,18 @@ final class AppModel {
             if let anniversaryDate = profile.anniversaryDate {
                 couple.startedDatingOn = anniversaryDate
             }
+            isSubscriptionActive = profile.subscriptionActive
         }
         hasCouple = true
+    }
+
+    /// A device's own successful purchase/restore, applied instantly and locally (no network
+    /// round-trip) — `PaywallView` calls this right after a purchase/restore succeeds, before
+    /// its own `onSubscribed()` callback fires, so `RootView`'s gate never flashes a second
+    /// paywall for someone who just subscribed (the Supabase write happens alongside this, but
+    /// this local flag is what `RootView` actually reads).
+    func markSubscriptionActive() {
+        isSubscriptionActive = true
     }
 
     /// Signs out and resets all local state back to the pre-auth placeholder — `RootView`
@@ -134,6 +149,7 @@ final class AppModel {
         partnerConnected = false
         inviteCode = nil
         backendCoupleID = nil
+        isSubscriptionActive = false
         pendingTripIDs = []
         pendingMemoryIDs = []
         pendingMemoryPhotoData = [:]
@@ -250,6 +266,7 @@ final class AppModel {
         memories = state.memories
         partnerConnected = true
         hasCouple = true
+        isSubscriptionActive = state.subscriptionActive
 
         var stillPendingTrips = Set<Trip.ID>()
         for trip in localOnlyTrips {

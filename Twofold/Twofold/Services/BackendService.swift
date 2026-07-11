@@ -172,6 +172,7 @@ enum BackendService {
         var partnerHomeCity: Place?
         var partnerAvatarURL: URL?
         var anniversaryDate: Date?
+        var subscriptionActive: Bool
     }
 
     /// The signed-in user's own profile — used when they're authenticated but not (yet)
@@ -206,7 +207,8 @@ enum BackendService {
             partnerName: profile.partnerName,
             partnerHomeCity: profile.partnerHomePlaceId.flatMap { places[$0] },
             partnerAvatarURL: profile.partnerAvatarPath.flatMap { avatarPublicURL(path: $0) },
-            anniversaryDate: profile.anniversaryDate.flatMap { Self.dateOnlyFormatter.date(from: $0) }
+            anniversaryDate: profile.anniversaryDate.flatMap { Self.dateOnlyFormatter.date(from: $0) },
+            subscriptionActive: profile.subscriptionActive
         )
     }
 
@@ -307,6 +309,7 @@ enum BackendService {
         var partnerName: String?
         var partnerHomePlaceId: UUID?
         var anniversaryDate: String?
+        var subscriptionActive: Bool
 
         enum CodingKeys: String, CodingKey {
             case id
@@ -317,6 +320,7 @@ enum BackendService {
             case partnerName = "partner_name"
             case partnerHomePlaceId = "partner_home_place_id"
             case anniversaryDate = "anniversary_date"
+            case subscriptionActive = "subscription_active"
         }
     }
 
@@ -389,6 +393,66 @@ enum BackendService {
             .update(AnniversaryDateUpdate(anniversaryDate: Self.dateOnlyFormatter.string(from: date)))
             .eq("id", value: userID)
             .execute()
+    }
+
+    private struct SubscriptionStatusUpdate: Encodable {
+        var subscriptionActive: Bool
+        var subscriptionCheckedAt: Date
+        enum CodingKeys: String, CodingKey {
+            case subscriptionActive = "subscription_active"
+            case subscriptionCheckedAt = "subscription_checked_at"
+        }
+    }
+
+    /// Writes only the caller's own profile row with their own device's last-known local
+    /// StoreKit entitlement — never the partner's, so there's no clobbering risk between two
+    /// independently-checking devices (see `fetchSubscriptionActive`, which ORs the two).
+    static func updateSubscriptionStatus(active: Bool) async throws {
+        guard let userID = currentUserID else { throw BackendError.notAuthenticated }
+        try await supabase
+            .from("profiles")
+            .update(SubscriptionStatusUpdate(subscriptionActive: active, subscriptionCheckedAt: .now))
+            .eq("id", value: userID)
+            .execute()
+    }
+
+    private struct SubscriptionActiveRow: Decodable {
+        var subscriptionActive: Bool
+        enum CodingKeys: String, CodingKey { case subscriptionActive = "subscription_active" }
+    }
+
+    /// Cheap, dedicated status check — deliberately not `fetchCoupleState()` (which also pulls
+    /// trips/flights/memories/places), since this needs to be re-checked periodically
+    /// (app foreground), not just once at cold launch. "Your partner doesn't pay anything" —
+    /// true if *either* partner's profile reports an active subscription; solo (unpaired)
+    /// users only have their own row to check.
+    static func fetchSubscriptionActive() async throws -> Bool {
+        guard let userID = currentUserID else { throw BackendError.notAuthenticated }
+
+        let coupleRows: [CoupleRow] = try await supabase
+            .from("couples")
+            .select()
+            .or("partner_a_id.eq.\(userID),partner_b_id.eq.\(userID)")
+            .eq("status", value: "active")
+            .limit(1)
+            .execute()
+            .value
+
+        let profileIDs: [UUID]
+        if let couple = coupleRows.first {
+            profileIDs = [couple.partnerAId, couple.partnerBId]
+        } else {
+            profileIDs = [userID]
+        }
+
+        let rows: [SubscriptionActiveRow] = try await supabase
+            .from("profiles")
+            .select("subscription_active")
+            .in("id", values: profileIDs)
+            .execute()
+            .value
+
+        return rows.contains { $0.subscriptionActive }
     }
 
     // MARK: - Avatar
@@ -551,6 +615,9 @@ enum BackendService {
         var couple: Couple
         var trips: [Trip]
         var memories: [Memory]
+        /// "Your partner doesn't pay anything" — access is granted if *either* partner's
+        /// device last reported an active local StoreKit entitlement.
+        var subscriptionActive: Bool
     }
 
     static func fetchCoupleState() async throws -> CoupleState? {
@@ -706,7 +773,12 @@ enum BackendService {
             )
         }
 
-        return CoupleState(couple: couple, trips: trips, memories: memories)
+        return CoupleState(
+            couple: couple,
+            trips: trips,
+            memories: memories,
+            subscriptionActive: meProfile.subscriptionActive || partnerProfile.subscriptionActive
+        )
     }
 
     // MARK: - Trips / flights

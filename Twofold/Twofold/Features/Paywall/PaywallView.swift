@@ -14,7 +14,13 @@ import StoreKit
 struct PaywallView: View {
     /// Called once a purchase actually completes. Onboarding uses this to advance to the
     /// success screen; the settings entry point leaves it as a no-op and just dismisses.
+    /// `RootView`'s forced (lapsed-subscription) case also leaves it a no-op — that screen
+    /// routes reactively off `AppModel.isSubscriptionActive` instead (see `markSubscriptionActive`).
     var onSubscribed: () -> Void = {}
+    /// `false` only for `RootView`'s forced re-subscribe gate, which isn't presented as a
+    /// sheet/push and so has nothing to dismiss to — the toolbar shows "Sign Out" instead of
+    /// "Close" in that case, as the only way out of a lapsed/no subscription.
+    var isDismissable: Bool = true
 
     @Environment(\.dismiss) private var dismiss
     @Environment(AppModel.self) private var appModel
@@ -23,6 +29,8 @@ struct PaywallView: View {
     @State private var selectedPeriod: BillingPeriod = .monthly
     @State private var heartPulsing = false
     @State private var dashPhase: CGFloat = 0
+    @State private var showingSignOutConfirm = false
+    @State private var isSigningOut = false
 
     private var selectedProduct: Product? {
         store.product(tier: selectedTier, period: selectedPeriod)
@@ -65,9 +73,25 @@ struct PaywallView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
-                Button("Close", systemImage: "xmark") { dismiss() }
-                    .labelStyle(.iconOnly)
+                if isDismissable {
+                    Button("Close", systemImage: "xmark") { dismiss() }
+                        .labelStyle(.iconOnly)
+                } else {
+                    Button("Sign Out", role: .destructive) {
+                        showingSignOutConfirm = true
+                    }
+                    .disabled(isSigningOut)
+                }
             }
+        }
+        .confirmationDialog("Sign out of Twofold?", isPresented: $showingSignOutConfirm, titleVisibility: .visible) {
+            Button("Sign Out", role: .destructive) {
+                Task {
+                    isSigningOut = true
+                    await appModel.signOut()
+                }
+            }
+            Button("Cancel", role: .cancel) {}
         }
         .task { await store.loadProducts() }
         .onAppear {
@@ -211,6 +235,8 @@ struct PaywallView: View {
                 Task {
                     guard let selectedProduct else { return }
                     if await store.purchase(selectedProduct) {
+                        try? await BackendService.updateSubscriptionStatus(active: true)
+                        appModel.markSubscriptionActive()
                         onSubscribed()
                     }
                 }
@@ -241,7 +267,14 @@ struct PaywallView: View {
     private var footerLinks: some View {
         VStack(spacing: Theme.Spacing.sm) {
             Button("Restore purchases") {
-                Task { await store.restorePurchases() }
+                Task {
+                    await store.restorePurchases()
+                    if store.isSubscribed {
+                        try? await BackendService.updateSubscriptionStatus(active: true)
+                        appModel.markSubscriptionActive()
+                        onSubscribed()
+                    }
+                }
             }
             .font(.caption)
             .foregroundStyle(Theme.subtleInk)

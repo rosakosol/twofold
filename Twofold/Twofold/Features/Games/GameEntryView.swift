@@ -2,10 +2,12 @@
 //  GameEntryView.swift
 //  Twofold
 //
-//  Single choke point every game card routes through: checks the Plus/Premium subscription
-//  gate, then starts a new session or resumes an in-progress one, then routes to the right
-//  typed game view. Subscription check follows the same per-view SubscriptionStore instance
-//  convention PaywallView already uses — there's no app-wide shared subscription state.
+//  Single choke point every game card routes through: starts a new session or resumes an
+//  in-progress one, then routes to the right typed game view. No subscription check here —
+//  `RootView` gates all of `MainTabView` (Games included) behind `AppModel.isSubscriptionActive`
+//  before this screen is ever reachable, so a second, feature-local gate would just be
+//  redundant (and, checking only local StoreKit, would have been wrong for a partner who
+//  joined via invite and never purchased anything on their own Apple ID).
 //
 
 import SwiftUI
@@ -13,21 +15,12 @@ import SwiftUI
 struct GameEntryView: View {
     let gameType: GameType
 
-    @State private var subscriptionStore = SubscriptionStore()
-    @State private var hasCheckedSubscription = false
-    @State private var isStarting = false
     @State private var errorMessage: String?
     @State private var sessionID: UUID?
-    @State private var showingPaywall = false
 
     var body: some View {
         Group {
-            if !hasCheckedSubscription || isStarting {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if !subscriptionStore.isSubscribed {
-                lockedState
-            } else if let errorMessage {
+            if let errorMessage {
                 errorState(errorMessage)
             } else if let sessionID {
                 gameDestination(sessionID: sessionID)
@@ -39,46 +32,7 @@ struct GameEntryView: View {
         .background(Theme.backgroundGradient.ignoresSafeArea())
         .navigationTitle(gameType.displayName)
         .navigationBarTitleDisplayMode(.inline)
-        .task {
-            await subscriptionStore.loadProducts()
-            hasCheckedSubscription = true
-            if subscriptionStore.isSubscribed {
-                await startOrResume()
-            }
-        }
-        .sheet(isPresented: $showingPaywall) {
-            NavigationStack { PaywallView() }
-        }
-    }
-
-    private var lockedState: some View {
-        VStack(spacing: Theme.Spacing.md) {
-            ZStack {
-                Circle().fill(Theme.skyBlue.opacity(0.15))
-                Image(systemName: "lock.fill").foregroundStyle(Theme.skyBlue)
-            }
-            .frame(width: 56, height: 56)
-
-            Text("Unlock with Twofold Plus")
-                .font(.title3.weight(.bold))
-            Text("Couple games are part of Twofold Plus — unlock 500+ games and questions, unlimited memories, and more.")
-                .font(.subheadline)
-                .foregroundStyle(Theme.subtleInk)
-                .multilineTextAlignment(.center)
-
-            Button {
-                showingPaywall = true
-            } label: {
-                Text("See Twofold Plus")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-            }
-            .background(Theme.primaryButtonGradient, in: Capsule())
-            .foregroundStyle(.white)
-        }
-        .padding(Theme.Spacing.xl)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .task { await startOrResume() }
     }
 
     private func errorState(_ message: String) -> some View {
@@ -112,7 +66,6 @@ struct GameEntryView: View {
     /// Resumes an existing active/waiting session of this type if one exists, so re-tapping a
     /// game card doesn't fork a duplicate session.
     private func startOrResume() async {
-        isStarting = true
         errorMessage = nil
         do {
             let existing = try await BackendService.fetchGameSessions()
@@ -124,6 +77,5 @@ struct GameEntryView: View {
         } catch {
             errorMessage = error.localizedDescription
         }
-        isStarting = false
     }
 }
