@@ -56,9 +56,15 @@ final class AddFlightFlowModel {
     let topBarTitle: String
     let onTopBarAction: () -> Void
 
-    init(nearCoordinate: CLLocationCoordinate2D?, topBarTitle: String, onTopBarAction: @escaping () -> Void) {
+    init(nearCoordinate: CLLocationCoordinate2D?, topBarTitle: String, onTopBarAction: @escaping () -> Void, initialFlightNumberDigits: String? = nil) {
         self.nearCoordinate = nearCoordinate
         self.topBarTitle = topBarTitle
         self.onTopBarAction = onTopBarAction
+        let digitsOnly = (initialFlightNumberDigits ?? "").filter(\.isNumber)
+        if !digitsOnly.isEmpty {
+            mode = .flightNumber
+            flightNumberDigits = digitsOnly
+            path = [.flightNumber]
+        }
     }
 }

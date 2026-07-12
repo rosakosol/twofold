@@ -372,12 +372,17 @@ final class AppModel {
         hasCouple = true
     }
 
+    /// Creates a trip with no flight attached — flights are never self-reported (see
+    /// `AeroFlightService.addFlight`/`LiveActivityManager`); callers that have a real,
+    /// AeroAPI-resolved `AeroFlightCandidate` in hand should follow up with
+    /// `AeroFlightService.addFlight(faFlightId:tripID:notifyMe:)` once this trip exists,
+    /// exactly as `AddFirstFlightView`/`AddTripDetailsView` already do.
     @discardableResult
-    func addTrip(origin: Place, destination: Place, departureDate: Date, arrivalDate: Date, traveler: TripTraveler, category: TripCategory, flightNumber: String?) async -> Trip {
+    func addTrip(origin: Place, destination: Place, departureDate: Date, arrivalDate: Date, traveler: TripTraveler, category: TripCategory) async -> Trip {
         let travelerID = traveler == .partner ? partner.id : currentUser.id
         let distance = Geo.distanceKm(origin.coordinate, destination.coordinate)
 
-        var trip = Trip(
+        let trip = Trip(
             travelerID: travelerID,
             origin: origin,
             destination: destination,
@@ -387,12 +392,7 @@ final class AppModel {
             distanceKm: distance
         )
 
-        if let flightNumber, !flightNumber.isEmpty {
-            trip.flight = Flight(selfReportedNumber: flightNumber, origin: origin, destination: destination, scheduledDeparture: departureDate, scheduledArrival: arrivalDate)
-        }
-
         trips.append(trip)
-        if let flight = trip.flight { flights.append(flight) }
 
         if let backendCoupleID {
             do {

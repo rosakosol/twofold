@@ -49,6 +49,12 @@ struct TripsListView: View {
                     .listRowSeparator(.hidden)
                     .listRowInsets(EdgeInsets())
                     .padding(.vertical, Theme.Spacing.sm)
+
+                    if appModel.trips.isEmpty {
+                        emptyStateHint
+                            .listRowSeparator(.hidden)
+                            .listRowInsets(EdgeInsets())
+                    }
                 }
                 .listRowBackground(Color.clear)
 
@@ -90,15 +96,6 @@ struct TripsListView: View {
                         }
                     }
                 }
-
-                if appModel.trips.isEmpty {
-                    Section {
-                        emptyStateHint
-                    }
-                    .listRowInsets(EdgeInsets())
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-                }
             }
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
@@ -115,7 +112,7 @@ struct TripsListView: View {
                         Button {
                             showingAddFlight = true
                         } label: {
-                            Label("Add Flight", systemImage: "ticket")
+                            Label("Add Flight", image: "boarding-pass")
                         }
                     } label: {
                         Image(systemName: "plus")
@@ -141,23 +138,28 @@ struct TripsListView: View {
     }
 
     private var emptyStateHint: some View {
-        SectionCard {
-            HStack(spacing: Theme.Spacing.md) {
-                ZStack {
-                    Circle().fill(Theme.skyBlue.opacity(0.15))
-                    Image(systemName: "airplane.circle.fill").foregroundStyle(Theme.skyBlue)
+        Button {
+            showingAddTrip = true
+        } label: {
+            SectionCard {
+                HStack(spacing: Theme.Spacing.md) {
+                    ZStack {
+                        Circle().fill(Theme.skyBlue.opacity(0.15))
+                        Image(systemName: "airplane.circle.fill").foregroundStyle(Theme.skyBlue)
+                    }
+                    .frame(width: 40, height: 40)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Add your first trip").font(.headline).foregroundStyle(Theme.ink)
+                        Text("Tap to plan a reunion, a trip together, or something of your own.")
+                            .font(.caption)
+                            .foregroundStyle(Theme.subtleInk)
+                    }
+                    Spacer(minLength: 0)
                 }
-                .frame(width: 40, height: 40)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Add your first trip").font(.headline)
-                    Text("Tap + above to plan a reunion, a trip together, or something of your own.")
-                        .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
-                }
-                Spacer(minLength: 0)
             }
         }
-        .padding(.vertical, Theme.Spacing.sm)
+        .buttonStyle(.plain)
+        .padding(.top, Theme.Spacing.xs)
     }
 }
 

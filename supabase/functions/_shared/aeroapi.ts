@@ -88,8 +88,11 @@ function apiKey(): string {
 }
 
 // Returns parsed JSON, `null` on a 404 (treated as "not found", not an error), and throws
-// (after one retry) on any other non-2xx status. Never includes response bodies in thrown
-// errors or logs — upstream error bodies could echo back query params/headers.
+// (after one retry) on any other non-2xx status. Logs a truncated response body on error for
+// diagnosability — AeroAPI's own error bodies (e.g. "Invalid API key", quota/rate-limit
+// messages, malformed-query complaints) are the single most useful signal for telling apart
+// "no matching flights" from "the request itself was rejected," and don't contain the API key
+// or any of our secrets (that's only ever in the outgoing request header, never echoed back).
 async function aeroRequest(path: string, searchParams?: Record<string, string | undefined>): Promise<any> {
   const url = new URL(AEROAPI_BASE + path);
   if (searchParams) {
@@ -114,8 +117,9 @@ async function aeroRequest(path: string, searchParams?: Record<string, string | 
   }
 
   if (!res.ok) {
-    console.error(`[aeroapi] ${path} failed with status ${res.status}`);
-    throw new Error(`AeroAPI request failed (${res.status})`);
+    const bodyText = await res.text().catch(() => "");
+    console.error(`[aeroapi] ${path} failed with status ${res.status}: ${bodyText.slice(0, 500)}`);
+    throw new Error(`AeroAPI request failed (${res.status}): ${bodyText.slice(0, 200)}`);
   }
 
   return res.json();

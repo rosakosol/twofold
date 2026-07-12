@@ -672,7 +672,7 @@ struct FlightTrackingView: View {
 
 #Preview {
     NavigationStack {
-        FlightTrackingView(flight: MockData.reunionTrip.flight ?? Flight(selfReportedNumber: "QF9", origin: MockData.melbourne, destination: MockData.singapore, scheduledDeparture: .now, scheduledArrival: .now.addingTimeInterval(3600 * 8)))
+        FlightTrackingView(flight: MockData.reunionTrip.flight ?? MockData.activeFlight)
     }
     .environment(AppModel())
 }

@@ -1008,77 +1008,6 @@ enum BackendService {
         )
     }
 
-    /// Client-insertable only for a *self-reported* flight (no `fa_flight_id`) — matches the
-    /// narrow RLS exception in the flights table. Real AeroAPI-tracked flights are written
-    /// only by the `add-flight`/`refresh-flight` Edge Functions using the service role key.
-    private struct SelfReportedFlightInsert: Encodable {
-        var id: UUID
-        var coupleId: UUID
-        var tripId: UUID?
-        var createdBy: UUID
-        var flightNumberIata: String
-        var originIata: String?
-        var originCity: String?
-        var originTimezone: String?
-        var originLatitude: Double?
-        var originLongitude: Double?
-        var destinationIata: String?
-        var destinationCity: String?
-        var destinationTimezone: String?
-        var destinationLatitude: Double?
-        var destinationLongitude: Double?
-        var scheduledOut: Date?
-        var scheduledIn: Date?
-        var status: String
-
-        enum CodingKeys: String, CodingKey {
-            case id, status
-            case coupleId = "couple_id"
-            case tripId = "trip_id"
-            case createdBy = "created_by"
-            case flightNumberIata = "flight_number_iata"
-            case originIata = "origin_iata"
-            case originCity = "origin_city"
-            case originTimezone = "origin_timezone"
-            case originLatitude = "origin_latitude"
-            case originLongitude = "origin_longitude"
-            case destinationIata = "destination_iata"
-            case destinationCity = "destination_city"
-            case destinationTimezone = "destination_timezone"
-            case destinationLatitude = "destination_latitude"
-            case destinationLongitude = "destination_longitude"
-            case scheduledOut = "scheduled_out"
-            case scheduledIn = "scheduled_in"
-        }
-    }
-
-    @discardableResult
-    static func insertSelfReportedFlight(coupleID: UUID, tripID: UUID?, flight: Flight) async throws -> UUID {
-        guard let userID = currentUserID else { throw BackendError.notAuthenticated }
-        let insert = SelfReportedFlightInsert(
-            id: flight.id,
-            coupleId: coupleID,
-            tripId: tripID,
-            createdBy: userID,
-            flightNumberIata: flight.flightNumberIATA,
-            originIata: flight.origin.iata,
-            originCity: flight.origin.city,
-            originTimezone: flight.origin.timezone,
-            originLatitude: flight.origin.latitude,
-            originLongitude: flight.origin.longitude,
-            destinationIata: flight.destination.iata,
-            destinationCity: flight.destination.city,
-            destinationTimezone: flight.destination.timezone,
-            destinationLatitude: flight.destination.latitude,
-            destinationLongitude: flight.destination.longitude,
-            scheduledOut: flight.scheduledOut,
-            scheduledIn: flight.scheduledIn,
-            status: "scheduled"
-        )
-        try await supabase.from("flights").insert(insert).execute()
-        return flight.id
-    }
-
     static func fetchFlights(coupleID: UUID) async throws -> [Flight] {
         let rows: [FlightRow] = try await supabase
             .from("flights")
@@ -1353,8 +1282,11 @@ enum BackendService {
             .execute()
     }
 
-    /// Inserts a trip (and its flight, if it has one) using the client-generated ids already
-    /// on `trip`/`trip.flight`, resolving origin/destination against the `places` table.
+    /// Inserts a trip using the client-generated id already on `trip`, resolving origin/
+    /// destination against the `places` table. Never writes a flight — flights are only ever
+    /// written by the `add-flight`/`refresh-flight` Edge Functions (service role key) once a
+    /// real AeroAPI candidate is resolved via `AeroFlightService.addFlight`, called separately
+    /// once the trip this returns exists.
     static func insertTrip(coupleID: UUID, trip: Trip) async throws {
         let originID = try await findOrCreatePlaceID(trip.origin)
         let destinationID = try await findOrCreatePlaceID(trip.destination)
@@ -1375,10 +1307,6 @@ enum BackendService {
                 )
             )
             .execute()
-
-        if let flight = trip.flight {
-            try await insertSelfReportedFlight(coupleID: coupleID, tripID: trip.id, flight: flight)
-        }
     }
 
     // MARK: - Flight updates (self-reported)

@@ -36,8 +36,9 @@ struct AddTripDetailsView: View {
     @State private var returnDate: Date
     @State private var traveler: TripTraveler = .you
     @State private var category: TripCategory = .seeingEachOther
-    @State private var wantsFlight: Bool
-    @State private var flightNumber: String
+    @State private var flightNumberHint: String
+    @State private var selectedFlightCandidate: AeroFlightCandidate?
+    @State private var showingAddFlightFlow = false
     @State private var isSaving = false
 
     init(mode: Mode, partnerName: String = "Partner", prefill: Prefill? = nil, onSave: @escaping (Trip) -> Void = { _ in }) {
@@ -48,8 +49,7 @@ struct AddTripDetailsView: View {
         _destination = State(initialValue: prefill?.destination)
         _departureDate = State(initialValue: prefill?.departureDate ?? Date().addingTimeInterval(86_400 * 30))
         _returnDate = State(initialValue: prefill?.returnDate ?? prefill?.departureDate?.addingTimeInterval(86_400 * 14) ?? Date().addingTimeInterval(86_400 * 44))
-        _wantsFlight = State(initialValue: prefill?.flightNumber != nil)
-        _flightNumber = State(initialValue: prefill?.flightNumber ?? "")
+        _flightNumberHint = State(initialValue: prefill?.flightNumber ?? "")
     }
 
     var body: some View {
@@ -89,23 +89,80 @@ struct AddTripDetailsView: View {
                         .pickerStyle(.segmented)
                     }
 
-                    VStack(spacing: Theme.Spacing.sm) {
-                        Toggle("Add a flight", isOn: $wantsFlight)
-                        if wantsFlight {
-                            TextField("Flight number, e.g. QF35", text: $flightNumber)
-                                .textInputAutocapitalization(.characters)
-                                .padding()
-                                .background(Theme.backgroundGradient.opacity(0.4), in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-                        }
-                    }
-                    .padding(Theme.Spacing.md)
-                    .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                    addFlightRow
                 }
             },
             primaryTitle: "Save trip",
             primaryAction: save,
             primaryDisabled: origin == nil || destination == nil || isSaving
         )
+        .sheet(isPresented: $showingAddFlightFlow) {
+            AddFlightFlowView(
+                nearCoordinate: origin?.coordinate,
+                initialFlightNumberDigits: flightNumberHint.isEmpty ? nil : flightNumberHint,
+                topBarTitle: "Cancel",
+                onTopBarAction: { showingAddFlightFlow = false },
+                completion: .handOff { candidate in
+                    selectedFlightCandidate = candidate
+                    showingAddFlightFlow = false
+                }
+            )
+        }
+    }
+
+    /// Tapping through opens the real AeroAPI-backed AddFlightFlowView search (the same wizard
+    /// used elsewhere in the app) — flights are never self-reported, so a flight only ever
+    /// attaches to this trip once a real candidate comes back from that search. When this view
+    /// was opened from the forwarded-flight-email review flow, whatever number the parser
+    /// picked out of the email is shown as a hint and pre-fills the search rather than being
+    /// saved as-is.
+    private var addFlightRow: some View {
+        Button {
+            showingAddFlightFlow = true
+        } label: {
+            HStack(spacing: Theme.Spacing.sm) {
+                if let candidate = selectedFlightCandidate {
+                    AirlineLogoView(url: candidate.logoURL, size: 28)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(candidate.displayFlightNumber)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Theme.ink)
+                        if let originCity = candidate.origin?.city, let destinationCity = candidate.destination?.city {
+                            Text("\(originCity) to \(destinationCity)")
+                                .font(.caption)
+                                .foregroundStyle(Theme.subtleInk)
+                        }
+                    }
+                    Spacer(minLength: 0)
+                    Button {
+                        selectedFlightCandidate = nil
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(Theme.subtleInk)
+                    }
+                } else {
+                    Image(systemName: "airplane")
+                        .foregroundStyle(Theme.skyBlue)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(flightNumberHint.isEmpty ? "Add a flight" : flightNumberHint)
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(Theme.ink)
+                        if !flightNumberHint.isEmpty {
+                            Text("From your forwarded email — tap to find and confirm")
+                                .font(.caption2)
+                                .foregroundStyle(Theme.subtleInk)
+                        }
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(Theme.subtleInk)
+                }
+            }
+            .padding()
+            .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 
     private func save() {
@@ -118,9 +175,14 @@ struct AddTripDetailsView: View {
                 departureDate: departureDate,
                 arrivalDate: returnDate,
                 traveler: traveler,
-                category: category,
-                flightNumber: wantsFlight ? flightNumber : nil
+                category: category
             )
+            if let selectedFlightCandidate {
+                // Real AeroAPI-tracked flight only — no self-reported fallback. Can fail if
+                // there's no active couple yet; the trip is still saved either way.
+                _ = try? await AeroFlightService.addFlight(faFlightId: selectedFlightCandidate.faFlightId, tripID: trip.id, notifyMe: true)
+                await appModel.refreshFlights()
+            }
             isSaving = false
             onSave(trip)
         }

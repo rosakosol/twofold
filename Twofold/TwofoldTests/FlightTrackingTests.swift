@@ -151,19 +151,6 @@ struct FlightTrackingTests {
         #expect(arrivedEvent?.isComplete == true)
     }
 
-    // MARK: - Missing-data fallback (never fabricate a value)
-
-    @Test func selfReportedFlightHasNoFabricatedProviderData() {
-        let flight = Flight(selfReportedNumber: "QF9", origin: Place(city: "Melbourne", country: "Australia", latitude: -37.8, longitude: 144.9), destination: Place(city: "Singapore", country: "Singapore", latitude: 1.35, longitude: 103.8), scheduledDeparture: .now, scheduledArrival: .now.addingTimeInterval(3600 * 8))
-        #expect(flight.terminalOrigin == nil)
-        #expect(flight.gateOrigin == nil)
-        #expect(flight.baggageClaim == nil)
-        #expect(flight.aircraftType == nil)
-        #expect(flight.positionLatitude == nil)
-        #expect(flight.faFlightID == nil)
-        #expect(flight.status == .scheduled)
-    }
-
     // MARK: - FlightStatusEventType human copy
 
     @Test func gateChangeEventInterpolatesNewValue() {

@@ -185,7 +185,7 @@ begin
         when v_answered_count >= 2 and new.round_number >= v_total_rounds then 'completed'
         when v_answered_count >= 2 then 'active'
         else 'waiting_for_partner'
-      end,
+      end::public.game_status,
       current_round = case
         when v_answered_count >= 2 and new.round_number < v_total_rounds then new.round_number + 1
         else current_round

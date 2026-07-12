@@ -7,6 +7,8 @@ import SwiftUI
 import MapKit
 
 struct MemoriesMapView: View {
+    var onTapAddMemory: () -> Void = {}
+
     @Environment(AppModel.self) private var appModel
     @State private var cameraPosition: MapCameraPosition = .automatic
     @State private var navigationCity: Place?
@@ -70,22 +72,25 @@ struct MemoriesMapView: View {
     }
 
     private var emptyStateHint: some View {
-        SectionCard {
-            HStack(spacing: Theme.Spacing.md) {
-                ZStack {
-                    Circle().fill(Theme.skyBlue.opacity(0.15))
-                    Image(systemName: "photo.badge.plus").foregroundStyle(Theme.skyBlue)
+        Button(action: onTapAddMemory) {
+            SectionCard {
+                HStack(spacing: Theme.Spacing.md) {
+                    ZStack {
+                        Circle().fill(Theme.skyBlue.opacity(0.15))
+                        Image(systemName: "photo.badge.plus").foregroundStyle(Theme.skyBlue)
+                    }
+                    .frame(width: 40, height: 40)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Add your first memory").font(.headline).foregroundStyle(Theme.ink)
+                        Text("Tap to save a photo from a moment together.")
+                            .font(.caption)
+                            .foregroundStyle(Theme.subtleInk)
+                    }
+                    Spacer(minLength: 0)
                 }
-                .frame(width: 40, height: 40)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Add your first memory").font(.headline)
-                    Text("Tap + above to save a photo from a moment together.")
-                        .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
-                }
-                Spacer(minLength: 0)
             }
         }
+        .buttonStyle(.plain)
     }
 }
 

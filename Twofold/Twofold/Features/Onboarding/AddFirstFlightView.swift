@@ -3,11 +3,11 @@
 //  Twofold
 //
 //  Embeds the full shared AddFlightFlowView wizard (same real AeroAPI-backed search the live
-//  app uses) rather than a reduced onboarding-only form. Once a real candidate is picked, this
-//  immediately creates a trip with a self-reported Flight using the real resolved number/date
-//  (the proven-reliable path this screen already used), then best-effort upgrades it to a real
-//  AeroAPI-tracked flight — wrapped in try? since add-flight requires an active couple, which
-//  may not exist yet this early if the partner hasn't joined. Either way lands on .firstMemory.
+//  app uses) rather than a reduced onboarding-only form. Flights are never self-reported —
+//  once a real candidate is picked, this creates the trip, then tracks it for real via
+//  AeroFlightService.addFlight. That call can fail if there's no active couple yet this early
+//  in onboarding (the partner hasn't joined) — in that case the trip is saved without a flight
+//  and the flow routes to the (now-mandatory) memory step, same as an explicit skip.
 //
 
 import SwiftUI
@@ -41,18 +41,20 @@ struct AddFirstFlightView: View {
                 departureDate: candidate.scheduledOut ?? Date.now,
                 arrivalDate: candidate.scheduledIn ?? Date.now.addingTimeInterval(3600 * 4),
                 traveler: .partner,
-                category: .seeingEachOther,
-                flightNumber: candidate.displayFlightNumber
+                category: .seeingEachOther
             )
-            // Best-effort upgrade to a real AeroAPI-tracked flight — silent on failure since
-            // add-flight requires an active couple, which may not exist yet this early in
-            // onboarding. The self-reported trip above is the safety net either way.
-            try? await AeroFlightService.addFlight(faFlightId: candidate.faFlightId, tripID: trip.id, notifyMe: true)
-            await appModel.refreshFlights()
-            // A flight was successfully added — skip the (now-mandatory-when-reached) memory
-            // step entirely and go straight to the "ready" screen. Only the top-bar skip and
-            // the missing-city guard above land on .firstMemory instead.
-            onboarding.path.append(.twofoldPreview)
+            do {
+                try await AeroFlightService.addFlight(faFlightId: candidate.faFlightId, tripID: trip.id, notifyMe: true)
+                await appModel.refreshFlights()
+                // A flight was successfully tracked — skip the (now-mandatory-when-reached)
+                // memory step entirely and go straight to the "ready" screen.
+                onboarding.path.append(.twofoldPreview)
+            } catch {
+                // add-flight requires an active couple, which may not exist yet this early in
+                // onboarding (partner hasn't joined) — the trip is still saved, just without a
+                // flight, so this routes the same place an explicit skip would.
+                onboarding.path.append(.firstMemory)
+            }
         }
     }
 }

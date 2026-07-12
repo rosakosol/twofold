@@ -14,7 +14,7 @@ private enum MemoriesViewMode {
 
 struct MemoriesView: View {
     @Environment(AppModel.self) private var appModel
-    @State private var mode: MemoriesViewMode = .list
+    @State private var mode: MemoriesViewMode = .map
     @State private var showingAddMemory = false
 
     var body: some View {
@@ -22,8 +22,8 @@ struct MemoriesView: View {
             ZStack(alignment: .bottom) {
                 Group {
                     switch mode {
-                    case .list: MemoriesListView()
-                    case .map: MemoriesMapView()
+                    case .list: MemoriesListView(onTapAddMemory: { showingAddMemory = true })
+                    case .map: MemoriesMapView(onTapAddMemory: { showingAddMemory = true })
                     }
                 }
 

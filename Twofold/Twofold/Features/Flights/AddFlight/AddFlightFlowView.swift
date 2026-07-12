@@ -27,12 +27,18 @@ struct AddFlightFlowView: View {
 
     init(
         nearCoordinate: CLLocationCoordinate2D?,
+        initialFlightNumberDigits: String? = nil,
         topBarTitle: String = "Cancel",
         onTopBarAction: @escaping () -> Void,
         completion: Completion
     ) {
         self.completion = completion
-        _model = State(initialValue: AddFlightFlowModel(nearCoordinate: nearCoordinate, topBarTitle: topBarTitle, onTopBarAction: onTopBarAction))
+        _model = State(initialValue: AddFlightFlowModel(
+            nearCoordinate: nearCoordinate,
+            topBarTitle: topBarTitle,
+            onTopBarAction: onTopBarAction,
+            initialFlightNumberDigits: initialFlightNumberDigits
+        ))
     }
 
     var body: some View {

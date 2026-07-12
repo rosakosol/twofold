@@ -14,11 +14,17 @@ struct DrawingCanvasView: View {
     var tool: DrawingTool
     var color: Color = Theme.ink
     var lineWidth: CGFloat = 5
+    /// The previously-saved pad, drawn first so new strokes layer on top of it. `nil` once the
+    /// user hits Clear, so a save after clearing doesn't resurrect the old drawing underneath.
+    var backgroundImage: UIImage?
 
     @State private var currentElement: DrawingElement?
 
     var body: some View {
-        Canvas { context, _ in
+        Canvas { context, size in
+            if let backgroundImage {
+                context.draw(Image(uiImage: backgroundImage), in: CGRect(origin: .zero, size: size))
+            }
             for element in elements {
                 stroke(element, in: &context)
             }

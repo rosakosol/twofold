@@ -33,18 +33,73 @@ function isValidDate(date: unknown): date is string {
 
 // AeroAPI's ident lookup wants an ISO8601 start/end window; give it a couple of days either side
 // of the requested date to comfortably catch overnight departures/arrivals.
+//
+// AeroAPI rejects the request outright ("invalid end bound: time is too far into future (limit:
+// 2 days)") if `end` is more than ~2 days past the moment of the request — regardless of how far
+// out the caller's requested date is. Clamp both bounds into that window instead of letting a
+// legitimately-future search (e.g. searching a flight number for next week) 400 the whole
+// lookup; a few minutes of slack below the hard cap guards against clock skew between here and
+// AeroAPI. A search clamped this way may simply come back with fewer/no matches for a date
+// that's genuinely beyond what AeroAPI can predict yet — that's a real "no flights found" state,
+// not a bug.
 function dateWindow(date: string): { startISO: string; endISO: string } {
-  const start = new Date(`${date}T00:00:00Z`);
-  const end = new Date(start.getTime());
+  const target = new Date(`${date}T00:00:00Z`);
+  let end = new Date(target.getTime());
   end.setUTCDate(end.getUTCDate() + 2);
-  const rangeStart = new Date(start.getTime());
-  rangeStart.setUTCDate(rangeStart.getUTCDate() - 1);
-  return { startISO: rangeStart.toISOString(), endISO: end.toISOString() };
+  let start = new Date(target.getTime());
+  start.setUTCDate(start.getUTCDate() - 1);
+
+  const maxEnd = new Date();
+  maxEnd.setUTCDate(maxEnd.getUTCDate() + 2);
+  maxEnd.setUTCMinutes(maxEnd.getUTCMinutes() - 5);
+
+  if (end.getTime() > maxEnd.getTime()) {
+    // Shift the whole window back in time rather than just pinning `end` to the ceiling —
+    // pinning alone can collapse `start` to the same instant as `end` (or leave it past `end`)
+    // once clamped, and a zero/negative-width range is its own kind of malformed request as far
+    // as AeroAPI's own schema validation is concerned ("type is incorrect"). Preserving the
+    // original 3-day width keeps the request shape identical to the un-clamped case.
+    const shiftMs = end.getTime() - maxEnd.getTime();
+    end = maxEnd;
+    start = new Date(start.getTime() - shiftMs);
+  }
+
+  // AeroAPI's parser has rejected a `.toISOString()` timestamp's trailing milliseconds before
+  // ("type is incorrect") — strip them defensively; AeroAPI's own documented examples never
+  // include a fractional-seconds component.
+  return { startISO: toAeroTimestamp(start), endISO: toAeroTimestamp(end) };
 }
 
-function isSameLocalDay(iso: string | null | undefined, date: string): boolean {
+function toAeroTimestamp(date: Date): string {
+  return date.toISOString().replace(/\.\d{3}Z$/, "Z");
+}
+
+// `iso` is a UTC instant from AeroAPI; `date` is the calendar date the caller searched for,
+// meant as "departure date at the origin airport" — comparing UTC-sliced date strings directly
+// against that is wrong for roughly half of all flights (any origin west of UTC with a morning
+// departure, or east of UTC with a late-evening one, lands on the *other* UTC day). Converts the
+// instant into the origin airport's own IANA timezone before comparing, so "today" means today
+// at the airport the flight actually leaves from.
+function isSameLocalDay(iso: string | null | undefined, date: string, timeZone: string | null | undefined): boolean {
   if (!iso) return false;
-  return iso.slice(0, 10) === date;
+  const zone = timeZone || "UTC";
+  try {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: zone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(new Date(iso));
+    const year = parts.find((p) => p.type === "year")?.value;
+    const month = parts.find((p) => p.type === "month")?.value;
+    const day = parts.find((p) => p.type === "day")?.value;
+    if (!year || !month || !day) return iso.slice(0, 10) === date;
+    return `${year}-${month}-${day}` === date;
+  } catch {
+    // Unrecognized/malformed IANA identifier — fall back to the naive UTC comparison rather
+    // than throwing away an otherwise-valid flight.
+    return iso.slice(0, 10) === date;
+  }
 }
 
 function toCandidate(f: AeroFlight) {
@@ -137,20 +192,32 @@ Deno.serve(async (req) => {
       const results = await resolveFlightByIdent(input.flightNumber, { startISO, endISO, identType: "designator" });
       // Prefer same-day matches when the ident resolves to several scheduled instances; fall
       // back to the full result set if none match exactly (e.g. timezone edge cases).
-      const sameDay = results.filter((f) => isSameLocalDay(f.scheduled_out, input.date));
+      const sameDay = results.filter((f) => isSameLocalDay(f.scheduled_out, input.date, f.origin?.timezone));
       flights = sameDay.length > 0 ? sameDay : results;
       if (input.originIata) {
         flights = flights.filter((f) => f.origin?.code_iata === input.originIata || f.origin?.code === input.originIata);
       }
+      console.log(`[resolve-flight] number ${input.flightNumber} on ${input.date}: aeroapi returned ${results.length} total, ${sameDay.length} same-day, ${flights.length} after origin filter`);
     } else {
       const results = await searchRoute(input.originIata, input.destinationIata);
-      flights = results.filter((f) => isSameLocalDay(f.scheduled_out, input.date));
+      // AeroAPI's route search has no date param of its own — the date filter is applied here,
+      // client-side. Same fallback as number mode: prefer an exact same-day match, but don't
+      // return zero results just because the origin's timezone data was missing/imprecise and
+      // the strict same-day check happened to exclude a real, otherwise-matching flight.
+      const sameDay = results.filter((f) => isSameLocalDay(f.scheduled_out, input.date, f.origin?.timezone));
+      flights = sameDay.length > 0 ? sameDay : results;
+      console.log(`[resolve-flight] route ${input.originIata}->${input.destinationIata} on ${input.date}: aeroapi returned ${results.length} total, ${sameDay.length} same-day`);
     }
 
     return Response.json({ candidates: flights.map(toCandidate) });
   } catch (err) {
-    console.error("[resolve-flight] AeroAPI lookup failed:", (err as Error).message);
-    return Response.json({ error: "Flight lookup failed, please try again" }, { status: 502 });
+    const message = (err as Error).message;
+    console.error("[resolve-flight] AeroAPI lookup failed:", message);
+    // Relay AeroAPI's own complaint when we have one (e.g. "Invalid API key", a malformed-query
+    // rejection, rate-limiting) — it's not secret, and it's the difference between "no matching
+    // flights" and "the request itself was rejected," which otherwise looks identical to the
+    // user as a generic failure.
+    return Response.json({ error: `Flight lookup failed: ${message}` }, { status: 502 });
   }
 });
 

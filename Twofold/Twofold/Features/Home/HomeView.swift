@@ -19,6 +19,7 @@ struct HomeView: View {
     @State private var reviewingShare: PendingFlightShare?
     @State private var weatherReading: CurrentWeatherReading?
     @State private var weatherFetchedForCityID: UUID?
+    @AppStorage("setupChecklistDismissed") private var setupChecklistDismissed = false
 
     private var distanceKm: Double? {
         guard let mine = appModel.currentUser.homeCity?.coordinate, let theirs = appModel.partner.homeCity?.coordinate else { return nil }
@@ -149,10 +150,20 @@ struct HomeView: View {
 
     @ViewBuilder
     private var setupChecklistCard: some View {
-        if appModel.needsPartnerInvite || appModel.needsFirstTrip || appModel.needsFirstFlight || appModel.needsHomeCities {
+        if !setupChecklistDismissed && (appModel.needsPartnerInvite || appModel.needsFirstTrip || appModel.needsFirstFlight || appModel.needsHomeCities) {
             SectionCard {
-                Text("Finish setting up Twofold")
-                    .font(.headline)
+                HStack {
+                    Text("Finish setting up Twofold")
+                        .font(.headline)
+                    Spacer()
+                    Button {
+                        setupChecklistDismissed = true
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(Theme.subtleInk.opacity(0.5))
+                    }
+                    .buttonStyle(.plain)
+                }
 
                 if appModel.needsPartnerInvite {
                     checklistRow(icon: .system("person.badge.plus"), title: "Invite \(appModel.partner.name) to finish setting up Twofold") {

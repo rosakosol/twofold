@@ -12,13 +12,16 @@ struct DrawingPadEditorView: View {
     @State private var elements: [DrawingElement] = []
     @State private var redoStack: [DrawingElement] = []
     @State private var tool: DrawingTool = .pen
+    @State private var penColor: Color = Theme.ink
     @State private var canvasSize: CGSize = CGSize(width: 600, height: 600)
     @State private var isSaving = false
+    @State private var backgroundImage: UIImage?
+    @State private var hasLoadedBackground = false
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                DrawingCanvasView(elements: $elements, redoStack: $redoStack, tool: tool)
+                DrawingCanvasView(elements: $elements, redoStack: $redoStack, tool: tool, color: penColor, backgroundImage: backgroundImage)
                     .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                     .shadow(color: .black.opacity(0.1), radius: 8, y: 4)
                     .padding(Theme.Spacing.md)
@@ -43,8 +46,9 @@ struct DrawingPadEditorView: View {
                     Button("Clear") {
                         elements.removeAll()
                         redoStack.removeAll()
+                        backgroundImage = nil
                     }
-                    .disabled(elements.isEmpty)
+                    .disabled(elements.isEmpty && backgroundImage == nil)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(action: save) {
@@ -57,7 +61,20 @@ struct DrawingPadEditorView: View {
                     .disabled(isSaving)
                 }
             }
+            .task {
+                await loadExistingDrawing()
+            }
         }
+    }
+
+    /// Loads whatever's already saved to the pad so re-opening it continues the drawing instead
+    /// of silently starting blank (and `save()` overwriting it with just the new strokes). The
+    /// URL is already cache-busted by `uploadDrawingPad`, so a fresh network fetch here is safe.
+    private func loadExistingDrawing() async {
+        guard !hasLoadedBackground, let url = appModel.myDrawingURL else { return }
+        hasLoadedBackground = true
+        guard let (data, _) = try? await URLSession.shared.data(from: url), let image = UIImage(data: data) else { return }
+        backgroundImage = image
     }
 
     private var bottomToolbar: some View {
@@ -81,6 +98,10 @@ struct DrawingPadEditorView: View {
                     .frame(width: 44, height: 44)
                     .background(Theme.cardBackground, in: Circle())
             }
+
+            ColorPicker("Pen color", selection: $penColor, supportsOpacity: false)
+                .labelsHidden()
+                .frame(width: 44, height: 44)
         }
         .padding(Theme.Spacing.md)
         .frame(maxWidth: .infinity)
@@ -119,7 +140,7 @@ struct DrawingPadEditorView: View {
     private func save() {
         isSaving = true
         let renderer = ImageRenderer(
-            content: DrawingCanvasView(elements: .constant(elements), redoStack: .constant([]), tool: .pen)
+            content: DrawingCanvasView(elements: .constant(elements), redoStack: .constant([]), tool: .pen, backgroundImage: backgroundImage)
                 .frame(width: canvasSize.width, height: canvasSize.height)
         )
         renderer.scale = 2

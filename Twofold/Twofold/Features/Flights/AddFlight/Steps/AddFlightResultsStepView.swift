@@ -17,7 +17,7 @@ struct AddFlightResultsStepView: View {
 
     @Environment(AddFlightFlowModel.self) private var model
     @State private var candidateToConfirm: AeroFlightCandidate?
-    @State private var hideCodeshares = true
+    @State private var hideCodeshares = false
     @State private var airlineFilter: String?
 
     private var filteredCandidates: [AeroFlightCandidate] {
@@ -37,7 +37,7 @@ struct AddFlightResultsStepView: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.md) {
                 routeChips
 
-                if model.candidates.count > 1 {
+                if model.candidates.count > 1 || model.candidates.contains(where: { $0.isCodeshare == true }) {
                     filterRow
                 }
 
@@ -225,7 +225,10 @@ struct AddFlightResultsStepView: View {
                 model.candidates = try await AeroFlightService.searchByFlightNumber(number, date: model.date, originIata: nil)
             case .route:
                 guard let origin = model.departureAirport?.preferredCode, let destination = model.destinationAirport?.preferredCode else {
-                    model.candidates = []
+                    // Surfaced rather than silently showing "no flights found" — this means an
+                    // airport was picked with neither an IATA nor ICAO code, not that the route
+                    // genuinely has no matches.
+                    model.searchError = "Missing an airport code for that route. Try picking a different airport."
                     model.isSearching = false
                     return
                 }

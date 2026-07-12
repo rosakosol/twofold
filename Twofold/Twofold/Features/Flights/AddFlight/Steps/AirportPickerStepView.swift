@@ -77,7 +77,10 @@ struct AirportPickerStepView: View {
             guard !Task.isCancelled else { return }
         }
         isSearching = true
-        let fetched = (try? await FlightSearchIndex.searchAirports(query, near: model.nearCoordinate)) ?? []
+        // Departure: nearest airports to the user only. Destination: top 10, never the
+        // airport just picked as the departure.
+        let excluding = role == .destination ? model.departureAirport : nil
+        let fetched = (try? await FlightSearchIndex.searchAirports(query, near: model.nearCoordinate, excluding: excluding, limit: 10)) ?? []
         guard !Task.isCancelled else { return }
         results = fetched
         isSearching = false

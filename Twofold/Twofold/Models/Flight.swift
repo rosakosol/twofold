@@ -237,21 +237,6 @@ struct Flight: Identifiable, Hashable {
         self.trackingEnabled = trackingEnabled
     }
 
-    /// Minimal self-reported flight — manual entry during trip creation or onboarding's
-    /// first-flight step, with no AeroAPI resolution behind it. Everything beyond the number,
-    /// airports, and schedule stays nil/"Not available" until (if ever) it gets tracked for
-    /// real via Add Flight's search flow.
-    init(selfReportedNumber flightNumber: String, origin: Place, destination: Place, scheduledDeparture: Date, scheduledArrival: Date) {
-        self.init(
-            flightNumberIATA: flightNumber,
-            origin: FlightAirport(iata: origin.iataCode, name: nil, city: origin.city, timezone: origin.timeZoneIdentifier, latitude: origin.latitude, longitude: origin.longitude),
-            destination: FlightAirport(iata: destination.iataCode, name: nil, city: destination.city, timezone: destination.timeZoneIdentifier, latitude: destination.latitude, longitude: destination.longitude),
-            scheduledOut: scheduledDeparture,
-            scheduledIn: scheduledArrival,
-            status: .scheduled
-        )
-    }
-
     var flightNumber: String { flightNumberIATA }
 
     /// The stored value (from `airline_logo_url`, currently never populated server-side since
