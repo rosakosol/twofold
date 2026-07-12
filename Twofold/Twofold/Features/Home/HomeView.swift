@@ -462,7 +462,7 @@ struct HomeView: View {
             // shows this map for any flight regardless of status (FlightMapView has its own
             // graceful fallback for missing coordinates), so a merely-.scheduled flight on Home
             // was the one place showing no map at all, reading as a bug rather than by-design.
-            FlightMapView(flight: flight, interactive: false, regionPadding: 0.9)
+            FlightMapView(flight: flight, interactive: false, edgePadding: 28)
                 .frame(height: 140)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                 .allowsHitTesting(false)
