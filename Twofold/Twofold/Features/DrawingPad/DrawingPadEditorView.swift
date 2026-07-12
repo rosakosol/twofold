@@ -18,6 +18,20 @@ struct DrawingPadEditorView: View {
     @State private var backgroundImage: UIImage?
     @State private var hasLoadedBackground = false
 
+    /// A fixed swatch set rather than the system ColorPicker's full spectrum+sliders UI — lets
+    /// picking a color be a single tap that auto-closes the menu (ColorPicker's own popover has
+    /// no API to dismiss itself on selection, since it supports multi-step interactions).
+    private static let penColorPalette: [(name: String, color: Color)] = [
+        ("Black", Theme.ink),
+        ("Red", Theme.heartRed),
+        ("Blue", Theme.skyBlue),
+        ("Green", Theme.leafGreen),
+        ("Orange", .orange),
+        ("Purple", .purple),
+        ("Pink", .pink),
+        ("Brown", .brown),
+    ]
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
@@ -99,9 +113,23 @@ struct DrawingPadEditorView: View {
                     .background(Theme.cardBackground, in: Circle())
             }
 
-            ColorPicker("Pen color", selection: $penColor, supportsOpacity: false)
-                .labelsHidden()
-                .frame(width: 44, height: 44)
+            Menu {
+                ForEach(Self.penColorPalette, id: \.name) { swatch in
+                    Button {
+                        penColor = swatch.color
+                    } label: {
+                        Label(swatch.name, systemImage: penColor == swatch.color ? "checkmark.circle.fill" : "circle.fill")
+                    }
+                    .tint(swatch.color)
+                }
+            } label: {
+                Circle()
+                    .fill(penColor)
+                    .overlay(Circle().strokeBorder(Theme.subtleInk.opacity(0.3), lineWidth: 1))
+                    .frame(width: 28, height: 28)
+                    .frame(width: 44, height: 44)
+                    .background(Theme.cardBackground, in: Circle())
+            }
         }
         .padding(Theme.Spacing.md)
         .frame(maxWidth: .infinity)

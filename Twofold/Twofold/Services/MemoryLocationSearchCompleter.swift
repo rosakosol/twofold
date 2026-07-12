@@ -6,14 +6,21 @@
 //  results for trip/home-city pickers), this allows full street addresses and points of
 //  interest, since a memory's location is often a specific place, not just a city.
 //
+//  Deliberately NOT an NSObject/MKLocalSearchCompleterDelegate itself — see
+//  CitySearchCompleter.swift's header comment for why (self-as-delegate-during-init on an
+//  @Observable NSObject subclass is a known trigger for "invalid reuse after initialization
+//  failure").
+//
 
 import Foundation
 import MapKit
 import Observation
 
 @Observable
-final class MemoryLocationSearchCompleter: NSObject, MKLocalSearchCompleterDelegate {
+@MainActor
+final class MemoryLocationSearchCompleter {
     private let completer: MKLocalSearchCompleter
+    private var proxy: DelegateProxy?
 
     var results: [MKLocalSearchCompletion] = []
 
@@ -23,18 +30,22 @@ final class MemoryLocationSearchCompleter: NSObject, MKLocalSearchCompleterDeleg
         }
     }
 
-    override init() {
-        completer = MKLocalSearchCompleter()
-        super.init()
+    init() {
+        let completer = MKLocalSearchCompleter()
         completer.resultTypes = [.address, .pointOfInterest]
-        completer.delegate = self
+        self.completer = completer
+
+        let proxy = DelegateProxy()
+        self.proxy = proxy
+        proxy.owner = self
+        completer.delegate = proxy
     }
 
-    func completerDidUpdateResults(_ completer: MKLocalSearchCompleter) {
-        results = completer.results
+    fileprivate func handleResultsUpdate(_ results: [MKLocalSearchCompletion]) {
+        self.results = results
     }
 
-    func completer(_ completer: MKLocalSearchCompleter, didFailWithError error: Error) {
+    fileprivate func handleFailure() {
         results = []
     }
 
@@ -59,5 +70,22 @@ final class MemoryLocationSearchCompleter: NSObject, MKLocalSearchCompleterDeleg
             longitude: item.location.coordinate.longitude,
             timeZoneIdentifier: item.timeZone?.identifier
         )
+    }
+
+    private final class DelegateProxy: NSObject, MKLocalSearchCompleterDelegate {
+        weak var owner: MemoryLocationSearchCompleter?
+
+        func completerDidUpdateResults(_ completer: MKLocalSearchCompleter) {
+            let results = completer.results
+            Task { @MainActor [weak owner] in
+                owner?.handleResultsUpdate(results)
+            }
+        }
+
+        func completer(_ completer: MKLocalSearchCompleter, didFailWithError error: Error) {
+            Task { @MainActor [weak owner] in
+                owner?.handleFailure()
+            }
+        }
     }
 }

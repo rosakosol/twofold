@@ -30,18 +30,20 @@ enum SubscriptionTier: CaseIterable {
         switch self {
         case .plus:
             [
-                "Twofold Plus for you and your partner",
-                "500+ couple games and questions",
+                "Everything you need to share your journey together",
+                "200+ couple games and conversation starters",
                 "Unlimited memories",
                 "Unlimited trips",
                 "Track up to 5 flights per month",
-                "Basic Widgets",
+                "Essential Home Screen and Lock Screen widgets",
             ]
         case .premium:
             [
-                "Everything in Plus",
-                "Track up to 20 flights per month — designed for people who fly often, including business travellers, FIFO workers, pilots and cabin crew",
-                "Premium Widgets",
+                "Everything in Twofold Plus",
+                "500+ exclusive games and conversation starters",
+                "Track up to 20 flights per month - perfect for frequent flyers, FIFO workers, cabin crew and pilots",
+                "Premium widgets including rotating dashboards and interactive 3D globe",
+                "Relationship Record export for printing or sharing",
             ]
         }
     }

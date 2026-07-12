@@ -23,9 +23,15 @@ struct AboutUsView: View {
                     Text(
                         """
                         Hi! I'm Rosa, the founder of Twofold.
-                        I'm a 25-year-old developer based in Melbourne, Australia, with a passion for building apps that make a genuine difference. After studying Computer Science and Marketing at university, I wanted to use what I'd learned to create products that solve real problems and bring people closer together.
-                        Having experienced the highs and lows of a long-distance relationship myself, I often wished there was an easier way to keep track of my partner's flights and celebrate the journey we were sharing. That's what inspired Twofold - a place to map, remember, and visualise the story of our relationship, and hopefully yours too.
+
+                        I'm a 25-year-old developer based in Melbourne, Australia, with a passion for building apps that make a genuine difference. 
+
+                        Having experienced the highs and lows of a long-distance relationship myself, I often wished there was an easier way to keep track of my partner's flights and celebrate the journey we were sharing. 
+                        
+                        That's what inspired Twofold - a place to map, remember, and visualise the story of our relationship, and hopefully yours too.
+                        
                         Thank you so much for being part of the journey. If you're enjoying Twofold, I'd really appreciate it if you could leave a rating or review on the App Store. Your feedback helps shape the future of the app and means a lot as an independent developer.
+                        
                         Thanks for being here, and happy travels ❤️
                         """
                     )
