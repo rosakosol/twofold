@@ -43,5 +43,11 @@ struct SettingsRow: View {
             }
         }
         .opacity(unavailableBadge != nil ? 0.5 : 1)
+        // Without this, the `Spacer()` in the middle (transparent, so not "content" as far as
+        // hit-testing is concerned) meant only the label text/icon and the trailing
+        // chevron/value were actually tappable — most of the row's width, in between, registered
+        // nothing. Since every NavigationLink/Button across Settings uses this as its label,
+        // fixing it once here covers every row at once.
+        .contentShape(Rectangle())
     }
 }

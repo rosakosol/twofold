@@ -235,9 +235,12 @@ struct FlightTrackingView: View {
     private var userLocalTimeLabel: String? {
         guard let date = referenceEventDate else { return nil }
         let timeZone = appModel.currentUser.homeCity?.timeZone ?? .current
-        let timeString = date.formatted(Date.FormatStyle(timeZone: timeZone).hour().minute())
-        guard let cityName = appModel.currentUser.homeCity?.city else { return "\(timeString) your time" }
-        return "\(timeString) (\(cityName) time)"
+        // Date included alongside the time, not just hour:minute — a countdown like "1d 9h"
+        // crossing midnight is easy to misjudge against "today" without an explicit day/month
+        // to anchor it, which read as the countdown itself being wrong when it wasn't.
+        let dateTimeString = date.formatted(Date.FormatStyle(timeZone: timeZone).hour().minute().day().month(.abbreviated))
+        guard let cityName = appModel.currentUser.homeCity?.city else { return "\(dateTimeString) your time" }
+        return "\(dateTimeString) (\(cityName) time)"
     }
 
     // MARK: - Map
@@ -394,7 +397,7 @@ struct FlightTrackingView: View {
 
     private static func timeOrNA(_ date: Date?, timeZone: TimeZone?) -> String {
         guard let date else { return "Not available" }
-        return date.formatted(Date.FormatStyle(timeZone: timeZone ?? .current).hour().minute())
+        return date.formatted(Date.FormatStyle(timeZone: timeZone ?? .current).hour().minute().day().month(.abbreviated))
     }
 
     // MARK: - Updates timeline

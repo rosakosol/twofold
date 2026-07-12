@@ -16,10 +16,11 @@ struct FlightMapView: View {
     @Environment(AppModel.self) private var appModel
     let flight: Flight
     var interactive: Bool = true
-    /// Extra margin around the origin/destination bounding box, as a fraction of its size.
-    /// Short/wide frames (e.g. a Home card) need more than a tall one (the full tracking
-    /// screen) to comfortably fit both endpoints without either being cropped near the edge.
-    var regionPadding: Double = 0.4
+    /// Extra margin around the route's bounding box (now curve-inclusive, see
+    /// `region(containing:_:padding:aspectRatio:)`), as a fraction of its size. Short/wide
+    /// frames (e.g. a Home card) need more than a tall one (the full tracking screen) to
+    /// comfortably fit both endpoint labels without either being cropped near the edge.
+    var regionPadding: Double = 0.5
 
     /// Resolved directly from the flight (set explicitly when adding it) rather than a linked
     /// trip — flights don't require one, so this is the only reliable source now.
@@ -153,32 +154,67 @@ struct FlightMapView: View {
         }
     }
 
+    /// A point along the great-circle path between `a` and `b` at fraction `f` (0 = a, 1 = b) —
+    /// the standard "intermediate point on a great circle" formula. Needed because the actual
+    /// curve `MapPolyline(contourStyle: .geodesic)` draws can bulge significantly away from the
+    /// straight line between the endpoints, especially for long east-west routes at mid/high
+    /// latitudes (which bow toward the pole — e.g. Hong Kong to Los Angeles peaks up near the
+    /// Aleutians, well north of either endpoint). Bounding a region to just the two endpoints
+    /// let that bulge spill outside the fitted view, clipping the route/markers on long-haul
+    /// flights even though both endpoints themselves were technically inside the frame.
+    private static func intermediateGreatCirclePoint(_ a: CLLocationCoordinate2D, _ b: CLLocationCoordinate2D, fraction f: Double) -> CLLocationCoordinate2D {
+        let φ1 = a.latitude * .pi / 180, λ1 = a.longitude * .pi / 180
+        let φ2 = b.latitude * .pi / 180, λ2 = b.longitude * .pi / 180
+
+        let sinΔφ = sin((φ2 - φ1) / 2)
+        let sinΔλ = sin((λ2 - λ1) / 2)
+        let h = sinΔφ * sinΔφ + cos(φ1) * cos(φ2) * sinΔλ * sinΔλ
+        let δ = 2 * asin(min(1, sqrt(h)))
+        guard δ > 0.0000001 else { return a }
+
+        let A = sin((1 - f) * δ) / sin(δ)
+        let B = sin(f * δ) / sin(δ)
+        let x = A * cos(φ1) * cos(λ1) + B * cos(φ2) * cos(λ2)
+        let y = A * cos(φ1) * sin(λ1) + B * cos(φ2) * sin(λ2)
+        let z = A * sin(φ1) + B * sin(φ2)
+        let φi = atan2(z, sqrt(x * x + y * y))
+        let λi = atan2(y, x)
+        return CLLocationCoordinate2D(latitude: φi * 180 / .pi, longitude: λi * 180 / .pi)
+    }
+
     private static func region(containing a: CLLocationCoordinate2D, _ b: CLLocationCoordinate2D, padding: Double, aspectRatio: Double) -> MKCoordinateRegion {
-        var pointA = MKMapPoint(a)
-        var pointB = MKMapPoint(b)
+        // Sample along the curve, not just the two endpoints (see intermediateGreatCirclePoint).
+        let sampleCount = 16
+        var coordinates: [CLLocationCoordinate2D] = [a]
+        for i in 1..<sampleCount {
+            coordinates.append(intermediateGreatCirclePoint(a, b, fraction: Double(i) / Double(sampleCount)))
+        }
+        coordinates.append(b)
 
         // MKMapPoint.x runs monotonically west-to-east across a single flat Mercator strip —
-        // it has no concept of "the short way around." Two points more than half the world
-        // apart (e.g. Hong Kong to Los Angeles, whose real route crosses the Pacific/
-        // antimeridian) naively bound a box spanning the *long* way through Africa/Europe
-        // instead, centering the map on the wrong hemisphere entirely. Shifting the trailing
-        // point a full world-width forward makes the box span the short way instead — MKMapRect
-        // supports x values past the nominal world bounds for exactly this case.
+        // it has no concept of "the short way around." Unwrapping longitude incrementally
+        // across the sampled sequence (rather than a one-off two-point check) keeps every
+        // sample's x consistent even where the curve itself crosses the antimeridian, so the
+        // bounding box spans the route's real short way across rather than jumping back around
+        // through the opposite hemisphere.
+        var points = coordinates.map { MKMapPoint($0) }
         let worldWidth = MKMapSize.world.width
-        if abs(pointA.x - pointB.x) > worldWidth / 2 {
-            if pointA.x < pointB.x {
-                pointA.x += worldWidth
-            } else {
-                pointB.x += worldWidth
-            }
+        for i in 1..<points.count {
+            while points[i].x - points[i - 1].x > worldWidth / 2 { points[i].x -= worldWidth }
+            while points[i].x - points[i - 1].x < -worldWidth / 2 { points[i].x += worldWidth }
         }
 
-        let minSize = 2_000_000.0
-        let centerX = (pointA.x + pointB.x) / 2
-        let centerY = (pointA.y + pointB.y) / 2
+        let minX = points.map(\.x).min()!
+        let maxX = points.map(\.x).max()!
+        let minY = points.map(\.y).min()!
+        let maxY = points.map(\.y).max()!
 
-        var width = max(abs(pointA.x - pointB.x), minSize) * (1 + 2 * padding)
-        var height = max(abs(pointA.y - pointB.y), minSize) * (1 + 2 * padding)
+        let minSize = 2_000_000.0
+        let centerX = (minX + maxX) / 2
+        let centerY = (minY + maxY) / 2
+
+        var width = max(maxX - minX, minSize) * (1 + 2 * padding)
+        var height = max(maxY - minY, minSize) * (1 + 2 * padding)
 
         // Stretch whichever axis is short so the box's own aspect ratio matches the view's —
         // otherwise fitting this region into a frame shaped very differently from the route's

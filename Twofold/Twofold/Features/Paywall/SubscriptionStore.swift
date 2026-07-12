@@ -30,20 +30,19 @@ enum SubscriptionTier: CaseIterable {
         switch self {
         case .plus:
             [
-                "Everything you need to share your journey together",
-                "200+ couple games and conversation starters",
-                "Unlimited memories",
-                "Unlimited trips",
-                "Track up to 5 flights per month",
-                "Essential Home Screen and Lock Screen widgets",
+                "Everything you need for long-distance love",
+                "Unlimited trips & memories",
+                "Track up to 5 flights each month",
+                "200+ games & conversation starters",
+                "Home Screen & Lock Screen widgets",
             ]
         case .premium:
             [
                 "Everything in Twofold Plus",
-                "500+ exclusive games and conversation starters",
-                "Track up to 20 flights per month - perfect for frequent flyers, FIFO workers, cabin crew and pilots",
-                "Premium widgets including rotating dashboards and interactive 3D globe",
-                "Relationship Record export for printing or sharing",
+                "Track up to 20 flights each month",
+                "500+ exclusive games",
+                "Interactive 3D globe & premium widgets",
+                "Relationship Record PDF export",
             ]
         }
     }
@@ -113,6 +112,17 @@ final class SubscriptionStore {
         defer { isLoadingProducts = false }
         do {
             products = try await Product.products(for: Self.allProductIDs)
+            // Xcode's local StoreKit testing config has a known flakiness where a product's
+            // `price` isn't always fully hydrated on the very first `Product.products(for:)`
+            // call of a session (all IDs come back, but one's price reads as 0 momentarily) —
+            // since this only ever ran once with no retry, a single bad snapshot silently
+            // suppressed the yearly-discount badge (and anything else gated on price > 0) for
+            // the rest of the session. One short retry clears it up without adding a visible
+            // delay for the common case where everything's fine the first time.
+            if products.contains(where: { $0.price <= 0 }) {
+                try? await Task.sleep(for: .milliseconds(400))
+                products = try await Product.products(for: Self.allProductIDs)
+            }
         } catch {
             purchaseError = error.localizedDescription
         }

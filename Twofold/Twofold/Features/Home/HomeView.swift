@@ -408,7 +408,10 @@ struct HomeView: View {
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(Theme.subtleInk)
                     HStack(spacing: Theme.Spacing.xs) {
-                        AirlineLogoView(url: flight.displayLogoURL, size: 18)
+                        // 24pt, not 18 — at 18pt, .scaledToFill() cropping a wide tailfin logo
+                        // into a near-square frame was cutting away most of the actual mark,
+                        // reading as "no logo" even though it was technically rendering.
+                        AirlineLogoView(url: flight.displayLogoURL, size: 24)
                         Text([flight.airlineName, flight.displayNumber].compactMap { $0 }.joined(separator: " · "))
                             .font(.subheadline.weight(.semibold))
                     }
@@ -455,12 +458,14 @@ struct HomeView: View {
             }
             .frame(height: 30)
 
-            if flight.status.isActivelyTracked {
-                FlightMapView(flight: flight, interactive: false, regionPadding: 0.9)
-                    .frame(height: 140)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-                    .allowsHitTesting(false)
-            }
+            // Unconditional, not gated behind isActivelyTracked — FlightTrackingView already
+            // shows this map for any flight regardless of status (FlightMapView has its own
+            // graceful fallback for missing coordinates), so a merely-.scheduled flight on Home
+            // was the one place showing no map at all, reading as a bug rather than by-design.
+            FlightMapView(flight: flight, interactive: false, regionPadding: 0.9)
+                .frame(height: 140)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                .allowsHitTesting(false)
         }
     }
 

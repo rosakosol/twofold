@@ -37,6 +37,7 @@ struct SubscriptionBanner: View {
             .padding(Theme.Spacing.md)
             .background(Theme.primaryButtonGradient, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
             .shadow(color: .black.opacity(0.15), radius: 10, y: 4)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }

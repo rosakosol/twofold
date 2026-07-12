@@ -102,6 +102,32 @@ function isSameLocalDay(iso: string | null | undefined, date: string, timeZone: 
   }
 }
 
+// `date` is meant as "departure date at the origin airport," but the client can't reliably
+// supply that in flight-number mode — no airport is known yet until results come back, so
+// "today"/"tomorrow" get computed in the *device's* timezone instead (see
+// AddFlightDateStepView.swift). For a device far from the origin's timezone, that mismatch used
+// to make `isSameLocalDay` EXCLUDE the flight the caller actually wanted from the result set
+// entirely (not just rank it lower) — the app would show only the adjacent day's occurrence,
+// silently wrong by ~24h, with no way for the caller to even see the one they meant. Sorting
+// same-day-at-origin matches first (instead of filtering everything else out) keeps every
+// nearby occurrence visible and pickable — the client already renders each candidate with a
+// clearly origin/destination-timezoned time chip, so the caller can disambiguate visually
+// rather than the server silently guessing wrong.
+function sortPreferringSameDay<T extends { scheduled_out?: string | null }>(
+  results: T[],
+  date: string,
+  timeZone: (f: T) => string | null | undefined,
+): T[] {
+  return [...results].sort((a, b) => {
+    const aSameDay = isSameLocalDay(a.scheduled_out, date, timeZone(a)) ? 0 : 1;
+    const bSameDay = isSameLocalDay(b.scheduled_out, date, timeZone(b)) ? 0 : 1;
+    if (aSameDay !== bSameDay) return aSameDay - bSameDay;
+    const aTime = a.scheduled_out ? new Date(a.scheduled_out).getTime() : Number.MAX_SAFE_INTEGER;
+    const bTime = b.scheduled_out ? new Date(b.scheduled_out).getTime() : Number.MAX_SAFE_INTEGER;
+    return aTime - bTime;
+  });
+}
+
 function toCandidate(f: AeroFlight) {
   return {
     faFlightId: f.fa_flight_id,
@@ -190,23 +216,17 @@ Deno.serve(async (req) => {
     if (input.mode === "number") {
       const { startISO, endISO } = dateWindow(input.date);
       const results = await resolveFlightByIdent(input.flightNumber, { startISO, endISO, identType: "designator" });
-      // Prefer same-day matches when the ident resolves to several scheduled instances; fall
-      // back to the full result set if none match exactly (e.g. timezone edge cases).
-      const sameDay = results.filter((f) => isSameLocalDay(f.scheduled_out, input.date, f.origin?.timezone));
-      flights = sameDay.length > 0 ? sameDay : results;
+      flights = sortPreferringSameDay(results, input.date, (f) => f.origin?.timezone);
       if (input.originIata) {
         flights = flights.filter((f) => f.origin?.code_iata === input.originIata || f.origin?.code === input.originIata);
       }
-      console.log(`[resolve-flight] number ${input.flightNumber} on ${input.date}: aeroapi returned ${results.length} total, ${sameDay.length} same-day, ${flights.length} after origin filter`);
+      console.log(`[resolve-flight] number ${input.flightNumber} on ${input.date}: aeroapi returned ${results.length} total, ${flights.length} after origin filter`);
     } else {
       const results = await searchRoute(input.originIata, input.destinationIata);
       // AeroAPI's route search has no date param of its own — the date filter is applied here,
-      // client-side. Same fallback as number mode: prefer an exact same-day match, but don't
-      // return zero results just because the origin's timezone data was missing/imprecise and
-      // the strict same-day check happened to exclude a real, otherwise-matching flight.
-      const sameDay = results.filter((f) => isSameLocalDay(f.scheduled_out, input.date, f.origin?.timezone));
-      flights = sameDay.length > 0 ? sameDay : results;
-      console.log(`[resolve-flight] route ${input.originIata}->${input.destinationIata} on ${input.date}: aeroapi returned ${results.length} total, ${sameDay.length} same-day`);
+      // client-side, same sort-not-exclude treatment as number mode above.
+      flights = sortPreferringSameDay(results, input.date, (f) => f.origin?.timezone);
+      console.log(`[resolve-flight] route ${input.originIata}->${input.destinationIata} on ${input.date}: aeroapi returned ${results.length} total`);
     }
 
     return Response.json({ candidates: flights.map(toCandidate) });

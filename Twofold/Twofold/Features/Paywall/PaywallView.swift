@@ -43,7 +43,7 @@ struct PaywallView: View {
 
                 tierTabs
 
-                Text("Your partner doesn't pay anything — one subscription covers you both.")
+                Text("One subscription covers both of you.")
                     .font(.caption)
                     .foregroundStyle(Theme.subtleInk)
                     .multilineTextAlignment(.center)
@@ -69,7 +69,7 @@ struct PaywallView: View {
             .padding(Theme.Spacing.md)
         }
         .background(Theme.backgroundGradient.ignoresSafeArea())
-        .navigationTitle("Start your 14-day free trial")
+        .navigationTitle("Try 14-days free")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
@@ -163,6 +163,13 @@ struct PaywallView: View {
                 .padding(.vertical, Theme.Spacing.sm)
                 .foregroundStyle(isSelected ? .white : Theme.ink)
                 .background(isSelected ? AnyShapeStyle(Theme.skyBlue) : AnyShapeStyle(.clear), in: Capsule())
+                // Without this, the unselected tab's tappable area follows its *visible*
+                // content — a `.clear` background doesn't count as hit-testable, so only the
+                // small text glyph itself registered taps, not the full padded capsule. That's
+                // exactly the tab you need to tap to switch *to* it, which is why switching felt
+                // like it needed several imprecise taps while the already-selected tab (opaque
+                // fill) felt fine.
+                .contentShape(Capsule())
         }
         .buttonStyle(.plain)
     }
@@ -275,8 +282,8 @@ struct PaywallView: View {
     }
 
     private var footerLinks: some View {
-        VStack(spacing: Theme.Spacing.sm) {
-            Button("Restore purchases") {
+        HStack(spacing: 8) {
+            Button("Restore Purchases") {
                 Task {
                     await store.restorePurchases()
                     if store.isSubscribed {
@@ -286,17 +293,18 @@ struct PaywallView: View {
                     }
                 }
             }
-            .font(.caption)
-            .foregroundStyle(Theme.subtleInk)
 
-            HStack(spacing: Theme.Spacing.sm) {
-                Text("Terms")
-                Text("·")
-                Text("Privacy")
-            }
-            .font(.caption2)
-            .foregroundStyle(Theme.subtleInk.opacity(0.7))
+            Text("·")
+
+            Link("Terms", destination: URL(string: "https://twofold.app/terms")!)
+
+            Text("·")
+
+            Link("Privacy", destination: URL(string: "https://twofold.app/privacy")!)
         }
+        .font(.caption2)
+        .foregroundStyle(Theme.subtleInk.opacity(0.7))
+        .tint(Theme.subtleInk.opacity(0.7))
     }
 }
 

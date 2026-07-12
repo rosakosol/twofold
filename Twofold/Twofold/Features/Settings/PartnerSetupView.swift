@@ -210,6 +210,7 @@ struct PartnerSetupView: View {
                     Spacer()
                     Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
                 }
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .disabled(isCreatingInvite)
@@ -223,6 +224,7 @@ struct PartnerSetupView: View {
                     Spacer()
                     Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
                 }
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
         }

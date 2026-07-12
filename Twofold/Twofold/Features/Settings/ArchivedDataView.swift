@@ -125,7 +125,7 @@ struct ArchivedCoupleDetailView: View {
                 }
                 .disabled(isDeleting)
 
-                Text("This can't be undone — trips, memories, flights, and game sessions with \(couple.partnerName) will be gone for good.")
+                Text("This can't be undone - trips, memories, flights, and game sessions with \(couple.partnerName) will be gone for good.")
                     .font(.caption2)
                     .foregroundStyle(Theme.subtleInk)
             }

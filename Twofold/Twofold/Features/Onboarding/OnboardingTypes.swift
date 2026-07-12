@@ -162,7 +162,6 @@ enum OnboardingGoal: String, CaseIterable, Identifiable {
     case countdown
     case trackTrips
     case lookBack
-    case localTime
     case feelCloser
 
     var id: String { rawValue }
@@ -173,7 +172,6 @@ enum OnboardingGoal: String, CaseIterable, Identifiable {
         case .countdown: "⏳"
         case .trackTrips: "🗺️"
         case .lookBack: "🌍"
-        case .localTime: "🕐"
         case .feelCloser: "❤️"
         }
     }
@@ -183,20 +181,23 @@ enum OnboardingGoal: String, CaseIterable, Identifiable {
         case .knowWhenLands: "Know when my partner travels"
         case .countdown: "Count down until we're together"
         case .trackTrips: "Keep track of our trips"
-        case .lookBack: "Look back at where we've been"
-        case .localTime: "Keep up with their local time"
-        case .feelCloser: "Feel a little closer while we're apart"
+        case .lookBack: "Relive our memories"
+        case .feelCloser: "Feel closer while we're apart"
         }
     }
 
     var subtitle: String? {
         switch self {
-        case .knowWhenLands: "Get live updates when they're travelling"
-        case .countdown: "Always know how long until you see each other"
-        case .trackTrips: "Keep every journey together in one place"
-        case .lookBack: "Build a history of your time together"
-        case .localTime: "Know what time it is for them at a glance"
-        case .feelCloser: nil
+        case .knowWhenLands:
+            return "Get live flight updates and arrival notifications"
+        case .countdown:
+            return "Always know when you'll see each other next"
+        case .trackTrips:
+            return "Keep every journey together in one place"
+        case .lookBack:
+            return "Revisit the places and moments you've shared"
+        case .feelCloser:
+            return "Keep your connection strong with fun couple games"
         }
     }
 }

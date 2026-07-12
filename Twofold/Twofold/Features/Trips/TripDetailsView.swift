@@ -100,7 +100,7 @@ struct TripDetailsView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This can't be undone. Any linked flight or memories stay saved — they'll just no longer be linked to this trip.")
+            Text("This can't be undone. Any linked flight or memories stay saved - they'll just no longer be linked to this trip.")
         }
     }
 
