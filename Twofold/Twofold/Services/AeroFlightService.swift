@@ -118,11 +118,12 @@ enum AeroFlightService {
     }
 
     /// Confirms a candidate — persists it as a real tracked flight, shared with the couple by
-    /// default, optionally linked to a trip. Returns the new flight's id; callers should
-    /// follow up with `AppModel.refreshFlights()` to pull the full row.
+    /// default (pass `shared: false` to keep it visible only to the caller), optionally linked
+    /// to a trip. Returns the new flight's id; callers should follow up with
+    /// `AppModel.refreshFlights()` to pull the full row.
     @discardableResult
-    static func addFlight(faFlightId: String, tripID: UUID?, travelerID: UUID?, notifyMe: Bool) async throws -> UUID {
-        var body: [String: Any] = ["faFlightId": faFlightId, "notifyMe": notifyMe]
+    static func addFlight(faFlightId: String, tripID: UUID?, travelerID: UUID?, shared: Bool = true, notifyMe: Bool) async throws -> UUID {
+        var body: [String: Any] = ["faFlightId": faFlightId, "shared": shared, "notifyMe": notifyMe]
         if let tripID { body["tripId"] = tripID.uuidString }
         if let travelerID { body["travelerId"] = travelerID.uuidString }
         let response: AddFlightResponse = try await call("add-flight", body: body)

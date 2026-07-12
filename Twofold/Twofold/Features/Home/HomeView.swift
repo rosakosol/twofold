@@ -330,7 +330,7 @@ struct HomeView: View {
                     showingSnapshot = true
                 } label: {
                     Image(systemName: "square.and.arrow.up.circle.fill")
-                        .font(.title2)
+                        .font(.largeTitle)
                         .foregroundStyle(Theme.skyBlue)
                 }
             }
@@ -424,7 +424,7 @@ struct HomeView: View {
                 .foregroundStyle(Theme.skyBlue)
 
             GeometryReader { proxy in
-                let iconSize: CGFloat = 20
+                let iconSize: CGFloat = 30
                 let progressWidth = proxy.size.width * flight.progress
                 // Keeps the icon's center on the track even at the very start/end, where it
                 // would otherwise hang half off the edge of the bar.
@@ -437,19 +437,18 @@ struct HomeView: View {
                     .overlay(alignment: .leading) {
                         ZStack {
                             Circle().fill(.white)
+                            // SF Symbols' "airplane" glyph already points due right (east) at
+                            // rotation 0 — no rotation needed to lie flat along the track.
                             Image(systemName: "airplane")
-                                .font(.system(size: 10, weight: .bold))
+                                .font(.system(size: 15, weight: .bold))
                                 .foregroundStyle(flight.status.semanticColor)
-                                // SF Symbols' "airplane" glyph points ~45° (northeast) at
-                                // rotation 0 — 45° here points it due east, along the track.
-                                .rotationEffect(.degrees(45))
                         }
                         .frame(width: iconSize, height: iconSize)
                         .shadow(color: .black.opacity(0.18), radius: 2, y: 1)
                         .offset(x: iconCenterX - iconSize / 2)
                     }
             }
-            .frame(height: 20)
+            .frame(height: 30)
 
             if flight.status.isActivelyTracked {
                 FlightMapView(flight: flight, interactive: false, regionPadding: 0.9)

@@ -20,7 +20,7 @@ struct MainTabView: View {
             Tab("Games", systemImage: "gamecontroller.fill") {
                 GamesHubView()
             }
-            Tab("Passport", systemImage: "book.closed.fill") {
+            Tab("Passport", image: "passport") {
                 PassportView()
             }
         }

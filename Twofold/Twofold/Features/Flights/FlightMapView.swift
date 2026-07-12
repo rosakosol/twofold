@@ -93,8 +93,11 @@ struct FlightMapView: View {
             Image(systemName: "airplane")
                 .font(.caption.weight(.bold))
                 .foregroundStyle(.white)
-                // SF Symbols' "airplane" glyph points ~45° (northeast) at rotation 0.
-                .rotationEffect(.degrees((flight.positionHeading ?? 0) - 45))
+                // SF Symbols' "airplane" glyph points due east (right) at rotation 0 —
+                // verified by rendering it at several rotations and comparing, since the
+                // commonly-assumed "points ~45° NE at rotation 0" turned out to be wrong and
+                // was making this consistently 45° off from the flight's real heading.
+                .rotationEffect(.degrees(90 - (flight.positionHeading ?? 0)))
         }
         .frame(width: 30, height: 30)
         .shadow(color: .black.opacity(0.22), radius: 4, y: 2)

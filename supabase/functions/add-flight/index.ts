@@ -17,6 +17,7 @@ interface Input {
   faFlightId: string;
   tripId?: string;
   travelerId?: string;
+  shared?: boolean;
   notifyMe: boolean;
 }
 
@@ -133,6 +134,7 @@ Deno.serve(async (req) => {
       couple_id: couple.id,
       trip_id: input.tripId ?? null,
       traveler_id: travelerId ?? null,
+      shared: input.shared ?? true,
       created_by: user.id,
       last_refreshed_at: new Date().toISOString(),
     })
@@ -159,9 +161,15 @@ Deno.serve(async (req) => {
     console.error("[add-flight] failed to insert baseline event:", eventErr.message);
   }
 
-  // Default notification preferences for both partners. A partner's default state should never
-  // be silently suppressed by the flight's creator opting themselves out.
-  const partnerIds = [couple.partner_a_id, couple.partner_b_id].filter((id): id is string => Boolean(id));
+  // Default notification preferences for both partners — unless this flight is being kept
+  // private (shared: false), in which case only the caller gets a preference row at all; the
+  // partner can't see this flight (RLS) and shouldn't be set up to be notified about it either.
+  // A partner's default state should never be silently suppressed by the flight's creator
+  // opting themselves out.
+  const isShared = input.shared ?? true;
+  const partnerIds = isShared
+    ? [couple.partner_a_id, couple.partner_b_id].filter((id): id is string => Boolean(id))
+    : [user.id];
   const prefRows = partnerIds.map((profileId) => {
     const isCaller = profileId === user.id;
     const optedOut = isCaller && input.notifyMe === false;

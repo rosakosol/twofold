@@ -80,19 +80,27 @@ export async function notifyForEvent(
 
   const { data: flight, error: flightErr } = await serviceClient
     .from("flights")
-    .select("couple_id, destination_timezone")
+    .select("couple_id, destination_timezone, shared, created_by")
     .eq("id", flightId)
     .single();
   if (flightErr || !flight) return;
 
-  const { data: couple, error: coupleErr } = await serviceClient
-    .from("couples")
-    .select("partner_a_id, partner_b_id")
-    .eq("id", flight.couple_id)
-    .single();
-  if (coupleErr || !couple) return;
-
-  const partnerIds = [couple.partner_a_id, couple.partner_b_id].filter((id): id is string => Boolean(id));
+  // This runs under the service-role client (RLS-bypassing), so a private (shared: false)
+  // flight needs its own explicit check here — otherwise the creator's partner would still get
+  // pushed a notification about a flight they can't even see in the app.
+  let partnerIds: string[];
+  if (flight.shared === false) {
+    if (!flight.created_by) return;
+    partnerIds = [flight.created_by as string];
+  } else {
+    const { data: couple, error: coupleErr } = await serviceClient
+      .from("couples")
+      .select("partner_a_id, partner_b_id")
+      .eq("id", flight.couple_id)
+      .single();
+    if (coupleErr || !couple) return;
+    partnerIds = [couple.partner_a_id, couple.partner_b_id].filter((id): id is string => Boolean(id));
+  }
   if (partnerIds.length === 0) return;
 
   const { data: prefRows } = await serviceClient

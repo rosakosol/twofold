@@ -17,6 +17,7 @@ struct FlightConfirmationView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var linkedTripID: Trip.ID?
     @State private var travelerID: Person.ID?
+    @State private var shareWithPartner = true
     @State private var notifyMe = true
     @State private var isSaving = false
     @State private var errorMessage: String?
@@ -75,11 +76,18 @@ struct FlightConfirmationView: View {
                     }
 
                     SectionCard {
-                        Toggle("Notify me about this flight", isOn: $notifyMe)
+                        Toggle("Share with \(appModel.partner.name)", isOn: $shareWithPartner)
                             .font(.subheadline.weight(.medium))
-                        Text("Shared with \(appModel.partner.name) automatically — they'll see the same live status.")
+                        Text(shareWithPartner
+                            ? "\(appModel.partner.name) will see the same live status and get their own notifications for this flight."
+                            : "Only visible to you — \(appModel.partner.name) won't see this flight or get notified about it.")
                             .font(.caption)
                             .foregroundStyle(Theme.subtleInk)
+
+                        Divider()
+
+                        Toggle("Notify me about this flight", isOn: $notifyMe)
+                            .font(.subheadline.weight(.medium))
                     }
 
                     if let errorMessage {
@@ -114,7 +122,7 @@ struct FlightConfirmationView: View {
         errorMessage = nil
         Task {
             do {
-                try await AeroFlightService.addFlight(faFlightId: candidate.faFlightId, tripID: linkedTripID, travelerID: travelerID, notifyMe: notifyMe)
+                try await AeroFlightService.addFlight(faFlightId: candidate.faFlightId, tripID: linkedTripID, travelerID: travelerID, shared: shareWithPartner, notifyMe: notifyMe)
                 await appModel.refreshFlights()
                 onDone()
             } catch {
