@@ -18,6 +18,9 @@ struct SettingsRow: View {
     var isDestructive: Bool = false
     var showsChevron: Bool = true
     var isLoading: Bool = false
+    /// Shown as a trailing pill (e.g. "Not available yet") — dims the whole row and hides the
+    /// chevron, since there's nowhere to navigate to yet.
+    var unavailableBadge: String?
 
     var body: some View {
         HStack {
@@ -27,13 +30,18 @@ struct SettingsRow: View {
                 Label(title, systemImage: systemImage)
                     .foregroundStyle(isDestructive ? Theme.heartRed : Theme.ink)
                 Spacer()
-                if let value {
-                    Text(value).foregroundStyle(Theme.subtleInk)
-                }
-                if showsChevron {
-                    Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
+                if let unavailableBadge {
+                    PillBadge(text: unavailableBadge, tint: Theme.subtleInk)
+                } else {
+                    if let value {
+                        Text(value).foregroundStyle(Theme.subtleInk)
+                    }
+                    if showsChevron {
+                        Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
+                    }
                 }
             }
         }
+        .opacity(unavailableBadge != nil ? 0.5 : 1)
     }
 }

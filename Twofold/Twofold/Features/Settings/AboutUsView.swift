@@ -13,17 +13,24 @@ struct AboutUsView: View {
                     .padding(.top, Theme.Spacing.xl)
 
                 SectionCard {
+                    Image("rosa")
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 96, height: 96)
+                        .clipShape(Circle())
+                        .frame(maxWidth: .infinity)
+
                     Text(
-                        "Twofold turns a long-distance relationship into a living map. Track flights, watch the distance between you close, and relive every trip you've taken to see each other."
+                        """
+                        Hi! I'm Rosa, the founder of Twofold.
+                        I'm a 25-year-old developer based in Melbourne, Australia, with a passion for building apps that make a genuine difference. After studying Computer Science and Marketing at university, I wanted to use what I'd learned to create products that solve real problems and bring people closer together.
+                        Having experienced the highs and lows of a long-distance relationship myself, I often wished there was an easier way to keep track of my partner's flights and celebrate the journey we were sharing. That's what inspired Twofold - a place to map, remember, and visualise the story of our relationship, and hopefully yours too.
+                        Thank you so much for being part of the journey. If you're enjoying Twofold, I'd really appreciate it if you could leave a rating or review on the App Store. Your feedback helps shape the future of the app and means a lot as an independent developer.
+                        Thanks for being here, and happy travels ❤️
+                        """
                     )
                     .font(.subheadline)
                     .foregroundStyle(Theme.ink)
-                }
-
-                SectionCard {
-                    Text("Made with love, for couples navigating distance.")
-                        .font(.footnote)
-                        .foregroundStyle(Theme.subtleInk)
                 }
             }
             .padding(Theme.Spacing.md)

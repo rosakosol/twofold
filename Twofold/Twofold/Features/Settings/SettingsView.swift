@@ -14,7 +14,6 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(AppModel.self) private var appModel
-    @Environment(\.openURL) private var openURL
 
     @State private var showingPaywall = false
     @State private var showingSignOutConfirm = false
@@ -95,12 +94,7 @@ struct SettingsView: View {
 
                         Divider()
 
-                        NavigationLink {
-                            LanguageSettingsView()
-                        } label: {
-                            SettingsRow(title: "Language", systemImage: "globe")
-                        }
-                        .buttonStyle(.plain)
+                        SettingsRow(title: "Language", systemImage: "globe", showsChevron: false, unavailableBadge: "Not available yet")
                     }
 
                     SectionCard {
@@ -129,14 +123,7 @@ struct SettingsView: View {
 
                         Divider()
 
-                        Button {
-                            if let url = URL(string: "mailto:hello@twofoldapp.com.au") {
-                                openURL(url)
-                            }
-                        } label: {
-                            SettingsRow(title: "Help", systemImage: "questionmark.circle.fill", showsChevron: false)
-                        }
-                        .buttonStyle(.plain)
+                        SettingsRow(title: "Help", systemImage: "questionmark.circle.fill", showsChevron: false, unavailableBadge: "Not available yet")
                     }
 
                     SectionCard {

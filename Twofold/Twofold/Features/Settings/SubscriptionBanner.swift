@@ -17,9 +17,10 @@ struct SubscriptionBanner: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: Theme.Spacing.md) {
-                Image(systemName: "star.fill")
-                    .font(.title2)
-                    .foregroundStyle(.white)
+                Image("GlobeHeart")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 28, height: 28)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(isSubscribed ? "Manage subscription" : "Unlock Twofold Plus")

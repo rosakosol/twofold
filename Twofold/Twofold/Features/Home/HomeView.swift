@@ -83,7 +83,9 @@ struct HomeView: View {
                     Button {
                         showingSettings = true
                     } label: {
-                        AvatarView(person: appModel.currentUser, size: 30)
+                        Image(systemName: "person.crop.circle.fill")
+                            .font(.title2)
+                            .foregroundStyle(Theme.ink)
                     }
                 }
                 ToolbarItem(placement: .principal) {

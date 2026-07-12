@@ -129,39 +129,43 @@ final class AppModel {
         if let state = try? await BackendService.fetchCoupleState() {
             await adopt(state)
         } else if let profile = try? await BackendService.fetchOwnProfile() {
-            // Reset everything to a clean slate first — at launch these are already at their
-            // zero-value defaults so this is a no-op, but this branch is also reached after
-            // `removePartner()` dissolves a couple on an AppModel that still has the *old*
-            // partner's data loaded (partnerConnected, backendCoupleID, trips/memories/flights,
-            // drawing pad URLs). Without this, all of that stale state survives — which is
-            // exactly what made a just-dissolved couple still look "connected" in the UI, and
-            // made a second removal attempt fail (retrying against an already-dissolved couple).
-            partnerConnected = false
-            backendCoupleID = nil
-            trips = []
-            memories = []
-            flights = []
-            myDrawingURL = nil
-            partnerDrawingURL = nil
-            couple = Self.placeholderCouple
-
-            couple.partnerA = profile.person
-            if let partnerName = profile.partnerName, !partnerName.isEmpty {
-                couple.partnerB.name = partnerName
-            }
-            if let partnerHomeCity = profile.partnerHomeCity {
-                couple.partnerB.homeCity = partnerHomeCity
-            }
-            if let partnerAvatarURL = profile.partnerAvatarURL {
-                couple.partnerB.avatarURL = partnerAvatarURL
-            }
-            if let anniversaryDate = profile.anniversaryDate {
-                couple.startedDatingOn = anniversaryDate
-            }
-            isSubscriptionActive = profile.subscriptionActive
+            await adoptSoloProfile(profile)
         }
         hasCouple = true
         Task { await WidgetSnapshotWriter.refresh(appModel: self) }
+    }
+
+    /// Resets to the solo (unpaired) state and repopulates from the caller's own profile —
+    /// shared by `loadSignedInState()` (launch/sign-in) and `refreshCoupleStateIfNeeded()`
+    /// (an already-connected device discovering the couple was dissolved elsewhere). Reset
+    /// first: at launch these are already at their zero-value defaults so it's a no-op, but
+    /// reused mid-session this clears the *old* partner's data (partnerConnected,
+    /// backendCoupleID, trips/memories/flights, drawing pad URLs) that would otherwise survive
+    /// and make a just-dissolved couple still look "connected" in the UI.
+    private func adoptSoloProfile(_ profile: BackendService.OwnProfileState) async {
+        partnerConnected = false
+        backendCoupleID = nil
+        trips = []
+        memories = []
+        flights = []
+        myDrawingURL = nil
+        partnerDrawingURL = nil
+        couple = Self.placeholderCouple
+
+        couple.partnerA = profile.person
+        if let partnerName = profile.partnerName, !partnerName.isEmpty {
+            couple.partnerB.name = partnerName
+        }
+        if let partnerHomeCity = profile.partnerHomeCity {
+            couple.partnerB.homeCity = partnerHomeCity
+        }
+        if let partnerAvatarURL = profile.partnerAvatarURL {
+            couple.partnerB.avatarURL = partnerAvatarURL
+        }
+        if let anniversaryDate = profile.anniversaryDate {
+            couple.startedDatingOn = anniversaryDate
+        }
+        isSubscriptionActive = profile.subscriptionActive
     }
 
     /// A device's own successful purchase/restore, applied instantly and locally (no network
@@ -282,10 +286,18 @@ final class AppModel {
     /// Re-checks backend couple state without touching `isLoadingSession` — picks up a
     /// partner's invite redemption that happened while this device was backgrounded, the
     /// same idea as `GlobeHomeView`'s existing pending-share foreground refresh.
+    /// Called on Home appearing/foregrounding — the name says "if needed" but it always
+    /// re-checks now, in both directions: picks up a partner who just joined, *and* notices if
+    /// an already-connected couple was dissolved elsewhere (another device, or directly) since
+    /// this device last checked. Skipping the re-check whenever `partnerConnected` was already
+    /// true used to mean a device could keep showing "connected" indefinitely after the couple
+    /// was actually dissolved, until a full sign-out/sign-in or cold relaunch.
     func refreshCoupleStateIfNeeded() async {
-        guard hasCouple, !partnerConnected else { return }
+        guard hasCouple else { return }
         if let state = try? await BackendService.fetchCoupleState() {
             await adopt(state)
+        } else if partnerConnected, let profile = try? await BackendService.fetchOwnProfile() {
+            await adoptSoloProfile(profile)
         }
     }
 
