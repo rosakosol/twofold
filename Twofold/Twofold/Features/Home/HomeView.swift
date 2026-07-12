@@ -51,6 +51,11 @@ struct HomeView: View {
                             weather: weatherReading
                         )
                     }
+                    if !appModel.activeOrUpcomingFlights.isEmpty {
+                        flightCarousel(flights: appModel.activeOrUpcomingFlights)
+                    } else if let soonestTrip {
+                        nextReunionCard(trip: soonestTrip)
+                    }
                     if let myCity = appModel.currentUser.homeCity, let partnerCity = appModel.partner.homeCity {
                         if sameCity {
                             sameCityCard(city: myCity)
@@ -59,16 +64,6 @@ struct HomeView: View {
                         }
                     } else {
                         homeCityPromptCard
-                    }
-                    if let flight = appModel.activeOrUpcomingFlight {
-                        NavigationLink {
-                            FlightTrackingView(flight: flight)
-                        } label: {
-                            activeFlightCard(flight: flight)
-                        }
-                        .buttonStyle(.plain)
-                    } else if let soonestTrip {
-                        nextReunionCard(trip: soonestTrip)
                     }
                     if appModel.partnerConnected {
                         DrawingPadCard()
@@ -79,6 +74,7 @@ struct HomeView: View {
             }
             .background(Theme.backgroundGradient.ignoresSafeArea())
             .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
@@ -230,12 +226,16 @@ struct HomeView: View {
     }
 
     /// Only re-fetches when the relevant city actually changes — WeatherKit calls aren't free,
-    /// and the time card only needs a fresh reading roughly hourly, not on every foreground.
+    /// and the time card only needs a fresh reading roughly hourly, not on every foreground. A
+    /// failed fetch does NOT mark the city as fetched, so a transient/auth error gets retried on
+    /// the next foreground instead of leaving the card permanently blank.
     private func refreshWeatherIfNeeded() async {
         guard let city = appModel.partner.homeCity else { return }
         guard weatherFetchedForCityID != city.id else { return }
-        weatherFetchedForCityID = city.id
-        weatherReading = await TwofoldWeatherService.currentWeather(for: city)
+        if let reading = await TwofoldWeatherService.currentWeather(for: city) {
+            weatherReading = reading
+            weatherFetchedForCityID = city.id
+        }
     }
     
     enum ChecklistIcon {
@@ -340,6 +340,41 @@ struct HomeView: View {
             RelationshipGlobeView(couple: appModel.couple, partnerACity: myCity, partnerBCity: partnerCity, activeTrip: appModel.activeTrip)
                 .frame(height: 260)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+        }
+    }
+
+    /// Swipeable, one-card-per-page carousel when tracking more than one flight — `flights` is
+    /// already sorted soonest-departure-first by `AppModel.activeOrUpcomingFlights`. Falls back
+    /// to a single plain card (no paging chrome) when there's just one, since a carousel of one
+    /// page reads oddly.
+    private func flightCarousel(flights: [Flight]) -> some View {
+        Group {
+            if flights.count == 1 {
+                NavigationLink {
+                    FlightTrackingView(flight: flights[0])
+                } label: {
+                    activeFlightCard(flight: flights[0])
+                }
+                .buttonStyle(.plain)
+            } else {
+                ScrollView(.horizontal) {
+                    HStack(spacing: Theme.Spacing.sm) {
+                        ForEach(flights) { flight in
+                            NavigationLink {
+                                FlightTrackingView(flight: flight)
+                            } label: {
+                                activeFlightCard(flight: flight)
+                            }
+                            .buttonStyle(.plain)
+                            .containerRelativeFrame(.horizontal)
+                        }
+                    }
+                    .scrollTargetLayout()
+                }
+                .scrollTargetBehavior(.paging)
+                .scrollIndicators(.hidden)
+                .scrollClipDisabled()
+            }
         }
     }
 

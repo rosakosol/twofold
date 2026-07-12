@@ -56,13 +56,16 @@ final class AppModel {
         trips.first { $0.isActive }
     }
 
-    /// The couple's most relevant tracked flight for the Globe home card — whichever is
-    /// currently in progress, or failing that, whichever hasn't departed yet, soonest first.
-    /// Cancelled flights are excluded (nothing useful to show live for those).
-    var activeOrUpcomingFlight: Flight? {
+    /// The couple's relevant tracked flights for the Home carousel — whichever are currently in
+    /// progress or haven't departed yet, soonest departure first. Cancelled flights are excluded
+    /// (nothing useful to show live for those).
+    var activeOrUpcomingFlights: [Flight] {
         let relevant = flights.filter { !$0.cancelled && ($0.status.isActivelyTracked || ($0.bestArrival ?? .distantPast) > .now) }
-        return relevant.sorted { ($0.bestDeparture ?? .distantFuture) < ($1.bestDeparture ?? .distantFuture) }.first
+        return relevant.sorted { ($0.bestDeparture ?? .distantFuture) < ($1.bestDeparture ?? .distantFuture) }
     }
+
+    /// Convenience for call sites that only ever cared about the single most relevant flight.
+    var activeOrUpcomingFlight: Flight? { activeOrUpcomingFlights.first }
 
     var upcomingTrips: [Trip] {
         trips.filter { $0.isUpcoming || $0.isActive }.sorted { $0.departureDate < $1.departureDate }

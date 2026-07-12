@@ -36,6 +36,7 @@ enum TwofoldWeatherService {
                 temperatureC: weather.temperature.converted(to: .celsius).value
             )
         } catch {
+            print("[weather] fetch failed for \(place.city): \(error)")
             return nil
         }
     }

@@ -16,6 +16,7 @@ import { mapAeroFlightToRow } from "../_shared/flight-sync.ts";
 interface Input {
   faFlightId: string;
   tripId?: string;
+  travelerId?: string;
   notifyMe: boolean;
 }
 
@@ -57,6 +58,15 @@ Deno.serve(async (req) => {
     .maybeSingle();
   if (coupleErr || !couple) {
     return Response.json({ error: "No active couple for this user" }, { status: 403 });
+  }
+
+  // Only allow tagging a traveler who's actually a member of this couple — never trust an
+  // arbitrary client-supplied uuid for a column other users' UIs will render as "so-and-so's
+  // journey." Compared lowercase: Swift's `UUID.uuidString` is uppercase, but Postgres always
+  // returns uuid columns lowercase — a case-sensitive `!==` here fails for every real traveler.
+  const travelerId = input.travelerId?.toLowerCase();
+  if (travelerId && travelerId !== couple.partner_a_id?.toLowerCase() && travelerId !== couple.partner_b_id?.toLowerCase()) {
+    return Response.json({ error: "'travelerId' must be a member of this couple" }, { status: 400 });
   }
 
   const serviceClient = createClient(
@@ -122,6 +132,7 @@ Deno.serve(async (req) => {
       status,
       couple_id: couple.id,
       trip_id: input.tripId ?? null,
+      traveler_id: travelerId ?? null,
       created_by: user.id,
       last_refreshed_at: new Date().toISOString(),
     })

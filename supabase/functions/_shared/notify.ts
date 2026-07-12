@@ -27,7 +27,20 @@ const PREFERENCE_COLUMN: Record<string, string> = {
   baggage_claim: "baggage_claim_update",
 };
 
-function buildMessage(event: FlightEvent): { title: string; body: string } {
+// `newValue` for arrival_time_change is a raw ISO8601 instant from the server — format it as a
+// readable local time (destination airport's zone when known) rather than pushing the raw
+// timestamp string straight to someone's lock screen.
+function formatArrivalTime(iso: string, timeZone: string | null): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  try {
+    return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: timeZone ?? undefined }).format(date);
+  } catch {
+    return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(date);
+  }
+}
+
+function buildMessage(event: FlightEvent, destinationTimezone: string | null): { title: string; body: string } {
   const v = event.newValue ?? undefined;
   switch (event.type) {
     case "gate_change":
@@ -45,7 +58,7 @@ function buildMessage(event: FlightEvent): { title: string; body: string } {
     case "airborne":
       return { title: "Flight airborne", body: "Their flight is now in the air." };
     case "arrival_time_change":
-      return { title: "Arrival time updated", body: v ? `Their new estimated arrival is ${v}.` : "Their estimated arrival time changed." };
+      return { title: "Arrival time updated", body: v ? `Their new estimated arrival is ${formatArrivalTime(v, destinationTimezone)}.` : "Their estimated arrival time changed." };
     case "landed":
       return { title: "Flight landed", body: "Their flight has landed." };
     case "arrived_at_gate":
@@ -67,7 +80,7 @@ export async function notifyForEvent(
 
   const { data: flight, error: flightErr } = await serviceClient
     .from("flights")
-    .select("couple_id")
+    .select("couple_id, destination_timezone")
     .eq("id", flightId)
     .single();
   if (flightErr || !flight) return;
@@ -103,7 +116,7 @@ export async function notifyForEvent(
     .in("profile_id", allowedPartnerIds);
   if (!tokens || tokens.length === 0) return;
 
-  const { title, body } = buildMessage(event);
+  const { title, body } = buildMessage(event, (flight as { destination_timezone?: string | null }).destination_timezone ?? null);
 
   for (const token of tokens) {
     try {

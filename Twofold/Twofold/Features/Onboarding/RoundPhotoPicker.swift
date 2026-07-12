@@ -26,6 +26,7 @@ struct RoundPhotoPicker: View {
     @State private var selectedItem: PhotosPickerItem?
     @State private var previewImage: Image?
     @State private var isLoading = false
+    @State private var pendingCropImage: UIImage?
 
     private var hasImage: Bool { previewImage != nil || initialImageURL != nil }
 
@@ -87,6 +88,21 @@ struct RoundPhotoPicker: View {
         .onChange(of: selectedItem) { _, newItem in
             Task { await load(newItem) }
         }
+        .sheet(isPresented: Binding(
+            get: { pendingCropImage != nil },
+            set: { if !$0 { pendingCropImage = nil; selectedItem = nil } }
+        )) {
+            if let pendingCropImage {
+                AvatarCropView(image: pendingCropImage) {
+                    self.pendingCropImage = nil
+                    selectedItem = nil
+                } onComplete: { cropped in
+                    self.pendingCropImage = nil
+                    selectedItem = nil
+                    finish(with: cropped)
+                }
+            }
+        }
     }
 
     // Soft brand-gradient fill with a dashed ring and a "+" badge (drawn separately above), so
@@ -118,7 +134,11 @@ struct RoundPhotoPicker: View {
         defer { isLoading = false }
         guard let data = try? await item.loadTransferable(type: Data.self),
               let uiImage = UIImage(data: data) else { return }
-        let resized = uiImage.resized(maxDimension: 512)
+        pendingCropImage = uiImage
+    }
+
+    private func finish(with cropped: UIImage) {
+        let resized = cropped.resized(maxDimension: 512)
         guard let jpegData = resized.jpegData(compressionQuality: 0.8) else { return }
         previewImage = Image(uiImage: resized)
         onPick(jpegData)

@@ -32,9 +32,15 @@ struct AirlineLogoView: View {
             AsyncImage(url: url) { phase in
                 switch phase {
                 case .success(let image):
+                    // `.scaledToFit()` let the CDN logo's own square canvas letterbox inside
+                    // whatever frame a call site sized it to, reading as excess padding around a
+                    // tiny mark — filling (and cropping the negligible overflow) makes the logo
+                    // actually fill the space it's given.
                     image
                         .resizable()
-                        .scaledToFit()
+                        .scaledToFill()
+                        .frame(width: width, height: height)
+                        .clipped()
 
                 case .empty:
                     Color.clear

@@ -16,6 +16,7 @@ struct FlightConfirmationView: View {
     @Environment(AppModel.self) private var appModel
     @Environment(\.dismiss) private var dismiss
     @State private var linkedTripID: Trip.ID?
+    @State private var travelerID: Person.ID?
     @State private var notifyMe = true
     @State private var isSaving = false
     @State private var errorMessage: String?
@@ -45,6 +46,16 @@ struct FlightConfirmationView: View {
                         }
                         .font(.subheadline)
                         .foregroundStyle(Theme.subtleInk)
+                    }
+
+                    VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                        Text("Who's travelling?").font(.caption).foregroundStyle(Theme.subtleInk)
+                        Picker("Who's travelling?", selection: $travelerID) {
+                            Text("Not sure yet").tag(Person.ID?.none)
+                            Text(appModel.currentUser.name).tag(Person.ID?.some(appModel.currentUser.id))
+                            Text(appModel.partner.name).tag(Person.ID?.some(appModel.partner.id))
+                        }
+                        .pickerStyle(.segmented)
                     }
 
                     if !flightlessTrips.isEmpty {
@@ -103,7 +114,7 @@ struct FlightConfirmationView: View {
         errorMessage = nil
         Task {
             do {
-                try await AeroFlightService.addFlight(faFlightId: candidate.faFlightId, tripID: linkedTripID, notifyMe: notifyMe)
+                try await AeroFlightService.addFlight(faFlightId: candidate.faFlightId, tripID: linkedTripID, travelerID: travelerID, notifyMe: notifyMe)
                 await appModel.refreshFlights()
                 onDone()
             } catch {

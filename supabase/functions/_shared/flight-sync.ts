@@ -263,6 +263,17 @@ function formatDelay(seconds: number): string {
   return remMins > 0 ? `${hours}h ${remMins}m` : `${hours}h`;
 }
 
+// True when `next` differs from `previous` by at least `thresholdMs` — treats a still-unset
+// `previous` (null) as always meaningful (first real estimate is worth an event), but otherwise
+// ignores sub-threshold drift between two ISO timestamps that a plain `!==` would still catch.
+function hasMeaningfulTimeChange(previous: string | null, next: string, thresholdMs: number): boolean {
+  if (!previous) return true;
+  const previousMs = Date.parse(previous);
+  const nextMs = Date.parse(next);
+  if (Number.isNaN(previousMs) || Number.isNaN(nextMs)) return previous !== next;
+  return Math.abs(nextMs - previousMs) >= thresholdMs;
+}
+
 // Builds the list of flight_status_events to insert by diffing the existing row against the
 // freshly-mapped fields. `existing` is null for a brand-new row (handled by add-flight directly,
 // not through this diff — add-flight seeds a single "scheduled" event itself).
@@ -277,9 +288,15 @@ function diffEvents(existing: FlightRow, mapped: MappedAeroFields): PendingEvent
     return events;
   }
 
-  if (mapped.scheduled_in && mapped.scheduled_in !== existing.scheduled_in) {
+  // AeroAPI re-estimates arrival constantly — a raw inequality check fires on noise as small as
+  // a few seconds of re-estimation drift between 5-minute polls, spamming an event + push
+  // notification every single tick near departure. Only treat it as a real change worth telling
+  // someone about once it's moved by at least a minute, same threshold class as the delay check
+  // below.
+  const ARRIVAL_CHANGE_THRESHOLD_MS = 60_000;
+  if (mapped.scheduled_in && hasMeaningfulTimeChange(existing.scheduled_in, mapped.scheduled_in, ARRIVAL_CHANGE_THRESHOLD_MS)) {
     events.push({ type: "arrival_time_change", previous_value: existing.scheduled_in, new_value: mapped.scheduled_in });
-  } else if (mapped.estimated_in && mapped.estimated_in !== existing.estimated_in) {
+  } else if (mapped.estimated_in && hasMeaningfulTimeChange(existing.estimated_in, mapped.estimated_in, ARRIVAL_CHANGE_THRESHOLD_MS)) {
     events.push({ type: "arrival_time_change", previous_value: existing.estimated_in, new_value: mapped.estimated_in });
   }
 

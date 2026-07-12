@@ -48,6 +48,16 @@ enum FlightStatusEventType: String, Codable, CaseIterable, Hashable {
         }
     }
 
+    /// Worth showing in the updates timeline. Excludes `.scheduled` (that's just the moment the
+    /// flight was added to tracking, not a real schedule change — misleading to display as an
+    /// "update") and `.airborne` (redundant milestone noise seconds after `.departed`).
+    var isKeyUpdate: Bool {
+        switch self {
+        case .scheduled, .airborne: false
+        default: true
+        }
+    }
+
     /// Human copy for a generic occurrence of this event type — used when a specific new
     /// value isn't available to interpolate into the message.
     var genericLabel: String {
@@ -69,16 +79,24 @@ enum FlightStatusEventType: String, Codable, CaseIterable, Hashable {
 
     /// Human copy incorporating the event's new value, when one exists (e.g. "Departure gate
     /// changed to 7"). Falls back to `genericLabel` when there's nothing to interpolate.
-    func label(newValue: String?) -> String {
+    /// `timeZone` is only used for `.arrivalTimeChange`, whose stored value is a raw ISO8601
+    /// instant from the server — shown in the destination airport's local time when known,
+    /// falling back to the device's own time zone.
+    func label(newValue: String?, timeZone: TimeZone? = nil) -> String {
         guard let newValue, !newValue.isEmpty else { return genericLabel }
         switch self {
         case .gateChange: return "Gate changed to \(newValue)"
         case .terminalChange: return "Terminal updated to \(newValue)"
-        case .arrivalTimeChange: return "New arrival time: \(newValue)"
+        case .arrivalTimeChange: return "New arrival time: \(Self.formattedTime(newValue, timeZone: timeZone) ?? newValue)"
         case .baggageClaim: return "Baggage claim: \(newValue)"
         case .delay: return "Flight delayed by \(newValue)"
         default: return genericLabel
         }
+    }
+
+    private static func formattedTime(_ iso: String, timeZone: TimeZone?) -> String? {
+        guard let date = ISO8601DateFormatter().date(from: iso) else { return nil }
+        return date.formatted(Date.FormatStyle(timeZone: timeZone ?? .current).hour().minute())
     }
 }
 
@@ -101,5 +119,5 @@ struct FlightStatusEvent: Identifiable, Hashable {
         self.source = source
     }
 
-    var label: String { type.label(newValue: newValue) }
+    func label(timeZone: TimeZone? = nil) -> String { type.label(newValue: newValue, timeZone: timeZone) }
 }

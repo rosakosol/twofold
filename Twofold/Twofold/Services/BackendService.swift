@@ -842,6 +842,7 @@ enum BackendService {
         var tripId: UUID?
         var coupleId: UUID
         var createdBy: UUID?
+        var travelerId: UUID?
         var faFlightId: String?
         var flightNumberIata: String
         var flightNumberIcao: String?
@@ -903,6 +904,7 @@ enum BackendService {
             case tripId = "trip_id"
             case coupleId = "couple_id"
             case createdBy = "created_by"
+            case travelerId = "traveler_id"
             case faFlightId = "fa_flight_id"
             case flightNumberIata = "flight_number_iata"
             case flightNumberIcao = "flight_number_icao"
@@ -962,6 +964,7 @@ enum BackendService {
             tripID: row.tripId,
             coupleID: row.coupleId,
             createdBy: row.createdBy,
+            travelerID: row.travelerId,
             faFlightID: row.faFlightId,
             flightNumberIATA: row.flightNumberIata,
             flightNumberICAO: row.flightNumberIcao,

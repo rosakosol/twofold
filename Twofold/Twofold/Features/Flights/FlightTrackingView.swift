@@ -56,13 +56,20 @@ struct FlightTrackingView: View {
         return appModel.trips.first { $0.id == tripID }
     }
 
+    /// The flight's own `travelerID` (set explicitly when adding it) takes priority since
+    /// flights don't require a linked trip; the trip's traveler is a fallback for older/
+    /// trip-linked flights that predate that field.
+    private var travelerID: Person.ID? {
+        flight.travelerID ?? linkedTrip?.travelerID
+    }
+
     private var isTraveler: Bool {
-        guard let linkedTrip else { return false }
-        return appModel.currentUser.id == linkedTrip.travelerID
+        guard let travelerID else { return false }
+        return appModel.currentUser.id == travelerID
     }
 
     private var traveler: Person? {
-        linkedTrip.flatMap { appModel.couple.partner($0.travelerID) }
+        travelerID.flatMap { appModel.couple.partner($0) }
     }
 
     var body: some View {
@@ -75,7 +82,6 @@ struct FlightTrackingView: View {
                 arrivalCard
                 updatesCard
                 flightInfoCard
-                goodToKnowCard
                 documentsSection
                 if linkedTrip != nil, isTraveler {
                     legacyLogUpdateCard
@@ -118,7 +124,7 @@ struct FlightTrackingView: View {
 
             if flight.airlineName != nil || !flight.flightNumberIATA.isEmpty {
                 HStack(spacing: Theme.Spacing.xs) {
-                    AirlineLogoView(url: flight.displayLogoURL, size: 20)
+                    AirlineLogoView(url: flight.displayLogoURL, size: 28)
                     Text([flight.airlineName, flight.displayNumber].compactMap { $0 }.joined(separator: " · "))
                         .font(.subheadline)
                         .foregroundStyle(Theme.subtleInk)
@@ -302,23 +308,29 @@ struct FlightTrackingView: View {
 
     // MARK: - Updates timeline
 
+    /// Excludes the baseline "scheduled" event (that's just when the flight was added to
+    /// tracking, not a real schedule) and other low-signal milestones — see `isKeyUpdate`.
+    private var keyEvents: [FlightStatusEvent] {
+        events.filter { $0.type.isKeyUpdate }
+    }
+
     private var updatesCard: some View {
         SectionCard {
             HStack {
                 Text("Flight updates").font(.subheadline.weight(.semibold))
                 Spacer()
-                if events.count > 4 {
+                if keyEvents.count > 4 {
                     Button(showAllEvents ? "Show less" : "Show all") { showAllEvents.toggle() }
                         .font(.caption.weight(.medium))
                 }
             }
 
-            if events.isEmpty {
+            if keyEvents.isEmpty {
                 Text("No updates yet — we'll show gate changes, delays, and milestones here as they happen.")
                     .font(.caption)
                     .foregroundStyle(Theme.subtleInk)
             } else {
-                ForEach(showAllEvents ? events : Array(events.prefix(4))) { event in
+                ForEach(showAllEvents ? keyEvents : Array(keyEvents.prefix(4))) { event in
                     HStack(alignment: .top, spacing: Theme.Spacing.sm) {
                         ZStack {
                             Circle().fill(event.type.isUrgent ? Theme.heartRed.opacity(0.15) : Theme.skyBlue.opacity(0.15))
@@ -327,7 +339,7 @@ struct FlightTrackingView: View {
                         .frame(width: 28, height: 28)
 
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(event.label).font(.subheadline.weight(.medium))
+                            Text(event.label(timeZone: flight.destination.timeZone)).font(.subheadline.weight(.medium))
                             Text(event.occurredAt, format: Date.FormatStyle(timeZone: flight.origin.timeZone ?? .current).hour().minute())
                                 .font(.caption2)
                                 .foregroundStyle(Theme.subtleInk)
@@ -352,61 +364,33 @@ struct FlightTrackingView: View {
         }
     }
 
-    // MARK: - Good to know
-
-    private var goodToKnowCard: some View {
-        SectionCard {
-            Text("Good to know").font(.subheadline.weight(.semibold))
-            if let timezoneCopy {
-                Text(timezoneCopy).font(.caption).foregroundStyle(Theme.subtleInk)
-            }
-            if let arrivalInHomeTZCopy {
-                Text(arrivalInHomeTZCopy).font(.caption).foregroundStyle(Theme.subtleInk)
-            }
-            if flight.weatherOrigin == nil && flight.weatherDestination == nil && timezoneCopy == nil {
-                Text("Once this flight is actively tracked, weather and timezone context will show up here.")
-                    .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
-            }
-        }
-    }
-
-    private var timezoneCopy: String? {
-        guard let originTZ = flight.origin.timeZone, let destinationTZ = flight.destination.timeZone, originTZ != destinationTZ else { return nil }
-        let now = Date.now
-        let diffSeconds = destinationTZ.secondsFromGMT(for: now) - originTZ.secondsFromGMT(for: now)
-        let diffHours = diffSeconds / 3600
-        guard diffHours != 0 else { return nil }
-        let direction = diffHours > 0 ? "ahead of" : "behind"
-        return "\(flight.destination.displayName) is \(abs(diffHours)) hour\(abs(diffHours) == 1 ? "" : "s") \(direction) \(flight.origin.displayName)."
-    }
-
-    private var arrivalInHomeTZCopy: String? {
-        guard let arrival = flight.bestArrival, let destinationTZ = flight.destination.timeZone, let homeTZ = appModel.currentUser.homeCity?.timeZone, destinationTZ != homeTZ else { return nil }
-        let destinationTime = arrival.formatted(Date.FormatStyle(timeZone: destinationTZ).hour().minute())
-        let homeTime = arrival.formatted(Date.FormatStyle(timeZone: homeTZ).hour().minute())
-        return "\(destinationTime) arrival is \(homeTime) for you."
-    }
-
     // MARK: - Documents
 
     private var documentsSection: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             Text("Trip preparation").font(.subheadline.weight(.semibold))
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: Theme.Spacing.sm) {
-                    documentActionCard(type: .boardingPass, title: "Boarding pass")
-                    documentActionCard(type: .itinerary, title: "Travel documents")
-                    if linkedTrip != nil {
-                        Button {
-                            tripNotesDraft = linkedTrip?.notes ?? ""
-                            showingTripNotes = true
-                        } label: {
-                            documentCardLabel(icon: .system("checklist"), title: "Trip checklist")
-                        }
-                        .buttonStyle(.plain)
+
+            HStack(spacing: Theme.Spacing.sm) {
+                documentActionCard(type: .boardingPass, title: "Boarding pass")
+                documentActionCard(type: .itinerary, title: "Travel documents")
+            }
+
+            if linkedTrip != nil {
+                Button {
+                    tripNotesDraft = linkedTrip?.notes ?? ""
+                    showingTripNotes = true
+                } label: {
+                    HStack {
+                        documentCardIcon(.system("checklist"))
+                        Text("Trip checklist").font(.subheadline.weight(.medium))
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
                     }
+                    .padding(Theme.Spacing.sm)
+                    .frame(maxWidth: .infinity)
+                    .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                 }
+                .buttonStyle(.plain)
             }
 
             if !documents.isEmpty {
@@ -460,20 +444,24 @@ struct FlightTrackingView: View {
         }
     }
 
+    private func documentCardIcon(_ icon: FlightDocumentIcon) -> some View {
+        ZStack {
+            Circle().fill(Theme.skyBlue.opacity(0.15))
+            flightDocumentIcon(icon, size: 20)
+                .foregroundStyle(Theme.skyBlue)
+        }
+        .frame(width: 40, height: 40)
+    }
+
     private func documentCardLabel(icon: FlightDocumentIcon, title: String) -> some View {
         VStack(spacing: Theme.Spacing.xs) {
-            ZStack {
-                Circle().fill(Theme.skyBlue.opacity(0.15))
-                flightDocumentIcon(icon, size: 20)
-                    .foregroundStyle(Theme.skyBlue)
-            }
-            .frame(width: 40, height: 40)
+            documentCardIcon(icon)
 
             Text(title)
                 .font(.caption.weight(.medium))
                 .multilineTextAlignment(.center)
         }
-        .frame(width: 92)
+        .frame(maxWidth: .infinity)
         .padding(Theme.Spacing.sm)
         .background(
             Theme.cardBackground,

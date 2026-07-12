@@ -23,18 +23,27 @@ struct MemoryPhotoView: View {
     }
 
     var body: some View {
-        Group {
-            if let photoURL = memory.photoURL {
-                AsyncImage(url: photoURL) { phase in
-                    if let image = phase.image {
-                        image.resizable().scaledToFill()
-                    } else {
-                        placeholder
+        // `scaledToFill()` deliberately overflows whatever size is proposed to it (to preserve
+        // aspect ratio while covering the frame), and `.clipShape` masks against a view's actual
+        // rendered size, not the size a caller's external `.frame()` requests — so without this
+        // GeometryReader pinning the image to the real available size *before* clipShape runs,
+        // a non-square source photo bleeds outside the intended thumbnail bounds.
+        GeometryReader { geo in
+            Group {
+                if let photoURL = memory.photoURL {
+                    AsyncImage(url: photoURL) { phase in
+                        if let image = phase.image {
+                            image.resizable().scaledToFill()
+                        } else {
+                            placeholder
+                        }
                     }
+                } else {
+                    placeholder
                 }
-            } else {
-                placeholder
             }
+            .frame(width: geo.size.width, height: geo.size.height)
+            .clipped()
         }
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
