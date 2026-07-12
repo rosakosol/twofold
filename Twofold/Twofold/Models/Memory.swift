@@ -7,14 +7,16 @@ import Foundation
 
 /// One uploaded photo attached to a memory. Identified by its `memory_photos` row id so an
 /// individual photo can be removed later without touching the rest of the set.
-struct MemoryPhoto: Identifiable, Hashable {
+struct MemoryPhoto: Identifiable, Hashable, Codable {
     let id: UUID
     var path: String
-    /// Signed URL, re-resolved on every fetch since `memory-photos` is a private bucket.
+    /// Signed URL, re-resolved on every fetch since `memory-photos` is a private bucket. Also
+    /// used to point at a local `file://` URL for a memory that hasn't synced to the backend
+    /// yet — see `PendingMemoryStore` — so every photo-rendering view works unchanged either way.
     var url: URL
 }
 
-struct Memory: Identifiable, Hashable {
+struct Memory: Identifiable, Hashable, Codable {
     let id: UUID
     var title: String
     /// Optional — a memory doesn't need a place to be worth saving.

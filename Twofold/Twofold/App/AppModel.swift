@@ -126,6 +126,7 @@ final class AppModel {
     /// leaving a solo (unpaired) user to fall back into onboarding just because
     /// `fetchCoupleState` found nothing.
     func loadSignedInState() async {
+        restorePendingMemoriesFromDisk()
         if let state = try? await BackendService.fetchCoupleState() {
             await adopt(state)
         } else if let profile = try? await BackendService.fetchOwnProfile() {
@@ -135,18 +136,36 @@ final class AppModel {
         Task { await WidgetSnapshotWriter.refresh(appModel: self) }
     }
 
+    /// Restores memories that were added before pairing (or otherwise never synced) from local
+    /// disk — see `PendingMemoryStore`. Runs before `adopt(_:)`/`adoptSoloProfile(_:)` so
+    /// whichever one runs next already sees them: `adopt(_:)` will attempt to sync them
+    /// immediately (they're now in `pendingMemoryIDs`), and `adoptSoloProfile(_:)` preserves
+    /// pending memories through its reset rather than discarding them. Skips anything already
+    /// present (e.g. a second call this session) to avoid duplicate entries.
+    private func restorePendingMemoriesFromDisk() {
+        for (memory, photosData) in PendingMemoryStore.loadAll() {
+            guard !memories.contains(where: { $0.id == memory.id }) else { continue }
+            memories.append(memory)
+            pendingMemoryIDs.insert(memory.id)
+            if !photosData.isEmpty { pendingMemoryPhotoData[memory.id] = photosData }
+        }
+    }
+
     /// Resets to the solo (unpaired) state and repopulates from the caller's own profile —
     /// shared by `loadSignedInState()` (launch/sign-in) and `refreshCoupleStateIfNeeded()`
     /// (an already-connected device discovering the couple was dissolved elsewhere). Reset
     /// first: at launch these are already at their zero-value defaults so it's a no-op, but
     /// reused mid-session this clears the *old* partner's data (partnerConnected,
     /// backendCoupleID, trips/memories/flights, drawing pad URLs) that would otherwise survive
-    /// and make a just-dissolved couple still look "connected" in the UI.
+    /// and make a just-dissolved couple still look "connected" in the UI. Memories still in
+    /// `pendingMemoryIDs` are the exception — they were never tied to any couple in the first
+    /// place (added before ever pairing, still only durable via `PendingMemoryStore`), so they
+    /// survive this reset rather than being discarded along with the dissolved couple's data.
     private func adoptSoloProfile(_ profile: BackendService.OwnProfileState) async {
         partnerConnected = false
         backendCoupleID = nil
         trips = []
-        memories = []
+        memories = memories.filter { pendingMemoryIDs.contains($0.id) }
         flights = []
         myDrawingURL = nil
         partnerDrawingURL = nil
@@ -304,10 +323,23 @@ final class AppModel {
     /// Drawing pad paths are fully deterministic (`{coupleID}/{personID}/pad.png`), so unlike
     /// trips/memories there's nothing to "fetch" beyond just pointing at the URL — this just
     /// primes both URLs so the pad previews have something to render on first appearance.
+    ///
+    /// Cache-busted on every call, not just right after a save — this runs from
+    /// `DrawingPadCard.onAppear`, which SwiftUI re-fires when the drawing editor's sheet
+    /// dismisses back to Home. Without busting here too, that re-fire was overwriting the
+    /// fresh cache-busted URL `saveMyDrawing` had just set with a bare, non-busted one — so
+    /// `AsyncImage` resolved it against a stale cached response and the new drawing only ever
+    /// showed up after a full app relaunch flushed the cache.
     func loadDrawingPads() {
         guard let backendCoupleID else { return }
-        myDrawingURL = BackendService.drawingPadPublicURL(coupleID: backendCoupleID, personID: currentUser.id)
-        partnerDrawingURL = BackendService.drawingPadPublicURL(coupleID: backendCoupleID, personID: partner.id)
+        myDrawingURL = Self.cacheBusted(BackendService.drawingPadPublicURL(coupleID: backendCoupleID, personID: currentUser.id))
+        partnerDrawingURL = Self.cacheBusted(BackendService.drawingPadPublicURL(coupleID: backendCoupleID, personID: partner.id))
+    }
+
+    private static func cacheBusted(_ url: URL?) -> URL? {
+        guard let url, var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return url }
+        components.queryItems = [URLQueryItem(name: "v", value: "\(Int(Date().timeIntervalSince1970 * 1000))")]
+        return components.url ?? url
     }
 
     /// Only available once paired — there's no couple to namespace the storage path under
@@ -366,6 +398,9 @@ final class AppModel {
                 }
                 synced.photos = try await BackendService.insertMemory(coupleID: state.couple.id, memory: memory, photoPaths: photoPaths)
                 pendingMemoryPhotoData.removeValue(forKey: memory.id)
+                // Now durably on the backend — the local disk copy (and its cached photo
+                // files) was only ever a stand-in until this succeeded.
+                PendingMemoryStore.remove(id: memory.id)
             } catch {
                 stillPendingMemories.insert(memory.id)
             }
@@ -540,13 +575,19 @@ final class AppModel {
     @discardableResult
     func addMemory(title: String, place: Place?, date: Date, note: String, imagesData: [Data]) async -> Memory {
         let memory = Memory(title: title, place: place, date: date, note: note)
-        memories.append(memory)
 
         guard let backendCoupleID else {
-            pendingMemoryIDs.insert(memory.id)
-            if !imagesData.isEmpty { pendingMemoryPhotoData[memory.id] = imagesData }
-            return memory
+            // Persisted to disk (not just kept in memory) — this is the only durable copy
+            // until a partner joins, and the returned memory's photos already point at local
+            // files so they show immediately instead of staying blank until upload.
+            let persisted = PendingMemoryStore.save(memory: memory, photosData: imagesData)
+            memories.append(persisted)
+            pendingMemoryIDs.insert(persisted.id)
+            if !imagesData.isEmpty { pendingMemoryPhotoData[persisted.id] = imagesData }
+            return persisted
         }
+
+        memories.append(memory)
 
         do {
             var photoPaths: [String] = []
@@ -571,11 +612,27 @@ final class AppModel {
     /// same call — both persisted best-effort, matching `addMemory`'s error handling.
     func updateMemory(_ memory: Memory, newImagesData: [Data] = []) async {
         guard let index = memories.firstIndex(where: { $0.id == memory.id }) else { return }
+
+        guard let backendCoupleID, !pendingMemoryIDs.contains(memory.id) else {
+            // Still pending (never synced) — everything happens locally, same as the initial
+            // add: new photos join the accumulated pending data and get re-persisted, so the
+            // edit shows immediately and survives a relaunch. Without this, editing a pending
+            // memory before a partner joins silently dropped any newly-added photos (the
+            // synced-path branch below only uploads when a couple already exists) and never
+            // updated the on-disk copy, so the *previous* version would come back after a kill.
+            var accumulatedPhotoData = pendingMemoryPhotoData[memory.id] ?? []
+            accumulatedPhotoData.append(contentsOf: newImagesData)
+            let persisted = PendingMemoryStore.save(memory: memory, photosData: accumulatedPhotoData)
+            memories[index] = persisted
+            pendingMemoryPhotoData[memory.id] = accumulatedPhotoData.isEmpty ? nil : accumulatedPhotoData
+            return
+        }
+
         memories[index] = memory
 
         do {
             try await BackendService.updateMemory(memory)
-            if !newImagesData.isEmpty, let backendCoupleID {
+            if !newImagesData.isEmpty {
                 var photoPaths: [String] = []
                 for imageData in newImagesData {
                     photoPaths.append(try await BackendService.uploadMemoryPhoto(coupleID: backendCoupleID, memoryID: memory.id, imageData: imageData))
@@ -591,6 +648,19 @@ final class AppModel {
     func removePhoto(_ photo: MemoryPhoto, from memory: Memory) async {
         guard let index = memories.firstIndex(where: { $0.id == memory.id }) else { return }
         memories[index].photos.removeAll { $0.id == photo.id }
+
+        guard !pendingMemoryIDs.contains(memory.id) else {
+            // Re-derive the remaining photo bytes from their still-valid local files and
+            // re-persist — otherwise a removed photo could reappear on the next pending edit
+            // (updateMemory would still find it in the stale pendingMemoryPhotoData) or after
+            // a relaunch (the on-disk manifest would still list it).
+            let remainingData = memories[index].photos.compactMap { try? Data(contentsOf: $0.url) }
+            let persisted = PendingMemoryStore.save(memory: memories[index], photosData: remainingData)
+            memories[index] = persisted
+            pendingMemoryPhotoData[memory.id] = remainingData.isEmpty ? nil : remainingData
+            return
+        }
+
         try? await BackendService.deleteMemoryPhoto(id: photo.id, path: photo.path)
     }
 
@@ -598,6 +668,7 @@ final class AppModel {
         memories.removeAll { $0.id == memory.id }
         pendingMemoryIDs.remove(memory.id)
         pendingMemoryPhotoData.removeValue(forKey: memory.id)
+        PendingMemoryStore.remove(id: memory.id)
         guard backendCoupleID != nil else { return }
         try? await BackendService.deleteMemory(id: memory.id, photoPaths: memory.photos.map(\.path))
     }

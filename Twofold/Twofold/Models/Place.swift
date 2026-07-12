@@ -5,7 +5,7 @@
 
 import CoreLocation
 
-struct Place: Identifiable, Hashable {
+struct Place: Identifiable, Hashable, Codable {
     let id: UUID
     var city: String
     var country: String
