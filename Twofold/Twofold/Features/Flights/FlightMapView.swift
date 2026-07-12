@@ -103,10 +103,6 @@ private struct MapLibreRouteView: UIViewRepresentable {
         context.coordinator.apply(route(), edgePadding: edgePadding)
     }
 
-    static func dismantleUIView(_ mapView: MLNMapView, coordinator: Coordinator) {
-        coordinator.stopPulsing()
-    }
-
     private func route() -> Coordinator.Route {
         Coordinator.Route(
             origin: origin,
@@ -119,8 +115,8 @@ private struct MapLibreRouteView: UIViewRepresentable {
         )
     }
 
-    /// Owns the `MLNMapView` delegate callbacks, the route source/line layers, the three
-    /// annotations (origin, destination, live position), and the route's breathing-pulse timer.
+    /// Owns the `MLNMapView` delegate callbacks, the route source/line layers, and the three
+    /// annotations (origin, destination, live/traveler position).
     final class Coordinator: NSObject, MLNMapViewDelegate {
         struct Route: Equatable {
             var origin: CLLocationCoordinate2D
@@ -159,9 +155,8 @@ private struct MapLibreRouteView: UIViewRepresentable {
         private var originAnnotation: RouteAnnotation?
         private var destinationAnnotation: RouteAnnotation?
         private var positionAnnotation: RouteAnnotation?
-
-        private var pulseTimer: Timer?
-        private var pulseOn = false
+        private var originHasOverlappingMarker = false
+        private var destinationHasOverlappingMarker = false
 
         func apply(_ route: Route, edgePadding: CGFloat) {
             pendingRoute = route
@@ -171,17 +166,11 @@ private struct MapLibreRouteView: UIViewRepresentable {
             render(route, edgePadding: edgePadding, style: style, mapView: mapView)
         }
 
-        func stopPulsing() {
-            pulseTimer?.invalidate()
-            pulseTimer = nil
-        }
-
         func mapView(_ mapView: MLNMapView, didFinishLoading style: MLNStyle) {
             styleIsLoaded = true
             if let pendingRoute {
                 render(pendingRoute, edgePadding: pendingEdgePadding, style: style, mapView: mapView)
             }
-            startPulsing()
         }
 
         func mapView(_ mapView: MLNMapView, viewFor annotation: any MLNAnnotation) -> MLNAnnotationView? {
@@ -191,7 +180,17 @@ private struct MapLibreRouteView: UIViewRepresentable {
                 ?? SwiftUIAnnotationView(reuseIdentifier: identifier)
             switch annotation.kind {
             case .origin, .destination:
-                view.setContent(Self.endpointMarker, size: CGSize(width: 16, height: 16))
+                // Anchored so the dot (not the whole dot+label stack) sits on the true
+                // coordinate. When a traveler avatar is parked on this exact point (pre-
+                // departure — see `updatePositionAnnotation`), the label is pushed down far
+                // enough to clear it and stay legible underneath; otherwise it sits close to the
+                // dot like an ordinary caption, since there's nothing to clear.
+                let size = Self.endpointMarkerSize(hasOverlappingMarker: annotation.hasOverlappingMarker)
+                view.setContent(
+                    Self.endpointMarker(code: annotation.title ?? "", hasOverlappingMarker: annotation.hasOverlappingMarker),
+                    size: size,
+                    centerOffset: CGVector(dx: 0, dy: size.height / 2 - 5)
+                )
             case .position:
                 if let traveler = annotation.traveler {
                     view.setContent(Self.travelerMarker(traveler), size: CGSize(width: 44, height: 44))
@@ -218,7 +217,14 @@ private struct MapLibreRouteView: UIViewRepresentable {
             updatePositionAnnotation(route, mapView: mapView)
 
             if !hasFittedCamera {
-                let insets = UIEdgeInsets(top: edgePadding, left: edgePadding, bottom: edgePadding, right: edgePadding)
+                // Endpoint labels hang below their coordinate, not around it symmetrically (see
+                // `endpointMarker`/`endpointMarkerSize`) — whichever endpoint lands at the bottom
+                // of the fitted route needs that much extra clearance below it, or its label gets
+                // clipped by the card's edge instead of just sitting there unread. Sized for the
+                // worst case (a traveler avatar parked on that endpoint) since this fit only runs
+                // once, before it's necessarily known whether that'll happen later.
+                let labelClearance = Self.endpointMarkerSize(hasOverlappingMarker: true).height - 5
+                let insets = UIEdgeInsets(top: edgePadding, left: edgePadding, bottom: edgePadding + labelClearance, right: edgePadding)
                 mapView.setVisibleCoordinates(samples, count: UInt(samples.count), edgePadding: insets, animated: false)
                 hasFittedCamera = true
             }
@@ -249,7 +255,7 @@ private struct MapLibreRouteView: UIViewRepresentable {
             let gradient = MLNLineStyleLayer(identifier: Self.gradientLayerIdentifier, source: source)
             gradient.lineJoin = NSExpression(forConstantValue: "round")
             gradient.lineCap = NSExpression(forConstantValue: "round")
-            gradient.lineWidth = NSExpression(forConstantValue: 3.5)
+            gradient.lineWidth = NSExpression(forConstantValue: 4)
             gradient.lineGradient = NSExpression(
                 forMLNInterpolating: NSExpression.lineProgressVariable,
                 curveType: .linear,
@@ -262,67 +268,91 @@ private struct MapLibreRouteView: UIViewRepresentable {
             style.addLayer(gradient)
         }
 
+        /// Whether the live/traveler-at-origin position marker (see `updatePositionAnnotation`)
+        /// sits exactly on a given endpoint right now — the one case where that endpoint's label
+        /// needs extra clearance underneath it.
+        private func markerCoordinate(for route: Route) -> CLLocationCoordinate2D? {
+            route.position ?? (route.traveler != nil ? route.origin : nil)
+        }
+
         private func updateEndpointAnnotations(_ route: Route, mapView: MLNMapView) {
-            if originAnnotation == nil {
+            let marker = markerCoordinate(for: route)
+            let originOverlap = marker.map { $0.latitude == route.origin.latitude && $0.longitude == route.origin.longitude } ?? false
+            let destinationOverlap = marker.map { $0.latitude == route.destination.latitude && $0.longitude == route.destination.longitude } ?? false
+
+            if originAnnotation == nil || originHasOverlappingMarker != originOverlap {
+                if let existing = originAnnotation { mapView.removeAnnotation(existing) }
                 let annotation = RouteAnnotation(kind: .origin, reuseIdentifier: Self.originIdentifier)
                 annotation.coordinate = route.origin
                 annotation.title = route.originCode
+                annotation.hasOverlappingMarker = originOverlap
                 mapView.addAnnotation(annotation)
                 originAnnotation = annotation
+                originHasOverlappingMarker = originOverlap
             }
-            if destinationAnnotation == nil {
+            if destinationAnnotation == nil || destinationHasOverlappingMarker != destinationOverlap {
+                if let existing = destinationAnnotation { mapView.removeAnnotation(existing) }
                 let annotation = RouteAnnotation(kind: .destination, reuseIdentifier: Self.destinationIdentifier)
                 annotation.coordinate = route.destination
                 annotation.title = route.destinationCode
+                annotation.hasOverlappingMarker = destinationOverlap
                 mapView.addAnnotation(annotation)
                 destinationAnnotation = annotation
+                destinationHasOverlappingMarker = destinationOverlap
             }
         }
 
         /// Removed and re-added (rather than mutated in place) on every position update — the
         /// live position is the one thing about a flight that changes on its own timer, and
         /// explicit remove/add avoids relying on undocumented in-place-repositioning behavior.
+        ///
+        /// Before departure there's no live position from the provider yet, but if a traveler is
+        /// set, their avatar still rides the route — parked at the origin — rather than only
+        /// appearing once the flight is airborne. Without a traveler there's nothing meaningful
+        /// to show pre-departure (the plane-icon fallback is for an in-progress flight only), so
+        /// no marker is added.
         private func updatePositionAnnotation(_ route: Route, mapView: MLNMapView) {
             if let existing = positionAnnotation {
                 mapView.removeAnnotation(existing)
                 positionAnnotation = nil
             }
-            guard let position = route.position else { return }
+            guard let coordinate = markerCoordinate(for: route) else { return }
             let annotation = RouteAnnotation(kind: .position, reuseIdentifier: Self.positionIdentifier)
-            annotation.coordinate = position
+            annotation.coordinate = coordinate
             annotation.positionHeading = route.positionHeading
             annotation.traveler = route.traveler
             mapView.addAnnotation(annotation)
             positionAnnotation = annotation
         }
 
-        // MARK: - Breathing pulse
-
-        private func startPulsing() {
-            pulseTimer?.invalidate()
-            pulseTimer = Timer.scheduledTimer(withTimeInterval: 1.3, repeats: true) { [weak self] _ in
-                self?.pulse()
-            }
-        }
-
-        private func pulse() {
-            guard let mapView, let style = mapView.style,
-                  let gradient = style.layer(withIdentifier: Self.gradientLayerIdentifier) as? MLNLineStyleLayer else { return }
-            pulseOn.toggle()
-            UIView.animate(withDuration: 1.1) {
-                gradient.lineWidth = NSExpression(forConstantValue: self.pulseOn ? 4.5 : 3.5)
-                gradient.lineOpacity = NSExpression(forConstantValue: self.pulseOn ? 1 : 0.75)
-            }
-        }
-
         // MARK: - Marker content (SwiftUI, hosted via SwiftUIAnnotationView)
 
-        private static var endpointMarker: some View {
-            Circle()
-                .fill(Theme.ink)
-                .frame(width: 10, height: 10)
-                .overlay(Circle().strokeBorder(.white, lineWidth: 2))
-                .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
+        /// Total size of an endpoint's dot+label content — fixed (rather than left to SwiftUI's
+        /// own sizing) so the centering math in `viewFor annotation:` above can be computed
+        /// exactly instead of guessed. When a traveler avatar is parked on the same coordinate
+        /// (44pt, radius 22pt), the gap between dot and label widens enough to clear it with
+        /// margin to spare; otherwise the label sits close to the dot like an ordinary caption.
+        private static func endpointMarkerSize(hasOverlappingMarker: Bool) -> CGSize {
+            CGSize(width: 56, height: hasOverlappingMarker ? 50 : 34)
+        }
+
+        private static func endpointMarker(code: String, hasOverlappingMarker: Bool) -> some View {
+            let size = endpointMarkerSize(hasOverlappingMarker: hasOverlappingMarker)
+            return VStack(spacing: hasOverlappingMarker ? 20 : 6) {
+                Circle()
+                    .fill(Theme.ink)
+                    .frame(width: 10, height: 10)
+                    .overlay(Circle().strokeBorder(.white, lineWidth: 2))
+                    .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
+                Text(code)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(Theme.ink)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(.white, in: Capsule())
+                    .shadow(color: .black.opacity(0.15), radius: 2, y: 1)
+            }
+            .frame(width: size.width, height: size.height, alignment: .top)
         }
 
         /// Bigger than the plane marker — this is the whole point of knowing who's on the
@@ -412,6 +442,9 @@ private final class RouteAnnotation: MLNPointAnnotation {
     let reuseIdentifier: String
     var positionHeading: Double?
     var traveler: Person?
+    /// `.origin`/`.destination` only — whether the position marker currently sits on this exact
+    /// endpoint, which needs the label pushed further down to stay clear of it.
+    var hasOverlappingMarker = false
 
     init(kind: Kind, reuseIdentifier: String) {
         self.kind = kind
@@ -441,8 +474,9 @@ private final class SwiftUIAnnotationView: MLNAnnotationView {
         super.init(coder: coder)
     }
 
-    func setContent<Content: View>(_ content: Content, size: CGSize) {
+    func setContent<Content: View>(_ content: Content, size: CGSize, centerOffset: CGVector = .zero) {
         bounds = CGRect(origin: .zero, size: size)
+        self.centerOffset = centerOffset
         if let hostingController {
             hostingController.rootView = AnyView(content)
         } else {

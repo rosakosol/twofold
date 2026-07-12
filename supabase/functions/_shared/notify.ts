@@ -40,33 +40,48 @@ function formatArrivalTime(iso: string, timeZone: string | null): string {
   }
 }
 
-function buildMessage(event: FlightEvent, destinationTimezone: string | null): { title: string; body: string } {
+// Mirrors `Flight.displayNumber` on the client — prefixes the airline code onto the number
+// unless it's already there (AeroAPI sometimes includes it, sometimes doesn't).
+function displayFlightNumber(flightNumberIATA: string | null, airlineCode: string | null): string {
+  if (!flightNumberIATA) return "Flight";
+  if (airlineCode && !flightNumberIATA.startsWith(airlineCode)) return `${airlineCode}${flightNumberIATA}`;
+  return flightNumberIATA;
+}
+
+// Every push needs to say *whose* flight this is about, never a generic "Their" — the traveler's
+// first name plus the flight number when a traveler is set, otherwise just the flight number.
+function flightLabel(travelerName: string | null, flightNumberIATA: string | null, airlineCode: string | null): string {
+  const number = displayFlightNumber(flightNumberIATA, airlineCode);
+  return travelerName ? `${travelerName}'s ${number}` : number;
+}
+
+function buildMessage(event: FlightEvent, label: string, destinationTimezone: string | null): { title: string; body: string } {
   const v = event.newValue ?? undefined;
   switch (event.type) {
     case "gate_change":
-      return { title: "Gate changed", body: v ? `Their departure gate changed to ${v}.` : "Their departure gate changed." };
+      return { title: "Gate changed", body: v ? `${label}: departure gate changed to ${v}.` : `${label}: departure gate changed.` };
     case "terminal_change":
-      return { title: "Terminal changed", body: v ? `Their terminal changed to ${v}.` : "Their terminal changed." };
+      return { title: "Terminal changed", body: v ? `${label}: terminal changed to ${v}.` : `${label}: terminal changed.` };
     case "delay":
-      return { title: "Flight delayed", body: v ? `Their flight is now delayed by ${v}.` : "Their flight is now delayed." };
+      return { title: "Flight delayed", body: v ? `${label} is now delayed by ${v}.` : `${label} is now delayed.` };
     case "cancelled":
-      return { title: "Flight cancelled", body: "Their flight has been cancelled." };
+      return { title: "Flight cancelled", body: `${label} has been cancelled.` };
     case "diverted":
-      return { title: "Flight diverted", body: "Their flight has been diverted." };
+      return { title: "Flight diverted", body: `${label} has been diverted.` };
     case "departed":
-      return { title: "Flight departed", body: "Their flight has departed." };
+      return { title: "Flight departed", body: `${label} has departed.` };
     case "airborne":
-      return { title: "Flight airborne", body: "Their flight is now in the air." };
+      return { title: "Flight airborne", body: `${label} is now in the air.` };
     case "arrival_time_change":
-      return { title: "Arrival time updated", body: v ? `Their new estimated arrival is ${formatArrivalTime(v, destinationTimezone)}.` : "Their estimated arrival time changed." };
+      return { title: "Arrival time updated", body: v ? `New estimated arrival for ${label}: ${formatArrivalTime(v, destinationTimezone)}.` : `${label}: estimated arrival time changed.` };
     case "landed":
-      return { title: "Flight landed", body: "Their flight has landed." };
+      return { title: "Flight landed", body: `${label} has landed.` };
     case "arrived_at_gate":
-      return { title: "Arrived at gate", body: "Their flight has arrived at the gate." };
+      return { title: "Arrived at gate", body: `${label} has arrived at the gate.` };
     case "baggage_claim":
-      return { title: "Baggage claim assigned", body: v ? `Baggage claim ${v}.` : "Baggage claim has been assigned." };
+      return { title: "Baggage claim assigned", body: v ? `${label}: baggage claim ${v}.` : `${label}: baggage claim has been assigned.` };
     default:
-      return { title: "Flight update", body: v ?? "Their flight status changed." };
+      return { title: "Flight update", body: v ?? `${label}: flight status changed.` };
   }
 }
 
@@ -80,10 +95,21 @@ export async function notifyForEvent(
 
   const { data: flight, error: flightErr } = await serviceClient
     .from("flights")
-    .select("couple_id, destination_timezone, shared, created_by")
+    .select("couple_id, destination_timezone, shared, created_by, traveler_id, flight_number_iata, airline_code")
     .eq("id", flightId)
     .single();
   if (flightErr || !flight) return;
+
+  let travelerName: string | null = null;
+  if (flight.traveler_id) {
+    const { data: traveler } = await serviceClient
+      .from("profiles")
+      .select("first_name")
+      .eq("id", flight.traveler_id)
+      .single();
+    travelerName = traveler?.first_name || null;
+  }
+  const label = flightLabel(travelerName, flight.flight_number_iata ?? null, flight.airline_code ?? null);
 
   // This runs under the service-role client (RLS-bypassing), so a private (shared: false)
   // flight needs its own explicit check here — otherwise the creator's partner would still get
@@ -124,7 +150,7 @@ export async function notifyForEvent(
     .in("profile_id", allowedPartnerIds);
   if (!tokens || tokens.length === 0) return;
 
-  const { title, body } = buildMessage(event, (flight as { destination_timezone?: string | null }).destination_timezone ?? null);
+  const { title, body } = buildMessage(event, label, (flight as { destination_timezone?: string | null }).destination_timezone ?? null);
 
   for (const token of tokens) {
     try {
