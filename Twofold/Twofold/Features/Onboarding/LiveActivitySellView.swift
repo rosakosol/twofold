@@ -100,7 +100,7 @@ struct LiveActivitySellView: View {
                     .font(.system(size: 40, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
                 if let distanceKm {
-                    Text("to go · \(distanceKm.formatted(.number.precision(.fractionLength(0)))) km")
+                    Text("to go · \(MeasurementPreference.distanceLabel(km: distanceKm))")
                         .font(.caption)
                         .foregroundStyle(.white.opacity(0.6))
                 }

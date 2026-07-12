@@ -5,31 +5,8 @@
 
 import SwiftUI
 
-extension Color {
-    init(hex: String) {
-        var hexValue = UInt64()
-        Scanner(string: hex).scanHexInt64(&hexValue)
-        let r = Double((hexValue & 0xFF0000) >> 16) / 255
-        let g = Double((hexValue & 0x00FF00) >> 8) / 255
-        let b = Double(hexValue & 0x0000FF) / 255
-        self.init(red: r, green: g, blue: b)
-    }
-
-    /// Component-wise blend toward `other`, used for the timezone card's continuous day/night gradient.
-    func interpolated(to other: Color, amount: Double) -> Color {
-        let t = min(max(amount, 0), 1)
-        var (r1, g1, b1, a1) = (CGFloat(0), CGFloat(0), CGFloat(0), CGFloat(0))
-        var (r2, g2, b2, a2) = (CGFloat(0), CGFloat(0), CGFloat(0), CGFloat(0))
-        UIColor(self).getRed(&r1, green: &g1, blue: &b1, alpha: &a1)
-        UIColor(other).getRed(&r2, green: &g2, blue: &b2, alpha: &a2)
-        return Color(
-            red: r1 + (r2 - r1) * t,
-            green: g1 + (g2 - g1) * t,
-            blue: b1 + (b2 - b1) * t,
-            opacity: a1 + (a2 - a1) * t
-        )
-    }
-}
+// Color(hex:) and .interpolated(to:amount:) now live in Shared/TimeMath.swift — moved out so
+// the widget extension (which can't import this file's Theme dependency) can use them too.
 
 enum Theme {
     static let skyBlue = Color(hex: "4FA9E0")

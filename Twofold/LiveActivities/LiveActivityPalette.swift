@@ -5,21 +5,11 @@
 //  Deliberately NOT sharing Theme.swift with this target (widget extensions run under a tight
 //  memory budget, and Theme is a large, evolving main-app surface) — instead a small, local
 //  copy of just the colors this widget needs. Keep these hex values in sync with Theme.swift
-//  by hand if that file's palette ever changes.
+//  by hand if that file's palette ever changes. Color(hex:) itself now lives in
+//  Shared/TimeMath.swift (also needed there, module-wide within this target).
 //
 
 import SwiftUI
-
-private extension Color {
-    init(hex: String) {
-        var hexValue = UInt64()
-        Scanner(string: hex).scanHexInt64(&hexValue)
-        let r = Double((hexValue & 0xFF0000) >> 16) / 255
-        let g = Double((hexValue & 0x00FF00) >> 8) / 255
-        let b = Double(hexValue & 0x0000FF) / 255
-        self.init(red: r, green: g, blue: b)
-    }
-}
 
 enum LiveActivityPalette {
     static let skyBlue = Color(hex: "4FA9E0")

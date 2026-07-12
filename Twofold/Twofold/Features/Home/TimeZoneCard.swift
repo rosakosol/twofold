@@ -29,15 +29,15 @@ struct TimeZoneCard: View {
     }
 
     private func cardBody(at date: Date) -> some View {
-        let hour = Self.hourFraction(in: timeZone, at: date)
-        let daylight = Self.daylightFactor(hour: hour)
+        let hour = TimeMath.hourFraction(in: timeZone, at: date)
+        let daylight = TimeMath.daylightFactor(hour: hour)
         let isDaytime = hour >= 6 && hour < 18
 
         return VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
             HStack(spacing: Theme.Spacing.xs) {
                 Text(sameCity
-                    ? "It's \(Self.timeString(in: timeZone, at: date)) right now\(cityName.map { " in \($0)" } ?? "")"
-                    : "It's \(Self.timeString(in: timeZone, at: date)) for \(person.name) right now\(cityName.map { " in \($0)" } ?? "")")
+                    ? "It's \(TimeMath.timeString(in: timeZone, at: date)) right now\(cityName.map { " in \($0)" } ?? "")"
+                    : "It's \(TimeMath.timeString(in: timeZone, at: date)) for \(person.name) right now\(cityName.map { " in \($0)" } ?? "")")
                     .font(.headline)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -48,7 +48,7 @@ struct TimeZoneCard: View {
             }
 
             if !sameCity, let comparisonTimeZone {
-                Text("It's \(Self.timeString(in: comparisonTimeZone, at: date)) for you")
+                Text("It's \(TimeMath.timeString(in: comparisonTimeZone, at: date)) for you")
                     .font(.caption)
                     .opacity(0.85)
             }
@@ -87,21 +87,6 @@ struct TimeZoneCard: View {
         .foregroundStyle(.white)
     }
 
-    static func hourFraction(in timeZone: TimeZone, at date: Date) -> Double {
-        var calendar = Calendar.current
-        calendar.timeZone = timeZone
-        let components = calendar.dateComponents([.hour, .minute], from: date)
-        return Double(components.hour ?? 0) + Double(components.minute ?? 0) / 60
-    }
-
-    /// 0 = darkest (around 1am), 1 = brightest (around 1pm), smoothly continuous through the day.
-    static func daylightFactor(hour: Double) -> Double {
-        (1 + cos(2 * .pi * (hour - 13) / 24)) / 2
-    }
-
-    static func timeString(in timeZone: TimeZone, at date: Date) -> String {
-        date.formatted(Date.FormatStyle(timeZone: timeZone).hour().minute())
-    }
 }
 
 #Preview {

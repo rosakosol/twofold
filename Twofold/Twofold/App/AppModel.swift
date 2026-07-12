@@ -161,6 +161,7 @@ final class AppModel {
             isSubscriptionActive = profile.subscriptionActive
         }
         hasCouple = true
+        Task { await WidgetSnapshotWriter.refresh(appModel: self) }
     }
 
     /// A device's own successful purchase/restore, applied instantly and locally (no network
@@ -305,6 +306,7 @@ final class AppModel {
         myDrawingURL = uploadedURL
         if uploadedURL != nil {
             Task { await BackendService.notifyPartner(event: .drawingSaved) }
+            Task { await WidgetSnapshotWriter.refresh(appModel: self) }
         }
     }
 
@@ -358,6 +360,7 @@ final class AppModel {
             memories.append(synced)
         }
         pendingMemoryIDs = stillPendingMemories
+        Task { await WidgetSnapshotWriter.refresh(appModel: self) }
     }
 
     /// Called once account creation succeeds — now happens *before* the paywall/trial screens
@@ -479,6 +482,7 @@ final class AppModel {
                 },
                 isReunion: isReunion
             )
+            Task { await WidgetSnapshotWriter.refresh(appModel: self) }
         }
     }
 
@@ -542,6 +546,7 @@ final class AppModel {
                 memories[index].photos = photos
             }
             Task { await BackendService.notifyPartner(event: .memoryAdded, detail: title) }
+            Task { await WidgetSnapshotWriter.refresh(appModel: self) }
         } catch {
             pendingMemoryIDs.insert(memory.id)
             if !imagesData.isEmpty { pendingMemoryPhotoData[memory.id] = imagesData }

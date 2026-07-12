@@ -31,7 +31,7 @@ enum SubscriptionTier: CaseIterable {
         case .plus:
             [
                 "Twofold Plus for you and your partner",
-                "Access to couple games and questions",
+                "500+ couple games and questions",
                 "Unlimited memories",
                 "Unlimited trips",
                 "Track up to 5 flights per month",

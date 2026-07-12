@@ -78,7 +78,7 @@ struct PersonalizedInsightView: View {
                     .offset(y: stage >= 1 ? 0 : 12)
 
                 VStack(spacing: Theme.Spacing.xs) {
-                    Text("\(Text(displayedKm, format: .number.precision(.fractionLength(0))).font(.system(size: 42, weight: .bold, design: .rounded).monospacedDigit()).foregroundStyle(Theme.skyBlue)) \(Text("km").font(.title2.weight(.bold)).foregroundStyle(Theme.leafGreen))")
+                    Text("\(Text(displayedKm, format: .number.precision(.fractionLength(0))).font(.system(size: 42, weight: .bold, design: .rounded).monospacedDigit()).foregroundStyle(Theme.skyBlue)) \(Text(MeasurementPreference.unitSuffix()).font(.title2.weight(.bold)).foregroundStyle(Theme.leafGreen))")
                     Text("apart")
                         .font(.headline)
                         .foregroundStyle(Theme.subtleInk)
@@ -128,14 +128,14 @@ struct PersonalizedInsightView: View {
             // Re-appearing (e.g. navigating back) skips the theatrics and shows the
             // finished state immediately.
             guard stage == 0 else {
-                displayedKm = distanceKm
+                displayedKm = MeasurementPreference.convertedValue(km: distanceKm)
                 return
             }
             try? await Task.sleep(for: .milliseconds(250))
             withAnimation(.spring(response: 0.55, dampingFraction: 0.8)) { stage = 1 }
             try? await Task.sleep(for: .milliseconds(650))
             withAnimation(.easeOut(duration: 0.25)) { stage = 2 }
-            await rollDistance(to: distanceKm)
+            await rollDistance(to: MeasurementPreference.convertedValue(km: distanceKm))
             withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) { stage = 3 }
             try? await Task.sleep(for: .milliseconds(450))
             withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) { stage = 4 }
@@ -259,7 +259,7 @@ struct PersonalizedInsightView: View {
             ShareLink(
                 item: renderSnapshot(distanceKm: distanceKm, myCity: myCity, partnerCity: partnerCity),
                 preview: SharePreview(
-                    "\(distanceKm.formatted(.number.precision(.fractionLength(0)))) km apart",
+                    "\(MeasurementPreference.distanceLabel(km: distanceKm)) apart",
                     image: renderSnapshot(distanceKm: distanceKm, myCity: myCity, partnerCity: partnerCity)
                 )
             ) {
@@ -334,7 +334,7 @@ private struct DistanceSnapshotCard: View {
             }
 
             VStack(spacing: Theme.Spacing.xs) {
-                Text("\(distanceKm.formatted(.number.precision(.fractionLength(0)))) km apart")
+                Text("\(MeasurementPreference.distanceLabel(km: distanceKm)) apart")
                     .font(.system(size: 34, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
                 Text(comparison)

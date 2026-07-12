@@ -121,7 +121,7 @@ struct TwofoldPreviewView: View {
                                 if let distanceKm {
                                     StatTile(
                                         icon: "globe",
-                                        value: "\(distanceKm.formatted(.number.precision(.fractionLength(0)))) km",
+                                        value: MeasurementPreference.distanceLabel(km: distanceKm),
                                         label: "Apart",
                                         tint: Theme.skyBlue
                                     )

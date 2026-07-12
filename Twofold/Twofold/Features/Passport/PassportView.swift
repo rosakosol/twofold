@@ -61,7 +61,7 @@ struct PassportView: View {
                     .font(.headline)
                     .foregroundStyle(Theme.subtleInk)
 
-                Text("\(Text(appModel.stats.totalDistanceKm, format: .number.precision(.fractionLength(0))).font(.system(size: 44, weight: .bold, design: .rounded)).foregroundStyle(Theme.skyBlue))\(Text(" km").font(.title.weight(.bold)).foregroundStyle(Theme.leafGreen))")
+                Text("\(Text(MeasurementPreference.convertedValue(km: appModel.stats.totalDistanceKm), format: .number.precision(.fractionLength(0))).font(.system(size: 44, weight: .bold, design: .rounded)).foregroundStyle(Theme.skyBlue))\(Text(" \(MeasurementPreference.unitSuffix())").font(.title.weight(.bold)).foregroundStyle(Theme.leafGreen))")
 
                 if !appModel.couple.sharesHomeCity {
                     Text("for each other")
@@ -245,7 +245,7 @@ private struct FullStatsView: View {
                 .font(.headline)
                 .foregroundStyle(Theme.subtleInk)
 
-            Text("\(Text(scopedTrips.reduce(0) { $0 + $1.distanceKm }, format: .number.precision(.fractionLength(0))).font(.system(size: 44, weight: .bold, design: .rounded)).foregroundStyle(Theme.skyBlue))\(Text(" km").font(.title.weight(.bold)).foregroundStyle(Theme.leafGreen))")
+            Text("\(Text(MeasurementPreference.convertedValue(km: scopedTrips.reduce(0) { $0 + $1.distanceKm }), format: .number.precision(.fractionLength(0))).font(.system(size: 44, weight: .bold, design: .rounded)).foregroundStyle(Theme.skyBlue))\(Text(" \(MeasurementPreference.unitSuffix())").font(.title.weight(.bold)).foregroundStyle(Theme.leafGreen))")
 
             if scope == .all {
                 Text(appModel.couple.sharesHomeCity ? "together" : "for each other")
@@ -278,10 +278,10 @@ private struct FullStatsView: View {
     private var distanceSection: some View {
         shareableCard(
             title: "Flight Distance",
-            value: stats.totalDistanceKm.formatted(.number.precision(.fractionLength(0))),
-            unit: "km"
+            value: Int(MeasurementPreference.convertedValue(km: stats.totalDistanceKm).rounded()).formatted(),
+            unit: MeasurementPreference.unitSuffix()
         ) {
-            Text("Average distance: \(stats.averageDistanceKm.formatted(.number.precision(.fractionLength(0)))) km")
+            Text("Average distance: \(MeasurementPreference.distanceLabel(km: stats.averageDistanceKm))")
                 .font(.caption)
                 .foregroundStyle(Theme.subtleInk)
 

@@ -2,11 +2,14 @@
 //  PartnerSetupView.swift
 //  Twofold
 //
-//  Opened from Home's "Set up your partner" card whenever there's no connected partner (fresh
-//  account, or after removing one) — a focused screen combining what was previously spread
-//  across Settings' partner card (name/photo/city) and anniversary section, plus the actual
-//  connect step, so getting a partner set up doesn't require bouncing between Home's checklist
-//  and Settings.
+//  Every partner-relationship-scoped screen in one place — reachable both pre-connection
+//  (Home's "Set up your partner" card, and Settings' "Connect with your partner" row) and
+//  post-connection (Settings' "About your partner" row, same destination, different label).
+//  Pre-connection it's name/photo/city/anniversary plus the connect step, so first-time setup
+//  doesn't require bouncing between screens. Once connected, anniversary editing moves solely to
+//  AboutRelationshipView (couple-level, not partner-specific) and this screen instead surfaces
+//  Archived Data and Remove Partner — both are about *this* partner relationship, same as
+//  everything else here.
 //
 
 import SwiftUI
@@ -23,6 +26,9 @@ struct PartnerSetupView: View {
     @State private var showingShareInvite = false
     @State private var showingRedeemCode = false
     @State private var isCreatingInvite = false
+    @State private var showingRemovePartnerConfirm = false
+    @State private var isRemovingPartner = false
+    @State private var removePartnerError: String?
 
     var body: some View {
         NavigationStack {
@@ -61,18 +67,64 @@ struct PartnerSetupView: View {
                             .foregroundStyle(Theme.subtleInk)
                     }
 
-                    SectionCard {
-                        Text("Their city").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.subtleInk)
-                        CityMenuPicker(label: "Their city", selection: $partnerCity)
+                    if appModel.partnerConnected {
+                        SectionCard {
+                            HStack {
+                                Text("City").foregroundStyle(Theme.subtleInk)
+                                Spacer()
+                                Text(appModel.partner.homeCity?.city ?? "—").foregroundStyle(Theme.ink)
+                            }
+                        }
+                    } else {
+                        SectionCard {
+                            Text("Their city").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.subtleInk)
+                            CityMenuPicker(label: "Their city", selection: $partnerCity)
+                        }
                     }
 
-                    SectionCard {
-                        Text("Anniversary").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.subtleInk)
-                        DatePicker("Together since", selection: $anniversaryDate, in: ...Date.now, displayedComponents: .date)
-                            .datePickerStyle(.compact)
+                    if !appModel.partnerConnected {
+                        SectionCard {
+                            Text("Anniversary").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.subtleInk)
+                            DatePicker("Together since", selection: $anniversaryDate, in: ...Date.now, displayedComponents: .date)
+                                .datePickerStyle(.compact)
+                        }
                     }
 
-                    connectCard
+                    if !appModel.partnerConnected {
+                        connectCard
+                    } else {
+                        SectionCard {
+                            NavigationLink {
+                                ArchivedDataView()
+                            } label: {
+                                SettingsRow(title: "Archived Data", systemImage: "archivebox")
+                            }
+                            .buttonStyle(.plain)
+                        }
+
+                        SectionCard {
+                            Button(role: .destructive) {
+                                showingRemovePartnerConfirm = true
+                            } label: {
+                                HStack {
+                                    if isRemovingPartner {
+                                        ProgressView().frame(maxWidth: .infinity)
+                                    } else {
+                                        Text("Remove Partner").frame(maxWidth: .infinity)
+                                    }
+                                }
+                            }
+                            .disabled(isRemovingPartner)
+                            Text("Archives everything you've shared, and lets you connect with someone new.")
+                                .font(.caption2)
+                                .foregroundStyle(Theme.subtleInk)
+                            if let removePartnerError {
+                                Text(removePartnerError)
+                                    .font(.caption)
+                                    .foregroundStyle(Theme.heartRed)
+                            }
+                        }
+                    }
                 }
                 .padding(Theme.Spacing.md)
             }
@@ -110,6 +162,24 @@ struct PartnerSetupView: View {
             }
             .sheet(isPresented: $showingRedeemCode) {
                 RedeemPartnerCodeView()
+            }
+            .alert("Remove \(appModel.partner.name)?", isPresented: $showingRemovePartnerConfirm) {
+                Button("Remove Partner", role: .destructive) {
+                    Task {
+                        isRemovingPartner = true
+                        removePartnerError = nil
+                        let failureReason = await appModel.removePartner()
+                        isRemovingPartner = false
+                        if let failureReason {
+                            removePartnerError = failureReason
+                        } else {
+                            dismiss()
+                        }
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This will archive all your shared trips, memories, flights, game sessions, stats, and doodles with \(appModel.partner.name) — they'll only be visible afterward in Settings' Archived Data. You'll be able to connect with someone new right away.")
             }
         }
     }
@@ -162,10 +232,16 @@ struct PartnerSetupView: View {
         isSaving = true
         Task {
             await appModel.updatePartnerName(partnerName)
-            if let partnerCity {
-                await appModel.updatePartnerHomeCity(partnerCity)
+            // City and anniversary are only editable here pre-connection — once paired, city is
+            // real shared data (not a guess) and anniversary editing lives solely in
+            // AboutRelationshipView, so saving them here post-connection would just be
+            // re-writing an unchanged value from a field that isn't even shown.
+            if !appModel.partnerConnected {
+                if let partnerCity {
+                    await appModel.updatePartnerHomeCity(partnerCity)
+                }
+                await appModel.updateAnniversaryDate(anniversaryDate)
             }
-            await appModel.updateAnniversaryDate(anniversaryDate)
             isSaving = false
             dismiss()
         }

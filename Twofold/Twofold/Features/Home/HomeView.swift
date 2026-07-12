@@ -83,7 +83,7 @@ struct HomeView: View {
                     Button {
                         showingSettings = true
                     } label: {
-                        Image(systemName: "line.3.horizontal")
+                        AvatarView(person: appModel.currentUser, size: 30)
                     }
                 }
                 ToolbarItem(placement: .principal) {
@@ -325,7 +325,7 @@ struct HomeView: View {
                     Text("DISTANCE BETWEEN YOU")
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(Theme.subtleInk)
-                    Text("\(distanceKm.formatted(.number.precision(.fractionLength(0)))) km")
+                    Text(MeasurementPreference.distanceLabel(km: distanceKm))
                         .font(.title.weight(.bold))
                 }
                 Spacer()

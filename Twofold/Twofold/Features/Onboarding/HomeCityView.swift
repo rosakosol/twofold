@@ -11,6 +11,7 @@ struct HomeCityView: View {
     @State private var selected: Place?
     @State private var isSaving = false
     @State private var errorMessage: String?
+    @State private var locationService = HomeLocationService()
 
     var body: some View {
         OnboardingScaffold(
@@ -19,10 +20,38 @@ struct HomeCityView: View {
             content: {
                 VStack(spacing: Theme.Spacing.sm) {
                     CityMenuPicker(label: "Your city", selection: $selected)
+
+                    Button {
+                        locationService.requestCurrentLocation()
+                    } label: {
+                        HStack {
+                            if locationService.state == .requesting {
+                                ProgressView()
+                                Text("Finding your city…").foregroundStyle(Theme.subtleInk)
+                            } else {
+                                Label("Use my current location", systemImage: "location.fill")
+                                    .foregroundStyle(Theme.skyBlue)
+                            }
+                            Spacer()
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(locationService.state == .requesting)
+
                     if let errorMessage {
                         Text(errorMessage)
                             .font(.caption)
                             .foregroundStyle(Theme.heartRed)
+                    }
+                    if case .deniedOrRestricted = locationService.state {
+                        Text("Location access is off — you can still search for your city above.")
+                            .font(.caption2)
+                            .foregroundStyle(Theme.subtleInk)
+                    }
+                }
+                .onChange(of: locationService.state) { _, newState in
+                    if case .resolved(let place) = newState {
+                        selected = place
                     }
                 }
             },

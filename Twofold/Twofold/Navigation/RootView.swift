@@ -11,6 +11,7 @@ struct RootView: View {
     @State private var subscriptionStore = SubscriptionStore()
     @State private var pendingInviteCode: String?
     @State private var showingPartnerConnectedCelebration = false
+    @State private var showingPaywallFromWidget = false
 
     var body: some View {
         Group {
@@ -38,6 +39,7 @@ struct RootView: View {
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
                 Task { await checkSubscription() }
+                Task { await WidgetSnapshotWriter.refresh(appModel: appModel) }
             }
         }
         // Only meaningful once signed in — `OnboardingCoordinatorView` has its own `onOpenURL`
@@ -45,11 +47,18 @@ struct RootView: View {
         // handling). This is what makes an invite link work for anyone who already has an
         // account, paired or not — previously it was a silent no-op for them.
         .onOpenURL { url in
-            guard appModel.hasCouple, let code = InviteCode.code(from: url) else { return }
-            pendingInviteCode = code
+            guard appModel.hasCouple else { return }
+            if WidgetDeepLink.isPaywallLink(url) {
+                showingPaywallFromWidget = true
+            } else if let code = InviteCode.code(from: url) {
+                pendingInviteCode = code
+            }
         }
         .sheet(isPresented: Binding(get: { pendingInviteCode != nil }, set: { if !$0 { pendingInviteCode = nil } })) {
             RedeemPartnerCodeView(prefilledCode: pendingInviteCode)
+        }
+        .sheet(isPresented: $showingPaywallFromWidget) {
+            NavigationStack { PaywallView() }
         }
         // Fires for every post-onboarding path that can newly connect a partner — redeeming a
         // code via Settings/PartnerSetupView, or a background refresh discovering the partner

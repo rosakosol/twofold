@@ -40,7 +40,7 @@ const PREFERENCE_COLUMN: Partial<Record<EventType, string>> = {
 function buildMessage(eventType: EventType, actorName: string, detail?: string): { title: string; body: string } {
   switch (eventType) {
     case "drawing_saved":
-      return { title: "New doodle", body: `${actorName} saved a new drawing on their pad.` };
+      return { title: "New doodle", body: `${actorName} saved a new drawing` };
     case "trip_added":
       return { title: "New trip", body: detail ? `${actorName} added a trip: ${detail}.` : `${actorName} added a new trip.` };
     case "memory_added":
@@ -48,9 +48,9 @@ function buildMessage(eventType: EventType, actorName: string, detail?: string):
     case "game_started":
       return { title: "Game time", body: detail ? `${actorName} started a game: ${detail}.` : `${actorName} started a game.` };
     case "game_results_ready":
-      return { title: "Results are ready!", body: `You and ${actorName} both finished — see how you matched.` };
+      return { title: "Results are ready!", body: `You and ${actorName} both finished - see how you matched.` };
     case "game_reminder":
-      return { title: "Reminder", body: detail ? `${actorName} sent you a reminder to finish "${detail}".` : `${actorName} sent you a reminder to finish your game.` };
+      return { title: "Reminder", body: detail ? `${actorName} wants you to to complete "${detail}".` : `${actorName} sent you a reminder to complete your game.` };
   }
 }
 

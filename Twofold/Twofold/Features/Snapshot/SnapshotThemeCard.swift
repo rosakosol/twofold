@@ -40,7 +40,7 @@ struct SnapshotThemeCard: View {
                     .font(.title3.weight(.medium))
                     .foregroundStyle(theme.primaryTextColor)
 
-                Text("\(stats.totalDistanceKm.formatted(.number.precision(.fractionLength(0)))) km")
+                Text(MeasurementPreference.distanceLabel(km: stats.totalDistanceKm))
                     .font(.system(size: 52, weight: .bold, design: .rounded))
                     .foregroundStyle(theme.accentTextColor)
 

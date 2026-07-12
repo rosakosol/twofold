@@ -89,15 +89,15 @@ struct WidgetSellView: View {
     /// the top-trailing corner) — this widget mock should look like a shrunk-down version of
     /// that real card, not a from-scratch design.
     private var timezoneWidget: some View {
-        let hour = TimeZoneCard.hourFraction(in: partnerTimeZone, at: .now)
-        let daylight = TimeZoneCard.daylightFactor(hour: hour)
+        let hour = TimeMath.hourFraction(in: partnerTimeZone, at: .now)
+        let daylight = TimeMath.daylightFactor(hour: hour)
         let isDaytime = hour >= 6 && hour < 18
 
         return VStack(alignment: .leading, spacing: 4) {
             Image(systemName: isDaytime ? "sun.max.fill" : "moon.stars.fill")
                 .font(.title3)
             Spacer()
-            Text(TimeZoneCard.timeString(in: partnerTimeZone, at: .now))
+            Text(TimeMath.timeString(in: partnerTimeZone, at: .now))
                 .font(.system(size: 40, weight: .bold, design: .rounded))
             Text(partnerCityLabel)
                 .font(.subheadline)
@@ -184,8 +184,8 @@ struct WidgetSellView: View {
     /// Same day/night gradient as the timezone widget, with a sun/moon watermark behind the
     /// time half and a matching cloud watermark behind the weather half.
     private var largeWidget: some View {
-        let hour = TimeZoneCard.hourFraction(in: partnerTimeZone, at: .now)
-        let daylight = TimeZoneCard.daylightFactor(hour: hour)
+        let hour = TimeMath.hourFraction(in: partnerTimeZone, at: .now)
+        let daylight = TimeMath.daylightFactor(hour: hour)
         let isDaytime = hour >= 6 && hour < 18
 
         return HStack(spacing: 0) {
@@ -193,7 +193,7 @@ struct WidgetSellView: View {
                 Image(systemName: isDaytime ? "sun.max.fill" : "moon.stars.fill")
                     .font(.subheadline)
                 Spacer()
-                Text(TimeZoneCard.timeString(in: partnerTimeZone, at: .now))
+                Text(TimeMath.timeString(in: partnerTimeZone, at: .now))
                     .font(.system(size: 28, weight: .bold, design: .rounded))
                 Text(partnerCityLabel)
                     .font(.caption)
