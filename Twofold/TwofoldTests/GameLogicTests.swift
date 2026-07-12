@@ -22,21 +22,26 @@ struct GameLogicTests {
         GameSessionRound(id: UUID(), sessionID: session, roundNumber: number, contentID: content, discussionStatus: discussionStatus)
     }
 
-    // MARK: - Waiting-for-partner / reveal visibility
+    // MARK: - Independent per-partner progress
 
-    @Test func needsAnswerWhenNoResponseYet() {
-        #expect(GameLogic.visibility(myResponse: nil, partnerResponse: nil) == .needsAnswer)
+    @Test func partnerProgressNotStartedWithZeroResponses() {
+        let partner = UUID()
+        #expect(GameLogic.partnerProgress(responses: [], partnerID: partner, totalRounds: 5) == .notStarted)
     }
 
-    @Test func waitingForPartnerAfterOnlyMyAnswer() {
-        let mine = makeResponse(round: 1, responder: UUID(), value: "A")
-        #expect(GameLogic.visibility(myResponse: mine, partnerResponse: nil) == .waitingForPartner)
+    @Test func partnerProgressInProgressWithSomeRoundsAnswered() {
+        let partner = UUID()
+        let responses = [
+            makeResponse(round: 1, responder: partner, value: "A"),
+            makeResponse(round: 2, responder: partner, value: "B"),
+        ]
+        #expect(GameLogic.partnerProgress(responses: responses, partnerID: partner, totalRounds: 5) == .inProgress(answered: 2, total: 5))
     }
 
-    @Test func revealedOnceBothHaveAnswered() {
-        let mine = makeResponse(round: 1, responder: UUID(), value: "A")
-        let partner = makeResponse(round: 1, responder: UUID(), value: "B")
-        #expect(GameLogic.visibility(myResponse: mine, partnerResponse: partner) == .revealed)
+    @Test func partnerProgressFinishedOnceAllRoundsAnswered() {
+        let partner = UUID()
+        let responses = (1...5).map { makeResponse(round: $0, responder: partner, value: "A") }
+        #expect(GameLogic.partnerProgress(responses: responses, partnerID: partner, totalRounds: 5) == .finished)
     }
 
     // MARK: - Travel Trivia Battle scoring
@@ -104,6 +109,34 @@ struct GameLogicTests {
         #expect(GameLogic.matchPercentage(matches: 0, totalRounds: 0) == 0)
     }
 
+    @Test func matchedRoundsExcludesMutualSkips() {
+        let session = UUID()
+        let a = UUID()
+        let b = UUID()
+        let rounds = [makeRound(session: session, number: 1), makeRound(session: session, number: 2)]
+        let responses = [
+            makeResponse(round: 1, responder: a, value: "Japan"),
+            makeResponse(round: 1, responder: b, value: "Japan"), // real match
+            makeResponse(round: 2, responder: a, value: ""),
+            makeResponse(round: 2, responder: b, value: ""), // mutual skip — not a "biggest match"
+        ]
+        let matched = GameLogic.matchedRounds(rounds: rounds, responses: responses, partnerAID: a, partnerBID: b)
+        #expect(matched.map(\.roundNumber) == [1])
+    }
+
+    @Test func mismatchedRoundsAreFramedForDiscussion() {
+        let session = UUID()
+        let a = UUID()
+        let b = UUID()
+        let rounds = [makeRound(session: session, number: 1)]
+        let responses = [
+            makeResponse(round: 1, responder: a, value: "Me"),
+            makeResponse(round: 1, responder: b, value: "Himself"),
+        ]
+        let mismatched = GameLogic.mismatchedRounds(rounds: rounds, responses: responses, partnerAID: a, partnerBID: b)
+        #expect(mismatched.map(\.roundNumber) == [1])
+    }
+
     // MARK: - Discuss Before Travelling completion
 
     @Test func discussionNotCompleteUntilEveryRoundIsMarked() {
@@ -130,7 +163,7 @@ struct GameLogicTests {
 
     @Test func completedSessionsOnlyExcludesActiveAndAbandoned() {
         func session(status: GameSessionStatus) -> GameSession {
-            GameSession(id: UUID(), coupleID: UUID(), gameType: .travelTrivia, initiatorID: UUID(), status: status, currentRound: 1, totalRounds: 5, startedAt: nil, completedAt: nil, createdAt: .now, updatedAt: .now)
+            GameSession(id: UUID(), coupleID: UUID(), gameType: .travelTrivia, initiatorID: UUID(), status: status, totalRounds: 5, startedAt: nil, completedAt: nil, createdAt: .now, updatedAt: .now)
         }
         let sessions = [session(status: .active), session(status: .completed), session(status: .abandoned), session(status: .waitingForPartner)]
         let completed = GameLogic.completedSessionsOnly(sessions)

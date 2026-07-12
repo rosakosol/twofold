@@ -8,20 +8,20 @@
 
 import Foundation
 
-enum RoundVisibility: Hashable {
-    /// The caller hasn't answered this round yet.
-    case needsAnswer
-    /// The caller has answered; their partner hasn't (or their answer isn't revealed yet).
-    case waitingForPartner
-    /// Both have answered — both responses are visible.
-    case revealed
-}
-
 enum GameLogic {
-    static func visibility(myResponse: GameResponse?, partnerResponse: GameResponse?) -> RoundVisibility {
-        guard myResponse != nil else { return .needsAnswer }
-        guard partnerResponse != nil else { return .waitingForPartner }
-        return .revealed
+    /// Distinct rounds a given responder has answered — the basis for independent per-partner
+    /// pacing (each partner just walks through their own unanswered rounds, no per-round
+    /// waiting on the other person).
+    static func answeredRoundNumbers(responses: [GameResponse], responderID: UUID) -> Set<Int> {
+        Set(responses.filter { $0.responderID == responderID }.map(\.roundNumber))
+    }
+
+    /// Where a specific partner is in the session, for the completion screen's status stepper.
+    static func partnerProgress(responses: [GameResponse], partnerID: UUID, totalRounds: Int) -> PartnerProgress {
+        let answered = answeredRoundNumbers(responses: responses, responderID: partnerID).count
+        if answered == 0 { return .notStarted }
+        if answered >= totalRounds { return .finished }
+        return .inProgress(answered: answered, total: totalRounds)
     }
 
     /// Number of correct answers a given responder has logged for a trivia session.
@@ -56,6 +56,27 @@ enum GameLogic {
     static func matchPercentage(matches: Int, totalRounds: Int) -> Int {
         guard totalRounds > 0 else { return 0 }
         return Int((Double(matches) / Double(totalRounds) * 100).rounded())
+    }
+
+    /// Rounds both partners answered the same (excluding mutual skips) — the results screen's
+    /// "Biggest Match" pool, in round order.
+    static func matchedRounds(rounds: [GameSessionRound], responses: [GameResponse], partnerAID: UUID, partnerBID: UUID) -> [GameSessionRound] {
+        rounds.filter { round in
+            guard let a = responses.first(where: { $0.roundNumber == round.roundNumber && $0.responderID == partnerAID }),
+                  let b = responses.first(where: { $0.roundNumber == round.roundNumber && $0.responderID == partnerBID }),
+                  !a.answerValue.isEmpty else { return false }
+            return a.answerValue == b.answerValue
+        }
+    }
+
+    /// Rounds where both partners answered but chose differently — reframed on the results
+    /// screen as "Questions to discuss" rather than "you disagreed."
+    static func mismatchedRounds(rounds: [GameSessionRound], responses: [GameResponse], partnerAID: UUID, partnerBID: UUID) -> [GameSessionRound] {
+        rounds.filter { round in
+            guard let a = responses.first(where: { $0.roundNumber == round.roundNumber && $0.responderID == partnerAID }),
+                  let b = responses.first(where: { $0.roundNumber == round.roundNumber && $0.responderID == partnerBID }) else { return false }
+            return a.answerValue != b.answerValue
+        }
     }
 
     /// A discuss-type session is done once every round has been marked "talked about" or

@@ -83,7 +83,7 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
 enum GameSessionStatus: String, Codable, Hashable {
     case draft, active
     case waitingForPartner = "waiting_for_partner"
-    case completed, abandoned
+    case completed, abandoned, archived
 }
 
 struct GameSession: Identifiable, Hashable {
@@ -92,12 +92,20 @@ struct GameSession: Identifiable, Hashable {
     var gameType: GameType
     var initiatorID: UUID
     var status: GameSessionStatus
-    var currentRound: Int
     var totalRounds: Int
     var startedAt: Date?
     var completedAt: Date?
     var createdAt: Date
     var updatedAt: Date
+}
+
+/// Where a specific partner is in a session — derived client-side from how many rounds they've
+/// answered (`GameSessionStore`), never stored: each partner progresses independently now, so
+/// there's no single shared pointer that could represent "where" both people are at once.
+enum PartnerProgress: Hashable {
+    case notStarted
+    case inProgress(answered: Int, total: Int)
+    case finished
 }
 
 enum DiscussionRoundStatus: String, Codable, Hashable {

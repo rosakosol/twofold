@@ -2,28 +2,13 @@
 //  GameSharedStates.swift
 //  Twofold
 //
-//  Small pieces of UI shared by all four game views — the reveal-pending "waiting for
-//  partner" state, the universal skip affordance, and the abandoned/error fallbacks.
+//  Small pieces of UI shared by all four game views — the universal skip affordance and the
+//  abandoned/error fallbacks. The mid-game "waiting for partner" state is gone — each partner
+//  now walks straight through their own rounds independently; see GameCompletionView for the
+//  new end-of-my-rounds waiting state instead.
 //
 
 import SwiftUI
-
-/// The "you've answered, they haven't yet" state.
-struct WaitingForPartnerView: View {
-    let partnerName: String
-
-    var body: some View {
-        VStack(spacing: Theme.Spacing.sm) {
-            ProgressView()
-            Text("Waiting for \(partnerName) to answer.")
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(Theme.subtleInk)
-                .multilineTextAlignment(.center)
-        }
-        .padding(Theme.Spacing.lg)
-        .frame(maxWidth: .infinity)
-    }
-}
 
 /// Content-safety requirement: every prompt must be skippable.
 struct SkipButton: View {

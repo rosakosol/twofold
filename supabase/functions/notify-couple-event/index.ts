@@ -10,21 +10,31 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { sendAPNs } from "../_shared/apns.ts";
 
-type EventType = "drawing_saved" | "trip_added" | "memory_added" | "game_started";
+type EventType = "drawing_saved" | "trip_added" | "memory_added" | "game_started" | "game_results_ready" | "game_reminder";
 
 interface Input {
   eventType: EventType;
   detail?: string;
 }
 
-const VALID_EVENT_TYPES: EventType[] = ["drawing_saved", "trip_added", "memory_added", "game_started"];
+const VALID_EVENT_TYPES: EventType[] = [
+  "drawing_saved",
+  "trip_added",
+  "memory_added",
+  "game_started",
+  "game_results_ready",
+  "game_reminder",
+];
 
 // Event type -> notification_preferences column, mirroring the pattern in _shared/notify.ts.
-const PREFERENCE_COLUMN: Record<EventType, string> = {
+// game_reminder is deliberately absent — it's an explicit, one-off nudge the sender chooses to
+// send each time via a "Send Reminder" button, not ambient activity, so it's never muted.
+const PREFERENCE_COLUMN: Partial<Record<EventType, string>> = {
   drawing_saved: "partner_drawing_saved",
   trip_added: "partner_trip_added",
   memory_added: "partner_memory_added",
   game_started: "partner_game_started",
+  game_results_ready: "partner_game_results_ready",
 };
 
 function buildMessage(eventType: EventType, actorName: string, detail?: string): { title: string; body: string } {
@@ -37,6 +47,10 @@ function buildMessage(eventType: EventType, actorName: string, detail?: string):
       return { title: "New memory", body: detail ? `${actorName} added a memory: ${detail}.` : `${actorName} added a new memory.` };
     case "game_started":
       return { title: "Game time", body: detail ? `${actorName} started a game: ${detail}.` : `${actorName} started a game.` };
+    case "game_results_ready":
+      return { title: "Results are ready!", body: `You and ${actorName} both finished — see how you matched.` };
+    case "game_reminder":
+      return { title: "Reminder", body: detail ? `${actorName} sent you a reminder to finish "${detail}".` : `${actorName} sent you a reminder to finish your game.` };
   }
 }
 
@@ -94,14 +108,16 @@ Deno.serve(async (req) => {
     const actorName = actorProfile?.first_name || "Your partner";
 
     const prefColumn = PREFERENCE_COLUMN[input.eventType];
-    const { data: prefRow } = await serviceClient
-      .from("notification_preferences")
-      .select(prefColumn)
-      .eq("profile_id", partnerId)
-      .maybeSingle();
-    // No row yet defaults to "notify" (matches the table's own column defaults).
-    const allowed = prefRow ? Boolean((prefRow as Record<string, unknown>)[prefColumn]) : true;
-    if (!allowed) return Response.json({ ok: true });
+    if (prefColumn) {
+      const { data: prefRow } = await serviceClient
+        .from("notification_preferences")
+        .select(prefColumn)
+        .eq("profile_id", partnerId)
+        .maybeSingle();
+      // No row yet defaults to "notify" (matches the table's own column defaults).
+      const allowed = prefRow ? Boolean((prefRow as Record<string, unknown>)[prefColumn]) : true;
+      if (!allowed) return Response.json({ ok: true });
+    }
 
     const { data: tokens } = await serviceClient
       .from("device_push_tokens")

@@ -1671,7 +1671,6 @@ enum BackendService {
         var gameType: GameType
         var initiatorId: UUID
         var status: GameSessionStatus
-        var currentRound: Int
         var totalRounds: Int
         var startedAt: Date?
         var completedAt: Date?
@@ -1683,7 +1682,6 @@ enum BackendService {
             case coupleId = "couple_id"
             case gameType = "game_type"
             case initiatorId = "initiator_id"
-            case currentRound = "current_round"
             case totalRounds = "total_rounds"
             case startedAt = "started_at"
             case completedAt = "completed_at"
@@ -1694,7 +1692,7 @@ enum BackendService {
         func toModel() -> GameSession {
             GameSession(
                 id: id, coupleID: coupleId, gameType: gameType, initiatorID: initiatorId, status: status,
-                currentRound: currentRound, totalRounds: totalRounds, startedAt: startedAt, completedAt: completedAt,
+                totalRounds: totalRounds, startedAt: startedAt, completedAt: completedAt,
                 createdAt: createdAt, updatedAt: updatedAt
             )
         }
@@ -1962,6 +1960,8 @@ enum BackendService {
         case tripAdded = "trip_added"
         case memoryAdded = "memory_added"
         case gameStarted = "game_started"
+        case gameResultsReady = "game_results_ready"
+        case gameReminder = "game_reminder"
     }
 
     /// Tells the caller's partner (if any) about something the caller just did — best-effort,
@@ -1988,8 +1988,12 @@ enum BackendService {
         var partnerTripAdded: Bool
         var partnerMemoryAdded: Bool
         var partnerGameStarted: Bool
+        var partnerGameResultsReady: Bool
 
-        static let allEnabled = CoupleNotificationPreferences(partnerDrawingSaved: true, partnerTripAdded: true, partnerMemoryAdded: true, partnerGameStarted: true)
+        static let allEnabled = CoupleNotificationPreferences(
+            partnerDrawingSaved: true, partnerTripAdded: true, partnerMemoryAdded: true,
+            partnerGameStarted: true, partnerGameResultsReady: true
+        )
     }
 
     private struct CoupleNotificationPreferencesRow: Codable {
@@ -1998,6 +2002,7 @@ enum BackendService {
         var partnerTripAdded: Bool
         var partnerMemoryAdded: Bool
         var partnerGameStarted: Bool
+        var partnerGameResultsReady: Bool
 
         enum CodingKeys: String, CodingKey {
             case profileId = "profile_id"
@@ -2005,6 +2010,7 @@ enum BackendService {
             case partnerTripAdded = "partner_trip_added"
             case partnerMemoryAdded = "partner_memory_added"
             case partnerGameStarted = "partner_game_started"
+            case partnerGameResultsReady = "partner_game_results_ready"
         }
     }
 
@@ -2024,7 +2030,8 @@ enum BackendService {
             partnerDrawingSaved: row.partnerDrawingSaved,
             partnerTripAdded: row.partnerTripAdded,
             partnerMemoryAdded: row.partnerMemoryAdded,
-            partnerGameStarted: row.partnerGameStarted
+            partnerGameStarted: row.partnerGameStarted,
+            partnerGameResultsReady: row.partnerGameResultsReady
         )
     }
 
@@ -2035,7 +2042,8 @@ enum BackendService {
             partnerDrawingSaved: prefs.partnerDrawingSaved,
             partnerTripAdded: prefs.partnerTripAdded,
             partnerMemoryAdded: prefs.partnerMemoryAdded,
-            partnerGameStarted: prefs.partnerGameStarted
+            partnerGameStarted: prefs.partnerGameStarted,
+            partnerGameResultsReady: prefs.partnerGameResultsReady
         )
         try await supabase
             .from("notification_preferences")

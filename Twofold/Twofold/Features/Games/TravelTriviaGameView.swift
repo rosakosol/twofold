@@ -2,9 +2,9 @@
 //  TravelTriviaGameView.swift
 //  Twofold
 //
-//  Competitive 5-question multiple choice quiz. Each answer is private until both partners
-//  have answered the round (enforced by `game_responses` RLS, see the games migration) —
-//  this view just walks round-by-round through whatever `GameSessionStore` reveals.
+//  Competitive 5-question multiple choice quiz. Each partner answers all their own rounds
+//  independently, at their own pace — results (including who got what right) only reveal once
+//  both partners have answered every round (see `GameSessionStore.isRevealed`).
 //
 
 import SwiftUI
@@ -15,8 +15,8 @@ struct TravelTriviaGameView: View {
     @Environment(AppModel.self) private var appModel
     @Environment(\.dismiss) private var dismiss
     @State private var store = GameSessionStore()
-    @State private var displayedRoundNumber = 1
     @State private var isSubmitting = false
+    @State private var isSendingReminder = false
 
     private var myID: UUID { appModel.currentUser.id }
     private var partnerID: UUID { appModel.partner.id }
@@ -29,11 +29,22 @@ struct TravelTriviaGameView: View {
                 GameErrorState(message: errorMessage)
             } else if let session = store.session, session.status == .abandoned {
                 GameAbandonedState()
-            } else if let round = store.rounds.first(where: { $0.roundNumber == displayedRoundNumber }),
-                      case let .trivia(question)? = store.content(for: round) {
+            } else if store.isRevealed {
+                GameResultsView(
+                    gameType: .travelTrivia, store: store, myID: myID, partnerID: partnerID,
+                    myName: appModel.currentUser.name, partnerName: appModel.partner.name,
+                    onPlayAnother: { dismiss() }
+                )
+            } else if let round = store.nextUnansweredRound(myID: myID), case let .trivia(question)? = store.content(for: round) {
                 roundView(round: round, question: question)
             } else {
-                completionView
+                GameCompletionView(
+                    partnerName: appModel.partner.name,
+                    partnerProgress: store.partnerProgress(partnerID: partnerID),
+                    isSendingReminder: isSendingReminder,
+                    onSendReminder: { Task { await sendReminder() } },
+                    onPlayAnother: { dismiss() }
+                )
             }
         }
         .background(Theme.backgroundGradient.ignoresSafeArea())
@@ -69,14 +80,7 @@ struct TravelTriviaGameView: View {
                 }
                 .frame(maxWidth: .infinity)
 
-                switch store.visibility(for: round, myID: myID) {
-                case .needsAnswer:
-                    answerOptions(round: round, question: question)
-                case .waitingForPartner:
-                    WaitingForPartnerView(partnerName: appModel.partner.name)
-                case .revealed:
-                    revealCard(round: round, question: question)
-                }
+                answerOptions(round: round, question: question)
             }
             .padding(Theme.Spacing.lg)
         }
@@ -104,92 +108,7 @@ struct TravelTriviaGameView: View {
         }
     }
 
-    private func revealCard(round: GameSessionRound, question: TriviaQuestion) -> some View {
-        let mine = store.myResponse(for: round, myID: myID)
-        let partner = store.partnerResponse(for: round, myID: myID)
-        return VStack(spacing: Theme.Spacing.md) {
-            VStack(spacing: Theme.Spacing.sm) {
-                answerRow(name: "You", value: mine?.answerValue, isCorrect: mine?.isCorrect, correctAnswer: question.correctAnswer)
-                answerRow(name: appModel.partner.name, value: partner?.answerValue, isCorrect: partner?.isCorrect, correctAnswer: question.correctAnswer)
-            }
-
-            if let explanation = question.explanation, !explanation.isEmpty {
-                Text(explanation)
-                    .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
-                    .multilineTextAlignment(.center)
-            }
-
-            Button {
-                displayedRoundNumber += 1
-            } label: {
-                Text(round.roundNumber >= store.rounds.count ? "See result" : "Next question")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-            }
-            .background(Theme.primaryButtonGradient, in: Capsule())
-            .foregroundStyle(.white)
-        }
-        .padding(Theme.Spacing.md)
-        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-    }
-
-    private func answerRow(name: String, value: String?, isCorrect: Bool?, correctAnswer: String) -> some View {
-        HStack {
-            Image(systemName: isCorrect == true ? "checkmark.circle.fill" : "xmark.circle.fill")
-                .foregroundStyle(isCorrect == true ? Theme.leafGreen : Theme.heartRed)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(name).font(.caption.weight(.semibold)).foregroundStyle(Theme.subtleInk)
-                Text(value?.isEmpty == false ? value! : "Skipped").font(.subheadline.weight(.medium))
-            }
-            Spacer(minLength: 0)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    // MARK: - Completion
-
-    private var completionView: some View {
-        let outcome = GameLogic.triviaOutcome(responses: store.responses, partnerAID: myID, partnerBID: partnerID)
-        let myScore = GameLogic.triviaScore(responses: store.responses, responderID: myID)
-        let partnerScore = GameLogic.triviaScore(responses: store.responses, responderID: partnerID)
-
-        return VStack(spacing: Theme.Spacing.lg) {
-            Image(systemName: "trophy.fill")
-                .font(.system(size: 48))
-                .foregroundStyle(Theme.leafGreen)
-
-            switch outcome {
-            case .tie:
-                Text("It's a tie!").font(.title2.weight(.bold))
-            case .winner(let winnerID):
-                Text(winnerID == myID ? "You won!" : "\(appModel.partner.name) won!")
-                    .font(.title2.weight(.bold))
-            }
-
-            HStack(spacing: Theme.Spacing.xl) {
-                StatTile(icon: "person.fill", value: "\(myScore)", label: "You", tint: Theme.skyBlue)
-                StatTile(icon: "person.fill", value: "\(partnerScore)", label: appModel.partner.name, tint: Theme.heartRed)
-            }
-
-            Button {
-                Task { await playAgain() }
-            } label: {
-                Text("Play again")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-            }
-            .background(Theme.primaryButtonGradient, in: Capsule())
-            .foregroundStyle(.white)
-            .disabled(isSubmitting)
-        }
-        .padding(Theme.Spacing.xl)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    // MARK: - Helpers
+    // MARK: - Actions
 
     private func submit(round: GameSessionRound, value: String, isCorrect: Bool) {
         isSubmitting = true
@@ -199,13 +118,10 @@ struct TravelTriviaGameView: View {
         }
     }
 
-    private func playAgain() async {
-        isSubmitting = true
-        if let newSessionID = try? await BackendService.startGameSession(gameType: .travelTrivia) {
-            displayedRoundNumber = 1
-            await store.load(sessionID: newSessionID)
-        }
-        isSubmitting = false
+    private func sendReminder() async {
+        isSendingReminder = true
+        await BackendService.notifyPartner(event: .gameReminder, detail: GameType.travelTrivia.displayName)
+        isSendingReminder = false
     }
 }
 

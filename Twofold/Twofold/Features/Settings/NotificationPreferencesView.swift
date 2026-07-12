@@ -15,6 +15,7 @@ struct NotificationPreferencesView: View {
     @State private var partnerTripAdded = true
     @State private var partnerMemoryAdded = true
     @State private var partnerGameStarted = true
+    @State private var partnerGameResultsReady = true
     @State private var isLoaded = false
 
     var body: some View {
@@ -28,6 +29,13 @@ struct NotificationPreferencesView: View {
                     Toggle("Adds a trip", isOn: $partnerTripAdded).font(.subheadline)
                     Toggle("Adds a memory", isOn: $partnerMemoryAdded).font(.subheadline)
                     Toggle("Starts a game", isOn: $partnerGameStarted).font(.subheadline)
+                }
+
+                SectionCard {
+                    Toggle("Results are ready", isOn: $partnerGameResultsReady).font(.subheadline)
+                    Text("Sent once you've both finished a game and can see how you matched.")
+                        .font(.caption2)
+                        .foregroundStyle(Theme.subtleInk)
                 }
 
                 Text("Flight updates have their own notification settings on each tracked flight.")
@@ -45,6 +53,7 @@ struct NotificationPreferencesView: View {
         .onChange(of: partnerTripAdded) { _, _ in saveIfLoaded() }
         .onChange(of: partnerMemoryAdded) { _, _ in saveIfLoaded() }
         .onChange(of: partnerGameStarted) { _, _ in saveIfLoaded() }
+        .onChange(of: partnerGameResultsReady) { _, _ in saveIfLoaded() }
     }
 
     private func load() async {
@@ -53,6 +62,7 @@ struct NotificationPreferencesView: View {
             partnerTripAdded = prefs.partnerTripAdded
             partnerMemoryAdded = prefs.partnerMemoryAdded
             partnerGameStarted = prefs.partnerGameStarted
+            partnerGameResultsReady = prefs.partnerGameResultsReady
         }
         isLoaded = true
     }
@@ -66,7 +76,8 @@ struct NotificationPreferencesView: View {
             partnerDrawingSaved: partnerDrawingSaved,
             partnerTripAdded: partnerTripAdded,
             partnerMemoryAdded: partnerMemoryAdded,
-            partnerGameStarted: partnerGameStarted
+            partnerGameStarted: partnerGameStarted,
+            partnerGameResultsReady: partnerGameResultsReady
         )
         Task { try? await BackendService.upsertCoupleNotificationPreferences(prefs) }
     }

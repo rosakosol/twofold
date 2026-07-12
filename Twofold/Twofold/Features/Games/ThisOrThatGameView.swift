@@ -2,8 +2,8 @@
 //  ThisOrThatGameView.swift
 //  Twofold
 //
-//  Quick preference/compatibility game — two options per round, match count + percentage at
-//  the end. Non-judgmental, easy to skip.
+//  Quick preference/compatibility game — two options per round. Each partner answers all their
+//  own rounds independently; match count + percentage reveal once both are done.
 //
 
 import SwiftUI
@@ -14,8 +14,8 @@ struct ThisOrThatGameView: View {
     @Environment(AppModel.self) private var appModel
     @Environment(\.dismiss) private var dismiss
     @State private var store = GameSessionStore()
-    @State private var displayedRoundNumber = 1
     @State private var isSubmitting = false
+    @State private var isSendingReminder = false
 
     private var myID: UUID { appModel.currentUser.id }
     private var partnerID: UUID { appModel.partner.id }
@@ -28,11 +28,22 @@ struct ThisOrThatGameView: View {
                 GameErrorState(message: errorMessage)
             } else if let session = store.session, session.status == .abandoned {
                 GameAbandonedState()
-            } else if let round = store.rounds.first(where: { $0.roundNumber == displayedRoundNumber }),
-                      case let .thisOrThat(prompt)? = store.content(for: round) {
+            } else if store.isRevealed {
+                GameResultsView(
+                    gameType: .thisOrThat, store: store, myID: myID, partnerID: partnerID,
+                    myName: appModel.currentUser.name, partnerName: appModel.partner.name,
+                    onPlayAnother: { dismiss() }
+                )
+            } else if let round = store.nextUnansweredRound(myID: myID), case let .thisOrThat(prompt)? = store.content(for: round) {
                 roundView(round: round, prompt: prompt)
             } else {
-                completionView
+                GameCompletionView(
+                    partnerName: appModel.partner.name,
+                    partnerProgress: store.partnerProgress(partnerID: partnerID),
+                    isSendingReminder: isSendingReminder,
+                    onSendReminder: { Task { await sendReminder() } },
+                    onPlayAnother: { dismiss() }
+                )
             }
         }
         .background(Theme.backgroundGradient.ignoresSafeArea())
@@ -57,20 +68,13 @@ struct ThisOrThatGameView: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(Theme.subtleInk)
 
-                switch store.visibility(for: round, myID: myID) {
-                case .needsAnswer:
-                    VStack(spacing: Theme.Spacing.sm) {
-                        choiceButton(title: prompt.optionA, value: ThisOrThatChoice.optionA.rawValue, round: round)
-                        Text("or").font(.caption).foregroundStyle(Theme.subtleInk)
-                        choiceButton(title: prompt.optionB, value: ThisOrThatChoice.optionB.rawValue, round: round)
-                        SkipButton(isDisabled: isSubmitting) {
-                            submit(round: round, value: "")
-                        }
+                VStack(spacing: Theme.Spacing.sm) {
+                    choiceButton(title: prompt.optionA, value: ThisOrThatChoice.optionA.rawValue, round: round)
+                    Text("or").font(.caption).foregroundStyle(Theme.subtleInk)
+                    choiceButton(title: prompt.optionB, value: ThisOrThatChoice.optionB.rawValue, round: round)
+                    SkipButton(isDisabled: isSubmitting) {
+                        submit(round: round, value: "")
                     }
-                case .waitingForPartner:
-                    WaitingForPartnerView(partnerName: appModel.partner.name)
-                case .revealed:
-                    revealCard(round: round, prompt: prompt)
                 }
             }
             .padding(Theme.Spacing.lg)
@@ -91,84 +95,6 @@ struct ThisOrThatGameView: View {
         .disabled(isSubmitting)
     }
 
-    private func revealCard(round: GameSessionRound, prompt: ThisOrThatPrompt) -> some View {
-        let mine = store.myResponse(for: round, myID: myID)
-        let partner = store.partnerResponse(for: round, myID: myID)
-        let matched = mine?.answerValue == partner?.answerValue && mine?.answerValue.isEmpty == false
-
-        return VStack(spacing: Theme.Spacing.md) {
-            VStack(spacing: Theme.Spacing.sm) {
-                choiceReveal(name: "You", answerValue: mine?.answerValue, prompt: prompt)
-                choiceReveal(name: appModel.partner.name, answerValue: partner?.answerValue, prompt: prompt)
-            }
-
-            if matched {
-                Label("You matched!", systemImage: "heart.fill")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Theme.heartRed)
-            }
-
-            Button {
-                displayedRoundNumber += 1
-            } label: {
-                Text(round.roundNumber >= store.rounds.count ? "See result" : "Next round")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-            }
-            .background(Theme.primaryButtonGradient, in: Capsule())
-            .foregroundStyle(.white)
-        }
-        .padding(Theme.Spacing.md)
-        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-    }
-
-    private func choiceReveal(name: String, answerValue: String?, prompt: ThisOrThatPrompt) -> some View {
-        HStack {
-            Text(name).font(.caption.weight(.semibold)).foregroundStyle(Theme.subtleInk)
-            Spacer()
-            Text(optionLabel(for: answerValue, prompt: prompt)).font(.subheadline.weight(.medium))
-        }
-    }
-
-    private func optionLabel(for answerValue: String?, prompt: ThisOrThatPrompt) -> String {
-        switch answerValue {
-        case ThisOrThatChoice.optionA.rawValue: prompt.optionA
-        case ThisOrThatChoice.optionB.rawValue: prompt.optionB
-        default: "Skipped"
-        }
-    }
-
-    private var completionView: some View {
-        let matches = GameLogic.matchCount(rounds: store.rounds, responses: store.responses, partnerAID: myID, partnerBID: partnerID)
-        let percentage = GameLogic.matchPercentage(matches: matches, totalRounds: store.rounds.count)
-        return VStack(spacing: Theme.Spacing.lg) {
-            Image(systemName: "arrow.left.arrow.right.circle.fill")
-                .font(.system(size: 48))
-                .foregroundStyle(.purple)
-
-            Text("\(matches) of \(store.rounds.count) matched")
-                .font(.title2.weight(.bold))
-            Text("\(percentage)% compatibility")
-                .font(.subheadline)
-                .foregroundStyle(Theme.subtleInk)
-
-            Button {
-                Task { await playAgain() }
-            } label: {
-                Text("Play again")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-            }
-            .background(Theme.primaryButtonGradient, in: Capsule())
-            .foregroundStyle(.white)
-            .disabled(isSubmitting)
-        }
-        .padding(Theme.Spacing.xl)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
     private func submit(round: GameSessionRound, value: String) {
         isSubmitting = true
         Task {
@@ -177,13 +103,10 @@ struct ThisOrThatGameView: View {
         }
     }
 
-    private func playAgain() async {
-        isSubmitting = true
-        if let newSessionID = try? await BackendService.startGameSession(gameType: .thisOrThat) {
-            displayedRoundNumber = 1
-            await store.load(sessionID: newSessionID)
-        }
-        isSubmitting = false
+    private func sendReminder() async {
+        isSendingReminder = true
+        await BackendService.notifyPartner(event: .gameReminder, detail: GameType.thisOrThat.displayName)
+        isSendingReminder = false
     }
 }
 

@@ -49,7 +49,11 @@ struct RelationshipGlobeView: View {
             }
 
             if let activeTrip {
-                MapPolyline(coordinates: [activeTrip.origin.coordinate, activeTrip.destination.coordinate])
+                // `.geodesic` (backed by MKGeodesicPolyline) draws the shortest-path curve over
+                // the sphere's surface — the default `.straight` contour is a flat-projection
+                // line that doesn't map correctly onto a rendered 3D globe, which was making
+                // the route between the two pins invisible/broken here.
+                MapPolyline(coordinates: [activeTrip.origin.coordinate, activeTrip.destination.coordinate], contourStyle: .geodesic)
                     .stroke(Theme.skyBlue, style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [1, 10]))
 
                 if animatesPath {
@@ -76,8 +80,26 @@ struct RelationshipGlobeView: View {
         }
     }
 
+    /// A real spherical midpoint (average of the two points' unit vectors on the sphere,
+    /// renormalized), not a naive average of latitude/longitude — the naive version breaks in
+    /// two ways that matter for a 3D globe: it's wrong across the antimeridian (e.g. averaging
+    /// 170°E and -170°W lands near 0° — the opposite side of the globe from both cities), and
+    /// even without wraparound it isn't the point equidistant from both on the sphere's surface.
+    /// Since a 3D globe can only ever render one hemisphere at a time no matter how far the
+    /// camera zooms out, centering on the wrong point is exactly what made a marker require
+    /// manually rotating the globe to find.
     private static func midpoint(_ a: Place, _ b: Place) -> CLLocationCoordinate2D {
-        CLLocationCoordinate2D(latitude: (a.latitude + b.latitude) / 2, longitude: (a.longitude + b.longitude) / 2)
+        let lat1 = a.latitude * .pi / 180, lon1 = a.longitude * .pi / 180
+        let lat2 = b.latitude * .pi / 180, lon2 = b.longitude * .pi / 180
+
+        let x = (cos(lat1) * cos(lon1) + cos(lat2) * cos(lon2)) / 2
+        let y = (cos(lat1) * sin(lon1) + cos(lat2) * sin(lon2)) / 2
+        let z = (sin(lat1) + sin(lat2)) / 2
+
+        let longitude = atan2(y, x)
+        let latitude = atan2(z, sqrt(x * x + y * y))
+
+        return CLLocationCoordinate2D(latitude: latitude * 180 / .pi, longitude: longitude * 180 / .pi)
     }
 
     private func pulsePoints(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D) -> [CLLocationCoordinate2D] {

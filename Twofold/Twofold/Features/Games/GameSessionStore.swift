@@ -16,29 +16,42 @@ final class GameSessionStore {
     var session: GameSession?
     var rounds: [GameSessionRound] = []
     var roundContent: [UUID: GameRoundContent] = [:]
-    /// Whatever's currently visible to the caller — RLS (not this store) is what hides a
-    /// partner's response until both have answered a round.
+    /// Whatever's currently visible to the caller — RLS (not this store) is what hides the
+    /// couple's responses entirely until the session is fully completed by both partners.
     var responses: [GameResponse] = []
     var isLoading = false
     var errorMessage: String?
 
     private var channel: RealtimeChannelV2?
 
-    var currentRound: GameSessionRound? {
-        guard let session else { return nil }
-        return rounds.first { $0.roundNumber == session.currentRound }
+    /// True once BOTH partners have answered every round — the single moment everything in
+    /// `responses` becomes visible at once (see the RLS policy on `game_responses`), replacing
+    /// the old per-round pairwise reveal.
+    var isRevealed: Bool { session?.status == .completed }
+
+    /// The next round *I* haven't answered yet — each partner walks straight through their own
+    /// unanswered rounds at their own pace, never blocked on the other person mid-game.
+    func nextUnansweredRound(myID: UUID) -> GameSessionRound? {
+        let answered = GameLogic.answeredRoundNumbers(responses: responses, responderID: myID)
+        return rounds.first { !answered.contains($0.roundNumber) }
+    }
+
+    func hasAnsweredAllRounds(myID: UUID) -> Bool {
+        guard let session else { return false }
+        return GameLogic.answeredRoundNumbers(responses: responses, responderID: myID).count >= session.totalRounds
     }
 
     func myResponse(for round: GameSessionRound, myID: UUID) -> GameResponse? {
         responses.first { $0.roundNumber == round.roundNumber && $0.responderID == myID }
     }
 
-    func partnerResponse(for round: GameSessionRound, myID: UUID) -> GameResponse? {
-        responses.first { $0.roundNumber == round.roundNumber && $0.responderID != myID }
+    func partnerResponse(for round: GameSessionRound, partnerID: UUID) -> GameResponse? {
+        responses.first { $0.roundNumber == round.roundNumber && $0.responderID == partnerID }
     }
 
-    func visibility(for round: GameSessionRound, myID: UUID) -> RoundVisibility {
-        GameLogic.visibility(myResponse: myResponse(for: round, myID: myID), partnerResponse: partnerResponse(for: round, myID: myID))
+    func partnerProgress(partnerID: UUID) -> PartnerProgress {
+        guard let session else { return .notStarted }
+        return GameLogic.partnerProgress(responses: responses, partnerID: partnerID, totalRounds: session.totalRounds)
     }
 
     func content(for round: GameSessionRound) -> GameRoundContent? {
@@ -89,16 +102,20 @@ final class GameSessionStore {
         }
     }
 
-    /// Round number is passed explicitly (the view's own walk-through pointer) rather than
-    /// read from `session.currentRound` — a resumed session's server-side "current round"
-    /// only ever points at the first round still missing an answer, but the view may still be
-    /// stepping through earlier already-revealed rounds the caller hasn't tapped past yet.
     @discardableResult
     func submit(roundNumber: Int, answerValue: String, isCorrect: Bool? = nil) async -> Bool {
         guard let session else { return false }
+        let wasRevealed = isRevealed
         do {
             try await BackendService.submitGameResponse(sessionID: session.id, roundNumber: roundNumber, answerValue: answerValue, isCorrect: isCorrect)
             await refresh()
+            // Only the submit that actually flips the session to completed notifies — the
+            // partner who finished first already has `wasRevealed == true` never occurring on
+            // their own subsequent submits (they have none left), so this can only fire once
+            // per session, from whoever's answer was the couple's last one.
+            if !wasRevealed, isRevealed {
+                await BackendService.notifyPartner(event: .gameResultsReady)
+            }
             return true
         } catch {
             errorMessage = error.localizedDescription

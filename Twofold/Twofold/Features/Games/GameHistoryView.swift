@@ -3,8 +3,9 @@
 //  Twofold
 //
 //  Completed sessions, reachable from the Games hub. Tapping a row reopens the same typed
-//  game view used for live play — since a completed session's rounds are all fully revealed,
-//  those views naturally render as a read-only result screen with no extra code path needed.
+//  game view used for live play — each one checks `GameSessionStore.isRevealed` first and
+//  routes straight to `GameResultsView` for a completed session, so no separate read-only
+//  code path is needed here.
 //
 
 import SwiftUI

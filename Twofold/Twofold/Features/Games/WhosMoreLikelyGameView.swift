@@ -2,7 +2,8 @@
 //  WhosMoreLikelyGameView.swift
 //  Twofold
 //
-//  Playful prediction game — no winner/loser language, just a match count at the end.
+//  Playful prediction game — no winner/loser language, just a match count at the end. Each
+//  partner answers all their own rounds independently; results reveal once both are done.
 //
 
 import SwiftUI
@@ -13,8 +14,8 @@ struct WhosMoreLikelyGameView: View {
     @Environment(AppModel.self) private var appModel
     @Environment(\.dismiss) private var dismiss
     @State private var store = GameSessionStore()
-    @State private var displayedRoundNumber = 1
     @State private var isSubmitting = false
+    @State private var isSendingReminder = false
 
     private var myID: UUID { appModel.currentUser.id }
     private var partnerID: UUID { appModel.partner.id }
@@ -27,11 +28,22 @@ struct WhosMoreLikelyGameView: View {
                 GameErrorState(message: errorMessage)
             } else if let session = store.session, session.status == .abandoned {
                 GameAbandonedState()
-            } else if let round = store.rounds.first(where: { $0.roundNumber == displayedRoundNumber }),
-                      case let .moreLikely(prompt)? = store.content(for: round) {
+            } else if store.isRevealed {
+                GameResultsView(
+                    gameType: .moreLikely, store: store, myID: myID, partnerID: partnerID,
+                    myName: appModel.currentUser.name, partnerName: appModel.partner.name,
+                    onPlayAnother: { dismiss() }
+                )
+            } else if let round = store.nextUnansweredRound(myID: myID), case let .moreLikely(prompt)? = store.content(for: round) {
                 roundView(round: round, prompt: prompt)
             } else {
-                completionView
+                GameCompletionView(
+                    partnerName: appModel.partner.name,
+                    partnerProgress: store.partnerProgress(partnerID: partnerID),
+                    isSendingReminder: isSendingReminder,
+                    onSendReminder: { Task { await sendReminder() } },
+                    onPlayAnother: { dismiss() }
+                )
             }
         }
         .background(Theme.backgroundGradient.ignoresSafeArea())
@@ -62,19 +74,12 @@ struct WhosMoreLikelyGameView: View {
                 }
                 .frame(maxWidth: .infinity)
 
-                switch store.visibility(for: round, myID: myID) {
-                case .needsAnswer:
-                    VStack(spacing: Theme.Spacing.sm) {
-                        choiceButton(title: "Me", personID: myID, round: round)
-                        choiceButton(title: appModel.partner.name, personID: partnerID, round: round)
-                        SkipButton(isDisabled: isSubmitting) {
-                            submit(round: round, value: "")
-                        }
+                VStack(spacing: Theme.Spacing.sm) {
+                    choiceButton(title: "Me", personID: myID, round: round)
+                    choiceButton(title: appModel.partner.name, personID: partnerID, round: round)
+                    SkipButton(isDisabled: isSubmitting) {
+                        submit(round: round, value: "")
                     }
-                case .waitingForPartner:
-                    WaitingForPartnerView(partnerName: appModel.partner.name)
-                case .revealed:
-                    revealCard(round: round)
                 }
             }
             .padding(Theme.Spacing.lg)
@@ -95,80 +100,6 @@ struct WhosMoreLikelyGameView: View {
         .disabled(isSubmitting)
     }
 
-    private func revealCard(round: GameSessionRound) -> some View {
-        let mine = store.myResponse(for: round, myID: myID)
-        let partner = store.partnerResponse(for: round, myID: myID)
-        let matched = mine?.answerValue == partner?.answerValue && mine?.answerValue.isEmpty == false
-
-        return VStack(spacing: Theme.Spacing.md) {
-            VStack(spacing: Theme.Spacing.sm) {
-                choiceReveal(name: "You", answerValue: mine?.answerValue)
-                choiceReveal(name: appModel.partner.name, answerValue: partner?.answerValue)
-            }
-
-            if matched {
-                Label("You matched!", systemImage: "heart.fill")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Theme.heartRed)
-            }
-
-            Button {
-                displayedRoundNumber += 1
-            } label: {
-                Text(round.roundNumber >= store.rounds.count ? "See result" : "Next round")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-            }
-            .background(Theme.primaryButtonGradient, in: Capsule())
-            .foregroundStyle(.white)
-        }
-        .padding(Theme.Spacing.md)
-        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-    }
-
-    private func choiceReveal(name: String, answerValue: String?) -> some View {
-        HStack {
-            Text(name).font(.caption.weight(.semibold)).foregroundStyle(Theme.subtleInk)
-            Spacer()
-            Text(personName(for: answerValue)).font(.subheadline.weight(.medium))
-        }
-    }
-
-    private func personName(for answerValue: String?) -> String {
-        guard let answerValue, !answerValue.isEmpty else { return "Skipped" }
-        if answerValue == myID.uuidString { return "You" }
-        if answerValue == partnerID.uuidString { return appModel.partner.name }
-        return "—"
-    }
-
-    private var completionView: some View {
-        let matches = GameLogic.matchCount(rounds: store.rounds, responses: store.responses, partnerAID: myID, partnerBID: partnerID)
-        return VStack(spacing: Theme.Spacing.lg) {
-            Image(systemName: "person.2.wave.2.fill")
-                .font(.system(size: 48))
-                .foregroundStyle(Theme.heartRed)
-
-            Text("You matched on \(matches) out of \(store.rounds.count)")
-                .font(.title2.weight(.bold))
-                .multilineTextAlignment(.center)
-
-            Button {
-                Task { await playAgain() }
-            } label: {
-                Text("Play again")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-            }
-            .background(Theme.primaryButtonGradient, in: Capsule())
-            .foregroundStyle(.white)
-            .disabled(isSubmitting)
-        }
-        .padding(Theme.Spacing.xl)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
     private func submit(round: GameSessionRound, value: String) {
         isSubmitting = true
         Task {
@@ -177,13 +108,10 @@ struct WhosMoreLikelyGameView: View {
         }
     }
 
-    private func playAgain() async {
-        isSubmitting = true
-        if let newSessionID = try? await BackendService.startGameSession(gameType: .moreLikely) {
-            displayedRoundNumber = 1
-            await store.load(sessionID: newSessionID)
-        }
-        isSubmitting = false
+    private func sendReminder() async {
+        isSendingReminder = true
+        await BackendService.notifyPartner(event: .gameReminder, detail: GameType.moreLikely.displayName)
+        isSendingReminder = false
     }
 }
 
