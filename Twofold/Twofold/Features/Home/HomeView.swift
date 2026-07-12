@@ -19,6 +19,7 @@ struct HomeView: View {
     @State private var reviewingShare: PendingFlightShare?
     @State private var weatherReading: CurrentWeatherReading?
     @State private var weatherFetchedForCityID: UUID?
+    @State private var flightCarouselPage: Flight.ID?
     @AppStorage("setupChecklistDismissed") private var setupChecklistDismissed = false
 
     private var distanceKm: Double? {
@@ -328,7 +329,7 @@ struct HomeView: View {
                 Button {
                     showingSnapshot = true
                 } label: {
-                    Image(systemName: "paperplane.circle.fill")
+                    Image(systemName: "square.and.arrow.up.circle.fill")
                         .font(.title2)
                         .foregroundStyle(Theme.skyBlue)
                 }
@@ -346,7 +347,7 @@ struct HomeView: View {
     /// Swipeable, one-card-per-page carousel when tracking more than one flight — `flights` is
     /// already sorted soonest-departure-first by `AppModel.activeOrUpcomingFlights`. Falls back
     /// to a single plain card (no paging chrome) when there's just one, since a carousel of one
-    /// page reads oddly.
+    /// page (and a single dot) reads oddly.
     private func flightCarousel(flights: [Flight]) -> some View {
         Group {
             if flights.count == 1 {
@@ -357,23 +358,36 @@ struct HomeView: View {
                 }
                 .buttonStyle(.plain)
             } else {
-                ScrollView(.horizontal) {
-                    HStack(spacing: Theme.Spacing.sm) {
-                        ForEach(flights) { flight in
-                            NavigationLink {
-                                FlightTrackingView(flight: flight)
-                            } label: {
-                                activeFlightCard(flight: flight)
+                VStack(spacing: Theme.Spacing.sm) {
+                    ScrollView(.horizontal) {
+                        HStack(spacing: Theme.Spacing.sm) {
+                            ForEach(flights) { flight in
+                                NavigationLink {
+                                    FlightTrackingView(flight: flight)
+                                } label: {
+                                    activeFlightCard(flight: flight)
+                                }
+                                .buttonStyle(.plain)
+                                .containerRelativeFrame(.horizontal)
+                                .id(flight.id)
                             }
-                            .buttonStyle(.plain)
-                            .containerRelativeFrame(.horizontal)
+                        }
+                        .scrollTargetLayout()
+                    }
+                    .scrollTargetBehavior(.paging)
+                    .scrollIndicators(.hidden)
+                    .scrollClipDisabled()
+                    .scrollPosition(id: $flightCarouselPage)
+
+                    HStack(spacing: 6) {
+                        ForEach(flights) { flight in
+                            Circle()
+                                .fill(flight.id == (flightCarouselPage ?? flights.first?.id) ? Theme.skyBlue : Theme.subtleInk.opacity(0.25))
+                                .frame(width: 6, height: 6)
                         }
                     }
-                    .scrollTargetLayout()
+                    .animation(.easeInOut(duration: 0.2), value: flightCarouselPage)
                 }
-                .scrollTargetBehavior(.paging)
-                .scrollIndicators(.hidden)
-                .scrollClipDisabled()
             }
         }
     }
@@ -418,7 +432,7 @@ struct HomeView: View {
             .frame(height: 5)
 
             if flight.status.isActivelyTracked {
-                FlightMapView(flight: flight, interactive: false)
+                FlightMapView(flight: flight, interactive: false, regionPadding: 0.9)
                     .frame(height: 140)
                     .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                     .allowsHitTesting(false)

@@ -23,6 +23,8 @@
 	</array>
 	<key>GIDClientID</key>
 	<string>220566699855-vdk5b551vh0gq13s1jejk88amcgc96pm.apps.googleusercontent.com</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Twofold uses your camera to capture boarding passes and travel documents.</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>UIBackgroundModes</key>

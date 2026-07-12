@@ -16,6 +16,10 @@ struct FlightMapView: View {
     @Environment(AppModel.self) private var appModel
     let flight: Flight
     var interactive: Bool = true
+    /// Extra margin around the origin/destination bounding box, as a fraction of its size.
+    /// Short/wide frames (e.g. a Home card) need more than a tall one (the full tracking
+    /// screen) to comfortably fit both endpoints without either being cropped near the edge.
+    var regionPadding: Double = 0.4
 
     /// Resolved directly from the flight (set explicitly when adding it) rather than a linked
     /// trip — flights don't require one, so this is the only reliable source now.
@@ -23,9 +27,14 @@ struct FlightMapView: View {
         flight.travelerID.flatMap { appModel.couple.partner($0) }
     }
 
+    /// Drives the route line's breathing pulse — toggled once in `.onAppear` inside a
+    /// `repeatForever` animation, so every opacity/width read below animates continuously
+    /// rather than sitting static.
+    @State private var pulse = false
+
     var body: some View {
         if let origin = flight.origin.coordinate, let destination = flight.destination.coordinate {
-            Map(initialPosition: .region(Self.region(containing: origin, destination)), interactionModes: interactive ? .all : []) {
+            Map(initialPosition: .region(Self.region(containing: origin, destination, padding: regionPadding)), interactionModes: interactive ? .all : []) {
                 Annotation(flight.origin.displayCode, coordinate: origin) {
                     endpointMarker
                 }
@@ -33,13 +42,15 @@ struct FlightMapView: View {
                     endpointMarker
                 }
 
-                // A light halo underneath a bolder, higher-contrast line — a plain sky-blue
-                // dash all but disappears against ocean on the standard map style, so this
-                // stays legible over water, land, or anything else.
+                // A light halo underneath a solid, higher-contrast line — even a saturated color
+                // can wash out against ocean/land on the standard map style, so the white
+                // outline keeps it legible everywhere regardless of what's underneath. The
+                // colored line itself breathes gently (opacity + width) via `pulse` so the
+                // route reads as "live," not a static overlay.
                 MapPolyline(coordinates: [origin, destination], contourStyle: .geodesic)
                     .stroke(.white.opacity(0.9), style: StrokeStyle(lineWidth: 6, lineCap: .round))
                 MapPolyline(coordinates: [origin, destination], contourStyle: .geodesic)
-                    .stroke(Theme.heartRed, style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [10, 7]))
+                    .stroke(Theme.skyBlue.opacity(pulse ? 1 : 0.6), style: StrokeStyle(lineWidth: pulse ? 4.5 : 3, lineCap: .round))
 
                 // Only one icon rides the route itself — the live position marker (avatar if
                 // we know who's traveling, otherwise a plane). The endpoints above are plain
@@ -56,6 +67,11 @@ struct FlightMapView: View {
             }
             .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
             .allowsHitTesting(interactive)
+            .onAppear {
+                withAnimation(.easeInOut(duration: 1.3).repeatForever(autoreverses: true)) {
+                    pulse = true
+                }
+            }
         } else {
             fallback
         }
@@ -107,7 +123,7 @@ struct FlightMapView: View {
         }
     }
 
-    private static func region(containing a: CLLocationCoordinate2D, _ b: CLLocationCoordinate2D) -> MKCoordinateRegion {
+    private static func region(containing a: CLLocationCoordinate2D, _ b: CLLocationCoordinate2D, padding: Double) -> MKCoordinateRegion {
         let pointA = MKMapPoint(a)
         let pointB = MKMapPoint(b)
         let minSize = 2_000_000.0
@@ -117,7 +133,7 @@ struct FlightMapView: View {
             width: max(abs(pointA.x - pointB.x), minSize),
             height: max(abs(pointA.y - pointB.y), minSize)
         )
-        let padded = rect.insetBy(dx: -rect.width * 0.4, dy: -rect.height * 0.4)
+        let padded = rect.insetBy(dx: -rect.width * padding, dy: -rect.height * padding)
         return MKCoordinateRegion(padded)
     }
 }

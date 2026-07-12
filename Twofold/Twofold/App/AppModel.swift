@@ -433,6 +433,15 @@ final class AppModel {
         }
     }
 
+    /// Stops tracking a flight entirely (swipe-to-remove on the Trips tab). Re-runs
+    /// `refreshFlights()` afterward rather than just filtering `flights` locally so the Live
+    /// Activity sync/reconcile logic there — which already ends an Activity for any flight that
+    /// disappeared from the fetched list — handles cleanup without duplicating that logic here.
+    func deleteFlight(_ flight: Flight) async {
+        try? await BackendService.deleteFlight(id: flight.id)
+        await refreshFlights()
+    }
+
     /// "Reunion" framing (the app's existing romantic language for "your partner is on their
     /// way to you") applies whenever the signed-in user isn't the one who added/is tracking
     /// this flight — defaults to true when `createdBy` is unset (e.g. an older row) since most

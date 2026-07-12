@@ -67,6 +67,13 @@ struct TripsListView: View {
                             } label: {
                                 FlightRowView(flight: flight)
                             }
+                            .swipeActions(edge: .trailing) {
+                                Button(role: .destructive) {
+                                    Task { await appModel.deleteFlight(flight) }
+                                } label: {
+                                    Label("Remove", systemImage: "trash")
+                                }
+                            }
                         }
                     }
                 }

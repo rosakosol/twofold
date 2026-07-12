@@ -11,6 +11,7 @@
 import PhotosUI
 import Supabase
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct FlightTrackingView: View {
     @Environment(AppModel.self) private var appModel
@@ -33,8 +34,12 @@ struct FlightTrackingView: View {
     @State private var baggageClaimNotif = true
     @State private var preferencesLoaded = false
 
-    // Document upload
-    @State private var pendingDocType: FlightDocumentType?
+    // Document upload — tapping a card first asks which source to pull from, then routes to
+    // exactly one of the three pickers below.
+    @State private var sourceChoiceDocType: FlightDocumentType?
+    @State private var photosPickerDocType: FlightDocumentType?
+    @State private var cameraDocType: FlightDocumentType?
+    @State private var fileImporterDocType: FlightDocumentType?
     @State private var documentPickerItem: PhotosPickerItem?
     @State private var isUploadingDocument = false
     @State private var showingTripNotes = false
@@ -408,16 +413,64 @@ struct FlightTrackingView: View {
                 }
             }
         }
-        .photosPicker(isPresented: Binding(get: { pendingDocType != nil }, set: { if !$0 { pendingDocType = nil } }), selection: $documentPickerItem, matching: .images)
+        .confirmationDialog(
+            "Add from…",
+            isPresented: Binding(get: { sourceChoiceDocType != nil }, set: { if !$0 { sourceChoiceDocType = nil } }),
+            titleVisibility: .visible
+        ) {
+            Button("Photo Library") {
+                photosPickerDocType = sourceChoiceDocType
+                sourceChoiceDocType = nil
+            }
+            Button("Take Photo") {
+                cameraDocType = sourceChoiceDocType
+                sourceChoiceDocType = nil
+            }
+            Button("Choose File") {
+                fileImporterDocType = sourceChoiceDocType
+                sourceChoiceDocType = nil
+            }
+            Button("Cancel", role: .cancel) { sourceChoiceDocType = nil }
+        }
+        .photosPicker(isPresented: Binding(get: { photosPickerDocType != nil }, set: { if !$0 { photosPickerDocType = nil } }), selection: $documentPickerItem, matching: .images)
         .onChange(of: documentPickerItem) { _, newItem in
-            guard let newItem, let docType = pendingDocType else { return }
-            Task { await uploadDocument(item: newItem, type: docType) }
+            guard let newItem, let docType = photosPickerDocType else { return }
+            photosPickerDocType = nil
+            Task { await uploadPickedPhoto(newItem, type: docType) }
+        }
+        .fullScreenCover(isPresented: Binding(get: { cameraDocType != nil }, set: { if !$0 { cameraDocType = nil } })) {
+            if let docType = cameraDocType {
+                CameraPicker(
+                    onCapture: { image in
+                        cameraDocType = nil
+                        Task { await uploadImageDocument(image, type: docType) }
+                    },
+                    onCancel: { cameraDocType = nil }
+                )
+                .ignoresSafeArea()
+            }
+        }
+        .fileImporter(
+            isPresented: Binding(get: { fileImporterDocType != nil }, set: { if !$0 { fileImporterDocType = nil } }),
+            allowedContentTypes: [.pdf, .image, .data],
+            allowsMultipleSelection: false
+        ) { result in
+            guard let docType = fileImporterDocType else { return }
+            fileImporterDocType = nil
+            if case .success(let urls) = result, let url = urls.first {
+                Task { await uploadFileDocument(at: url, type: docType) }
+            }
         }
     }
 
+    /// Boarding passes/travel documents can come from anywhere the traveler happens to have
+    /// them saved — a photo they took at check-in, a screenshot, or a PDF/pass file saved from
+    /// Mail or Wallet's own "Save to Files" share action (there's no public API to browse a
+    /// user's existing Wallet passes directly from a third-party app, so Files is the closest,
+    /// honest equivalent).
     private func documentActionCard(type: FlightDocumentType, title: String) -> some View {
         Button {
-            pendingDocType = type
+            sourceChoiceDocType = type
         } label: {
             documentCardLabel(icon: type.icon, title: title)
         }
@@ -635,9 +688,13 @@ struct FlightTrackingView: View {
         isRefreshing = false
     }
 
-    private func uploadDocument(item: PhotosPickerItem, type: FlightDocumentType) async {
-        pendingDocType = nil
+    private func uploadPickedPhoto(_ item: PhotosPickerItem, type: FlightDocumentType) async {
         guard let data = try? await item.loadTransferable(type: Data.self), let uiImage = UIImage(data: data) else { return }
+        await uploadImageDocument(uiImage, type: type)
+        documentPickerItem = nil
+    }
+
+    private func uploadImageDocument(_ uiImage: UIImage, type: FlightDocumentType) async {
         let resized = uiImage.resized(maxDimension: 2000)
         guard let jpeg = resized.jpegData(compressionQuality: 0.85) else { return }
         isUploadingDocument = true
@@ -648,7 +705,25 @@ struct FlightTrackingView: View {
             documents.insert(document, at: 0)
         }
         isUploadingDocument = false
-        documentPickerItem = nil
+    }
+
+    /// Files (unlike the Photos/camera paths) can be anything the user picked — a PDF boarding
+    /// pass, a `.pkpass`, whatever — so this uploads the raw bytes as-is rather than forcing a
+    /// decode through `UIImage`.
+    private func uploadFileDocument(at url: URL, type: FlightDocumentType) async {
+        guard url.startAccessingSecurityScopedResource() else { return }
+        defer { url.stopAccessingSecurityScopedResource() }
+        guard let data = try? Data(contentsOf: url) else { return }
+        let fileExtension = url.pathExtension.isEmpty ? "dat" : url.pathExtension
+        let contentType = UTType(filenameExtension: fileExtension)?.preferredMIMEType ?? "application/octet-stream"
+        isUploadingDocument = true
+        if let document = try? await BackendService.insertFlightDocument(
+            coupleID: appModel.couple.id, flightID: flight.id, tripID: nil,
+            docType: type, data: data, contentType: contentType, fileExtension: fileExtension, originalFilename: url.lastPathComponent
+        ) {
+            documents.insert(document, at: 0)
+        }
+        isUploadingDocument = false
     }
 
     private static func relativeShort(_ date: Date) -> String {

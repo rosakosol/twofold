@@ -1032,6 +1032,16 @@ enum BackendService {
         return rows.first.map(Self.makeFlight)
     }
 
+    /// Stops tracking a flight entirely — status events, notification preferences, and
+    /// documents all cascade-delete with it (see the flights_delete_members migration).
+    static func deleteFlight(id: UUID) async throws {
+        try await supabase
+            .from("flights")
+            .delete()
+            .eq("id", value: id)
+            .execute()
+    }
+
     // MARK: - Flight status events (provider-sourced) & notification preferences
 
     private struct FlightStatusEventRow: Decodable {

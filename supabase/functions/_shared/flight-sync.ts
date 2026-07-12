@@ -365,6 +365,17 @@ export async function syncFlight(
 
   const update: Record<string, unknown> = { ...mapped, last_refreshed_at: new Date().toISOString() };
 
+  // AeroAPI's regular /flights poll response almost never carries lat/long (only the dedicated
+  // /airports/{id} lookup does, see mapAeroFlightToRow's comment above) — mapped.origin_latitude
+  // etc. are therefore null on nearly every poll. Coalescing onto the already-known coordinate
+  // here (not just when backfill runs) stops a routine poll from clobbering a previously-resolved
+  // coordinate back to null, which was making the map flash to its "no route data" fallback and
+  // silently dropping the live position marker (avatar/plane) along with it.
+  update.origin_latitude = mapped.origin_latitude ?? flightRow.origin_latitude;
+  update.origin_longitude = mapped.origin_longitude ?? flightRow.origin_longitude;
+  update.destination_latitude = mapped.destination_latitude ?? flightRow.destination_latitude;
+  update.destination_longitude = mapped.destination_longitude ?? flightRow.destination_longitude;
+
   const coordinatePatch = await backfillAirportCoordinates(flightRow, mapped);
   Object.assign(update, coordinatePatch);
 
