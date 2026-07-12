@@ -1479,6 +1479,21 @@ enum BackendService {
             .execute()
     }
 
+    private struct FlightTravelerUpdate: Encodable {
+        var travelerId: UUID?
+        enum CodingKeys: String, CodingKey { case travelerId = "traveler_id" }
+    }
+
+    /// Same gap as `flight.tripID` used to be — `travelerID` was only ever set once, at
+    /// add-flight time, with no way to change it afterward. Pass `nil` to clear it.
+    static func setFlightTraveler(flightID: UUID, travelerID: UUID?) async throws {
+        try await supabase
+            .from("flights")
+            .update(FlightTravelerUpdate(travelerId: travelerID))
+            .eq("id", value: flightID)
+            .execute()
+    }
+
     /// Pass `nil` to unlink — the only write path for `memories.trip_id`, since a memory has
     /// no other route to a trip (no automatic place/date matching).
     static func setMemoryTrip(memoryID: UUID, tripID: UUID?) async throws {

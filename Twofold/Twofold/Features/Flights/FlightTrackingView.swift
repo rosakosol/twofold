@@ -81,6 +81,7 @@ struct FlightTrackingView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
                 header
+                travelerCard
                 mapSection
                 journeyCard
                 departureCard
@@ -163,6 +164,54 @@ struct FlightTrackingView: View {
             }
         }
         .frame(maxWidth: .infinity)
+    }
+
+    /// `travelerID` used to be write-once (set only at add-flight time, in
+    /// `FlightConfirmationView`) with no way to change it afterward — same gap `linkFlight`/
+    /// `unlinkFlight` closed for trip linking. Mutates the local `flight` copy immediately for
+    /// snappy UI, same pattern `refreshFromProvider()` already uses elsewhere on this screen.
+    private var travelerCard: some View {
+        SectionCard {
+            HStack {
+                Text("Who's travelling?").font(.subheadline.weight(.semibold))
+                Spacer()
+                Menu {
+                    Button {
+                        setTraveler(appModel.currentUser.id)
+                    } label: {
+                        Label(appModel.currentUser.name, systemImage: flight.travelerID == appModel.currentUser.id ? "checkmark.circle.fill" : "circle")
+                    }
+                    Button {
+                        setTraveler(appModel.partner.id)
+                    } label: {
+                        Label(appModel.partner.name, systemImage: flight.travelerID == appModel.partner.id ? "checkmark.circle.fill" : "circle")
+                    }
+                    if flight.travelerID != nil {
+                        Button(role: .destructive) {
+                            setTraveler(nil)
+                        } label: {
+                            Label("Clear", systemImage: "xmark.circle")
+                        }
+                    }
+                } label: {
+                    HStack(spacing: Theme.Spacing.xs) {
+                        if let traveler {
+                            AvatarView(person: traveler, size: 22)
+                            Text(traveler.name)
+                        } else {
+                            Text("Not set")
+                        }
+                        Image(systemName: "chevron.up.chevron.down").font(.caption2)
+                    }
+                    .foregroundStyle(Theme.ink)
+                }
+            }
+        }
+    }
+
+    private func setTraveler(_ travelerID: UUID?) {
+        flight.travelerID = travelerID
+        Task { await appModel.setFlightTraveler(flight, travelerID: travelerID) }
     }
 
     private var shareText: String {
