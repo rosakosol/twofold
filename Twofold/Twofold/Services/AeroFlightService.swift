@@ -135,6 +135,24 @@ enum AeroFlightService {
         let _: EmptyDecodable = try await call("refresh-flight", body: ["flightId": id.uuidString])
     }
 
+    /// Registers (upserts) this device's Live Activity push token — called by
+    /// `LiveActivityManager` whenever ActivityKit hands over a fresh token via
+    /// `Activity.pushTokenUpdates`, which can fire more than once over an Activity's lifetime.
+    static func registerLiveActivityToken(flightID: UUID, activityID: String, pushToken: String, environment: String) async throws {
+        let _: EmptyDecodable = try await call("register-live-activity-token", body: [
+            "flightId": flightID.uuidString,
+            "activityId": activityID,
+            "pushToken": pushToken,
+            "environment": environment,
+        ])
+    }
+
+    /// Removes a Live Activity's push token once it ends — best-effort, called from
+    /// `LiveActivityManager.endActivity`.
+    static func endLiveActivityToken(activityID: String) async throws {
+        let _: EmptyDecodable = try await call("end-live-activity-token", body: ["activityId": activityID])
+    }
+
     private struct EmptyDecodable: Decodable {}
 
     private static func dateOnly(_ date: Date) -> String {

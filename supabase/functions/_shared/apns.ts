@@ -146,3 +146,68 @@ export async function sendAPNs(
     console.error(`[apns] send threw (${environment}):`, (err as Error).message);
   }
 }
+
+/// Seconds between the Unix epoch (1970-01-01) and the Cocoa reference date (2001-01-01) —
+/// Swift's default JSONDecoder decodes `Date` fields as seconds since the *Cocoa* reference
+/// date, not Unix epoch. Every Date field inside a Live Activity's `content-state` must be
+/// converted with this before being sent; `aps.timestamp`/`stale-date`/`dismissal-date`
+/// themselves stay plain Unix seconds — do not run those through this helper.
+const COCOA_EPOCH_OFFSET_SECONDS = 978_307_200;
+
+export function toCocoaTimestamp(date: Date): number {
+  return Math.round(date.getTime() / 1000) - COCOA_EPOCH_OFFSET_SECONDS;
+}
+
+/// Sends a Live Activity content-state update (or ends the Activity) — distinct push type from
+/// `sendAPNs`'s plain alert notifications: different topic suffix, different payload shape
+/// (`content-state` instead of `alert`), and the push token here is per-*Activity*
+/// (`live_activity_push_tokens.push_token`, from `activity.pushTokenUpdates` client-side), not
+/// a per-device token. Reuses the same JWT signing/caching as `sendAPNs` — only headers/topic/
+/// body differ between push types.
+export async function sendLiveActivityUpdate(
+  pushToken: string,
+  environment: ApnsEnvironment,
+  contentState: Record<string, unknown>,
+  event: "update" | "end",
+  opts?: { alert?: { title: string; body: string }; staleDateUnix?: number; dismissalDateUnix?: number },
+): Promise<void> {
+  if (!hasApnsConfig(environment)) {
+    console.log(`[apns] skipping live activity send — ${environment} APNs secrets not configured yet`);
+    return;
+  }
+
+  try {
+    const jwt = await getApnsJwt(environment);
+    const bundleId = Deno.env.get("APNS_BUNDLE_ID")!;
+    const host = environment === "sandbox" ? "api.sandbox.push.apple.com" : "api.push.apple.com";
+
+    const aps: Record<string, unknown> = {
+      timestamp: Math.round(Date.now() / 1000),
+      event,
+      "content-state": contentState,
+    };
+    if (opts?.alert) aps.alert = opts.alert;
+    if (opts?.staleDateUnix) aps["stale-date"] = opts.staleDateUnix;
+    if (opts?.dismissalDateUnix) aps["dismissal-date"] = opts.dismissalDateUnix;
+
+    const res = await fetch(`https://${host}/3/device/${pushToken}`, {
+      method: "POST",
+      headers: {
+        authorization: `bearer ${jwt}`,
+        "apns-topic": `${bundleId}.push-type.liveactivity`,
+        "apns-push-type": "liveactivity",
+        "apns-priority": "10",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ aps }),
+    });
+
+    if (!res.ok) {
+      console.error(`[apns] live activity send failed with status ${res.status} (${environment})`);
+      await res.arrayBuffer().catch(() => undefined);
+      if (res.status === 403) tokenCache.delete(environment);
+    }
+  } catch (err) {
+    console.error(`[apns] live activity send threw (${environment}):`, (err as Error).message);
+  }
+}

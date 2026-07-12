@@ -45,50 +45,10 @@ struct FlightWeather: Hashable, Codable {
     var isEmpty: Bool { conditions == nil && temperatureC == nil && windSummary == nil }
 }
 
-enum FlightStatus: String, Hashable, Codable, CaseIterable {
-    case scheduled
-    case boarding
-    case departed
-    case inAir = "in_air"
-    case landingSoon = "landing_soon"
-    case landed
-    case arrived
-    case delayed
-    case cancelled
-    case diverted
-
-    var emotionalHeadline: String {
-        switch self {
-        case .scheduled: "Getting ready to fly ✈️"
-        case .boarding: "Boarding now ✈️"
-        case .departed: "They're on their way ✈️"
-        case .inAir: "On the way to you ❤️"
-        case .landingSoon: "Almost there ❤️"
-        case .landed: "They've landed ❤️"
-        case .arrived: "They've arrived safely ❤️"
-        case .delayed: "Running a little late"
-        case .cancelled: "Flight cancelled"
-        case .diverted: "Flight diverted"
-        }
-    }
-
-    /// Short badge label — deliberately distinct wording from `emotionalHeadline`, which is
-    /// for the big header moment; this is for compact chips/cards.
-    var displayLabel: String {
-        switch self {
-        case .scheduled: "Scheduled"
-        case .boarding: "Boarding"
-        case .departed: "Departed"
-        case .inAir: "En route"
-        case .landingSoon: "Landing soon"
-        case .landed: "Landed"
-        case .arrived: "Arrived"
-        case .delayed: "Delayed"
-        case .cancelled: "Cancelled"
-        case .diverted: "Diverted"
-        }
-    }
-
+/// Base `FlightStatus` enum lives in `Shared/FlightStatus.swift` (shared with
+/// `LiveActivitiesExtension`) — `semanticColor` depends on `Theme`, which is main-app-only, so
+/// it stays here as a separate extension instead.
+extension FlightStatus {
     /// Status is never conveyed by color alone (`displayLabel`/icon always carry the meaning
     /// too) — this just tints existing Twofold semantic colors, never introduces new hues.
     var semanticColor: Color {
@@ -97,24 +57,6 @@ enum FlightStatus: String, Hashable, Codable, CaseIterable {
         case .landed, .arrived: Theme.leafGreen
         case .scheduled, .boarding, .departed, .inAir, .landingSoon: Theme.skyBlue
         }
-    }
-
-    var icon: String {
-        switch self {
-        case .scheduled: "clock"
-        case .boarding: "figure.walk.arrival"
-        case .departed: "airplane.departure"
-        case .inAir: "airplane"
-        case .landingSoon: "airplane.arrival"
-        case .landed, .arrived: "checkmark.circle.fill"
-        case .delayed: "exclamationmark.triangle.fill"
-        case .cancelled: "xmark.circle.fill"
-        case .diverted: "arrow.triangle.branch"
-        }
-    }
-
-    var isActivelyTracked: Bool {
-        [.boarding, .departed, .inAir, .landingSoon].contains(self)
     }
 }
 

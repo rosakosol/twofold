@@ -14,6 +14,7 @@
 		DB9AE0C8300333D800C36E3C /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DB9AE0AA3003336200C36E3C /* WidgetKit.framework */; };
 		DB9AE0C9300333D800C36E3C /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DB9AE0AC3003336200C36E3C /* SwiftUI.framework */; };
 		DB9AE0DA300333DA00C36E3C /* LiveActivitiesExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = DB9AE0C7300333D700C36E3C /* LiveActivitiesExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		DBAA00023003336200C36E3C /* ActivityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DBAA00033003336200C36E3C /* ActivityKit.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -70,6 +71,7 @@
 		DB9AE0AA3003336200C36E3C /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		DB9AE0AC3003336200C36E3C /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		DB9AE0C7300333D700C36E3C /* LiveActivitiesExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = LiveActivitiesExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		DBAA00033003336200C36E3C /* ActivityKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ActivityKit.framework; path = System/Library/Frameworks/ActivityKit.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -101,6 +103,14 @@
 			);
 			target = DB9AE0C6300333D700C36E3C /* LiveActivitiesExtension */;
 		};
+		DBAA00013003336200C36E3C /* Exceptions for "Twofold" folder in "LiveActivitiesExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Shared/FlightStatus.swift,
+				Shared/JourneyActivityAttributes.swift,
+			);
+			target = DB9AE0C6300333D700C36E3C /* LiveActivitiesExtension */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -109,6 +119,7 @@
 			exceptions = (
 				DB8C952B2FFC502100E0E71E /* Exceptions for "Twofold" folder in "Twofold" target */,
 				DB8C96DB2FFE6A4200E0E71E /* Exceptions for "Twofold" folder in "TwofoldShareExtension" target */,
+				DBAA00013003336200C36E3C /* Exceptions for "Twofold" folder in "LiveActivitiesExtension" target */,
 			);
 			path = Twofold;
 			sourceTree = "<group>";
@@ -129,11 +140,6 @@
 				DB8C96D72FFE69E900E0E71E /* Exceptions for "TwofoldShareExtension" folder in "TwofoldShareExtension" target */,
 			);
 			path = TwofoldShareExtension;
-			sourceTree = "<group>";
-		};
-		DB9AE0AE3003336200C36E3C /* Live Activities */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "Live Activities";
 			sourceTree = "<group>";
 		};
 		DB9AE0CA300333D800C36E3C /* LiveActivities */ = {
@@ -184,6 +190,7 @@
 			files = (
 				DB9AE0C9300333D800C36E3C /* SwiftUI.framework in Frameworks */,
 				DB9AE0C8300333D800C36E3C /* WidgetKit.framework in Frameworks */,
+				DBAA00023003336200C36E3C /* ActivityKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -197,7 +204,6 @@
 				DB8C95112FFC502100E0E71E /* TwofoldTests */,
 				DB8C951B2FFC502100E0E71E /* TwofoldUITests */,
 				DB8C96CA2FFE69E700E0E71E /* TwofoldShareExtension */,
-				DB9AE0AE3003336200C36E3C /* Live Activities */,
 				DB9AE0CA300333D800C36E3C /* LiveActivities */,
 				DB9AE0A93003336200C36E3C /* Frameworks */,
 				DB8C95022FFC501C00E0E71E /* Products */,
@@ -221,6 +227,7 @@
 			children = (
 				DB9AE0AA3003336200C36E3C /* WidgetKit.framework */,
 				DB9AE0AC3003336200C36E3C /* SwiftUI.framework */,
+				DBAA00033003336200C36E3C /* ActivityKit.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";

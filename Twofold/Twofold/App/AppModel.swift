@@ -418,7 +418,25 @@ final class AppModel {
             for index in trips.indices {
                 trips[index].flight = fresh.first { $0.tripID == trips[index].id }
             }
+            await LiveActivityManager.shared.reconcileOnLaunch(with: fresh)
+            await LiveActivityManager.shared.syncActivities(
+                for: fresh,
+                travelerName: { [weak self] flight in
+                    guard let self else { return "" }
+                    return isReunion(flight) ? partner.name : currentUser.name
+                },
+                isReunion: isReunion
+            )
         }
+    }
+
+    /// "Reunion" framing (the app's existing romantic language for "your partner is on their
+    /// way to you") applies whenever the signed-in user isn't the one who added/is tracking
+    /// this flight — defaults to true when `createdBy` is unset (e.g. an older row) since most
+    /// tracked flights are the partner's.
+    private func isReunion(_ flight: Flight) -> Bool {
+        guard let createdBy = flight.createdBy else { return true }
+        return createdBy != currentUser.id
     }
 
     /// Freeform trip prep notes — reused by the Flight Detail screen's "Trip checklist" card

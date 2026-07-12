@@ -13,6 +13,6 @@ struct LiveActivitiesBundle: WidgetBundle {
     var body: some Widget {
         LiveActivities()
         LiveActivitiesControl()
-        LiveActivitiesLiveActivity()
+        JourneyLiveActivityWidget()
     }
 }

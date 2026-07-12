@@ -2,79 +2,121 @@
 //  LiveActivitiesLiveActivity.swift
 //  LiveActivities
 //
-//  Created by Rosa Kosol on 12/7/2026.
+//  Real flight-tracking Live Activity (replaces the Xcode template's placeholder). Started/
+//  updated/ended by LiveActivityManager in the main app; content-state also pushed server-side
+//  via supabase/functions/_shared/apns.ts's sendLiveActivityUpdate so this stays live even when
+//  the app is backgrounded.
 //
 
 import ActivityKit
 import WidgetKit
 import SwiftUI
 
-struct LiveActivitiesAttributes: ActivityAttributes {
-    public struct ContentState: Codable, Hashable {
-        // Dynamic stateful properties about your activity go here!
-        var emoji: String
-    }
-
-    // Fixed non-changing properties about your activity go here!
-    var name: String
-}
-
-struct LiveActivitiesLiveActivity: Widget {
+struct JourneyLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
-        ActivityConfiguration(for: LiveActivitiesAttributes.self) { context in
-            // Lock screen/banner UI goes here
-            VStack {
-                Text("Hello \(context.state.emoji)")
-            }
-            .activityBackgroundTint(Color.cyan)
-            .activitySystemActionForegroundColor(Color.black)
-
+        ActivityConfiguration(for: JourneyActivityAttributes.self) { context in
+            JourneyLockScreenView(context: context)
+                .activityBackgroundTint(Color.black.opacity(0.85))
+                .activitySystemActionForegroundColor(.white)
         } dynamicIsland: { context in
-            DynamicIsland {
-                // Expanded UI goes here.  Compose the expanded UI through
-                // various regions, like leading/trailing/center/bottom
+            let status = FlightStatus(rawValue: context.state.status)
+
+            return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Text("Leading")
+                    JourneyExpandedOriginView(context: context)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    Text("Trailing")
+                    JourneyExpandedDestinationView(context: context)
+                }
+                DynamicIslandExpandedRegion(.center) {
+                    JourneyExpandedProgressView(context: context)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    Text("Bottom \(context.state.emoji)")
-                    // more content
+                    JourneyExpandedFooterView(context: context)
                 }
             } compactLeading: {
-                Text("L")
+                Image(systemName: status?.icon ?? "airplane")
+                    .foregroundStyle(LiveActivityPalette.color(for: status))
             } compactTrailing: {
-                Text("T \(context.state.emoji)")
+                Text(context.state.timeRemainingLabel)
+                    .font(.caption2.monospacedDigit())
+                    .minimumScaleFactor(0.8)
+                    .lineLimit(1)
             } minimal: {
-                Text(context.state.emoji)
+                Image(systemName: "airplane")
+                    .foregroundStyle(LiveActivityPalette.color(for: status))
             }
-            .widgetURL(URL(string: "http://www.apple.com"))
-            .keylineTint(Color.red)
+            .widgetURL(URL(string: "twofold://flight/\(context.attributes.flightID.uuidString)"))
+            .keylineTint(LiveActivityPalette.color(for: status))
         }
     }
 }
 
-extension LiveActivitiesAttributes {
-    fileprivate static var preview: LiveActivitiesAttributes {
-        LiveActivitiesAttributes(name: "World")
+extension JourneyActivityAttributes {
+    fileprivate static var preview: JourneyActivityAttributes {
+        JourneyActivityAttributes(
+            flightID: UUID(),
+            travelerName: "Erin",
+            flightNumber: "QF9",
+            airlineName: "Qantas",
+            originCode: "MEL",
+            originCity: "Melbourne",
+            destinationCode: "SIN",
+            destinationCity: "Singapore"
+        )
     }
 }
 
-extension LiveActivitiesAttributes.ContentState {
-    fileprivate static var smiley: LiveActivitiesAttributes.ContentState {
-        LiveActivitiesAttributes.ContentState(emoji: "😀")
-     }
-     
-     fileprivate static var starEyes: LiveActivitiesAttributes.ContentState {
-         LiveActivitiesAttributes.ContentState(emoji: "🤩")
-     }
+extension JourneyActivityAttributes.ContentState {
+    fileprivate static var inAir: JourneyActivityAttributes.ContentState {
+        JourneyActivityAttributes.ContentState(
+            status: FlightStatus.inAir.rawValue,
+            progress: 0.42,
+            timeRemainingLabel: "Arrives in 3h 20m",
+            isReunion: true,
+            scheduledDeparture: .now.addingTimeInterval(-3600 * 3),
+            scheduledArrival: .now.addingTimeInterval(3600 * 4),
+            gateOrigin: "42",
+            gateDestination: nil,
+            lastUpdatedAt: .now
+        )
+    }
+
+    fileprivate static var landingSoon: JourneyActivityAttributes.ContentState {
+        JourneyActivityAttributes.ContentState(
+            status: FlightStatus.landingSoon.rawValue,
+            progress: 0.92,
+            timeRemainingLabel: "Arrives in 22m",
+            isReunion: true,
+            scheduledDeparture: .now.addingTimeInterval(-3600 * 6),
+            scheduledArrival: .now.addingTimeInterval(60 * 22),
+            gateDestination: "B14",
+            lastUpdatedAt: .now
+        )
+    }
 }
 
-#Preview("Notification", as: .content, using: LiveActivitiesAttributes.preview) {
-   LiveActivitiesLiveActivity()
+#Preview("Lock Screen", as: .content, using: JourneyActivityAttributes.preview) {
+    JourneyLiveActivityWidget()
 } contentStates: {
-    LiveActivitiesAttributes.ContentState.smiley
-    LiveActivitiesAttributes.ContentState.starEyes
+    JourneyActivityAttributes.ContentState.inAir
+    JourneyActivityAttributes.ContentState.landingSoon
+}
+
+#Preview("Dynamic Island Expanded", as: .dynamicIsland(.expanded), using: JourneyActivityAttributes.preview) {
+    JourneyLiveActivityWidget()
+} contentStates: {
+    JourneyActivityAttributes.ContentState.inAir
+}
+
+#Preview("Dynamic Island Compact", as: .dynamicIsland(.compact), using: JourneyActivityAttributes.preview) {
+    JourneyLiveActivityWidget()
+} contentStates: {
+    JourneyActivityAttributes.ContentState.inAir
+}
+
+#Preview("Dynamic Island Minimal", as: .dynamicIsland(.minimal), using: JourneyActivityAttributes.preview) {
+    JourneyLiveActivityWidget()
+} contentStates: {
+    JourneyActivityAttributes.ContentState.inAir
 }
