@@ -35,11 +35,9 @@ struct TimeZoneCard: View {
 
         return VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
             HStack(spacing: Theme.Spacing.xs) {
-                Image(systemName: isDaytime ? "sun.max.fill" : "moon.stars.fill")
-                    .font(.subheadline)
                 Text(sameCity
                     ? "It's \(Self.timeString(in: timeZone, at: date)) right now\(cityName.map { " in \($0)" } ?? "")"
-                    : "It's \(Self.timeString(in: timeZone, at: date)) for \(person.name) right now")
+                    : "It's \(Self.timeString(in: timeZone, at: date)) for \(person.name) right now\(cityName.map { " in \($0)" } ?? "")")
                     .font(.headline)
                     .fixedSize(horizontal: false, vertical: true)
 

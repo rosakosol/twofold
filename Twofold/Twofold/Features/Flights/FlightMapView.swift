@@ -34,42 +34,52 @@ struct FlightMapView: View {
 
     var body: some View {
         if let origin = flight.origin.coordinate, let destination = flight.destination.coordinate {
-            Map(initialPosition: .region(Self.region(containing: origin, destination, padding: regionPadding)), interactionModes: interactive ? .all : []) {
-                Annotation(flight.origin.displayCode, coordinate: origin) {
-                    endpointMarker
-                }
-                Annotation(flight.destination.displayCode, coordinate: destination) {
-                    endpointMarker
-                }
+            // The region has to be shaped to match this view's own aspect ratio, not just
+            // padded by a flat percentage — MapKit fits a region into whatever frame it's
+            // given, so a route whose own lat/lng bounding box is much taller/narrower than a
+            // short, wide card gets zoomed in until the box's shape matches the card's, which
+            // pushes both endpoints past the visible edges. GeometryReader supplies the real
+            // aspect ratio before the Map is created so that can't happen.
+            GeometryReader { geo in
+                let aspectRatio = geo.size.width / max(geo.size.height, 1)
+                Map(initialPosition: .region(Self.region(containing: origin, destination, padding: regionPadding, aspectRatio: aspectRatio)), interactionModes: interactive ? .all : []) {
+                    Annotation(flight.origin.displayCode, coordinate: origin) {
+                        endpointMarker
+                    }
+                    Annotation(flight.destination.displayCode, coordinate: destination) {
+                        endpointMarker
+                    }
 
-                // A light halo underneath a solid, higher-contrast line — even a saturated color
-                // can wash out against ocean/land on the standard map style, so the white
-                // outline keeps it legible everywhere regardless of what's underneath. The
-                // colored line itself breathes gently (opacity + width) via `pulse` so the
-                // route reads as "live," not a static overlay.
-                MapPolyline(coordinates: [origin, destination], contourStyle: .geodesic)
-                    .stroke(.white.opacity(0.9), style: StrokeStyle(lineWidth: 6, lineCap: .round))
-                MapPolyline(coordinates: [origin, destination], contourStyle: .geodesic)
-                    .stroke(Theme.skyBlue.opacity(pulse ? 1 : 0.6), style: StrokeStyle(lineWidth: pulse ? 4.5 : 3, lineCap: .round))
+                    // A light halo underneath a solid, higher-contrast line — even a saturated
+                    // color can wash out against ocean/land on the standard map style, so the
+                    // white outline keeps it legible everywhere regardless of what's underneath.
+                    // The colored line itself breathes gently (opacity + width) via `pulse` so
+                    // the route reads as "live," not a static overlay.
+                    MapPolyline(coordinates: [origin, destination], contourStyle: .geodesic)
+                        .stroke(.white.opacity(0.9), style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                    MapPolyline(coordinates: [origin, destination], contourStyle: .geodesic)
+                        .stroke(Theme.skyBlue.opacity(pulse ? 1 : 0.6), style: StrokeStyle(lineWidth: pulse ? 4.5 : 3, lineCap: .round))
 
-                // Only one icon rides the route itself — the live position marker (avatar if
-                // we know who's traveling, otherwise a plane). The endpoints above are plain
-                // dots, not airplane glyphs, so they don't read as extra "icons" on the path.
-                if let position = flight.positionCoordinate {
-                    Annotation("", coordinate: position) {
-                        if let traveler {
-                            travelerMarker(traveler)
-                        } else {
-                            planeMarker
+                    // Only one icon rides the route itself — the live position marker (avatar
+                    // if we know who's traveling, otherwise a plane). The endpoints above are
+                    // plain dots, not airplane glyphs, so they don't read as extra "icons" on
+                    // the path.
+                    if let position = flight.positionCoordinate {
+                        Annotation("", coordinate: position) {
+                            if let traveler {
+                                travelerMarker(traveler)
+                            } else {
+                                planeMarker
+                            }
                         }
                     }
                 }
-            }
-            .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
-            .allowsHitTesting(interactive)
-            .onAppear {
-                withAnimation(.easeInOut(duration: 1.3).repeatForever(autoreverses: true)) {
-                    pulse = true
+                .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
+                .allowsHitTesting(interactive)
+                .onAppear {
+                    withAnimation(.easeInOut(duration: 1.3).repeatForever(autoreverses: true)) {
+                        pulse = true
+                    }
                 }
             }
         } else {
@@ -123,17 +133,27 @@ struct FlightMapView: View {
         }
     }
 
-    private static func region(containing a: CLLocationCoordinate2D, _ b: CLLocationCoordinate2D, padding: Double) -> MKCoordinateRegion {
+    private static func region(containing a: CLLocationCoordinate2D, _ b: CLLocationCoordinate2D, padding: Double, aspectRatio: Double) -> MKCoordinateRegion {
         let pointA = MKMapPoint(a)
         let pointB = MKMapPoint(b)
         let minSize = 2_000_000.0
-        let rect = MKMapRect(
-            x: min(pointA.x, pointB.x),
-            y: min(pointA.y, pointB.y),
-            width: max(abs(pointA.x - pointB.x), minSize),
-            height: max(abs(pointA.y - pointB.y), minSize)
-        )
-        let padded = rect.insetBy(dx: -rect.width * padding, dy: -rect.height * padding)
-        return MKCoordinateRegion(padded)
+        let centerX = (pointA.x + pointB.x) / 2
+        let centerY = (pointA.y + pointB.y) / 2
+
+        var width = max(abs(pointA.x - pointB.x), minSize) * (1 + 2 * padding)
+        var height = max(abs(pointA.y - pointB.y), minSize) * (1 + 2 * padding)
+
+        // Stretch whichever axis is short so the box's own aspect ratio matches the view's —
+        // otherwise fitting this region into a frame shaped very differently from the route's
+        // own bounding box crops toward one axis instead of just adding margin around both.
+        let boxAspectRatio = max(aspectRatio, 0.01)
+        if width / height > boxAspectRatio {
+            height = width / boxAspectRatio
+        } else {
+            width = height * boxAspectRatio
+        }
+
+        let rect = MKMapRect(x: centerX - width / 2, y: centerY - height / 2, width: width, height: height)
+        return MKCoordinateRegion(rect)
     }
 }

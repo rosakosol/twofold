@@ -424,12 +424,32 @@ struct HomeView: View {
                 .foregroundStyle(Theme.skyBlue)
 
             GeometryReader { proxy in
+                let iconSize: CGFloat = 20
+                let progressWidth = proxy.size.width * flight.progress
+                // Keeps the icon's center on the track even at the very start/end, where it
+                // would otherwise hang half off the edge of the bar.
+                let iconCenterX = min(max(progressWidth, iconSize / 2), proxy.size.width - iconSize / 2)
+
                 Capsule().fill(Theme.skyBlue.opacity(0.15)).frame(height: 5)
                     .overlay(alignment: .leading) {
-                        Capsule().fill(flight.status.semanticColor).frame(width: proxy.size.width * flight.progress, height: 5)
+                        Capsule().fill(flight.status.semanticColor).frame(width: progressWidth, height: 5)
+                    }
+                    .overlay(alignment: .leading) {
+                        ZStack {
+                            Circle().fill(.white)
+                            Image(systemName: "airplane")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(flight.status.semanticColor)
+                                // SF Symbols' "airplane" glyph points ~45° (northeast) at
+                                // rotation 0 — 45° here points it due east, along the track.
+                                .rotationEffect(.degrees(45))
+                        }
+                        .frame(width: iconSize, height: iconSize)
+                        .shadow(color: .black.opacity(0.18), radius: 2, y: 1)
+                        .offset(x: iconCenterX - iconSize / 2)
                     }
             }
-            .frame(height: 5)
+            .frame(height: 20)
 
             if flight.status.isActivelyTracked {
                 FlightMapView(flight: flight, interactive: false, regionPadding: 0.9)
