@@ -28,6 +28,9 @@ struct Memory: Identifiable, Hashable, Codable {
     var photoSeed: Int
     /// Photos in display order, if any.
     var photos: [MemoryPhoto]
+    /// Set when a memory is explicitly linked to a trip from Trip Details — nil by default;
+    /// unlike `place`/`date` this is never inferred automatically.
+    var tripID: UUID?
 
     var photoURLs: [URL] { photos.map(\.url) }
     var photoURL: URL? { photos.first?.url }
@@ -39,7 +42,8 @@ struct Memory: Identifiable, Hashable, Codable {
         date: Date,
         note: String,
         photoSeed: Int? = nil,
-        photos: [MemoryPhoto] = []
+        photos: [MemoryPhoto] = [],
+        tripID: UUID? = nil
     ) {
         self.id = id
         self.title = title
@@ -48,5 +52,6 @@ struct Memory: Identifiable, Hashable, Codable {
         self.note = note
         self.photoSeed = photoSeed ?? abs(id.hashValue % 4)
         self.photos = photos
+        self.tripID = tripID
     }
 }

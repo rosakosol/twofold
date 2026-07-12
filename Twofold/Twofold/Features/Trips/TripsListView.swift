@@ -82,13 +82,9 @@ struct TripsListView: View {
                 if !upcoming.isEmpty {
                     Section("Upcoming") {
                         ForEach(upcoming) { trip in
-                            if trip.isActive, let flight = trip.flight {
-                                NavigationLink {
-                                    FlightTrackingView(flight: flight)
-                                } label: {
-                                    TripRowView(trip: trip, traveler: traveler(for: trip))
-                                }
-                            } else {
+                            NavigationLink {
+                                TripDetailsView(trip: trip)
+                            } label: {
                                 TripRowView(trip: trip, traveler: traveler(for: trip))
                             }
                         }
@@ -99,7 +95,11 @@ struct TripsListView: View {
                 if !past.isEmpty {
                     Section("Past") {
                         ForEach(past) { trip in
-                            TripRowView(trip: trip, traveler: traveler(for: trip))
+                            NavigationLink {
+                                TripDetailsView(trip: trip)
+                            } label: {
+                                TripRowView(trip: trip, traveler: traveler(for: trip))
+                            }
                         }
                     }
                 }

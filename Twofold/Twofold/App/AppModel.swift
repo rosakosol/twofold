@@ -34,6 +34,11 @@ final class AppModel {
     var partnerConnected: Bool = false
     var inviteCode: String?
 
+    /// Set whenever a newly-crossed, not-yet-shown review milestone is detected — RootView
+    /// presents `ReviewPromptView` as a sheet whenever this is non-nil. See
+    /// `checkReviewMilestones()`/`noteReviewMilestone(_:)`.
+    var pendingReviewMilestone: ReviewMilestone?
+
     /// Set once a real `couples` row exists for this user.
     private var backendCoupleID: UUID?
     /// Trips/memories added locally before pairing completed (no couple to attach them to
@@ -134,6 +139,7 @@ final class AppModel {
         }
         hasCouple = true
         Task { await WidgetSnapshotWriter.refresh(appModel: self) }
+        checkReviewMilestones()
     }
 
     /// Restores memories that were added before pairing (or otherwise never synced) from local
@@ -342,6 +348,31 @@ final class AppModel {
         return components.url ?? url
     }
 
+    /// Re-checks the state-derived review milestones (partner connected, first flight/trip/
+    /// memory) and surfaces `pendingReviewMilestone` for the first newly-crossed one still
+    /// eligible. Safe to call as often as needed — a no-op once a given milestone's already
+    /// shown once, or the user's already said yes to any of them. "First game results" isn't
+    /// state AppModel tracks directly, so that one's raised via `noteReviewMilestone(_:)` from
+    /// `GameResultsView` instead.
+    func checkReviewMilestones() {
+        guard pendingReviewMilestone == nil else { return }
+        if partnerConnected, ReviewPromptService.markShownIfEligible(.partnerConnected) {
+            pendingReviewMilestone = .partnerConnected
+        } else if !flights.isEmpty, ReviewPromptService.markShownIfEligible(.firstFlight) {
+            pendingReviewMilestone = .firstFlight
+        } else if !trips.isEmpty, ReviewPromptService.markShownIfEligible(.firstTrip) {
+            pendingReviewMilestone = .firstTrip
+        } else if !memories.isEmpty, ReviewPromptService.markShownIfEligible(.firstMemory) {
+            pendingReviewMilestone = .firstMemory
+        }
+    }
+
+    /// For the one milestone AppModel can't derive from its own state.
+    func noteReviewMilestone(_ milestone: ReviewMilestone) {
+        guard pendingReviewMilestone == nil, ReviewPromptService.markShownIfEligible(milestone) else { return }
+        pendingReviewMilestone = milestone
+    }
+
     /// Only available once paired — there's no couple to namespace the storage path under
     /// beforehand, and no partner pad to make the feature meaningful yet.
     func saveMyDrawing(imageData: Data) async {
@@ -494,6 +525,7 @@ final class AppModel {
         )
 
         trips.append(trip)
+        checkReviewMilestones()
 
         if let backendCoupleID {
             do {
@@ -530,6 +562,7 @@ final class AppModel {
                 isReunion: isReunion
             )
             Task { await WidgetSnapshotWriter.refresh(appModel: self) }
+            checkReviewMilestones()
         }
     }
 
@@ -559,6 +592,68 @@ final class AppModel {
         try? await BackendService.updateTripNotes(tripID: trip.id, notes: trip.notes)
     }
 
+    /// Full edit of a trip's own fields (origin/destination/dates/category/notes) — as opposed
+    /// to `updateTripNotes`, which only ever touched notes. Recomputes `distanceKm` since
+    /// either city could have changed, and preserves the trip's linked flight (not part of what
+    /// this edits).
+    func updateTrip(_ trip: Trip) async {
+        guard let index = trips.firstIndex(where: { $0.id == trip.id }) else { return }
+        var updated = trip
+        updated.distanceKm = Geo.distanceKm(trip.origin.coordinate, trip.destination.coordinate)
+        updated.flight = trips[index].flight
+        trips[index] = updated
+        try? await BackendService.updateTrip(updated)
+    }
+
+    func deleteTrip(_ trip: Trip) async {
+        trips.removeAll { $0.id == trip.id }
+        pendingTripIDs.remove(trip.id)
+        // `flights.trip_id` has ON DELETE SET NULL server-side — the flight survives
+        // untethered, so mirror that locally rather than leaving it pointing at a trip that no
+        // longer exists.
+        if let flightIndex = flights.firstIndex(where: { $0.tripID == trip.id }) {
+            flights[flightIndex].tripID = nil
+        }
+        guard backendCoupleID != nil else { return }
+        try? await BackendService.deleteTrip(id: trip.id)
+    }
+
+    /// The only way to attach an already-tracked flight to a trip after the fact — every other
+    /// write path for `flight.tripID` (`AeroFlightService.addFlight`) only ever sets it once,
+    /// at add-flight time.
+    func linkFlight(_ flight: Flight, to trip: Trip) async {
+        guard let flightIndex = flights.firstIndex(where: { $0.id == flight.id }) else { return }
+        flights[flightIndex].tripID = trip.id
+        if let tripIndex = trips.firstIndex(where: { $0.id == trip.id }) {
+            trips[tripIndex].flight = flights[flightIndex]
+        }
+        try? await BackendService.setFlightTrip(flightID: flight.id, tripID: trip.id)
+    }
+
+    func unlinkFlight(_ flight: Flight) async {
+        guard let flightIndex = flights.firstIndex(where: { $0.id == flight.id }) else { return }
+        let tripID = flights[flightIndex].tripID
+        flights[flightIndex].tripID = nil
+        if let tripID, let tripIndex = trips.firstIndex(where: { $0.id == tripID }) {
+            trips[tripIndex].flight = nil
+        }
+        try? await BackendService.setFlightTrip(flightID: flight.id, tripID: nil)
+    }
+
+    /// Memories have no automatic trip association (no place/date matching) — linking is
+    /// always this explicit, user-driven action from Trip Details.
+    func linkMemory(_ memory: Memory, to trip: Trip) async {
+        guard let index = memories.firstIndex(where: { $0.id == memory.id }) else { return }
+        memories[index].tripID = trip.id
+        try? await BackendService.setMemoryTrip(memoryID: memory.id, tripID: trip.id)
+    }
+
+    func unlinkMemory(_ memory: Memory) async {
+        guard let index = memories.firstIndex(where: { $0.id == memory.id }) else { return }
+        memories[index].tripID = nil
+        try? await BackendService.setMemoryTrip(memoryID: memory.id, tripID: nil)
+    }
+
     /// Registers this device's APNs token against the signed-in profile so
     /// `send-flight-notification` (server-side) has somewhere to deliver to. Safe to call
     /// repeatedly — the backend upserts on the token itself.
@@ -584,10 +679,12 @@ final class AppModel {
             memories.append(persisted)
             pendingMemoryIDs.insert(persisted.id)
             if !imagesData.isEmpty { pendingMemoryPhotoData[persisted.id] = imagesData }
+            checkReviewMilestones()
             return persisted
         }
 
         memories.append(memory)
+        checkReviewMilestones()
 
         do {
             var photoPaths: [String] = []

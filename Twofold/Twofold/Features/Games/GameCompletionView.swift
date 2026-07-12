@@ -15,6 +15,8 @@ struct GameCompletionView: View {
     let onSendReminder: () -> Void
     let onPlayAnother: () -> Void
 
+    @State private var showingReminderSentConfirmation = false
+
     private var progressStage: Int {
         switch partnerProgress {
         case .notStarted: 0
@@ -43,14 +45,13 @@ struct GameCompletionView: View {
                 Text("Waiting for \(partnerName)")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(Theme.subtleInk)
-                HStack(spacing: Theme.Spacing.xl) {
+                HStack(spacing: Theme.Spacing.lg) {
                     stepDot(title: "Started", filled: progressStage >= 1)
                     stepDot(title: "In Progress", filled: progressStage >= 1)
                     stepDot(title: "Finished", filled: progressStage >= 2)
                 }
             }
             .padding(Theme.Spacing.md)
-            .frame(maxWidth: .infinity)
             .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
 
             Spacer()
@@ -85,6 +86,19 @@ struct GameCompletionView: View {
             .padding(.bottom, Theme.Spacing.xl)
         }
         .background(Theme.backgroundGradient.ignoresSafeArea())
+        // `isSendingReminder` is owned by the caller (each typed game view runs its own
+        // fire-and-forget `notifyPartner` call) — watching its true → false transition here
+        // means every call site gets this confirmation for free, no changes needed there.
+        .onChange(of: isSendingReminder) { wasSending, isSending in
+            if wasSending, !isSending {
+                showingReminderSentConfirmation = true
+            }
+        }
+        .alert("Reminder Sent", isPresented: $showingReminderSentConfirmation) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Notification sent to \(partnerName).")
+        }
     }
 
     private func stepDot(title: String, filled: Bool) -> some View {

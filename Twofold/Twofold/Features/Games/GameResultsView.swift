@@ -19,6 +19,7 @@ struct GameResultsView: View {
     let partnerName: String
     let onPlayAnother: () -> Void
 
+    @Environment(AppModel.self) private var appModel
     @State private var revealedCount = 0
     @State private var isMarkingDiscussion = false
 
@@ -56,7 +57,10 @@ struct GameResultsView: View {
         .background(Theme.backgroundGradient.ignoresSafeArea())
         .navigationTitle(gameType.displayName)
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { animateReveal() }
+        .onAppear {
+            animateReveal()
+            appModel.noteReviewMilestone(.firstGameResults)
+        }
     }
 
     // MARK: - Header

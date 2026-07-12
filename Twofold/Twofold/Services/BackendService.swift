@@ -862,7 +862,8 @@ enum BackendService {
                     place: place,
                     date: row.occurredAt,
                     note: row.note,
-                    photos: photos
+                    photos: photos,
+                    tripID: row.tripId
                 )
             )
         }
@@ -1411,6 +1412,83 @@ enum BackendService {
             .execute()
     }
 
+    private struct TripUpdate: Encodable {
+        var travelerId: UUID
+        var originId: UUID
+        var destinationId: UUID
+        var departureAt: Date
+        var arrivalAt: Date
+        var category: String
+        var distanceKm: Double
+        var notes: String?
+
+        enum CodingKeys: String, CodingKey {
+            case category, notes
+            case travelerId = "traveler_id"
+            case originId = "origin_id"
+            case destinationId = "destination_id"
+            case departureAt = "departure_at"
+            case arrivalAt = "arrival_at"
+            case distanceKm = "distance_km"
+        }
+    }
+
+    /// Full edit of a trip's own fields, as opposed to `updateTripNotes` (notes only) —
+    /// resolves origin/destination against `places` fresh, same as `insertTrip`, since either
+    /// city could have changed.
+    static func updateTrip(_ trip: Trip) async throws {
+        let originID = try await findOrCreatePlaceID(trip.origin)
+        let destinationID = try await findOrCreatePlaceID(trip.destination)
+        try await supabase
+            .from("trips")
+            .update(
+                TripUpdate(
+                    travelerId: trip.travelerID,
+                    originId: originID,
+                    destinationId: destinationID,
+                    departureAt: trip.departureDate,
+                    arrivalAt: trip.arrivalDate,
+                    category: trip.category.dbValue,
+                    distanceKm: trip.distanceKm,
+                    notes: trip.notes
+                )
+            )
+            .eq("id", value: trip.id)
+            .execute()
+    }
+
+    /// `flights.trip_id`/`memories.trip_id` both have `on delete set null`, so any linked
+    /// flight or memory survives untethered rather than disappearing along with the trip.
+    static func deleteTrip(id: UUID) async throws {
+        try await supabase.from("trips").delete().eq("id", value: id).execute()
+    }
+
+    private struct TripIDUpdate: Encodable {
+        var tripId: UUID?
+        enum CodingKeys: String, CodingKey { case tripId = "trip_id" }
+    }
+
+    /// The only way to change `flights.trip_id` after a flight's already been added — every
+    /// other write path (`AeroFlightService.addFlight`) only ever sets it once, at creation.
+    /// Pass `nil` to unlink.
+    static func setFlightTrip(flightID: UUID, tripID: UUID?) async throws {
+        try await supabase
+            .from("flights")
+            .update(TripIDUpdate(tripId: tripID))
+            .eq("id", value: flightID)
+            .execute()
+    }
+
+    /// Pass `nil` to unlink — the only write path for `memories.trip_id`, since a memory has
+    /// no other route to a trip (no automatic place/date matching).
+    static func setMemoryTrip(memoryID: UUID, tripID: UUID?) async throws {
+        try await supabase
+            .from("memories")
+            .update(TripIDUpdate(tripId: tripID))
+            .eq("id", value: memoryID)
+            .execute()
+    }
+
     // MARK: - Flight updates (self-reported)
 
     private struct FlightUpdateRow: Decodable {
@@ -1501,11 +1579,13 @@ enum BackendService {
         var title: String
         var note: String
         var occurredAt: Date
+        var tripId: UUID?
 
         enum CodingKeys: String, CodingKey {
             case id, title, note
             case placeId = "place_id"
             case occurredAt = "occurred_at"
+            case tripId = "trip_id"
         }
     }
 

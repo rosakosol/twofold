@@ -12,9 +12,9 @@ struct GameCard: View {
     /// Fixed width for the Globe homepage's horizontal-scroll row; `nil` fills the available
     /// width, used by the hub's vertical sections.
     var width: CGFloat?
-    /// Every game needs a partner to actually play with — blurred/dimmed with a lock message
-    /// rather than hidden outright, so someone who hasn't connected yet still sees what's
-    /// waiting for them once they do.
+    /// Every game needs a partner to actually play with — dimmed with a lock badge rather than
+    /// hidden or blurred outright, so someone who hasn't connected yet still gets a readable
+    /// tease/preview of what's waiting for them once they do.
     var isLocked: Bool = false
 
     var body: some View {
@@ -66,22 +66,28 @@ struct GameCard: View {
         .frame(maxWidth: width == nil ? .infinity : nil, alignment: .leading)
         .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-        .blur(radius: isLocked ? 4 : 0)
         .overlay {
             if isLocked {
                 RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                    .fill(.black.opacity(0.35))
-                    .overlay {
-                        VStack(spacing: Theme.Spacing.xs) {
+                    .fill(.black.opacity(0.4))
+                    .overlay(alignment: .topTrailing) {
+                        ZStack {
+                            Circle().fill(.white)
                             Image(systemName: "lock.fill")
-                                .font(.title3)
-                                .foregroundStyle(.white)
-                            Text("Locked until your partner joins")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.white)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal, Theme.Spacing.md)
+                                .font(.caption)
+                                .foregroundStyle(Theme.ink)
                         }
+                        .frame(width: 26, height: 26)
+                        .padding(Theme.Spacing.sm)
+                    }
+                    .overlay(alignment: .bottom) {
+                        Text("Partner required")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, Theme.Spacing.sm)
+                            .padding(.vertical, 6)
+                            .background(.black.opacity(0.3), in: Capsule())
+                            .padding(.bottom, Theme.Spacing.sm)
                     }
             }
         }

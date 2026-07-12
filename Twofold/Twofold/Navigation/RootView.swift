@@ -80,6 +80,21 @@ struct RootView: View {
         .fullScreenCover(isPresented: $showingPartnerConnectedCelebration) {
             PartnerConnectedView()
         }
+        // Suppressed (not just delayed) while the partner-connected celebration is up — two
+        // modal presentations competing from the same view hierarchy at once is asking for
+        // trouble. The binding's `get` naturally re-evaluates once the celebration dismisses,
+        // so a milestone queued during that window still surfaces right after, no extra
+        // re-trigger needed.
+        .sheet(item: reviewPromptBinding) { milestone in
+            ReviewPromptView(milestone: milestone)
+        }
+    }
+
+    private var reviewPromptBinding: Binding<ReviewMilestone?> {
+        Binding(
+            get: { showingPartnerConnectedCelebration ? nil : appModel.pendingReviewMilestone },
+            set: { appModel.pendingReviewMilestone = $0 }
+        )
     }
 
     /// Writes this device's own local StoreKit entitlement, then re-reads the OR'd truth

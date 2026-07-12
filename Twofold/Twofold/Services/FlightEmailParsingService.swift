@@ -19,19 +19,27 @@ struct ExtractedFlightDetails: Decodable {
     var destinationIata: String? = nil
     var scheduledArrivalLocalDateTime: String? = nil
 
-    private static let dateFormatter: DateFormatter = {
+    /// The extracted strings are named "local" for a reason — `scheduledDepartureLocalDateTime`
+    /// is wall-clock time at the *origin* airport, and `scheduledArrivalLocalDateTime` at the
+    /// *destination* — not the device's own timezone. A shared formatter with no `timeZone` set
+    /// defaults to the device's current timezone, which silently mis-parses these by the full
+    /// offset between the device's timezone and the airport's (e.g. ~17h for a Melbourne device
+    /// parsing a Las Vegas departure) — enough to shift the resolved date onto the wrong
+    /// calendar day entirely, which then feeds a same-flight-number-wrong-day search below.
+    private static func formatter(timeZone: TimeZone?) -> DateFormatter {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
         formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = timeZone ?? .current
         return formatter
-    }()
+    }
 
     var departureDate: Date? {
-        scheduledDepartureLocalDateTime.flatMap(Self.dateFormatter.date(from:))
+        scheduledDepartureLocalDateTime.flatMap { Self.formatter(timeZone: matchedOrigin?.timeZone).date(from: $0) }
     }
 
     var arrivalDate: Date? {
-        scheduledArrivalLocalDateTime.flatMap(Self.dateFormatter.date(from:))
+        scheduledArrivalLocalDateTime.flatMap { Self.formatter(timeZone: matchedDestination?.timeZone).date(from: $0) }
     }
 
     /// Resolves against the seeded city list by IATA code first, then city name.

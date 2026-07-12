@@ -146,6 +146,16 @@ struct FlightTrackingView: View {
             Text(flight.countdownSummary)
                 .font(.title2.weight(.bold))
 
+            // Every time elsewhere on this screen (journey rows, departure/arrival cards) is
+            // deliberately shown in *that airport's* local time, which is easy to misread as
+            // "my time" and mistake for a bug — this one line anchors the same key moment in
+            // the user's own home-city time instead, e.g. "4:30pm (Melbourne time)".
+            if let userLocalTimeLabel {
+                Text(userLocalTimeLabel)
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.subtleInk)
+            }
+
             if flight.lastRefreshedAt != nil {
                 Text("Updated \(flight.lastRefreshedAt.map(Self.relativeShort) ?? "recently") ago")
                     .font(.caption2)
@@ -157,6 +167,28 @@ struct FlightTrackingView: View {
 
     private var shareText: String {
         "\(flight.displayNumber) · \(flight.origin.displayCode) → \(flight.destination.displayCode) — \(flight.countdownSummary)"
+    }
+
+    /// Mirrors `countdownSummary`'s own choice of "the next relevant moment" (departure
+    /// pre-departure, arrival once en route/landed) so the header's two lines always describe
+    /// the same instant — one counting down to it, the other anchoring it in the user's time.
+    private var referenceEventDate: Date? {
+        switch flight.status {
+        case .cancelled, .diverted:
+            return nil
+        case .arrived, .landed, .landingSoon, .inAir, .departed, .boarding:
+            return flight.bestArrival
+        case .scheduled, .delayed:
+            return flight.bestDeparture
+        }
+    }
+
+    private var userLocalTimeLabel: String? {
+        guard let date = referenceEventDate else { return nil }
+        let timeZone = appModel.currentUser.homeCity?.timeZone ?? .current
+        let timeString = date.formatted(Date.FormatStyle(timeZone: timeZone).hour().minute())
+        guard let cityName = appModel.currentUser.homeCity?.city else { return "\(timeString) your time" }
+        return "\(timeString) (\(cityName) time)"
     }
 
     // MARK: - Map
@@ -261,6 +293,7 @@ struct FlightTrackingView: View {
     private var departureCard: some View {
         SectionCard {
             Text("Departure").font(.subheadline.weight(.semibold))
+            Text("All times shown in local time").font(.caption2).foregroundStyle(Theme.subtleInk)
             detailRow(label: "Airport", value: "\(flight.origin.displayCode) · \(flight.origin.displayName)")
             detailRow(label: "Scheduled", value: Self.timeOrNA(flight.scheduledOut, timeZone: flight.origin.timeZone))
             detailRow(label: flight.actualOut != nil ? "Actual" : "Estimated", value: Self.timeOrNA(flight.actualOut ?? flight.estimatedOut, timeZone: flight.origin.timeZone))
@@ -276,6 +309,7 @@ struct FlightTrackingView: View {
     private var arrivalCard: some View {
         SectionCard {
             Text("Arrival").font(.subheadline.weight(.semibold))
+            Text("All times shown in local time").font(.caption2).foregroundStyle(Theme.subtleInk)
             detailRow(label: "Airport", value: "\(flight.destination.displayCode) · \(flight.destination.displayName)")
             detailRow(label: "Scheduled", value: Self.timeOrNA(flight.scheduledIn, timeZone: flight.destination.timeZone))
             detailRow(label: flight.actualIn != nil ? "Actual" : "Estimated", value: Self.timeOrNA(flight.actualIn ?? flight.estimatedIn, timeZone: flight.destination.timeZone))
