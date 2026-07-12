@@ -11,7 +11,12 @@ struct MemoriesMapView: View {
 
     @Environment(AppModel.self) private var appModel
     @State private var cameraPosition: MapCameraPosition = .automatic
-    @State private var navigationCity: Place?
+    @State private var selectedCity: Place?
+    /// Starts small (peek height) so the map's still visible/pannable underneath — swiping the
+    /// sheet up, or tapping anywhere in the peek content, expands it to full height.
+    @State private var sheetDetent: PresentationDetent = Self.peekDetent
+
+    private static let peekDetent: PresentationDetent = .height(220)
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -19,7 +24,8 @@ struct MemoriesMapView: View {
                 ForEach(appModel.citiesWithMemories) { city in
                     Annotation(city.city, coordinate: city.coordinate) {
                         Button {
-                            navigationCity = city
+                            sheetDetent = Self.peekDetent
+                            selectedCity = city
                         } label: {
                             memoryPin(for: city)
                         }
@@ -35,8 +41,18 @@ struct MemoriesMapView: View {
                     .padding(.top, Theme.Spacing.sm)
             }
         }
-        .navigationDestination(item: $navigationCity) { city in
-            MemoriesListView(initialLocationFilter: city)
+        .sheet(item: $selectedCity) { city in
+            NavigationStack {
+                MemoriesListView(initialLocationFilter: city)
+            }
+            .simultaneousGesture(
+                TapGesture().onEnded {
+                    if sheetDetent == Self.peekDetent { sheetDetent = .large }
+                }
+            )
+            .presentationDetents([Self.peekDetent, .large], selection: $sheetDetent)
+            .presentationDragIndicator(.visible)
+            .presentationBackgroundInteraction(.enabled(upThrough: Self.peekDetent))
         }
     }
 
