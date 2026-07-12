@@ -57,6 +57,12 @@ struct FlightConfirmationView: View {
                             Text(appModel.partner.name).tag(Person.ID?.some(appModel.partner.id))
                         }
                         .pickerStyle(.segmented)
+
+                        if travelerID == appModel.partner.id, !appModel.partnerConnected {
+                            Text("No partner has been added yet - join or invite your partner to Twofold")
+                                .font(.caption)
+                                .foregroundStyle(Theme.heartRed)
+                        }
                     }
 
                     if !flightlessTrips.isEmpty {

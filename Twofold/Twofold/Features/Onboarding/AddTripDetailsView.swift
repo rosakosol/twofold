@@ -77,6 +77,15 @@ struct AddTripDetailsView: View {
                             Text("Both").tag(TripTraveler.both)
                         }
                         .pickerStyle(.segmented)
+
+                        // Only warn outside onboarding — during onboarding itself, not having a
+                        // partner connected yet is the expected, normal state, not a problem to
+                        // flag.
+                        if mode == .standalone, traveler != .you, !appModel.partnerConnected {
+                            Text("No partner has been added yet - join or invite your partner to Twofold")
+                                .font(.caption)
+                                .foregroundStyle(Theme.heartRed)
+                        }
                     }
 
                     VStack(alignment: .leading, spacing: Theme.Spacing.xs) {

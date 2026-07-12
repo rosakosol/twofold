@@ -10,8 +10,7 @@ struct HomeView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var showingSnapshot = false
     @State private var showingSettings = false
-    @State private var showingInvite = false
-    @State private var showingRedeemCode = false
+    @State private var showingPartnerSetup = false
     @State private var showingAddTrip = false
     @State private var showingAddFlight = false
     @State private var showingHomeCities = false
@@ -40,6 +39,9 @@ struct HomeView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: Theme.Spacing.md) {
+                    if appModel.needsPartnerInvite {
+                        invitePartnerCard
+                    }
                     setupChecklistCard
                     pendingSharesCard
                     if let partnerTimeZone = appModel.partner.homeCity?.timeZone {
@@ -91,13 +93,6 @@ struct HomeView: View {
                         AvatarView(person: appModel.partner, size: 30)
                     }
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showingSnapshot = true
-                    } label: {
-                        Image(systemName: "bell")
-                    }
-                }
             }
             .sheet(item: $reviewingShare, onDismiss: refreshPendingShares) { share in
                 PendingFlightShareReviewView(share: share)
@@ -120,15 +115,8 @@ struct HomeView: View {
             .sheet(isPresented: $showingSettings) { SettingsView() }
             .sheet(isPresented: $showingHomeCities) { HomeCitiesView() }
             .sheet(isPresented: $showingAddFlight) { AddFlightView() }
-            .sheet(isPresented: $showingInvite) {
-                NavigationStack {
-                    ShareInviteView(code: appModel.inviteCode ?? "") {
-                        showingInvite = false
-                    }
-                }
-            }
-            .sheet(isPresented: $showingRedeemCode) {
-                RedeemPartnerCodeView()
+            .sheet(isPresented: $showingPartnerSetup) {
+                PartnerSetupView()
             }
             .sheet(isPresented: $showingAddTrip) {
                 NavigationStack {
@@ -147,7 +135,7 @@ struct HomeView: View {
 
     @ViewBuilder
     private var setupChecklistCard: some View {
-        if !setupChecklistDismissed && (appModel.needsPartnerInvite || appModel.needsFirstTrip || appModel.needsFirstFlight || appModel.needsHomeCities) {
+        if !setupChecklistDismissed && (appModel.needsFirstTrip || appModel.needsFirstFlight || appModel.needsHomeCities) {
             SectionCard {
                 HStack {
                     Text("Finish setting up Twofold")
@@ -162,23 +150,6 @@ struct HomeView: View {
                     .buttonStyle(.plain)
                 }
 
-                if appModel.needsPartnerInvite {
-                    checklistRow(icon: .system("person.badge.plus"), title: "Invite \(appModel.partner.name) to finish setting up Twofold") {
-                        Task {
-                            if appModel.inviteCode == nil {
-                                appModel.inviteCode = try? await BackendService.createInviteCode(firstName: appModel.currentUser.name)
-                            }
-                            if appModel.inviteCode != nil {
-                                showingInvite = true
-                            }
-                        }
-                    }
-                }
-                if appModel.needsPartnerInvite {
-                    checklistRow(icon: .system("person.fill.checkmark"), title: "Have a code from \(appModel.partner.name)? Enter it") {
-                        showingRedeemCode = true
-                    }
-                }
                 if appModel.needsFirstTrip {
                     checklistRow(icon: .system("airplane.departure"), title: "Add your next trip") { showingAddTrip = true }
                 }
@@ -268,6 +239,38 @@ struct HomeView: View {
                     .multilineTextAlignment(.leading)
                 Spacer()
                 Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// The prominent, primary prompt whenever there's no connected partner — pulled out of
+    /// `setupChecklistCard` into its own full-weight card (rather than a small checklist row)
+    /// since setting up a partner is a much bigger, more central action than the other
+    /// checklist items, and opens a single focused screen covering name/photo/city/anniversary
+    /// plus the actual connect step, instead of splitting that across two separate rows.
+    private var invitePartnerCard: some View {
+        Button {
+            showingPartnerSetup = true
+        } label: {
+            SectionCard {
+                HStack(spacing: Theme.Spacing.md) {
+                    ZStack {
+                        Circle().fill(Theme.skyBlue.opacity(0.15))
+                        Image(systemName: "person.2.fill").foregroundStyle(Theme.skyBlue)
+                    }
+                    .frame(width: 44, height: 44)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Set up your partner")
+                            .font(.headline)
+                            .foregroundStyle(Theme.ink)
+                        Text("Add their name and photo, then connect with an invite code.")
+                            .font(.caption)
+                            .foregroundStyle(Theme.subtleInk)
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
+                }
             }
         }
         .buttonStyle(.plain)

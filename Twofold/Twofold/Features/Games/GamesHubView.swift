@@ -11,6 +11,8 @@
 import SwiftUI
 
 struct GamesHubView: View {
+    @Environment(AppModel.self) private var appModel
+
     private var competeGames: [GameType] { GameType.allCases.filter { $0.category == .compete } }
     private var connectGames: [GameType] { GameType.allCases.filter { $0.category == .connect } }
     private var travelGames: [GameType] { GameType.allCases }
@@ -47,12 +49,16 @@ struct GamesHubView: View {
 
             VStack(spacing: Theme.Spacing.sm) {
                 ForEach(games) { gameType in
-                    NavigationLink {
-                        GameEntryView(gameType: gameType)
-                    } label: {
-                        GameCard(gameType: gameType)
+                    if appModel.partnerConnected {
+                        NavigationLink {
+                            GameEntryView(gameType: gameType)
+                        } label: {
+                            GameCard(gameType: gameType)
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        GameCard(gameType: gameType, isLocked: true)
                     }
-                    .buttonStyle(.plain)
                 }
             }
         }

@@ -35,14 +35,12 @@ enum SubscriptionTier: CaseIterable {
                 "Unlimited memories",
                 "Unlimited trips",
                 "Track up to 5 flights per month",
-                "Basic memory and trip export",
                 "Basic Widgets",
             ]
         case .premium:
             [
                 "Everything in Plus",
                 "Track up to 20 flights per month — designed for people who fly often, including business travellers, FIFO workers, pilots and cabin crew",
-                "Advanced memory and trip export",
                 "Premium Widgets",
             ]
         }

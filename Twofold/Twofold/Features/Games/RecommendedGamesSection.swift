@@ -10,6 +10,8 @@
 import SwiftUI
 
 struct RecommendedGamesSection: View {
+    @Environment(AppModel.self) private var appModel
+
     static let recommended: [GameType] = [.travelTrivia, .moreLikely, .thisOrThat, .discussBeforeTravelling]
 
     /// `GamesHubView` wraps itself in its own `NavigationStack` (it doubles as the Games tab's
@@ -36,12 +38,16 @@ struct RecommendedGamesSection: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: Theme.Spacing.sm) {
                     ForEach(Self.recommended) { gameType in
-                        NavigationLink {
-                            GameEntryView(gameType: gameType)
-                        } label: {
-                            GameCard(gameType: gameType, width: 220)
+                        if appModel.partnerConnected {
+                            NavigationLink {
+                                GameEntryView(gameType: gameType)
+                            } label: {
+                                GameCard(gameType: gameType, width: 220)
+                            }
+                            .buttonStyle(.plain)
+                        } else {
+                            GameCard(gameType: gameType, width: 220, isLocked: true)
                         }
-                        .buttonStyle(.plain)
                     }
                 }
                 .padding(.vertical, 2)

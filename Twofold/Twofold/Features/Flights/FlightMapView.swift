@@ -32,59 +32,73 @@ struct FlightMapView: View {
     /// rather than sitting static.
     @State private var pulse = false
 
+    /// Measured once via a `.background` `GeometryReader` rather than by making `Map` itself a
+    /// child of one — `Map` nested directly inside `GeometryReader`'s content closure loses its
+    /// own pinch/pan gesture recognizers (a known SwiftUI/MapKit interaction), which made the
+    /// map look completely unresponsive to zoom. A `.background` GeometryReader shares the same
+    /// allocated space without wrapping/constraining the Map's own layout, so gestures work
+    /// again while the region-fitting fix (see `region(containing:_:padding:aspectRatio:)`)
+    /// still gets an accurate aspect ratio before the Map is ever created.
+    @State private var measuredAspectRatio: Double?
+
     var body: some View {
         if let origin = flight.origin.coordinate, let destination = flight.destination.coordinate {
-            // The region has to be shaped to match this view's own aspect ratio, not just
-            // padded by a flat percentage — MapKit fits a region into whatever frame it's
-            // given, so a route whose own lat/lng bounding box is much taller/narrower than a
-            // short, wide card gets zoomed in until the box's shape matches the card's, which
-            // pushes both endpoints past the visible edges. GeometryReader supplies the real
-            // aspect ratio before the Map is created so that can't happen.
-            GeometryReader { geo in
-                let aspectRatio = geo.size.width / max(geo.size.height, 1)
-                Map(initialPosition: .region(Self.region(containing: origin, destination, padding: regionPadding, aspectRatio: aspectRatio)), interactionModes: interactive ? .all : []) {
-                    Annotation(flight.origin.displayCode, coordinate: origin) {
-                        endpointMarker
-                    }
-                    Annotation(flight.destination.displayCode, coordinate: destination) {
-                        endpointMarker
-                    }
+            Group {
+                if let measuredAspectRatio {
+                    Map(initialPosition: .region(Self.region(containing: origin, destination, padding: regionPadding, aspectRatio: measuredAspectRatio)), interactionModes: interactive ? .all : []) {
+                        Annotation(flight.origin.displayCode, coordinate: origin) {
+                            endpointMarker
+                        }
+                        Annotation(flight.destination.displayCode, coordinate: destination) {
+                            endpointMarker
+                        }
 
-                    // A light halo underneath a solid, higher-contrast line — even a saturated
-                    // color can wash out against ocean/land on the standard map style, so the
-                    // white outline keeps it legible everywhere regardless of what's underneath.
-                    // The colored line itself breathes gently (opacity + width) via `pulse` so
-                    // the route reads as "live," not a static overlay.
-                    MapPolyline(coordinates: [origin, destination], contourStyle: .geodesic)
-                        .stroke(.white.opacity(0.9), style: StrokeStyle(lineWidth: 6, lineCap: .round))
-                    MapPolyline(coordinates: [origin, destination], contourStyle: .geodesic)
-                        .stroke(
-                            LinearGradient(colors: [.cyan, .green], startPoint: .leading, endPoint: .trailing).opacity(pulse ? 1 : 0.6),
-                            style: StrokeStyle(lineWidth: pulse ? 4.5 : 3, lineCap: .round)
-                        )
+                        // A light halo underneath a solid, higher-contrast line — even a
+                        // saturated color can wash out against ocean/land on the standard map
+                        // style, so the white outline keeps it legible everywhere regardless of
+                        // what's underneath. The colored line itself breathes gently (opacity +
+                        // width) via `pulse` so the route reads as "live," not a static overlay.
+                        MapPolyline(coordinates: [origin, destination], contourStyle: .geodesic)
+                            .stroke(.white.opacity(0.9), style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                        MapPolyline(coordinates: [origin, destination], contourStyle: .geodesic)
+                            .stroke(
+                                LinearGradient(colors: [.cyan, .green], startPoint: .leading, endPoint: .trailing).opacity(pulse ? 1 : 0.6),
+                                style: StrokeStyle(lineWidth: pulse ? 4.5 : 3, lineCap: .round)
+                            )
 
-                    // Only one icon rides the route itself — the live position marker (avatar
-                    // if we know who's traveling, otherwise a plane). The endpoints above are
-                    // plain dots, not airplane glyphs, so they don't read as extra "icons" on
-                    // the path.
-                    if let position = flight.positionCoordinate {
-                        Annotation("", coordinate: position) {
-                            if let traveler {
-                                travelerMarker(traveler)
-                            } else {
-                                planeMarker
+                        // Only one icon rides the route itself — the live position marker
+                        // (avatar if we know who's traveling, otherwise a plane). The endpoints
+                        // above are plain dots, not airplane glyphs, so they don't read as extra
+                        // "icons" on the path.
+                        if let position = flight.positionCoordinate {
+                            Annotation("", coordinate: position) {
+                                if let traveler {
+                                    travelerMarker(traveler)
+                                } else {
+                                    planeMarker
+                                }
                             }
                         }
                     }
-                }
-                .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
-                .allowsHitTesting(interactive)
-                .onAppear {
-                    withAnimation(.easeInOut(duration: 1.3).repeatForever(autoreverses: true)) {
-                        pulse = true
+                    .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
+                    .allowsHitTesting(interactive)
+                    .onAppear {
+                        withAnimation(.easeInOut(duration: 1.3).repeatForever(autoreverses: true)) {
+                            pulse = true
+                        }
                     }
+                } else {
+                    Theme.cardBackground
                 }
             }
+            .background(
+                GeometryReader { geo in
+                    Color.clear
+                        .onAppear {
+                            measuredAspectRatio = geo.size.width / max(geo.size.height, 1)
+                        }
+                }
+            )
         } else {
             fallback
         }
