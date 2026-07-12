@@ -94,6 +94,20 @@ struct SettingsView: View {
 
                     SectionCard {
                         NavigationLink {
+                            NotificationPreferencesView()
+                        } label: {
+                            HStack {
+                                Label("Notifications", systemImage: "bell.fill")
+                                    .foregroundStyle(Theme.ink)
+                                Spacer()
+                                Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    SectionCard {
+                        NavigationLink {
                             ArchivedDataView()
                         } label: {
                             HStack {

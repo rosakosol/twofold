@@ -73,6 +73,7 @@ struct GameEntryView: View {
                 sessionID = resumable.id
             } else {
                 sessionID = try await BackendService.startGameSession(gameType: gameType)
+                Task { await BackendService.notifyPartner(event: .gameStarted, detail: gameType.displayName) }
             }
         } catch {
             errorMessage = error.localizedDescription

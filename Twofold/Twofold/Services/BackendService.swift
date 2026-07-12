@@ -1954,6 +1954,94 @@ enum BackendService {
         }
         return (channel, stream)
     }
+
+    // MARK: - Couple-activity notifications (drawing/trip/memory/game — not flight-specific)
+
+    enum CoupleNotificationEvent: String {
+        case drawingSaved = "drawing_saved"
+        case tripAdded = "trip_added"
+        case memoryAdded = "memory_added"
+        case gameStarted = "game_started"
+    }
+
+    /// Tells the caller's partner (if any) about something the caller just did — best-effort,
+    /// never throws. Called right after a real, synced write succeeds (never for a
+    /// pending/local-only trip or memory added before pairing), since notifying about
+    /// something that doesn't exist in the partner's own view yet would be misleading.
+    static func notifyPartner(event: CoupleNotificationEvent, detail: String? = nil) async {
+        guard let accessToken = currentAccessToken else { return }
+        var body: [String: Any] = ["eventType": event.rawValue]
+        if let detail { body["detail"] = detail }
+
+        var request = URLRequest(url: SupabaseConfig.projectURL.appendingPathComponent("functions/v1/notify-couple-event"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(SupabaseConfig.publishableKey, forHTTPHeaderField: "apiKey")
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        _ = try? await URLSession.shared.data(for: request)
+    }
+
+    struct CoupleNotificationPreferences {
+        var partnerDrawingSaved: Bool
+        var partnerTripAdded: Bool
+        var partnerMemoryAdded: Bool
+        var partnerGameStarted: Bool
+
+        static let allEnabled = CoupleNotificationPreferences(partnerDrawingSaved: true, partnerTripAdded: true, partnerMemoryAdded: true, partnerGameStarted: true)
+    }
+
+    private struct CoupleNotificationPreferencesRow: Codable {
+        var profileId: UUID
+        var partnerDrawingSaved: Bool
+        var partnerTripAdded: Bool
+        var partnerMemoryAdded: Bool
+        var partnerGameStarted: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case profileId = "profile_id"
+            case partnerDrawingSaved = "partner_drawing_saved"
+            case partnerTripAdded = "partner_trip_added"
+            case partnerMemoryAdded = "partner_memory_added"
+            case partnerGameStarted = "partner_game_started"
+        }
+    }
+
+    /// No row yet means "everything on" — matches the table's own column defaults, same
+    /// fallback `notify-couple-event` uses server-side.
+    static func fetchCoupleNotificationPreferences() async throws -> CoupleNotificationPreferences {
+        guard let userID = currentUserID else { throw BackendError.notAuthenticated }
+        let rows: [CoupleNotificationPreferencesRow] = try await supabase
+            .from("notification_preferences")
+            .select()
+            .eq("profile_id", value: userID)
+            .limit(1)
+            .execute()
+            .value
+        guard let row = rows.first else { return .allEnabled }
+        return CoupleNotificationPreferences(
+            partnerDrawingSaved: row.partnerDrawingSaved,
+            partnerTripAdded: row.partnerTripAdded,
+            partnerMemoryAdded: row.partnerMemoryAdded,
+            partnerGameStarted: row.partnerGameStarted
+        )
+    }
+
+    static func upsertCoupleNotificationPreferences(_ prefs: CoupleNotificationPreferences) async throws {
+        guard let userID = currentUserID else { throw BackendError.notAuthenticated }
+        let row = CoupleNotificationPreferencesRow(
+            profileId: userID,
+            partnerDrawingSaved: prefs.partnerDrawingSaved,
+            partnerTripAdded: prefs.partnerTripAdded,
+            partnerMemoryAdded: prefs.partnerMemoryAdded,
+            partnerGameStarted: prefs.partnerGameStarted
+        )
+        try await supabase
+            .from("notification_preferences")
+            .upsert(row, onConflict: "profile_id")
+            .execute()
+    }
 }
 
 private extension TripCategory {

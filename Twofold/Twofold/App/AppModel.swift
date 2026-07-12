@@ -301,7 +301,11 @@ final class AppModel {
     /// beforehand, and no partner pad to make the feature meaningful yet.
     func saveMyDrawing(imageData: Data) async {
         guard let backendCoupleID else { return }
-        myDrawingURL = try? await BackendService.uploadDrawingPad(coupleID: backendCoupleID, personID: currentUser.id, imageData: imageData)
+        let uploadedURL = try? await BackendService.uploadDrawingPad(coupleID: backendCoupleID, personID: currentUser.id, imageData: imageData)
+        myDrawingURL = uploadedURL
+        if uploadedURL != nil {
+            Task { await BackendService.notifyPartner(event: .drawingSaved) }
+        }
     }
 
     /// Adopts real couple/trip/memory rows from the backend, flushing anything that was added
@@ -444,6 +448,7 @@ final class AppModel {
         if let backendCoupleID {
             do {
                 try await BackendService.insertTrip(coupleID: backendCoupleID, trip: trip)
+                Task { await BackendService.notifyPartner(event: .tripAdded, detail: "\(origin.city) to \(destination.city)") }
             } catch {
                 pendingTripIDs.insert(trip.id)
             }
@@ -536,6 +541,7 @@ final class AppModel {
             if let index = memories.firstIndex(where: { $0.id == memory.id }) {
                 memories[index].photos = photos
             }
+            Task { await BackendService.notifyPartner(event: .memoryAdded, detail: title) }
         } catch {
             pendingMemoryIDs.insert(memory.id)
             if !imagesData.isEmpty { pendingMemoryPhotoData[memory.id] = imagesData }
