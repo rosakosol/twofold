@@ -60,38 +60,27 @@ struct WidgetSellView: View {
                     TabView(selection: $page) {
                         ForEach(Array(pages.enumerated()), id: \.offset) { index, widgetPage in
                             widgetPage.widget
-                                .frame(height: 220)
+                                .frame(height: 200)
                                 .padding(.horizontal, Theme.Spacing.xl)
                                 .tag(index)
                         }
                     }
-                    .tabViewStyle(.page(indexDisplayMode: .always))
-                    .indexViewStyle(.page(backgroundDisplayMode: .always))
-                    .frame(height: 260)
+                    .tabViewStyle(.page(indexDisplayMode: .never))
+                    .frame(height: 280)
 
-                    // Lives outside the TabView entirely so the native page-dot indicator
-                    // (drawn inside the TabView's own bottom inset) never overlaps it.
                     Text(pages[page].caption)
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(Theme.subtleInk)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity)
 
-                    VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-                        Text("THREE WAYS TO STAY CLOSE")
-                            .font(.caption2.weight(.bold))
-                            .foregroundStyle(Theme.subtleInk)
+                    Spacer(minLength: Theme.Spacing.xl)
 
-                        SectionCard {
-                            widgetFeatureRow(icon: "clock.fill", title: "\(partnerName)'s time", subtitle: "Always know what time it is for them")
-                            widgetFeatureRow(icon: "cloud.sun.fill", title: "Time & weather", subtitle: "Their local time and weather, side by side")
-                            widgetFeatureRow(icon: "airplane", title: "Flight countdown", subtitle: "Watch the time tick down to \(onboarding.partnerPossessive) next trip")
-                        }
-                    }
+                    pageDots
                 }
             },
             primaryTitle: "Continue",
-            primaryAction: { onboarding.path.append(.saveAccount) }
+            primaryAction: { onboarding.path.append(.addFirstFlight) }
         )
     }
 
@@ -262,24 +251,19 @@ struct WidgetSellView: View {
         )
     }
 
-    private func widgetFeatureRow(icon: String, title: String, subtitle: String) -> some View {
-        HStack(alignment: .top, spacing: Theme.Spacing.sm) {
-            ZStack {
-                Circle().fill(Theme.skyBlue.opacity(0.12))
-                Image(systemName: icon)
-                    .font(.caption)
-                    .foregroundStyle(Theme.skyBlue)
+    /// Custom centered pagination, replacing the native page-dot indicator (which lived inside
+    /// the TabView's own frame, not the bottom of the screen). Placed after a `Spacer()` so it
+    /// sits low in the scrollable content, just above the scaffold's pinned "Continue" button.
+    private var pageDots: some View {
+        HStack(spacing: Theme.Spacing.xs) {
+            ForEach(pages.indices, id: \.self) { index in
+                Circle()
+                    .fill(index == page ? Theme.skyBlue : Theme.subtleInk.opacity(0.25))
+                    .frame(width: index == page ? 8 : 6, height: index == page ? 8 : 6)
+                    .animation(.easeInOut(duration: 0.2), value: page)
             }
-            .frame(width: 32, height: 32)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.subheadline.weight(.semibold))
-                Text(subtitle).font(.caption).foregroundStyle(Theme.subtleInk)
-            }
-
-            Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity)
     }
 }
 

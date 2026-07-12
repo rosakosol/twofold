@@ -5,7 +5,7 @@
 
 import SwiftUI
 
-struct GlobeHomeView: View {
+struct HomeView: View {
     @Environment(AppModel.self) private var appModel
     @Environment(\.scenePhase) private var scenePhase
     @State private var showingSnapshot = false
@@ -430,6 +430,6 @@ struct GlobeHomeView: View {
 }
 
 #Preview {
-    GlobeHomeView()
+    HomeView()
         .environment(AppModel())
 }

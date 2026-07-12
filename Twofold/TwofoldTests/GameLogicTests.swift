@@ -140,7 +140,7 @@ struct GameLogicTests {
 
     // MARK: - Game metadata / Globe homepage card wiring
 
-    @Test func fourGamesAreRecommendedOnTheGlobeHomepage() {
+    @Test func fourGamesAreRecommendedOnTheHomeHomepage() {
         #expect(Set(RecommendedGamesSection.recommended) == Set(GameType.allCases))
         #expect(RecommendedGamesSection.recommended.count == 4)
     }

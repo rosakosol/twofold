@@ -8,8 +8,8 @@ import SwiftUI
 struct MainTabView: View {
     var body: some View {
         TabView {
-            Tab("Globe", systemImage: "globe.americas.fill") {
-                GlobeHomeView()
+            Tab("Home", systemImage: "globe.americas.fill") {
+                HomeView()
             }
             Tab("Trips", systemImage: "airplane") {
                 TripsListView()
@@ -21,7 +21,7 @@ struct MainTabView: View {
                 GamesHubView()
             }
             Tab("Passport", systemImage: "book.closed.fill") {
-                StatsView()
+                PassportView()
             }
         }
         .tint(Theme.skyBlue)

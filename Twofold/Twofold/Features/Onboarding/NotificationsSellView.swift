@@ -73,22 +73,26 @@ struct NotificationsSellView: View {
         }
     }
 
+    // Mirrors the real push-notification vocabulary from supabase/functions/_shared/notify.ts's
+    // buildMessage (departed/airborne, arrival_time_change, landed) — the real pushes are
+    // generic partner-to-partner text with no name, but onboarding's whole point is showing
+    // what it'll feel like with the actual partner's name in it.
     private var previews: [NotificationPreview] {
         [
             NotificationPreview(
                 emoji: "🛫",
-                title: "\(partnerName) has departed",
-                body: "QF9 departed \(originLabel)."
+                title: "Flight departed",
+                body: "\(partnerName)'s flight has departed \(originLabel)."
             ),
             NotificationPreview(
                 emoji: "🛬",
-                title: "\(partnerName) is landing soon",
-                body: "Touch down is in an hour."
+                title: "Arrival time updated",
+                body: "\(partnerName)'s estimated arrival is in about an hour."
             ),
             NotificationPreview(
                 emoji: "🎉",
-                title: "\(partnerName) has landed ❤️",
-                body: "QF9 has arrived in \(destinationLabel)."
+                title: "Flight landed",
+                body: "\(partnerName)'s flight has landed in \(destinationLabel) ❤️"
             ),
         ]
     }

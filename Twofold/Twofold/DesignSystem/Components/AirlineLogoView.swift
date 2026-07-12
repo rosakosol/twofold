@@ -11,32 +11,49 @@ import SwiftUI
 
 struct AirlineLogoView: View {
     let url: URL?
-    var size: CGFloat = 24
+    var width: CGFloat = 36
+    var height: CGFloat = 18
+
+    init(url: URL?, width: CGFloat = 36, height: CGFloat = 18) {
+        self.url = url
+        self.width = width
+        self.height = height
+    }
+
+    /// Square convenience initializer for call sites that just want a single dimension.
+    init(url: URL?, size: CGFloat) {
+        self.url = url
+        self.width = size
+        self.height = size
+    }
 
     var body: some View {
-        Group {
-            if let url {
-                AsyncImage(url: url) { phase in
-                    if let image = phase.image {
-                        image.resizable().scaledToFit().padding(size * 0.12)
-                    } else {
-                        fallback
-                    }
+        if let url {
+            AsyncImage(url: url) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .scaledToFit()
+
+                case .empty:
+                    Color.clear
+
+                default:
+                    fallback
                 }
-            } else {
-                fallback
             }
+            .frame(width: width, height: height)
+
+        } else {
+            fallback
         }
-        .frame(width: size, height: size)
-        .background(Theme.cardBackground, in: Circle())
-        .overlay(Circle().strokeBorder(Theme.subtleInk.opacity(0.12), lineWidth: 1))
-        .clipShape(Circle())
     }
 
     private var fallback: some View {
         Image(systemName: "airplane")
-            .font(.system(size: size * 0.42))
-            .foregroundStyle(Theme.subtleInk)
+            .foregroundStyle(.secondary)
+            .frame(width: width, height: height)
     }
 }
 

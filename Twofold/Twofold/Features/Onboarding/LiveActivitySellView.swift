@@ -55,6 +55,8 @@ struct LiveActivitySellView: View {
             content: {
                 VStack(spacing: Theme.Spacing.sm) {
                     lockScreenMock
+                        .frame(maxWidth: 360)
+                        .frame(maxWidth: .infinity)
                         .scaleEffect(cardVisible ? 1 : 0.85)
                         .opacity(cardVisible ? 1 : 0)
                         .offset(y: cardVisible ? 0 : 16)

@@ -41,7 +41,7 @@ enum SubscriptionTier: CaseIterable {
         case .premium:
             [
                 "Everything in Plus",
-                "Track up to 20 flights per month - perfect for frequent flyers",
+                "Track up to 20 flights per month — designed for people who fly often, including business travellers, FIFO workers, pilots and cabin crew",
                 "Advanced memory and trip export",
                 "Premium Widgets",
             ]

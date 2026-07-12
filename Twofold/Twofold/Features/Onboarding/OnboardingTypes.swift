@@ -22,11 +22,11 @@ enum OnboardingStep: Hashable {
     case memoriesSell
     case mapSell
     case widgetSell
-    case saveAccount
-    case invitePartner
     case addFirstFlight
     case firstMemory
     case twofoldPreview
+    case saveAccount
+    case invitePartner
     case trialTrust
     case paywall
     case purchaseSuccess
@@ -128,7 +128,7 @@ enum RelationshipSituation: String, CaseIterable, Identifiable {
 enum TravelFrequency: String, CaseIterable, Identifiable {
     case everyFewWeeks = "Every few weeks"
     case every1to2Months = "Every 1-2 months"
-    case every3to4Months = "Every 3–4 months"
+    case every3to4Months = "Every 3-4 months"
     case aFewTimesAYear = "A few times a year"
     case everyFewMonths = "Every few months"
     case mostMonths = "Most months"
@@ -136,8 +136,8 @@ enum TravelFrequency: String, CaseIterable, Identifiable {
     case almostEveryWeek = "Almost every week"
     case lessThanAMonth = "Less than a month"
     case oneToThreeMonths = "1-3 months"
-    case threeToSixMonths = "3–6 months"
-    case sixToTwelveMonths = "6–12 months"
+    case threeToSixMonths = "3-6 months"
+    case sixToTwelveMonths = "6-12 months"
     case notSureYet = "We're not sure yet"
 
     var id: String { rawValue }

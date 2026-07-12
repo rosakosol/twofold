@@ -1,5 +1,5 @@
 //
-//  StatsView.swift
+//  PassportView.swift
 //  Twofold
 //
 //  The "Passport" tab. The main page shows the couple's passport card — hero distance
@@ -13,7 +13,7 @@
 
 import SwiftUI
 
-struct StatsView: View {
+struct PassportView: View {
     @Environment(AppModel.self) private var appModel
     @State private var showingSnapshot = false
 
@@ -513,6 +513,6 @@ struct FlightStats {
 }
 
 #Preview {
-    StatsView()
+    PassportView()
         .environment(AppModel())
 }

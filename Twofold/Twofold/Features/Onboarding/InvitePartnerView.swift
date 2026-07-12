@@ -46,7 +46,7 @@ struct InvitePartnerView: View {
             primaryTitle: nil,
             primaryAction: nil,
             secondaryTitle: "Not now",
-            secondaryAction: { onboarding.path.append(.addFirstFlight) }
+            secondaryAction: { onboarding.path.append(.trialTrust) }
         )
         .onAppear {
             if onboarding.inviteCode == nil {
@@ -167,7 +167,7 @@ struct InvitePartnerView: View {
                 // `appModel.hasCouple = true`, and `RootView` takes it from here.
                 await appModel.applyOnboardingAccount(onboarding)
                 if !appModel.hasCouple {
-                    onboarding.path.append(.addFirstFlight)
+                    onboarding.path.append(.trialTrust)
                 }
             } catch {
                 redeemError = error.localizedDescription

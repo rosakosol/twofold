@@ -5,7 +5,10 @@
 //  Shown only when onboarding's "add your first flight" step was skipped (or couldn't add
 //  one) — gives that moment somewhere to land besides an empty preview screen. Defaults the
 //  memory's place to the user's own home city so this stays a single quick field, not a full
-//  add-memory form.
+//  add-memory form. No skip here (unlike the flight step) — since the flight step was already
+//  skipped to reach this screen, saving a memory is the only way to guarantee the upcoming
+//  "Your Twofold is ready" screen has something real to show. Title is the only required
+//  field, so this stays low-friction.
 //
 
 import SwiftUI
@@ -20,7 +23,7 @@ struct FirstMemoryView: View {
     var body: some View {
         OnboardingScaffold(
             title: "Save your first memory 💛",
-            subtitle: "A moment, a place, a feeling — you can always add more later.",
+            subtitle: "A moment, a place, a feeling - you can always add more later.",
             content: {
                 VStack(spacing: Theme.Spacing.md) {
                     TextField("Memory title", text: $title)
@@ -36,9 +39,7 @@ struct FirstMemoryView: View {
             },
             primaryTitle: "Save memory",
             primaryAction: save,
-            primaryDisabled: title.trimmingCharacters(in: .whitespaces).isEmpty || isSaving,
-            secondaryTitle: "Add this later",
-            secondaryAction: { onboarding.path.append(.twofoldPreview) }
+            primaryDisabled: title.trimmingCharacters(in: .whitespaces).isEmpty || isSaving
         )
     }
 

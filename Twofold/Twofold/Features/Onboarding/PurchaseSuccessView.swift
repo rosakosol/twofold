@@ -19,7 +19,7 @@ struct PurchaseSuccessView: View {
 
     var body: some View {
         OnboardingScaffold(
-            title: "Welcome to Twofold!",
+            title: "You're all set!",
             subtitle: "Your 14-day free trial has started.",
             content: {
                 VStack(spacing: Theme.Spacing.lg) {
@@ -34,7 +34,7 @@ struct PurchaseSuccessView: View {
                             didCelebrate = true
                         }
 
-                    Text("We'll keep an eye on \(partnerName)'s journeys from here.")
+                    Text("We'll help you and your partner stay connected, wherever you are.")
                         .font(.subheadline)
                         .foregroundStyle(Theme.subtleInk)
                         .multilineTextAlignment(.center)

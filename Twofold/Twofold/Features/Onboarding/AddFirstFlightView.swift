@@ -2,11 +2,12 @@
 //  AddFirstFlightView.swift
 //  Twofold
 //
-//  There's no real flight-schedule lookup API in this app (only forwarded-email parsing,
-//  a different feature), so "Find flight" can't independently verify a flight the way a
-//  real search would — it saves exactly what's entered rather than fabricating a result.
-//  A date is collected alongside the number since the schema requires one and nothing can
-//  infer it. Defaults to the reunion direction: partner's city → your city.
+//  Embeds the full shared AddFlightFlowView wizard (same real AeroAPI-backed search the live
+//  app uses) rather than a reduced onboarding-only form. Once a real candidate is picked, this
+//  immediately creates a trip with a self-reported Flight using the real resolved number/date
+//  (the proven-reliable path this screen already used), then best-effort upgrades it to a real
+//  AeroAPI-tracked flight — wrapped in try? since add-flight requires an active couple, which
+//  may not exist yet this early if the partner hasn't joined. Either way lands on .firstMemory.
 //
 
 import SwiftUI
@@ -14,60 +15,43 @@ import SwiftUI
 struct AddFirstFlightView: View {
     @Environment(OnboardingModel.self) private var onboarding
     @Environment(AppModel.self) private var appModel
-    @State private var flightNumber = ""
-    @State private var date = Date().addingTimeInterval(86_400 * 14)
-    @State private var isSaving = false
-
-    // PartnerNameView requires a non-empty name before you can advance, so by the time any
-    // later onboarding screen runs, this is always the real name — no fallback needed.
-    private var partnerName: String { onboarding.partnerName }
 
     var body: some View {
-        OnboardingScaffold(
-            title: "Let's track your first flight ✈️",
-            subtitle: "Add a flight for you or \(partnerName)",
-            content: {
-                VStack(spacing: Theme.Spacing.md) {
-                    TextField("Flight number, e.g. QF9", text: $flightNumber)
-                        .textInputAutocapitalization(.characters)
-                        .padding()
-                        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-
-                    DatePicker("Departure", selection: $date, in: Date.now..., displayedComponents: [.date, .hourAndMinute])
-                        .datePickerStyle(.compact)
-                        .padding()
-                        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-                }
-            },
-            primaryTitle: "Find flight",
-            primaryAction: save,
-            primaryDisabled: flightNumber.trimmingCharacters(in: .whitespaces).isEmpty || isSaving,
-            secondaryTitle: "Add this later",
-            secondaryAction: { onboarding.path.append(.firstMemory) }
+        AddFlightFlowView(
+            nearCoordinate: onboarding.homeCity?.coordinate,
+            topBarTitle: "Add this later",
+            onTopBarAction: { onboarding.path.append(.firstMemory) },
+            completion: .handOff(handleSelected)
         )
     }
 
-    private func save() {
-        onboarding.draftedFlightNumber = flightNumber.trimmingCharacters(in: .whitespaces)
-        onboarding.draftedFlightDate = date
+    private func handleSelected(_ candidate: AeroFlightCandidate) {
+        onboarding.draftedFlightNumber = candidate.displayFlightNumber
+        onboarding.draftedFlightDate = candidate.scheduledOut
 
         guard let origin = onboarding.partnerCity, let destination = onboarding.homeCity else {
             onboarding.path.append(.firstMemory)
             return
         }
 
-        isSaving = true
         Task {
-            await appModel.addTrip(
+            let trip = await appModel.addTrip(
                 origin: origin,
                 destination: destination,
-                departureDate: date,
-                arrivalDate: date.addingTimeInterval(3600 * 4),
+                departureDate: candidate.scheduledOut ?? Date.now,
+                arrivalDate: candidate.scheduledIn ?? Date.now.addingTimeInterval(3600 * 4),
                 traveler: .partner,
                 category: .seeingEachOther,
-                flightNumber: onboarding.draftedFlightNumber
+                flightNumber: candidate.displayFlightNumber
             )
-            isSaving = false
+            // Best-effort upgrade to a real AeroAPI-tracked flight — silent on failure since
+            // add-flight requires an active couple, which may not exist yet this early in
+            // onboarding. The self-reported trip above is the safety net either way.
+            try? await AeroFlightService.addFlight(faFlightId: candidate.faFlightId, tripID: trip.id, notifyMe: true)
+            await appModel.refreshFlights()
+            // A flight was successfully added — skip the (now-mandatory-when-reached) memory
+            // step entirely and go straight to the "ready" screen. Only the top-bar skip and
+            // the missing-city guard above land on .firstMemory instead.
             onboarding.path.append(.twofoldPreview)
         }
     }

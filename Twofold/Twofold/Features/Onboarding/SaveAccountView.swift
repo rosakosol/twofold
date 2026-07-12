@@ -34,8 +34,8 @@ struct SaveAccountView: View {
 
     var body: some View {
         OnboardingScaffold(
-            title: "Complete your setup",
-            subtitle: "Sign in with Apple or Google, or create an account with email, so you can invite \(onboarding.partnerName) and save your progress.",
+            title: "Save your progress",
+            subtitle: "Sign in with Apple or Google, or create an account with email, so you can invite \(onboarding.partnerName)",
             content: {
                 VStack(spacing: Theme.Spacing.md) {
                     AppleGoogleSignInButtons(
