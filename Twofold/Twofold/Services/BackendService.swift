@@ -851,7 +851,7 @@ enum BackendService {
             let photoRows = (photoRowsByMemory[row.id] ?? []).sorted { $0.position < $1.position }
             var photos: [MemoryPhoto] = []
             for photoRow in photoRows {
-                if let url = try? await memoryPhotoSignedURL(path: photoRow.photoPath) {
+                if let url = await memoryPhotoSignedURLWithRetry(path: photoRow.photoPath) {
                     photos.append(MemoryPhoto(id: photoRow.id, path: photoRow.photoPath, url: url))
                 }
             }
@@ -1569,6 +1569,22 @@ enum BackendService {
         try await supabase.storage.from("memory-photos").createSignedURL(path: path, expiresIn: 3600)
     }
 
+    /// A single transient failure here (network blip, momentary auth hiccup) used to mean a
+    /// callers' `try?` silently dropped the photo forever — the underlying file and DB row
+    /// were both fine, but the photo just never showed up, looking exactly like "the image
+    /// wasn't saved" even though it was. Retries a few times before actually giving up.
+    static func memoryPhotoSignedURLWithRetry(path: String, attempts: Int = 3) async -> URL? {
+        for attempt in 1...attempts {
+            if let url = try? await memoryPhotoSignedURL(path: path) {
+                return url
+            }
+            if attempt < attempts {
+                try? await Task.sleep(for: .milliseconds(400 * attempt))
+            }
+        }
+        return nil
+    }
+
     /// Path includes a fresh photo id per upload (unlike the old single-photo `{coupleID}/{memoryID}.jpg`
     /// scheme) so a memory can hold more than one photo — the couple id stays the leading path
     /// segment since that's what the storage RLS policies key off.
@@ -1641,7 +1657,7 @@ enum BackendService {
 
         var photos: [MemoryPhoto] = []
         for row in rows.sorted(by: { $0.position < $1.position }) {
-            if let url = try? await memoryPhotoSignedURL(path: row.photoPath) {
+            if let url = await memoryPhotoSignedURLWithRetry(path: row.photoPath) {
                 photos.append(MemoryPhoto(id: row.id, path: row.photoPath, url: url))
             }
         }
