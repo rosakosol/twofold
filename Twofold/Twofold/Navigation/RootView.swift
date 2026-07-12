@@ -10,6 +10,7 @@ struct RootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var subscriptionStore = SubscriptionStore()
     @State private var pendingInviteCode: String?
+    @State private var showingPartnerConnectedCelebration = false
 
     var body: some View {
         Group {
@@ -49,6 +50,19 @@ struct RootView: View {
         }
         .sheet(isPresented: Binding(get: { pendingInviteCode != nil }, set: { if !$0 { pendingInviteCode = nil } })) {
             RedeemPartnerCodeView(prefilledCode: pendingInviteCode)
+        }
+        // Fires for every post-onboarding path that can newly connect a partner — redeeming a
+        // code via Settings/PartnerSetupView, or a background refresh discovering the partner
+        // redeemed one while this device was away. Onboarding's own pairing moment has its own,
+        // more modest ConnectedRevealView as part of that flow, so this only ever fires once
+        // `hasCouple` is already true (MainTabView mounted).
+        .onChange(of: appModel.partnerConnected) { wasConnected, isConnected in
+            if !wasConnected && isConnected {
+                showingPartnerConnectedCelebration = true
+            }
+        }
+        .fullScreenCover(isPresented: $showingPartnerConnectedCelebration) {
+            PartnerConnectedView()
         }
     }
 

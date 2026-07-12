@@ -47,7 +47,7 @@ struct AddMemoryView: View {
     private var isEditing: Bool { existingMemory != nil }
 
     private var canSave: Bool {
-        !title.trimmingCharacters(in: .whitespaces).isEmpty && !isSaving
+        !title.trimmingCharacters(in: .whitespaces).isEmpty && place != nil && !isSaving
     }
 
     var body: some View {
@@ -82,6 +82,14 @@ struct AddMemoryView: View {
                     Button("Cancel") { dismiss() }
                 }
             }
+            .onAppear {
+                // New memories default to the user's own home city — location is required to
+                // save, so this means most people never have to think about it, while still
+                // leaving it changeable for a memory made somewhere else.
+                if !isEditing, place == nil {
+                    place = appModel.currentUser.homeCity
+                }
+            }
             .onChange(of: selectedItems) { _, newItems in
                 Task { await loadNewPhotos(newItems) }
             }
@@ -107,6 +115,15 @@ struct AddMemoryView: View {
                 Text(place.city)
                     .font(.subheadline)
                     .foregroundStyle(Theme.subtleInk)
+            } else {
+                Button {
+                    showingLocationSearch = true
+                } label: {
+                    Text("Location required — tap to set")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(Theme.heartRed)
+                }
+                .buttonStyle(.plain)
             }
         }
     }
@@ -177,6 +194,14 @@ struct AddMemoryView: View {
             Button { showingTimePicker = true } label: { iconCircle("clock") }
             Button { showingLocationSearch = true } label: {
                 iconCircle(place == nil ? "mappin" : "mappin.circle.fill")
+                    .overlay(alignment: .topTrailing) {
+                        if place == nil {
+                            Circle()
+                                .fill(Theme.heartRed)
+                                .frame(width: 10, height: 10)
+                                .overlay(Circle().strokeBorder(Theme.cardBackground, lineWidth: 1.5))
+                        }
+                    }
             }
 
             Spacer()
