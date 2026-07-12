@@ -119,15 +119,32 @@ final class AppModel {
         await loadSignedInState()
     }
 
-    /// Called any time we know a Supabase session exists — at launch (`restoreSession`) or
-    /// right after a manual sign-in (`SignInView`). Being authenticated at all means
-    /// onboarding is already done, regardless of whether a `couples` row exists yet — so this
-    /// always ends with `hasCouple = true`, rather than leaving a solo (unpaired) user to fall
-    /// back into onboarding just because `fetchCoupleState` found nothing.
+    /// Called any time we know a Supabase session exists — at launch (`restoreSession`), right
+    /// after a manual sign-in (`SignInView`), or after `removePartner()` dissolves a couple.
+    /// Being authenticated at all means onboarding is already done, regardless of whether a
+    /// `couples` row exists yet — so this always ends with `hasCouple = true`, rather than
+    /// leaving a solo (unpaired) user to fall back into onboarding just because
+    /// `fetchCoupleState` found nothing.
     func loadSignedInState() async {
         if let state = try? await BackendService.fetchCoupleState() {
             await adopt(state)
         } else if let profile = try? await BackendService.fetchOwnProfile() {
+            // Reset everything to a clean slate first — at launch these are already at their
+            // zero-value defaults so this is a no-op, but this branch is also reached after
+            // `removePartner()` dissolves a couple on an AppModel that still has the *old*
+            // partner's data loaded (partnerConnected, backendCoupleID, trips/memories/flights,
+            // drawing pad URLs). Without this, all of that stale state survives — which is
+            // exactly what made a just-dissolved couple still look "connected" in the UI, and
+            // made a second removal attempt fail (retrying against an already-dissolved couple).
+            partnerConnected = false
+            backendCoupleID = nil
+            trips = []
+            memories = []
+            flights = []
+            myDrawingURL = nil
+            partnerDrawingURL = nil
+            couple = Self.placeholderCouple
+
             couple.partnerA = profile.person
             if let partnerName = profile.partnerName, !partnerName.isEmpty {
                 couple.partnerB.name = partnerName
@@ -232,6 +249,33 @@ final class AppModel {
         guard date != couple.startedDatingOn else { return }
         try? await BackendService.updateAnniversaryDate(date)
         couple.startedDatingOn = date
+    }
+
+    /// Ends the current partnership. The couple row is dissolved, not deleted — every trip,
+    /// memory, flight, and game session shared with them stays intact and stays readable later
+    /// (only visible via Settings' "Archived data" screen, and only ever deleted for good if the
+    /// user explicitly asks). Reloads signed-in state afterward, which naturally falls back to
+    /// the same solo/not-yet-paired shape a brand-new user starts in — reuses
+    /// `loadSignedInState()`'s existing "no active couple" branch rather than duplicating that
+    /// reset logic here. Returns nil on success, or a message describing what went wrong — the
+    /// underlying RPC's own rejection (e.g. "This couple has already been dissolved") is
+    /// relayed rather than swallowed, since a generic error here gives no way to tell a real
+    /// failure apart from a harmless double-tap/retry.
+    func removePartner() async -> String? {
+        guard let backendCoupleID else { return "No partner to remove." }
+        do {
+            try await BackendService.leaveCouple(coupleID: backendCoupleID)
+        } catch {
+            return error.localizedDescription
+        }
+        await loadSignedInState()
+        // HomeView's setup checklist card (the "invite your partner" hint) remembers a past
+        // dismissal forever via this UserDefaults key — without clearing it, someone who'd
+        // already dismissed it once (e.g. during their original onboarding) would see no hint
+        // at all here, even though they're now genuinely back in the same unpaired state a
+        // brand-new user starts in and need that same nudge again.
+        UserDefaults.standard.set(false, forKey: "setupChecklistDismissed")
+        return nil
     }
 
     /// Re-checks backend couple state without touching `isLoadingSession` — picks up a

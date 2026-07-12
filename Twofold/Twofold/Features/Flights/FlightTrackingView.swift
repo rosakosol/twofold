@@ -147,7 +147,7 @@ struct FlightTrackingView: View {
                 .font(.title2.weight(.bold))
 
             if flight.lastRefreshedAt != nil {
-                Text("Updated \(flight.lastRefreshedAt.map(Self.relativeShort) ?? "recently")")
+                Text("Updated \(flight.lastRefreshedAt.map(Self.relativeShort) ?? "recently") ago")
                     .font(.caption2)
                     .foregroundStyle(Theme.subtleInk)
             }
@@ -290,10 +290,13 @@ struct FlightTrackingView: View {
     }
 
     private func detailRow(label: String, value: String, tint: Color = Theme.ink) -> some View {
-        HStack {
+        let isUnavailable = value == "Not available"
+        return HStack {
             Text(label).font(.caption).foregroundStyle(Theme.subtleInk)
             Spacer()
-            Text(value).font(.subheadline.weight(.medium)).foregroundStyle(tint)
+            Text(value)
+                .font(.subheadline.weight(isUnavailable ? .regular : .medium))
+                .foregroundStyle(isUnavailable ? Theme.subtleInk.opacity(0.6) : tint)
         }
     }
 
@@ -331,7 +334,7 @@ struct FlightTrackingView: View {
             }
 
             if keyEvents.isEmpty {
-                Text("No updates yet — we'll show gate changes, delays, and milestones here as they happen.")
+                Text("No updates yet - we'll show gate changes, delays, and milestones here as they happen.")
                     .font(.caption)
                     .foregroundStyle(Theme.subtleInk)
             } else {

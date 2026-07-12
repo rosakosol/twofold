@@ -577,11 +577,15 @@ enum BackendService {
         var partnerAId: UUID
         var partnerBId: UUID
         var status: String
+        var dissolvedAt: Date?
+        var startedDatingOn: Date?
 
         enum CodingKeys: String, CodingKey {
             case id, status
             case partnerAId = "partner_a_id"
             case partnerBId = "partner_b_id"
+            case dissolvedAt = "dissolved_at"
+            case startedDatingOn = "started_dating_on"
         }
     }
 
@@ -614,6 +618,91 @@ enum BackendService {
             .execute()
             .value
         return row.id
+    }
+
+    // MARK: - Remove partner / archived data
+
+    /// Dissolves the couple — doesn't delete anything. Trips/memories/flights/game sessions
+    /// stay in place and remain readable (existing RLS has no active-status gate on their
+    /// SELECT policies), just no longer the caller's *active* couple, so the app naturally
+    /// stops surfacing them in normal views. Either partner can call this unilaterally.
+    @discardableResult
+    static func leaveCouple(coupleID: UUID) async throws -> UUID {
+        struct Params: Encodable {
+            var pCoupleId: UUID
+            enum CodingKeys: String, CodingKey { case pCoupleId = "p_couple_id" }
+        }
+        let row: CoupleRow = try await supabase
+            .rpc("leave_couple", params: Params(pCoupleId: coupleID))
+            .single()
+            .execute()
+            .value
+        return row.id
+    }
+
+    /// Permanently deletes a *dissolved* couple's data — trips, memories, flights (and their
+    /// events/prefs/documents), game sessions, and the associated storage objects (memory
+    /// photos, flight documents, drawing pads). The RPC itself refuses to run on an active
+    /// couple, so this can never be triggered on live, in-use data.
+    static func deleteDissolvedCoupleData(coupleID: UUID) async throws {
+        struct Params: Encodable {
+            var pCoupleId: UUID
+            enum CodingKeys: String, CodingKey { case pCoupleId = "p_couple_id" }
+        }
+        try await supabase
+            .rpc("delete_dissolved_couple_data", params: Params(pCoupleId: coupleID))
+            .execute()
+    }
+
+    /// Every couple the signed-in user has since dissolved, newest first — the source list for
+    /// Settings' "Archived data" screen. `partnerName` is that couple's *other* member's current
+    /// first name (profiles stay readable regardless of couple status, see
+    /// `profiles_select_self_or_partner`).
+    static func fetchArchivedCouples() async throws -> [ArchivedCouple] {
+        guard let userID = currentUserID else { throw BackendError.notAuthenticated }
+
+        let coupleRows: [CoupleRow] = try await supabase
+            .from("couples")
+            .select()
+            .or("partner_a_id.eq.\(userID),partner_b_id.eq.\(userID)")
+            .eq("status", value: "dissolved")
+            .order("dissolved_at", ascending: false)
+            .execute()
+            .value
+        guard !coupleRows.isEmpty else { return [] }
+
+        let partnerIDs = coupleRows.map { $0.partnerAId == userID ? $0.partnerBId : $0.partnerAId }
+        let profileRows: [ProfileRow] = try await supabase
+            .from("profiles")
+            .select()
+            .in("id", values: partnerIDs)
+            .execute()
+            .value
+        let namesByID = Dictionary(uniqueKeysWithValues: profileRows.map { ($0.id, $0.firstName.isEmpty ? "Partner" : $0.firstName) })
+
+        return coupleRows.map { row in
+            let partnerID = row.partnerAId == userID ? row.partnerBId : row.partnerAId
+            return ArchivedCouple(
+                id: row.id,
+                partnerName: namesByID[partnerID] ?? "Partner",
+                startedDatingOn: row.startedDatingOn,
+                dissolvedAt: row.dissolvedAt
+            )
+        }
+    }
+
+    /// Lightweight counts for the archive detail screen — fetches just `id` columns rather than
+    /// full rows, since only the counts are shown.
+    static func fetchArchivedCoupleSummary(coupleID: UUID) async throws -> ArchivedCoupleSummary {
+        struct IDRow: Decodable { var id: UUID }
+
+        async let tripRows: [IDRow] = supabase.from("trips").select("id").eq("couple_id", value: coupleID).execute().value
+        async let memoryRows: [IDRow] = supabase.from("memories").select("id").eq("couple_id", value: coupleID).execute().value
+        async let flightRows: [IDRow] = supabase.from("flights").select("id").eq("couple_id", value: coupleID).execute().value
+        async let gameRows: [IDRow] = supabase.from("game_sessions").select("id").eq("couple_id", value: coupleID).execute().value
+
+        let (trips, memories, flights, games) = try await (tripRows, memoryRows, flightRows, gameRows)
+        return ArchivedCoupleSummary(tripCount: trips.count, memoryCount: memories.count, flightCount: flights.count, gameSessionCount: games.count)
     }
 
     // MARK: - Couple state (couple + both profiles + trips + flights + memories)

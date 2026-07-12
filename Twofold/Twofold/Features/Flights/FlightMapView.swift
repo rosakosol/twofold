@@ -58,7 +58,10 @@ struct FlightMapView: View {
                     MapPolyline(coordinates: [origin, destination], contourStyle: .geodesic)
                         .stroke(.white.opacity(0.9), style: StrokeStyle(lineWidth: 6, lineCap: .round))
                     MapPolyline(coordinates: [origin, destination], contourStyle: .geodesic)
-                        .stroke(Theme.skyBlue.opacity(pulse ? 1 : 0.6), style: StrokeStyle(lineWidth: pulse ? 4.5 : 3, lineCap: .round))
+                        .stroke(
+                            LinearGradient(colors: [.cyan, .green], startPoint: .leading, endPoint: .trailing).opacity(pulse ? 1 : 0.6),
+                            style: StrokeStyle(lineWidth: pulse ? 4.5 : 3, lineCap: .round)
+                        )
 
                     // Only one icon rides the route itself — the live position marker (avatar
                     // if we know who's traveling, otherwise a plane). The endpoints above are
@@ -137,8 +140,25 @@ struct FlightMapView: View {
     }
 
     private static func region(containing a: CLLocationCoordinate2D, _ b: CLLocationCoordinate2D, padding: Double, aspectRatio: Double) -> MKCoordinateRegion {
-        let pointA = MKMapPoint(a)
-        let pointB = MKMapPoint(b)
+        var pointA = MKMapPoint(a)
+        var pointB = MKMapPoint(b)
+
+        // MKMapPoint.x runs monotonically west-to-east across a single flat Mercator strip —
+        // it has no concept of "the short way around." Two points more than half the world
+        // apart (e.g. Hong Kong to Los Angeles, whose real route crosses the Pacific/
+        // antimeridian) naively bound a box spanning the *long* way through Africa/Europe
+        // instead, centering the map on the wrong hemisphere entirely. Shifting the trailing
+        // point a full world-width forward makes the box span the short way instead — MKMapRect
+        // supports x values past the nominal world bounds for exactly this case.
+        let worldWidth = MKMapSize.world.width
+        if abs(pointA.x - pointB.x) > worldWidth / 2 {
+            if pointA.x < pointB.x {
+                pointA.x += worldWidth
+            } else {
+                pointB.x += worldWidth
+            }
+        }
+
         let minSize = 2_000_000.0
         let centerX = (pointA.x + pointB.x) / 2
         let centerY = (pointA.y + pointB.y) / 2

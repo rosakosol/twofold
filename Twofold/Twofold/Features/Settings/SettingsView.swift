@@ -30,6 +30,9 @@ struct SettingsView: View {
     @State private var showingShareInvite = false
     @State private var showingRedeemCode = false
     @State private var isCreatingInvite = false
+    @State private var showingRemovePartnerConfirm = false
+    @State private var isRemovingPartner = false
+    @State private var removePartnerError: String?
 
     var body: some View {
         NavigationStack {
@@ -87,6 +90,45 @@ struct SettingsView: View {
                             }
                         }
                         .buttonStyle(.plain)
+                    }
+
+                    SectionCard {
+                        NavigationLink {
+                            ArchivedDataView()
+                        } label: {
+                            HStack {
+                                Label("Archived Data", systemImage: "archivebox")
+                                    .foregroundStyle(Theme.ink)
+                                Spacer()
+                                Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    if appModel.partnerConnected {
+                        SectionCard {
+                            Button(role: .destructive) {
+                                showingRemovePartnerConfirm = true
+                            } label: {
+                                HStack {
+                                    if isRemovingPartner {
+                                        ProgressView().frame(maxWidth: .infinity)
+                                    } else {
+                                        Text("Remove Partner").frame(maxWidth: .infinity)
+                                    }
+                                }
+                            }
+                            .disabled(isRemovingPartner)
+                            Text("Archives everything you've shared, and lets you connect with someone new.")
+                                .font(.caption2)
+                                .foregroundStyle(Theme.subtleInk)
+                            if let removePartnerError {
+                                Text(removePartnerError)
+                                    .font(.caption)
+                                    .foregroundStyle(Theme.heartRed)
+                            }
+                        }
                     }
 
                     SectionCard {
@@ -148,6 +190,24 @@ struct SettingsView: View {
                     }
                 }
                 Button("Cancel", role: .cancel) {}
+            }
+            .alert("Remove \(appModel.partner.name)?", isPresented: $showingRemovePartnerConfirm) {
+                Button("Remove Partner", role: .destructive) {
+                    Task {
+                        isRemovingPartner = true
+                        removePartnerError = nil
+                        let failureReason = await appModel.removePartner()
+                        isRemovingPartner = false
+                        if let failureReason {
+                            removePartnerError = failureReason
+                        } else {
+                            dismiss()
+                        }
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This will archive all your shared trips, memories, flights, game sessions, stats, and doodles with \(appModel.partner.name) — they'll only be visible afterward in Settings' Archived Data. You'll be able to connect with someone new right away.")
             }
         }
     }
