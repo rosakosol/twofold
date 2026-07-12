@@ -56,10 +56,17 @@ struct RootView: View {
         // redeemed one while this device was away. Onboarding's own pairing moment has its own,
         // more modest ConnectedRevealView as part of that flow, so this only ever fires once
         // `hasCouple` is already true (MainTabView mounted).
+        //
+        // `partnerConnected` also flips false → true on every cold launch of an already-paired
+        // couple (it starts `false` by default and only becomes `true` once `restoreSession()`
+        // finishes loading), which looks identical to a genuine new-pairing transition — so a
+        // per-couple persisted flag is the actual gate here, not just the transition itself.
         .onChange(of: appModel.partnerConnected) { wasConnected, isConnected in
-            if !wasConnected && isConnected {
-                showingPartnerConnectedCelebration = true
-            }
+            guard !wasConnected, isConnected else { return }
+            let key = "partnerConnectedCelebrationShown_\(appModel.couple.id.uuidString)"
+            guard !UserDefaults.standard.bool(forKey: key) else { return }
+            UserDefaults.standard.set(true, forKey: key)
+            showingPartnerConnectedCelebration = true
         }
         .fullScreenCover(isPresented: $showingPartnerConnectedCelebration) {
             PartnerConnectedView()
