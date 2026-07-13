@@ -73,19 +73,18 @@ struct AddTripDetailsView: View {
                         Text("Who's travelling?").font(.caption).foregroundStyle(Theme.subtleInk)
                         Picker("Who's travelling?", selection: $traveler) {
                             Text("You").tag(TripTraveler.you)
+                            // Disabled (not just warned-about) outside onboarding — same
+                            // reasoning as `FlightConfirmationView`'s picker: post-onboarding,
+                            // `appModel.partner` being a placeholder with no real profile behind
+                            // it means selecting it shouldn't even be possible. Still fully
+                            // enabled during onboarding itself, where not having a partner
+                            // connected yet is the expected, normal state, not a problem to flag.
                             Text(partnerName).tag(TripTraveler.partner)
+                                .disabled(mode == .standalone && !appModel.partnerConnected)
                             Text("Both").tag(TripTraveler.both)
+                                .disabled(mode == .standalone && !appModel.partnerConnected)
                         }
                         .pickerStyle(.segmented)
-
-                        // Only warn outside onboarding — during onboarding itself, not having a
-                        // partner connected yet is the expected, normal state, not a problem to
-                        // flag.
-                        if mode == .standalone, traveler != .you, !appModel.partnerConnected {
-                            Text("No partner has been added yet - join or invite your partner to Twofold")
-                                .font(.caption)
-                                .foregroundStyle(Theme.heartRed)
-                        }
                     }
 
                     VStack(alignment: .leading, spacing: Theme.Spacing.xs) {

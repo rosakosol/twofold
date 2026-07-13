@@ -17,11 +17,23 @@ struct NotificationPreferencesView: View {
     @State private var partnerGameStarted = true
     @State private var partnerGameResultsReady = true
     @State private var dailyStreakReminder = true
+    @State private var partnerInviteReminder = true
     @State private var isLoaded = false
 
     var body: some View {
         ScrollView {
             VStack(spacing: Theme.Spacing.md) {
+                // Only meaningful pre-pairing — once `appModel.partner` is real, there's nothing
+                // left to be reminded to invite.
+                if !appModel.partnerConnected {
+                    SectionCard {
+                        Toggle("Reminders to invite my partner", isOn: $partnerInviteReminder).font(.subheadline)
+                        Text("A couple of nudges in your first few days if you haven't connected yet.")
+                            .font(.caption2)
+                            .foregroundStyle(Theme.subtleInk)
+                    }
+                }
+
                 SectionCard {
                     Text("Notify me when \(appModel.partner.name)…")
                         .font(.subheadline.weight(.semibold))
@@ -63,6 +75,7 @@ struct NotificationPreferencesView: View {
         .onChange(of: partnerGameStarted) { _, _ in saveIfLoaded() }
         .onChange(of: partnerGameResultsReady) { _, _ in saveIfLoaded() }
         .onChange(of: dailyStreakReminder) { _, _ in saveIfLoaded() }
+        .onChange(of: partnerInviteReminder) { _, _ in saveIfLoaded() }
     }
 
     private func load() async {
@@ -73,6 +86,7 @@ struct NotificationPreferencesView: View {
             partnerGameStarted = prefs.partnerGameStarted
             partnerGameResultsReady = prefs.partnerGameResultsReady
             dailyStreakReminder = prefs.dailyStreakReminder
+            partnerInviteReminder = prefs.partnerInviteReminder
         }
         isLoaded = true
     }
@@ -88,7 +102,8 @@ struct NotificationPreferencesView: View {
             partnerMemoryAdded: partnerMemoryAdded,
             partnerGameStarted: partnerGameStarted,
             partnerGameResultsReady: partnerGameResultsReady,
-            dailyStreakReminder: dailyStreakReminder
+            dailyStreakReminder: dailyStreakReminder,
+            partnerInviteReminder: partnerInviteReminder
         )
         Task { try? await BackendService.upsertCoupleNotificationPreferences(prefs) }
     }

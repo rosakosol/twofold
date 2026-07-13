@@ -54,15 +54,17 @@ struct FlightConfirmationView: View {
                         Picker("Who's travelling?", selection: $travelerID) {
                             Text("Not sure yet").tag(Person.ID?.none)
                             Text(appModel.currentUser.name).tag(Person.ID?.some(appModel.currentUser.id))
+                            // Disabled rather than just warned-about — `appModel.partner` is a
+                            // placeholder person pre-pairing, with no real profile row behind its
+                            // id, so letting this actually get submitted as a flight's traveler
+                            // would attribute it to someone who doesn't exist yet. `FlightConfirmationView`
+                            // only ever runs in the live app (never during onboarding — see
+                            // `AddFlightFlowView.Completion.confirmAndTrack`'s doc comment), so
+                            // there's no "partner isn't connected yet" exemption to make here.
                             Text(appModel.partner.name).tag(Person.ID?.some(appModel.partner.id))
+                                .disabled(!appModel.partnerConnected)
                         }
                         .pickerStyle(.segmented)
-
-                        if travelerID == appModel.partner.id, !appModel.partnerConnected {
-                            Text("No partner has been added yet - join or invite your partner to Twofold")
-                                .font(.caption)
-                                .foregroundStyle(Theme.heartRed)
-                        }
                     }
 
                     if !flightlessTrips.isEmpty {

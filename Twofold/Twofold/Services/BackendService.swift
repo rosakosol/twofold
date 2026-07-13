@@ -2264,10 +2264,12 @@ enum BackendService {
         var partnerGameStarted: Bool
         var partnerGameResultsReady: Bool
         var dailyStreakReminder: Bool
+        var partnerInviteReminder: Bool
 
         static let allEnabled = CoupleNotificationPreferences(
             partnerDrawingSaved: true, partnerTripAdded: true, partnerMemoryAdded: true,
-            partnerGameStarted: true, partnerGameResultsReady: true, dailyStreakReminder: true
+            partnerGameStarted: true, partnerGameResultsReady: true, dailyStreakReminder: true,
+            partnerInviteReminder: true
         )
     }
 
@@ -2279,6 +2281,7 @@ enum BackendService {
         var partnerGameStarted: Bool
         var partnerGameResultsReady: Bool
         var dailyStreakReminder: Bool
+        var partnerInviteReminder: Bool
 
         enum CodingKeys: String, CodingKey {
             case profileId = "profile_id"
@@ -2288,6 +2291,7 @@ enum BackendService {
             case partnerGameStarted = "partner_game_started"
             case partnerGameResultsReady = "partner_game_results_ready"
             case dailyStreakReminder = "daily_streak_reminder"
+            case partnerInviteReminder = "partner_invite_reminder"
         }
     }
 
@@ -2309,7 +2313,8 @@ enum BackendService {
             partnerMemoryAdded: row.partnerMemoryAdded,
             partnerGameStarted: row.partnerGameStarted,
             partnerGameResultsReady: row.partnerGameResultsReady,
-            dailyStreakReminder: row.dailyStreakReminder
+            dailyStreakReminder: row.dailyStreakReminder,
+            partnerInviteReminder: row.partnerInviteReminder
         )
     }
 
@@ -2322,7 +2327,8 @@ enum BackendService {
             partnerMemoryAdded: prefs.partnerMemoryAdded,
             partnerGameStarted: prefs.partnerGameStarted,
             partnerGameResultsReady: prefs.partnerGameResultsReady,
-            dailyStreakReminder: prefs.dailyStreakReminder
+            dailyStreakReminder: prefs.dailyStreakReminder,
+            partnerInviteReminder: prefs.partnerInviteReminder
         )
         try await supabase
             .from("notification_preferences")

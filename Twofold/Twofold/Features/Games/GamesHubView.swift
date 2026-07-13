@@ -22,6 +22,9 @@ private struct BrowseRoute: Identifiable, Hashable {
 struct GamesHubView: View {
     @Environment(AppModel.self) private var appModel
     @State private var browseRoute: BrowseRoute?
+    /// Tapping a locked (partner-required) card opens this rather than doing nothing — a lock
+    /// badge with no tap action just teaches people the card is broken.
+    @State private var showingPartnerSetup = false
 
     private var competeGames: [GameType] { GameType.allCases.filter { $0.category == .compete } }
     private var connectGames: [GameType] { GameType.allCases.filter { $0.category == .connect } }
@@ -57,6 +60,9 @@ struct GamesHubView: View {
             }
             .navigationDestination(item: $browseRoute) { route in
                 AllDecksBrowseView(initialFilter: route.filter)
+            }
+            .sheet(isPresented: $showingPartnerSetup) {
+                PartnerSetupView()
             }
         }
     }
@@ -109,7 +115,12 @@ struct GamesHubView: View {
                             }
                             .buttonStyle(.plain)
                         } else {
-                            GameCard(gameType: gameType, width: 220, isLocked: true)
+                            Button {
+                                showingPartnerSetup = true
+                            } label: {
+                                GameCard(gameType: gameType, width: 220, isLocked: true)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                 }

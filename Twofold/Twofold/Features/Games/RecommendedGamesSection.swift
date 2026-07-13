@@ -19,6 +19,9 @@ struct RecommendedGamesSection: View {
     /// NavigationStack-wrapped view onto another NavigationStack via NavigationLink produces
     /// nested/doubled navigation chrome.
     @State private var showingHub = false
+    /// Tapping a locked (partner-required) card opens this rather than doing nothing — a lock
+    /// badge with no tap action just teaches people the card is broken.
+    @State private var showingPartnerSetup = false
 
     var body: some View {
         SectionCard {
@@ -46,7 +49,12 @@ struct RecommendedGamesSection: View {
                             }
                             .buttonStyle(.plain)
                         } else {
-                            GameCard(gameType: gameType, width: 220, isLocked: true)
+                            Button {
+                                showingPartnerSetup = true
+                            } label: {
+                                GameCard(gameType: gameType, width: 220, isLocked: true)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -55,6 +63,9 @@ struct RecommendedGamesSection: View {
         }
         .sheet(isPresented: $showingHub) {
             GamesHubView()
+        }
+        .sheet(isPresented: $showingPartnerSetup) {
+            PartnerSetupView()
         }
     }
 }
