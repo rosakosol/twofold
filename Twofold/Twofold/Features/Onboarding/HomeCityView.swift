@@ -61,6 +61,11 @@ struct HomeCityView: View {
             secondaryTitle: "Skip for now",
             secondaryAction: { advance() }
         )
+        .onAppear {
+            if selected == nil {
+                locationService.requestCurrentLocation()
+            }
+        }
     }
 
     private func advance() {

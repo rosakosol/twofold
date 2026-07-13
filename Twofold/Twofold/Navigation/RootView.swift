@@ -9,6 +9,10 @@ struct RootView: View {
     @Environment(AppModel.self) private var appModel
     @Environment(\.scenePhase) private var scenePhase
     @State private var subscriptionStore = SubscriptionStore()
+    /// Drives the foreground-triggered "where am I now" refresh that replaced the old one-time
+    /// manual home-city picker — see `refreshCurrentCityIfNeeded()`.
+    @State private var currentCityService = HomeLocationService()
+    @State private var lastLocationCheckAt: Date?
     @State private var pendingInviteCode: String?
     @State private var showingPartnerConnectedCelebration = false
     @State private var showingPaywallFromWidget = false
@@ -42,11 +46,18 @@ struct RootView: View {
         .task {
             await appModel.restoreSession()
             await checkSubscription()
+            refreshCurrentCityIfNeeded()
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
                 Task { await checkSubscription() }
                 Task { await WidgetSnapshotWriter.refresh(appModel: appModel) }
+                refreshCurrentCityIfNeeded()
+            }
+        }
+        .onChange(of: currentCityService.state) { _, newState in
+            if case .resolved(let place) = newState {
+                Task { await appModel.updateCurrentCityIfChanged(place) }
             }
         }
         // Only meaningful once signed in — `OnboardingCoordinatorView` has its own `onOpenURL`
@@ -166,6 +177,19 @@ struct RootView: View {
         if let active = try? await BackendService.fetchSubscriptionActive() {
             appModel.isSubscriptionActive = active
         }
+    }
+
+    /// Foreground-triggered re-derivation of the signed-in user's current city — replaces the
+    /// old one-time manual "set my home city" flow. Throttled to roughly once an hour (a quick
+    /// app switch shouldn't trigger a location fix + reverse-geocode every time); the actual
+    /// write only happens if the resolved city differs from what's stored, see
+    /// `AppModel.updateCurrentCityIfChanged(_:)`. Denied/restricted permission is a silent
+    /// no-op — `HomeLocationService`'s own state machine already reflects that, no nagging here.
+    private func refreshCurrentCityIfNeeded() {
+        guard appModel.hasCouple else { return }
+        if let lastLocationCheckAt, Date.now.timeIntervalSince(lastLocationCheckAt) < 3600 { return }
+        lastLocationCheckAt = .now
+        currentCityService.requestCurrentLocation()
     }
 }
 

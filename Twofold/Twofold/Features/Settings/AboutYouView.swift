@@ -13,7 +13,6 @@ struct AboutYouView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var name: String = ""
-    @State private var homeCity: Place?
     @State private var avatarError: String?
     @State private var isSaving = false
     @State private var locationService = HomeLocationService()
@@ -46,7 +45,21 @@ struct AboutYouView: View {
                         .textInputAutocapitalization(.words)
                         .padding()
                         .background(Theme.backgroundGradient.opacity(0.4), in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-                    CityMenuPicker(label: "Home city", selection: $homeCity)
+
+                    // Current city is location-derived automatically (see RootView's foreground
+                    // refresh) — no manual picker here anymore, just a status readout and a way
+                    // to force an immediate re-check right after actually landing somewhere new,
+                    // rather than waiting for the next natural foreground trigger.
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Current city").font(.caption).foregroundStyle(Theme.subtleInk)
+                            Text(appModel.currentUser.homeCity.map { "\($0.city), \($0.country)" } ?? "Not detected yet")
+                                .foregroundStyle(Theme.ink)
+                        }
+                        Spacer()
+                    }
+                    .padding()
+                    .background(Theme.backgroundGradient.opacity(0.4), in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
 
                     Button {
                         locationService.requestCurrentLocation()
@@ -54,9 +67,9 @@ struct AboutYouView: View {
                         HStack {
                             if locationService.state == .requesting {
                                 ProgressView()
-                                Text("Finding your city…").foregroundStyle(Theme.subtleInk)
+                                Text("Checking…").foregroundStyle(Theme.subtleInk)
                             } else {
-                                Label("Use my current location", systemImage: "location.fill")
+                                Label("Refresh current city", systemImage: "location.fill")
                                     .foregroundStyle(Theme.skyBlue)
                             }
                             Spacer()
@@ -83,7 +96,7 @@ struct AboutYouView: View {
         }
         .onChange(of: locationService.state) { _, newState in
             if case .resolved(let place) = newState {
-                homeCity = place
+                Task { await appModel.updateCurrentCityIfChanged(place) }
             }
         }
         .background(Theme.backgroundGradient.ignoresSafeArea())
@@ -103,14 +116,13 @@ struct AboutYouView: View {
         }
         .onAppear {
             name = appModel.currentUser.name
-            homeCity = appModel.currentUser.homeCity
         }
     }
 
     private func save() {
         isSaving = true
         Task {
-            await appModel.updateProfile(name: name, homeCity: homeCity)
+            await appModel.updateProfile(name: name)
             isSaving = false
             dismiss()
         }

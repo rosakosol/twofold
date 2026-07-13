@@ -9,6 +9,7 @@ struct CoupleLocationsView: View {
     @Environment(OnboardingModel.self) private var onboarding
     @State private var myCity: Place?
     @State private var partnerCity: Place?
+    @State private var locationService = HomeLocationService()
 
     // PartnerNameView requires a non-empty name before you can advance, so by the time any
     // later onboarding screen runs, this is always the real name — no fallback needed.
@@ -24,10 +25,34 @@ struct CoupleLocationsView: View {
             centered: true,
             content: {
                 VStack(spacing: Theme.Spacing.md) {
-                    if livesTogether {
-                        CityMenuPicker(label: "City", selection: $myCity)
-                    } else {
-                        CityMenuPicker(label: "Your city", selection: $myCity)
+                    VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                        // "My city" is location-derived first, search picker only as a fallback
+                        // — the picker stays visible throughout (not swapped out once resolved)
+                        // so a wrong auto-detected city is still just as easy to correct by hand.
+                        CityMenuPicker(label: livesTogether ? "City" : "Your city", selection: $myCity)
+
+                        if locationService.state == .requesting {
+                            HStack(spacing: Theme.Spacing.xs) {
+                                ProgressView()
+                                Text("Finding your city…").foregroundStyle(Theme.subtleInk)
+                            }
+                            .font(.caption)
+                        } else if case .deniedOrRestricted = locationService.state {
+                            Text("Location access is off — you can still search for your city above.")
+                                .font(.caption2)
+                                .foregroundStyle(Theme.subtleInk)
+                        } else if case .failed = locationService.state {
+                            Button {
+                                locationService.requestCurrentLocation()
+                            } label: {
+                                Label("Try again", systemImage: "location.fill")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(Theme.skyBlue)
+                            }
+                        }
+                    }
+
+                    if !livesTogether {
                         CityMenuPicker(label: "\(partnerName)'s city", selection: $partnerCity)
                     }
                 }
@@ -43,6 +68,14 @@ struct CoupleLocationsView: View {
         .onAppear {
             myCity = onboarding.homeCity
             partnerCity = onboarding.partnerCity
+            if myCity == nil {
+                locationService.requestCurrentLocation()
+            }
+        }
+        .onChange(of: locationService.state) { _, newState in
+            if case .resolved(let place) = newState {
+                myCity = place
+            }
         }
     }
 }

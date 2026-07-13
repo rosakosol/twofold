@@ -13,7 +13,7 @@ struct HomeView: View {
     @State private var showingPartnerSetup = false
     @State private var showingAddTrip = false
     @State private var showingAddFlight = false
-    @State private var showingHomeCities = false
+    @State private var showingLocationPermission = false
     @State private var pendingShares: [PendingFlightShare] = []
     @State private var reviewingShare: PendingFlightShare?
     @State private var weatherReading: CurrentWeatherReading?
@@ -118,7 +118,7 @@ struct HomeView: View {
             }
             .sheet(isPresented: $showingSnapshot) { SnapshotShareView() }
             .sheet(isPresented: $showingSettings) { SettingsView() }
-            .sheet(isPresented: $showingHomeCities) { HomeCitiesView() }
+            .sheet(isPresented: $showingLocationPermission) { NavigationStack { LocationPermissionView() } }
             .sheet(isPresented: $showingAddFlight) { AddFlightView() }
             .sheet(isPresented: $showingPartnerSetup) {
                 PartnerSetupView()
@@ -162,7 +162,7 @@ struct HomeView: View {
                     checklistRow(icon: .asset("boarding-pass"), title: "Add your first flight") { showingAddFlight = true }
                 }
                 if appModel.needsHomeCities {
-                    checklistRow(icon: .system("house"), title: "Set your home cities") { showingHomeCities = true }
+                    checklistRow(icon: .system("location"), title: "Turn on location access") { showingLocationPermission = true }
                 }
             }
         }
@@ -300,13 +300,13 @@ struct HomeView: View {
     private var homeCityPromptCard: some View {
         SectionCard {
             Button {
-                showingHomeCities = true
+                showingLocationPermission = true
             } label: {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("See the distance between you")
                             .font(.headline)
-                        Text("Set your home cities to light up the map.")
+                        Text("Turn on location access to light up the map.")
                             .font(.caption)
                             .foregroundStyle(Theme.subtleInk)
                     }

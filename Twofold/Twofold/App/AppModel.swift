@@ -281,15 +281,11 @@ final class AppModel {
 
     /// Persists profile edits from `SettingsView`. Each field only round-trips to the backend
     /// if it actually changed, since `updateFirstName`/`updateHomeCity` are separate writes.
-    func updateProfile(name: String, homeCity: Place?) async {
+    func updateProfile(name: String) async {
         let trimmedName = name.trimmingCharacters(in: .whitespaces)
         if !trimmedName.isEmpty, trimmedName != couple.partnerA.name {
             try? await BackendService.updateFirstName(trimmedName)
             couple.partnerA.name = trimmedName
-        }
-        if let homeCity, homeCity.id != couple.partnerA.homeCity?.id {
-            try? await BackendService.updateHomeCity(homeCity)
-            couple.partnerA.homeCity = homeCity
         }
     }
 
@@ -921,6 +917,17 @@ final class AppModel {
         } catch {
             // Best-effort for now; the picker just won't reflect the change.
         }
+    }
+
+    /// `RootView`'s foreground-triggered current-city refresh lands here once
+    /// `HomeLocationService` resolves a fresh fix — compares by city/country name, not
+    /// `Place.id`, since a new location fix builds a brand new `Place` (fresh random id) on
+    /// every call even when the resolved city hasn't actually changed, and an id comparison
+    /// would rewrite the backend row (and spuriously invalidate `HomeView`'s per-city-id weather
+    /// cache) on every single foreground for no reason.
+    func updateCurrentCityIfChanged(_ place: Place) async {
+        guard place.city != couple.partnerA.homeCity?.city || place.country != couple.partnerA.homeCity?.country else { return }
+        await setHomeCity(for: currentUser.id, city: place)
     }
 
     /// Sets the signed-in user's identity as soon as an account exists, so any trip drafted
