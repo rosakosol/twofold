@@ -22,37 +22,48 @@ struct GameResultsView: View {
     @Environment(AppModel.self) private var appModel
     @State private var revealedCount = 0
     @State private var isMarkingDiscussion = false
+    @State private var confettiTrigger = false
 
     private var isFullyRevealed: Bool { revealedCount >= store.rounds.count }
 
-    var body: some View {
-        ScrollView {
-            VStack(spacing: Theme.Spacing.lg) {
-                header
+    /// 0...100 — only meaningful for the two match-style games.
+    private var matchPercent: Int? {
+        guard gameType == .moreLikely || gameType == .thisOrThat, !store.rounds.isEmpty else { return nil }
+        let matches = GameLogic.matchCount(rounds: store.rounds, responses: store.responses, partnerAID: myID, partnerBID: partnerID)
+        return Int((Double(matches) / Double(store.rounds.count) * 100).rounded())
+    }
 
-                VStack(spacing: Theme.Spacing.sm) {
-                    ForEach(Array(store.rounds.enumerated()), id: \.element.id) { index, round in
-                        if index < revealedCount {
-                            roundRow(round)
-                                .transition(.opacity.combined(with: .move(edge: .bottom)))
+    var body: some View {
+        ZStack {
+            ScrollView {
+                VStack(spacing: Theme.Spacing.lg) {
+                    header
+
+                    VStack(spacing: Theme.Spacing.sm) {
+                        ForEach(Array(store.rounds.enumerated()), id: \.element.id) { index, round in
+                            if index < revealedCount {
+                                roundRow(round)
+                                    .transition(.opacity.combined(with: .move(edge: .bottom)).combined(with: .scale(scale: 0.9)))
+                            }
                         }
                     }
-                }
 
-                if isFullyRevealed {
-                    summarySection
+                    if isFullyRevealed {
+                        summarySection
 
-                    Button(action: onPlayAnother) {
-                        Text("Play Another Game")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity)
-                            .padding()
+                        Button(action: onPlayAnother) {
+                            Text("Play Another Game")
+                                .font(.headline)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                        }
+                        .background(Theme.primaryButtonGradient, in: Capsule())
+                        .foregroundStyle(.white)
                     }
-                    .background(Theme.primaryButtonGradient, in: Capsule())
-                    .foregroundStyle(.white)
                 }
+                .padding(Theme.Spacing.lg)
             }
-            .padding(Theme.Spacing.lg)
+            ConfettiBurstView(trigger: confettiTrigger)
         }
         .background(Theme.backgroundGradient.ignoresSafeArea())
         .navigationTitle(gameType.displayName)
@@ -61,6 +72,7 @@ struct GameResultsView: View {
             animateReveal()
             appModel.noteReviewMilestone(.firstGameResults)
         }
+        .sensoryFeedback(.success, trigger: confettiTrigger)
     }
 
     // MARK: - Header
@@ -80,6 +92,9 @@ struct GameResultsView: View {
         case .moreLikely, .thisOrThat:
             let matches = GameLogic.matchCount(rounds: store.rounds, responses: store.responses, partnerAID: myID, partnerBID: partnerID)
             VStack(spacing: Theme.Spacing.xs) {
+                if let matchPercent {
+                    AnswerSimilarityGauge(percent: matchPercent)
+                }
                 Text("❤️ You matched \(matches) / \(store.rounds.count) answers!")
                     .font(.title3.weight(.bold))
                     .multilineTextAlignment(.center)
@@ -313,6 +328,10 @@ struct GameResultsView: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.3) {
                 withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
                     revealedCount = index + 1
+                }
+                // A great match deserves a moment — fires once, right as the last round lands.
+                if index + 1 >= store.rounds.count, let matchPercent, matchPercent >= 80 {
+                    confettiTrigger = true
                 }
             }
         }

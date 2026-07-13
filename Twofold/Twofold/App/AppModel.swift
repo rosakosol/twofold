@@ -28,6 +28,23 @@ final class AppModel {
     /// an active local StoreKit entitlement (see `BackendService.fetchSubscriptionActive`).
     /// `RootView` gates all of `MainTabView` behind this once `hasCouple` is true.
     var isSubscriptionActive = false
+    /// "plus"/"premium", the higher of the two partners' tiers — nil for pre-existing
+    /// subscribers from before this column existed (`start_game_session` treats that the same
+    /// as "plus" server-side, so this being nil never actually locks anyone out of content).
+    var subscriptionTier: String?
+
+    /// Daily Activity streak — see `startOrResumeDailyQuestion()`/`refreshDailyStreak()`.
+    var dailyStreak = 0
+    var longestDailyStreak = 0
+    /// Today's Daily Activity session id, once known (fetched lazily, not at launch — see
+    /// `startOrResumeDailyQuestion()`).
+    var todaysDailySessionID: UUID?
+
+    /// All active Games content + this couple's own play history, cached after first load
+    /// (`loadGameContentCatalogIfNeeded()`) — powers the Games hub's topic-progress bars without
+    /// a dedicated RPC. Not loaded at app launch; only Games-hub visits need it.
+    private(set) var gameContentCatalog: (trivia: [TriviaQuestion], moreLikely: [MoreLikelyPrompt], thisOrThat: [ThisOrThatPrompt], discussion: [DiscussionTopic])?
+    private(set) var playedGameContentIDs: [GameType: Set<UUID>]?
 
     /// Whether the partner has actually redeemed an invite and joined — confirmed by the
     /// backend (an active `couples` row exists), not assumed the moment a code is shared.
@@ -191,6 +208,7 @@ final class AppModel {
             couple.startedDatingOn = anniversaryDate
         }
         isSubscriptionActive = profile.subscriptionActive
+        subscriptionTier = profile.subscriptionTier
     }
 
     /// A device's own successful purchase/restore, applied instantly and locally (no network
@@ -373,6 +391,74 @@ final class AppModel {
         pendingReviewMilestone = milestone
     }
 
+    // MARK: - Games: Daily Activity + topic browsing
+
+    /// Fetches (or creates, server-side) today's Daily Activity session and refreshes the
+    /// streak — called when the Games hub appears, not at launch, since it's Games-specific.
+    func startOrResumeDailyQuestion() async {
+        if let sessionID = try? await BackendService.getDailyQuestionSession() {
+            todaysDailySessionID = sessionID
+        }
+        await refreshDailyStreak()
+    }
+
+    func refreshDailyStreak() async {
+        if let streak = try? await BackendService.fetchDailyStreak() {
+            dailyStreak = streak.current
+            longestDailyStreak = streak.longest
+        }
+    }
+
+    /// Populates `gameContentCatalog`/`playedGameContentIDs` once per app session (cheap to
+    /// recheck — both are simple nil-guards) for the topic-browsing progress bars.
+    func loadGameContentCatalogIfNeeded() async {
+        guard gameContentCatalog == nil else { return }
+        async let catalog = BackendService.fetchGameContentCatalog()
+        async let played = BackendService.fetchPlayedContentIDs()
+        gameContentCatalog = try? await catalog
+        playedGameContentIDs = try? await played
+    }
+
+    /// Fraction (0...1) of this topic's tier-eligible content the couple has already played,
+    /// across all 4 game types — `nil` until `loadGameContentCatalogIfNeeded()` has completed.
+    func topicProgress(_ topic: GameTopic) -> (played: Int, total: Int)? {
+        guard let catalog = gameContentCatalog else { return nil }
+        let played = playedGameContentIDs ?? [:]
+        let eligibleTiers: Set<String> = subscriptionTier == "premium" ? ["plus", "premium"] : ["plus"]
+
+        let trivia = catalog.trivia.filter { $0.category == topic.rawValue && eligibleTiers.contains($0.tier) }
+        let moreLikely = catalog.moreLikely.filter { $0.category == topic.rawValue && eligibleTiers.contains($0.tier) }
+        let thisOrThat = catalog.thisOrThat.filter { $0.category == topic.rawValue && eligibleTiers.contains($0.tier) }
+        let discussion = catalog.discussion.filter { $0.category == topic.rawValue && eligibleTiers.contains($0.tier) }
+
+        let total = trivia.count + moreLikely.count + thisOrThat.count + discussion.count
+        guard total > 0 else { return nil }
+
+        let playedCount = trivia.filter { (played[.travelTrivia] ?? []).contains($0.id) }.count
+            + moreLikely.filter { (played[.moreLikely] ?? []).contains($0.id) }.count
+            + thisOrThat.filter { (played[.thisOrThat] ?? []).contains($0.id) }.count
+            + discussion.filter { (played[.discussBeforeTravelling] ?? []).contains($0.id) }.count
+
+        return (playedCount, total)
+    }
+
+    /// Which game types have at least one tier-eligible row for this topic — for the topic
+    /// detail sheet's "included in" list.
+    func gameTypes(for topic: GameTopic) -> [(gameType: GameType, count: Int)] {
+        guard let catalog = gameContentCatalog else { return [] }
+        let eligibleTiers: Set<String> = subscriptionTier == "premium" ? ["plus", "premium"] : ["plus"]
+        var result: [(GameType, Int)] = []
+        let triviaCount = catalog.trivia.filter { $0.category == topic.rawValue && eligibleTiers.contains($0.tier) }.count
+        if triviaCount > 0 { result.append((.travelTrivia, triviaCount)) }
+        let moreLikelyCount = catalog.moreLikely.filter { $0.category == topic.rawValue && eligibleTiers.contains($0.tier) }.count
+        if moreLikelyCount > 0 { result.append((.moreLikely, moreLikelyCount)) }
+        let thisOrThatCount = catalog.thisOrThat.filter { $0.category == topic.rawValue && eligibleTiers.contains($0.tier) }.count
+        if thisOrThatCount > 0 { result.append((.thisOrThat, thisOrThatCount)) }
+        let discussionCount = catalog.discussion.filter { $0.category == topic.rawValue && eligibleTiers.contains($0.tier) }.count
+        if discussionCount > 0 { result.append((.discussBeforeTravelling, discussionCount)) }
+        return result
+    }
+
     /// Only available once paired — there's no couple to namespace the storage path under
     /// beforehand, and no partner pad to make the feature meaningful yet.
     func saveMyDrawing(imageData: Data) async {
@@ -400,6 +486,7 @@ final class AppModel {
         partnerConnected = true
         hasCouple = true
         isSubscriptionActive = state.subscriptionActive
+        subscriptionTier = state.subscriptionTier
 
         var stillPendingTrips = Set<Trip.ID>()
         for trip in localOnlyTrips {

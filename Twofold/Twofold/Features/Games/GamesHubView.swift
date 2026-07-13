@@ -21,9 +21,15 @@ struct GamesHubView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
+                    if appModel.partnerConnected {
+                        DailyActivityCard()
+                    }
                     section(title: "Compete", games: competeGames)
                     section(title: "Connect", games: connectGames)
                     section(title: "Travel", games: travelGames)
+                    if appModel.partnerConnected {
+                        TopicsSection()
+                    }
                 }
                 .padding(Theme.Spacing.md)
             }

@@ -180,6 +180,7 @@ enum BackendService {
         var partnerAvatarURL: URL?
         var anniversaryDate: Date?
         var subscriptionActive: Bool
+        var subscriptionTier: String?
     }
 
     /// The signed-in user's own profile — used when they're authenticated but not (yet)
@@ -215,7 +216,8 @@ enum BackendService {
             partnerHomeCity: profile.partnerHomePlaceId.flatMap { places[$0] },
             partnerAvatarURL: profile.partnerAvatarPath.flatMap { avatarPublicURL(path: $0) },
             anniversaryDate: profile.anniversaryDate.flatMap { Self.dateOnlyFormatter.date(from: $0) },
-            subscriptionActive: profile.subscriptionActive
+            subscriptionActive: profile.subscriptionActive,
+            subscriptionTier: profile.subscriptionTier
         )
     }
 
@@ -317,6 +319,7 @@ enum BackendService {
         var partnerHomePlaceId: UUID?
         var anniversaryDate: String?
         var subscriptionActive: Bool
+        var subscriptionTier: String?
 
         enum CodingKeys: String, CodingKey {
             case id
@@ -328,6 +331,7 @@ enum BackendService {
             case partnerHomePlaceId = "partner_home_place_id"
             case anniversaryDate = "anniversary_date"
             case subscriptionActive = "subscription_active"
+            case subscriptionTier = "subscription_tier"
         }
     }
 
@@ -405,20 +409,25 @@ enum BackendService {
     private struct SubscriptionStatusUpdate: Encodable {
         var subscriptionActive: Bool
         var subscriptionCheckedAt: Date
+        var subscriptionTier: String?
         enum CodingKeys: String, CodingKey {
             case subscriptionActive = "subscription_active"
             case subscriptionCheckedAt = "subscription_checked_at"
+            case subscriptionTier = "subscription_tier"
         }
     }
 
     /// Writes only the caller's own profile row with their own device's last-known local
     /// StoreKit entitlement — never the partner's, so there's no clobbering risk between two
     /// independently-checking devices (see `fetchSubscriptionActive`, which ORs the two).
-    static func updateSubscriptionStatus(active: Bool) async throws {
+    /// `tier` is `nil` for a routine re-check (only reconfirming `active`, not a purchase) —
+    /// `SubscriptionStatusUpdate.subscriptionTier` being `nil` means `encodeIfPresent` omits the
+    /// key entirely, so the column is left untouched rather than being overwritten with null.
+    static func updateSubscriptionStatus(active: Bool, tier: String? = nil) async throws {
         guard let userID = currentUserID else { throw BackendError.notAuthenticated }
         try await supabase
             .from("profiles")
-            .update(SubscriptionStatusUpdate(subscriptionActive: active, subscriptionCheckedAt: .now))
+            .update(SubscriptionStatusUpdate(subscriptionActive: active, subscriptionCheckedAt: .now, subscriptionTier: tier))
             .eq("id", value: userID)
             .execute()
     }
@@ -717,6 +726,9 @@ enum BackendService {
         /// "Your partner doesn't pay anything" — access is granted if *either* partner's
         /// device last reported an active local StoreKit entitlement.
         var subscriptionActive: Bool
+        /// The higher of the two partners' tiers ("premium" beats "plus") — nil only if neither
+        /// has ever purchased since this column was added (pre-existing subscribers).
+        var subscriptionTier: String?
     }
 
     static func fetchCoupleState() async throws -> CoupleState? {
@@ -868,12 +880,17 @@ enum BackendService {
             )
         }
 
+        let effectiveTier: String? = [meProfile.subscriptionTier, partnerProfile.subscriptionTier].contains("premium")
+            ? "premium"
+            : ([meProfile.subscriptionTier, partnerProfile.subscriptionTier].compactMap { $0 }.first)
+
         return CoupleState(
             couple: couple,
             trips: trips,
             memories: memories,
             flights: flights,
-            subscriptionActive: meProfile.subscriptionActive || partnerProfile.subscriptionActive
+            subscriptionActive: meProfile.subscriptionActive || partnerProfile.subscriptionActive,
+            subscriptionTier: effectiveTier
         )
     }
 
@@ -1783,6 +1800,7 @@ enum BackendService {
         var initiatorId: UUID
         var status: GameSessionStatus
         var totalRounds: Int
+        var isDaily: Bool
         var startedAt: Date?
         var completedAt: Date?
         var createdAt: Date
@@ -1794,6 +1812,7 @@ enum BackendService {
             case gameType = "game_type"
             case initiatorId = "initiator_id"
             case totalRounds = "total_rounds"
+            case isDaily = "is_daily"
             case startedAt = "started_at"
             case completedAt = "completed_at"
             case createdAt = "created_at"
@@ -1803,7 +1822,7 @@ enum BackendService {
         func toModel() -> GameSession {
             GameSession(
                 id: id, coupleID: coupleId, gameType: gameType, initiatorID: initiatorId, status: status,
-                totalRounds: totalRounds, startedAt: startedAt, completedAt: completedAt,
+                totalRounds: totalRounds, isDaily: isDaily, startedAt: startedAt, completedAt: completedAt,
                 createdAt: createdAt, updatedAt: updatedAt
             )
         }
@@ -1877,14 +1896,15 @@ enum BackendService {
         var explanation: String?
         var difficulty: String?
         var active: Bool
+        var tier: String
 
         enum CodingKeys: String, CodingKey {
-            case id, category, question, options, explanation, difficulty, active
+            case id, category, question, options, explanation, difficulty, active, tier
             case correctAnswer = "correct_answer"
         }
 
         func toModel() -> TriviaQuestion {
-            TriviaQuestion(id: id, category: category, question: question, options: options, correctAnswer: correctAnswer, explanation: explanation, difficulty: difficulty, active: active)
+            TriviaQuestion(id: id, category: category, question: question, options: options, correctAnswer: correctAnswer, explanation: explanation, difficulty: difficulty, active: active, tier: tier)
         }
     }
 
@@ -1892,8 +1912,10 @@ enum BackendService {
         var id: UUID
         var prompt: String
         var active: Bool
+        var category: String
+        var tier: String
 
-        func toModel() -> MoreLikelyPrompt { MoreLikelyPrompt(id: id, prompt: prompt, active: active) }
+        func toModel() -> MoreLikelyPrompt { MoreLikelyPrompt(id: id, prompt: prompt, active: active, category: category, tier: tier) }
     }
 
     private struct ThisOrThatPromptRow: Decodable {
@@ -1901,22 +1923,26 @@ enum BackendService {
         var optionA: String
         var optionB: String
         var active: Bool
+        var category: String
+        var tier: String
 
         enum CodingKeys: String, CodingKey {
-            case id, active
+            case id, active, category, tier
             case optionA = "option_a"
             case optionB = "option_b"
         }
 
-        func toModel() -> ThisOrThatPrompt { ThisOrThatPrompt(id: id, optionA: optionA, optionB: optionB, active: active) }
+        func toModel() -> ThisOrThatPrompt { ThisOrThatPrompt(id: id, optionA: optionA, optionB: optionB, active: active, category: category, tier: tier) }
     }
 
     private struct DiscussionTopicRow: Decodable {
         var id: UUID
         var topic: String
         var active: Bool
+        var category: String
+        var tier: String
 
-        func toModel() -> DiscussionTopic { DiscussionTopic(id: id, topic: topic, active: active) }
+        func toModel() -> DiscussionTopic { DiscussionTopic(id: id, topic: topic, active: active, category: category, tier: tier) }
     }
 
     struct GameSessionDetail {
@@ -1961,6 +1987,84 @@ enum BackendService {
             }
         }
         try await supabase.rpc("mark_discussion_round", params: Params(pRoundId: roundID, pStatus: status.rawValue)).execute()
+    }
+
+    /// Returns today's Daily Activity session id, creating it server-side on first call each day
+    /// — see `get_daily_question_session` (an ordinary 1-round `discuss_before_travelling`
+    /// session flagged `is_daily`, so it plays through the exact same `GameSessionStore` flow as
+    /// any other game).
+    static func getDailyQuestionSession() async throws -> UUID {
+        let id: UUID = try await supabase.rpc("get_daily_question_session").execute().value
+        return id
+    }
+
+    private struct DailyStreakRow: Decodable {
+        var currentStreak: Int
+        var longestStreak: Int
+        var lastAnsweredDate: String?
+
+        enum CodingKeys: String, CodingKey {
+            case currentStreak = "current_streak"
+            case longestStreak = "longest_streak"
+            case lastAnsweredDate = "last_answered_date"
+        }
+    }
+
+    /// No row yet means the couple hasn't answered a daily question at all — a streak of 0,
+    /// not an error.
+    static func fetchDailyStreak() async throws -> (current: Int, longest: Int) {
+        let rows: [DailyStreakRow] = try await supabase.from("daily_streaks").select().limit(1).execute().value
+        guard let row = rows.first else { return (0, 0) }
+        return (row.currentStreak, row.longestStreak)
+    }
+
+    /// Every active row across all 4 content tables — used client-side to compute per-topic
+    /// progress (see `fetchPlayedContentIDs`) without a dedicated RPC. Content volume is small
+    /// enough (low thousands of short text rows) that fetching the full active catalog once per
+    /// session is cheap; callers should cache this rather than refetching per view appearance.
+    static func fetchGameContentCatalog() async throws -> (trivia: [TriviaQuestion], moreLikely: [MoreLikelyPrompt], thisOrThat: [ThisOrThatPrompt], discussion: [DiscussionTopic]) {
+        async let triviaRows: [TriviaQuestionRow] = supabase.from("trivia_questions").select().eq("active", value: true).execute().value
+        async let moreLikelyRows: [MoreLikelyPromptRow] = supabase.from("more_likely_prompts").select().eq("active", value: true).execute().value
+        async let thisOrThatRows: [ThisOrThatPromptRow] = supabase.from("this_or_that_prompts").select().eq("active", value: true).execute().value
+        async let discussionRows: [DiscussionTopicRow] = supabase.from("discussion_topics").select().eq("active", value: true).execute().value
+        let (trivia, moreLikely, thisOrThat, discussion) = try await (triviaRows, moreLikelyRows, thisOrThatRows, discussionRows)
+        return (trivia.map { $0.toModel() }, moreLikely.map { $0.toModel() }, thisOrThat.map { $0.toModel() }, discussion.map { $0.toModel() })
+    }
+
+    private struct GameTypeOnlyRow: Decodable {
+        var id: UUID
+        var gameType: GameType
+        enum CodingKeys: String, CodingKey { case id, gameType = "game_type" }
+    }
+
+    private struct ContentIDOnlyRow: Decodable {
+        var sessionId: UUID
+        var contentId: UUID
+        enum CodingKeys: String, CodingKey { case sessionId = "session_id", contentId = "content_id" }
+    }
+
+    /// Which content ids this couple has already played, per game type — joined client-side
+    /// (RLS already scopes both `game_sessions`/`game_session_rounds` reads to the caller's own
+    /// couple) rather than via a new RPC, since a couple's own play history is small enough that
+    /// two plain selects plus an in-memory join is simpler than adding server-side plumbing.
+    static func fetchPlayedContentIDs() async throws -> [GameType: Set<UUID>] {
+        let sessions: [GameTypeOnlyRow] = try await supabase.from("game_sessions").select("id, game_type").execute().value
+        guard !sessions.isEmpty else { return [:] }
+        let gameTypeBySessionID = Dictionary(uniqueKeysWithValues: sessions.map { ($0.id, $0.gameType) })
+
+        let rounds: [ContentIDOnlyRow] = try await supabase
+            .from("game_session_rounds")
+            .select("session_id, content_id")
+            .in("session_id", values: sessions.map(\.id))
+            .execute()
+            .value
+
+        var result: [GameType: Set<UUID>] = [:]
+        for round in rounds {
+            guard let gameType = gameTypeBySessionID[round.sessionId] else { continue }
+            result[gameType, default: []].insert(round.contentId)
+        }
+        return result
     }
 
     /// Relies on RLS to scope results to the caller's own couple — no couple id is passed or
@@ -2100,10 +2204,11 @@ enum BackendService {
         var partnerMemoryAdded: Bool
         var partnerGameStarted: Bool
         var partnerGameResultsReady: Bool
+        var dailyStreakReminder: Bool
 
         static let allEnabled = CoupleNotificationPreferences(
             partnerDrawingSaved: true, partnerTripAdded: true, partnerMemoryAdded: true,
-            partnerGameStarted: true, partnerGameResultsReady: true
+            partnerGameStarted: true, partnerGameResultsReady: true, dailyStreakReminder: true
         )
     }
 
@@ -2114,6 +2219,7 @@ enum BackendService {
         var partnerMemoryAdded: Bool
         var partnerGameStarted: Bool
         var partnerGameResultsReady: Bool
+        var dailyStreakReminder: Bool
 
         enum CodingKeys: String, CodingKey {
             case profileId = "profile_id"
@@ -2122,6 +2228,7 @@ enum BackendService {
             case partnerMemoryAdded = "partner_memory_added"
             case partnerGameStarted = "partner_game_started"
             case partnerGameResultsReady = "partner_game_results_ready"
+            case dailyStreakReminder = "daily_streak_reminder"
         }
     }
 
@@ -2142,7 +2249,8 @@ enum BackendService {
             partnerTripAdded: row.partnerTripAdded,
             partnerMemoryAdded: row.partnerMemoryAdded,
             partnerGameStarted: row.partnerGameStarted,
-            partnerGameResultsReady: row.partnerGameResultsReady
+            partnerGameResultsReady: row.partnerGameResultsReady,
+            dailyStreakReminder: row.dailyStreakReminder
         )
     }
 
@@ -2154,7 +2262,8 @@ enum BackendService {
             partnerTripAdded: prefs.partnerTripAdded,
             partnerMemoryAdded: prefs.partnerMemoryAdded,
             partnerGameStarted: prefs.partnerGameStarted,
-            partnerGameResultsReady: prefs.partnerGameResultsReady
+            partnerGameResultsReady: prefs.partnerGameResultsReady,
+            dailyStreakReminder: prefs.dailyStreakReminder
         )
         try await supabase
             .from("notification_preferences")

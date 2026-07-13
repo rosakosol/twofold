@@ -17,6 +17,7 @@ struct TravelTriviaGameView: View {
     @State private var store = GameSessionStore()
     @State private var isSubmitting = false
     @State private var isSendingReminder = false
+    @State private var hapticTrigger = false
 
     private var myID: UUID { appModel.currentUser.id }
     private var partnerID: UUID { appModel.partner.id }
@@ -37,6 +38,9 @@ struct TravelTriviaGameView: View {
                 )
             } else if let round = store.nextUnansweredRound(myID: myID), case let .trivia(question)? = store.content(for: round) {
                 roundView(round: round, question: question)
+                    .id(round.id)
+                    .transition(.scale(scale: 0.92).combined(with: .opacity))
+                    .animation(.spring(response: 0.4, dampingFraction: 0.75), value: round.id)
             } else {
                 GameCompletionView(
                     partnerName: appModel.partner.name,
@@ -60,6 +64,7 @@ struct TravelTriviaGameView: View {
         .task { await store.load(sessionID: sessionID) }
         .task { await store.subscribeRealtime(sessionID: sessionID) }
         .onDisappear { store.stopRealtime() }
+        .sensoryFeedback(.selection, trigger: hapticTrigger)
     }
 
     // MARK: - Round
@@ -111,6 +116,7 @@ struct TravelTriviaGameView: View {
     // MARK: - Actions
 
     private func submit(round: GameSessionRound, value: String, isCorrect: Bool) {
+        hapticTrigger.toggle()
         isSubmitting = true
         Task {
             await store.submit(roundNumber: round.roundNumber, answerValue: value, isCorrect: isCorrect)

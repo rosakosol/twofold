@@ -25,6 +25,14 @@ enum SubscriptionTier: CaseIterable {
         }
     }
 
+    /// Matches `profiles.subscription_tier`'s check constraint (`'plus'`/`'premium'`).
+    var dbValue: String {
+        switch self {
+        case .plus: "plus"
+        case .premium: "premium"
+        }
+    }
+
     /// Shown on the paywall's plan cards, bottom-to-top ("everything in Plus" first for Premium).
     var features: [String] {
         switch self {
@@ -33,14 +41,14 @@ enum SubscriptionTier: CaseIterable {
                 "Everything you need for long-distance love",
                 "Unlimited trips & memories",
                 "Track up to 5 flights each month",
-                "200+ games & conversation starters",
+                "500+ questions and games",
                 "Home Screen & Lock Screen widgets",
             ]
         case .premium:
             [
                 "Everything in Twofold Plus",
                 "Track up to 20 flights each month",
-                "500+ exclusive games",
+                "2000+ questions and games",
                 "Interactive 3D globe & premium widgets",
                 "Relationship Record PDF export",
             ]
@@ -78,6 +86,17 @@ final class SubscriptionStore {
     private var updatesTask: Task<Void, Never>?
 
     var isSubscribed: Bool { !purchasedProductIDs.isEmpty }
+
+    /// The highest tier among the caller's current entitlements, if any — used to persist which
+    /// tier was purchased/restored (`updateSubscriptionStatus`'s `tier` param). Premium wins if
+    /// `purchasedProductIDs` somehow contains both (Plus/Premium are the same subscription
+    /// group, so Apple should only ever return one active entitlement, but this stays correct
+    /// either way).
+    var subscribedTier: SubscriptionTier? {
+        if purchasedProductIDs.contains(where: { $0.contains("premium") }) { return .premium }
+        if purchasedProductIDs.contains(where: { $0.contains("plus") }) { return .plus }
+        return nil
+    }
 
     func product(tier: SubscriptionTier, period: BillingPeriod) -> Product? {
         products.first { $0.id == Self.productID(tier: tier, period: period) }

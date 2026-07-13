@@ -92,7 +92,7 @@ struct GameEntryView: View {
         do {
             let existing = try await BackendService.fetchGameSessions()
             guard let resumable = existing.first(where: { $0.gameType == gameType && ($0.status == .active || $0.status == .waitingForPartner) }) else {
-                phase = .intro(sessionID: nil, partnerAlreadyFinished: false, totalRounds: 5)
+                phase = .intro(sessionID: nil, partnerAlreadyFinished: false, totalRounds: gameType.defaultRoundCount)
                 return
             }
             let detail = try await BackendService.fetchGameSession(id: resumable.id)

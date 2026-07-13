@@ -252,7 +252,7 @@ struct PaywallView: View {
                 Task {
                     guard let selectedProduct else { return }
                     if await store.purchase(selectedProduct) {
-                        try? await BackendService.updateSubscriptionStatus(active: true)
+                        try? await BackendService.updateSubscriptionStatus(active: true, tier: selectedTier.dbValue)
                         appModel.markSubscriptionActive()
                         onSubscribed()
                     }
@@ -287,7 +287,7 @@ struct PaywallView: View {
                 Task {
                     await store.restorePurchases()
                     if store.isSubscribed {
-                        try? await BackendService.updateSubscriptionStatus(active: true)
+                        try? await BackendService.updateSubscriptionStatus(active: true, tier: store.subscribedTier?.dbValue)
                         appModel.markSubscriptionActive()
                         onSubscribed()
                     }

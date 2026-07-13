@@ -10,6 +10,57 @@ enum GameCategory: String, CaseIterable, Hashable {
     case connect = "Connect"
 }
 
+/// Cross-game content grouping, independent of `GameType` — a single topic (e.g. "Travel") spans
+/// content rows across all 4 content tables, powering the Games hub's topic-browsing section.
+/// Backed by each content table's `category` column (a plain string, not a DB enum, so a
+/// mismatched value never fails to decode — see `TriviaQuestion.category` etc.); `GameTopic(rawValue:)`
+/// is only used to resolve display metadata (icon/color) for a known category string.
+enum GameTopic: String, CaseIterable, Hashable, Identifiable {
+    case starters = "Starters"
+    case getToKnowEachOther = "Get to Know Each Other"
+    case relationship = "Relationship"
+    case travel = "Travel"
+    case foodAndCulture = "Food & Culture"
+    case family = "Family"
+    case moneyAndFinances = "Money & Finances"
+    case moralValues = "Moral Values"
+    case hobbiesAndLifestyle = "Hobbies & Lifestyle"
+    case deepConversations = "Deep Conversations"
+
+    var id: String { rawValue }
+    var displayName: String { rawValue }
+
+    var icon: String {
+        switch self {
+        case .starters: "sparkles"
+        case .getToKnowEachOther: "person.2.fill"
+        case .relationship: "heart.fill"
+        case .travel: "airplane"
+        case .foodAndCulture: "fork.knife"
+        case .family: "house.fill"
+        case .moneyAndFinances: "dollarsign.circle.fill"
+        case .moralValues: "hands.sparkles.fill"
+        case .hobbiesAndLifestyle: "figure.run"
+        case .deepConversations: "moon.stars.fill"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .starters: .purple
+        case .getToKnowEachOther: Theme.skyBlue
+        case .relationship: Theme.heartRed
+        case .travel: Theme.leafGreen
+        case .foodAndCulture: .orange
+        case .family: .brown
+        case .moneyAndFinances: .teal
+        case .moralValues: .yellow
+        case .hobbiesAndLifestyle: .pink
+        case .deepConversations: .indigo
+        }
+    }
+}
+
 enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
     case travelTrivia = "travel_trivia"
     case moreLikely = "more_likely"
@@ -45,14 +96,21 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
 
     var durationMinutes: Int {
         switch self {
-        case .travelTrivia: 5
-        case .moreLikely: 5
-        case .thisOrThat: 3
-        case .discussBeforeTravelling: 10
+        case .travelTrivia: 12
+        case .moreLikely: 8
+        case .thisOrThat: 6
+        case .discussBeforeTravelling: 15
         }
     }
 
     var durationLabel: String { "\(durationMinutes) min" }
+
+    /// Matches `start_game_session`'s round count for this game type — used client-side only as
+    /// the *display* default before a session exists yet (`GameEntryView`'s brand-new-game
+    /// case); the RPC itself is the actual source of truth once a session is created.
+    var defaultRoundCount: Int {
+        self == .discussBeforeTravelling ? 8 : 12
+    }
 
     var icon: String {
         switch self {
@@ -93,6 +151,9 @@ struct GameSession: Identifiable, Hashable {
     var initiatorID: UUID
     var status: GameSessionStatus
     var totalRounds: Int
+    /// True for the couple's single daily Daily-Activity session (an ordinary 1-round
+    /// `discuss_before_travelling` session under the hood — see `get_daily_question_session`).
+    var isDaily: Bool
     var startedAt: Date?
     var completedAt: Date?
     var createdAt: Date
@@ -150,12 +211,15 @@ struct TriviaQuestion: Identifiable, Hashable {
     var explanation: String?
     var difficulty: String?
     var active: Bool
+    var tier: String
 }
 
 struct MoreLikelyPrompt: Identifiable, Hashable {
     let id: UUID
     var prompt: String
     var active: Bool
+    var category: String
+    var tier: String
 }
 
 struct ThisOrThatPrompt: Identifiable, Hashable {
@@ -163,12 +227,16 @@ struct ThisOrThatPrompt: Identifiable, Hashable {
     var optionA: String
     var optionB: String
     var active: Bool
+    var category: String
+    var tier: String
 }
 
 struct DiscussionTopic: Identifiable, Hashable {
     let id: UUID
     var topic: String
     var active: Bool
+    var category: String
+    var tier: String
 }
 
 /// Whichever content type applies, resolved client-side by `GameSessionStore` based on the
