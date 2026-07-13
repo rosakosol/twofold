@@ -76,12 +76,7 @@ struct DeckEntryView: View {
 
     @ViewBuilder
     private func gameDestination(sessionID: UUID) -> some View {
-        switch deck.gameType {
-        case .travelTrivia: TravelTriviaGameView(sessionID: sessionID)
-        case .moreLikely: WhosMoreLikelyGameView(sessionID: sessionID)
-        case .thisOrThat: ThisOrThatGameView(sessionID: sessionID)
-        case .discussBeforeTravelling: DiscussBeforeTravellingGameView(sessionID: sessionID)
-        }
+        gameDestinationView(gameType: deck.gameType, sessionID: sessionID)
     }
 
     private func determinePhase() async {

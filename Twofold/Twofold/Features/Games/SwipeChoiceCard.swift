@@ -21,7 +21,6 @@ struct SwipeChoiceCard<Content: View>: View {
     let onChooseRight: () -> Void
 
     @State private var offset: CGSize = .zero
-    @State private var flyDirection: CGFloat?
 
     private let threshold: CGFloat = 110
 
@@ -29,45 +28,64 @@ struct SwipeChoiceCard<Content: View>: View {
     private var rightStampOpacity: Double { Double(max(0, min(1, offset.width / threshold))) }
 
     var body: some View {
-        content
-            .frame(maxWidth: .infinity, minHeight: 240)
-            .padding(Theme.Spacing.lg)
-            .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                    .fill(offset.width < 0 ? leftColor : rightColor)
-                    .opacity(0.12 * max(leftStampOpacity, rightStampOpacity))
-            }
-            .overlay {
-                RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                    .strokeBorder(offset.width < 0 ? leftColor : rightColor, lineWidth: 3)
-                    .opacity(max(leftStampOpacity, rightStampOpacity) >= 1 ? 1 : 0)
-            }
-            .overlay(alignment: .topLeading) { stamp(leftLabel, color: leftColor).opacity(leftStampOpacity) }
-            .overlay(alignment: .topTrailing) { stamp(rightLabel, color: rightColor).opacity(rightStampOpacity) }
-            .rotationEffect(.degrees(offset.width / 18))
-            .offset(offset)
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture()
-                    .onChanged { value in
-                        guard !isDisabled else { return }
-                        offset = value.translation
-                    }
-                    .onEnded { value in
-                        guard !isDisabled else { return }
-                        if value.translation.width <= -threshold {
-                            fly(direction: -1, action: onChooseLeft)
-                        } else if value.translation.width >= threshold {
-                            fly(direction: 1, action: onChooseRight)
-                        } else {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
-                                offset = .zero
+        ZStack {
+            ghostCard(scale: 0.93, yOffset: 18, opacity: 0.35)
+            ghostCard(scale: 0.965, yOffset: 9, opacity: 0.6)
+
+            content
+                .frame(maxWidth: .infinity, minHeight: 240)
+                .padding(Theme.Spacing.lg)
+                .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+                        .fill(offset.width < 0 ? leftColor : rightColor)
+                        .opacity(0.12 * max(leftStampOpacity, rightStampOpacity))
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+                        .strokeBorder(offset.width < 0 ? leftColor : rightColor, lineWidth: 3)
+                        .opacity(max(leftStampOpacity, rightStampOpacity) >= 1 ? 1 : 0)
+                }
+                .overlay(alignment: .topLeading) { stamp(leftLabel, color: leftColor).opacity(leftStampOpacity) }
+                .overlay(alignment: .topTrailing) { stamp(rightLabel, color: rightColor).opacity(rightStampOpacity) }
+                .shadow(color: .black.opacity(0.2), radius: 18, y: 10)
+                .rotationEffect(.degrees(offset.width / 18))
+                .offset(offset)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture()
+                        .onChanged { value in
+                            guard !isDisabled else { return }
+                            offset = value.translation
+                        }
+                        .onEnded { value in
+                            guard !isDisabled else { return }
+                            if value.translation.width <= -threshold {
+                                fly(direction: -1, action: onChooseLeft)
+                            } else if value.translation.width >= threshold {
+                                fly(direction: 1, action: onChooseRight)
+                            } else {
+                                withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                                    offset = .zero
+                                }
                             }
                         }
-                    }
-            )
-            .overlay(tapHalves)
+                )
+                .overlay(tapHalves)
+        }
+    }
+
+    /// A static, slightly smaller/lower/fainter card peeking out from behind the real one — the
+    /// classic "deck of cards" cue that there's more than one question, without actually needing
+    /// to pre-render the next round's content.
+    private func ghostCard(scale: CGFloat, yOffset: CGFloat, opacity: Double) -> some View {
+        RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+            .fill(Theme.cardBackground)
+            .frame(maxWidth: .infinity, minHeight: 240)
+            .shadow(color: .black.opacity(0.1), radius: 8, y: 4)
+            .scaleEffect(scale)
+            .offset(y: yOffset)
+            .opacity(opacity)
     }
 
     /// Left/right invisible tap targets layered over the card — a tap-to-choose fallback for

@@ -90,12 +90,7 @@ struct GameHistoryView: View {
 
     @ViewBuilder
     private func gameDestination(session: GameSession) -> some View {
-        switch session.gameType {
-        case .travelTrivia: TravelTriviaGameView(sessionID: session.id)
-        case .moreLikely: WhosMoreLikelyGameView(sessionID: session.id)
-        case .thisOrThat: ThisOrThatGameView(sessionID: session.id)
-        case .discussBeforeTravelling: DiscussBeforeTravellingGameView(sessionID: session.id)
-        }
+        gameDestinationView(gameType: session.gameType, sessionID: session.id)
     }
 
     private func load() async {

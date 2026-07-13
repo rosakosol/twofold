@@ -113,6 +113,7 @@ export async function sendAPNs(
   environment: ApnsEnvironment,
   title: string,
   body: string,
+  data?: Record<string, unknown>,
 ): Promise<void> {
   if (!hasApnsConfig(environment)) {
     console.log(`[apns] skipping send — ${environment} APNs secrets not configured yet`);
@@ -124,6 +125,9 @@ export async function sendAPNs(
     const bundleId = Deno.env.get("APNS_BUNDLE_ID")!;
     const host = environment === "sandbox" ? "api.sandbox.push.apple.com" : "api.push.apple.com";
 
+    // Custom deep-link data (e.g. session id/game type) lives as top-level keys alongside `aps`,
+    // not nested inside it — that's the payload shape APNs/UNNotification expect for anything
+    // the receiving app wants to read out of `userInfo`.
     const res = await fetch(`https://${host}/3/device/${deviceToken}`, {
       method: "POST",
       headers: {
@@ -132,7 +136,7 @@ export async function sendAPNs(
         "apns-push-type": "alert",
         "content-type": "application/json",
       },
-      body: JSON.stringify({ aps: { alert: { title, body }, sound: "default" } }),
+      body: JSON.stringify({ aps: { alert: { title, body }, sound: "default" }, ...data }),
     });
 
     if (!res.ok) {

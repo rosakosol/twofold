@@ -12,6 +12,7 @@ struct RootView: View {
     @State private var pendingInviteCode: String?
     @State private var showingPartnerConnectedCelebration = false
     @State private var showingPaywallFromWidget = false
+    @State private var gameDeepLink: SessionRoute?
 
     var body: some View {
         Group {
@@ -59,6 +60,16 @@ struct RootView: View {
         }
         .sheet(isPresented: $showingPaywallFromWidget) {
             NavigationStack { PaywallView() }
+        }
+        // Tapping a delivered game-reminder/results-ready push notification lands here —
+        // `PushNotificationDelegate` parses the payload and posts this rather than reaching into
+        // AppModel directly (same reasoning as `.didRegisterForRemoteNotifications`).
+        .onReceive(NotificationCenter.default.publisher(for: .didTapGameNotification)) { notification in
+            guard appModel.hasCouple, let link = notification.object as? GameNotificationDeepLink else { return }
+            gameDeepLink = SessionRoute(id: link.sessionID, gameType: link.gameType)
+        }
+        .fullScreenCover(item: $gameDeepLink) { route in
+            NavigationStack { gameDestinationView(gameType: route.gameType, sessionID: route.id) }
         }
         // Fires for every post-onboarding path that can newly connect a partner — redeeming a
         // code via Settings/PartnerSetupView, or a background refresh discovering the partner

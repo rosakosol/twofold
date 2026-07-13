@@ -39,12 +39,17 @@ final class AppModel {
     /// Today's Daily Activity session id, once known (fetched lazily, not at launch — see
     /// `startOrResumeDailyQuestion()`).
     var todaysDailySessionID: UUID?
+    /// The actual discussion topic text for today's session — shown on `DailyActivityCard`
+    /// instead of a generic teaser line. Nil while loading or if the fetch fails.
+    var todaysDailyQuestionText: String?
 
     /// All active decks + which ones this couple has started, cached after first load
     /// (`loadGameDecksIfNeeded()`) — powers the Games hub's topic list and progress bars. Not
     /// loaded at app launch; only Games-hub visits need it.
     private(set) var gameDecks: [GameDeck]?
-    private(set) var playedDeckIDs: Set<UUID>?
+    /// Per-deck completion counts for the couple — see `DeckProgress`/`get_deck_progress()`.
+    /// Superseded `playedDeckIDs` (a deck has progress here the moment either partner starts it).
+    private(set) var deckProgress: [UUID: DeckProgress]?
 
     /// Whether the partner has actually redeemed an invite and joined — confirmed by the
     /// backend (an active `couples` row exists), not assumed the moment a code is shared.
@@ -398,6 +403,10 @@ final class AppModel {
     func startOrResumeDailyQuestion() async {
         if let sessionID = try? await BackendService.getDailyQuestionSession() {
             todaysDailySessionID = sessionID
+            if let detail = try? await BackendService.fetchGameSession(id: sessionID),
+               let round = detail.rounds.first, case let .discuss(topic)? = detail.content[round.contentID] {
+                todaysDailyQuestionText = topic.topic
+            }
         }
         await refreshDailyStreak()
     }
@@ -409,38 +418,51 @@ final class AppModel {
         }
     }
 
-    /// Populates `gameDecks`/`playedDeckIDs` once per app session (cheap to recheck — both are
+    /// Populates `gameDecks`/`deckProgress` once per app session (cheap to recheck — both are
     /// simple nil-guards) for the Games hub's topic list and progress bars.
     func loadGameDecksIfNeeded() async {
         guard gameDecks == nil else { return }
         await refreshGameDecks()
     }
 
-    /// Re-fetches unconditionally — called after starting a deck session so its progress updates
-    /// immediately rather than waiting for the next cold load.
+    /// Re-fetches unconditionally — called after starting/resetting a deck session so its
+    /// progress updates immediately rather than waiting for the next cold load.
     func refreshGameDecks() async {
         async let decks = BackendService.fetchGameDecks()
-        async let played = BackendService.fetchPlayedDeckIDs()
+        async let progress = BackendService.fetchDeckProgress()
         gameDecks = try? await decks
-        playedDeckIDs = try? await played
+        deckProgress = try? await progress
     }
 
-    /// This topic's tier-eligible decks, in curated order.
+    /// All of this topic's decks, in curated order — Plus members see Premium-tier decks too now
+    /// (they just show an unlock badge, see `isDeckLocked(_:)`), so this no longer filters by
+    /// tier the way it originally did.
     func decks(for topic: GameTopic) -> [GameDeck] {
-        let eligibleTiers: Set<String> = subscriptionTier == "premium" ? ["plus", "premium"] : ["plus"]
-        return (gameDecks ?? [])
-            .filter { $0.topic == topic.rawValue && eligibleTiers.contains($0.tier) }
+        (gameDecks ?? [])
+            .filter { $0.topic == topic.rawValue }
             .sorted { $0.sortOrder < $1.sortOrder }
     }
 
-    /// How many of this topic's tier-eligible decks the couple has started at least once — `nil`
-    /// until `loadGameDecksIfNeeded()` has completed.
+    /// True if this deck requires a higher tier than the couple currently has — drives the
+    /// unlock badge + premium-gate screen rather than hiding the deck outright.
+    func isDeckLocked(_ deck: GameDeck) -> Bool {
+        deck.tier == "premium" && subscriptionTier != "premium"
+    }
+
+    /// Every deck of this game type, across every topic — powers "tap a game type card, see all
+    /// its decks" browsing, as opposed to `decks(for topic:)`'s single-topic scoping.
+    func decks(ofType gameType: GameType) -> [GameDeck] {
+        (gameDecks ?? []).filter { $0.gameType == gameType }
+    }
+
+    /// How many of this topic's decks the couple has started at least once — `nil` until
+    /// `loadGameDecksIfNeeded()` has completed.
     func topicProgress(_ topic: GameTopic) -> (played: Int, total: Int)? {
         guard gameDecks != nil else { return nil }
         let topicDecks = decks(for: topic)
         guard !topicDecks.isEmpty else { return nil }
-        let played = playedDeckIDs ?? []
-        let playedCount = topicDecks.filter { played.contains($0.id) }.count
+        let progress = deckProgress ?? [:]
+        let playedCount = topicDecks.filter { progress[$0.id] != nil }.count
         return (playedCount, topicDecks.count)
     }
 

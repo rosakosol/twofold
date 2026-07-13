@@ -51,7 +51,7 @@ struct WhosMoreLikelyGameView: View {
             }
         }
         .background(Theme.backgroundGradient.ignoresSafeArea())
-        .navigationTitle("Who's More Likely To")
+        .navigationTitle(GameType.moreLikely.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -95,14 +95,14 @@ struct WhosMoreLikelyGameView: View {
                                     HStack(spacing: Theme.Spacing.xl) {
                                         VStack(spacing: Theme.Spacing.xs) {
                                             AvatarView(person: appModel.currentUser, size: 48, showsRing: true)
-                                            Text("Me").font(.caption.weight(.semibold)).foregroundStyle(Theme.skyBlue)
+                                            Text("👈 Me").font(.caption.weight(.semibold)).foregroundStyle(Theme.skyBlue)
                                         }
                                         Image(systemName: "arrow.left.and.right")
                                             .font(.caption)
                                             .foregroundStyle(Theme.subtleInk)
                                         VStack(spacing: Theme.Spacing.xs) {
                                             AvatarView(person: appModel.partner, size: 48, showsRing: true)
-                                            Text(appModel.partner.name).font(.caption.weight(.semibold)).foregroundStyle(Theme.heartRed)
+                                            Text("\(appModel.partner.name) 👉").font(.caption.weight(.semibold)).foregroundStyle(Theme.heartRed)
                                         }
                                     }
                                 }
@@ -134,7 +134,7 @@ struct WhosMoreLikelyGameView: View {
 
     private func sendReminder() async {
         isSendingReminder = true
-        await BackendService.notifyPartner(event: .gameReminder, detail: GameType.moreLikely.displayName)
+        await BackendService.notifyPartner(event: .gameReminder, detail: GameType.moreLikely.displayName, sessionID: sessionID, gameType: .moreLikely)
         isSendingReminder = false
     }
 }

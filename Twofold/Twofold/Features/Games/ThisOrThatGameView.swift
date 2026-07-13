@@ -51,7 +51,7 @@ struct ThisOrThatGameView: View {
             }
         }
         .background(Theme.backgroundGradient.ignoresSafeArea())
-        .navigationTitle("This or That")
+        .navigationTitle(GameType.thisOrThat.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -86,19 +86,18 @@ struct ThisOrThatGameView: View {
                             rightColor: Theme.heartRed,
                             isDisabled: isSubmitting,
                             content: {
-                                VStack(spacing: Theme.Spacing.md) {
-                                    Text(prompt.optionA)
-                                        .font(.title2.weight(.bold))
-                                        .foregroundStyle(Theme.skyBlue)
-                                        .multilineTextAlignment(.center)
-                                    Text("or")
-                                        .font(.caption)
-                                        .foregroundStyle(Theme.subtleInk)
-                                    Text(prompt.optionB)
-                                        .font(.title2.weight(.bold))
-                                        .foregroundStyle(Theme.heartRed)
-                                        .multilineTextAlignment(.center)
-                                }
+                                // Concatenated Text (not separate stacked lines) so "Answer or
+                                // Answer" reads and wraps as one flowing phrase, with each
+                                // option keeping its own swipe-direction color.
+                                (
+                                    Text("👈 ")
+                                    + Text(prompt.optionA).foregroundStyle(Theme.skyBlue).fontWeight(.heavy)
+                                    + Text(" or ").foregroundStyle(Theme.subtleInk)
+                                    + Text(prompt.optionB).foregroundStyle(Theme.heartRed).fontWeight(.heavy)
+                                    + Text(" 👉")
+                                )
+                                .font(.title2)
+                                .multilineTextAlignment(.center)
                                 .frame(maxWidth: .infinity)
                             },
                             onChooseLeft: { submit(round: round, value: ThisOrThatChoice.optionA.rawValue) },
@@ -127,7 +126,7 @@ struct ThisOrThatGameView: View {
 
     private func sendReminder() async {
         isSendingReminder = true
-        await BackendService.notifyPartner(event: .gameReminder, detail: GameType.thisOrThat.displayName)
+        await BackendService.notifyPartner(event: .gameReminder, detail: GameType.thisOrThat.displayName, sessionID: sessionID, gameType: .thisOrThat)
         isSendingReminder = false
     }
 }

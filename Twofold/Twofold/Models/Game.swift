@@ -71,10 +71,10 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .travelTrivia: "Travel Trivia Battle"
+        case .travelTrivia: "Trivia Battle"
         case .moreLikely: "Who's More Likely To"
         case .thisOrThat: "This or That"
-        case .discussBeforeTravelling: "Discuss Before Travelling"
+        case .discussBeforeTravelling: "Deep Conversation"
         }
     }
 
@@ -91,10 +91,10 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
 
     var tagline: String {
         switch self {
-        case .travelTrivia: "Put your travel knowledge to the test."
+        case .travelTrivia: "Put your knowledge to the test."
         case .moreLikely: "Who knows your relationship best?"
         case .thisOrThat: "Choose, reveal, and see where you match."
-        case .discussBeforeTravelling: "Talk through the things that make trips smoother."
+        case .discussBeforeTravelling: "Talk through the things that matter, together."
         }
     }
 
@@ -125,7 +125,7 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
 
     var icon: String {
         switch self {
-        case .travelTrivia: "airplane.circle.fill"
+        case .travelTrivia: "questionmark.circle.fill"
         case .moreLikely: "person.2.wave.2.fill"
         case .thisOrThat: "arrow.left.arrow.right.circle.fill"
         case .discussBeforeTravelling: "bubble.left.and.bubble.right.fill"
@@ -188,6 +188,24 @@ struct GameDeck: Identifiable, Hashable {
     var tier: String
     var sortOrder: Int
     var questionCount: Int
+}
+
+/// Per-partner completion for one deck's session — counts only, never answer content, sourced
+/// from `get_deck_progress()` (a SECURITY DEFINER RPC that deliberately bypasses
+/// `game_responses`' own "hidden until both partners are done" RLS so an avatar tick can appear
+/// the moment *that* partner finishes, independent of the other). See
+/// `20260715000000_deck_progress_rpc.sql`.
+struct DeckProgress: Hashable {
+    var sessionID: UUID
+    var status: GameSessionStatus
+    var totalRounds: Int
+    var myAnswered: Int
+    var partnerAnswered: Int
+
+    var myCompleted: Bool { myAnswered >= totalRounds }
+    var partnerCompleted: Bool { partnerAnswered >= totalRounds }
+    var bothCompleted: Bool { myCompleted && partnerCompleted }
+    var isInProgress: Bool { !bothCompleted && (myAnswered > 0 || partnerAnswered > 0) }
 }
 
 /// Where a specific partner is in a session — derived client-side from how many rounds they've

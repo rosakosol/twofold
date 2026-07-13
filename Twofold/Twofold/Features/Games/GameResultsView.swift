@@ -141,16 +141,19 @@ struct GameResultsView: View {
                     if let explanation = question.explanation, !explanation.isEmpty {
                         Text(explanation).font(.caption).foregroundStyle(Theme.subtleInk)
                     }
-                } else if matched {
-                    Label("You matched!", systemImage: "heart.fill")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Theme.heartRed)
                 }
             }
         }
         .padding(Theme.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+        .background(matched ? Theme.leafGreen.opacity(0.14) : Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+        .animation(.easeOut(duration: 0.4), value: matched)
+        .overlay(alignment: .topTrailing) {
+            if matched {
+                MatchCheckmarkBadge()
+                    .padding(Theme.Spacing.sm)
+            }
+        }
     }
 
     private func answerChip(name: String, text: String, tint: Color) -> some View {
@@ -217,23 +220,12 @@ struct GameResultsView: View {
         case .travelTrivia:
             EmptyView()
         case .moreLikely, .thisOrThat:
-            let matched = GameLogic.matchedRounds(rounds: store.rounds, responses: store.responses, partnerAID: myID, partnerBID: partnerID)
             let mismatched = GameLogic.mismatchedRounds(rounds: store.rounds, responses: store.responses, partnerAID: myID, partnerBID: partnerID)
 
-            if let biggestMatch = matched.first {
-                summaryCard(title: "Biggest Match", emoji: "❤️") {
-                    highlightRound(biggestMatch)
-                }
-            }
-            if let mostSurprising = mismatched.first {
-                summaryCard(title: "Most Surprising", emoji: "😮") {
-                    highlightRound(mostSurprising)
-                }
-            }
-            if mismatched.count > 1 {
+            if !mismatched.isEmpty {
                 summaryCard(title: "Questions to discuss", emoji: nil) {
                     VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                        ForEach(mismatched.dropFirst(), id: \.id) { round in
+                        ForEach(mismatched, id: \.id) { round in
                             Text("•  \(questionText(for: round))")
                                 .font(.subheadline)
                                 .foregroundStyle(Theme.ink)
@@ -270,16 +262,6 @@ struct GameResultsView: View {
         .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
     }
 
-    private func highlightRound(_ round: GameSessionRound) -> some View {
-        let mine = store.myResponse(for: round, myID: myID)
-        let partner = store.partnerResponse(for: round, partnerID: partnerID)
-        return VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-            Text(questionText(for: round)).font(.subheadline).foregroundStyle(Theme.ink)
-            Text("You: \(answerText(mine?.answerValue, for: round))    \(partnerName): \(answerText(partner?.answerValue, for: round))")
-                .font(.caption)
-                .foregroundStyle(Theme.subtleInk)
-        }
-    }
 
     // MARK: - Content resolution
 
@@ -333,6 +315,29 @@ struct GameResultsView: View {
                 if index + 1 >= store.rounds.count, let matchPercent, matchPercent >= 80 {
                     confettiTrigger = true
                 }
+            }
+        }
+    }
+}
+
+/// A small green checkmark that pops in with a delayed spring once its row lands — separate from
+/// the row's own insertion transition so it reads as its own little "match!" beat.
+private struct MatchCheckmarkBadge: View {
+    @State private var appeared = false
+
+    var body: some View {
+        ZStack {
+            Circle().fill(Theme.leafGreen)
+            Image(systemName: "checkmark")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.white)
+        }
+        .frame(width: 24, height: 24)
+        .scaleEffect(appeared ? 1 : 0.3)
+        .opacity(appeared ? 1 : 0)
+        .onAppear {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.6).delay(0.15)) {
+                appeared = true
             }
         }
     }

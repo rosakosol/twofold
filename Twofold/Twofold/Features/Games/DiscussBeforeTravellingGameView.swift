@@ -50,7 +50,7 @@ struct DiscussBeforeTravellingGameView: View {
             }
         }
         .background(Theme.backgroundGradient.ignoresSafeArea())
-        .navigationTitle("Discuss Before Travelling")
+        .navigationTitle(GameType.discussBeforeTravelling.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -125,7 +125,7 @@ struct DiscussBeforeTravellingGameView: View {
 
     private func sendReminder() async {
         isSendingReminder = true
-        await BackendService.notifyPartner(event: .gameReminder, detail: GameType.discussBeforeTravelling.displayName)
+        await BackendService.notifyPartner(event: .gameReminder, detail: GameType.discussBeforeTravelling.displayName, sessionID: sessionID, gameType: .discussBeforeTravelling)
         isSendingReminder = false
     }
 }

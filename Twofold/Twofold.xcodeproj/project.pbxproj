@@ -464,7 +464,6 @@
 			files = (
 			);
 			inputPaths = (
-				"$(SRCROOT)/Vendor/MapLibre_ios_device.framework.dSYM.zip",
 			);
 			name = "Inject MapLibre dSYM";
 			outputPaths = (
@@ -472,7 +471,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# MapLibre's xcframework distribution doesn't bundle a dSYM (upstream issue:\n# https://github.com/maplibre/maplibre-native/issues/3155), so App Store Connect rejects\n# uploads for a missing MapLibre.framework dSYM. This copies the dSYM published separately\n# for the pinned MapLibre version (see Twofold/Vendor/MapLibre_ios_device.framework.dSYM.zip)\n# into the archive's dSYMs folder. Only meaningful during an Archive build, where\n# DWARF_DSYM_FOLDER_PATH is set to a real path; a no-op otherwise.\nif [ -n \"${DWARF_DSYM_FOLDER_PATH}\" ]; then\n  mkdir -p \"${DWARF_DSYM_FOLDER_PATH}\"\n  unzip -o -q \"${SRCROOT}/Vendor/MapLibre_ios_device.framework.dSYM.zip\" -d \"${DWARF_DSYM_FOLDER_PATH}\"\nfi\n";
+			shellScript = "# MapLibre's xcframework distribution doesn't bundle a dSYM (upstream issue:\n# https://github.com/maplibre/maplibre-native/issues/3155), so App Store Connect rejects\n# uploads for a missing MapLibre.framework dSYM. Downloads the dSYM published separately\n# for the pinned MapLibre version (6.27.0) straight from GitHub at archive time, rather than\n# vendoring the 50MB file in the repo — a local copy under this project's iCloud-synced\n# Desktop path was silently evicted to a zero-byte placeholder between sessions, which is\n# worse than a network fetch. Only meaningful during an Archive build, where\n# DWARF_DSYM_FOLDER_PATH is set to a real path; a no-op otherwise.\nif [ -n \"${DWARF_DSYM_FOLDER_PATH}\" ]; then\n  mkdir -p \"${DWARF_DSYM_FOLDER_PATH}\"\n  DSYM_ZIP=\"${TMPDIR}MapLibre_ios_device.framework.dSYM.zip\"\n  if curl -fsSL -o \"${DSYM_ZIP}\" \"https://github.com/maplibre/maplibre-native/releases/download/ios-v6.27.0/MapLibre_ios_device.framework.dSYM.zip\"; then\n    unzip -o -q \"${DSYM_ZIP}\" -d \"${DWARF_DSYM_FOLDER_PATH}\"\n    rm -f \"${DSYM_ZIP}\"\n  else\n    echo \"warning: Failed to download the MapLibre dSYM — App Store Connect may reject this archive for a missing MapLibre.framework dSYM.\"\n  fi\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -599,6 +598,7 @@
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Debug;
 		};
@@ -656,6 +656,7 @@
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				VALIDATE_PRODUCT = YES;
+				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
 		};
@@ -664,10 +665,11 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION = YES;
 				CODE_SIGN_ENTITLEMENTS = Twofold/Twofold.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 74FZ8H3GX2;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -700,10 +702,11 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION = YES;
 				CODE_SIGN_ENTITLEMENTS = Twofold/Twofold.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 74FZ8H3GX2;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -736,7 +739,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 74FZ8H3GX2;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.5;
@@ -758,7 +761,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 74FZ8H3GX2;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.5;
@@ -779,7 +782,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 74FZ8H3GX2;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
@@ -799,7 +802,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 74FZ8H3GX2;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
@@ -818,9 +821,10 @@
 		DB8C96D52FFE69E900E0E71E /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION = YES;
 				CODE_SIGN_ENTITLEMENTS = TwofoldShareExtension/TwofoldShareExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 74FZ8H3GX2;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = TwofoldShareExtension/Info.plist;
@@ -847,9 +851,10 @@
 		DB8C96D62FFE69E900E0E71E /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION = YES;
 				CODE_SIGN_ENTITLEMENTS = TwofoldShareExtension/TwofoldShareExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 74FZ8H3GX2;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = TwofoldShareExtension/Info.plist;
@@ -878,9 +883,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION = YES;
 				CODE_SIGN_ENTITLEMENTS = LiveActivities/LiveActivities.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 74FZ8H3GX2;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LiveActivities/Info.plist;
@@ -909,9 +915,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION = YES;
 				CODE_SIGN_ENTITLEMENTS = LiveActivities/LiveActivities.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 74FZ8H3GX2;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LiveActivities/Info.plist;

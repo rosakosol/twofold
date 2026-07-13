@@ -2067,17 +2067,37 @@ enum BackendService {
         return (row.currentStreak, row.longestStreak)
     }
 
-    private struct DeckIDOnlyRow: Decodable {
-        var deckId: UUID?
-        enum CodingKeys: String, CodingKey { case deckId = "deck_id" }
+    private struct DeckProgressRow: Decodable {
+        var deckId: UUID
+        var sessionId: UUID
+        var status: GameSessionStatus
+        var totalRounds: Int
+        var myAnswered: Int
+        var partnerAnswered: Int
+
+        enum CodingKeys: String, CodingKey {
+            case deckId = "deck_id"
+            case sessionId = "session_id"
+            case status
+            case totalRounds = "total_rounds"
+            case myAnswered = "my_answered"
+            case partnerAnswered = "partner_answered"
+        }
     }
 
-    /// Which decks this couple has started at least one session of — RLS already scopes
-    /// `game_sessions` to the caller's own couple, so this is a plain select + client-side filter
-    /// rather than a dedicated RPC.
-    static func fetchPlayedDeckIDs() async throws -> Set<UUID> {
-        let rows: [DeckIDOnlyRow] = try await supabase.from("game_sessions").select("deck_id").execute().value
-        return Set(rows.compactMap(\.deckId))
+    /// One row per non-abandoned/archived deck session for the caller's couple — keyed by deck id
+    /// client-side (a deck only ever has one live session at a time: resetting abandons the old
+    /// one before starting a new one).
+    static func fetchDeckProgress() async throws -> [UUID: DeckProgress] {
+        let rows: [DeckProgressRow] = try await supabase.rpc("get_deck_progress").execute().value
+        var result: [UUID: DeckProgress] = [:]
+        for row in rows {
+            result[row.deckId] = DeckProgress(
+                sessionID: row.sessionId, status: row.status, totalRounds: row.totalRounds,
+                myAnswered: row.myAnswered, partnerAnswered: row.partnerAnswered
+            )
+        }
+        return result
     }
 
     /// Relies on RLS to scope results to the caller's own couple — no couple id is passed or
@@ -2196,10 +2216,15 @@ enum BackendService {
     /// never throws. Called right after a real, synced write succeeds (never for a
     /// pending/local-only trip or memory added before pairing), since notifying about
     /// something that doesn't exist in the partner's own view yet would be misleading.
-    static func notifyPartner(event: CoupleNotificationEvent, detail: String? = nil) async {
+    /// `sessionID`/`gameType` are only meaningful for `.gameReminder`/`.gameResultsReady` — they
+    /// ride along in the push payload so tapping the delivered notification can deep-link
+    /// straight into that session (see `PushNotificationDelegate`) instead of just opening the app.
+    static func notifyPartner(event: CoupleNotificationEvent, detail: String? = nil, sessionID: UUID? = nil, gameType: GameType? = nil) async {
         guard let accessToken = currentAccessToken else { return }
         var body: [String: Any] = ["eventType": event.rawValue]
         if let detail { body["detail"] = detail }
+        if let sessionID { body["sessionId"] = sessionID.uuidString }
+        if let gameType { body["gameType"] = gameType.rawValue }
 
         var request = URLRequest(url: SupabaseConfig.projectURL.appendingPathComponent("functions/v1/notify-couple-event"))
         request.httpMethod = "POST"

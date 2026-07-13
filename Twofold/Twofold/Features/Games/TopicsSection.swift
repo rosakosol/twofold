@@ -76,10 +76,28 @@ struct TopicDetailView: View {
     @Environment(AppModel.self) private var appModel
     @Environment(\.dismiss) private var dismiss
 
+    /// In-progress decks first, then never-started ones — completed decks are shown separately.
+    private var unansweredDecks: [GameDeck] {
+        appModel.decks(for: topic)
+            .filter { !(appModel.deckProgress?[$0.id]?.bothCompleted ?? false) }
+            .sorted { lhs, rhs in
+                let lhsStarted = appModel.deckProgress?[lhs.id] != nil
+                let rhsStarted = appModel.deckProgress?[rhs.id] != nil
+                if lhsStarted != rhsStarted { return lhsStarted }
+                return lhs.sortOrder < rhs.sortOrder
+            }
+    }
+
+    private var answeredDecks: [GameDeck] {
+        appModel.decks(for: topic)
+            .filter { appModel.deckProgress?[$0.id]?.bothCompleted ?? false }
+            .sorted { $0.sortOrder < $1.sortOrder }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: Theme.Spacing.md) {
+                VStack(spacing: Theme.Spacing.lg) {
                     ZStack {
                         Circle().fill(topic.color.opacity(0.18))
                         Image(systemName: topic.icon).font(.largeTitle).foregroundStyle(topic.color)
@@ -87,11 +105,8 @@ struct TopicDetailView: View {
                     .frame(width: 72, height: 72)
                     .padding(.top, Theme.Spacing.sm)
 
-                    VStack(spacing: Theme.Spacing.sm) {
-                        ForEach(appModel.decks(for: topic)) { deck in
-                            deckCard(deck)
-                        }
-                    }
+                    deckSection(title: "Unanswered", decks: unansweredDecks)
+                    deckSection(title: "Answered", decks: answeredDecks)
 
                     if appModel.decks(for: topic).isEmpty {
                         Text("No decks in this topic yet.")
@@ -114,62 +129,21 @@ struct TopicDetailView: View {
     }
 
     @ViewBuilder
-    private func deckCard(_ deck: GameDeck) -> some View {
-        let isLocked = deck.tier == "premium" && appModel.subscriptionTier != "premium"
-        if isLocked {
-            deckCardContent(deck, isLocked: true)
-        } else if appModel.partnerConnected {
-            NavigationLink {
-                DeckEntryView(deck: deck)
-            } label: {
-                deckCardContent(deck, isLocked: false)
-            }
-            .buttonStyle(.plain)
-        } else {
-            deckCardContent(deck, isLocked: true)
-        }
-    }
-
-    private func deckCardContent(_ deck: GameDeck, isLocked: Bool) -> some View {
-        HStack(spacing: Theme.Spacing.sm) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(LinearGradient(colors: deck.gameType.iconGradient, startPoint: .topLeading, endPoint: .bottomTrailing))
-                Text(deck.emoji).font(.title2)
-            }
-            .frame(width: 48, height: 48)
-
-            VStack(alignment: .leading, spacing: 4) {
-                PillBadge(text: deck.gameType.shortLabel, tint: deck.gameType.iconGradient.first ?? Theme.skyBlue)
-                Text(deck.title)
+    private func deckSection(title: String, decks: [GameDeck]) -> some View {
+        if !decks.isEmpty {
+            VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                Text(title)
                     .font(.subheadline.weight(.bold))
-                    .foregroundStyle(Theme.ink)
-                    .multilineTextAlignment(.leading)
-                Text("\(deck.questionCount) question\(deck.questionCount == 1 ? "" : "s")")
-                    .font(.caption2)
                     .foregroundStyle(Theme.subtleInk)
-            }
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-            Spacer(minLength: 0)
-
-            if isLocked {
-                ZStack {
-                    Circle().fill(Theme.subtleInk.opacity(0.12))
-                    Image(systemName: "lock.fill").font(.caption).foregroundStyle(Theme.subtleInk)
+                VStack(spacing: Theme.Spacing.sm) {
+                    ForEach(decks) { deck in
+                        DeckCardRow(deck: deck, progress: appModel.deckProgress?[deck.id])
+                    }
                 }
-                .frame(width: 30, height: 30)
-            } else {
-                Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
             }
         }
-        .padding(Theme.Spacing.sm)
-        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                .strokeBorder(Theme.subtleInk.opacity(0.12), lineWidth: 1)
-        }
-        .opacity(isLocked ? 0.7 : 1)
-        .contentShape(Rectangle())
     }
 }
 

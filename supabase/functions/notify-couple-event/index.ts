@@ -15,6 +15,10 @@ type EventType = "drawing_saved" | "trip_added" | "memory_added" | "game_started
 interface Input {
   eventType: EventType;
   detail?: string;
+  /// Present for game_reminder/game_results_ready — lets a tap on the delivered notification
+  /// deep-link straight into that session instead of just opening the app.
+  sessionId?: string;
+  gameType?: string;
 }
 
 const VALID_EVENT_TYPES: EventType[] = [
@@ -126,8 +130,11 @@ Deno.serve(async (req) => {
     if (!tokens || tokens.length === 0) return Response.json({ ok: true });
 
     const { title, body } = buildMessage(input.eventType, actorName, input.detail);
+    const data = input.sessionId
+      ? { sessionId: input.sessionId, gameType: input.gameType, eventType: input.eventType }
+      : undefined;
     for (const token of tokens) {
-      await sendAPNs(token.apns_token, token.environment, title, body);
+      await sendAPNs(token.apns_token, token.environment, title, body, data);
     }
   } catch (err) {
     console.error("[notify-couple-event] failed:", (err as Error).message);

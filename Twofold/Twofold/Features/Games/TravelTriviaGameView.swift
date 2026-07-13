@@ -52,7 +52,7 @@ struct TravelTriviaGameView: View {
             }
         }
         .background(Theme.backgroundGradient.ignoresSafeArea())
-        .navigationTitle("Travel Trivia Battle")
+        .navigationTitle(GameType.travelTrivia.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -150,7 +150,7 @@ struct TravelTriviaGameView: View {
 
     private func sendReminder() async {
         isSendingReminder = true
-        await BackendService.notifyPartner(event: .gameReminder, detail: GameType.travelTrivia.displayName)
+        await BackendService.notifyPartner(event: .gameReminder, detail: GameType.travelTrivia.displayName, sessionID: sessionID, gameType: .travelTrivia)
         isSendingReminder = false
     }
 }

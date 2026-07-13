@@ -114,7 +114,7 @@ final class GameSessionStore {
             // their own subsequent submits (they have none left), so this can only fire once
             // per session, from whoever's answer was the couple's last one.
             if !wasRevealed, isRevealed {
-                await BackendService.notifyPartner(event: .gameResultsReady)
+                await BackendService.notifyPartner(event: .gameResultsReady, sessionID: session.id, gameType: session.gameType)
             }
             return true
         } catch {

@@ -60,9 +60,10 @@ struct DailyActivityCard: View {
                         Text("Today's Deep Conversation")
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.white)
-                        Text("A new question, just for you two")
+                        Text(appModel.todaysDailyQuestionText ?? "A new question, just for you two")
                             .font(.caption2)
                             .foregroundStyle(.white.opacity(0.85))
+                            .lineLimit(2)
                     }
                     Spacer()
                     Image(systemName: "chevron.right")
