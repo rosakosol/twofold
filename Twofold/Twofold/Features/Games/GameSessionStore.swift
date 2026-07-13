@@ -21,6 +21,11 @@ final class GameSessionStore {
     var responses: [GameResponse] = []
     var isLoading = false
     var errorMessage: String?
+    /// Mirrors `PendingGameResponseStore.forSession(session.id).count` — kept as its own stored
+    /// property (rather than computed straight off the store) so reading it from a view actually
+    /// participates in `@Observable` change tracking; the on-disk queue itself has no observation
+    /// of its own.
+    var pendingSyncCount = 0
 
     private var channel: RealtimeChannelV2?
 
@@ -90,6 +95,18 @@ final class GameSessionStore {
             errorMessage = error.localizedDescription
         }
         isLoading = false
+        // Re-apply anything still sitting in the local offline queue for this session — covers
+        // reopening a session that was answered offline and never got a chance to sync (app
+        // backgrounded/killed before reconnecting), so those answers don't briefly vanish from
+        // `responses` between this load and the next successful sync.
+        let pending = PendingGameResponseStore.forSession(sessionID)
+        pendingSyncCount = pending.count
+        for item in pending {
+            applyOptimistic(item)
+        }
+        if NetworkMonitor.shared.isConnected {
+            await syncPendingResponses()
+        }
     }
 
     func refresh() async {
@@ -105,6 +122,10 @@ final class GameSessionStore {
     @discardableResult
     func submit(roundNumber: Int, answerValue: String, isCorrect: Bool? = nil) async -> Bool {
         guard let session else { return false }
+        guard NetworkMonitor.shared.isConnected else {
+            queueOffline(sessionID: session.id, roundNumber: roundNumber, answerValue: answerValue, isCorrect: isCorrect)
+            return true
+        }
         let wasRevealed = isRevealed
         do {
             try await BackendService.submitGameResponse(sessionID: session.id, roundNumber: roundNumber, answerValue: answerValue, isCorrect: isCorrect)
@@ -118,8 +139,52 @@ final class GameSessionStore {
             }
             return true
         } catch {
-            errorMessage = error.localizedDescription
-            return false
+            // `NetworkMonitor` said we were online a moment ago, but the request itself still
+            // failed — almost certainly the connection dropping mid-flight rather than a real
+            // server rejection (nothing about this insert is validated in a way the app's own UI
+            // could trigger). Queue it exactly like the explicit-offline path instead of
+            // stranding the tap behind `errorMessage` and losing it outright.
+            queueOffline(sessionID: session.id, roundNumber: roundNumber, answerValue: answerValue, isCorrect: isCorrect)
+            return true
+        }
+    }
+
+    /// Saves an answer locally and reflects it in `responses` immediately, so `nextUnansweredRound`
+    /// and every view reading this store see it exactly as if it had round-tripped to the server —
+    /// this is what lets play continue uninterrupted while offline.
+    private func queueOffline(sessionID: UUID, roundNumber: Int, answerValue: String, isCorrect: Bool?) {
+        guard let myID = BackendService.currentUserID else { return }
+        let pending = PendingGameResponse(sessionID: sessionID, roundNumber: roundNumber, responderID: myID, answerValue: answerValue, isCorrect: isCorrect)
+        PendingGameResponseStore.add(pending)
+        pendingSyncCount = PendingGameResponseStore.forSession(sessionID).count
+        applyOptimistic(pending)
+    }
+
+    private func applyOptimistic(_ pending: PendingGameResponse) {
+        guard !responses.contains(where: { $0.sessionID == pending.sessionID && $0.roundNumber == pending.roundNumber && $0.responderID == pending.responderID }) else { return }
+        responses.append(GameResponse(id: pending.id, sessionID: pending.sessionID, roundNumber: pending.roundNumber, responderID: pending.responderID, answerValue: pending.answerValue, isCorrect: pending.isCorrect, createdAt: pending.queuedAt))
+    }
+
+    /// Drains the local offline queue for this session, in the order the answers were recorded —
+    /// called once on `load(sessionID:)` (if already online) and again whenever `NetworkMonitor`
+    /// reports a reconnect (see each typed game view's `.onChange(of:)`). A failed submit here is
+    /// swallowed and the entry dropped rather than retried indefinitely: a repeat failure almost
+    /// always means that round was already synced by an earlier pass (a duplicate insert is
+    /// rejected by the same one-response-per-round-per-responder constraint `advance_game_session`
+    /// relies on), not a transient issue worth blocking the rest of the queue over.
+    func syncPendingResponses() async {
+        guard let session else { return }
+        let pending = PendingGameResponseStore.forSession(session.id)
+        guard !pending.isEmpty else { return }
+        let wasRevealed = isRevealed
+        for item in pending {
+            try? await BackendService.submitGameResponse(sessionID: item.sessionID, roundNumber: item.roundNumber, answerValue: item.answerValue, isCorrect: item.isCorrect)
+            PendingGameResponseStore.remove(id: item.id)
+        }
+        pendingSyncCount = PendingGameResponseStore.forSession(session.id).count
+        await refresh()
+        if !wasRevealed, isRevealed {
+            await BackendService.notifyPartner(event: .gameResultsReady, sessionID: session.id, gameType: session.gameType)
         }
     }
 
@@ -131,6 +196,16 @@ final class GameSessionStore {
 
     func markDiscussionRound(_ round: GameSessionRound, status: DiscussionRoundStatus) async {
         try? await BackendService.markDiscussionRound(roundID: round.id, status: status)
+        await refresh()
+    }
+
+    /// Deletes only my own responses and drops the session back to `active` if it had already
+    /// completed — the partner's answers are untouched. Works both pre-reveal (GameCompletionView,
+    /// session already `active` since the partner isn't done) and post-reveal (GameResultsView,
+    /// session `completed`); see `edit_my_game_responses`.
+    func editMyAnswers() async {
+        guard let session else { return }
+        try? await BackendService.editMyGameResponses(sessionID: session.id)
         await refresh()
     }
 }

@@ -12,11 +12,22 @@ import SwiftUI
 
 struct GameTypeDecksView: View {
     let gameType: GameType
+    /// Set when opened from the Games hub's "Travel" section — that section is a cross-cutting
+    /// grouping distinct from a topic, so tapping a game type card there should only surface
+    /// decks actually tagged Travel, not every deck of that type across every topic (which is
+    /// what tapping the same card under Compete/Connect still does).
+    var topicFilter: GameTopic? = nil
 
     @Environment(AppModel.self) private var appModel
 
+    private var allDecks: [GameDeck] {
+        let decks = appModel.decks(ofType: gameType)
+        guard let topicFilter else { return decks }
+        return decks.filter { $0.topic == topicFilter.rawValue }
+    }
+
     private var unansweredDecks: [GameDeck] {
-        appModel.decks(ofType: gameType)
+        allDecks
             .filter { !(appModel.deckProgress?[$0.id]?.bothCompleted ?? false) }
             .sorted { lhs, rhs in
                 let lhsStarted = appModel.deckProgress?[lhs.id] != nil
@@ -27,7 +38,7 @@ struct GameTypeDecksView: View {
     }
 
     private var answeredDecks: [GameDeck] {
-        appModel.decks(ofType: gameType)
+        allDecks
             .filter { appModel.deckProgress?[$0.id]?.bothCompleted ?? false }
             .sorted { $0.sortOrder < $1.sortOrder }
     }
@@ -46,8 +57,8 @@ struct GameTypeDecksView: View {
                 deckSection(title: "Unanswered", decks: unansweredDecks)
                 deckSection(title: "Answered", decks: answeredDecks)
 
-                if appModel.decks(ofType: gameType).isEmpty {
-                    Text("No decks yet.")
+                if allDecks.isEmpty {
+                    Text(topicFilter != nil ? "No travel decks yet." : "No decks yet.")
                         .font(.subheadline)
                         .foregroundStyle(Theme.subtleInk)
                         .padding(.top, Theme.Spacing.lg)
@@ -56,7 +67,7 @@ struct GameTypeDecksView: View {
             .padding(Theme.Spacing.lg)
         }
         .background(Theme.backgroundGradient.ignoresSafeArea())
-        .navigationTitle(gameType.displayName)
+        .navigationTitle(topicFilter != nil ? "Travel \(gameType.displayName)" : gameType.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .task { await appModel.loadGameDecksIfNeeded() }
     }

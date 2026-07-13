@@ -76,7 +76,7 @@ struct DeckEntryView: View {
 
     @ViewBuilder
     private func gameDestination(sessionID: UUID) -> some View {
-        gameDestinationView(gameType: deck.gameType, sessionID: sessionID)
+        gameDestinationView(gameType: deck.gameType, sessionID: sessionID, title: deck.title)
     }
 
     private func determinePhase() async {

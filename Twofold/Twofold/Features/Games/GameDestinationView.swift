@@ -14,12 +14,16 @@ struct SessionRoute: Identifiable, Hashable {
     let gameType: GameType
 }
 
+/// `title` overrides the generic game-type nav title (e.g. with a deck's own title) — passed
+/// through so the title doesn't shift from "Airport Chaos" to "Trivia Battle" the moment play
+/// actually starts, which is exactly what happened when each typed view set its own title
+/// independently of whatever title the caller had already shown.
 @ViewBuilder
-func gameDestinationView(gameType: GameType, sessionID: UUID) -> some View {
+func gameDestinationView(gameType: GameType, sessionID: UUID, title: String? = nil) -> some View {
     switch gameType {
-    case .travelTrivia: TravelTriviaGameView(sessionID: sessionID)
-    case .moreLikely: WhosMoreLikelyGameView(sessionID: sessionID)
-    case .thisOrThat: ThisOrThatGameView(sessionID: sessionID)
-    case .discussBeforeTravelling: DiscussBeforeTravellingGameView(sessionID: sessionID)
+    case .travelTrivia: TravelTriviaGameView(sessionID: sessionID, title: title)
+    case .moreLikely: WhosMoreLikelyGameView(sessionID: sessionID, title: title)
+    case .thisOrThat: ThisOrThatGameView(sessionID: sessionID, title: title)
+    case .discussBeforeTravelling: DiscussBeforeTravellingGameView(sessionID: sessionID, title: title)
     }
 }

@@ -2,11 +2,15 @@
 //  DeckCardRow.swift
 //  Twofold
 //
-//  One self-contained deck card — display plus all its tap routing (start/resume, view
-//  results-or-reset once both partners are done, or the Premium gate) — reused by
-//  TopicDetailView, GameTypeDecksView, and AllDecksBrowseView so none of them duplicate the
-//  branching between "new/in progress", "completed by both", and "locked behind Premium".
-//  Must be hosted inside a NavigationStack — pushes via `.navigationDestination(item:)`.
+//  One self-contained deck card — display plus all its tap routing (start/resume, jump straight
+//  to results once both partners are done, or the Premium gate) — reused by TopicDetailView,
+//  GameTypeDecksView, and AllDecksBrowseView so none of them duplicate the branching between
+//  "new/in progress", "completed by both", and "locked behind Premium". Must be hosted inside a
+//  NavigationStack.
+//
+//  Resetting/editing answers for a completed deck lives in GameResultsView's own toolbar menu
+//  now, not here — tapping a completed card should go straight to the results it already has,
+//  not stop at a "view or reset?" prompt first.
 //
 
 import SwiftUI
@@ -20,10 +24,7 @@ struct DeckCardRow: View {
     var showsTopicPill = false
 
     @Environment(AppModel.self) private var appModel
-    @State private var showingCompletedOptions = false
     @State private var showingPremiumGate = false
-    @State private var playRoute: SessionRoute?
-    @State private var isResetting = false
 
     private var isLocked: Bool { appModel.isDeckLocked(deck) }
     private var bothCompleted: Bool { progress?.bothCompleted ?? false }
@@ -35,28 +36,15 @@ struct DeckCardRow: View {
                     .buttonStyle(.plain)
             } else if !appModel.partnerConnected {
                 content
-            } else if bothCompleted {
-                Button { showingCompletedOptions = true } label: { content }
+            } else if bothCompleted, let progress {
+                NavigationLink {
+                    gameDestinationView(gameType: deck.gameType, sessionID: progress.sessionID, title: deck.title)
+                } label: { content }
                     .buttonStyle(.plain)
             } else {
                 NavigationLink { DeckEntryView(deck: deck) } label: { content }
                     .buttonStyle(.plain)
             }
-        }
-        .disabled(isResetting)
-        .confirmationDialog(deck.title, isPresented: $showingCompletedOptions, titleVisibility: .visible) {
-            Button("View Results") {
-                if let progress {
-                    playRoute = SessionRoute(id: progress.sessionID, gameType: deck.gameType)
-                }
-            }
-            Button("Reset Game", role: .destructive) {
-                Task { await reset() }
-            }
-            Button("Cancel", role: .cancel) {}
-        }
-        .navigationDestination(item: $playRoute) { route in
-            gameDestinationView(gameType: route.gameType, sessionID: route.id)
         }
         .sheet(isPresented: $showingPremiumGate) {
             DeckPremiumGateView(deck: deck)
@@ -120,8 +108,11 @@ struct DeckCardRow: View {
         .padding(Theme.Spacing.sm)
         .background(bothCompleted ? Theme.leafGreen.opacity(0.1) : Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         .overlay {
+            // A completed deck's pale green fill barely reads as different from the page
+            // background on its own — a green edge (instead of the generic neutral one) gives
+            // it real separation and doubles as a second "done" cue alongside the checkmark tick.
             RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                .strokeBorder(Theme.subtleInk.opacity(0.12), lineWidth: 1)
+                .strokeBorder(bothCompleted ? Theme.leafGreen.opacity(0.5) : Theme.subtleInk.opacity(0.12), lineWidth: bothCompleted ? 1.5 : 1)
         }
         .opacity(isLocked || !appModel.partnerConnected ? 0.75 : 1)
         .contentShape(Rectangle())
@@ -139,19 +130,5 @@ struct DeckCardRow: View {
                 .overlay(Circle().strokeBorder(Theme.cardBackground, lineWidth: 2))
             }
         }
-    }
-
-    /// Abandons the completed session and starts a fresh one for the same deck, jumping straight
-    /// into play — the deck's intro is already marked seen from the first playthrough, so this
-    /// deliberately skips it rather than routing back through `DeckEntryView`.
-    private func reset() async {
-        guard let progress else { return }
-        isResetting = true
-        try? await BackendService.abandonGameSession(id: progress.sessionID)
-        if let newID = try? await BackendService.startDeckSession(deckID: deck.id) {
-            await appModel.refreshGameDecks()
-            playRoute = SessionRoute(id: newID, gameType: deck.gameType)
-        }
-        isResetting = false
     }
 }

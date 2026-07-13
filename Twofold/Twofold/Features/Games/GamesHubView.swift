@@ -37,7 +37,7 @@ struct GamesHubView: View {
                     }
                     section(title: "Compete", games: competeGames)
                     section(title: "Connect", games: connectGames)
-                    section(title: "Travel", games: travelGames)
+                    section(title: "Travel", games: travelGames, topicFilter: .travel)
                     if appModel.partnerConnected {
                         TopicsSection()
                     }
@@ -92,7 +92,7 @@ struct GamesHubView: View {
         }
     }
 
-    private func section(title: String, games: [GameType]) -> some View {
+    private func section(title: String, games: [GameType], topicFilter: GameTopic? = nil) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             Text(title)
                 .font(.title3.weight(.bold))
@@ -103,7 +103,7 @@ struct GamesHubView: View {
                     ForEach(games) { gameType in
                         if appModel.partnerConnected {
                             NavigationLink {
-                                GameTypeDecksView(gameType: gameType)
+                                GameTypeDecksView(gameType: gameType, topicFilter: topicFilter)
                             } label: {
                                 GameCard(gameType: gameType, width: 220)
                             }

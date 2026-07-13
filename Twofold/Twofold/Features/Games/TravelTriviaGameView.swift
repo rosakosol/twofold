@@ -11,12 +11,16 @@ import SwiftUI
 
 struct TravelTriviaGameView: View {
     let sessionID: UUID
+    /// Overrides the generic "Trivia Battle" nav title — set to the deck's own title when
+    /// reached via DeckEntryView, so the title doesn't shift once play actually starts.
+    var title: String? = nil
 
     @Environment(AppModel.self) private var appModel
     @Environment(\.dismiss) private var dismiss
     @State private var store = GameSessionStore()
     @State private var isSubmitting = false
     @State private var isSendingReminder = false
+    @State private var isEditingAnswers = false
     @State private var hapticTrigger = false
 
     private var myID: UUID { appModel.currentUser.id }
@@ -47,23 +51,42 @@ struct TravelTriviaGameView: View {
                     partnerProgress: store.partnerProgress(partnerID: partnerID),
                     isSendingReminder: isSendingReminder,
                     onSendReminder: { Task { await sendReminder() } },
-                    onPlayAnother: { dismiss() }
+                    onPlayAnother: { dismiss() },
+                    isEditingAnswers: isEditingAnswers,
+                    onEditAnswers: { Task { await editAnswers() } },
+                    pendingSyncCount: store.pendingSyncCount
                 )
             }
         }
-        .background(Theme.backgroundGradient.ignoresSafeArea())
-        .navigationTitle(GameType.travelTrivia.displayName)
+        .safeAreaInset(edge: .top) {
+            if store.pendingSyncCount > 0 {
+                OfflineGameBanner(isConnected: NetworkMonitor.shared.isConnected, pendingCount: store.pendingSyncCount)
+            }
+        }
+        // Pinned against the round-transition spring below via `.transaction { $0.animation = nil }`
+        // — without it, the full-bleed background was observed interpolating its own width
+        // alongside that animation instead of staying static.
+        .background(Theme.backgroundGradient.ignoresSafeArea().transaction { $0.animation = nil })
+        .navigationTitle(title ?? GameType.travelTrivia.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("Leave", role: .destructive) {
-                    Task { await store.abandon(); dismiss() }
+            // Not offered once results are showing — abandoning a completed session would mark
+            // it "abandoned" and drop it out of deck progress/history, which makes no sense for
+            // a game that's already finished.
+            if !store.isRevealed {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Leave", role: .destructive) {
+                        Task { await store.abandon(); dismiss() }
+                    }
                 }
             }
         }
         .task { await store.load(sessionID: sessionID) }
         .task { await store.subscribeRealtime(sessionID: sessionID) }
         .onDisappear { store.stopRealtime() }
+        .onChange(of: NetworkMonitor.shared.isConnected) { wasConnected, isConnected in
+            if isConnected, !wasConnected { Task { await store.syncPendingResponses() } }
+        }
         .sensoryFeedback(.selection, trigger: hapticTrigger)
     }
 
@@ -152,6 +175,12 @@ struct TravelTriviaGameView: View {
         isSendingReminder = true
         await BackendService.notifyPartner(event: .gameReminder, detail: GameType.travelTrivia.displayName, sessionID: sessionID, gameType: .travelTrivia)
         isSendingReminder = false
+    }
+
+    private func editAnswers() async {
+        isEditingAnswers = true
+        await store.editMyAnswers()
+        isEditingAnswers = false
     }
 }
 

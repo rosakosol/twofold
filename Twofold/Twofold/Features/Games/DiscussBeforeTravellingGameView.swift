@@ -12,6 +12,9 @@ import SwiftUI
 
 struct DiscussBeforeTravellingGameView: View {
     let sessionID: UUID
+    /// Overrides the generic "Deep Conversation" nav title — set to the deck's own title when
+    /// reached via DeckEntryView, so the title doesn't shift once play actually starts.
+    var title: String? = nil
 
     @Environment(AppModel.self) private var appModel
     @Environment(\.dismiss) private var dismiss
@@ -19,6 +22,7 @@ struct DiscussBeforeTravellingGameView: View {
     @State private var responseText = ""
     @State private var isSubmitting = false
     @State private var isSendingReminder = false
+    @State private var isEditingAnswers = false
 
     private var myID: UUID { appModel.currentUser.id }
     private var partnerID: UUID { appModel.partner.id }
@@ -45,23 +49,42 @@ struct DiscussBeforeTravellingGameView: View {
                     partnerProgress: store.partnerProgress(partnerID: partnerID),
                     isSendingReminder: isSendingReminder,
                     onSendReminder: { Task { await sendReminder() } },
-                    onPlayAnother: { dismiss() }
+                    onPlayAnother: { dismiss() },
+                    myAnswersRecap: myAnswersRecap,
+                    isEditingAnswers: isEditingAnswers,
+                    onEditAnswers: { Task { await editAnswers() } },
+                    pendingSyncCount: store.pendingSyncCount
                 )
             }
         }
-        .background(Theme.backgroundGradient.ignoresSafeArea())
-        .navigationTitle(GameType.discussBeforeTravelling.displayName)
+        .safeAreaInset(edge: .top) {
+            if store.pendingSyncCount > 0 {
+                OfflineGameBanner(isConnected: NetworkMonitor.shared.isConnected, pendingCount: store.pendingSyncCount)
+            }
+        }
+        // Pinned static regardless of any surrounding animated transaction — see the other 3
+        // typed game views for why.
+        .background(Theme.backgroundGradient.ignoresSafeArea().transaction { $0.animation = nil })
+        .navigationTitle(title ?? GameType.discussBeforeTravelling.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("Leave", role: .destructive) {
-                    Task { await store.abandon(); dismiss() }
+            // Not offered once results are showing — abandoning a completed session would mark
+            // it "abandoned" and drop it out of deck progress/history, which makes no sense for
+            // a game that's already finished.
+            if !store.isRevealed {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Leave", role: .destructive) {
+                        Task { await store.abandon(); dismiss() }
+                    }
                 }
             }
         }
         .task { await store.load(sessionID: sessionID) }
         .task { await store.subscribeRealtime(sessionID: sessionID) }
         .onDisappear { store.stopRealtime() }
+        .onChange(of: NetworkMonitor.shared.isConnected) { wasConnected, isConnected in
+            if isConnected, !wasConnected { Task { await store.syncPendingResponses() } }
+        }
     }
 
     private func roundView(round: GameSessionRound, topic: DiscussionTopic) -> some View {
@@ -127,6 +150,22 @@ struct DiscussBeforeTravellingGameView: View {
         isSendingReminder = true
         await BackendService.notifyPartner(event: .gameReminder, detail: GameType.discussBeforeTravelling.displayName, sessionID: sessionID, gameType: .discussBeforeTravelling)
         isSendingReminder = false
+    }
+
+    private func editAnswers() async {
+        isEditingAnswers = true
+        await store.editMyAnswers()
+        isEditingAnswers = false
+    }
+
+    /// My own private responses so far — safe to show to me alone even before the session
+    /// reveals, unlike the other games where seeing anything pre-reveal would spoil the point.
+    private var myAnswersRecap: [GameCompletionAnswerRecap] {
+        store.rounds.compactMap { round in
+            guard let response = store.myResponse(for: round, myID: myID),
+                  case let .discuss(topic)? = store.content(for: round) else { return nil }
+            return GameCompletionAnswerRecap(id: round.roundNumber, question: topic.topic, answer: response.answerValue)
+        }
     }
 }
 

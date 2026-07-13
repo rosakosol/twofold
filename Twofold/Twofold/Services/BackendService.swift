@@ -2026,6 +2026,18 @@ enum BackendService {
         try await supabase.rpc("abandon_game_session", params: Params(pSessionId: id)).execute()
     }
 
+    /// Deletes only the caller's own responses for a completed session and resets it back to
+    /// `active` — see `edit_my_game_responses` (the partner's own answers are left untouched;
+    /// `advance_game_session` naturally re-completes the session once the caller finishes
+    /// resubmitting all rounds).
+    static func editMyGameResponses(sessionID: UUID) async throws {
+        struct Params: Encodable {
+            var pSessionId: UUID
+            enum CodingKeys: String, CodingKey { case pSessionId = "p_session_id" }
+        }
+        try await supabase.rpc("edit_my_game_responses", params: Params(pSessionId: sessionID)).execute()
+    }
+
     static func markDiscussionRound(roundID: UUID, status: DiscussionRoundStatus) async throws {
         struct Params: Encodable {
             var pRoundId: UUID

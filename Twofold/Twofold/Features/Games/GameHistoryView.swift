@@ -11,6 +11,7 @@
 import SwiftUI
 
 struct GameHistoryView: View {
+    @Environment(AppModel.self) private var appModel
     @State private var sessions: [GameSession] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
@@ -46,6 +47,7 @@ struct GameHistoryView: View {
         .navigationTitle("Past games")
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
+        .task { await appModel.loadGameDecksIfNeeded() }
     }
 
     private var emptyState: some View {
@@ -90,7 +92,8 @@ struct GameHistoryView: View {
 
     @ViewBuilder
     private func gameDestination(session: GameSession) -> some View {
-        gameDestinationView(gameType: session.gameType, sessionID: session.id)
+        let deckTitle = session.deckID.flatMap { deckID in appModel.gameDecks?.first(where: { $0.id == deckID })?.title }
+        gameDestinationView(gameType: session.gameType, sessionID: session.id, title: deckTitle)
     }
 
     private func load() async {

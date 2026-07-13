@@ -23,6 +23,9 @@ struct GameResultsView: View {
     @State private var revealedCount = 0
     @State private var isMarkingDiscussion = false
     @State private var confettiTrigger = false
+    @State private var isEditingAnswers = false
+    @State private var isResettingDeck = false
+    @State private var resetRoute: SessionRoute?
 
     private var isFullyRevealed: Bool { revealedCount >= store.rounds.count }
 
@@ -61,13 +64,49 @@ struct GameResultsView: View {
                         .foregroundStyle(.white)
                     }
                 }
-                .padding(Theme.Spacing.lg)
+                // Asymmetric on purpose — a full `.lg` top inset here left a lot of dead space
+                // above the similarity percentage before scrolling even starts.
+                .padding(.horizontal, Theme.Spacing.lg)
+                .padding(.top, Theme.Spacing.sm)
+                .padding(.bottom, Theme.Spacing.lg)
             }
             ConfettiBurstView(trigger: confettiTrigger)
         }
-        .background(Theme.backgroundGradient.ignoresSafeArea())
+        // `.transaction { $0.animation = nil }` keeps this pinned to a static, full-bleed frame
+        // regardless of any animated transaction elsewhere on screen (the round-reveal spring in
+        // `animateReveal()`, the match gauge's arc animation) — without it the background was
+        // observed interpolating its own size alongside those, briefly rendering narrower than
+        // the screen before settling.
+        .background(Theme.backgroundGradient.ignoresSafeArea().transaction { $0.animation = nil })
         .navigationTitle(gameType.displayName)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button {
+                        Task { await editMyAnswers() }
+                    } label: {
+                        Label("Edit My Answers", systemImage: "pencil")
+                    }
+                    // Only deck-originated sessions know what to restart — a regular
+                    // shared-pool session (GameEntryView) has no single "this exact game" to
+                    // reset back to.
+                    if let deckID = store.session?.deckID {
+                        Button(role: .destructive) {
+                            Task { await resetDeck(deckID: deckID) }
+                        } label: {
+                            Label("Reset Game", systemImage: "arrow.counterclockwise")
+                        }
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+                .disabled(isEditingAnswers || isResettingDeck)
+            }
+        }
+        .navigationDestination(item: $resetRoute) { route in
+            gameDestinationView(gameType: route.gameType, sessionID: route.id)
+        }
         .onAppear {
             animateReveal()
             appModel.noteReviewMilestone(.firstGameResults)
@@ -91,9 +130,12 @@ struct GameResultsView: View {
             }
         case .moreLikely, .thisOrThat:
             let matches = GameLogic.matchCount(rounds: store.rounds, responses: store.responses, partnerAID: myID, partnerBID: partnerID)
-            VStack(spacing: Theme.Spacing.xs) {
+            // More breathing room here than the header's other two cases (`Theme.Spacing.md`,
+            // not `.xs`) — this is the one number the whole screen is building up to, so it gets
+            // real separation from the "You matched" line underneath it.
+            VStack(spacing: Theme.Spacing.md) {
                 if let matchPercent {
-                    AnswerSimilarityGauge(percent: matchPercent)
+                    similarityPercent(matchPercent)
                 }
                 Text("❤️ You matched \(matches) / \(store.rounds.count) answers!")
                     .font(.title3.weight(.bold))
@@ -105,6 +147,28 @@ struct GameResultsView: View {
                 Text("You both shared your thoughts")
                     .font(.title3.weight(.bold))
             }
+        }
+    }
+
+    /// Plain, large percentage — replaced the earlier half-circle gauge (`AnswerSimilarityGauge`),
+    /// which read as visually noisy/misaligned against the rest of this screen; the number itself
+    /// is the thing worth making big, not an arc around it.
+    private func similarityPercent(_ percent: Int) -> some View {
+        VStack(spacing: 2) {
+            Text("\(percent)%")
+                .font(.system(size: 64, weight: .bold, design: .rounded))
+                .foregroundStyle(similarityTint(percent))
+            Text("answer similarity")
+                .font(.caption)
+                .foregroundStyle(Theme.subtleInk)
+        }
+    }
+
+    private func similarityTint(_ percent: Int) -> Color {
+        switch percent {
+        case 80...: Theme.leafGreen
+        case 50..<80: Theme.skyBlue
+        default: Theme.heartRed
         }
     }
 
@@ -121,6 +185,10 @@ struct GameResultsView: View {
             Text(questionText(for: round))
                 .font(.subheadline.weight(.semibold))
                 .multilineTextAlignment(.leading)
+                // Clears the checkmark badge's corner footprint (24pt badge + 8pt padding on
+                // each side) — without this, a full-width-wrapping question's top line renders
+                // right under the badge instead of next to it.
+                .padding(.trailing, matched ? 36 : 0)
 
             if gameType == .discussBeforeTravelling {
                 responseBlock(name: "You", text: mine?.answerValue)
@@ -147,6 +215,13 @@ struct GameResultsView: View {
         .padding(Theme.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(matched ? Theme.leafGreen.opacity(0.14) : Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+        .overlay {
+            // The matched tint alone (14% green over the card background) reads as barely
+            // different from an unmatched card against the screen's own pale gradient — a
+            // visible edge gives it real separation instead of relying on a subtle fill alone.
+            RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+                .strokeBorder(matched ? Theme.leafGreen.opacity(0.5) : .clear, lineWidth: 1.5)
+        }
         .animation(.easeOut(duration: 0.4), value: matched)
         .overlay(alignment: .topTrailing) {
             if matched {
@@ -281,7 +356,12 @@ struct GameResultsView: View {
         case .trivia:
             return value
         case .moreLikely:
-            if value == myID.uuidString { return "You" }
+            // Real names, not "You" — this value is *who got picked*, shown under a chip
+            // already labeled "You"/partnerName, so a literal "You" here reads as a confusing
+            // duplicate (and is flat-out wrong when it's the partner's chip: "partner picked
+            // You" rendering as "You" under partnerName's own label looks like partner picked
+            // themselves).
+            if value == myID.uuidString { return myName }
             if value == partnerID.uuidString { return partnerName }
             return "—"
         case .thisOrThat(let prompt):
@@ -305,9 +385,40 @@ struct GameResultsView: View {
         }
     }
 
+    /// Deletes my own responses and drops the session back to `active` — the partner's answers
+    /// are untouched, so the couple's shared game view naturally shows my unanswered rounds
+    /// again (GameSessionStore.isRevealed flips false) without any extra reveal bookkeeping here.
+    private func editMyAnswers() async {
+        isEditingAnswers = true
+        await store.editMyAnswers()
+        isEditingAnswers = false
+    }
+
+    /// Only ever offered when this session came from a deck (see the toolbar Menu) — abandons
+    /// the completed session and starts a fresh one for the same deck, jumping straight into it.
+    private func resetDeck(deckID: UUID) async {
+        isResettingDeck = true
+        if let sessionID = store.session?.id {
+            try? await BackendService.abandonGameSession(id: sessionID)
+        }
+        if let newID = try? await BackendService.startDeckSession(deckID: deckID) {
+            await appModel.refreshGameDecks()
+            resetRoute = SessionRoute(id: newID, gameType: gameType)
+        }
+        isResettingDeck = false
+    }
+
     private func animateReveal() {
-        for index in 0...store.rounds.count {
-            DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.3) {
+        // A brief beat before the first round card, so it doesn't feel like it's fading in
+        // simultaneously with the header text above it. The header itself is plain static text
+        // now (no entrance animation of its own to wait out).
+        let headerSettleDelay = 0.2
+
+        // 0..<count, not 0...count — one entry per round; the old inclusive range ran an extra,
+        // pointless final tick (revealedCount past store.rounds.count, gated harmlessly by
+        // isFullyRevealed already having flipped true one tick earlier).
+        for index in 0..<store.rounds.count {
+            DispatchQueue.main.asyncAfter(deadline: .now() + headerSettleDelay + Double(index) * 0.3) {
                 withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
                     revealedCount = index + 1
                 }
