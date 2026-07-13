@@ -21,6 +21,10 @@ struct TimeZoneCard: View {
     /// Nil until fetched (or if WeatherKit isn't available) — rendered only when present, never
     /// faked. In the same-city case this is one shared reading; otherwise it's `person`'s city.
     var weather: CurrentWeatherReading?
+    /// The signed-in user's own weather, shown on the "It's ... for you" line — nil in the
+    /// same-city case (where `weather` already covers both, so a second reading would just be
+    /// the exact same number repeated) or before it's fetched.
+    var myWeather: CurrentWeatherReading?
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 15)) { context in
@@ -43,14 +47,21 @@ struct TimeZoneCard: View {
 
                 if let weather {
                     Spacer(minLength: Theme.Spacing.xs)
-                    weatherBadge(weather)
+                    weatherBadge(weather, font: .subheadline.weight(.medium))
                 }
             }
 
             if !sameCity, let comparisonTimeZone {
-                Text("It's \(TimeMath.timeString(in: comparisonTimeZone, at: date)) for you")
-                    .font(.caption)
-                    .opacity(0.85)
+                HStack(spacing: Theme.Spacing.xs) {
+                    Text("It's \(TimeMath.timeString(in: comparisonTimeZone, at: date)) for you")
+                        .font(.caption)
+                        .opacity(0.85)
+
+                    if let myWeather {
+                        Spacer(minLength: Theme.Spacing.xs)
+                        weatherBadge(myWeather, font: .caption)
+                    }
+                }
             }
         }
         .foregroundStyle(.white)
@@ -77,13 +88,13 @@ struct TimeZoneCard: View {
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
     }
 
-    private func weatherBadge(_ weather: CurrentWeatherReading) -> some View {
+    private func weatherBadge(_ weather: CurrentWeatherReading, font: Font) -> some View {
         HStack(spacing: 4) {
             Image(systemName: weather.symbolName)
                 .symbolRenderingMode(.multicolor)
             Text(weather.temperatureLabel)
         }
-        .font(.subheadline.weight(.medium))
+        .font(font)
         .foregroundStyle(.white)
     }
 
@@ -91,7 +102,12 @@ struct TimeZoneCard: View {
 
 #Preview {
     VStack(spacing: Theme.Spacing.md) {
-        TimeZoneCard(person: MockData.rosa, timeZone: TimeZone(identifier: "Australia/Melbourne")!, comparisonTimeZone: TimeZone(identifier: "Asia/Singapore"))
+        TimeZoneCard(
+            person: MockData.rosa, timeZone: TimeZone(identifier: "Australia/Melbourne")!,
+            comparisonTimeZone: TimeZone(identifier: "Asia/Singapore"),
+            weather: CurrentWeatherReading(symbolName: "moon.stars.fill", temperatureC: 14),
+            myWeather: CurrentWeatherReading(symbolName: "sun.max.fill", temperatureC: 29)
+        )
         TimeZoneCard(person: MockData.dara, timeZone: TimeZone(identifier: "Asia/Singapore")!, comparisonTimeZone: TimeZone(identifier: "Australia/Melbourne"))
         TimeZoneCard(person: MockData.rosa, timeZone: TimeZone(identifier: "Australia/Melbourne")!, sameCity: true, cityName: "Melbourne", weather: CurrentWeatherReading(symbolName: "cloud.sun.fill", temperatureC: 18))
     }

@@ -187,6 +187,7 @@ struct GameDeck: Identifiable, Hashable {
     var emoji: String
     var tier: String
     var sortOrder: Int
+    var questionCount: Int
 }
 
 /// Where a specific partner is in a session — derived client-side from how many rounds they've

@@ -74,15 +74,44 @@ struct WhosMoreLikelyGameView: View {
                         Text("Round \(round.roundNumber) of \(store.rounds.count)")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(Theme.subtleInk)
-                        Text(prompt.prompt)
-                            .font(.title3.weight(.bold))
-                            .multilineTextAlignment(.center)
+                        Text("Swipe or tap a side")
+                            .font(.caption)
+                            .foregroundStyle(Theme.subtleInk)
                     }
                     .frame(maxWidth: .infinity)
 
-                    VStack(spacing: Theme.Spacing.sm) {
-                        choiceButton(emoji: "🙋", title: "Me", personID: myID, round: round)
-                        choiceButton(emoji: "👉", title: appModel.partner.name, personID: partnerID, round: round)
+                    VStack(spacing: Theme.Spacing.md) {
+                        SwipeChoiceCard(
+                            leftLabel: "🙋 ME",
+                            leftColor: Theme.skyBlue,
+                            rightLabel: "👉 \(appModel.partner.name.uppercased())",
+                            rightColor: Theme.heartRed,
+                            isDisabled: isSubmitting,
+                            content: {
+                                VStack(spacing: Theme.Spacing.lg) {
+                                    Text(prompt.prompt)
+                                        .font(.title3.weight(.bold))
+                                        .multilineTextAlignment(.center)
+                                    HStack(spacing: Theme.Spacing.xl) {
+                                        VStack(spacing: Theme.Spacing.xs) {
+                                            AvatarView(person: appModel.currentUser, size: 48, showsRing: true)
+                                            Text("Me").font(.caption.weight(.semibold)).foregroundStyle(Theme.skyBlue)
+                                        }
+                                        Image(systemName: "arrow.left.and.right")
+                                            .font(.caption)
+                                            .foregroundStyle(Theme.subtleInk)
+                                        VStack(spacing: Theme.Spacing.xs) {
+                                            AvatarView(person: appModel.partner, size: 48, showsRing: true)
+                                            Text(appModel.partner.name).font(.caption.weight(.semibold)).foregroundStyle(Theme.heartRed)
+                                        }
+                                    }
+                                }
+                                .frame(maxWidth: .infinity)
+                            },
+                            onChooseLeft: { submit(round: round, value: myID.uuidString) },
+                            onChooseRight: { submit(round: round, value: partnerID.uuidString) }
+                        )
+
                         SkipButton(isDisabled: isSubmitting) {
                             submit(round: round, value: "")
                         }
@@ -92,22 +121,6 @@ struct WhosMoreLikelyGameView: View {
                 .frame(maxWidth: .infinity, minHeight: geometry.size.height, alignment: .center)
             }
         }
-    }
-
-    private func choiceButton(emoji: String, title: String, personID: UUID, round: GameSessionRound) -> some View {
-        Button {
-            submit(round: round, value: personID.uuidString)
-        } label: {
-            HStack(spacing: Theme.Spacing.sm) {
-                Text(emoji).font(.title2)
-                Text(title).font(.headline)
-            }
-            .frame(maxWidth: .infinity)
-            .padding()
-            .foregroundStyle(Theme.ink)
-            .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-        }
-        .disabled(isSubmitting)
     }
 
     private func submit(round: GameSessionRound, value: String) {

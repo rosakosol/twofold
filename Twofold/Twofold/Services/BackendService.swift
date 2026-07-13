@@ -1979,15 +1979,17 @@ enum BackendService {
         var emoji: String
         var tier: String
         var sortOrder: Int
+        var questionCount: Int
 
         enum CodingKeys: String, CodingKey {
             case id, topic, title, emoji, tier
             case gameType = "game_type"
             case sortOrder = "sort_order"
+            case questionCount = "question_count"
         }
 
         func toModel() -> GameDeck {
-            GameDeck(id: id, topic: topic, gameType: gameType, title: title, emoji: emoji, tier: tier, sortOrder: sortOrder)
+            GameDeck(id: id, topic: topic, gameType: gameType, title: title, emoji: emoji, tier: tier, sortOrder: sortOrder, questionCount: questionCount)
         }
     }
 

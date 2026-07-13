@@ -18,6 +18,8 @@ struct HomeView: View {
     @State private var reviewingShare: PendingFlightShare?
     @State private var weatherReading: CurrentWeatherReading?
     @State private var weatherFetchedForCityID: UUID?
+    @State private var myWeatherReading: CurrentWeatherReading?
+    @State private var myWeatherFetchedForCityID: UUID?
     @State private var flightCarouselPage: Flight.ID?
     @AppStorage("setupChecklistDismissed") private var setupChecklistDismissed = false
 
@@ -51,7 +53,8 @@ struct HomeView: View {
                             comparisonTimeZone: appModel.currentUser.homeCity?.timeZone,
                             sameCity: sameCity,
                             cityName: appModel.partner.homeCity?.city,
-                            weather: weatherReading
+                            weather: weatherReading,
+                            myWeather: myWeatherReading
                         )
                     }
                     if !appModel.activeOrUpcomingFlights.isEmpty {
@@ -202,13 +205,29 @@ struct HomeView: View {
     /// Only re-fetches when the relevant city actually changes — WeatherKit calls aren't free,
     /// and the time card only needs a fresh reading roughly hourly, not on every foreground. A
     /// failed fetch does NOT mark the city as fetched, so a transient/auth error gets retried on
-    /// the next foreground instead of leaving the card permanently blank.
+    /// the next foreground instead of leaving the card permanently blank. Fetches the partner's
+    /// and the user's own city in parallel — the card shows both now, one per time line.
     private func refreshWeatherIfNeeded() async {
+        async let partner: Void = refreshPartnerWeatherIfNeeded()
+        async let mine: Void = refreshMyWeatherIfNeeded()
+        _ = await (partner, mine)
+    }
+
+    private func refreshPartnerWeatherIfNeeded() async {
         guard let city = appModel.partner.homeCity else { return }
         guard weatherFetchedForCityID != city.id else { return }
         if let reading = await TwofoldWeatherService.currentWeather(for: city) {
             weatherReading = reading
             weatherFetchedForCityID = city.id
+        }
+    }
+
+    private func refreshMyWeatherIfNeeded() async {
+        guard let city = appModel.currentUser.homeCity else { return }
+        guard myWeatherFetchedForCityID != city.id else { return }
+        if let reading = await TwofoldWeatherService.currentWeather(for: city) {
+            myWeatherReading = reading
+            myWeatherFetchedForCityID = city.id
         }
     }
     

@@ -74,10 +74,37 @@ struct ThisOrThatGameView: View {
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(Theme.subtleInk)
 
-                    VStack(spacing: Theme.Spacing.sm) {
-                        choiceButton(emoji: "🅰️", title: prompt.optionA, value: ThisOrThatChoice.optionA.rawValue, round: round)
-                        Text("or").font(.caption).foregroundStyle(Theme.subtleInk)
-                        choiceButton(emoji: "🅱️", title: prompt.optionB, value: ThisOrThatChoice.optionB.rawValue, round: round)
+                    Text("Swipe or tap a side")
+                        .font(.caption)
+                        .foregroundStyle(Theme.subtleInk)
+
+                    VStack(spacing: Theme.Spacing.md) {
+                        SwipeChoiceCard(
+                            leftLabel: "🅰️ THIS",
+                            leftColor: Theme.skyBlue,
+                            rightLabel: "🅱️ THAT",
+                            rightColor: Theme.heartRed,
+                            isDisabled: isSubmitting,
+                            content: {
+                                VStack(spacing: Theme.Spacing.md) {
+                                    Text(prompt.optionA)
+                                        .font(.title2.weight(.bold))
+                                        .foregroundStyle(Theme.skyBlue)
+                                        .multilineTextAlignment(.center)
+                                    Text("or")
+                                        .font(.caption)
+                                        .foregroundStyle(Theme.subtleInk)
+                                    Text(prompt.optionB)
+                                        .font(.title2.weight(.bold))
+                                        .foregroundStyle(Theme.heartRed)
+                                        .multilineTextAlignment(.center)
+                                }
+                                .frame(maxWidth: .infinity)
+                            },
+                            onChooseLeft: { submit(round: round, value: ThisOrThatChoice.optionA.rawValue) },
+                            onChooseRight: { submit(round: round, value: ThisOrThatChoice.optionB.rawValue) }
+                        )
+
                         SkipButton(isDisabled: isSubmitting) {
                             submit(round: round, value: "")
                         }
@@ -87,22 +114,6 @@ struct ThisOrThatGameView: View {
                 .frame(maxWidth: .infinity, minHeight: geometry.size.height, alignment: .center)
             }
         }
-    }
-
-    private func choiceButton(emoji: String, title: String, value: String, round: GameSessionRound) -> some View {
-        Button {
-            submit(round: round, value: value)
-        } label: {
-            HStack(spacing: Theme.Spacing.sm) {
-                Text(emoji).font(.title2)
-                Text(title).font(.title3.weight(.semibold)).multilineTextAlignment(.leading)
-            }
-            .frame(maxWidth: .infinity)
-            .padding()
-            .foregroundStyle(Theme.ink)
-            .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-        }
-        .disabled(isSubmitting)
     }
 
     private func submit(round: GameSessionRound, value: String) {

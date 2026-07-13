@@ -69,7 +69,15 @@ struct TravelTriviaGameView: View {
 
     // MARK: - Round
 
-    private static let optionEmoji = ["1️⃣", "2️⃣", "3️⃣", "4️⃣"]
+    /// Kahoot-style: a fixed color+shape per grid position, not tied to the answer's content —
+    /// same reasoning as the old numbered-keycap emoji (answer text is free-form, so the marker
+    /// has to be positional), just bolder.
+    private static let optionStyles: [(color: Color, icon: String)] = [
+        (Theme.heartRed, "triangle.fill"),
+        (Theme.skyBlue, "diamond.fill"),
+        (.orange, "circle.fill"),
+        (Theme.leafGreen, "square.fill"),
+    ]
 
     private func roundView(round: GameSessionRound, question: TriviaQuestion) -> some View {
         GeometryReader { geometry in
@@ -97,21 +105,30 @@ struct TravelTriviaGameView: View {
     }
 
     private func answerOptions(round: GameSessionRound, question: TriviaQuestion) -> some View {
-        VStack(spacing: Theme.Spacing.sm) {
-            ForEach(Array(question.options.enumerated()), id: \.offset) { index, option in
-                Button {
-                    submit(round: round, value: option, isCorrect: option == question.correctAnswer)
-                } label: {
-                    HStack(spacing: Theme.Spacing.sm) {
-                        Text(Self.optionEmoji[index % Self.optionEmoji.count]).font(.title3)
-                        Text(option).font(.subheadline.weight(.medium)).multilineTextAlignment(.leading)
+        VStack(spacing: Theme.Spacing.md) {
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: Theme.Spacing.sm), GridItem(.flexible())], spacing: Theme.Spacing.sm) {
+                ForEach(Array(question.options.enumerated()), id: \.offset) { index, option in
+                    let style = Self.optionStyles[index % Self.optionStyles.count]
+                    Button {
+                        submit(round: round, value: option, isCorrect: option == question.correctAnswer)
+                    } label: {
+                        VStack(spacing: Theme.Spacing.xs) {
+                            Image(systemName: style.icon)
+                                .font(.title3)
+                                .foregroundStyle(.white)
+                            Text(option)
+                                .font(.subheadline.weight(.bold))
+                                .foregroundStyle(.white)
+                                .multilineTextAlignment(.center)
+                                .lineLimit(4)
+                                .minimumScaleFactor(0.7)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 100)
+                        .padding(Theme.Spacing.sm)
+                        .background(style.color, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .foregroundStyle(Theme.ink)
-                    .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                    .disabled(isSubmitting)
                 }
-                .disabled(isSubmitting)
             }
 
             SkipButton(isDisabled: isSubmitting) {

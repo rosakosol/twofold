@@ -88,15 +88,26 @@ struct DeckEntryView: View {
         errorMessage = nil
         do {
             let existing = try await BackendService.fetchGameSessions()
+            let introKey = deck.id.uuidString
             guard let resumable = existing.first(where: { $0.deckID == deck.id && ($0.status == .active || $0.status == .waitingForPartner) }) else {
-                phase = .intro(sessionID: nil, partnerAlreadyFinished: false, totalRounds: 8)
+                if GameIntroSeenStore.hasSeen(introKey) {
+                    await start(existingSessionID: nil)
+                } else {
+                    GameIntroSeenStore.markSeen(introKey)
+                    phase = .intro(sessionID: nil, partnerAlreadyFinished: false, totalRounds: deck.questionCount)
+                }
                 return
             }
             let detail = try await BackendService.fetchGameSession(id: resumable.id)
             let myAnswered = GameLogic.answeredRoundNumbers(responses: detail.responses, responderID: appModel.currentUser.id)
             if myAnswered.isEmpty {
-                let partnerFinished = GameLogic.partnerProgress(responses: detail.responses, partnerID: appModel.partner.id, totalRounds: detail.session.totalRounds) == .finished
-                phase = .intro(sessionID: resumable.id, partnerAlreadyFinished: partnerFinished, totalRounds: detail.session.totalRounds)
+                if GameIntroSeenStore.hasSeen(introKey) {
+                    await start(existingSessionID: resumable.id)
+                } else {
+                    GameIntroSeenStore.markSeen(introKey)
+                    let partnerFinished = GameLogic.partnerProgress(responses: detail.responses, partnerID: appModel.partner.id, totalRounds: detail.session.totalRounds) == .finished
+                    phase = .intro(sessionID: resumable.id, partnerAlreadyFinished: partnerFinished, totalRounds: detail.session.totalRounds)
+                }
             } else {
                 phase = .playing(sessionID: resumable.id)
             }

@@ -86,20 +86,32 @@ struct GameEntryView: View {
     /// status too, for any pre-restructure rows that haven't received a new response since —
     /// the rewritten trigger only ever writes `active`/`completed` going forward). If I haven't
     /// answered anything in it yet, that's the intro screen's moment (whether it's genuinely
-    /// new or my partner just got there first); otherwise I go straight back into play.
+    /// new or my partner just got there first) — unless I've already seen this game type's intro
+    /// before (`GameIntroSeenStore`), in which case skip straight into play. Otherwise I go
+    /// straight back into play.
     private func determinePhase() async {
         errorMessage = nil
         do {
             let existing = try await BackendService.fetchGameSessions()
             guard let resumable = existing.first(where: { $0.gameType == gameType && ($0.status == .active || $0.status == .waitingForPartner) }) else {
-                phase = .intro(sessionID: nil, partnerAlreadyFinished: false, totalRounds: gameType.defaultRoundCount)
+                if GameIntroSeenStore.hasSeen(gameType.rawValue) {
+                    await start(existingSessionID: nil)
+                } else {
+                    GameIntroSeenStore.markSeen(gameType.rawValue)
+                    phase = .intro(sessionID: nil, partnerAlreadyFinished: false, totalRounds: gameType.defaultRoundCount)
+                }
                 return
             }
             let detail = try await BackendService.fetchGameSession(id: resumable.id)
             let myAnswered = GameLogic.answeredRoundNumbers(responses: detail.responses, responderID: appModel.currentUser.id)
             if myAnswered.isEmpty {
-                let partnerFinished = GameLogic.partnerProgress(responses: detail.responses, partnerID: appModel.partner.id, totalRounds: detail.session.totalRounds) == .finished
-                phase = .intro(sessionID: resumable.id, partnerAlreadyFinished: partnerFinished, totalRounds: detail.session.totalRounds)
+                if GameIntroSeenStore.hasSeen(gameType.rawValue) {
+                    await start(existingSessionID: resumable.id)
+                } else {
+                    GameIntroSeenStore.markSeen(gameType.rawValue)
+                    let partnerFinished = GameLogic.partnerProgress(responses: detail.responses, partnerID: appModel.partner.id, totalRounds: detail.session.totalRounds) == .finished
+                    phase = .intro(sessionID: resumable.id, partnerAlreadyFinished: partnerFinished, totalRounds: detail.session.totalRounds)
+                }
             } else {
                 phase = .playing(sessionID: resumable.id)
             }

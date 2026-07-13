@@ -145,6 +145,9 @@ struct TopicDetailView: View {
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(Theme.ink)
                     .multilineTextAlignment(.leading)
+                Text("\(deck.questionCount) question\(deck.questionCount == 1 ? "" : "s")")
+                    .font(.caption2)
+                    .foregroundStyle(Theme.subtleInk)
             }
 
             Spacer(minLength: 0)
