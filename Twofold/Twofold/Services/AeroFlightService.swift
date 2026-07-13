@@ -127,6 +127,7 @@ enum AeroFlightService {
         if let tripID { body["tripId"] = tripID.uuidString }
         if let travelerID { body["travelerId"] = travelerID.uuidString }
         let response: AddFlightResponse = try await call("add-flight", body: body)
+        Analytics.capture(Analytics.Event.flightAdd, properties: ["is_shared": shared, "is_linked_to_trip": tripID != nil])
         return response.flightId
     }
 

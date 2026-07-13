@@ -349,6 +349,7 @@ final class AppModel {
         } catch {
             return error.localizedDescription
         }
+        Analytics.capture(Analytics.Event.partnerRemove)
         await loadSignedInState()
         // HomeView's setup checklist card (the "invite your partner" hint) remembers a past
         // dismissal forever via this UserDefaults key — without clearing it, someone who'd
@@ -501,6 +502,7 @@ final class AppModel {
         let uploadedURL = try? await BackendService.uploadDrawingPad(coupleID: backendCoupleID, personID: currentUser.id, imageData: imageData)
         myDrawingURL = uploadedURL
         if uploadedURL != nil {
+            Analytics.capture(Analytics.Event.doodleSave)
             Task { await BackendService.notifyPartner(event: .drawingSaved) }
             Task { await WidgetSnapshotWriter.refresh(appModel: self) }
         }
@@ -648,6 +650,7 @@ final class AppModel {
 
         trips.append(trip)
         checkReviewMilestones()
+        Analytics.capture(Analytics.Event.tripCreate, properties: ["trip_category": category.rawValue])
 
         if let backendCoupleID {
             do {
@@ -694,6 +697,7 @@ final class AppModel {
     /// disappeared from the fetched list — handles cleanup without duplicating that logic here.
     func deleteFlight(_ flight: Flight) async {
         try? await BackendService.deleteFlight(id: flight.id)
+        Analytics.capture(Analytics.Event.flightDelete)
         await refreshFlights()
     }
 
@@ -730,6 +734,7 @@ final class AppModel {
     func deleteTrip(_ trip: Trip) async {
         trips.removeAll { $0.id == trip.id }
         pendingTripIDs.remove(trip.id)
+        Analytics.capture(Analytics.Event.tripDelete)
         // `flights.trip_id` has ON DELETE SET NULL server-side — the flight survives
         // untethered, so mirror that locally rather than leaving it pointing at a trip that no
         // longer exists.
@@ -804,6 +809,7 @@ final class AppModel {
     @discardableResult
     func addMemory(title: String, place: Place?, date: Date, note: String, imagesData: [Data]) async -> Memory {
         let memory = Memory(title: title, place: place, date: date, note: note)
+        Analytics.capture(Analytics.Event.memoryCreate, properties: ["photo_count": imagesData.count])
 
         guard let backendCoupleID else {
             // Persisted to disk (not just kept in memory) — this is the only durable copy
@@ -900,6 +906,7 @@ final class AppModel {
         pendingMemoryIDs.remove(memory.id)
         pendingMemoryPhotoData.removeValue(forKey: memory.id)
         PendingMemoryStore.remove(id: memory.id)
+        Analytics.capture(Analytics.Event.memoryDelete)
         guard backendCoupleID != nil else { return }
         try? await BackendService.deleteMemory(id: memory.id, photoPaths: memory.photos.map(\.path))
     }

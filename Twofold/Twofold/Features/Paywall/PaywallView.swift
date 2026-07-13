@@ -49,13 +49,16 @@ struct PaywallView: View {
             // already governs whether the close button exists at all.
             .onRequestedDismissal { dismiss() }
             .onPurchaseCompleted { customerInfo in
-                Task { await handleEntitlementChange(customerInfo) }
+                Task { await handleEntitlementChange(customerInfo, event: Analytics.Event.purchaseComplete) }
             }
             .onRestoreCompleted { customerInfo in
-                Task { await handleEntitlementChange(customerInfo) }
+                Task { await handleEntitlementChange(customerInfo, event: Analytics.Event.restoreComplete) }
             }
             .onPurchaseFailure { error in errorMessage = error.localizedDescription }
             .onRestoreFailure { error in errorMessage = error.localizedDescription }
+            .onAppear {
+                Analytics.capture(Analytics.Event.paywallView, properties: ["is_dismissable": isDismissable])
+            }
             .toolbar {
                 if !isDismissable {
                     ToolbarItem(placement: .topBarLeading) {
@@ -89,10 +92,11 @@ struct PaywallView: View {
     /// A restore that found nothing to restore (`tier == nil`) intentionally writes nothing and
     /// leaves the paywall up, same as the old StoreKit flow only advancing past it when
     /// `store.isSubscribed` was actually true.
-    private func handleEntitlementChange(_ customerInfo: CustomerInfo) async {
+    private func handleEntitlementChange(_ customerInfo: CustomerInfo, event: String) async {
         guard let tier = SubscriptionTier.active(in: customerInfo) else { return }
         try? await BackendService.updateSubscriptionStatus(active: true, tier: tier.dbValue)
         appModel.markSubscriptionActive()
+        Analytics.capture(event, properties: ["tier": tier.dbValue])
         onSubscribed()
     }
 }

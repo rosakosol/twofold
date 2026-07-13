@@ -40,6 +40,7 @@ enum BackendService {
             password: password,
             data: ["first_name": .string(firstName)]
         )
+        Analytics.capture(Analytics.Event.accountCreate, properties: ["method": "email"])
         if let session = response.session {
             return session
         }
@@ -50,7 +51,9 @@ enum BackendService {
 
     @discardableResult
     static func signIn(email: String, password: String) async throws -> Session {
-        try await supabase.auth.signIn(email: email, password: password)
+        let session = try await supabase.auth.signIn(email: email, password: password)
+        Analytics.capture(Analytics.Event.signIn, properties: ["method": "email"])
+        return session
     }
 
     /// Native Sign in with Apple. `nonce` is the raw (unhashed) nonce that was hashed into the
@@ -58,9 +61,11 @@ enum BackendService {
     /// token's own nonce claim to guard against replay.
     @discardableResult
     static func signInWithApple(idToken: String, nonce: String) async throws -> Session {
-        try await supabase.auth.signInWithIdToken(
+        let session = try await supabase.auth.signInWithIdToken(
             credentials: OpenIDConnectCredentials(provider: .apple, idToken: idToken, nonce: nonce)
         )
+        Analytics.capture(Analytics.Event.signIn, properties: ["method": "apple"])
+        return session
     }
 
     /// The ID token's `aud` claim matches whatever client ID *initiated* the sign-in request —
@@ -114,6 +119,7 @@ enum BackendService {
             )
         )
         guard let userID = currentUserID else { throw BackendError.notAuthenticated }
+        Analytics.capture(Analytics.Event.signIn, properties: ["method": "google"])
         return userID
     }
 
@@ -626,6 +632,7 @@ enum BackendService {
             .single()
             .execute()
             .value
+        Analytics.capture(Analytics.Event.inviteRedeem)
         return row.id
     }
 
@@ -1968,6 +1975,7 @@ enum BackendService {
             .rpc("start_game_session", params: Params(pGameType: gameType.rawValue))
             .execute()
             .value
+        Analytics.capture(Analytics.Event.sessionStart, properties: ["game_type": gameType.rawValue, "is_deck": false])
         return id
     }
 
@@ -2015,6 +2023,7 @@ enum BackendService {
             .rpc("start_deck_session", params: Params(pDeckId: deckID))
             .execute()
             .value
+        Analytics.capture(Analytics.Event.sessionStart, properties: ["deck_id": deckID.uuidString, "is_deck": true])
         return id
     }
 
