@@ -9,8 +9,15 @@
 //  Session replay is deliberately left off (`PostHogConfig.sessionReplay` already defaults to
 //  `false`, untouched below): Twofold shows private photos, trip details, and personal Game
 //  answers, and turning on screen recording needs a considered masking pass later, not a
-//  default-on toggle now. Event tracking — including PostHog's own tap/screen autocapture — is
-//  unaffected by that and stays on.
+//  default-on toggle now. Event tracking is unaffected by that and stays on.
+//
+//  `captureScreenViews` is turned OFF (its default is `true`) — PostHog's own SwiftUI guidance:
+//  automatic screen capture works by swizzling `UIViewController.viewDidAppear`, which can't see
+//  through a SwiftUI view hierarchy the way it can UIKit's, so every screen just gets reported
+//  under the same generic name ("Screen") instead of anything meaningful. Screens that matter
+//  are tagged explicitly instead via `.postHogScreenView("Name")` (see `MainTabView`,
+//  `SettingsView`, `PaywallView`) — same idea as `Analytics.Event`, but for screen views rather
+//  than actions.
 //
 
 import Foundation
@@ -24,6 +31,7 @@ enum AnalyticsConfig {
     static func configure() {
         guard !projectToken.isEmpty else { return }
         let config = PostHogConfig(projectToken: projectToken, host: host)
+        config.captureScreenViews = false
         PostHogSDK.shared.setup(config)
     }
 }

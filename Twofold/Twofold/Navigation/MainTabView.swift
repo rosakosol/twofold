@@ -3,6 +3,7 @@
 //  Twofold
 //
 
+import PostHog
 import SwiftUI
 
 enum MainTab: Hashable {
@@ -23,18 +24,23 @@ struct MainTabView: View {
         TabView(selection: $selection) {
             Tab("Home", systemImage: "globe.americas.fill", value: .home) {
                 HomeView()
+                    .postHogScreenView("Home")
             }
             Tab("Trips", systemImage: "airplane", value: .trips) {
                 TripsListView()
+                    .postHogScreenView("Trips")
             }
             Tab("Memories", systemImage: "photo.on.rectangle.angled", value: .memories) {
                 MemoriesView()
+                    .postHogScreenView("Memories")
             }
             Tab("Games", systemImage: "gamecontroller.fill", value: .games) {
                 GamesHubView()
+                    .postHogScreenView("Games")
             }
             Tab("Passport", image: "passport", value: .passport) {
                 PassportView()
+                    .postHogScreenView("Passport")
             }
         }
         .tint(Theme.skyBlue)

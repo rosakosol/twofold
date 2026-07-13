@@ -9,6 +9,7 @@
 //  PartnerSetupView, reachable both pre- and post-connection.
 //
 
+import PostHog
 import RevenueCatUI
 import StoreKit
 import SwiftUI
@@ -157,6 +158,7 @@ struct SettingsView: View {
             .background(Theme.backgroundGradient.ignoresSafeArea())
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
+            .postHogScreenView("Settings")
             .sheet(isPresented: $showingPaywall) {
                 NavigationStack { PaywallView() }
             }
