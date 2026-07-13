@@ -148,14 +148,33 @@ enum WidgetSnapshotWriter {
 
         let minLat = min(origin.latitude, destination.latitude)
         let maxLat = max(origin.latitude, destination.latitude)
-        let minLon = min(origin.longitude, destination.longitude)
-        let maxLon = max(origin.longitude, destination.longitude)
-        let center = CLLocationCoordinate2D(latitude: (minLat + maxLat) / 2, longitude: (minLon + maxLon) / 2)
+
+        // A route crossing the antimeridian (e.g. Tokyo→LA, origin ~140°E, destination ~120°W)
+        // has a naive |maxLon - minLon| over 180° — the "short way" actually wraps the other
+        // side of the globe. Unwrap one endpoint the same way FlightMapView.routeSamples does
+        // before taking min/max, then normalize the resulting center back into ±180° since
+        // (unlike MapLibre) MKCoordinateRegion expects a standard-range center longitude.
+        var destinationLongitude = destination.longitude
+        if destinationLongitude - origin.longitude > 180 {
+            destinationLongitude -= 360
+        } else if destinationLongitude - origin.longitude < -180 {
+            destinationLongitude += 360
+        }
+        let minLon = min(origin.longitude, destinationLongitude)
+        let maxLon = max(origin.longitude, destinationLongitude)
+
+        var centerLongitude = (minLon + maxLon) / 2
+        if centerLongitude > 180 { centerLongitude -= 360 }
+        if centerLongitude < -180 { centerLongitude += 360 }
+        let center = CLLocationCoordinate2D(latitude: (minLat + maxLat) / 2, longitude: centerLongitude)
+
         // 1.6x the raw span so both endpoints sit comfortably inside the frame, with a floor so
-        // short domestic hops don't zoom in so far the basemap looks empty/blank.
+        // short domestic hops don't zoom in so far the basemap looks empty/blank, and a ceiling
+        // (MKCoordinateRegion crashes on a span that isn't a valid region, e.g. > 360°) — a span
+        // this wide is already a "whole world" view regardless of the exact route.
         let span = MKCoordinateSpan(
-            latitudeDelta: max(4, (maxLat - minLat) * 1.6),
-            longitudeDelta: max(4, (maxLon - minLon) * 1.6)
+            latitudeDelta: min(170, max(4, (maxLat - minLat) * 1.6)),
+            longitudeDelta: min(170, max(4, (maxLon - minLon) * 1.6))
         )
 
         let options = MKMapSnapshotter.Options()
