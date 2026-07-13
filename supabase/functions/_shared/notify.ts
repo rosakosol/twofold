@@ -160,3 +160,75 @@ export async function notifyForEvent(
     }
   }
 }
+
+// Time-based reminder, not a flight_status_events diff like notifyForEvent above — called from
+// refresh-due-flights once a flight is within ~10 minutes of departure and hasn't actually left
+// yet (see FLIGHT_ROW columns pre_departure_notified/actual_out). Goes to the *other* partner
+// only, never the traveler themselves — reuses the "departure" preference column rather than
+// adding a new one, since this is conceptually the same notification category.
+export async function notifyPreDeparture(
+  serviceClient: SupabaseClient,
+  flightId: string,
+): Promise<void> {
+  const { data: flight, error: flightErr } = await serviceClient
+    .from("flights")
+    .select("couple_id, shared, created_by, traveler_id, flight_number_iata, airline_code")
+    .eq("id", flightId)
+    .single();
+  if (flightErr || !flight || !flight.traveler_id) return; // no known traveler — "wish them" wouldn't mean anything
+
+  const { data: traveler } = await serviceClient
+    .from("profiles")
+    .select("first_name")
+    .eq("id", flight.traveler_id)
+    .single();
+  const travelerName: string | null = traveler?.first_name || null;
+
+  // A private (shared: false) flight has no partner who can even see it — nothing to notify.
+  if (flight.shared === false) return;
+
+  const { data: couple, error: coupleErr } = await serviceClient
+    .from("couples")
+    .select("partner_a_id, partner_b_id")
+    .eq("id", flight.couple_id)
+    .single();
+  if (coupleErr || !couple) return;
+
+  const recipientIds = [couple.partner_a_id, couple.partner_b_id]
+    .filter((id): id is string => Boolean(id))
+    .filter((id) => id !== flight.traveler_id);
+  if (recipientIds.length === 0) return;
+
+  const { data: prefRows } = await serviceClient
+    .from("flight_notification_preferences")
+    .select("profile_id, departure")
+    .eq("flight_id", flightId)
+    .in("profile_id", recipientIds);
+
+  const prefByProfile = new Map<string, boolean>();
+  for (const row of prefRows ?? []) {
+    prefByProfile.set((row as any).profile_id, Boolean((row as any).departure));
+  }
+  const allowedIds = recipientIds.filter((id) => prefByProfile.get(id) ?? true);
+  if (allowedIds.length === 0) return;
+
+  const { data: tokens } = await serviceClient
+    .from("device_push_tokens")
+    .select("apns_token, environment")
+    .in("profile_id", allowedIds);
+  if (!tokens || tokens.length === 0) return;
+
+  const label = flightLabel(travelerName, flight.flight_number_iata ?? null, flight.airline_code ?? null);
+  const title = "Wheels up soon";
+  const body = travelerName
+    ? `${label} departs in about 10 minutes. Wish ${travelerName} a safe flight! ✈️`
+    : `${label} departs in about 10 minutes. Wish them a safe flight! ✈️`;
+
+  for (const token of tokens) {
+    try {
+      await sendAPNs(token.apns_token, token.environment, title, body);
+    } catch (err) {
+      console.error("[notify] sendAPNs threw (pre-departure):", (err as Error).message);
+    }
+  }
+}

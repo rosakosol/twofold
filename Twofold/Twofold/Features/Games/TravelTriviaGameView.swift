@@ -22,9 +22,17 @@ struct TravelTriviaGameView: View {
     @State private var isSendingReminder = false
     @State private var isEditingAnswers = false
     @State private var hapticTrigger = false
+    @State private var showingNoMailAppAlert = false
+    @State private var showingLeaveConfirm = false
 
     private var myID: UUID { appModel.currentUser.id }
     private var partnerID: UUID { appModel.partner.id }
+    /// Gates the custom back button/leave-confirmation to the actual round-answering phase —
+    /// false while loading, errored, already abandoned, or fully revealed, where the native back
+    /// button (nothing to lose) is fine.
+    private var isActivelyPlaying: Bool {
+        !store.isLoading && store.errorMessage == nil && store.session?.status != .abandoned && !store.isRevealed
+    }
 
     var body: some View {
         Group {
@@ -40,7 +48,7 @@ struct TravelTriviaGameView: View {
                     myName: appModel.currentUser.name, partnerName: appModel.partner.name,
                     onPlayAnother: { dismiss() }
                 )
-            } else if let round = store.nextUnansweredRound(myID: myID), case let .trivia(question)? = store.content(for: round) {
+            } else if let round = store.displayedRound(myID: myID), case let .trivia(question)? = store.content(for: round) {
                 roundView(round: round, question: question)
                     .id(round.id)
                     .transition(.scale(scale: 0.92).combined(with: .opacity))
@@ -70,17 +78,27 @@ struct TravelTriviaGameView: View {
         .navigationTitle(title ?? GameType.travelTrivia.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            // Not offered once results are showing — abandoning a completed session would mark
-            // it "abandoned" and drop it out of deck progress/history, which makes no sense for
-            // a game that's already finished.
+            if isActivelyPlaying {
+                ToolbarItem(placement: .topBarLeading) {
+                    GameBackButton(action: handleBack)
+                }
+            }
+            // Not offered once results are showing — GameResultsView has its own toolbar
+            // (Edit My Answers / Reset Game / support menu) for the post-completion case.
             if !store.isRevealed {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Leave", role: .destructive) {
-                        Task { await store.abandon(); dismiss() }
+                    Menu {
+                        SupportMenuItems(userID: myID, context: "\(GameType.travelTrivia.displayName) — session \(sessionID.uuidString)", showingNoMailAppAlert: $showingNoMailAppAlert)
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
                     }
                 }
             }
         }
+        .navigationBarBackButtonHidden(isActivelyPlaying)
+        .interactivePopGestureDisabled(isActivelyPlaying)
+        .noMailAppAlert(isPresented: $showingNoMailAppAlert)
+        .gameLeaveConfirmation(isPresented: $showingLeaveConfirm) { Task { await leaveGame() } }
         .task { await store.load(sessionID: sessionID) }
         .task { await store.subscribeRealtime(sessionID: sessionID) }
         .onDisappear { store.stopRealtime() }
@@ -181,6 +199,21 @@ struct TravelTriviaGameView: View {
         isEditingAnswers = true
         await store.editMyAnswers()
         isEditingAnswers = false
+    }
+
+    private func handleBack() {
+        if store.canGoBack(myID: myID) {
+            store.goBack(myID: myID)
+        } else {
+            showingLeaveConfirm = true
+        }
+    }
+
+    private func leaveGame() async {
+        if let sessionID = store.session?.id {
+            try? await BackendService.abandonGameSession(id: sessionID)
+        }
+        dismiss()
     }
 }
 

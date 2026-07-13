@@ -78,6 +78,7 @@ export interface FlightRow {
   weather_updated_at: string | null;
   last_refreshed_at: string | null;
   tracking_enabled: boolean;
+  pre_departure_notified: boolean;
 }
 
 // Fields sourced directly from an AeroFlight, shared by add-flight's initial insert and
@@ -376,6 +377,20 @@ export async function syncFlight(
   update.destination_latitude = mapped.destination_latitude ?? flightRow.destination_latitude;
   update.destination_longitude = mapped.destination_longitude ?? flightRow.destination_longitude;
 
+  // Same class of bug as the coordinate coalescing above: AeroAPI's poll response doesn't
+  // reliably carry gate/terminal/baggage on every single poll, and without this a routine poll
+  // that just happened to omit one would clobber the stored value back to null. `diffEvents`
+  // above already only *fires an event* for a genuine, truthy value change — but it can't help
+  // if the "existing" value it's comparing against next time has been wrongly nulled out in the
+  // meantime, since a real (unchanged) value reappearing against a null "existing" reads as a
+  // change. This is what was causing "gate/terminal/baggage changed" notifications for a value
+  // that never actually changed.
+  update.gate_origin = mapped.gate_origin ?? flightRow.gate_origin;
+  update.gate_destination = mapped.gate_destination ?? flightRow.gate_destination;
+  update.terminal_origin = mapped.terminal_origin ?? flightRow.terminal_origin;
+  update.terminal_destination = mapped.terminal_destination ?? flightRow.terminal_destination;
+  update.baggage_claim = mapped.baggage_claim ?? flightRow.baggage_claim;
+
   const coordinatePatch = await backfillAirportCoordinates(flightRow, mapped);
   Object.assign(update, coordinatePatch);
 
@@ -490,7 +505,10 @@ function computeTimeRemainingLabel(row: FlightRow): string {
     return arrival ? `Arrived ${formatRemaining(now - new Date(arrival).getTime())} ago` : "Arrived";
   }
 
-  if (["landing_soon", "in_air", "departed", "boarding"].includes(row.status) && arrival) {
+  // "boarding" deliberately excluded here — it means still at the gate, not yet departed, so
+  // it falls through to the departure countdown below instead of showing "Arrives in…" for a
+  // flight that hasn't taken off yet (same bug/fix as Flight.countdownSummary's Swift mirror).
+  if (["landing_soon", "in_air", "departed"].includes(row.status) && arrival) {
     const arrivalMs = new Date(arrival).getTime();
     if (arrivalMs > now) return `Arrives in ${formatRemaining(arrivalMs - now)}`;
   }

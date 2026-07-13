@@ -42,6 +42,7 @@ struct FlightMapView: View {
                 position: flight.positionCoordinate,
                 positionHeading: flight.positionHeading,
                 traveler: traveler,
+                progress: flight.progress,
                 interactive: interactive,
                 edgePadding: edgePadding
             )
@@ -80,6 +81,9 @@ private struct MapLibreRouteView: UIViewRepresentable {
     let position: CLLocationCoordinate2D?
     let positionHeading: Double?
     let traveler: Person?
+    /// 0...1, mirrors `Flight.progress` — how far along the route the traveled (colored)
+    /// portion of the line extends before giving way to the grey untraveled remainder.
+    let progress: Double
     let interactive: Bool
     let edgePadding: CGFloat
 
@@ -111,7 +115,8 @@ private struct MapLibreRouteView: UIViewRepresentable {
             destinationCode: destinationCode,
             position: position,
             positionHeading: positionHeading,
-            traveler: traveler
+            traveler: traveler,
+            progress: progress
         )
     }
 
@@ -126,6 +131,7 @@ private struct MapLibreRouteView: UIViewRepresentable {
             var position: CLLocationCoordinate2D?
             var positionHeading: Double?
             var traveler: Person?
+            var progress: Double
 
             static func == (lhs: Route, rhs: Route) -> Bool {
                 lhs.origin.latitude == rhs.origin.latitude && lhs.origin.longitude == rhs.origin.longitude
@@ -133,6 +139,7 @@ private struct MapLibreRouteView: UIViewRepresentable {
                     && lhs.originCode == rhs.originCode && lhs.destinationCode == rhs.destinationCode
                     && lhs.position?.latitude == rhs.position?.latitude && lhs.position?.longitude == rhs.position?.longitude
                     && lhs.positionHeading == rhs.positionHeading && lhs.traveler?.id == rhs.traveler?.id
+                    && lhs.progress == rhs.progress
             }
         }
 
@@ -212,6 +219,7 @@ private struct MapLibreRouteView: UIViewRepresentable {
             } else if let source = style.source(withIdentifier: Self.sourceIdentifier) as? MLNShapeSource {
                 source.shape = MLNPolyline(coordinates: samples, count: UInt(samples.count))
             }
+            updateGradient(progress: route.progress, style: style)
 
             updateEndpointAnnotations(route, mapView: mapView)
             updatePositionAnnotation(route, mapView: mapView)
@@ -256,16 +264,43 @@ private struct MapLibreRouteView: UIViewRepresentable {
             gradient.lineJoin = NSExpression(forConstantValue: "round")
             gradient.lineCap = NSExpression(forConstantValue: "round")
             gradient.lineWidth = NSExpression(forConstantValue: 4)
+            style.addLayer(gradient)
+        }
+
+        /// The traveled portion of the route (origin up to the flight's current progress) shows
+        /// the sky-blue-to-leaf-green gradient; everything beyond that — the leg not yet
+        /// flown — is a plain grey, so the line itself reads as a progress indicator rather than
+        /// a static route outline. Re-applied on every `render()` call (not just the one-time
+        /// `buildRoute`), since progress advances continuously over a flight's duration.
+        private func updateGradient(progress: Double, style: MLNStyle) {
+            guard let gradient = style.layer(withIdentifier: Self.gradientLayerIdentifier) as? MLNLineStyleLayer else { return }
+
+            let traveledStart = UIColor(Theme.skyBlue)
+            let traveledEnd = UIColor(Theme.leafGreen)
+            let untraveled = UIColor(Theme.subtleInk.opacity(0.35))
+
+            let stops: [NSNumber: UIColor]
+            if progress <= 0.001 {
+                // Not departed yet (or no schedule to gauge progress against) — nothing traveled.
+                stops = [0: untraveled, 1: untraveled]
+            } else if progress >= 0.999 {
+                // Arrived — the whole route is "traveled."
+                stops = [0: traveledStart, 1: traveledEnd]
+            } else {
+                stops = [
+                    0: traveledStart,
+                    NSNumber(value: progress): traveledEnd,
+                    NSNumber(value: min(1, progress + 0.001)): untraveled,
+                    1: untraveled,
+                ]
+            }
+
             gradient.lineGradient = NSExpression(
                 forMLNInterpolating: NSExpression.lineProgressVariable,
                 curveType: .linear,
                 parameters: nil,
-                stops: NSExpression(forConstantValue: [
-                    0: UIColor(Theme.skyBlue),
-                    1: UIColor(Theme.leafGreen),
-                ])
+                stops: NSExpression(forConstantValue: stops)
             )
-            style.addLayer(gradient)
         }
 
         /// Whether the live/traveler-at-origin position marker (see `updatePositionAnnotation`)

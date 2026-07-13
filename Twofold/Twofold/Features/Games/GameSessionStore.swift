@@ -2,9 +2,12 @@
 //  GameSessionStore.swift
 //  Twofold
 //
-//  The one reusable session engine every game view shares — loading, realtime, submitting,
-//  and abandoning all live here so a future 5th game just adds a `GameType` case, a content
-//  table, and a view that reads this same store, rather than rewriting session/reveal logic.
+//  The one reusable session engine every game view shares — loading, realtime, submitting, and
+//  one-round-at-a-time back navigation all live here so a future 5th game just adds a `GameType`
+//  case, a content table, and a view that reads this same store, rather than rewriting
+//  session/reveal logic. Each typed game view's back button calls `goBack(myID:)` to revisit and
+//  change the previous round; at round 1 there's nothing to go back to, so the view shows a
+//  leave-confirmation instead (see `canGoBack(myID:)`).
 //
 
 import Foundation
@@ -45,6 +48,49 @@ final class GameSessionStore {
     func nextUnansweredRound(myID: UUID) -> GameSessionRound? {
         let answered = GameLogic.answeredRoundNumbers(responses: responses, responderID: myID)
         return rounds.first { !answered.contains($0.roundNumber) }
+    }
+
+    /// When non-nil, the game view should show THIS round instead of the live "next unanswered"
+    /// edge — set by `goBack(myID:)` while the player is revisiting the previous round to change
+    /// it. Cleared automatically once a submit steps past the last previously-answered round,
+    /// which naturally resumes the normal live-play flow.
+    var viewingRoundNumber: Int?
+
+    /// The round actually being shown right now — either the one being revisited via
+    /// `viewingRoundNumber`, or (normally) the next one I haven't answered yet.
+    func displayedRound(myID: UUID) -> GameSessionRound? {
+        if let viewingRoundNumber, let round = rounds.first(where: { $0.roundNumber == viewingRoundNumber }) {
+            return round
+        }
+        return nextUnansweredRound(myID: myID)
+    }
+
+    private func myAnsweredCount(myID: UUID) -> Int {
+        GameLogic.answeredRoundNumbers(responses: responses, responderID: myID).count
+    }
+
+    /// False only at round 1 (whether live or already being revisited) — that's the one point
+    /// the game view's back button should show a leave-confirmation instead of rewinding.
+    func canGoBack(myID: UUID) -> Bool {
+        let current = viewingRoundNumber ?? (myAnsweredCount(myID: myID) + 1)
+        return current > 1
+    }
+
+    func goBack(myID: UUID) {
+        let current = viewingRoundNumber ?? (myAnsweredCount(myID: myID) + 1)
+        guard current > 1 else { return }
+        viewingRoundNumber = current - 1
+    }
+
+    /// Called after every successful submit — if the player was revisiting a past round (not
+    /// live-playing at the edge), steps the viewing cursor forward by one, so editing a past
+    /// answer feels like the same forward motion as answering it the first time. Naturally
+    /// resumes the live "next unanswered" edge once it steps past the last previously-answered
+    /// round.
+    private func advanceViewingCursorIfNeeded(afterSubmittingRound roundNumber: Int) {
+        guard viewingRoundNumber != nil else { return }
+        let next = roundNumber + 1
+        viewingRoundNumber = rounds.contains(where: { $0.roundNumber == next }) ? next : nil
     }
 
     func hasAnsweredAllRounds(myID: UUID) -> Bool {
@@ -127,6 +173,14 @@ final class GameSessionStore {
 
     @discardableResult
     func submit(roundNumber: Int, answerValue: String, isCorrect: Bool? = nil) async -> Bool {
+        let didSubmit = await performSubmit(roundNumber: roundNumber, answerValue: answerValue, isCorrect: isCorrect)
+        if didSubmit {
+            advanceViewingCursorIfNeeded(afterSubmittingRound: roundNumber)
+        }
+        return didSubmit
+    }
+
+    private func performSubmit(roundNumber: Int, answerValue: String, isCorrect: Bool?) async -> Bool {
         guard let session else { return false }
         guard NetworkMonitor.shared.isConnected else {
             queueOffline(sessionID: session.id, roundNumber: roundNumber, answerValue: answerValue, isCorrect: isCorrect)
@@ -148,9 +202,9 @@ final class GameSessionStore {
         } catch {
             // `NetworkMonitor` said we were online a moment ago, but the request itself still
             // failed — almost certainly the connection dropping mid-flight rather than a real
-            // server rejection (nothing about this insert is validated in a way the app's own UI
-            // could trigger). Queue it exactly like the explicit-offline path instead of
-            // stranding the tap behind `errorMessage` and losing it outright.
+            // server rejection (this is an upsert, so there's no "duplicate" case left for the
+            // server to reject either). Queue it exactly like the explicit-offline path instead
+            // of stranding the tap behind `errorMessage` and losing it outright.
             queueOffline(sessionID: session.id, roundNumber: roundNumber, answerValue: answerValue, isCorrect: isCorrect)
             return true
         }
@@ -167,18 +221,25 @@ final class GameSessionStore {
         applyOptimistic(pending)
     }
 
+    /// Updates the matching response in place if one already exists (revisiting and changing an
+    /// already-answered round while offline) rather than always appending — an append-only-if-
+    /// absent version would silently drop an offline edit to an already-answered round on the
+    /// floor, since a "matching" response was already there and got treated as nothing to do.
     private func applyOptimistic(_ pending: PendingGameResponse) {
-        guard !responses.contains(where: { $0.sessionID == pending.sessionID && $0.roundNumber == pending.roundNumber && $0.responderID == pending.responderID }) else { return }
-        responses.append(GameResponse(id: pending.id, sessionID: pending.sessionID, roundNumber: pending.roundNumber, responderID: pending.responderID, answerValue: pending.answerValue, isCorrect: pending.isCorrect, createdAt: pending.queuedAt))
+        let updated = GameResponse(id: pending.id, sessionID: pending.sessionID, roundNumber: pending.roundNumber, responderID: pending.responderID, answerValue: pending.answerValue, isCorrect: pending.isCorrect, createdAt: pending.queuedAt)
+        if let index = responses.firstIndex(where: { $0.sessionID == pending.sessionID && $0.roundNumber == pending.roundNumber && $0.responderID == pending.responderID }) {
+            responses[index] = updated
+        } else {
+            responses.append(updated)
+        }
     }
 
     /// Drains the local offline queue for this session, in the order the answers were recorded —
     /// called once on `load(sessionID:)` (if already online) and again whenever `NetworkMonitor`
     /// reports a reconnect (see each typed game view's `.onChange(of:)`). A failed submit here is
-    /// swallowed and the entry dropped rather than retried indefinitely: a repeat failure almost
-    /// always means that round was already synced by an earlier pass (a duplicate insert is
-    /// rejected by the same one-response-per-round-per-responder constraint `advance_game_session`
-    /// relies on), not a transient issue worth blocking the rest of the queue over.
+    /// swallowed and the entry dropped rather than retried indefinitely — `submitGameResponse` is
+    /// an upsert, so a repeat failure isn't a duplicate-key rejection to worry about losing, just
+    /// a genuine transient issue not worth blocking the rest of the queue over.
     func syncPendingResponses() async {
         guard let session, !isSyncingPendingResponses else { return }
         let pending = PendingGameResponseStore.forSession(session.id)
@@ -195,12 +256,6 @@ final class GameSessionStore {
         if !wasRevealed, isRevealed {
             await BackendService.notifyPartner(event: .gameResultsReady, sessionID: session.id, gameType: session.gameType)
         }
-    }
-
-    func abandon() async {
-        guard let session else { return }
-        try? await BackendService.abandonGameSession(id: session.id)
-        await refresh()
     }
 
     func markDiscussionRound(_ round: GameSessionRound, status: DiscussionRoundStatus) async {

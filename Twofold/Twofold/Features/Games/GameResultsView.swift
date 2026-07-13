@@ -26,6 +26,7 @@ struct GameResultsView: View {
     @State private var isEditingAnswers = false
     @State private var isResettingDeck = false
     @State private var resetRoute: SessionRoute?
+    @State private var showingNoMailAppAlert = false
 
     private var isFullyRevealed: Bool { revealedCount >= store.rounds.count }
 
@@ -98,12 +99,15 @@ struct GameResultsView: View {
                             Label("Reset Game", systemImage: "arrow.counterclockwise")
                         }
                     }
+                    Divider()
+                    SupportMenuItems(userID: myID, context: "\(gameType.displayName) results — session \(store.session?.id.uuidString ?? "unknown")", showingNoMailAppAlert: $showingNoMailAppAlert)
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
                 .disabled(isEditingAnswers || isResettingDeck)
             }
         }
+        .noMailAppAlert(isPresented: $showingNoMailAppAlert)
         .navigationDestination(item: $resetRoute) { route in
             gameDestinationView(gameType: route.gameType, sessionID: route.id)
         }

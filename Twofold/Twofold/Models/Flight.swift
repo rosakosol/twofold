@@ -301,7 +301,16 @@ struct Flight: Identifiable, Hashable {
                 return "Arrived \(Self.relative(from: arrival, to: now)) ago"
             }
             return "Arrived"
-        case .landingSoon, .inAir, .departed, .boarding:
+        case .boarding:
+            // Boarding means still at the gate, not yet departed — this was previously grouped
+            // with the arrival-countdown cases below, which showed "Arrives in…" for a flight
+            // that hadn't even taken off yet. Counts down to departure instead, same shape as
+            // .scheduled/.delayed below.
+            if let departure = bestDeparture, departure > now {
+                return "Departs in \(Self.relative(from: now, to: departure))"
+            }
+            return status.emotionalHeadline
+        case .landingSoon, .inAir, .departed:
             if let arrival = bestArrival, arrival > now {
                 return "Arrives in \(Self.relative(from: now, to: arrival))"
             }

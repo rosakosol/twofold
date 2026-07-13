@@ -2183,18 +2183,25 @@ enum BackendService {
         }
     }
 
+    /// Upsert, not a plain insert — lets the back button (`GameSessionStore.goBack`) resubmit an
+    /// already-answered round to change it, which resolves to an UPDATE on the existing
+    /// `(session_id, round_number, responder_id)` row rather than a duplicate-key failure. See
+    /// `game_responses_update_own_active` (RLS) for the policy that permits that UPDATE path —
+    /// `advance_game_session`'s trigger only fires on INSERT, so re-editing an already-counted
+    /// round never double-counts it.
     static func submitGameResponse(sessionID: UUID, roundNumber: Int, answerValue: String, isCorrect: Bool? = nil) async throws {
         guard let userID = currentUserID else { throw BackendError.notAuthenticated }
         try await supabase
             .from("game_responses")
-            .insert(
+            .upsert(
                 GameResponseInsert(
                     sessionId: sessionID,
                     roundNumber: roundNumber,
                     responderId: userID,
                     answer: GameAnswerPayload(value: answerValue),
                     isCorrect: isCorrect
-                )
+                ),
+                onConflict: "session_id,round_number,responder_id"
             )
             .execute()
     }

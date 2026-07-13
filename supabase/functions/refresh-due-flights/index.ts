@@ -16,6 +16,7 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { type FlightRow, maybeRefreshWeather, refreshOneFlight } from "../_shared/flight-sync.ts";
+import { notifyPreDeparture } from "../_shared/notify.ts";
 
 const INTER_CALL_DELAY_MS = 200;
 
@@ -35,6 +36,21 @@ function isDue(flight: FlightRow, now: number): boolean {
     return staleMs > 15 * 60 * 1000;
   }
   return lastRefreshedMs === null || staleMs > 6 * 60 * 60 * 1000;
+}
+
+// "Wish them a safe flight" nudge to the *other* partner — fires once per flight, guarded by
+// pre_departure_notified (see 20260717030000_flight_pre_departure_notified.sql), while it's
+// within 10 minutes of its best-known departure time and hasn't actually left yet. Near-departure
+// flights are refreshed on essentially every cron tick already (isDue's 2-minute staleness
+// threshold is well under this function's 5-minute schedule), so checking only right after a
+// due-refresh is a safe simplification rather than re-evaluating every skipped flight too.
+const PRE_DEPARTURE_WINDOW_MS = 10 * 60 * 1000;
+
+function isDueForPreDepartureReminder(flight: FlightRow, now: number): boolean {
+  if (flight.pre_departure_notified || flight.actual_out) return false;
+  const bestDeparture = flight.estimated_out ?? flight.scheduled_out;
+  if (!bestDeparture) return false;
+  return new Date(bestDeparture).getTime() - now <= PRE_DEPARTURE_WINDOW_MS;
 }
 
 Deno.serve(async (req) => {
@@ -70,8 +86,19 @@ Deno.serve(async (req) => {
     }
 
     try {
-      await refreshOneFlight(serviceClient, flight);
+      const updated = await refreshOneFlight(serviceClient, flight);
       refreshed++;
+
+      if (updated && isDueForPreDepartureReminder(updated, now)) {
+        try {
+          await notifyPreDeparture(serviceClient, updated.id);
+          await serviceClient.from("flights").update({ pre_departure_notified: true }).eq("id", updated.id);
+        } catch (err) {
+          // Left unmarked on failure so the next cron tick retries — same reasoning as everything
+          // else in this loop being best-effort per flight.
+          console.error(`[refresh-due-flights] pre-departure reminder failed for ${flight.id}:`, (err as Error).message);
+        }
+      }
     } catch (err) {
       console.error(`[refresh-due-flights] refresh failed for ${flight.id}:`, (err as Error).message);
     }

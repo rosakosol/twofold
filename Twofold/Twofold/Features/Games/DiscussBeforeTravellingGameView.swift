@@ -23,9 +23,14 @@ struct DiscussBeforeTravellingGameView: View {
     @State private var isSubmitting = false
     @State private var isSendingReminder = false
     @State private var isEditingAnswers = false
+    @State private var showingNoMailAppAlert = false
+    @State private var showingLeaveConfirm = false
 
     private var myID: UUID { appModel.currentUser.id }
     private var partnerID: UUID { appModel.partner.id }
+    private var isActivelyPlaying: Bool {
+        !store.isLoading && store.errorMessage == nil && store.session?.status != .abandoned && !store.isRevealed
+    }
 
     var body: some View {
         Group {
@@ -41,8 +46,16 @@ struct DiscussBeforeTravellingGameView: View {
                     myName: appModel.currentUser.name, partnerName: appModel.partner.name,
                     onPlayAnother: { dismiss() }
                 )
-            } else if let round = store.nextUnansweredRound(myID: myID), case let .discuss(topic)? = store.content(for: round) {
+            } else if let round = store.displayedRound(myID: myID), case let .discuss(topic)? = store.content(for: round) {
                 roundView(round: round, topic: topic)
+                    .onAppear { responseText = store.myResponse(for: round, myID: myID)?.answerValue ?? "" }
+                    .onChange(of: round.id) { _, _ in
+                        // Fires on every round change — forward progress and back-navigation
+                        // alike — so this is the one place `responseText` gets (re)populated:
+                        // empty for a fresh round, or the prior answer when revisiting one
+                        // already answered.
+                        responseText = store.myResponse(for: round, myID: myID)?.answerValue ?? ""
+                    }
             } else {
                 GameCompletionView(
                     partnerName: appModel.partner.name,
@@ -68,17 +81,27 @@ struct DiscussBeforeTravellingGameView: View {
         .navigationTitle(title ?? GameType.discussBeforeTravelling.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            // Not offered once results are showing — abandoning a completed session would mark
-            // it "abandoned" and drop it out of deck progress/history, which makes no sense for
-            // a game that's already finished.
+            if isActivelyPlaying {
+                ToolbarItem(placement: .topBarLeading) {
+                    GameBackButton(action: handleBack)
+                }
+            }
+            // Not offered once results are showing — GameResultsView has its own toolbar
+            // (Edit My Answers / Reset Game / support menu) for the post-completion case.
             if !store.isRevealed {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Leave", role: .destructive) {
-                        Task { await store.abandon(); dismiss() }
+                    Menu {
+                        SupportMenuItems(userID: myID, context: "\(GameType.discussBeforeTravelling.displayName) — session \(sessionID.uuidString)", showingNoMailAppAlert: $showingNoMailAppAlert)
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
                     }
                 }
             }
         }
+        .navigationBarBackButtonHidden(isActivelyPlaying)
+        .interactivePopGestureDisabled(isActivelyPlaying)
+        .noMailAppAlert(isPresented: $showingNoMailAppAlert)
+        .gameLeaveConfirmation(isPresented: $showingLeaveConfirm) { Task { await leaveGame() } }
         .task { await store.load(sessionID: sessionID) }
         .task { await store.subscribeRealtime(sessionID: sessionID) }
         .onDisappear { store.stopRealtime() }
@@ -141,7 +164,10 @@ struct DiscussBeforeTravellingGameView: View {
         isSubmitting = true
         Task {
             await store.submit(roundNumber: round.roundNumber, answerValue: value)
-            responseText = ""
+            // No manual `responseText` reset here — the `.onChange(of: round.id)` handler on the
+            // round view above is the single source of truth for it, firing once `store.submit`
+            // has moved on to whichever round comes next (a fresh one, or the previous one again
+            // if the player was revisiting it — see GameSessionStore.advanceViewingCursorIfNeeded).
             isSubmitting = false
         }
     }
@@ -156,6 +182,21 @@ struct DiscussBeforeTravellingGameView: View {
         isEditingAnswers = true
         await store.editMyAnswers()
         isEditingAnswers = false
+    }
+
+    private func handleBack() {
+        if store.canGoBack(myID: myID) {
+            store.goBack(myID: myID)
+        } else {
+            showingLeaveConfirm = true
+        }
+    }
+
+    private func leaveGame() async {
+        if let sessionID = store.session?.id {
+            try? await BackendService.abandonGameSession(id: sessionID)
+        }
+        dismiss()
     }
 
     /// My own private responses so far — safe to show to me alone even before the session

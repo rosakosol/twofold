@@ -10,6 +10,12 @@
 //  flag means saying yes anywhere stops all future prompting for good. A "not really" response
 //  intentionally leaves future milestones free to ask again.
 //
+//  A global once-per-day cap sits on top of the per-milestone flags — someone brand new to the
+//  app can plausibly cross several milestones (connect partner, add a flight, add a trip...) in
+//  one sitting, and without this they'd get prompted for a rating up to five times in a single
+//  session. A milestone blocked by the daily cap is NOT marked shown — it stays eligible to
+//  prompt on a later day instead of being silently used up.
+//
 
 import Foundation
 
@@ -23,6 +29,7 @@ enum ReviewMilestone: String, CaseIterable {
 
 enum ReviewPromptService {
     private static let hasRatedKey = "reviewPrompt.hasRespondedPositively"
+    private static let lastShownAtKey = "reviewPrompt.lastShownAt"
 
     private static func shownKey(_ milestone: ReviewMilestone) -> String {
         "reviewPrompt.shown.\(milestone.rawValue)"
@@ -37,11 +44,16 @@ enum ReviewPromptService {
     }
 
     /// Marks a milestone as shown and returns whether it's actually eligible to prompt right
-    /// now (not already shown for this milestone, and the user hasn't already said yes
-    /// elsewhere) — call once per detected milestone; a `false` result means don't show anything.
+    /// now (not already shown for this milestone, the user hasn't already said yes elsewhere,
+    /// and no prompt has been shown yet today for any milestone) — call once per detected
+    /// milestone; a `false` result means don't show anything.
     static func markShownIfEligible(_ milestone: ReviewMilestone) -> Bool {
         guard !hasRespondedPositively, !UserDefaults.standard.bool(forKey: shownKey(milestone)) else { return false }
+        if let lastShownAt = UserDefaults.standard.object(forKey: lastShownAtKey) as? Date, Calendar.current.isDateInToday(lastShownAt) {
+            return false
+        }
         UserDefaults.standard.set(true, forKey: shownKey(milestone))
+        UserDefaults.standard.set(Date.now, forKey: lastShownAtKey)
         return true
     }
 }
