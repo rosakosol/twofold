@@ -1801,6 +1801,7 @@ enum BackendService {
         var status: GameSessionStatus
         var totalRounds: Int
         var isDaily: Bool
+        var deckId: UUID?
         var startedAt: Date?
         var completedAt: Date?
         var createdAt: Date
@@ -1813,6 +1814,7 @@ enum BackendService {
             case initiatorId = "initiator_id"
             case totalRounds = "total_rounds"
             case isDaily = "is_daily"
+            case deckId = "deck_id"
             case startedAt = "started_at"
             case completedAt = "completed_at"
             case createdAt = "created_at"
@@ -1822,7 +1824,7 @@ enum BackendService {
         func toModel() -> GameSession {
             GameSession(
                 id: id, coupleID: coupleId, gameType: gameType, initiatorID: initiatorId, status: status,
-                totalRounds: totalRounds, isDaily: isDaily, startedAt: startedAt, completedAt: completedAt,
+                totalRounds: totalRounds, isDaily: isDaily, deckID: deckId, startedAt: startedAt, completedAt: completedAt,
                 createdAt: createdAt, updatedAt: updatedAt
             )
         }
@@ -1969,6 +1971,51 @@ enum BackendService {
         return id
     }
 
+    private struct GameDeckRow: Decodable {
+        var id: UUID
+        var topic: String
+        var gameType: GameType
+        var title: String
+        var emoji: String
+        var tier: String
+        var sortOrder: Int
+
+        enum CodingKeys: String, CodingKey {
+            case id, topic, title, emoji, tier
+            case gameType = "game_type"
+            case sortOrder = "sort_order"
+        }
+
+        func toModel() -> GameDeck {
+            GameDeck(id: id, topic: topic, gameType: gameType, title: title, emoji: emoji, tier: tier, sortOrder: sortOrder)
+        }
+    }
+
+    /// Every active deck across all topics — small enough (a few dozen rows) to fetch in full and
+    /// let the caller filter/group client-side, same approach as `fetchGameContentCatalog`.
+    static func fetchGameDecks() async throws -> [GameDeck] {
+        let rows: [GameDeckRow] = try await supabase
+            .from("game_decks")
+            .select()
+            .eq("active", value: true)
+            .order("sort_order")
+            .execute()
+            .value
+        return rows.map { $0.toModel() }
+    }
+
+    static func startDeckSession(deckID: UUID) async throws -> UUID {
+        struct Params: Encodable {
+            var pDeckId: UUID
+            enum CodingKeys: String, CodingKey { case pDeckId = "p_deck_id" }
+        }
+        let id: UUID = try await supabase
+            .rpc("start_deck_session", params: Params(pDeckId: deckID))
+            .execute()
+            .value
+        return id
+    }
+
     static func abandonGameSession(id: UUID) async throws {
         struct Params: Encodable {
             var pSessionId: UUID
@@ -2018,53 +2065,17 @@ enum BackendService {
         return (row.currentStreak, row.longestStreak)
     }
 
-    /// Every active row across all 4 content tables — used client-side to compute per-topic
-    /// progress (see `fetchPlayedContentIDs`) without a dedicated RPC. Content volume is small
-    /// enough (low thousands of short text rows) that fetching the full active catalog once per
-    /// session is cheap; callers should cache this rather than refetching per view appearance.
-    static func fetchGameContentCatalog() async throws -> (trivia: [TriviaQuestion], moreLikely: [MoreLikelyPrompt], thisOrThat: [ThisOrThatPrompt], discussion: [DiscussionTopic]) {
-        async let triviaRows: [TriviaQuestionRow] = supabase.from("trivia_questions").select().eq("active", value: true).execute().value
-        async let moreLikelyRows: [MoreLikelyPromptRow] = supabase.from("more_likely_prompts").select().eq("active", value: true).execute().value
-        async let thisOrThatRows: [ThisOrThatPromptRow] = supabase.from("this_or_that_prompts").select().eq("active", value: true).execute().value
-        async let discussionRows: [DiscussionTopicRow] = supabase.from("discussion_topics").select().eq("active", value: true).execute().value
-        let (trivia, moreLikely, thisOrThat, discussion) = try await (triviaRows, moreLikelyRows, thisOrThatRows, discussionRows)
-        return (trivia.map { $0.toModel() }, moreLikely.map { $0.toModel() }, thisOrThat.map { $0.toModel() }, discussion.map { $0.toModel() })
+    private struct DeckIDOnlyRow: Decodable {
+        var deckId: UUID?
+        enum CodingKeys: String, CodingKey { case deckId = "deck_id" }
     }
 
-    private struct GameTypeOnlyRow: Decodable {
-        var id: UUID
-        var gameType: GameType
-        enum CodingKeys: String, CodingKey { case id, gameType = "game_type" }
-    }
-
-    private struct ContentIDOnlyRow: Decodable {
-        var sessionId: UUID
-        var contentId: UUID
-        enum CodingKeys: String, CodingKey { case sessionId = "session_id", contentId = "content_id" }
-    }
-
-    /// Which content ids this couple has already played, per game type — joined client-side
-    /// (RLS already scopes both `game_sessions`/`game_session_rounds` reads to the caller's own
-    /// couple) rather than via a new RPC, since a couple's own play history is small enough that
-    /// two plain selects plus an in-memory join is simpler than adding server-side plumbing.
-    static func fetchPlayedContentIDs() async throws -> [GameType: Set<UUID>] {
-        let sessions: [GameTypeOnlyRow] = try await supabase.from("game_sessions").select("id, game_type").execute().value
-        guard !sessions.isEmpty else { return [:] }
-        let gameTypeBySessionID = Dictionary(uniqueKeysWithValues: sessions.map { ($0.id, $0.gameType) })
-
-        let rounds: [ContentIDOnlyRow] = try await supabase
-            .from("game_session_rounds")
-            .select("session_id, content_id")
-            .in("session_id", values: sessions.map(\.id))
-            .execute()
-            .value
-
-        var result: [GameType: Set<UUID>] = [:]
-        for round in rounds {
-            guard let gameType = gameTypeBySessionID[round.sessionId] else { continue }
-            result[gameType, default: []].insert(round.contentId)
-        }
-        return result
+    /// Which decks this couple has started at least one session of — RLS already scopes
+    /// `game_sessions` to the caller's own couple, so this is a plain select + client-side filter
+    /// rather than a dedicated RPC.
+    static func fetchPlayedDeckIDs() async throws -> Set<UUID> {
+        let rows: [DeckIDOnlyRow] = try await supabase.from("game_sessions").select("deck_id").execute().value
+        return Set(rows.compactMap(\.deckId))
     }
 
     /// Relies on RLS to scope results to the caller's own couple — no couple id is passed or

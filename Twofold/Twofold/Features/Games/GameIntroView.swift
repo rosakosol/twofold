@@ -12,6 +12,10 @@ import SwiftUI
 struct GameIntroView: View {
     let gameType: GameType
     var totalRounds: Int = 5
+    /// Set only when this session came from a curated topic deck (see `DeckEntryView`) — a
+    /// regular game-type session draws from every topic's shared pool, so there's nothing single
+    /// topic to show for it.
+    var topic: GameTopic? = nil
     /// True when a session already exists and the *other* partner has already completed all
     /// their rounds — changes the copy from "here's how this works" to "they're waiting on you."
     var partnerAlreadyFinished: Bool = false
@@ -32,6 +36,10 @@ struct GameIntroView: View {
             .frame(width: 88, height: 88)
 
             VStack(spacing: Theme.Spacing.sm) {
+                if let topic {
+                    PillBadge(text: topic.displayName, tint: topic.color)
+                }
+
                 Text(gameType.displayName)
                     .font(.title2.weight(.bold))
                     .multilineTextAlignment(.center)

@@ -66,6 +66,14 @@ struct GameCard: View {
         .frame(maxWidth: width == nil ? .infinity : nil, alignment: .leading)
         .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+        // Cards share Theme.cardBackground with their own container (SectionCard) — without
+        // this, adjacent cards in the Recommended Games carousel had no visible boundary at all
+        // and just blended into one continuous surface.
+        .overlay {
+            RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+                .strokeBorder(Theme.subtleInk.opacity(0.15), lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(0.06), radius: 6, y: 3)
         .overlay {
             if isLocked {
                 RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)

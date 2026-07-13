@@ -69,40 +69,47 @@ struct TravelTriviaGameView: View {
 
     // MARK: - Round
 
-    private func roundView(round: GameSessionRound, question: TriviaQuestion) -> some View {
-        ScrollView {
-            VStack(spacing: Theme.Spacing.lg) {
-                VStack(spacing: Theme.Spacing.xs) {
-                    Text("Question \(round.roundNumber) of \(store.rounds.count)")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Theme.subtleInk)
-                    Text(question.category.uppercased())
-                        .font(.caption2.weight(.bold))
-                        .foregroundStyle(Theme.skyBlue)
-                    Text(question.question)
-                        .font(.title3.weight(.bold))
-                        .multilineTextAlignment(.center)
-                }
-                .frame(maxWidth: .infinity)
+    private static let optionEmoji = ["1️⃣", "2️⃣", "3️⃣", "4️⃣"]
 
-                answerOptions(round: round, question: question)
+    private func roundView(round: GameSessionRound, question: TriviaQuestion) -> some View {
+        GeometryReader { geometry in
+            ScrollView {
+                VStack(spacing: Theme.Spacing.lg) {
+                    VStack(spacing: Theme.Spacing.xs) {
+                        Text("Question \(round.roundNumber) of \(store.rounds.count)")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Theme.subtleInk)
+                        Text(question.category.uppercased())
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(Theme.skyBlue)
+                        Text(question.question)
+                            .font(.title3.weight(.bold))
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity)
+
+                    answerOptions(round: round, question: question)
+                }
+                .padding(Theme.Spacing.lg)
+                .frame(maxWidth: .infinity, minHeight: geometry.size.height, alignment: .center)
             }
-            .padding(Theme.Spacing.lg)
         }
     }
 
     private func answerOptions(round: GameSessionRound, question: TriviaQuestion) -> some View {
         VStack(spacing: Theme.Spacing.sm) {
-            ForEach(question.options, id: \.self) { option in
+            ForEach(Array(question.options.enumerated()), id: \.offset) { index, option in
                 Button {
                     submit(round: round, value: option, isCorrect: option == question.correctAnswer)
                 } label: {
-                    Text(option)
-                        .font(.subheadline.weight(.medium))
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .foregroundStyle(Theme.ink)
-                        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                    HStack(spacing: Theme.Spacing.sm) {
+                        Text(Self.optionEmoji[index % Self.optionEmoji.count]).font(.title3)
+                        Text(option).font(.subheadline.weight(.medium)).multilineTextAlignment(.leading)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .foregroundStyle(Theme.ink)
+                    .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                 }
                 .disabled(isSubmitting)
             }

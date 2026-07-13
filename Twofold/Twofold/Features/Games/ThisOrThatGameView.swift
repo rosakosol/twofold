@@ -67,35 +67,40 @@ struct ThisOrThatGameView: View {
     }
 
     private func roundView(round: GameSessionRound, prompt: ThisOrThatPrompt) -> some View {
-        ScrollView {
-            VStack(spacing: Theme.Spacing.lg) {
-                Text("Round \(round.roundNumber) of \(store.rounds.count)")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(Theme.subtleInk)
+        GeometryReader { geometry in
+            ScrollView {
+                VStack(spacing: Theme.Spacing.lg) {
+                    Text("Round \(round.roundNumber) of \(store.rounds.count)")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Theme.subtleInk)
 
-                VStack(spacing: Theme.Spacing.sm) {
-                    choiceButton(title: prompt.optionA, value: ThisOrThatChoice.optionA.rawValue, round: round)
-                    Text("or").font(.caption).foregroundStyle(Theme.subtleInk)
-                    choiceButton(title: prompt.optionB, value: ThisOrThatChoice.optionB.rawValue, round: round)
-                    SkipButton(isDisabled: isSubmitting) {
-                        submit(round: round, value: "")
+                    VStack(spacing: Theme.Spacing.sm) {
+                        choiceButton(emoji: "🅰️", title: prompt.optionA, value: ThisOrThatChoice.optionA.rawValue, round: round)
+                        Text("or").font(.caption).foregroundStyle(Theme.subtleInk)
+                        choiceButton(emoji: "🅱️", title: prompt.optionB, value: ThisOrThatChoice.optionB.rawValue, round: round)
+                        SkipButton(isDisabled: isSubmitting) {
+                            submit(round: round, value: "")
+                        }
                     }
                 }
+                .padding(Theme.Spacing.lg)
+                .frame(maxWidth: .infinity, minHeight: geometry.size.height, alignment: .center)
             }
-            .padding(Theme.Spacing.lg)
         }
     }
 
-    private func choiceButton(title: String, value: String, round: GameSessionRound) -> some View {
+    private func choiceButton(emoji: String, title: String, value: String, round: GameSessionRound) -> some View {
         Button {
             submit(round: round, value: value)
         } label: {
-            Text(title)
-                .font(.title3.weight(.semibold))
-                .frame(maxWidth: .infinity)
-                .padding()
-                .foregroundStyle(Theme.ink)
-                .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+            HStack(spacing: Theme.Spacing.sm) {
+                Text(emoji).font(.title2)
+                Text(title).font(.title3.weight(.semibold)).multilineTextAlignment(.leading)
+            }
+            .frame(maxWidth: .infinity)
+            .padding()
+            .foregroundStyle(Theme.ink)
+            .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         }
         .disabled(isSubmitting)
     }

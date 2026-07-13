@@ -67,40 +67,45 @@ struct WhosMoreLikelyGameView: View {
     }
 
     private func roundView(round: GameSessionRound, prompt: MoreLikelyPrompt) -> some View {
-        ScrollView {
-            VStack(spacing: Theme.Spacing.lg) {
-                VStack(spacing: Theme.Spacing.xs) {
-                    Text("Round \(round.roundNumber) of \(store.rounds.count)")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Theme.subtleInk)
-                    Text(prompt.prompt)
-                        .font(.title3.weight(.bold))
-                        .multilineTextAlignment(.center)
-                }
-                .frame(maxWidth: .infinity)
+        GeometryReader { geometry in
+            ScrollView {
+                VStack(spacing: Theme.Spacing.lg) {
+                    VStack(spacing: Theme.Spacing.xs) {
+                        Text("Round \(round.roundNumber) of \(store.rounds.count)")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Theme.subtleInk)
+                        Text(prompt.prompt)
+                            .font(.title3.weight(.bold))
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity)
 
-                VStack(spacing: Theme.Spacing.sm) {
-                    choiceButton(title: "Me", personID: myID, round: round)
-                    choiceButton(title: appModel.partner.name, personID: partnerID, round: round)
-                    SkipButton(isDisabled: isSubmitting) {
-                        submit(round: round, value: "")
+                    VStack(spacing: Theme.Spacing.sm) {
+                        choiceButton(emoji: "🙋", title: "Me", personID: myID, round: round)
+                        choiceButton(emoji: "👉", title: appModel.partner.name, personID: partnerID, round: round)
+                        SkipButton(isDisabled: isSubmitting) {
+                            submit(round: round, value: "")
+                        }
                     }
                 }
+                .padding(Theme.Spacing.lg)
+                .frame(maxWidth: .infinity, minHeight: geometry.size.height, alignment: .center)
             }
-            .padding(Theme.Spacing.lg)
         }
     }
 
-    private func choiceButton(title: String, personID: UUID, round: GameSessionRound) -> some View {
+    private func choiceButton(emoji: String, title: String, personID: UUID, round: GameSessionRound) -> some View {
         Button {
             submit(round: round, value: personID.uuidString)
         } label: {
-            Text(title)
-                .font(.headline)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .foregroundStyle(Theme.ink)
-                .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+            HStack(spacing: Theme.Spacing.sm) {
+                Text(emoji).font(.title2)
+                Text(title).font(.headline)
+            }
+            .frame(maxWidth: .infinity)
+            .padding()
+            .foregroundStyle(Theme.ink)
+            .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         }
         .disabled(isSubmitting)
     }

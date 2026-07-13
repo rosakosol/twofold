@@ -250,6 +250,7 @@
 				DB8C94FE2FFC501C00E0E71E /* Frameworks */,
 				DB8C94FF2FFC501C00E0E71E /* Resources */,
 				DB8C96D82FFE69E900E0E71E /* Embed Foundation Extensions */,
+				2FBE84533AA686605F5AA477 /* Inject MapLibre dSYM */,
 			);
 			buildRules = (
 			);
@@ -456,6 +457,25 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		2FBE84533AA686605F5AA477 /* Inject MapLibre dSYM */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/Vendor/MapLibre_ios_device.framework.dSYM.zip",
+			);
+			name = "Inject MapLibre dSYM";
+			outputPaths = (
+				"$(DWARF_DSYM_FOLDER_PATH)/MapLibre_ios_device.framework.dSYM",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# MapLibre's xcframework distribution doesn't bundle a dSYM (upstream issue:\n# https://github.com/maplibre/maplibre-native/issues/3155), so App Store Connect rejects\n# uploads for a missing MapLibre.framework dSYM. This copies the dSYM published separately\n# for the pinned MapLibre version (see Twofold/Vendor/MapLibre_ios_device.framework.dSYM.zip)\n# into the archive's dSYMs folder. Only meaningful during an Archive build, where\n# DWARF_DSYM_FOLDER_PATH is set to a real path; a no-op otherwise.\nif [ -n \"${DWARF_DSYM_FOLDER_PATH}\" ]; then\n  mkdir -p \"${DWARF_DSYM_FOLDER_PATH}\"\n  unzip -o -q \"${SRCROOT}/Vendor/MapLibre_ios_device.framework.dSYM.zip\" -d \"${DWARF_DSYM_FOLDER_PATH}\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		DB8C94FD2FFC501C00E0E71E /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -556,7 +576,7 @@
 				DEVELOPMENT_TEAM = 74FZ8H3GX2;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -620,7 +640,7 @@
 				DEVELOPMENT_TEAM = 74FZ8H3GX2;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;

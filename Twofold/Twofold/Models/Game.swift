@@ -78,6 +78,17 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
         }
     }
 
+    /// Compact uppercase label for deck badges (e.g. topic detail cards) — `displayName` reads
+    /// naturally as a game-type title, but is too long for a small pill.
+    var shortLabel: String {
+        switch self {
+        case .travelTrivia: "TRIVIA"
+        case .moreLikely: "MORE LIKELY"
+        case .thisOrThat: "THIS OR THAT"
+        case .discussBeforeTravelling: "DEEP CONVERSATION"
+        }
+    }
+
     var tagline: String {
         switch self {
         case .travelTrivia: "Put your travel knowledge to the test."
@@ -154,10 +165,28 @@ struct GameSession: Identifiable, Hashable {
     /// True for the couple's single daily Daily-Activity session (an ordinary 1-round
     /// `discuss_before_travelling` session under the hood — see `get_daily_question_session`).
     var isDaily: Bool
+    /// Set when this session was started from a curated deck (`start_deck_session`) rather than
+    /// the shared pool (`start_game_session`) — nil for every other session.
+    var deckID: UUID?
     var startedAt: Date?
     var completedAt: Date?
     var createdAt: Date
     var updatedAt: Date
+}
+
+/// A small, curated, individually-playable subset of one game type's content, scoped to one
+/// topic — what the topic detail screen actually lists and lets you start, replacing the earlier
+/// "just a count over the shared pool" model. `game_decks` is a genuinely separate table from
+/// the 4 content tables; a deck's questions are whichever existing rows got tagged with its id
+/// via `deck_id` (see the `20260714000000_game_decks.sql` migration).
+struct GameDeck: Identifiable, Hashable {
+    let id: UUID
+    var topic: String
+    var gameType: GameType
+    var title: String
+    var emoji: String
+    var tier: String
+    var sortOrder: Int
 }
 
 /// Where a specific partner is in a session — derived client-side from how many rounds they've

@@ -2,11 +2,10 @@
 //  TopicsSection.swift
 //  Twofold
 //
-//  Browsable/informational only, deliberately not a second way to start a session — tapping a
-//  topic opens a detail sheet (which games include it + how much you've played), but actually
-//  playing still goes through the 4 GameType cards above. Progress bars are computed client-side
-//  in AppModel (loadGameContentCatalogIfNeeded/topicProgress) from the couple's own play
-//  history, not a dedicated RPC.
+//  Tapping a topic opens a detail sheet listing that topic's curated decks — real, individually
+//  playable mini-games (see `GameDeck`), not just a filtered view over the shared pools. Progress
+//  bars reflect how many of a topic's decks the couple has started, computed client-side in
+//  AppModel from the couple's own play history (no dedicated RPC).
 //
 
 import SwiftUI
@@ -32,7 +31,7 @@ struct TopicsSection: View {
                 }
             }
         }
-        .task { await appModel.loadGameContentCatalogIfNeeded() }
+        .task { await appModel.loadGameDecksIfNeeded() }
         .sheet(item: $selectedTopic) { topic in
             TopicDetailView(topic: topic)
         }
@@ -40,6 +39,9 @@ struct TopicsSection: View {
 
     private func topicRow(_ topic: GameTopic) -> some View {
         let progress = appModel.topicProgress(topic)
+        let fraction = progress.map { $0.total > 0 ? Double($0.played) / Double($0.total) : 0 } ?? 0
+        let percent = Int((fraction * 100).rounded())
+
         return HStack(spacing: Theme.Spacing.sm) {
             ZStack {
                 Circle().fill(topic.color.opacity(0.18))
@@ -49,16 +51,17 @@ struct TopicsSection: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(topic.displayName).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.ink)
-                ProgressView(value: Double(progress?.played ?? 0), total: Double(max(progress?.total ?? 1, 1)))
+                ProgressView(value: fraction)
                     .tint(topic.color)
-                if let progress, progress.total > 0 {
-                    Text("\(progress.played)/\(progress.total) played")
-                        .font(.caption2)
-                        .foregroundStyle(Theme.subtleInk)
-                }
             }
 
-            Spacer()
+            if progress != nil {
+                Text("\(percent)%")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(Theme.subtleInk)
+                    .monospacedDigit()
+            }
+
             Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
         }
         .padding(Theme.Spacing.sm)
@@ -76,37 +79,26 @@ struct TopicDetailView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: Theme.Spacing.lg) {
+                VStack(spacing: Theme.Spacing.md) {
                     ZStack {
                         Circle().fill(topic.color.opacity(0.18))
                         Image(systemName: topic.icon).font(.largeTitle).foregroundStyle(topic.color)
                     }
                     .frame(width: 72, height: 72)
-
-                    if let progress = appModel.topicProgress(topic), progress.total > 0 {
-                        Text("\(progress.played) of \(progress.total) played")
-                            .font(.subheadline)
-                            .foregroundStyle(Theme.subtleInk)
-                    }
+                    .padding(.top, Theme.Spacing.sm)
 
                     VStack(spacing: Theme.Spacing.sm) {
-                        ForEach(appModel.gameTypes(for: topic), id: \.gameType) { entry in
-                            HStack {
-                                Image(systemName: entry.gameType.icon).foregroundStyle(topic.color)
-                                Text(entry.gameType.displayName).font(.subheadline.weight(.medium)).foregroundStyle(Theme.ink)
-                                Spacer()
-                                Text("\(entry.count)").font(.caption).foregroundStyle(Theme.subtleInk)
-                            }
-                            .padding(Theme.Spacing.sm)
-                            .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                        ForEach(appModel.decks(for: topic)) { deck in
+                            deckCard(deck)
                         }
                     }
 
-                    Text("Play any of these games to explore \(topic.displayName.lowercased()) — topics are mixed together within each game, so there's no way to jump straight into just one.")
-                        .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, Theme.Spacing.lg)
+                    if appModel.decks(for: topic).isEmpty {
+                        Text("No decks in this topic yet.")
+                            .font(.subheadline)
+                            .foregroundStyle(Theme.subtleInk)
+                            .padding(.top, Theme.Spacing.lg)
+                    }
                 }
                 .padding(Theme.Spacing.lg)
             }
@@ -119,6 +111,62 @@ struct TopicDetailView: View {
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private func deckCard(_ deck: GameDeck) -> some View {
+        let isLocked = deck.tier == "premium" && appModel.subscriptionTier != "premium"
+        if isLocked {
+            deckCardContent(deck, isLocked: true)
+        } else if appModel.partnerConnected {
+            NavigationLink {
+                DeckEntryView(deck: deck)
+            } label: {
+                deckCardContent(deck, isLocked: false)
+            }
+            .buttonStyle(.plain)
+        } else {
+            deckCardContent(deck, isLocked: true)
+        }
+    }
+
+    private func deckCardContent(_ deck: GameDeck, isLocked: Bool) -> some View {
+        HStack(spacing: Theme.Spacing.sm) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(LinearGradient(colors: deck.gameType.iconGradient, startPoint: .topLeading, endPoint: .bottomTrailing))
+                Text(deck.emoji).font(.title2)
+            }
+            .frame(width: 48, height: 48)
+
+            VStack(alignment: .leading, spacing: 4) {
+                PillBadge(text: deck.gameType.shortLabel, tint: deck.gameType.iconGradient.first ?? Theme.skyBlue)
+                Text(deck.title)
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(Theme.ink)
+                    .multilineTextAlignment(.leading)
+            }
+
+            Spacer(minLength: 0)
+
+            if isLocked {
+                ZStack {
+                    Circle().fill(Theme.subtleInk.opacity(0.12))
+                    Image(systemName: "lock.fill").font(.caption).foregroundStyle(Theme.subtleInk)
+                }
+                .frame(width: 30, height: 30)
+            } else {
+                Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
+            }
+        }
+        .padding(Theme.Spacing.sm)
+        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+                .strokeBorder(Theme.subtleInk.opacity(0.12), lineWidth: 1)
+        }
+        .opacity(isLocked ? 0.7 : 1)
+        .contentShape(Rectangle())
     }
 }
 
