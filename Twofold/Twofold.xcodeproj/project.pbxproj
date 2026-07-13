@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		1C9E320F0AD4B9800DF63AF0 /* RevenueCatUI in Frameworks */ = {isa = PBXBuildFile; productRef = 9206C26209471945B4BC1692 /* RevenueCatUI */; };
 		28A7BE205066EA09EE406FF9 /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = A3948E5A3E10682179798BA9 /* RevenueCat */; };
+		93ADC225038D415FDA0BD3F7 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = F901F2814B160B3766805AB5 /* PostHog */; };
 		BC85C70A80C3C391278A3AEC /* MapLibre in Frameworks */ = {isa = PBXBuildFile; productRef = F803247FC27B01248A733EF4 /* MapLibre */; };
 		DB8C96D32FFE69E800E0E71E /* TwofoldShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = DB8C96C92FFE69E700E0E71E /* TwofoldShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		DB8C96DF2FFE743400E0E71E /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = DB8C96DE2FFE743400E0E71E /* Supabase */; };
@@ -172,6 +173,7 @@
 				BC85C70A80C3C391278A3AEC /* MapLibre in Frameworks */,
 				28A7BE205066EA09EE406FF9 /* RevenueCat in Frameworks */,
 				1C9E320F0AD4B9800DF63AF0 /* RevenueCatUI in Frameworks */,
+				93ADC225038D415FDA0BD3F7 /* PostHog in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -274,6 +276,7 @@
 				F803247FC27B01248A733EF4 /* MapLibre */,
 				A3948E5A3E10682179798BA9 /* RevenueCat */,
 				9206C26209471945B4BC1692 /* RevenueCatUI */,
+				F901F2814B160B3766805AB5 /* PostHog */,
 			);
 			productName = Twofold;
 			productReference = DB8C95012FFC501C00E0E71E /* Twofold.app */;
@@ -412,6 +415,7 @@
 				DB8C96E62FFEF0B400E0E71E /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 				97F700637180FDF6A851A73E /* XCRemoteSwiftPackageReference "maplibre-gl-native-distribution" */,
 				6093DA4122154A4832D53F0A /* XCRemoteSwiftPackageReference "purchases-ios-spm" */,
+				C7B88F4314ECCD565C1468AF /* XCRemoteSwiftPackageReference "posthog-ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = DB8C95022FFC501C00E0E71E /* Products */;
@@ -1026,6 +1030,14 @@
 				minimumVersion = 6.27.0;
 			};
 		};
+		C7B88F4314ECCD565C1468AF /* XCRemoteSwiftPackageReference "posthog-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/PostHog/posthog-ios.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.64.6;
+			};
+		};
 		DB8C96DD2FFE743400E0E71E /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/supabase/supabase-swift";
@@ -1074,6 +1086,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 97F700637180FDF6A851A73E /* XCRemoteSwiftPackageReference "maplibre-gl-native-distribution" */;
 			productName = MapLibre;
+		};
+		F901F2814B160B3766805AB5 /* PostHog */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C7B88F4314ECCD565C1468AF /* XCRemoteSwiftPackageReference "posthog-ios" */;
+			productName = PostHog;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

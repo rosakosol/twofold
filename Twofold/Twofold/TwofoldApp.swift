@@ -7,6 +7,7 @@ struct TwofoldApp: App {
 
     init() {
         RevenueCatConfig.configure()
+        AnalyticsConfig.configure()
     }
 
     var body: some Scene {

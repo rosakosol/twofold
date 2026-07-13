@@ -8,6 +8,7 @@
 
 import Foundation
 import Observation
+import PostHog
 import RevenueCat
 
 @Observable
@@ -155,6 +156,7 @@ final class AppModel {
     /// `fetchCoupleState` found nothing.
     func loadSignedInState() async {
         await identifyWithRevenueCat()
+        identifyWithPostHog()
         restorePendingMemoriesFromDisk()
         if let state = try? await BackendService.fetchCoupleState() {
             await adopt(state)
@@ -240,11 +242,21 @@ final class AppModel {
         _ = try? await Purchases.shared.logIn(userID.uuidString)
     }
 
+    /// Same idea as `identifyWithRevenueCat()`, for PostHog — ties analytics events to the same
+    /// stable Supabase user id instead of PostHog's own throwaway anonymous id, so a signed-in
+    /// user's activity lines up across devices/reinstalls. Synchronous (unlike the RevenueCat
+    /// call): `PostHogSDK.identify(_:)` just queues locally, no network round-trip to await.
+    private func identifyWithPostHog() {
+        guard let userID = BackendService.currentUserID else { return }
+        PostHogSDK.shared.identify(userID.uuidString)
+    }
+
     /// Signs out and resets all local state back to the pre-auth placeholder — `RootView`
     /// picks this up via `hasCouple` and routes back to `WelcomeView`.
     func signOut() async {
         try? await BackendService.signOut()
         _ = try? await Purchases.shared.logOut()
+        PostHogSDK.shared.reset()
         hasCouple = false
         partnerConnected = false
         inviteCode = nil
