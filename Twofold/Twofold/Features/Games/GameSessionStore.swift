@@ -28,6 +28,12 @@ final class GameSessionStore {
     var pendingSyncCount = 0
 
     private var channel: RealtimeChannelV2?
+    /// Guards `syncPendingResponses()` against overlapping runs — `load(sessionID:)` and each
+    /// typed game view's reconnect `.onChange` can both call it within moments of each other
+    /// (e.g. connectivity returns right as the view appears), and without this a second run
+    /// could re-read the same on-disk queue mid-flush and double-submit an item the first run
+    /// hasn't removed yet.
+    private var isSyncingPendingResponses = false
 
     /// True once BOTH partners have answered every round — the single moment everything in
     /// `responses` becomes visible at once (see the RLS policy on `game_responses`), replacing
@@ -173,9 +179,11 @@ final class GameSessionStore {
     /// rejected by the same one-response-per-round-per-responder constraint `advance_game_session`
     /// relies on), not a transient issue worth blocking the rest of the queue over.
     func syncPendingResponses() async {
-        guard let session else { return }
+        guard let session, !isSyncingPendingResponses else { return }
         let pending = PendingGameResponseStore.forSession(session.id)
         guard !pending.isEmpty else { return }
+        isSyncingPendingResponses = true
+        defer { isSyncingPendingResponses = false }
         let wasRevealed = isRevealed
         for item in pending {
             try? await BackendService.submitGameResponse(sessionID: item.sessionID, roundNumber: item.roundNumber, answerValue: item.answerValue, isCorrect: item.isCorrect)

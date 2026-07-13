@@ -109,19 +109,15 @@ struct ThisOrThatGameView: View {
                             rightColor: Theme.heartRed,
                             isDisabled: isSubmitting,
                             content: {
-                                // Concatenated Text (not separate stacked lines) so "Answer or
-                                // Answer" reads and wraps as one flowing phrase, with each
-                                // option keeping its own swipe-direction color.
-                                (
-                                    Text("👈 ")
-                                    + Text(prompt.optionA).foregroundStyle(Theme.skyBlue).fontWeight(.heavy)
-                                    + Text(" or ").foregroundStyle(Theme.subtleInk)
-                                    + Text(prompt.optionB).foregroundStyle(Theme.heartRed).fontWeight(.heavy)
-                                    + Text(" 👉")
-                                )
-                                .font(.title2)
-                                .multilineTextAlignment(.center)
-                                .frame(maxWidth: .infinity)
+                                // One flowing "Answer or Answer" phrase, not separate stacked
+                                // lines, with each option keeping its own swipe-direction color —
+                                // built as a single AttributedString/Text rather than the
+                                // `Text + Text` concatenation this replaced, which iOS 26
+                                // deprecated in favor of exactly this.
+                                optionsPhrase(prompt)
+                                    .font(.title2)
+                                    .multilineTextAlignment(.center)
+                                    .frame(maxWidth: .infinity)
                             },
                             onChooseLeft: { submit(round: round, value: ThisOrThatChoice.optionA.rawValue) },
                             onChooseRight: { submit(round: round, value: ThisOrThatChoice.optionB.rawValue) }
@@ -136,6 +132,27 @@ struct ThisOrThatGameView: View {
                 .frame(maxWidth: .infinity, minHeight: geometry.size.height, alignment: .center)
             }
         }
+    }
+
+    private func optionsPhrase(_ prompt: ThisOrThatPrompt) -> Text {
+        var phrase = AttributedString("👈 ")
+
+        var optionA = AttributedString(prompt.optionA)
+        optionA.foregroundColor = Theme.skyBlue
+        optionA.font = .title2.weight(.heavy)
+        phrase += optionA
+
+        var or = AttributedString(" or ")
+        or.foregroundColor = Theme.subtleInk
+        phrase += or
+
+        var optionB = AttributedString(prompt.optionB)
+        optionB.foregroundColor = Theme.heartRed
+        optionB.font = .title2.weight(.heavy)
+        phrase += optionB
+
+        phrase += AttributedString(" 👉")
+        return Text(phrase)
     }
 
     private func submit(round: GameSessionRound, value: String) {

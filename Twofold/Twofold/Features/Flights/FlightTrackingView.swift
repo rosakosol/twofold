@@ -158,7 +158,7 @@ struct FlightTrackingView: View {
             }
 
             if flight.lastRefreshedAt != nil {
-                Text("Updated \(flight.lastRefreshedAt.map(Self.relativeShort) ?? "recently") ago")
+                Text("Updated \(flight.lastRefreshedAt.map { Self.relativeShort($0) } ?? "recently") ago")
                     .font(.caption2)
                     .foregroundStyle(Theme.subtleInk)
             }

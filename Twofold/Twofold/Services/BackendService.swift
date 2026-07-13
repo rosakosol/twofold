@@ -1778,7 +1778,7 @@ enum BackendService {
 
     static func deleteMemoryPhoto(id: UUID, path: String) async throws {
         try await supabase.from("memory_photos").delete().eq("id", value: id).execute()
-        try? await supabase.storage.from("memory-photos").remove(paths: [path])
+        _ = try? await supabase.storage.from("memory-photos").remove(paths: [path])
     }
 
     /// `memory_photos` rows cascade-delete with the memory automatically; the underlying
@@ -1787,7 +1787,7 @@ enum BackendService {
     static func deleteMemory(id: UUID, photoPaths: [String]) async throws {
         try await supabase.from("memories").delete().eq("id", value: id).execute()
         if !photoPaths.isEmpty {
-            try? await supabase.storage.from("memory-photos").remove(paths: photoPaths)
+            _ = try? await supabase.storage.from("memory-photos").remove(paths: photoPaths)
         }
     }
 
