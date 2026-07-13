@@ -13,27 +13,27 @@ import WidgetKit
 
 struct DoodlePadEntry: TimelineEntry {
     let date: Date
-    let isSubscriptionActive: Bool
+    let subscriptionTier: String?
     let imageData: Data?
 }
 
 struct DoodlePadProvider: TimelineProvider {
     func placeholder(in context: Context) -> DoodlePadEntry {
-        DoodlePadEntry(date: .now, isSubscriptionActive: true, imageData: nil)
+        DoodlePadEntry(date: .now, subscriptionTier: WidgetTier.premium, imageData: nil)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (DoodlePadEntry) -> Void) {
-        completion(DoodlePadEntry(date: .now, isSubscriptionActive: WidgetSnapshot.read()?.isSubscriptionActive ?? false, imageData: WidgetImageCache.readDoodlePadImage()))
+        completion(DoodlePadEntry(date: .now, subscriptionTier: WidgetSnapshot.read()?.subscriptionTier, imageData: WidgetImageCache.readDoodlePadImage()))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<DoodlePadEntry>) -> Void) {
         let snapshot = WidgetSnapshot.read()
-        let isSubscriptionActive = snapshot?.isSubscriptionActive ?? false
+        let subscriptionTier = snapshot?.subscriptionTier
         let nextRefresh = Calendar.current.date(byAdding: .minute, value: 30, to: .now) ?? .now.addingTimeInterval(1800)
 
         guard let coupleID = snapshot?.coupleID, let partnerID = snapshot?.partnerID,
               let url = PublicStorageURL.drawingPad(coupleID: coupleID, personID: partnerID) else {
-            let entry = DoodlePadEntry(date: .now, isSubscriptionActive: isSubscriptionActive, imageData: WidgetImageCache.readDoodlePadImage())
+            let entry = DoodlePadEntry(date: .now, subscriptionTier: subscriptionTier, imageData: WidgetImageCache.readDoodlePadImage())
             completion(Timeline(entries: [entry], policy: .after(nextRefresh)))
             return
         }
@@ -44,7 +44,7 @@ struct DoodlePadProvider: TimelineProvider {
                 WidgetImageCache.writeDoodlePadImage(fetched)
                 imageData = fetched
             }
-            let entry = DoodlePadEntry(date: .now, isSubscriptionActive: isSubscriptionActive, imageData: imageData)
+            let entry = DoodlePadEntry(date: .now, subscriptionTier: subscriptionTier, imageData: imageData)
             completion(Timeline(entries: [entry], policy: .after(nextRefresh)))
         }
     }
@@ -52,6 +52,8 @@ struct DoodlePadProvider: TimelineProvider {
 
 struct DoodlePadWidgetView: View {
     let entry: DoodlePadEntry
+
+    private var isLocked: Bool { WidgetTier.isLocked(required: WidgetTier.premium, current: entry.subscriptionTier) }
 
     var body: some View {
         Group {
@@ -66,8 +68,9 @@ struct DoodlePadWidgetView: View {
                 emptyState
             }
         }
-        .widgetLock(!entry.isSubscriptionActive)
-        .widgetURL(URL(string: "twofold://paywall"))
+        .widgetBranded()
+        .widgetLock(requiredTier: WidgetTier.premium, currentTier: entry.subscriptionTier)
+        .widgetURL(URL(string: isLocked ? "twofold://paywall" : "twofold://drawing-pad"))
     }
 
     private var emptyState: some View {
@@ -92,11 +95,12 @@ struct DoodlePadWidget: Widget {
         .configurationDisplayName("Doodle Pad")
         .description("Whatever your partner's currently drawn.")
         .supportedFamilies([.systemSmall, .systemMedium])
+        .contentMarginsDisabled()
     }
 }
 
 #Preview(as: .systemSmall) {
     DoodlePadWidget()
 } timeline: {
-    DoodlePadEntry(date: .now, isSubscriptionActive: true, imageData: nil)
+    DoodlePadEntry(date: .now, subscriptionTier: WidgetTier.premium, imageData: nil)
 }

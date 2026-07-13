@@ -163,7 +163,7 @@ struct GameLogicTests {
 
     @Test func completedSessionsOnlyExcludesActiveAndAbandoned() {
         func session(status: GameSessionStatus) -> GameSession {
-            GameSession(id: UUID(), coupleID: UUID(), gameType: .travelTrivia, initiatorID: UUID(), status: status, totalRounds: 5, startedAt: nil, completedAt: nil, createdAt: .now, updatedAt: .now)
+            GameSession(id: UUID(), coupleID: UUID(), gameType: .travelTrivia, initiatorID: UUID(), status: status, totalRounds: 5, isDaily: false, deckID: nil, startedAt: nil, completedAt: nil, createdAt: .now, updatedAt: .now)
         }
         let sessions = [session(status: .active), session(status: .completed), session(status: .abandoned), session(status: .waitingForPartner)]
         let completed = GameLogic.completedSessionsOnly(sessions)
@@ -180,13 +180,13 @@ struct GameLogicTests {
 
     @Test func eachGameHasTheSpecifiedTypeLabelAndDuration() {
         #expect(GameType.travelTrivia.category == .compete)
-        #expect(GameType.travelTrivia.durationMinutes == 5)
+        #expect(GameType.travelTrivia.durationMinutes == 12)
         #expect(GameType.moreLikely.category == .compete)
-        #expect(GameType.moreLikely.durationMinutes == 5)
+        #expect(GameType.moreLikely.durationMinutes == 8)
         #expect(GameType.thisOrThat.category == .connect)
-        #expect(GameType.thisOrThat.durationMinutes == 3)
+        #expect(GameType.thisOrThat.durationMinutes == 6)
         #expect(GameType.discussBeforeTravelling.category == .connect)
-        #expect(GameType.discussBeforeTravelling.durationMinutes == 10)
+        #expect(GameType.discussBeforeTravelling.durationMinutes == 15)
     }
 
     @Test func everyGameTypeHasAUniqueDisplayName() {

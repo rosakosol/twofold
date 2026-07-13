@@ -12,7 +12,7 @@ import WidgetKit
 
 struct TimeWeatherEntry: TimelineEntry {
     let date: Date
-    let isSubscriptionActive: Bool
+    let subscriptionTier: String?
     let partnerCity: String?
     let timeZone: TimeZone?
     let weatherSymbolName: String?
@@ -21,7 +21,7 @@ struct TimeWeatherEntry: TimelineEntry {
 
 struct TimeWeatherProvider: TimelineProvider {
     func placeholder(in context: Context) -> TimeWeatherEntry {
-        TimeWeatherEntry(date: .now, isSubscriptionActive: true, partnerCity: "Singapore", timeZone: .current, weatherSymbolName: "cloud.sun.fill", temperatureLabel: "28°")
+        TimeWeatherEntry(date: .now, subscriptionTier: WidgetTier.premium, partnerCity: "Singapore", timeZone: .current, weatherSymbolName: "cloud.sun.fill", temperatureLabel: "28°")
     }
 
     func getSnapshot(in context: Context, completion: @escaping (TimeWeatherEntry) -> Void) {
@@ -37,7 +37,7 @@ struct TimeWeatherProvider: TimelineProvider {
     private func entry(from snapshot: WidgetSnapshot?) -> TimeWeatherEntry {
         TimeWeatherEntry(
             date: .now,
-            isSubscriptionActive: snapshot?.isSubscriptionActive ?? false,
+            subscriptionTier: snapshot?.subscriptionTier,
             partnerCity: snapshot?.partnerCity,
             timeZone: snapshot?.partnerTimeZoneIdentifier.flatMap(TimeZone.init(identifier:)),
             weatherSymbolName: snapshot?.partnerWeather?.symbolName,
@@ -48,6 +48,9 @@ struct TimeWeatherProvider: TimelineProvider {
 
 struct TimeWeatherWidgetView: View {
     let entry: TimeWeatherEntry
+
+    private var isLocked: Bool { WidgetTier.isLocked(required: WidgetTier.premium, current: entry.subscriptionTier) }
+    private var deepLinkURL: URL? { URL(string: isLocked ? "twofold://paywall" : "twofold://home") }
 
     var body: some View {
         if let timeZone = entry.timeZone {
@@ -96,12 +99,13 @@ struct TimeWeatherWidgetView: View {
                     endPoint: .bottomTrailing
                 )
             )
-            .widgetLock(!entry.isSubscriptionActive)
-            .widgetURL(URL(string: "twofold://paywall"))
+            .widgetBranded()
+            .widgetLock(requiredTier: WidgetTier.premium, currentTier: entry.subscriptionTier)
+            .widgetURL(deepLinkURL)
         } else {
             emptyState
-                .widgetLock(!entry.isSubscriptionActive)
-                .widgetURL(URL(string: "twofold://paywall"))
+                .widgetLock(requiredTier: WidgetTier.premium, currentTier: entry.subscriptionTier)
+                .widgetURL(deepLinkURL)
         }
     }
 
@@ -126,11 +130,12 @@ struct TimeWeatherWidget: Widget {
         .configurationDisplayName("Time & Weather")
         .description("Your partner's time and weather, side by side.")
         .supportedFamilies([.systemMedium])
+        .contentMarginsDisabled()
     }
 }
 
 #Preview(as: .systemMedium) {
     TimeWeatherWidget()
 } timeline: {
-    TimeWeatherEntry(date: .now, isSubscriptionActive: true, partnerCity: "Singapore", timeZone: TimeZone(identifier: "Asia/Singapore"), weatherSymbolName: "cloud.sun.fill", temperatureLabel: "28°")
+    TimeWeatherEntry(date: .now, subscriptionTier: WidgetTier.premium, partnerCity: "Singapore", timeZone: TimeZone(identifier: "Asia/Singapore"), weatherSymbolName: "cloud.sun.fill", temperatureLabel: "28°")
 }

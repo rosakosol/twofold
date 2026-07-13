@@ -32,7 +32,7 @@ const VALID_EVENT_TYPES: EventType[] = [
 
 // Event type -> notification_preferences column, mirroring the pattern in _shared/notify.ts.
 // game_reminder is deliberately absent — it's an explicit, one-off nudge the sender chooses to
-// send each time via a "Send Reminder" button, not ambient activity, so it's never muted.
+// send, not ambient activity, so it's never muted.
 const PREFERENCE_COLUMN: Partial<Record<EventType, string>> = {
   drawing_saved: "partner_drawing_saved",
   trip_added: "partner_trip_added",

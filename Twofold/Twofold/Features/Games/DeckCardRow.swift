@@ -100,9 +100,17 @@ struct DeckCardRow: View {
                 }
             }
 
-            HStack(spacing: -8) {
-                avatarWithTick(person: appModel.currentUser, completed: progress?.myCompleted ?? false)
-                avatarWithTick(person: appModel.partner, completed: progress?.partnerCompleted ?? false)
+            HStack(spacing: 0) {
+                // ZStack (not HStack's negative spacing) so draw order can put "me" on top
+                // regardless of left-to-right position — otherwise partner's avatar, added
+                // second, paints over my bottom-trailing checkmark badge whenever both overlap.
+                ZStack(alignment: .leading) {
+                    avatarWithTick(person: appModel.partner, completed: progress?.partnerCompleted ?? false)
+                        .offset(x: 24)
+                    avatarWithTick(person: appModel.currentUser, completed: progress?.myCompleted ?? false)
+                }
+                .frame(width: 56, height: 32, alignment: .leading)
+
                 Spacer(minLength: 0)
                 if !isLocked {
                     Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)

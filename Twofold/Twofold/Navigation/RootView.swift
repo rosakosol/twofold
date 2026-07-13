@@ -13,6 +13,12 @@ struct RootView: View {
     @State private var showingPartnerConnectedCelebration = false
     @State private var showingPaywallFromWidget = false
     @State private var gameDeepLink: SessionRoute?
+    /// Which MainTabView tab is showing — lives here rather than inside MainTabView so a widget
+    /// deep link (twofold://home, twofold://memories, twofold://passport) can switch it.
+    @State private var selectedTab: MainTab = .home
+    /// Non-tab widget destinations (a specific flight/memory/the drawing pad) that need their
+    /// own screen rather than just switching tabs.
+    @State private var recordDeepLink: WidgetDeepLink.Destination?
 
     var body: some View {
         Group {
@@ -23,7 +29,7 @@ struct RootView: View {
                 }
             } else if appModel.hasCouple {
                 if appModel.isSubscriptionActive {
-                    MainTabView()
+                    MainTabView(selection: $selectedTab)
                 } else {
                     NavigationStack {
                         PaywallView(isDismissable: false)
@@ -49,10 +55,24 @@ struct RootView: View {
         // account, paired or not — previously it was a silent no-op for them.
         .onOpenURL { url in
             guard appModel.hasCouple else { return }
-            if WidgetDeepLink.isPaywallLink(url) {
-                showingPaywallFromWidget = true
-            } else if let code = InviteCode.code(from: url) {
+            if let code = InviteCode.code(from: url) {
                 pendingInviteCode = code
+                return
+            }
+            guard let destination = WidgetDeepLink.destination(for: url) else { return }
+            switch destination {
+            case .paywall:
+                showingPaywallFromWidget = true
+            case .flight, .memory, .drawingPad:
+                if appModel.isSubscriptionActive {
+                    recordDeepLink = destination
+                }
+            case .home:
+                selectedTab = .home
+            case .memories:
+                selectedTab = .memories
+            case .passport:
+                selectedTab = .passport
             }
         }
         .sheet(isPresented: Binding(get: { pendingInviteCode != nil }, set: { if !$0 { pendingInviteCode = nil } })) {
@@ -60,6 +80,9 @@ struct RootView: View {
         }
         .sheet(isPresented: $showingPaywallFromWidget) {
             NavigationStack { PaywallView() }
+        }
+        .fullScreenCover(item: $recordDeepLink) { destination in
+            NavigationStack { recordDeepLinkDestination(destination) }
         }
         // Tapping a delivered game-reminder/results-ready push notification lands here —
         // `PushNotificationDelegate` parses the payload and posts this rather than reaching into
@@ -98,6 +121,30 @@ struct RootView: View {
         // re-trigger needed.
         .sheet(item: reviewPromptBinding) { milestone in
             ReviewPromptView(milestone: milestone)
+        }
+    }
+
+    /// Only ever called for the three cases actually assigned to `recordDeepLink`
+    /// (.flight/.memory/.drawingPad) — the tab/paywall cases route elsewhere in `.onOpenURL`.
+    @ViewBuilder
+    private func recordDeepLinkDestination(_ destination: WidgetDeepLink.Destination) -> some View {
+        switch destination {
+        case .flight(let id):
+            if let flight = appModel.flights.first(where: { $0.id == id }) {
+                FlightTrackingView(flight: flight)
+            } else {
+                GameErrorState(message: "This flight isn't available anymore.")
+            }
+        case .memory(let id):
+            if let memory = appModel.memories.first(where: { $0.id == id }) {
+                MemoryDetailView(memory: memory)
+            } else {
+                GameErrorState(message: "This memory isn't available anymore.")
+            }
+        case .drawingPad:
+            DrawingPadEditorView()
+        case .paywall, .home, .memories, .passport:
+            EmptyView()
         }
     }
 

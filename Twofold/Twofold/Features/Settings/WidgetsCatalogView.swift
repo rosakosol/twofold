@@ -15,28 +15,40 @@ private struct WidgetCatalogEntry: Identifiable {
     let name: String
     let subtitle: String
     let systemImage: String
-    let isPremium: Bool
+    /// "plus"/"premium" — matches WidgetTier/AppModel.subscriptionTier's tier strings.
+    let tier: String
 }
 
 struct WidgetsCatalogView: View {
     @Environment(AppModel.self) private var appModel
 
     private let entries: [WidgetCatalogEntry] = [
-        WidgetCatalogEntry(name: "Partner's Time", subtitle: "Their local time, at a glance", systemImage: "clock.fill", isPremium: false),
-        WidgetCatalogEntry(name: "Days Together", subtitle: "Your running total", systemImage: "heart.fill", isPremium: false),
-        WidgetCatalogEntry(name: "Time & Weather", subtitle: "Their time and forecast, side by side", systemImage: "cloud.sun.fill", isPremium: true),
-        WidgetCatalogEntry(name: "Flight Countdown", subtitle: "Time until the next flight", systemImage: "airplane.departure", isPremium: true),
-        WidgetCatalogEntry(name: "Latest Memory", subtitle: "Your most recent memory photo", systemImage: "photo.fill", isPremium: true),
-        WidgetCatalogEntry(name: "Doodle Pad", subtitle: "Whatever's currently drawn", systemImage: "pencil.tip", isPremium: true),
+        WidgetCatalogEntry(name: "Reunion & Flight Countdown", subtitle: "Time until you're together, or until takeoff", systemImage: "airplane.departure", tier: WidgetTier.plus),
+        WidgetCatalogEntry(name: "Flight Status", subtitle: "Live status of your next flight", systemImage: "airplane.circle.fill", tier: WidgetTier.plus),
+        WidgetCatalogEntry(name: "Anniversary", subtitle: "Your running days-together total", systemImage: "heart.fill", tier: WidgetTier.plus),
+        WidgetCatalogEntry(name: "Relationship Stats", subtitle: "Days together, memories, trips", systemImage: "chart.bar.fill", tier: WidgetTier.plus),
+        WidgetCatalogEntry(name: "Memories", subtitle: "Your most recent memory photo", systemImage: "photo.fill", tier: WidgetTier.plus),
+        WidgetCatalogEntry(name: "Partner's Time", subtitle: "Their local time, at a glance", systemImage: "clock.fill", tier: WidgetTier.plus),
+        WidgetCatalogEntry(name: "Time & Weather", subtitle: "Their time and forecast, side by side", systemImage: "cloud.sun.fill", tier: WidgetTier.plus),
+        WidgetCatalogEntry(name: "Doodle Pad", subtitle: "Whatever's currently drawn, with a nudge button", systemImage: "pencil.tip", tier: WidgetTier.plus),
+        WidgetCatalogEntry(name: "Smart Rotating", subtitle: "Cycles through your other widgets automatically", systemImage: "arrow.triangle.2.circlepath", tier: WidgetTier.premium),
+        WidgetCatalogEntry(name: "Globe", subtitle: "A live snapshot of the world between you", systemImage: "globe.americas.fill", tier: WidgetTier.premium),
+        WidgetCatalogEntry(name: "Relationship Dashboard", subtitle: "Every relationship stat, one glance", systemImage: "square.grid.2x2.fill", tier: WidgetTier.premium),
+        WidgetCatalogEntry(name: "Travel Dashboard", subtitle: "Flights, distance, and countries at a glance", systemImage: "map.fill", tier: WidgetTier.premium),
     ]
 
     var body: some View {
         ScrollView {
             VStack(spacing: Theme.Spacing.md) {
                 SectionCard {
-                    Text("Long-press your Home Screen, tap +, then search “Twofold” to add any of these.")
-                        .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
+                    VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                        Text("Long-press your Home Screen, tap +, then search “Twofold” to add any of these.")
+                            .font(.caption)
+                            .foregroundStyle(Theme.subtleInk)
+                        Text("Small widgets also work on your Lock Screen — long-press the Lock Screen, tap Customize.")
+                            .font(.caption)
+                            .foregroundStyle(Theme.subtleInk)
+                    }
                 }
 
                 ForEach(entries) { entry in
@@ -54,11 +66,7 @@ struct WidgetsCatalogView: View {
 
                             Spacer()
 
-                            if entry.isPremium {
-                                PillBadge(text: appModel.isSubscriptionActive ? "Premium" : "Locked", tint: appModel.isSubscriptionActive ? Theme.skyBlue : Theme.subtleInk)
-                            } else {
-                                PillBadge(text: "Basic", tint: Theme.leafGreen)
-                            }
+                            tierBadge(for: entry.tier)
                         }
                     }
                 }
@@ -68,6 +76,18 @@ struct WidgetsCatalogView: View {
         .background(Theme.backgroundGradient.ignoresSafeArea())
         .navigationTitle("Widgets")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    @ViewBuilder
+    private func tierBadge(for requiredTier: String) -> some View {
+        let isLocked = WidgetTier.isLocked(required: requiredTier, current: appModel.subscriptionTier)
+        if isLocked {
+            PillBadge(text: "Locked", tint: Theme.subtleInk)
+        } else if requiredTier == WidgetTier.premium {
+            PillBadge(text: "Premium", tint: Theme.skyBlue)
+        } else {
+            PillBadge(text: "Plus", tint: Theme.leafGreen)
+        }
     }
 }
 

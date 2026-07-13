@@ -114,6 +114,7 @@
 				Shared/TimeMath.swift,
 				Shared/WidgetImageCache.swift,
 				Shared/WidgetSnapshot.swift,
+				Shared/WidgetTier.swift,
 			);
 			target = DB9AE0C6300333D700C36E3C /* LiveActivitiesExtension */;
 		};

@@ -2,11 +2,12 @@
 //  LatestMemoryWidget.swift
 //  LiveActivities
 //
-//  Premium tier — no existing mockup to reuse (WidgetSellView.swift never proposed this one),
-//  so this is a fresh design: memory photo as the background, title/date over a gradient
-//  scrim, matching the app's existing card language elsewhere. Reads a JPEG the main app
-//  already downloaded and cached locally (WidgetImageCache) — the real photo URL is a signed,
-//  expiring Supabase Storage URL, so this widget never fetches it directly.
+//  Plus tier (Memories widget, per the widget matrix) — no existing mockup to reuse
+//  (WidgetSellView.swift never proposed this one), so this is a fresh design: memory photo as
+//  the background, title/date over a gradient scrim, matching the app's existing card language
+//  elsewhere. Reads a JPEG the main app already downloaded and cached locally (WidgetImageCache)
+//  — the real photo URL is a signed, expiring Supabase Storage URL, so this widget never fetches
+//  it directly.
 //
 
 import SwiftUI
@@ -14,15 +15,16 @@ import WidgetKit
 
 struct LatestMemoryEntry: TimelineEntry {
     let date: Date
-    let isSubscriptionActive: Bool
+    let subscriptionTier: String?
     let title: String?
     let memoryDate: Date?
+    let memoryID: UUID?
     let imageData: Data?
 }
 
 struct LatestMemoryProvider: TimelineProvider {
     func placeholder(in context: Context) -> LatestMemoryEntry {
-        LatestMemoryEntry(date: .now, isSubscriptionActive: true, title: "Reunion in Tokyo", memoryDate: .now, imageData: nil)
+        LatestMemoryEntry(date: .now, subscriptionTier: WidgetTier.plus, title: "Reunion in Tokyo", memoryDate: .now, memoryID: nil, imageData: nil)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (LatestMemoryEntry) -> Void) {
@@ -38,9 +40,10 @@ struct LatestMemoryProvider: TimelineProvider {
         let snapshot = WidgetSnapshot.read()
         return LatestMemoryEntry(
             date: .now,
-            isSubscriptionActive: snapshot?.isSubscriptionActive ?? false,
+            subscriptionTier: snapshot?.subscriptionTier,
             title: snapshot?.latestMemory?.title,
             memoryDate: snapshot?.latestMemory?.date,
+            memoryID: snapshot?.latestMemory?.id,
             imageData: WidgetImageCache.readLatestMemoryImage()
         )
     }
@@ -49,9 +52,30 @@ struct LatestMemoryProvider: TimelineProvider {
 struct LatestMemoryWidgetView: View {
     let entry: LatestMemoryEntry
 
+    private var isLocked: Bool { WidgetTier.isLocked(required: WidgetTier.plus, current: entry.subscriptionTier) }
+
+    /// Locked → paywall. Unlocked → this exact memory when there is one, otherwise the
+    /// Memories tab.
+    private var deepLinkURL: URL? {
+        if isLocked { return URL(string: "twofold://paywall") }
+        if let memoryID = entry.memoryID { return URL(string: "twofold://memory/\(memoryID.uuidString)") }
+        return URL(string: "twofold://memories")
+    }
+
     var body: some View {
-        if let title = entry.title {
-            ZStack(alignment: .bottomLeading) {
+        Group {
+            if let title = entry.title {
+                latestMemoryContent(title: title)
+            } else {
+                emptyState
+                    .widgetLock(requiredTier: WidgetTier.plus, currentTier: entry.subscriptionTier)
+            }
+        }
+        .widgetURL(deepLinkURL)
+    }
+
+    private func latestMemoryContent(title: String) -> some View {
+        ZStack(alignment: .bottomLeading) {
                 if let imageData = entry.imageData, let uiImage = UIImage(data: imageData) {
                     Image(uiImage: uiImage)
                         .resizable()
@@ -74,15 +98,11 @@ struct LatestMemoryWidgetView: View {
                 }
                 .foregroundStyle(.white)
                 .padding()
-            }
-            .widgetLock(!entry.isSubscriptionActive)
-            .widgetURL(URL(string: "twofold://paywall"))
-        } else {
-            emptyState
-                .widgetLock(!entry.isSubscriptionActive)
-                .widgetURL(URL(string: "twofold://paywall"))
         }
+        .widgetBranded()
+        .widgetLock(requiredTier: WidgetTier.plus, currentTier: entry.subscriptionTier)
     }
+
 
     private var emptyState: some View {
         VStack(spacing: 4) {
@@ -105,11 +125,12 @@ struct LatestMemoryWidget: Widget {
         .configurationDisplayName("Latest Memory")
         .description("Your most recent memory photo, right on your Home Screen.")
         .supportedFamilies([.systemMedium, .systemLarge])
+        .contentMarginsDisabled()
     }
 }
 
 #Preview(as: .systemMedium) {
     LatestMemoryWidget()
 } timeline: {
-    LatestMemoryEntry(date: .now, isSubscriptionActive: true, title: "Reunion in Tokyo", memoryDate: .now, imageData: nil)
+    LatestMemoryEntry(date: .now, subscriptionTier: WidgetTier.plus, title: "Reunion in Tokyo", memoryDate: .now, memoryID: nil, imageData: nil)
 }

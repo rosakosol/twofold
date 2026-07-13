@@ -11,14 +11,19 @@ import SwiftUI
 @main
 struct LiveActivitiesBundle: WidgetBundle {
     var body: some Widget {
-        LiveActivities()
-        LiveActivitiesControl()
         JourneyLiveActivityWidget()
         PartnersTimeWidget()
         DaysTogetherWidget()
         FlightCountdownWidget()
+        FlightTrackingWidget()
         TimeWeatherWidget()
         LatestMemoryWidget()
         DoodlePadWidget()
+        DoodleSideBySideWidget()
+        RelationshipStatsWidget()
+        RelationshipDashboardWidget()
+        TravelDashboardWidget()
+        GlobeWidget()
+        SmartRotatingWidget()
     }
 }

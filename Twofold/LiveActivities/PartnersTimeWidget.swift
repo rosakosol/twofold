@@ -49,15 +49,57 @@ struct PartnersTimeProvider: TimelineProvider {
 struct PartnersTimeWidgetView: View {
     let entry: PartnersTimeEntry
 
+    @Environment(\.widgetFamily) private var family
+
     var body: some View {
+        Group {
+            if family == .accessoryCircular {
+                accessoryCircular
+            } else {
+                homeScreenBody
+            }
+        }
+        .widgetURL(URL(string: "twofold://home"))
+    }
+
+    @ViewBuilder
+    private var accessoryCircular: some View {
+        ZStack {
+            AccessoryWidgetBackground()
+            if let timeZone = entry.timeZone {
+                VStack(spacing: 0) {
+                    Text(TimeMath.timeString(in: timeZone, at: entry.date))
+                        .font(.system(.body, design: .rounded).bold())
+                        .minimumScaleFactor(0.7)
+                    Text(entry.partnerCity ?? entry.partnerName)
+                        .font(.caption2)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                }
+            } else {
+                Image(systemName: "person.2.fill")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var homeScreenBody: some View {
         if let timeZone = entry.timeZone {
             let hour = TimeMath.hourFraction(in: timeZone, at: entry.date)
             let daylight = TimeMath.daylightFactor(hour: hour)
             let isDaytime = hour >= 6 && hour < 18
 
             VStack(alignment: .leading, spacing: 4) {
-                Image(systemName: isDaytime ? "sun.max.fill" : "moon.stars.fill")
-                    .font(.title3)
+                ZStack(alignment: .bottomTrailing) {
+                    WidgetAvatarView(person: .partner, name: entry.partnerName, size: 28)
+                    ZStack {
+                        Circle().fill(.white)
+                        Image(systemName: isDaytime ? "sun.max.fill" : "moon.stars.fill")
+                            .font(.system(size: 8))
+                            .foregroundStyle(TimeMath.DayNight.nightBottom.interpolated(to: TimeMath.DayNight.dayBottom, amount: daylight))
+                    }
+                    .frame(width: 14, height: 14)
+                }
                 Spacer()
                 Text(TimeMath.timeString(in: timeZone, at: entry.date))
                     .font(.system(size: 32, weight: .bold, design: .rounded))
@@ -78,13 +120,14 @@ struct PartnersTimeWidgetView: View {
                     endPoint: .bottomTrailing
                 )
             )
-            .overlay(alignment: .topTrailing) {
+            .overlay(alignment: .bottomTrailing) {
                 Image(systemName: isDaytime ? "sun.max.fill" : "moon.stars.fill")
                     .font(.system(size: 60))
                     .opacity(0.16)
                     .foregroundStyle(.white)
-                    .offset(x: 14, y: -10)
+                    .offset(x: 14, y: 10)
             }
+            .widgetBranded()
         } else {
             emptyState
         }
@@ -109,8 +152,9 @@ struct PartnersTimeWidget: Widget {
                 .containerBackground(for: .widget) { Color.clear }
         }
         .configurationDisplayName("Partner's Time")
-        .description("See your partner's local time at a glance.")
-        .supportedFamilies([.systemSmall])
+        .description("See your partner's local time at a glance, on your Home Screen or Lock Screen.")
+        .supportedFamilies([.systemSmall, .accessoryCircular])
+        .contentMarginsDisabled()
     }
 }
 
