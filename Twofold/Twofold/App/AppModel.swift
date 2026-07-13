@@ -8,6 +8,7 @@
 
 import Foundation
 import Observation
+import RevenueCat
 
 @Observable
 final class AppModel {
@@ -153,6 +154,7 @@ final class AppModel {
     /// leaving a solo (unpaired) user to fall back into onboarding just because
     /// `fetchCoupleState` found nothing.
     func loadSignedInState() async {
+        await identifyWithRevenueCat()
         restorePendingMemoriesFromDisk()
         if let state = try? await BackendService.fetchCoupleState() {
             await adopt(state)
@@ -225,10 +227,24 @@ final class AppModel {
         isSubscriptionActive = true
     }
 
+    /// Tells RevenueCat who this device's user actually is, so its entitlement/purchase history
+    /// is attributed to the same identity across every device that signs into this account —
+    /// without this, RevenueCat would only ever see its own locally-generated anonymous ID,
+    /// which a reinstall or a second device would never line up with. `Purchases.configure`
+    /// (see `RevenueCatConfig`) runs before any Supabase session is known, so this is the
+    /// earliest point that identity is actually available — called from `loadSignedInState()`
+    /// itself rather than deeper in `adopt`/`adoptSoloProfile` since both of those paths need it
+    /// equally and neither should have to remember to call it separately.
+    private func identifyWithRevenueCat() async {
+        guard let userID = BackendService.currentUserID else { return }
+        _ = try? await Purchases.shared.logIn(userID.uuidString)
+    }
+
     /// Signs out and resets all local state back to the pre-auth placeholder — `RootView`
     /// picks this up via `hasCouple` and routes back to `WelcomeView`.
     func signOut() async {
         try? await BackendService.signOut()
+        _ = try? await Purchases.shared.logOut()
         hasCouple = false
         partnerConnected = false
         inviteCode = nil

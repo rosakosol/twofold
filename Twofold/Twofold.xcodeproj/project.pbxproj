@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1C9E320F0AD4B9800DF63AF0 /* RevenueCatUI in Frameworks */ = {isa = PBXBuildFile; productRef = 9206C26209471945B4BC1692 /* RevenueCatUI */; };
+		28A7BE205066EA09EE406FF9 /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = A3948E5A3E10682179798BA9 /* RevenueCat */; };
 		BC85C70A80C3C391278A3AEC /* MapLibre in Frameworks */ = {isa = PBXBuildFile; productRef = F803247FC27B01248A733EF4 /* MapLibre */; };
 		DB8C96D32FFE69E800E0E71E /* TwofoldShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = DB8C96C92FFE69E700E0E71E /* TwofoldShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		DB8C96DF2FFE743400E0E71E /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = DB8C96DE2FFE743400E0E71E /* Supabase */; };
@@ -168,6 +170,8 @@
 				DB8C96DF2FFE743400E0E71E /* Supabase in Frameworks */,
 				DB8C96E82FFEF0B400E0E71E /* GoogleSignIn in Frameworks */,
 				BC85C70A80C3C391278A3AEC /* MapLibre in Frameworks */,
+				28A7BE205066EA09EE406FF9 /* RevenueCat in Frameworks */,
+				1C9E320F0AD4B9800DF63AF0 /* RevenueCatUI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -268,6 +272,8 @@
 				DB8C96E72FFEF0B400E0E71E /* GoogleSignIn */,
 				DB8C96E92FFEF0B400E0E71E /* GoogleSignInSwift */,
 				F803247FC27B01248A733EF4 /* MapLibre */,
+				A3948E5A3E10682179798BA9 /* RevenueCat */,
+				9206C26209471945B4BC1692 /* RevenueCatUI */,
 			);
 			productName = Twofold;
 			productReference = DB8C95012FFC501C00E0E71E /* Twofold.app */;
@@ -405,6 +411,7 @@
 				DB8C96DD2FFE743400E0E71E /* XCRemoteSwiftPackageReference "supabase-swift" */,
 				DB8C96E62FFEF0B400E0E71E /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 				97F700637180FDF6A851A73E /* XCRemoteSwiftPackageReference "maplibre-gl-native-distribution" */,
+				6093DA4122154A4832D53F0A /* XCRemoteSwiftPackageReference "purchases-ios-spm" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = DB8C95022FFC501C00E0E71E /* Products */;
@@ -1003,6 +1010,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		6093DA4122154A4832D53F0A /* XCRemoteSwiftPackageReference "purchases-ios-spm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/RevenueCat/purchases-ios-spm.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.80.3;
+			};
+		};
 		97F700637180FDF6A851A73E /* XCRemoteSwiftPackageReference "maplibre-gl-native-distribution" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/maplibre/maplibre-gl-native-distribution";
@@ -1030,6 +1045,16 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		9206C26209471945B4BC1692 /* RevenueCatUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6093DA4122154A4832D53F0A /* XCRemoteSwiftPackageReference "purchases-ios-spm" */;
+			productName = RevenueCatUI;
+		};
+		A3948E5A3E10682179798BA9 /* RevenueCat */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6093DA4122154A4832D53F0A /* XCRemoteSwiftPackageReference "purchases-ios-spm" */;
+			productName = RevenueCat;
+		};
 		DB8C96DE2FFE743400E0E71E /* Supabase */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = DB8C96DD2FFE743400E0E71E /* XCRemoteSwiftPackageReference "supabase-swift" */;

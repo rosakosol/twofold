@@ -155,14 +155,14 @@ struct RootView: View {
         )
     }
 
-    /// Writes this device's own local StoreKit entitlement, then re-reads the OR'd truth
+    /// Writes this device's own RevenueCat entitlement state, then re-reads the OR'd truth
     /// across both partners — see `BackendService.updateSubscriptionStatus`/
     /// `fetchSubscriptionActive`. No-ops before onboarding is done (`hasCouple == false`),
     /// since there's nothing to gate yet.
     private func checkSubscription() async {
         guard appModel.hasCouple else { return }
         await subscriptionStore.refreshEntitlementsOnly()
-        try? await BackendService.updateSubscriptionStatus(active: subscriptionStore.isSubscribed)
+        try? await BackendService.updateSubscriptionStatus(active: subscriptionStore.isSubscribed, tier: subscriptionStore.subscribedTier?.dbValue)
         if let active = try? await BackendService.fetchSubscriptionActive() {
             appModel.isSubscriptionActive = active
         }

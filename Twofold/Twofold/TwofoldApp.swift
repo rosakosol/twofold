@@ -5,6 +5,10 @@ struct TwofoldApp: App {
     @State private var appModel = AppModel()
     @UIApplicationDelegateAdaptor(PushNotificationDelegate.self) private var pushDelegate
 
+    init() {
+        RevenueCatConfig.configure()
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView()

@@ -9,6 +9,7 @@
 //  PartnerSetupView, reachable both pre- and post-connection.
 //
 
+import RevenueCatUI
 import StoreKit
 import SwiftUI
 
@@ -16,6 +17,10 @@ struct SettingsView: View {
     @Environment(AppModel.self) private var appModel
 
     @State private var showingPaywall = false
+    /// RevenueCat's self-service subscription management screen — offered instead of the
+    /// paywall once someone's already subscribed, since re-showing "buy Plus/Premium" to a
+    /// paying member makes no sense; see the "Manage subscription" row below.
+    @State private var showingCustomerCenter = false
     @State private var showingSignOutConfirm = false
     @State private var isSigningOut = false
 
@@ -54,7 +59,11 @@ struct SettingsView: View {
                     }
 
                     SubscriptionBanner(isSubscribed: appModel.isSubscriptionActive) {
-                        showingPaywall = true
+                        if appModel.isSubscriptionActive {
+                            showingCustomerCenter = true
+                        } else {
+                            showingPaywall = true
+                        }
                     }
 
                     SectionCard {
@@ -150,6 +159,9 @@ struct SettingsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $showingPaywall) {
                 NavigationStack { PaywallView() }
+            }
+            .sheet(isPresented: $showingCustomerCenter) {
+                CustomerCenterView()
             }
             .confirmationDialog("Sign out of Twofold?", isPresented: $showingSignOutConfirm, titleVisibility: .visible) {
                 Button("Sign Out", role: .destructive) {
