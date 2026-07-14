@@ -450,33 +450,12 @@ struct HomeView: View {
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(Theme.skyBlue)
 
-            GeometryReader { proxy in
-                let iconSize: CGFloat = 30
-                let progressWidth = proxy.size.width * flight.progress
-                // Keeps the icon's center on the track even at the very start/end, where it
-                // would otherwise hang half off the edge of the bar.
-                let iconCenterX = min(max(progressWidth, iconSize / 2), proxy.size.width - iconSize / 2)
-
-                Capsule().fill(Theme.skyBlue.opacity(0.15)).frame(height: 5)
-                    .overlay(alignment: .leading) {
-                        Capsule().fill(flight.status.semanticColor).frame(width: progressWidth, height: 5)
-                    }
-                    .overlay(alignment: .leading) {
-                        ZStack {
-                            Circle().fill(.white)
-                            // SF Symbols' "airplane" glyph already points due right (east) at
-                            // rotation 0 — no rotation needed to lie flat along the track.
-                            Image(systemName: "airplane")
-                                .font(.system(size: 15, weight: .bold))
-                                .foregroundStyle(flight.status.semanticColor)
-                        }
-                        .frame(width: iconSize, height: iconSize)
-                        .shadow(color: .black.opacity(0.18), radius: 2, y: 1)
-                        .offset(x: iconCenterX - iconSize / 2)
-                    }
-            }
-            .frame(height: 30)
-
+            // No separate linear progress bar here anymore — with the route drawn on the map
+            // right below, a second progress indicator heading a different direction (straight
+            // left-to-right vs. whichever way the actual route runs) read as confusing rather
+            // than reinforcing. The map's own gradient line + plane/avatar marker already show
+            // progress along the real path.
+            //
             // Unconditional, not gated behind isActivelyTracked — FlightTrackingView already
             // shows this map for any flight regardless of status (FlightMapView has its own
             // graceful fallback for missing coordinates), so a merely-.scheduled flight on Home
