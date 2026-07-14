@@ -62,20 +62,27 @@ struct FlightTrackingView: View {
         return appModel.trips.first { $0.id == tripID }
     }
 
-    /// The flight's own `travelerID` (set explicitly when adding it) takes priority since
+    /// The flight's own `travelerIDs` (set explicitly when adding it) takes priority since
     /// flights don't require a linked trip; the trip's traveler is a fallback for older/
     /// trip-linked flights that predate that field.
-    private var travelerID: Person.ID? {
-        flight.travelerID ?? linkedTrip?.travelerID
+    private var travelerIDs: [Person.ID] {
+        flight.travelerIDs.isEmpty ? linkedTrip.map { [$0.travelerID] } ?? [] : flight.travelerIDs
     }
 
     private var isTraveler: Bool {
-        guard let travelerID else { return false }
-        return appModel.currentUser.id == travelerID
+        travelerIDs.contains(appModel.currentUser.id)
     }
 
-    private var traveler: Person? {
-        travelerID.flatMap { appModel.couple.partner($0) }
+    private var travelers: [Person] {
+        travelerIDs.compactMap { appModel.couple.partner($0) }
+    }
+
+    private var navigationTitleText: String {
+        switch travelers.count {
+        case 0: "Flight \(flight.displayNumber)"
+        case 1: "\(travelers[0].name)'s journey"
+        default: "Your journey together"
+        }
     }
 
     var body: some View {
@@ -100,7 +107,7 @@ struct FlightTrackingView: View {
             .padding(Theme.Spacing.md)
         }
         .background(Theme.backgroundGradient.ignoresSafeArea())
-        .navigationTitle(traveler.map { "\($0.name)'s journey" } ?? "Flight \(flight.displayNumber)")
+        .navigationTitle(navigationTitleText)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -110,24 +117,24 @@ struct FlightTrackingView: View {
                     }
                     Menu {
                         Button {
-                            setTraveler(appModel.currentUser.id)
+                            toggleTraveler(appModel.currentUser.id)
                         } label: {
-                            Label(appModel.currentUser.name, systemImage: flight.travelerID == appModel.currentUser.id ? "checkmark.circle.fill" : "circle")
+                            Label(appModel.currentUser.name, systemImage: flight.travelerIDs.contains(appModel.currentUser.id) ? "checkmark.circle.fill" : "circle")
                         }
                         Button {
-                            setTraveler(appModel.partner.id)
+                            toggleTraveler(appModel.partner.id)
                         } label: {
-                            Label(appModel.partner.name, systemImage: flight.travelerID == appModel.partner.id ? "checkmark.circle.fill" : "circle")
+                            Label(appModel.partner.name, systemImage: flight.travelerIDs.contains(appModel.partner.id) ? "checkmark.circle.fill" : "circle")
                         }
-                        if flight.travelerID != nil {
+                        if !flight.travelerIDs.isEmpty {
                             Button(role: .destructive) {
-                                setTraveler(nil)
+                                setTravelers([])
                             } label: {
                                 Label("Clear", systemImage: "xmark.circle")
                             }
                         }
                     } label: {
-                        Label("Edit Traveller", systemImage: "person.crop.circle")
+                        Label("Edit Travellers", systemImage: "person.crop.circle")
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
@@ -199,15 +206,27 @@ struct FlightTrackingView: View {
         .frame(maxWidth: .infinity)
     }
 
-    /// `travelerID` used to be write-once (set only at add-flight time, in
-    /// `FlightConfirmationView`) with no way to change it afterward — same gap `linkFlight`/
+    /// Travelers used to be write-once (set only at add-flight time, in
+    /// `FlightConfirmationView`) with no way to change them afterward — same gap `linkFlight`/
     /// `unlinkFlight` closed for trip linking. Mutates the local `flight` copy immediately for
     /// snappy UI, same pattern `refreshFromProvider()` already uses elsewhere on this screen.
-    /// Reachable via the toolbar's "..." menu (Edit Traveller) — no standalone card on the
-    /// screen itself anymore; the nav title already names the current traveler.
-    private func setTraveler(_ travelerID: UUID?) {
-        flight.travelerID = travelerID
-        Task { await appModel.setFlightTraveler(flight, travelerID: travelerID) }
+    /// Reachable via the toolbar's "..." menu (Edit Travellers) — no standalone card on the
+    /// screen itself anymore; the nav title already names the current traveler(s).
+    private func setTravelers(_ travelerIDs: [UUID]) {
+        flight.travelerIDs = travelerIDs
+        Task { await appModel.setFlightTravelers(flight, travelerIDs: travelerIDs) }
+    }
+
+    /// Adds or removes a single person from the traveler list — lets both partners be marked as
+    /// travelling together, rather than picking one exclusively.
+    private func toggleTraveler(_ id: UUID) {
+        var ids = flight.travelerIDs
+        if let index = ids.firstIndex(of: id) {
+            ids.remove(at: index)
+        } else {
+            ids.append(id)
+        }
+        setTravelers(ids)
     }
 
     private var shareText: String {

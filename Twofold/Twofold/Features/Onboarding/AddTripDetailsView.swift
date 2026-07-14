@@ -188,7 +188,7 @@ struct AddTripDetailsView: View {
             if let selectedFlightCandidate {
                 // Real AeroAPI-tracked flight only — no self-reported fallback. Can fail if
                 // there's no active couple yet; the trip is still saved either way.
-                _ = try? await AeroFlightService.addFlight(faFlightId: selectedFlightCandidate.faFlightId, tripID: trip.id, travelerID: trip.travelerID, notifyMe: true)
+                _ = try? await AeroFlightService.addFlight(faFlightId: selectedFlightCandidate.faFlightId, tripID: trip.id, travelerIDs: [trip.travelerID], notifyMe: true)
                 await appModel.refreshFlights()
             }
             isSaving = false

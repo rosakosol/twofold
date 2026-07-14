@@ -88,8 +88,9 @@ struct Flight: Identifiable, Hashable {
     var coupleID: UUID?
     var createdBy: UUID?
     /// Who's actually on this flight — set explicitly when adding it (not inferred from a
-    /// linked trip, since flights don't require one). Nil when left unspecified.
-    var travelerID: UUID?
+    /// linked trip, since flights don't require one). Empty when left unspecified; can hold both
+    /// partners when they're travelling together.
+    var travelerIDs: [UUID]
     /// Set once resolved against AeroAPI; nil for a purely self-reported flight.
     var faFlightID: String?
     var flightNumberIATA: String
@@ -147,7 +148,7 @@ struct Flight: Identifiable, Hashable {
         tripID: UUID? = nil,
         coupleID: UUID? = nil,
         createdBy: UUID? = nil,
-        travelerID: UUID? = nil,
+        travelerIDs: [UUID] = [],
         faFlightID: String? = nil,
         flightNumberIATA: String,
         flightNumberICAO: String? = nil,
@@ -196,7 +197,7 @@ struct Flight: Identifiable, Hashable {
         self.tripID = tripID
         self.coupleID = coupleID
         self.createdBy = createdBy
-        self.travelerID = travelerID
+        self.travelerIDs = travelerIDs
         self.faFlightID = faFlightID
         self.flightNumberIATA = flightNumberIATA
         self.flightNumberICAO = flightNumberICAO

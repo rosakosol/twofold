@@ -44,7 +44,7 @@ struct AddFirstFlightView: View {
                 category: .seeingEachOther
             )
             do {
-                try await AeroFlightService.addFlight(faFlightId: candidate.faFlightId, tripID: trip.id, travelerID: trip.travelerID, notifyMe: true)
+                try await AeroFlightService.addFlight(faFlightId: candidate.faFlightId, tripID: trip.id, travelerIDs: [trip.travelerID], notifyMe: true)
                 await appModel.refreshFlights()
                 // A flight was successfully tracked — skip the (now-mandatory-when-reached)
                 // memory step entirely and go straight to the "ready" screen.

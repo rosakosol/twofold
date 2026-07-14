@@ -70,7 +70,7 @@ enum WidgetSnapshotWriter {
                 destinationCoordinate: flight.destination.coordinate.map { WidgetCoordinate(latitude: $0.latitude, longitude: $0.longitude) },
                 positionCoordinate: flight.positionCoordinate.map { WidgetCoordinate(latitude: $0.latitude, longitude: $0.longitude) },
                 progress: flight.progress,
-                travelerIsMe: flight.travelerID.map { $0 == appModel.currentUser.id }
+                travelerIsMe: flight.travelerIDs.isEmpty ? nil : flight.travelerIDs.contains(appModel.currentUser.id)
             )
             if let logoURL = flight.displayLogoURL, let data = try? await URLSession.shared.data(from: logoURL).0 {
                 WidgetImageCache.writeAirlineLogoImage(data)
@@ -141,7 +141,14 @@ enum WidgetSnapshotWriter {
     /// need to replicate the snapshotter's region/projection math on the extension side to
     /// re-derive marker positions itself.
     private static func refreshFlightMapImage(flight: Flight, travelerIsMe: Bool?) async {
-        guard let origin = flight.origin.coordinate, let destination = flight.destination.coordinate else {
+        // `.isFinite` on top of the plain nil-check: `origin`/`destination` come straight off
+        // whatever AeroAPI or a self-reported flight last supplied, and a NaN/infinite latitude
+        // or longitude (garbage upstream data, not a normal "not resolved yet" case — that's
+        // nil, already handled) would flow straight into `MKCoordinateRegion` below and crash
+        // MapKit outright rather than throwing a catchable error.
+        guard let origin = flight.origin.coordinate, let destination = flight.destination.coordinate,
+              origin.latitude.isFinite, origin.longitude.isFinite,
+              destination.latitude.isFinite, destination.longitude.isFinite else {
             WidgetImageCache.clearFlightMapImage()
             return
         }

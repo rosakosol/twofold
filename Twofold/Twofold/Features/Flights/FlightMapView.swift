@@ -27,13 +27,20 @@ struct FlightMapView: View {
     var edgePadding: CGFloat = 40
 
     /// Resolved directly from the flight (set explicitly when adding it) rather than a linked
-    /// trip — flights don't require one, so this is the only reliable source now.
-    private var traveler: Person? {
-        flight.travelerID.flatMap { appModel.couple.partner($0) }
+    /// trip — flights don't require one, so this is the only reliable source now. Can hold both
+    /// partners when they're travelling together.
+    private var travelers: [Person] {
+        flight.travelerIDs.compactMap { appModel.couple.partner($0) }
     }
 
     var body: some View {
-        if let origin = flight.origin.coordinate, let destination = flight.destination.coordinate {
+        // `.isFinite` alongside the nil-check — a NaN/infinite latitude or longitude (garbage
+        // upstream data, not the normal "not resolved yet" case, which is nil and already
+        // handled below) would otherwise flow straight into MapLibre's camera-fitting and
+        // annotation coordinates and crash the map view outright.
+        if let origin = flight.origin.coordinate, let destination = flight.destination.coordinate,
+           origin.latitude.isFinite, origin.longitude.isFinite,
+           destination.latitude.isFinite, destination.longitude.isFinite {
             MapLibreRouteView(
                 origin: origin,
                 destination: destination,
@@ -41,7 +48,7 @@ struct FlightMapView: View {
                 destinationCode: flight.destination.displayCode,
                 position: flight.positionCoordinate,
                 positionHeading: flight.positionHeading,
-                traveler: traveler,
+                travelers: travelers,
                 progress: flight.progress,
                 status: flight.status,
                 interactive: interactive,
@@ -81,7 +88,8 @@ private struct MapLibreRouteView: UIViewRepresentable {
     let destinationCode: String
     let position: CLLocationCoordinate2D?
     let positionHeading: Double?
-    let traveler: Person?
+    /// 0, 1, or 2 people — both partners can be marked as travelling together on one flight.
+    let travelers: [Person]
     /// 0...1, mirrors `Flight.progress` — how far along the route the traveled (colored)
     /// portion of the line extends before giving way to the grey untraveled remainder.
     let progress: Double
@@ -117,7 +125,7 @@ private struct MapLibreRouteView: UIViewRepresentable {
             destinationCode: destinationCode,
             position: position,
             positionHeading: positionHeading,
-            traveler: traveler,
+            travelers: travelers,
             progress: progress,
             status: status
         )
@@ -133,7 +141,7 @@ private struct MapLibreRouteView: UIViewRepresentable {
             var destinationCode: String
             var position: CLLocationCoordinate2D?
             var positionHeading: Double?
-            var traveler: Person?
+            var travelers: [Person]
             var progress: Double
             var status: FlightStatus
 
@@ -142,7 +150,7 @@ private struct MapLibreRouteView: UIViewRepresentable {
                     && lhs.destination.latitude == rhs.destination.latitude && lhs.destination.longitude == rhs.destination.longitude
                     && lhs.originCode == rhs.originCode && lhs.destinationCode == rhs.destinationCode
                     && lhs.position?.latitude == rhs.position?.latitude && lhs.position?.longitude == rhs.position?.longitude
-                    && lhs.positionHeading == rhs.positionHeading && lhs.traveler?.id == rhs.traveler?.id
+                    && lhs.positionHeading == rhs.positionHeading && lhs.travelers.map(\.id) == rhs.travelers.map(\.id)
                     && lhs.progress == rhs.progress && lhs.status == rhs.status
             }
         }
@@ -203,10 +211,13 @@ private struct MapLibreRouteView: UIViewRepresentable {
                     centerOffset: CGVector(dx: 0, dy: size.height / 2 - 5)
                 )
             case .position:
-                if let traveler = annotation.traveler {
-                    view.setContent(Self.travelerMarker(traveler), size: CGSize(width: 44, height: 44))
-                } else {
+                switch annotation.travelers.count {
+                case 0:
                     view.setContent(Self.planeMarker(heading: annotation.positionHeading), size: CGSize(width: 30, height: 30))
+                case 1:
+                    view.setContent(Self.travelerMarker(annotation.travelers[0]), size: CGSize(width: 44, height: 44))
+                default:
+                    view.setContent(Self.bothTravelersMarker(annotation.travelers), size: CGSize(width: 56, height: 44))
                 }
             }
             return view
@@ -307,26 +318,26 @@ private struct MapLibreRouteView: UIViewRepresentable {
             )
         }
 
-        /// Whether the live/traveler-at-origin position marker (see `updatePositionAnnotation`)
-        /// sits exactly on a given endpoint right now — the one case where that endpoint's label
-        /// needs extra clearance underneath it.
+        /// Whether the position marker (traveler avatar or plane-icon fallback — see
+        /// `updatePositionAnnotation`) sits exactly on a given endpoint right now — the one case
+        /// where that endpoint's label needs extra clearance underneath it.
         ///
-        /// A traveler avatar always rides the drawn route curve by `progress` — the same
-        /// fraction the gradient line uses — rather than the raw live GPS ping: real ADS-B
-        /// tracks wander off the idealized great-circle line (wind routing, ATC vectoring),
-        /// which made the avatar visibly drift off the drawn path. This also means it lands
-        /// exactly on the destination dot once the flight completes, instead of wherever the
-        /// last GPS fix happened to be (which may never be updated again after landing, since
+        /// Both the traveler avatar and the plane-icon fallback ride the drawn route curve by
+        /// `progress` — the same fraction the gradient line uses — rather than the raw live GPS
+        /// ping: real ADS-B tracks wander off the idealized great-circle line (wind routing, ATC
+        /// vectoring), which made the marker visibly drift off the drawn path. This also means it
+        /// lands exactly on the destination dot once the flight completes, instead of wherever
+        /// the last GPS fix happened to be (which may never be updated again after landing, since
         /// live position polling stops once a flight is no longer airborne — see
-        /// `AIRBORNE_STATUSES` server-side). The plane-icon fallback (no traveler set) still
-        /// uses the raw live position, unaffected.
+        /// `AIRBORNE_STATUSES` server-side), and that with no traveler set, the plane still
+        /// visibly travels the path pre-departure through arrival rather than only appearing once
+        /// a live GPS ping exists.
         ///
         /// Diverted is the one exception: the plane is no longer following the original
         /// origin-destination line at all, so a progress-interpolated point along it would be
-        /// actively misleading. Falls back to the real live position there (same as the
-        /// no-traveler case), or the origin if no position has ever been reported.
+        /// actively misleading. Falls back to the real live position there, or the origin if no
+        /// position has ever been reported.
         private func markerCoordinate(for route: Route) -> CLLocationCoordinate2D? {
-            guard route.traveler != nil else { return route.position }
             if route.status == .diverted { return route.position ?? route.origin }
             if route.progress <= 0.001 { return route.origin }
             if route.progress >= 0.999 { return route.destination }
@@ -364,11 +375,11 @@ private struct MapLibreRouteView: UIViewRepresentable {
         /// live position is the one thing about a flight that changes on its own timer, and
         /// explicit remove/add avoids relying on undocumented in-place-repositioning behavior.
         ///
-        /// Before departure there's no live position from the provider yet, but if a traveler is
-        /// set, their avatar still rides the route — parked at the origin — rather than only
-        /// appearing once the flight is airborne. Without a traveler there's nothing meaningful
-        /// to show pre-departure (the plane-icon fallback is for an in-progress flight only), so
-        /// no marker is added.
+        /// Before departure there's no live position from the provider yet, but the marker still
+        /// rides the route — parked at the origin — rather than only appearing once the flight is
+        /// airborne. That's true whether it's a traveler's avatar or the plane-icon fallback (no
+        /// traveler set): both are driven by `progress`, not the raw live GPS ping (see
+        /// `markerCoordinate(for:)`), so there's always something to show once a route exists.
         private func updatePositionAnnotation(_ route: Route, mapView: MLNMapView) {
             if let existing = positionAnnotation {
                 mapView.removeAnnotation(existing)
@@ -377,8 +388,8 @@ private struct MapLibreRouteView: UIViewRepresentable {
             guard let coordinate = markerCoordinate(for: route) else { return }
             let annotation = RouteAnnotation(kind: .position, reuseIdentifier: Self.positionIdentifier)
             annotation.coordinate = coordinate
-            annotation.positionHeading = route.positionHeading
-            annotation.traveler = route.traveler
+            annotation.positionHeading = Self.markerHeading(for: route, at: coordinate)
+            annotation.travelers = route.travelers
             mapView.addAnnotation(annotation)
             positionAnnotation = annotation
         }
@@ -420,6 +431,19 @@ private struct MapLibreRouteView: UIViewRepresentable {
                 .shadow(color: .black.opacity(0.25), radius: 5, y: 2)
         }
 
+        /// Both partners travelling together — two smaller avatars overlapping rather than one
+        /// 44pt avatar per person, so the marker doesn't balloon in size or obscure the route
+        /// underneath it. The second avatar sits slightly forward (in front, z-order-wise) and
+        /// offset so both faces stay fully visible.
+        private static func bothTravelersMarker(_ people: [Person]) -> some View {
+            HStack(spacing: -14) {
+                ForEach(people) { person in
+                    AvatarView(person: person, size: 34, showsRing: true)
+                }
+            }
+            .shadow(color: .black.opacity(0.25), radius: 5, y: 2)
+        }
+
         private static func planeMarker(heading: Double?) -> some View {
             ZStack {
                 Circle().fill(Theme.skyBlue)
@@ -429,7 +453,12 @@ private struct MapLibreRouteView: UIViewRepresentable {
                     // SF Symbols' "airplane" glyph points due east (right) at rotation 0 —
                     // verified by rendering it at several rotations and comparing, since the
                     // commonly-assumed "points ~45° NE at rotation 0" turned out to be wrong.
-                    .rotationEffect(.degrees(90 - (heading ?? 0)))
+                    // `.rotationEffect` turns clockwise for positive degrees, and `heading` is a
+                    // compass bearing (0 = north, 90 = east, clockwise) — since the glyph's rest
+                    // orientation (east) is already bearing 90, the rotation needed to reach
+                    // `heading` is `heading - 90`, not `90 - heading` (which mirrors every
+                    // heading except due east/west, e.g. sends a northbound plane pointing south).
+                    .rotationEffect(.degrees((heading ?? 0) - 90))
             }
             .frame(width: 30, height: 30)
             .shadow(color: .black.opacity(0.22), radius: 4, y: 2)
@@ -462,6 +491,36 @@ private struct MapLibreRouteView: UIViewRepresentable {
             let φi = atan2(z, sqrt(x * x + y * y))
             let λi = atan2(y, x)
             return CLLocationCoordinate2D(latitude: φi * 180 / .pi, longitude: λi * 180 / .pi)
+        }
+
+        /// The plane-icon fallback's nose direction — the great-circle forward bearing from the
+        /// marker's current (progress-interpolated) position toward the destination, in degrees
+        /// clockwise from north. A great circle's bearing isn't constant along its length (that's
+        /// why it draws as a curve, not a straight line), so this is recomputed from wherever the
+        /// marker actually is, not just once from origin to destination.
+        ///
+        /// Diverted is the exception: the plane isn't heading toward the original destination
+        /// anymore, so the real live ADS-B heading (if any) is the honest answer there instead.
+        /// Right at the destination coordinate the bearing calculation degenerates (Δ ≈ 0), so
+        /// that case falls back to the live heading too — cosmetic only, since the marker isn't
+        /// moving anymore at that point regardless of which way it's pointing.
+        private static func markerHeading(for route: Route, at coordinate: CLLocationCoordinate2D) -> Double? {
+            if route.status == .diverted { return route.positionHeading }
+            if coordinate.latitude == route.destination.latitude && coordinate.longitude == route.destination.longitude {
+                return route.positionHeading
+            }
+            return bearing(from: coordinate, to: route.destination)
+        }
+
+        /// Standard forward-azimuth formula — the initial bearing (degrees clockwise from north,
+        /// 0..<360) of the great-circle path from `a` toward `b`.
+        private static func bearing(from a: CLLocationCoordinate2D, to b: CLLocationCoordinate2D) -> Double {
+            let φ1 = a.latitude * .pi / 180, φ2 = b.latitude * .pi / 180
+            let Δλ = (b.longitude - a.longitude) * .pi / 180
+            let y = sin(Δλ) * cos(φ2)
+            let x = cos(φ1) * sin(φ2) - sin(φ1) * cos(φ2) * cos(Δλ)
+            let θ = atan2(y, x) * 180 / .pi
+            return θ.truncatingRemainder(dividingBy: 360) + (θ < 0 ? 360 : 0)
         }
 
         /// Samples 16 points along the great-circle curve (plus both endpoints) and unwraps
@@ -499,7 +558,7 @@ private final class RouteAnnotation: MLNPointAnnotation {
     let kind: Kind
     let reuseIdentifier: String
     var positionHeading: Double?
-    var traveler: Person?
+    var travelers: [Person] = []
     /// `.origin`/`.destination` only — whether the position marker currently sits on this exact
     /// endpoint, which needs the label pushed further down to stay clear of it.
     var hasOverlappingMarker = false
