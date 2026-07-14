@@ -7,9 +7,12 @@
   <meta name="robots" content="noindex" />
   <link rel="icon" href="/assets/favicon-32.png" sizes="32x32" />
   <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600;6..72,700&display=swap" />
   <link rel="stylesheet" href="/styles.css" />
 </head>
-<body>
+<body data-legal-page="terms">
   <header class="nav">
     <div class="wrap nav-inner">
       <a class="brand" href="/">
@@ -35,16 +38,17 @@
   </header>
 
   <main class="legal-wrap">
-    <h1>Terms of Use</h1>
-    <p><em>Last updated: 12 July 2026</em></p>
+    <h1 data-cms="legal:title">Terms of Use</h1>
+    <p><em>Last updated: <span data-cms="legal:lastUpdated">12 July 2026</span></em></p>
 
-    <div class="legal-notice">
+    <div class="legal-notice" id="legal-notice">
       <svg class="icon"><use href="/assets/icons.svg#icon-shield"/></svg>
-      <span><strong>Draft — pending legal review.</strong> This page is a placeholder so the app's
+      <span data-cms="legal:noticeText"><strong>Draft — pending legal review.</strong> This page is a placeholder so the app's
       Terms of Use link works end-to-end. It has not been reviewed by a lawyer and should not be
       treated as final before Twofold is publicly released.</span>
     </div>
 
+    <div id="legal-body">
     <h2>Using Twofold</h2>
     <p>
       Twofold is a companion app for couples navigating a long-distance relationship. By using
@@ -93,6 +97,7 @@
 
     <h2>Contact</h2>
     <p>Questions about these terms: <a href="mailto:hello@twofoldapp.com.au">hello@twofoldapp.com.au</a></p>
+    </div>
   </main>
 
   <footer class="footer">
@@ -109,5 +114,6 @@
     </div>
   </footer>
   <script type="module" src="/assets/js/site.js"></script>
+  <script type="module" src="/assets/js/cms-legal.js"></script>
 </body>
 </html>

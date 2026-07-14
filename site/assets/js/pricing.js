@@ -1,51 +1,53 @@
 // Twofold — pricing page orchestration: renders plan pricing from config, gates
 // checkout behind "Sign in with Apple" (same Supabase identity as the app), and drives
 // the RevenueCat Web Billing purchase flow. See auth.js / billing.js for the wrappers.
+//
+// Plan (Plus/Premium) is the tab at the top of the page. Whichever plan is selected
+// shows two cards side by side — Monthly and Yearly — for that tier, each a fixed
+// plan+period pairing (`data-plan` / `data-period` on the card itself, read directly
+// off whichever card a "Get ___" button lives in when it's clicked).
 
 import { PLANS } from "/assets/js/config.js";
 import { getSession, onAuthChange, signInWithApple, signOut } from "/assets/js/auth.js";
 import { fetchOfferings, fetchCustomerInfo, findPackage, purchasePackage, activeEntitlements } from "/assets/js/billing.js";
 
 const PENDING_KEY = "twofold_pending_plan";
-let period = "yearly"; // yearly leads — it's the better deal and the default most sites show first
+let currentPlan = "plus";
 
 const els = {
-  toggleBtns: document.querySelectorAll("[data-period-btn]"),
+  planTabs: document.querySelectorAll("[data-plan-tab]"),
+  planCards: document.querySelectorAll("[data-plan]"),
   authStatus: document.getElementById("auth-status"),
   buyButtons: document.querySelectorAll("[data-buy]"),
   subscribedBanner: document.getElementById("subscribed-banner"),
   subscribedText: document.getElementById("subscribed-text"),
   successPanel: document.getElementById("purchase-success"),
   pricingGrid: document.getElementById("pricing-grid"),
+  planTabsWrap: document.getElementById("plan-tabs"),
 };
 
 function renderPrices() {
-  document.querySelectorAll("[data-plan]").forEach((card) => {
-    const planId = card.dataset.plan;
-    const plan = PLANS[planId];
+  els.planCards.forEach((card) => {
+    const plan = PLANS[card.dataset.plan];
+    const cardPeriod = card.dataset.period === "monthly" ? "monthly" : "yearly";
     if (!plan) return;
-    const tier = plan[period];
     const num = card.querySelector("[data-price]");
-    const sub = card.querySelector("[data-price-sub]");
-    if (num) num.textContent = tier.priceLabel;
-    if (sub) {
-      sub.textContent =
-        period === "yearly"
-          ? `Billed yearly · works out to ${tier.perMonthLabel}/mo`
-          : "Billed monthly · cancel anytime";
-    }
-  });
-
-  els.toggleBtns.forEach((btn) => {
-    btn.classList.toggle("is-active", btn.dataset.periodBtn === period);
+    if (num) num.textContent = plan[cardPeriod].priceLabel;
   });
 }
 
-els.toggleBtns.forEach((btn) => {
-  btn.addEventListener("click", () => {
-    period = btn.dataset.periodBtn;
-    renderPrices();
+function showPlanTab(planId) {
+  currentPlan = planId;
+  els.planCards.forEach((card) => {
+    card.hidden = card.dataset.plan !== planId;
   });
+  els.planTabs.forEach((btn) => {
+    btn.classList.toggle("is-active", btn.dataset.planTab === planId);
+  });
+}
+
+els.planTabs.forEach((btn) => {
+  btn.addEventListener("click", () => showPlanTab(btn.dataset.planTab));
 });
 
 function setAuthStatus(session) {
@@ -88,7 +90,12 @@ async function showAlreadySubscribed(tierName) {
   els.pricingGrid?.style.setProperty("pointer-events", "none");
 }
 
-async function attemptPurchase(planId) {
+/** `buyBtn` is the actual button clicked (or re-derived from a pending post-signin resume). */
+async function attemptPurchase(buyBtn) {
+  const card = buyBtn.closest("[data-plan]");
+  const planId = card?.dataset.plan ?? buyBtn.dataset.buy;
+  const period = card?.dataset.period === "monthly" ? "monthly" : "yearly";
+
   const session = await getSession();
   if (!session) {
     sessionStorage.setItem(PENDING_KEY, JSON.stringify({ planId, period }));
@@ -97,12 +104,9 @@ async function attemptPurchase(planId) {
   }
 
   const plan = PLANS[planId];
-  const buyBtn = document.querySelector(`[data-buy="${planId}"]`);
-  const originalLabel = buyBtn?.textContent;
-  if (buyBtn) {
-    buyBtn.disabled = true;
-    buyBtn.textContent = "Opening checkout…";
-  }
+  const originalLabel = buyBtn.textContent;
+  buyBtn.disabled = true;
+  buyBtn.textContent = "Opening checkout…";
 
   try {
     const offering = await fetchOfferings(session.user.id);
@@ -111,10 +115,8 @@ async function attemptPurchase(planId) {
     if (!pkg) {
       // Web Billing not wired up yet (placeholder key / offering not published). Don't
       // dead-end the funnel — steer to the App Store instead of failing silently.
-      if (buyBtn) {
-        buyBtn.disabled = false;
-        buyBtn.textContent = originalLabel;
-      }
+      buyBtn.disabled = false;
+      buyBtn.textContent = originalLabel;
       const fallback = document.getElementById("web-checkout-fallback");
       if (fallback) fallback.hidden = false;
       return;
@@ -125,15 +127,13 @@ async function attemptPurchase(planId) {
     if (active.length) {
       els.successPanel?.removeAttribute("hidden");
       els.pricingGrid?.style.setProperty("display", "none");
-      document.getElementById("pricing-toggle")?.style.setProperty("display", "none");
+      els.planTabsWrap?.style.setProperty("display", "none");
       els.successPanel?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   } catch (err) {
     console.warn("[twofold] purchase failed", err);
-    if (buyBtn) {
-      buyBtn.disabled = false;
-      buyBtn.textContent = originalLabel;
-    }
+    buyBtn.disabled = false;
+    buyBtn.textContent = originalLabel;
     const status = document.getElementById("purchase-error");
     if (status) {
       status.hidden = false;
@@ -145,10 +145,11 @@ async function attemptPurchase(planId) {
 }
 
 els.buyButtons.forEach((btn) => {
-  btn.addEventListener("click", () => attemptPurchase(btn.dataset.buy));
+  btn.addEventListener("click", () => attemptPurchase(btn));
 });
 
 async function init() {
+  showPlanTab(currentPlan);
   renderPrices();
 
   const session = await getSession();
@@ -166,10 +167,11 @@ async function init() {
     const pending = sessionStorage.getItem(PENDING_KEY);
     if (pending && !active.length) {
       sessionStorage.removeItem(PENDING_KEY);
-      const { planId, period: pendingPeriod } = JSON.parse(pending);
-      period = pendingPeriod || period;
-      renderPrices();
-      attemptPurchase(planId);
+      const { planId, period } = JSON.parse(pending);
+      showPlanTab(planId);
+      const card = document.querySelector(`[data-plan="${planId}"][data-period="${period}"]`);
+      const btn = card?.querySelector("[data-buy]");
+      if (btn) attemptPurchase(btn);
     }
   }
 

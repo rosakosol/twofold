@@ -2,7 +2,9 @@
 
 Multi-page marketing site + web2app funnel for Twofold, built for Cloudflare Pages. No
 build step — plain HTML/CSS/JS, ES modules loaded straight from `/assets/js`, npm
-packages (Supabase, RevenueCat Web Billing, QR) imported from esm.sh at runtime.
+packages (Supabase, RevenueCat Web Billing, QR) imported from esm.sh at runtime. Content
+is editable via a Sanity CMS (`studio/`), fetched client-side with a hand-rolled
+`fetch()` client — no SDK needed for read-only GROQ queries.
 
 ## Structure
 
@@ -14,16 +16,41 @@ packages (Supabase, RevenueCat Web Billing, QR) imported from esm.sh at runtime.
 - `styles.css` — shared design system (tokens mirror `Twofold/Twofold/DesignSystem/Theme.swift`).
 - `assets/icons.svg` — shared SVG icon sprite used via `<use href="/assets/icons.svg#icon-x">`.
 - `assets/js/`
-  - `config.js` — all public config (App Store URL, Supabase keys, RevenueCat Web Billing key, plan/pricing data). Nothing secret — see "Go-live checklist" below for what to fill in.
+  - `config.js` — all public config (App Store URL, Supabase keys, RevenueCat Web Billing key, Sanity project id, plan/pricing data). Nothing secret — see "Go-live checklist" below for what to fill in.
   - `site.js` — nav, mobile menu, reveal-on-scroll, device-aware CTA classes (`is-mobile`/`is-desktop`).
   - `auth.js` — Supabase client + Sign in with Apple, shared identity with the iOS app.
   - `billing.js` — RevenueCat Web Billing (`@revenuecat/purchases-js`) wrapper.
   - `pricing.js` — wires the pricing page's plan cards to auth + checkout.
   - `qr.js` — renders the App Store QR code shown to desktop visitors on `/pricing.html`.
   - `waitlist.js` — the Android waitlist form.
+  - `cms.js` — Sanity fetch client, Portable Text → HTML renderer, and the generic `[data-cms]` text hydrator.
+  - `cms-home.js`, `cms-features.js`, `cms-faq.js`, `cms-legal.js` — per-page CMS wiring, see "Content model" below.
+- `studio/` — the Sanity Studio (the actual content-editing UI). Separate npm project, see "CMS setup".
 - `functions/api/waitlist.ts` — Cloudflare Pages Function handling waitlist signups.
 - `schema.sql` — D1 table for waitlist signups.
 - `wrangler.toml` — Pages/D1 config.
+
+## Content model (what's editable via CMS vs. hardcoded)
+
+Only marketing copy is CMS-driven — layout, navigation, and all Stripe/RevenueCat
+pricing stay hardcoded in the site itself (pricing is tied to real product/package IDs
+and shouldn't be freely editable by a copy edit). Specifically:
+
+| Editable in Sanity | Stays in code |
+|---|---|
+| Home hero eyebrow/headline/subtext/note | Page layout, nav, footer |
+| The 6 feature cards' titles/descriptions/bullets | Which 6 features exist, their icons/colors |
+| FAQ questions & answers (add/remove freely) | FAQ page layout, categories |
+| Privacy Policy & Terms of Use body text | Pricing page, plan names, $ amounts, package IDs |
+
+Every CMS-driven element falls back to today's hardcoded copy if Sanity has nothing
+published yet (or is unreachable) — nothing goes blank. This is why the site works
+today even though no content has been created in Sanity yet.
+
+Each page fetches its own content client-side on load (`assets/js/cms-*.js`) via
+`[data-cms="hero:headline"]`-style attributes in the HTML, or — for the FAQ and legal
+pages, where the *number* of items/sections can change — by rendering the fetched
+content directly.
 
 ## How the web2app funnel works
 
@@ -91,11 +118,50 @@ placeholders. To go fully live:
      supports `trial_period_days` per price) — the app's trial and the web trial are
      configured independently, so this doesn't happen automatically.
 
-4. **Resend (waitlist emails)** — unchanged from before, see the section below.
+4. **Sanity CMS** — see "CMS setup" below.
+
+5. **Resend (waitlist emails)** — unchanged from before, see the section below.
 
 None of the above requires touching Stripe secret keys or writing server code — Web
 Billing's public key is safe to ship client-side (same trust model as the app's
 RevenueCat SDK key), and RevenueCat handles the Stripe-side billing/webhooks itself.
+
+## CMS setup (Sanity)
+
+The site is wired to Sanity project `fck477cu`, dataset `production` (both already set
+in `assets/js/config.js` — public, non-secret values, safe as-is). Two things are still
+needed before it's actually live:
+
+1. **CORS origins** — required for the browser to be allowed to read from Sanity at
+   all, regardless of dataset visibility. In [sanity.io/manage](https://www.sanity.io/manage)
+   → your project → API → CORS origins, add:
+   - `http://localhost:8788` (and whatever port `npm run dev` prints, for local testing)
+   - Your production domain, e.g. `https://twofoldapp.com.au`
+
+   No credentials needed — these are anonymous, read-only requests against a public
+   dataset.
+
+2. **Publish some content.** Nothing renders from Sanity until documents exist and are
+   *published* (not just drafts) — until then every page shows its hardcoded fallback
+   copy. To start editing:
+   ```
+   cd studio
+   npm install
+   npx sanity login      # opens a browser to authenticate with your Sanity account
+   npm run dev            # Studio at http://localhost:3333
+   ```
+   Or skip local dev entirely and publish the Studio itself to a hosted URL you can
+   edit from any browser:
+   ```
+   npm run deploy         # prompts for a studio hostname, e.g. twofold.sanity.studio
+   ```
+   Inside the Studio: fill in **Home Hero**, all 6 items under **Features**, add some
+   **FAQ** items (pick a category for each), and fill in **Privacy Policy** / **Terms of
+   Use** — then hit Publish on each. Refresh the live site and the fallback copy is
+   replaced by whatever you published.
+
+No server code or secret key is involved on the site's side — reads go straight from
+the browser to Sanity's CDN API using the public project ID already in `config.js`.
 
 ## One-time setup (waitlist / D1 / Resend)
 

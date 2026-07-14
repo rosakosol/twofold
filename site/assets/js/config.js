@@ -7,6 +7,15 @@
 
 export const APP_STORE_URL = "https://apps.apple.com/app/id0000000000"; // TODO: real App Store id once listed
 
+// Sanity CMS (marketing copy: hero text, feature copy, FAQ entries, legal page bodies).
+// Project ID is public/non-secret by design — reads go straight to Sanity's CDN API
+// from the browser, no server or token needed, as long as the "production" dataset is
+// set to Public visibility and this site's origin is added under Sanity project
+// settings → API → CORS origins (see site/README.md "CMS setup").
+export const SANITY_PROJECT_ID = "fck477cu";
+export const SANITY_DATASET = "production";
+export const SANITY_API_VERSION = "2024-01-01";
+
 export const SUPABASE_URL = "https://ipfzswswwukfqphloojo.supabase.co";
 export const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_KvH6r2_haPL1sbAc1d4F-Q_5l1ImkpK";
 

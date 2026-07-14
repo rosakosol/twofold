@@ -42,16 +42,31 @@
      (TwofoldBrandMark.swift renders "twofold" with `.system(design: .serif)`, i.e. New
      York; everything else uses the SwiftUI default, i.e. San Francisco). Apple only
      licenses these fonts for use on Apple platforms, so rather than self-hosting the
-     font files, these stacks use Apple's system-font keywords, which resolve to the
-     real New York / SF Pro on macOS and iOS and fall back gracefully everywhere else. */
-  --font-display: "New York", ui-serif, Georgia, "Iowan Old Style", "Times New Roman", serif;
-  --font-body: -apple-system, "SF Pro Text", "SF Pro Display", system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+     font files, these stacks use Apple's system-font keywords first — which resolve to
+     the real New York / SF Pro on macOS and iOS — then fall back to their closest
+     Google Fonts equivalents (loaded in <head>, see index.html etc.) everywhere else:
+     Newsreader for New York (same "transitional serif" classification, same
+     screen-reading-focused construction, and one of the few Google Fonts with an
+     optical-size axis, mirroring New York's own Text/Display switching) and Inter for
+     SF Pro (widely considered its closest free match, also built around an optical-size
+     axis for the same reason). */
+  --font-display: "New York", ui-serif, "Newsreader", Georgia, "Iowan Old Style", "Times New Roman", serif;
+  --font-body: -apple-system, "SF Pro Text", "SF Pro Display", system-ui, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 * {
   box-sizing: border-box;
+}
+
+/* Belt-and-suspenders: any component class that sets its own `display` (e.g.
+   `.price-card { display: flex }`) otherwise beats the browser's built-in
+   `[hidden] { display: none }` UA rule, since author styles win over UA styles even at
+   equal specificity — so toggling the `hidden` attribute from JS silently does nothing.
+   This keeps `hidden` authoritative everywhere, no matter what else targets the element. */
+[hidden] {
+  display: none !important;
 }
 
 html {

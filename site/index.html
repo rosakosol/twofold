@@ -17,6 +17,9 @@
 
   <link rel="icon" href="/assets/favicon-32.png" sizes="32x32" />
   <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600;6..72,700&display=swap" />
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
@@ -49,9 +52,9 @@
     <section class="hero">
       <div class="wrap hero-inner">
         <div class="hero-copy">
-          <p class="eyebrow"><svg class="icon"><use href="/assets/icons.svg#icon-heart"/></svg>Built for long-distance couples</p>
-          <h1>See how far you've gone<br />for each other.</h1>
-          <p class="lede">
+          <p class="eyebrow"><svg class="icon"><use href="/assets/icons.svg#icon-heart"/></svg><span data-cms="hero:eyebrow">Built for long-distance couples</span></p>
+          <h1 data-cms="hero:headline">See how far you've gone<br />for each other.</h1>
+          <p class="lede" data-cms="hero:subtext">
             Twofold turns your long-distance relationship into a living map — track flights in
             real time, watch the distance between you close, and relive every trip you've taken
             just to be together.
@@ -77,7 +80,7 @@
             </a>
             <a class="text-link hide-on-desktop" href="/pricing.html">See pricing</a>
           </div>
-          <p class="hero-note"><svg class="icon"><use href="/assets/icons.svg#icon-shield"/></svg>Private by default — only your partner ever sees your journeys.</p>
+          <p class="hero-note"><svg class="icon"><use href="/assets/icons.svg#icon-shield"/></svg><span data-cms="hero:heroNote">Private by default — only your partner ever sees your journeys.</span></p>
         </div>
         <div class="hero-art" aria-hidden="true">
           <div class="art-glow"></div>
@@ -137,33 +140,33 @@
         <div class="feature-grid">
           <article class="feature-card reveal">
             <div class="feature-icon tone-sky"><svg class="icon"><use href="/assets/icons.svg#icon-globe"/></svg></div>
-            <h3>Relationship Globe</h3>
-            <p>An interactive 3D globe showing both of you, your current distance apart, and every journey you've taken to close it.</p>
+            <h3 data-cms="feature:relationship-globe:title">Relationship Globe</h3>
+            <p data-cms="feature:relationship-globe:teaserDescription">An interactive 3D globe showing both of you, your current distance apart, and every journey you've taken to close it.</p>
           </article>
           <article class="feature-card reveal">
             <div class="feature-icon tone-sky"><svg class="icon"><use href="/assets/icons.svg#icon-plane"/></svg></div>
-            <h3>Live Flight Tracking</h3>
-            <p>Follow each other's flights in real time and get a notification the moment your partner lands.</p>
+            <h3 data-cms="feature:live-flight-tracking:title">Live Flight Tracking</h3>
+            <p data-cms="feature:live-flight-tracking:teaserDescription">Follow each other's flights in real time and get a notification the moment your partner lands.</p>
           </article>
           <article class="feature-card reveal">
             <div class="feature-icon tone-red"><svg class="icon"><use href="/assets/icons.svg#icon-pin"/></svg></div>
-            <h3>Memories</h3>
-            <p>Save photos and moments to the exact places they happened, building a map of your story together.</p>
+            <h3 data-cms="feature:memories:title">Memories</h3>
+            <p data-cms="feature:memories:teaserDescription">Save photos and moments to the exact places they happened, building a map of your story together.</p>
           </article>
           <article class="feature-card reveal">
             <div class="feature-icon tone-green"><svg class="icon"><use href="/assets/icons.svg#icon-gamepad"/></svg></div>
-            <h3>Couple Games</h3>
-            <p>Bite-sized questions and games built for two, made to close the distance even when you can't be in the same room.</p>
+            <h3 data-cms="feature:couple-games:title">Couple Games</h3>
+            <p data-cms="feature:couple-games:teaserDescription">Bite-sized questions and games built for two, made to close the distance even when you can't be in the same room.</p>
           </article>
           <article class="feature-card reveal">
             <div class="feature-icon tone-ink"><svg class="icon"><use href="/assets/icons.svg#icon-grid"/></svg></div>
-            <h3>Widgets &amp; Live Activities</h3>
-            <p>Countdown to your next reunion, or a live flight tracker right on your Lock Screen and Home Screen.</p>
+            <h3 data-cms="feature:widgets-live-activities:title">Widgets &amp; Live Activities</h3>
+            <p data-cms="feature:widgets-live-activities:teaserDescription">Countdown to your next reunion, or a live flight tracker right on your Lock Screen and Home Screen.</p>
           </article>
           <article class="feature-card reveal">
             <div class="feature-icon tone-sky"><svg class="icon"><use href="/assets/icons.svg#icon-file-download"/></svg></div>
-            <h3>Relationship Record</h3>
-            <p>Export a beautiful PDF of every trip, memory, and mile — a keepsake of your long-distance story so far.</p>
+            <h3 data-cms="feature:relationship-record:title">Relationship Record</h3>
+            <p data-cms="feature:relationship-record:teaserDescription">Export a beautiful PDF of every trip, memory, and mile — a keepsake of your long-distance story so far.</p>
           </article>
         </div>
         <p style="text-align:center; margin-top: 36px;">
@@ -292,6 +295,7 @@
   </footer>
 
   <script type="module" src="/assets/js/site.js"></script>
+  <script type="module" src="/assets/js/cms-home.js"></script>
   <script type="module" src="/assets/js/waitlist.js"></script>
 </body>
 </html>

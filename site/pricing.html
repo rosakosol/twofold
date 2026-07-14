@@ -12,6 +12,9 @@
 
   <link rel="icon" href="/assets/favicon-32.png" sizes="32x32" />
   <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600;6..72,700&display=swap" />
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
@@ -51,33 +54,49 @@
       <div class="wrap-narrow" style="text-align:center; margin-bottom:28px;" id="auth-status"></div>
 
       <div style="display:flex; justify-content:center;">
-        <div id="pricing-toggle" class="pricing-toggle">
-          <button type="button" data-period-btn="monthly">Monthly</button>
-          <button type="button" data-period-btn="yearly" class="is-active">Yearly <span class="save-pill">Save 50%</span></button>
+        <div id="plan-tabs" class="pricing-toggle">
+          <button type="button" data-plan-tab="plus" class="is-active">Plus</button>
+          <button type="button" data-plan-tab="premium">Premium</button>
         </div>
       </div>
 
       <div class="wrap">
         <div id="pricing-grid" class="pricing-grid">
-          <div class="price-card" data-plan="plus">
+          <!-- Twofold Plus — Monthly / Yearly, side by side -->
+          <div class="price-card" data-plan="plus" data-period="monthly">
             <h3>Twofold Plus</h3>
-            <p class="price-tagline">Everything you need for long-distance love</p>
-            <div class="price-amount"><span class="num" data-price>$5.00</span><span class="period">/mo</span></div>
-            <p class="price-sub" data-price-sub>Billed yearly · works out to $5.00/mo</p>
+            <p class="price-tagline">Billed monthly · cancel anytime</p>
+            <div class="price-amount"><span class="num" data-price>$9.99</span><span class="period">/mo</span></div>
+            <p class="price-sub" data-price-sub>&nbsp;</p>
             <ul class="feature-list">
               <li><svg class="icon"><use href="/assets/icons.svg#icon-check"/></svg>Unlimited trips &amp; memories</li>
               <li><svg class="icon"><use href="/assets/icons.svg#icon-check"/></svg>Track up to 5 flights each month</li>
               <li><svg class="icon"><use href="/assets/icons.svg#icon-check"/></svg>500+ questions and games</li>
               <li><svg class="icon"><use href="/assets/icons.svg#icon-check"/></svg>Home Screen &amp; Lock Screen widgets</li>
             </ul>
-            <button type="button" class="btn btn-outline btn-block" data-buy="plus">Get Twofold Plus</button>
+            <button type="button" class="btn btn-outline btn-block" data-buy="plus">Get Plus — Monthly</button>
           </div>
-          <div class="price-card is-featured" data-plan="premium">
-            <span class="price-ribbon">Most popular</span>
+          <div class="price-card is-featured" data-plan="plus" data-period="yearly">
+            <span class="price-ribbon">Save 50%</span>
+            <h3>Twofold Plus</h3>
+            <p class="price-tagline">Billed yearly</p>
+            <div class="price-amount"><span class="num" data-price>$5.00</span><span class="period">/mo</span></div>
+            <p class="price-sub" data-price-sub>Works out to $59.99/yr</p>
+            <ul class="feature-list">
+              <li><svg class="icon"><use href="/assets/icons.svg#icon-check"/></svg>Unlimited trips &amp; memories</li>
+              <li><svg class="icon"><use href="/assets/icons.svg#icon-check"/></svg>Track up to 5 flights each month</li>
+              <li><svg class="icon"><use href="/assets/icons.svg#icon-check"/></svg>500+ questions and games</li>
+              <li><svg class="icon"><use href="/assets/icons.svg#icon-check"/></svg>Home Screen &amp; Lock Screen widgets</li>
+            </ul>
+            <button type="button" class="btn btn-primary btn-block" data-buy="plus">Get Plus — Yearly</button>
+          </div>
+
+          <!-- Twofold Premium — Monthly / Yearly, side by side -->
+          <div class="price-card" data-plan="premium" data-period="monthly" hidden>
             <h3>Twofold Premium</h3>
-            <p class="price-tagline">The full relationship globe experience</p>
-            <div class="price-amount"><span class="num" data-price>$10.00</span><span class="period">/mo</span></div>
-            <p class="price-sub" data-price-sub>Billed yearly · works out to $10.00/mo</p>
+            <p class="price-tagline">Billed monthly · cancel anytime</p>
+            <div class="price-amount"><span class="num" data-price>$19.99</span><span class="period">/mo</span></div>
+            <p class="price-sub" data-price-sub>&nbsp;</p>
             <ul class="feature-list">
               <li><svg class="icon"><use href="/assets/icons.svg#icon-check"/></svg>Everything in Twofold Plus</li>
               <li><svg class="icon"><use href="/assets/icons.svg#icon-check"/></svg>Track up to 20 flights each month</li>
@@ -85,7 +104,22 @@
               <li><svg class="icon"><use href="/assets/icons.svg#icon-check"/></svg>Interactive 3D globe &amp; premium widgets</li>
               <li><svg class="icon"><use href="/assets/icons.svg#icon-check"/></svg>Relationship Record PDF export</li>
             </ul>
-            <button type="button" class="btn btn-primary btn-block" data-buy="premium">Get Twofold Premium</button>
+            <button type="button" class="btn btn-outline btn-block" data-buy="premium">Get Premium — Monthly</button>
+          </div>
+          <div class="price-card is-featured" data-plan="premium" data-period="yearly" hidden>
+            <span class="price-ribbon">Save 50%</span>
+            <h3>Twofold Premium</h3>
+            <p class="price-tagline">Billed yearly</p>
+            <div class="price-amount"><span class="num" data-price>$10.00</span><span class="period">/mo</span></div>
+            <p class="price-sub" data-price-sub>Works out to $119.99/yr</p>
+            <ul class="feature-list">
+              <li><svg class="icon"><use href="/assets/icons.svg#icon-check"/></svg>Everything in Twofold Plus</li>
+              <li><svg class="icon"><use href="/assets/icons.svg#icon-check"/></svg>Track up to 20 flights each month</li>
+              <li><svg class="icon"><use href="/assets/icons.svg#icon-check"/></svg>2000+ questions and games</li>
+              <li><svg class="icon"><use href="/assets/icons.svg#icon-check"/></svg>Interactive 3D globe &amp; premium widgets</li>
+              <li><svg class="icon"><use href="/assets/icons.svg#icon-check"/></svg>Relationship Record PDF export</li>
+            </ul>
+            <button type="button" class="btn btn-primary btn-block" data-buy="premium">Get Premium — Yearly</button>
           </div>
         </div>
 
