@@ -69,6 +69,14 @@ final class GameSessionStore {
         GameLogic.answeredRoundNumbers(responses: responses, responderID: myID).count
     }
 
+    /// True once the player has answered at least one round — distinguishes "just opened this
+    /// game, nothing to lose" (round 1, never answered) from "revisited round 1 after making
+    /// progress further in" (leaving would discard that progress), so the game view's back
+    /// button only shows a leave-confirmation in the latter case.
+    func hasAnsweredAnyRounds(myID: UUID) -> Bool {
+        myAnsweredCount(myID: myID) > 0
+    }
+
     /// False only at round 1 (whether live or already being revisited) — that's the one point
     /// the game view's back button should show a leave-confirmation instead of rewinding.
     func canGoBack(myID: UUID) -> Bool {

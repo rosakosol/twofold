@@ -18,12 +18,16 @@ struct SessionRoute: Identifiable, Hashable {
 /// through so the title doesn't shift from "Airport Chaos" to "Trivia Battle" the moment play
 /// actually starts, which is exactly what happened when each typed view set its own title
 /// independently of whatever title the caller had already shown.
+///
+/// `topic` is the deck's raw `GameTopic` string (nil for a non-deck/shared-pool session, which
+/// has no topic) — only Trivia Battle and Deep Conversation currently show it as a badge on the
+/// play screen itself, matching the same badge already shown on the deck's own card.
 @ViewBuilder
-func gameDestinationView(gameType: GameType, sessionID: UUID, title: String? = nil) -> some View {
+func gameDestinationView(gameType: GameType, sessionID: UUID, title: String? = nil, topic: String? = nil) -> some View {
     switch gameType {
-    case .travelTrivia: TravelTriviaGameView(sessionID: sessionID, title: title)
+    case .travelTrivia: TravelTriviaGameView(sessionID: sessionID, title: title, topic: topic)
     case .moreLikely: WhosMoreLikelyGameView(sessionID: sessionID, title: title)
     case .thisOrThat: ThisOrThatGameView(sessionID: sessionID, title: title)
-    case .discussBeforeTravelling: DiscussBeforeTravellingGameView(sessionID: sessionID, title: title)
+    case .discussBeforeTravelling: DiscussBeforeTravellingGameView(sessionID: sessionID, title: title, topic: topic)
     }
 }

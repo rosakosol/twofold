@@ -38,7 +38,7 @@ struct DeckCardRow: View {
                 content
             } else if bothCompleted, let progress {
                 NavigationLink {
-                    gameDestinationView(gameType: deck.gameType, sessionID: progress.sessionID, title: deck.title)
+                    gameDestinationView(gameType: deck.gameType, sessionID: progress.sessionID, title: deck.title, topic: deck.topic)
                 } label: { content }
                     .buttonStyle(.plain)
             } else {

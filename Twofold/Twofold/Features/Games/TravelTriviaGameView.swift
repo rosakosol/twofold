@@ -14,6 +14,9 @@ struct TravelTriviaGameView: View {
     /// Overrides the generic "Trivia Battle" nav title — set to the deck's own title when
     /// reached via DeckEntryView, so the title doesn't shift once play actually starts.
     var title: String? = nil
+    /// The deck's raw `GameTopic` string, nil for a non-deck session — shown as the same badge
+    /// style the deck's own card already uses (see `DeckCardRow`'s `showsTopicPill`).
+    var topic: String? = nil
 
     @Environment(AppModel.self) private var appModel
     @Environment(\.dismiss) private var dismiss
@@ -33,6 +36,7 @@ struct TravelTriviaGameView: View {
     private var isActivelyPlaying: Bool {
         !store.isLoading && store.errorMessage == nil && store.session?.status != .abandoned && !store.isRevealed
     }
+    private var resolvedTopic: GameTopic? { topic.flatMap(GameTopic.init(rawValue:)) }
 
     var body: some View {
         Group {
@@ -128,9 +132,9 @@ struct TravelTriviaGameView: View {
                         Text("Question \(round.roundNumber) of \(store.rounds.count)")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(Theme.subtleInk)
-                        Text(question.category.uppercased())
-                            .font(.caption2.weight(.bold))
-                            .foregroundStyle(Theme.skyBlue)
+                        if let resolvedTopic {
+                            PillBadge(text: resolvedTopic.displayName, tint: resolvedTopic.color)
+                        }
                         Text(question.question)
                             .font(.title3.weight(.bold))
                             .multilineTextAlignment(.center)
@@ -158,7 +162,12 @@ struct TravelTriviaGameView: View {
             LazyVGrid(columns: [GridItem(.flexible(), spacing: Theme.Spacing.sm), GridItem(.flexible())], spacing: Theme.Spacing.sm) {
                 ForEach(Array(question.options.enumerated()), id: \.offset) { index, option in
                     let style = Self.optionStyles[index % Self.optionStyles.count]
-                    let wasPreviouslyChosen = store.myResponse(for: round, myID: myID)?.answerValue == option
+                    let previousAnswer = store.myResponse(for: round, myID: myID)?.answerValue
+                    let wasPreviouslyChosen = previousAnswer == option
+                    // Revisiting an already-answered question via the back button — every other
+                    // option desaturates so the one actually picked stands out clearly, instead
+                    // of all four looking equally "live" the way a fresh, unanswered question does.
+                    let shouldDim = previousAnswer != nil && !wasPreviouslyChosen
                     Button {
                         submit(round: round, value: option, isCorrect: option == question.correctAnswer)
                     } label: {
@@ -176,6 +185,8 @@ struct TravelTriviaGameView: View {
                         .frame(maxWidth: .infinity, minHeight: 100)
                         .padding(Theme.Spacing.sm)
                         .background(style.color, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                        .saturation(shouldDim ? 0 : 1)
+                        .opacity(shouldDim ? 0.55 : 1)
                         .overlay(alignment: .topTrailing) {
                             if wasPreviouslyChosen {
                                 ZStack {
@@ -229,8 +240,12 @@ struct TravelTriviaGameView: View {
     private func handleBack() {
         if store.canGoBack(myID: myID) {
             store.goBack(myID: myID)
-        } else {
+        } else if store.hasAnsweredAnyRounds(myID: myID) {
             showingLeaveConfirm = true
+        } else {
+            // Nothing answered yet — nothing a confirmation would actually be protecting, so
+            // just let them out.
+            dismiss()
         }
     }
 

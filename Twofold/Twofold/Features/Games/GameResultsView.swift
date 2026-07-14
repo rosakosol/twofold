@@ -26,6 +26,9 @@ struct GameResultsView: View {
     @State private var isEditingAnswers = false
     @State private var isResettingDeck = false
     @State private var resetRoute: SessionRoute?
+    /// Set alongside `resetRoute` in `resetDeck(deckID:)` — `SessionRoute` itself only carries
+    /// id/gameType, so this rides separately to the `.navigationDestination` closure below.
+    @State private var resetTopic: String?
     @State private var showingNoMailAppAlert = false
 
     private var isFullyRevealed: Bool { revealedCount >= store.rounds.count }
@@ -109,7 +112,7 @@ struct GameResultsView: View {
         }
         .noMailAppAlert(isPresented: $showingNoMailAppAlert)
         .navigationDestination(item: $resetRoute) { route in
-            gameDestinationView(gameType: route.gameType, sessionID: route.id)
+            gameDestinationView(gameType: route.gameType, sessionID: route.id, topic: resetTopic)
         }
         .onAppear {
             animateReveal()
@@ -407,6 +410,7 @@ struct GameResultsView: View {
         }
         if let newID = try? await BackendService.startDeckSession(deckID: deckID) {
             await appModel.refreshGameDecks()
+            resetTopic = appModel.gameDecks?.first(where: { $0.id == deckID })?.topic
             resetRoute = SessionRoute(id: newID, gameType: gameType)
         }
         isResettingDeck = false

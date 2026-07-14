@@ -215,8 +215,12 @@ struct ThisOrThatGameView: View {
     private func handleBack() {
         if store.canGoBack(myID: myID) {
             store.goBack(myID: myID)
-        } else {
+        } else if store.hasAnsweredAnyRounds(myID: myID) {
             showingLeaveConfirm = true
+        } else {
+            // Nothing answered yet — nothing a confirmation would actually be protecting, so
+            // just let them out.
+            dismiss()
         }
     }
 

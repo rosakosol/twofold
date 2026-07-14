@@ -162,10 +162,15 @@ struct SwipeChoiceCard<Content: View>: View {
                 .resizable()
                 .scaledToFit()
                 .frame(width: 16, height: 16)
-            Text("Twofold")
-                .font(.caption2.weight(.bold))
+            // Same serif wordmark treatment as WelcomeView's sign-in screen (just much smaller
+            // here — that one is size 56 for a full-screen splash).
+            Text("twofold")
+                .font(.system(size: 13, weight: .regular, design: .serif))
                 .foregroundStyle(.white.opacity(0.85))
         }
-        .padding(Theme.Spacing.sm)
+        // Matches the content's own inset from the card edge (see `content.padding(Theme.Spacing.lg)`
+        // above) so this sits at the same distance from the corner as the "1/8" round counter
+        // does from the top edge, instead of hugging the corner more tightly than it does.
+        .padding(Theme.Spacing.lg)
     }
 }

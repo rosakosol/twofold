@@ -15,6 +15,9 @@ struct DiscussBeforeTravellingGameView: View {
     /// Overrides the generic "Deep Conversation" nav title — set to the deck's own title when
     /// reached via DeckEntryView, so the title doesn't shift once play actually starts.
     var title: String? = nil
+    /// The deck's raw `GameTopic` string, nil for a non-deck session — shown as the same badge
+    /// style the deck's own card already uses (see `DeckCardRow`'s `showsTopicPill`).
+    var topic: String? = nil
 
     @Environment(AppModel.self) private var appModel
     @Environment(\.dismiss) private var dismiss
@@ -31,6 +34,7 @@ struct DiscussBeforeTravellingGameView: View {
     private var isActivelyPlaying: Bool {
         !store.isLoading && store.errorMessage == nil && store.session?.status != .abandoned && !store.isRevealed
     }
+    private var resolvedTopic: GameTopic? { topic.flatMap(GameTopic.init(rawValue:)) }
 
     var body: some View {
         Group {
@@ -122,6 +126,9 @@ struct DiscussBeforeTravellingGameView: View {
                         Text("Topic \(round.roundNumber) of \(store.rounds.count)")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(Theme.subtleInk)
+                        if let resolvedTopic {
+                            PillBadge(text: resolvedTopic.displayName, tint: resolvedTopic.color)
+                        }
                         Text(topic.topic)
                             .font(.title3.weight(.semibold))
                             .multilineTextAlignment(.center)
@@ -152,7 +159,7 @@ struct DiscussBeforeTravellingGameView: View {
             Button {
                 submit(round: round, value: responseText.trimmingCharacters(in: .whitespacesAndNewlines))
             } label: {
-                Text("Share")
+                Text("Next")
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding()
@@ -194,8 +201,12 @@ struct DiscussBeforeTravellingGameView: View {
     private func handleBack() {
         if store.canGoBack(myID: myID) {
             store.goBack(myID: myID)
-        } else {
+        } else if store.hasAnsweredAnyRounds(myID: myID) {
             showingLeaveConfirm = true
+        } else {
+            // Nothing answered yet — nothing a confirmation would actually be protecting, so
+            // just let them out.
+            dismiss()
         }
     }
 
