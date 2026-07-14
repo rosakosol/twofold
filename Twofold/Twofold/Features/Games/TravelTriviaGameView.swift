@@ -134,6 +134,14 @@ struct TravelTriviaGameView: View {
                         Text(question.question)
                             .font(.title3.weight(.bold))
                             .multilineTextAlignment(.center)
+                        // Shown when revisiting an already-answered question via the back
+                        // button — the option itself also gets a checkmark badge below, this
+                        // just states it plainly up top too.
+                        if let previousAnswer = store.myResponse(for: round, myID: myID)?.answerValue {
+                            Text(previousAnswer.isEmpty ? "You skipped this one" : "You chose: \(previousAnswer)")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(Theme.leafGreen)
+                        }
                     }
                     .frame(maxWidth: .infinity)
 
@@ -150,6 +158,7 @@ struct TravelTriviaGameView: View {
             LazyVGrid(columns: [GridItem(.flexible(), spacing: Theme.Spacing.sm), GridItem(.flexible())], spacing: Theme.Spacing.sm) {
                 ForEach(Array(question.options.enumerated()), id: \.offset) { index, option in
                     let style = Self.optionStyles[index % Self.optionStyles.count]
+                    let wasPreviouslyChosen = store.myResponse(for: round, myID: myID)?.answerValue == option
                     Button {
                         submit(round: round, value: option, isCorrect: option == question.correctAnswer)
                     } label: {
@@ -167,6 +176,22 @@ struct TravelTriviaGameView: View {
                         .frame(maxWidth: .infinity, minHeight: 100)
                         .padding(Theme.Spacing.sm)
                         .background(style.color, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                        .overlay(alignment: .topTrailing) {
+                            if wasPreviouslyChosen {
+                                ZStack {
+                                    Circle().fill(.white)
+                                    Image(systemName: "checkmark").font(.caption2.weight(.bold)).foregroundStyle(style.color)
+                                }
+                                .frame(width: 22, height: 22)
+                                .padding(6)
+                            }
+                        }
+                        .overlay {
+                            if wasPreviouslyChosen {
+                                RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+                                    .strokeBorder(.white, lineWidth: 3)
+                            }
+                        }
                     }
                     .disabled(isSubmitting)
                 }

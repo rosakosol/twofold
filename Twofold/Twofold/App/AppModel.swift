@@ -35,9 +35,11 @@ final class AppModel {
     /// as "plus" server-side, so this being nil never actually locks anyone out of content).
     var subscriptionTier: String?
 
-    /// Daily Activity streak — see `startOrResumeDailyQuestion()`/`refreshDailyStreak()`.
-    var dailyStreak = 0
-    var longestDailyStreak = 0
+    /// Daily Activity streak — see `startOrResumeDailyQuestion()`/`refreshDailyStreak()`. Nil
+    /// until the first fetch resolves (not defaulted to 0) so `DailyActivityCard` can show a
+    /// placeholder instead of visibly flashing "Start a streak" before the real value loads.
+    var dailyStreak: Int?
+    var longestDailyStreak: Int?
     /// Today's Daily Activity session id, once known (fetched lazily, not at launch — see
     /// `startOrResumeDailyQuestion()`).
     var todaysDailySessionID: UUID?

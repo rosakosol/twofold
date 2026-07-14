@@ -186,6 +186,16 @@ final class GameSessionStore {
             queueOffline(sessionID: session.id, roundNumber: roundNumber, answerValue: answerValue, isCorrect: isCorrect)
             return true
         }
+
+        // Reflected in `responses` immediately (same optimistic shape `queueOffline` already
+        // uses) rather than waiting on the submit-then-refresh round trip below — the swipe
+        // card's fly-off animation was completing well before the network calls did, leaving a
+        // visible stall between the old card leaving and the next one appearing. `refresh()`
+        // still runs afterward and reconciles with the server's actual state.
+        if let myID = BackendService.currentUserID {
+            applyOptimistic(PendingGameResponse(sessionID: session.id, roundNumber: roundNumber, responderID: myID, answerValue: answerValue, isCorrect: isCorrect))
+        }
+
         let wasRevealed = isRevealed
         do {
             try await BackendService.submitGameResponse(sessionID: session.id, roundNumber: roundNumber, answerValue: answerValue, isCorrect: isCorrect)

@@ -3,7 +3,7 @@
 //  Twofold
 //
 //  Drag-to-reposition, pinch-to-zoom crop step shown after picking a photo for an avatar —
-//  `RoundPhotoPicker` previously always auto-centered the raw picked image with no way to choose66
+//  `RoundPhotoPicker` previously always auto-centered the raw picked image with no way to choose
 //  what actually ends up inside the circle. Renders a square crop at output resolution matching
 //  exactly what the circular preview shows, so what you see is what gets uploaded.
 //

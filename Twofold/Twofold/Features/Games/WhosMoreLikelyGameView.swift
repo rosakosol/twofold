@@ -24,6 +24,12 @@ struct WhosMoreLikelyGameView: View {
     @State private var showingNoMailAppAlert = false
     @State private var showingLeaveConfirm = false
 
+    /// Sentinel `answer_value` strings for the "Both"/"Neither" buttons — distinct from either
+    /// partner's UUID string (the normal answer shape) and from the empty-string skip value,
+    /// see `GameResultsView.answerText` for the matching display-side handling.
+    static let bothValue = "both"
+    static let neitherValue = "neither"
+
     private var myID: UUID { appModel.currentUser.id }
     private var partnerID: UUID { appModel.partner.id }
     private var isActivelyPlaying: Bool {
@@ -108,56 +114,121 @@ struct WhosMoreLikelyGameView: View {
         GeometryReader { geometry in
             ScrollView {
                 VStack(spacing: Theme.Spacing.lg) {
-                    VStack(spacing: Theme.Spacing.xs) {
-                        Text("Round \(round.roundNumber) of \(store.rounds.count)")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(Theme.subtleInk)
-                        Text("Swipe or tap a side")
-                            .font(.caption)
-                            .foregroundStyle(Theme.subtleInk)
-                    }
-                    .frame(maxWidth: .infinity)
-
                     VStack(spacing: Theme.Spacing.md) {
                         SwipeChoiceCard(
-                            leftLabel: "🙋 ME",
-                            leftColor: Theme.skyBlue,
+                            leftLabel: "🙋 \(appModel.currentUser.name.uppercased())",
                             rightLabel: "👉 \(appModel.partner.name.uppercased())",
-                            rightColor: Theme.heartRed,
                             isDisabled: isSubmitting,
+                            previousAnswerLabel: previousAnswerLabel(for: round),
                             content: {
                                 VStack(spacing: Theme.Spacing.lg) {
+                                    Text("\(round.roundNumber) / \(store.rounds.count)")
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(.white.opacity(0.7))
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                                    Spacer(minLength: Theme.Spacing.sm)
+
+                                    // Centered vertically between the progress line and the
+                                    // avatar row via the spacer on each side, rather than sitting
+                                    // right under the progress line.
                                     Text(prompt.prompt)
                                         .font(.title3.weight(.bold))
+                                        .foregroundStyle(.white)
                                         .multilineTextAlignment(.center)
+                                        .frame(maxWidth: .infinity)
+
+                                    Spacer(minLength: Theme.Spacing.sm)
+
                                     HStack(spacing: Theme.Spacing.xl) {
                                         VStack(spacing: Theme.Spacing.xs) {
-                                            AvatarView(person: appModel.currentUser, size: 48, showsRing: true)
-                                            Text("👈 Me").font(.caption.weight(.semibold)).foregroundStyle(Theme.skyBlue)
+                                            HStack(spacing: 4) {
+                                                Image(systemName: "chevron.left")
+                                                    .font(.caption2.weight(.bold))
+                                                    .foregroundStyle(.white.opacity(0.75))
+                                                AvatarView(person: appModel.currentUser, size: 56, showsRing: true)
+                                            }
+                                            Text(appModel.currentUser.name)
+                                                .font(.caption.weight(.semibold))
+                                                .foregroundStyle(.white)
+                                                .lineLimit(1)
+                                                .minimumScaleFactor(0.6)
+                                                .frame(maxWidth: 72)
                                         }
-                                        Image(systemName: "arrow.left.and.right")
-                                            .font(.caption)
-                                            .foregroundStyle(Theme.subtleInk)
                                         VStack(spacing: Theme.Spacing.xs) {
-                                            AvatarView(person: appModel.partner, size: 48, showsRing: true)
-                                            Text("\(appModel.partner.name) 👉").font(.caption.weight(.semibold)).foregroundStyle(Theme.heartRed)
+                                            HStack(spacing: 4) {
+                                                AvatarView(person: appModel.partner, size: 56, showsRing: true)
+                                                Image(systemName: "chevron.right")
+                                                    .font(.caption2.weight(.bold))
+                                                    .foregroundStyle(.white.opacity(0.75))
+                                            }
+                                            Text(appModel.partner.name)
+                                                .font(.caption.weight(.semibold))
+                                                .foregroundStyle(.white)
+                                                .lineLimit(1)
+                                                .minimumScaleFactor(0.6)
+                                                .frame(maxWidth: 72)
                                         }
                                     }
                                 }
-                                .frame(maxWidth: .infinity)
                             },
                             onChooseLeft: { submit(round: round, value: myID.uuidString) },
                             onChooseRight: { submit(round: round, value: partnerID.uuidString) }
                         )
 
-                        SkipButton(isDisabled: isSubmitting) {
-                            submit(round: round, value: "")
-                        }
+                        Text("Swipe a side")
+                            .font(.caption)
+                            .foregroundStyle(Theme.subtleInk)
+
+                        bothNeitherRow(round: round)
                     }
                 }
                 .padding(Theme.Spacing.lg)
                 .frame(maxWidth: .infinity, minHeight: geometry.size.height, alignment: .center)
             }
+        }
+    }
+
+    /// Replaces the generic "Skip" this game used to have — "Both" and "Neither" are meaningful
+    /// answers in their own right for a "who's more likely" prompt, not just an escape hatch, and
+    /// "Neither" still covers the content-safety requirement that every prompt stay answerable
+    /// without picking a specific person.
+    private func bothNeitherRow(round: GameSessionRound) -> some View {
+        HStack(spacing: Theme.Spacing.sm) {
+            choiceButton("Both", value: WhosMoreLikelyGameView.bothValue, round: round)
+            choiceButton("Neither", value: WhosMoreLikelyGameView.neitherValue, round: round)
+        }
+    }
+
+    private func choiceButton(_ label: String, value: String, round: GameSessionRound) -> some View {
+        Button {
+            submit(round: round, value: value)
+        } label: {
+            Text(label)
+                .font(.subheadline.weight(.semibold))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, Theme.Spacing.sm)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.white)
+        .background(
+            LinearGradient(colors: [Theme.skyBlue, Theme.leafGreen], startPoint: .topLeading, endPoint: .bottomTrailing),
+            in: Capsule()
+        )
+        .disabled(isSubmitting)
+    }
+
+    /// What to show in the card's "You chose: ___" pill when revisiting an already-answered
+    /// round via the back button.
+    private func previousAnswerLabel(for round: GameSessionRound) -> String? {
+        guard let response = store.myResponse(for: round, myID: myID) else { return nil }
+        switch response.answerValue {
+        case "": return "Skipped"
+        case Self.bothValue: return "Both of us"
+        case Self.neitherValue: return "Neither of us"
+        case myID.uuidString: return appModel.currentUser.name
+        case partnerID.uuidString: return appModel.partner.name
+        default: return nil
         }
     }
 
