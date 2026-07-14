@@ -9,14 +9,23 @@
 //   - 2h-24h to departure: refresh if stale >15 min
 //   - within 2h of departure, or currently boarding/departed/in_air/landing_soon: refresh if
 //     stale >2 min
-//   - tracking_enabled = false or status = arrived: never selected (query already excludes them)
+//   - tracking_enabled = false: never selected (query excludes it)
+//   - already arrived/landed/cancelled/diverted: selected, but never polls AeroAPI again — only
+//     reconcileOverdueArrival's archive-after-2h check runs for these (see below)
 //
 // Processes flights sequentially with a short delay between AeroAPI calls rather than in
 // parallel, to avoid bursting rate limits — this is a background job, latency doesn't matter.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { type FlightRow, maybeRefreshWeather, refreshOneFlight } from "../_shared/flight-sync.ts";
+import {
+  type FlightRow,
+  maybeRefreshWeather,
+  reconcileOverdueArrival,
+  refreshOneFlight,
+} from "../_shared/flight-sync.ts";
 import { notifyPreDeparture } from "../_shared/notify.ts";
+
+const TERMINAL_STATUSES = ["arrived", "landed", "cancelled", "diverted"];
 
 const INTER_CALL_DELAY_MS = 200;
 
@@ -67,8 +76,7 @@ Deno.serve(async (req) => {
   const { data: flights, error } = await serviceClient
     .from("flights")
     .select("*")
-    .eq("tracking_enabled", true)
-    .neq("status", "arrived");
+    .eq("tracking_enabled", true);
 
   if (error) {
     console.error("[refresh-due-flights] failed to load flights:", error.message);
@@ -80,14 +88,34 @@ Deno.serve(async (req) => {
   const now = Date.now();
 
   for (const flight of (flights ?? []) as FlightRow[]) {
-    if (!isDue(flight, now)) {
+    // Already done (successfully or not) — no point asking AeroAPI for more, but still run
+    // through reconcileOverdueArrival below so it gets archived (tracking_enabled = false) once
+    // it's been 2 hours since arrival.
+    if (TERMINAL_STATUSES.includes(flight.status)) {
       skipped++;
+      try {
+        await reconcileOverdueArrival(serviceClient, flight, now);
+      } catch (err) {
+        console.error(`[refresh-due-flights] reconcileOverdueArrival failed for ${flight.id}:`, (err as Error).message);
+      }
       continue;
     }
 
+    if (!isDue(flight, now)) {
+      skipped++;
+      try {
+        await reconcileOverdueArrival(serviceClient, flight, now);
+      } catch (err) {
+        console.error(`[refresh-due-flights] reconcileOverdueArrival failed for ${flight.id}:`, (err as Error).message);
+      }
+      continue;
+    }
+
+    let latest: FlightRow = flight;
     try {
       const updated = await refreshOneFlight(serviceClient, flight);
       refreshed++;
+      if (updated) latest = updated;
 
       if (updated && isDueForPreDepartureReminder(updated, now)) {
         try {
@@ -107,6 +135,16 @@ Deno.serve(async (req) => {
       await maybeRefreshWeather(serviceClient, flight);
     } catch (err) {
       console.error(`[refresh-due-flights] weather refresh failed for ${flight.id}:`, (err as Error).message);
+    }
+
+    // Catches two cases in one pass: AeroAPI just went silent on this refresh too (still
+    // non-terminal well past best-known arrival — force it to "arrived"), or it just became
+    // terminal this tick (actual_in freshly confirmed — too recent to archive yet, no-ops until
+    // 2 hours from now).
+    try {
+      await reconcileOverdueArrival(serviceClient, latest, now);
+    } catch (err) {
+      console.error(`[refresh-due-flights] reconcileOverdueArrival failed for ${flight.id}:`, (err as Error).message);
     }
 
     await new Promise((resolve) => setTimeout(resolve, INTER_CALL_DELAY_MS));

@@ -1213,6 +1213,24 @@ enum BackendService {
         return (channel, stream)
     }
 
+    /// Signal-only, same idea as `subscribeToGameSession` — the server-side 5-minute cron
+    /// (`refresh-due-flights`) writes straight to this row, and without this the live-tracking
+    /// screen had no way to learn about that except an initial load or an explicit pull-to-
+    /// refresh, so it just sat stale between visits. The caller re-fetches via `fetchFlight`
+    /// rather than trusting the realtime payload's shape.
+    static func subscribeToFlightRefresh(flightID: UUID) -> (channel: RealtimeChannelV2, stream: AsyncStream<Void>) {
+        let channel = supabase.channel("flight_refresh_\(flightID.uuidString)")
+        let updates = channel.postgresChange(UpdateAction.self, table: "flights", filter: .eq("id", value: flightID.uuidString))
+
+        let (stream, continuation) = AsyncStream<Void>.makeStream()
+        Task {
+            try? await channel.subscribeWithError()
+            for await _ in updates { continuation.yield(()) }
+            continuation.finish()
+        }
+        return (channel, stream)
+    }
+
     private struct NotificationPreferencesRow: Codable {
         var flightId: UUID
         var profileId: UUID

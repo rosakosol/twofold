@@ -23,6 +23,7 @@ struct FlightTrackingView: View {
     @State private var documents: [FlightDocument] = []
     @State private var isRefreshing = false
     @State private var eventsChannel: RealtimeChannelV2?
+    @State private var flightChannel: RealtimeChannelV2?
 
     // Notification preferences — individually-bound so the toggles feel instant; saved as one
     // upsert on change.
@@ -81,7 +82,6 @@ struct FlightTrackingView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
                 header
-                travelerCard
                 mapSection
                 journeyCard
                 departureCard
@@ -104,8 +104,33 @@ struct FlightTrackingView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                ShareLink(item: shareText) {
-                    Image(systemName: "square.and.arrow.up")
+                Menu {
+                    ShareLink(item: shareText) {
+                        Label("Share", systemImage: "square.and.arrow.up")
+                    }
+                    Menu {
+                        Button {
+                            setTraveler(appModel.currentUser.id)
+                        } label: {
+                            Label(appModel.currentUser.name, systemImage: flight.travelerID == appModel.currentUser.id ? "checkmark.circle.fill" : "circle")
+                        }
+                        Button {
+                            setTraveler(appModel.partner.id)
+                        } label: {
+                            Label(appModel.partner.name, systemImage: flight.travelerID == appModel.partner.id ? "checkmark.circle.fill" : "circle")
+                        }
+                        if flight.travelerID != nil {
+                            Button(role: .destructive) {
+                                setTraveler(nil)
+                            } label: {
+                                Label("Clear", systemImage: "xmark.circle")
+                            }
+                        }
+                    } label: {
+                        Label("Edit Traveller", systemImage: "person.crop.circle")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
                 }
             }
         }
@@ -113,6 +138,7 @@ struct FlightTrackingView: View {
         .refreshable { await refreshFromProvider() }
         .onDisappear {
             if let eventsChannel { Task { await BackendService.unsubscribe(eventsChannel) } }
+            if let flightChannel { Task { await BackendService.unsubscribe(flightChannel) } }
             if let selfReportChannel { Task { await BackendService.unsubscribe(selfReportChannel) } }
         }
         .sheet(isPresented: $showingTripNotes) {
@@ -157,7 +183,14 @@ struct FlightTrackingView: View {
                     .foregroundStyle(Theme.subtleInk)
             }
 
-            if flight.lastRefreshedAt != nil {
+            if !flight.trackingEnabled {
+                // Explains why pulling to refresh here won't visibly do anything, instead of a
+                // spinner that cycles and stops with nothing to show for it.
+                Text("No longer being tracked — this flight's history is kept for reference.")
+                    .font(.caption2)
+                    .foregroundStyle(Theme.subtleInk)
+                    .multilineTextAlignment(.center)
+            } else if flight.lastRefreshedAt != nil {
                 Text("Updated \(flight.lastRefreshedAt.map { Self.relativeShort($0) } ?? "recently") ago")
                     .font(.caption2)
                     .foregroundStyle(Theme.subtleInk)
@@ -170,45 +203,8 @@ struct FlightTrackingView: View {
     /// `FlightConfirmationView`) with no way to change it afterward — same gap `linkFlight`/
     /// `unlinkFlight` closed for trip linking. Mutates the local `flight` copy immediately for
     /// snappy UI, same pattern `refreshFromProvider()` already uses elsewhere on this screen.
-    private var travelerCard: some View {
-        SectionCard {
-            HStack {
-                Text("Who's travelling?").font(.subheadline.weight(.semibold))
-                Spacer()
-                Menu {
-                    Button {
-                        setTraveler(appModel.currentUser.id)
-                    } label: {
-                        Label(appModel.currentUser.name, systemImage: flight.travelerID == appModel.currentUser.id ? "checkmark.circle.fill" : "circle")
-                    }
-                    Button {
-                        setTraveler(appModel.partner.id)
-                    } label: {
-                        Label(appModel.partner.name, systemImage: flight.travelerID == appModel.partner.id ? "checkmark.circle.fill" : "circle")
-                    }
-                    if flight.travelerID != nil {
-                        Button(role: .destructive) {
-                            setTraveler(nil)
-                        } label: {
-                            Label("Clear", systemImage: "xmark.circle")
-                        }
-                    }
-                } label: {
-                    HStack(spacing: Theme.Spacing.xs) {
-                        if let traveler {
-                            AvatarView(person: traveler, size: 22)
-                            Text(traveler.name)
-                        } else {
-                            Text("Not set")
-                        }
-                        Image(systemName: "chevron.up.chevron.down").font(.caption2)
-                    }
-                    .foregroundStyle(Theme.ink)
-                }
-            }
-        }
-    }
-
+    /// Reachable via the toolbar's "..." menu (Edit Traveller) — no standalone card on the
+    /// screen itself anymore; the nav title already names the current traveler.
     private func setTraveler(_ travelerID: UUID?) {
         flight.travelerID = travelerID
         Task { await appModel.setFlightTraveler(flight, travelerID: travelerID) }
@@ -760,6 +756,18 @@ struct FlightTrackingView: View {
             for await event in stream where !events.contains(where: { $0.id == event.id }) {
                 withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
                     events.insert(event, at: 0)
+                }
+            }
+        }
+
+        // Picks up the server-side 5-minute polling cron's writes to this row while the screen
+        // is open, instead of only ever refreshing on initial load or an explicit pull-to-refresh.
+        let (flightUpdateChannel, flightUpdateStream) = BackendService.subscribeToFlightRefresh(flightID: flight.id)
+        flightChannel = flightUpdateChannel
+        Task {
+            for await _ in flightUpdateStream {
+                if let fresh = try? await BackendService.fetchFlight(id: flight.id) {
+                    withAnimation(.easeInOut(duration: 0.3)) { flight = fresh }
                 }
             }
         }

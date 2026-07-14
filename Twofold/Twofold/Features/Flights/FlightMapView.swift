@@ -306,8 +306,21 @@ private struct MapLibreRouteView: UIViewRepresentable {
         /// Whether the live/traveler-at-origin position marker (see `updatePositionAnnotation`)
         /// sits exactly on a given endpoint right now — the one case where that endpoint's label
         /// needs extra clearance underneath it.
+        ///
+        /// A traveler avatar always rides the drawn route curve by `progress` — the same
+        /// fraction the gradient line uses — rather than the raw live GPS ping: real ADS-B
+        /// tracks wander off the idealized great-circle line (wind routing, ATC vectoring),
+        /// which made the avatar visibly drift off the drawn path. This also means it lands
+        /// exactly on the destination dot once the flight completes, instead of wherever the
+        /// last GPS fix happened to be (which may never be updated again after landing, since
+        /// live position polling stops once a flight is no longer airborne — see
+        /// `AIRBORNE_STATUSES` server-side). The plane-icon fallback (no traveler set) still
+        /// uses the raw live position, unaffected.
         private func markerCoordinate(for route: Route) -> CLLocationCoordinate2D? {
-            route.position ?? (route.traveler != nil ? route.origin : nil)
+            guard route.traveler != nil else { return route.position }
+            if route.progress <= 0.001 { return route.origin }
+            if route.progress >= 0.999 { return route.destination }
+            return Self.intermediateGreatCirclePoint(route.origin, route.destination, fraction: route.progress)
         }
 
         private func updateEndpointAnnotations(_ route: Route, mapView: MLNMapView) {
