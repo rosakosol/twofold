@@ -3,11 +3,12 @@
 //  Twofold
 //
 //  Reachable both as the Games tab's root and as a sheet from the Globe homepage's
-//  "See all games". Organizes the 4 games into Compete / Connect / Travel — "Travel" is a
-//  second, cross-cutting grouping (every current game is travel-themed), not mutually
-//  exclusive with the Compete/Connect type badge shown on each card. Tapping a game type card
-//  opens `GameTypeDecksView` (every deck of that type, across every topic) rather than jumping
-//  straight into a random session — decks are the real playable unit now, see TopicsSection.
+//  "See all games". Travel leads (it's the app's namesake topic) and shows its own real curated
+//  decks directly — not the generic game-type cards Compete/Connect use — so someone lands on
+//  actual playable content, not another layer of picking a mechanic first. Compete/Connect below
+//  it group the 4 game types by category; tapping one opens `GameTypeDecksView` (every deck of
+//  that type, across every topic) rather than jumping straight into a random session — decks are
+//  the real playable unit now, see TopicsSection.
 //
 
 import SwiftUI
@@ -28,7 +29,7 @@ struct GamesHubView: View {
 
     private var competeGames: [GameType] { GameType.allCases.filter { $0.category == .compete } }
     private var connectGames: [GameType] { GameType.allCases.filter { $0.category == .connect } }
-    private var travelGames: [GameType] { GameType.allCases }
+    private var travelDecks: [GameDeck] { appModel.decks(for: .travel) }
 
     var body: some View {
         NavigationStack {
@@ -38,9 +39,9 @@ struct GamesHubView: View {
                         searchAndFilterBar
                         DailyActivityCard()
                     }
+                    travelSection
                     section(title: "Compete", games: competeGames)
                     section(title: "Connect", games: connectGames)
-                    section(title: "Travel", games: travelGames, topicFilter: .travel)
                     if appModel.partnerConnected {
                         TopicsSection()
                     }
@@ -98,7 +99,7 @@ struct GamesHubView: View {
         }
     }
 
-    private func section(title: String, games: [GameType], topicFilter: GameTopic? = nil) -> some View {
+    private func section(title: String, games: [GameType]) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             Text(title)
                 .font(.title3.weight(.bold))
@@ -109,7 +110,7 @@ struct GamesHubView: View {
                     ForEach(games) { gameType in
                         if appModel.partnerConnected {
                             NavigationLink {
-                                GameTypeDecksView(gameType: gameType, topicFilter: topicFilter)
+                                GameTypeDecksView(gameType: gameType)
                             } label: {
                                 GameCard(gameType: gameType, width: 220)
                             }
@@ -122,6 +123,26 @@ struct GamesHubView: View {
                             }
                             .buttonStyle(.plain)
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    /// The Travel topic's own curated decks, shown directly (not the generic game-type cards the
+    /// sections below use) — Travel is the app's namesake, so it gets real playable content up
+    /// front rather than one more layer of picking a mechanic.
+    private var travelSection: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+            Text("Travel")
+                .font(.title3.weight(.bold))
+                .foregroundStyle(Theme.ink)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: Theme.Spacing.sm) {
+                    ForEach(travelDecks) { deck in
+                        DeckCardRow(deck: deck, progress: appModel.deckProgress?[deck.id])
+                            .frame(width: 260)
                     }
                 }
             }
