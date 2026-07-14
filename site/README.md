@@ -24,7 +24,7 @@ is editable via a Sanity CMS (`studio/`), fetched client-side with a hand-rolled
   - `qr.js` — renders the App Store QR code shown to desktop visitors on `/pricing.html`.
   - `waitlist.js` — the Android waitlist form.
   - `cms.js` — Sanity fetch client, Portable Text → HTML renderer, and the generic `[data-cms]` text hydrator.
-  - `cms-home.js`, `cms-features.js`, `cms-faq.js`, `cms-legal.js` — per-page CMS wiring, see "Content model" below.
+  - `cms-home.js`, `cms-features.js`, `cms-faq.js`, `cms-legal.js`, `cms-quiz.js` — per-page CMS wiring, see "Content model" below.
 - `studio/` — the Sanity Studio (the actual content-editing UI). Separate npm project, see "CMS setup".
 - `functions/api/waitlist.ts` — Cloudflare Pages Function handling waitlist signups.
 - `schema.sql` — D1 table for waitlist signups.
@@ -42,15 +42,50 @@ and shouldn't be freely editable by a copy edit). Specifically:
 | The 6 feature cards' titles/descriptions/bullets | Which 6 features exist, their icons/colors |
 | FAQ questions & answers (add/remove freely) | FAQ page layout, categories |
 | Privacy Policy & Terms of Use body text | Pricing page, plan names, $ amounts, package IDs |
+| Relationship quiz questions/answers (add/remove freely) & the two outcome messages | The scoring math itself (fixed weight scale, see below) |
 
 Every CMS-driven element falls back to today's hardcoded copy if Sanity has nothing
 published yet (or is unreachable) — nothing goes blank. This is why the site works
-today even though no content has been created in Sanity yet.
+today even though no content has been created in Sanity yet. The one exception is the
+relationship quiz (home page, between the feature grid and the pricing teaser): it has
+no hardcoded fallback content since it wouldn't make sense to hardcode quiz questions,
+so the whole section just stays hidden until at least one `quizQuestion` is published.
 
 Each page fetches its own content client-side on load (`assets/js/cms-*.js`) via
-`[data-cms="hero:headline"]`-style attributes in the HTML, or — for the FAQ and legal
-pages, where the *number* of items/sections can change — by rendering the fetched
+`[data-cms="hero:headline"]`-style attributes in the HTML, or — for the FAQ, quiz, and
+legal pages, where the *number* of items/sections can change — by rendering the fetched
 content directly.
+
+### Relationship quiz scoring
+
+Each answer option has a `lean` (Strongly Plus … Strongly Premium, mapped in code to
+-2..+2 in `assets/js/cms-quiz.js`'s `LEAN_WEIGHTS`). Summing the weights of whatever's
+answered and checking the sign (positive → recommend Premium, otherwise Plus) is what
+picks which of the two `quizResult` documents to show. Rewriting question/answer copy in
+the Studio, or changing which option carries which lean, is safe and expected — the
+weight *scale* itself is fixed in code so an edit can't produce a nonsensical or
+out-of-range score.
+
+The quiz lives on the home page (`index.html`), but the plan tabs and checkout live on
+`pricing.html` — the result CTA links to `/pricing.html?plan=plus` or `?plan=premium`,
+and `pricing.js` reads that query param on load to pre-select the recommended tab
+instead of defaulting to Plus.
+
+To seed the quiz, open the Studio → **Relationship Quiz** → **Questions**, and create 5
+questions along these lines (tied to the real Plus vs Premium differences in `PLANS`):
+1. How often does one of you travel to see the other? (a few times a year → Leans Plus ·
+   monthly or more → Leans Premium · not sure yet → Neutral)
+2. How many flights do you think you'll want to track in a typical month? (1–3 → Leans
+   Plus · 5+ → Leans Premium — Plus caps at 5/mo, Premium at 20/mo)
+3. How do you feel about games and icebreakers as a couple? (occasionally → Leans Plus ·
+   we want tons of variety → Leans Premium — 500+ vs 2000+ questions)
+4. Do you want a printable keepsake of your relationship story? (not essential → Leans
+   Plus · yes, we'd love that → Strongly Premium — PDF export is Premium-only)
+5. How important is a rich, interactive 3D globe to you? (nice to have → Leans Plus ·
+   that's exactly what we want → Strongly Premium — the interactive globe is Premium-only)
+
+Then fill in **Result: Plus** and **Result: Premium** under the same section (headline,
+description, button label) and publish everything.
 
 ## How the web2app funnel works
 

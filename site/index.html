@@ -175,6 +175,33 @@
       </div>
     </section>
 
+    <section id="quiz" aria-labelledby="quiz-heading" hidden>
+      <div class="wrap-narrow">
+        <div class="section-head reveal">
+          <p class="eyebrow"><svg class="icon"><use href="/assets/icons.svg#icon-sparkle"/></svg>Find your fit</p>
+          <h2 id="quiz-heading">Which plan fits your relationship?</h2>
+          <p>Answer a few quick questions and we'll point you to the plan that matches how you two do long distance.</p>
+        </div>
+
+        <div id="quiz-question-card" class="quiz-card reveal" hidden>
+          <div class="quiz-progress" id="quiz-progress"></div>
+          <h3 class="quiz-question-text" id="quiz-question-text"></h3>
+          <div class="quiz-options" id="quiz-options"></div>
+          <div class="quiz-nav">
+            <button type="button" id="quiz-back" class="btn btn-ghost btn-sm" disabled>Back</button>
+          </div>
+        </div>
+
+        <div id="quiz-result-card" class="quiz-card quiz-result" hidden>
+          <p class="eyebrow" style="justify-content:center"><svg class="icon"><use href="/assets/icons.svg#icon-check-circle"/></svg>Your match</p>
+          <h3 id="quiz-result-title"></h3>
+          <p id="quiz-result-description"></p>
+          <a id="quiz-result-cta" class="btn btn-primary btn-lg" href="/pricing.html"></a>
+          <p style="margin-top:16px;"><button type="button" id="quiz-retake" class="text-link" style="background:none;border:none;cursor:pointer;">Retake quiz</button></p>
+        </div>
+      </div>
+    </section>
+
     <section aria-labelledby="pricing-teaser-heading">
       <div class="wrap">
         <div class="section-head reveal">
@@ -296,6 +323,7 @@
 
   <script type="module" src="/assets/js/site.js"></script>
   <script type="module" src="/assets/js/cms-home.js"></script>
+  <script type="module" src="/assets/js/cms-quiz.js"></script>
   <script type="module" src="/assets/js/waitlist.js"></script>
 </body>
 </html>

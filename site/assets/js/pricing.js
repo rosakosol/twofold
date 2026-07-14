@@ -149,6 +149,13 @@ els.buyButtons.forEach((btn) => {
 });
 
 async function init() {
+  // Coming from the home page quiz (?plan=plus|premium) — pre-select the plan it
+  // recommended instead of defaulting to Plus. See cms-quiz.js's result CTA.
+  const requestedPlan = new URLSearchParams(window.location.search).get("plan");
+  if (requestedPlan === "plus" || requestedPlan === "premium") {
+    currentPlan = requestedPlan;
+  }
+
   showPlanTab(currentPlan);
   renderPrices();
 
