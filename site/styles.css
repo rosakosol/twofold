@@ -38,19 +38,16 @@
   --container: 1120px;
   --container-narrow: 760px;
 
-  /* New York (headings/wordmark) + SF Pro (body) — matches the app's own type choices
-     (TwofoldBrandMark.swift renders "twofold" with `.system(design: .serif)`, i.e. New
-     York; everything else uses the SwiftUI default, i.e. San Francisco). Apple only
-     licenses these fonts for use on Apple platforms, so rather than self-hosting the
-     font files, these stacks use Apple's system-font keywords first — which resolve to
-     the real New York / SF Pro on macOS and iOS — then fall back to their closest
-     Google Fonts equivalents (loaded in <head>, see index.html etc.) everywhere else:
-     Newsreader for New York (same "transitional serif" classification, same
-     screen-reading-focused construction, and one of the few Google Fonts with an
-     optical-size axis, mirroring New York's own Text/Display switching) and Inter for
-     SF Pro (widely considered its closest free match, also built around an optical-size
-     axis for the same reason). */
-  --font-display: "New York", ui-serif, "Newsreader", Georgia, "Iowan Old Style", "Times New Roman", serif;
+  /* Headings/wordmark: Newsreader (closest Google Fonts match to the app's New York —
+     same "transitional serif" classification, same screen-reading-focused construction,
+     one of the few Google Fonts with an optical-size axis like New York's own Text/
+     Display switching). Loaded unconditionally on every platform rather than attempting
+     native New York/ui-serif first — those only resolve on Safari/WebKit and render
+     inconsistently (or as an unrelated system serif) elsewhere.
+     Body text: the app's own San Francisco on Apple platforms (`-apple-system`,
+     resolves consistently there), falling back to Inter — SF Pro's closest Google Fonts
+     match — everywhere else. */
+  --font-display: "Newsreader", "Times New Roman", serif;
   --font-body: -apple-system, "SF Pro Text", "SF Pro Display", system-ui, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
