@@ -106,6 +106,15 @@ final class AppModel {
         trips.filter { !$0.isUpcoming && !$0.isActive }.sorted { $0.departureDate > $1.departureDate }
     }
 
+    /// Untethered (no linked trip) flights no longer being tracked — same population
+    /// `TripsListView`'s old inline "Past flights" section drew from, now surfaced via
+    /// `PastFlightsView` instead so a long flight history doesn't crowd the main trips list.
+    /// Most recent first.
+    var pastFlights: [Flight] {
+        flights.filter { $0.tripID == nil && !$0.trackingEnabled }
+            .sorted { ($0.bestArrival ?? $0.scheduledArrival) > ($1.bestArrival ?? $1.scheduledArrival) }
+    }
+
     var stats: MockData.RelationshipStats {
         let totalDistance = trips.reduce(0) { $0 + $1.distanceKm }
         let daysTogether = max(0, Calendar.current.dateComponents([.day], from: couple.startedDatingOn, to: .now).day ?? 0)

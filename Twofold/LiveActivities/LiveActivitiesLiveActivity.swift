@@ -35,20 +35,53 @@ struct JourneyLiveActivityWidget: Widget {
                     JourneyExpandedFooterView(context: context)
                 }
             } compactLeading: {
-                Image(systemName: status?.icon ?? "airplane")
-                    .foregroundStyle(LiveActivityPalette.color(for: status))
+                FlightIconWithProgressArc(icon: status?.icon ?? "airplane", status: status, progress: context.state.progress, size: 20)
             } compactTrailing: {
                 Text(context.state.timeRemainingLabel)
                     .font(.caption2.monospacedDigit())
                     .minimumScaleFactor(0.8)
                     .lineLimit(1)
             } minimal: {
-                Image(systemName: "airplane")
-                    .foregroundStyle(LiveActivityPalette.color(for: status))
+                FlightIconWithProgressArc(icon: "airplane", status: status, progress: context.state.progress, size: 22)
             }
             .widgetURL(URL(string: "twofold://flight/\(context.attributes.flightID.uuidString)"))
             .keylineTint(LiveActivityPalette.color(for: status))
         }
+    }
+}
+
+/// Compact/minimal Dynamic Island icon, ringed with a circular progress arc while the flight is
+/// actively `.inAir` — scheduled/boarding/landed phases have no meaningful "percent of route
+/// flown" to show, and the ring would just read as visual noise there. `.landingSoon` is already
+/// near-full progress by definition, so the ring stays reserved for the one phase it's actually
+/// informative in.
+private struct FlightIconWithProgressArc: View {
+    let icon: String
+    let status: FlightStatus?
+    let progress: Double
+    let size: CGFloat
+
+    var body: some View {
+        let tint = LiveActivityPalette.color(for: status)
+        ZStack {
+            if status == .inAir {
+                Circle()
+                    .stroke(tint.opacity(0.25), lineWidth: 2)
+                Circle()
+                    // A sliver floor keeps the arc visible (rather than invisible at 0%) right
+                    // after takeoff, before `progress` has moved meaningfully off zero.
+                    .trim(from: 0, to: max(0.03, min(1, progress)))
+                    .stroke(tint, style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                    // Path trimming starts at the 3 o'clock position and runs clockwise;
+                    // rotating -90° moves the start to 12 o'clock so the arc fills clockwise
+                    // from the top, matching the reading direction of a clock/progress ring.
+                    .rotationEffect(.degrees(-90))
+            }
+            Image(systemName: icon)
+                .font(.system(size: size * 0.5, weight: .semibold))
+                .foregroundStyle(tint)
+        }
+        .frame(width: size, height: size)
     }
 }
 

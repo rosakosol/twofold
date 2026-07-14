@@ -39,24 +39,16 @@ struct TripsListView: View {
     var body: some View {
         NavigationStack {
             List {
-                // Tracked/past flights lead the list, above trip content — a flight someone's
-                // actively watching (or just landed) is the most time-sensitive thing on this
-                // screen, more so than trip planning content below.
-                let untetheredFlights = appModel.flights.filter { $0.tripID == nil }
-                let activeFlights = untetheredFlights.filter(\.trackingEnabled)
-                let pastFlights = untetheredFlights.filter { !$0.trackingEnabled }
+                // Tracked flights lead the list, above trip content — a flight someone's
+                // actively watching is the most time-sensitive thing on this screen, more so
+                // than trip planning content below. Flights no longer being tracked move to
+                // PastFlightsView (reached via the toolbar) instead of a section here, so a long
+                // flight history doesn't crowd out upcoming/active trips.
+                let activeFlights = appModel.flights.filter { $0.tripID == nil && $0.trackingEnabled }
 
                 if !activeFlights.isEmpty {
                     Section("Tracked flights") {
                         ForEach(activeFlights) { flight in
-                            flightRow(flight)
-                        }
-                    }
-                }
-
-                if !pastFlights.isEmpty {
-                    Section("Past flights") {
-                        ForEach(pastFlights) { flight in
                             flightRow(flight)
                         }
                     }
@@ -112,6 +104,13 @@ struct TripsListView: View {
             .background(Theme.backgroundGradient.ignoresSafeArea())
             .navigationTitle("Trips")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    NavigationLink {
+                        PastFlightsView()
+                    } label: {
+                        Image(systemName: "clock.arrow.circlepath")
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button {
