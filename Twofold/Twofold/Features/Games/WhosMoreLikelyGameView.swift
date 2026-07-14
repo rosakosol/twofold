@@ -24,12 +24,6 @@ struct WhosMoreLikelyGameView: View {
     @State private var showingNoMailAppAlert = false
     @State private var showingLeaveConfirm = false
 
-    /// Sentinel `answer_value` strings for the "Both"/"Neither" buttons — distinct from either
-    /// partner's UUID string (the normal answer shape) and from the empty-string skip value,
-    /// see `GameResultsView.answerText` for the matching display-side handling.
-    static let bothValue = "both"
-    static let neitherValue = "neither"
-
     private var myID: UUID { appModel.currentUser.id }
     private var partnerID: UUID { appModel.partner.id }
     private var isActivelyPlaying: Bool {
@@ -180,7 +174,9 @@ struct WhosMoreLikelyGameView: View {
                             .font(.caption)
                             .foregroundStyle(Theme.subtleInk)
 
-                        bothNeitherRow(round: round)
+                        SkipButton(isDisabled: isSubmitting) {
+                            submit(round: round, value: "")
+                        }
                     }
                 }
                 .padding(Theme.Spacing.lg)
@@ -189,43 +185,12 @@ struct WhosMoreLikelyGameView: View {
         }
     }
 
-    /// Replaces the generic "Skip" this game used to have — "Both" and "Neither" are meaningful
-    /// answers in their own right for a "who's more likely" prompt, not just an escape hatch, and
-    /// "Neither" still covers the content-safety requirement that every prompt stay answerable
-    /// without picking a specific person.
-    private func bothNeitherRow(round: GameSessionRound) -> some View {
-        HStack(spacing: Theme.Spacing.sm) {
-            choiceButton("Both", value: WhosMoreLikelyGameView.bothValue, round: round)
-            choiceButton("Neither", value: WhosMoreLikelyGameView.neitherValue, round: round)
-        }
-    }
-
-    private func choiceButton(_ label: String, value: String, round: GameSessionRound) -> some View {
-        Button {
-            submit(round: round, value: value)
-        } label: {
-            Text(label)
-                .font(.subheadline.weight(.semibold))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, Theme.Spacing.sm)
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(.white)
-        .background(
-            LinearGradient(colors: [Theme.skyBlue, Theme.leafGreen], startPoint: .topLeading, endPoint: .bottomTrailing),
-            in: Capsule()
-        )
-        .disabled(isSubmitting)
-    }
-
     /// What to show in the card's "You chose: ___" pill when revisiting an already-answered
     /// round via the back button.
     private func previousAnswerLabel(for round: GameSessionRound) -> String? {
         guard let response = store.myResponse(for: round, myID: myID) else { return nil }
         switch response.answerValue {
         case "": return "Skipped"
-        case Self.bothValue: return "Both of us"
-        case Self.neitherValue: return "Neither of us"
         case myID.uuidString: return appModel.currentUser.name
         case partnerID.uuidString: return appModel.partner.name
         default: return nil

@@ -69,6 +69,10 @@ struct SwipeChoiceCard<Content: View>: View {
                 }
                 .overlay(alignment: .topLeading) { stamp(leftLabel).opacity(leftStampOpacity) }
                 .overlay(alignment: .topTrailing) { stamp(rightLabel).opacity(rightStampOpacity) }
+                // Small brand mark, always present — the drag stamp sharing this corner is
+                // opacity-0 except mid-swipe, so this is the only thing here the rest of the
+                // time.
+                .overlay(alignment: .topTrailing) { brandMark }
                 .overlay(alignment: .top) {
                     if let previousAnswerLabel {
                         Text("You chose: \(previousAnswerLabel)")
@@ -150,5 +154,18 @@ struct SwipeChoiceCard<Content: View>: View {
             .overlay(Capsule().strokeBorder(.white, lineWidth: 2))
             .rotationEffect(.degrees(-12))
             .padding(Theme.Spacing.md)
+    }
+
+    private var brandMark: some View {
+        HStack(spacing: 4) {
+            Image("GlobeHeart")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 16, height: 16)
+            Text("Twofold")
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.white.opacity(0.85))
+        }
+        .padding(Theme.Spacing.sm)
     }
 }

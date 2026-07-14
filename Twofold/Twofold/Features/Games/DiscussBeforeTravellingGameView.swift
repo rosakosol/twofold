@@ -111,21 +111,28 @@ struct DiscussBeforeTravellingGameView: View {
     }
 
     private func roundView(round: GameSessionRound, topic: DiscussionTopic) -> some View {
-        ScrollView {
-            VStack(spacing: Theme.Spacing.lg) {
-                VStack(spacing: Theme.Spacing.xs) {
-                    Text("Topic \(round.roundNumber) of \(store.rounds.count)")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Theme.subtleInk)
-                    Text(topic.topic)
-                        .font(.title3.weight(.semibold))
-                        .multilineTextAlignment(.center)
-                }
-                .frame(maxWidth: .infinity)
+        // Vertically centered like the other 3 typed game views (Trivia/This or That/More
+        // Likely all already did this via the same GeometryReader + minHeight pattern) — this
+        // one was left as a plain top-aligned ScrollView, so its content sat up against the nav
+        // bar instead of centered in the available space.
+        GeometryReader { geometry in
+            ScrollView {
+                VStack(spacing: Theme.Spacing.lg) {
+                    VStack(spacing: Theme.Spacing.xs) {
+                        Text("Topic \(round.roundNumber) of \(store.rounds.count)")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Theme.subtleInk)
+                        Text(topic.topic)
+                            .font(.title3.weight(.semibold))
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity)
 
-                responseInput(round: round)
+                    responseInput(round: round)
+                }
+                .padding(Theme.Spacing.lg)
+                .frame(maxWidth: .infinity, minHeight: geometry.size.height, alignment: .center)
             }
-            .padding(Theme.Spacing.lg)
         }
     }
 

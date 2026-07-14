@@ -365,8 +365,6 @@ struct GameResultsView: View {
             // duplicate (and is flat-out wrong when it's the partner's chip: "partner picked
             // You" rendering as "You" under partnerName's own label looks like partner picked
             // themselves).
-            if value == WhosMoreLikelyGameView.bothValue { return "Both of us" }
-            if value == WhosMoreLikelyGameView.neitherValue { return "Neither of us" }
             if value == myID.uuidString { return myName }
             if value == partnerID.uuidString { return partnerName }
             return "—"
