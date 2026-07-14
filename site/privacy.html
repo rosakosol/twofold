@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="no-js">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -8,20 +8,6 @@
   <link rel="icon" href="/assets/favicon-32.png" sizes="32x32" />
   <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
   <link rel="stylesheet" href="/styles.css" />
-  <style>
-    .legal-wrap { max-width: 720px; margin: 0 auto; padding: 48px 24px 96px; }
-    .legal-wrap h1 { margin-bottom: 4px; }
-    .legal-notice {
-      background: #fff8e6;
-      border: 1px solid #f0d98a;
-      border-radius: var(--radius-card);
-      padding: 16px 20px;
-      margin: 20px 0 40px;
-      font-size: 0.95em;
-    }
-    .legal-wrap h2 { margin-top: 40px; }
-    .legal-wrap p, .legal-wrap li { color: var(--subtle-ink); }
-  </style>
 </head>
 <body>
   <header class="nav">
@@ -30,6 +16,21 @@
         <img src="/assets/globe-heart.png" alt="" width="28" height="28" />
         <span>twofold</span>
       </a>
+      <nav>
+        <ul class="nav-links">
+          <li><a href="/">Home</a></li>
+          <li><a href="/features.html">Features</a></li>
+          <li><a href="/pricing.html">Pricing</a></li>
+          <li><a href="/faq.html">FAQ</a></li>
+        </ul>
+      </nav>
+      <div class="nav-actions">
+        <a class="nav-cta nav-cta-desktop" data-appstore-link href="#">Get the App</a>
+        <button class="nav-toggle" aria-label="Toggle menu" aria-expanded="false">
+          <svg class="icon icon-menu"><use href="/assets/icons.svg#icon-menu"/></svg>
+          <svg class="icon icon-x"><use href="/assets/icons.svg#icon-x"/></svg>
+        </button>
+      </div>
     </div>
   </header>
 
@@ -38,9 +39,10 @@
     <p><em>Last updated: 12 July 2026</em></p>
 
     <div class="legal-notice">
-      <strong>Draft — pending legal review.</strong> This page is a placeholder so the app's
+      <svg class="icon"><use href="/assets/icons.svg#icon-shield"/></svg>
+      <span><strong>Draft — pending legal review.</strong> This page is a placeholder so the app's
       Privacy Policy link works end-to-end. It has not been reviewed by a lawyer and should not
-      be treated as final before Twofold is publicly released.
+      be treated as final before Twofold is publicly released.</span>
     </div>
 
     <h2>What we collect</h2>
@@ -62,6 +64,7 @@
     <ul>
       <li>To operate core features: distance tracking, flight status, memories, and games.</li>
       <li>To send you notifications about your partner's activity, if you've enabled them.</li>
+      <li>To process subscription purchases, whether made in the app or on this website.</li>
       <li>To improve the app and diagnose issues.</li>
     </ul>
 
@@ -69,7 +72,9 @@
     <p>
       Twofold uses Supabase for data storage and authentication, Apple WeatherKit for weather
       data, AeroAPI for flight tracking, and Apple Push Notification service for notifications.
-      Each of these providers processes data only as needed to power the relevant feature.
+      Subscription purchases are processed by Apple (App Store) or by Stripe via RevenueCat
+      (web) — Twofold never sees or stores your payment card details. Each of these providers
+      processes data only as needed to power the relevant feature.
     </p>
 
     <h2>Your choices</h2>
@@ -84,13 +89,18 @@
   </main>
 
   <footer class="footer">
-    <div class="wrap footer-inner">
-      <div class="brand">
-        <img src="/assets/globe-heart.png" alt="" width="20" height="20" />
-        <span>twofold</span>
+    <div class="footer-inner" style="grid-template-columns:1fr;">
+      <div class="footer-brand">
+        <div class="brand">
+          <img src="/assets/globe-heart.png" alt="" width="20" height="20" />
+          <span>twofold</span>
+        </div>
       </div>
-      <p>© 2026 Twofold. Made for the couples doing long distance.</p>
+    </div>
+    <div class="footer-bottom">
+      <span>© <span data-year></span> Twofold. Made for the couples doing long distance.</span>
     </div>
   </footer>
+  <script type="module" src="/assets/js/site.js"></script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="no-js">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -10,6 +10,10 @@
   <meta property="og:description" content="Track flights, visualise your relationship across the world, and save memories to the places they happened." />
   <meta property="og:type" content="website" />
   <meta property="og:image" content="/assets/globe-heart.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Twofold — See how far you've gone for each other" />
+  <meta name="twitter:description" content="Track flights, visualise your relationship across the world, and save memories to the places they happened." />
+  <meta name="twitter:image" content="/assets/globe-heart.png" />
 
   <link rel="icon" href="/assets/favicon-32.png" sizes="32x32" />
   <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
@@ -18,11 +22,26 @@
 <body>
   <header class="nav">
     <div class="wrap nav-inner">
-      <a class="brand" href="#top">
+      <a class="brand" href="/">
         <img src="/assets/globe-heart.png" alt="" width="28" height="28" />
         <span>twofold</span>
       </a>
-      <a class="nav-cta" href="#waitlist">Android waitlist</a>
+      <nav>
+        <ul class="nav-links">
+          <li><a href="/">Home</a></li>
+          <li><a href="/features.html">Features</a></li>
+          <li><a href="/pricing.html">Pricing</a></li>
+          <li><a href="/faq.html">FAQ</a></li>
+          <li class="hide-on-desktop"><a data-appstore-link href="#">Download</a></li>
+        </ul>
+      </nav>
+      <div class="nav-actions">
+        <a class="nav-cta nav-cta-desktop" data-appstore-link href="#">Get the App</a>
+        <button class="nav-toggle" aria-label="Toggle menu" aria-expanded="false">
+          <svg class="icon icon-menu"><use href="/assets/icons.svg#icon-menu"/></svg>
+          <svg class="icon icon-x"><use href="/assets/icons.svg#icon-x"/></svg>
+        </button>
+      </div>
     </div>
   </header>
 
@@ -30,7 +49,7 @@
     <section class="hero">
       <div class="wrap hero-inner">
         <div class="hero-copy">
-          <p class="eyebrow">Built for long-distance couples</p>
+          <p class="eyebrow"><svg class="icon"><use href="/assets/icons.svg#icon-heart"/></svg>Built for long-distance couples</p>
           <h1>See how far you've gone<br />for each other.</h1>
           <p class="lede">
             Twofold turns your long-distance relationship into a living map — track flights in
@@ -38,95 +57,241 @@
             just to be together.
           </p>
           <div class="cta-row">
-            <!-- TODO: replace href with the real apps.apple.com/app/idXXXXXXXXXX link once the App Store listing is live -->
-            <a class="appstore-badge" href="https://apps.apple.com/app/id0000000000" aria-label="Download Twofold on the App Store">
-              <svg viewBox="0 0 384 512" aria-hidden="true"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141 0 184.5 0 273.5c0 26.3 4.8 53.5 14.4 81.6 12.8 37.4 59 129.1 107.2 127.6 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-84.2 102.6-121.7-65.2-30.7-57.7-90-57.7-92.3zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg>
+            <a class="appstore-badge hide-on-desktop" data-appstore-link href="#" aria-label="Download Twofold on the App Store">
+              <svg class="icon"><use href="/assets/icons.svg#icon-apple"/></svg>
               <span class="badge-text">
                 <small>Download on the</small>
                 <strong>App&nbsp;Store</strong>
               </span>
             </a>
-            <a class="secondary-cta" href="#waitlist">Get notified for Android →</a>
+            <a class="btn btn-primary btn-lg hide-on-mobile" href="/pricing.html">
+              Get started
+              <svg class="icon"><use href="/assets/icons.svg#icon-arrow-right"/></svg>
+            </a>
+            <a class="appstore-badge hide-on-mobile" data-appstore-link href="#" aria-label="Download Twofold on the App Store">
+              <svg class="icon"><use href="/assets/icons.svg#icon-apple"/></svg>
+              <span class="badge-text">
+                <small>Download on the</small>
+                <strong>App&nbsp;Store</strong>
+              </span>
+            </a>
+            <a class="text-link hide-on-desktop" href="/pricing.html">See pricing</a>
           </div>
+          <p class="hero-note"><svg class="icon"><use href="/assets/icons.svg#icon-shield"/></svg>Private by default — only your partner ever sees your journeys.</p>
         </div>
         <div class="hero-art" aria-hidden="true">
           <div class="art-glow"></div>
+          <div class="art-glow-2"></div>
           <img src="/assets/globe-heart.png" alt="" class="art-globe" />
+          <div class="hero-chip hero-chip-1">
+            <span class="icon-wrap"><svg class="icon"><use href="/assets/icons.svg#icon-plane"/></svg></span>
+            Landed in Singapore 🇸🇬
+          </div>
+          <div class="hero-chip hero-chip-2">
+            <span class="icon-wrap"><svg class="icon"><use href="/assets/icons.svg#icon-pin"/></svg></span>
+            +1 memory saved
+          </div>
         </div>
       </div>
     </section>
 
     <section class="stat-strip">
-      <div class="wrap stat-strip-inner">
+      <div class="stat-strip-inner">
         <p><strong>84,392 km</strong> travelled for each other — that's more than twice around the Earth.</p>
       </div>
     </section>
 
-    <section class="features">
+    <section aria-labelledby="how-heading">
       <div class="wrap">
-        <h2>Everything your distance deserves</h2>
-        <div class="feature-grid">
-          <article class="feature-card">
-            <div class="feature-icon">🌍</div>
-            <h3>Relationship Globe</h3>
-            <p>An interactive 3D globe showing both of you, your current distance apart, and every journey you've taken to close it.</p>
-          </article>
-          <article class="feature-card">
-            <div class="feature-icon">✈️</div>
-            <h3>Live Flight Tracking</h3>
-            <p>Follow each other's flights in real time and get a notification the moment your partner lands.</p>
-          </article>
-          <article class="feature-card">
-            <div class="feature-icon">📍</div>
-            <h3>Memories</h3>
-            <p>Save photos and moments to the exact places they happened, building a map of your story together.</p>
-          </article>
-          <article class="feature-card">
-            <div class="feature-icon">🎮</div>
-            <h3>Couple Games</h3>
-            <p>Bite-sized games built for two, made to close the distance even when you can't be in the same room.</p>
-          </article>
+        <div class="section-head reveal">
+          <p class="eyebrow"><svg class="icon"><use href="/assets/icons.svg#icon-sparkle"/></svg>How it works</p>
+          <h2 id="how-heading">From "miles apart" to one shared map</h2>
+          <p>No spreadsheets, no guessing when they'll land. Twofold does the tracking so you can just look forward to seeing each other.</p>
+        </div>
+        <div class="steps">
+          <div class="step-card reveal">
+            <span class="step-num">1</span>
+            <h3>Connect with your partner</h3>
+            <p>Pair your accounts once with an invite link. Everything you share from then on belongs to both of you.</p>
+          </div>
+          <div class="step-card reveal">
+            <span class="step-num">2</span>
+            <h3>Share your trips &amp; flights</h3>
+            <p>Add a flight or a trip in seconds. Twofold tracks status automatically and tells your partner when you land.</p>
+          </div>
+          <div class="step-card reveal">
+            <span class="step-num">3</span>
+            <h3>Watch your globe grow</h3>
+            <p>Every journey to see each other draws a new line across your shared globe — a living record of your relationship.</p>
+          </div>
         </div>
       </div>
     </section>
 
-    <section id="waitlist" class="waitlist">
-      <div class="wrap waitlist-inner">
-        <h2>Twofold for Android is coming</h2>
-        <p>We're building the Android version next. Leave your email and we'll let you know the moment it's ready — no spam, just one message when it ships.</p>
+    <section aria-labelledby="features-heading">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <p class="eyebrow"><svg class="icon"><use href="/assets/icons.svg#icon-heart"/></svg>Everything your distance deserves</p>
+          <h2 id="features-heading">Built around the two of you</h2>
+        </div>
+        <div class="feature-grid">
+          <article class="feature-card reveal">
+            <div class="feature-icon tone-sky"><svg class="icon"><use href="/assets/icons.svg#icon-globe"/></svg></div>
+            <h3>Relationship Globe</h3>
+            <p>An interactive 3D globe showing both of you, your current distance apart, and every journey you've taken to close it.</p>
+          </article>
+          <article class="feature-card reveal">
+            <div class="feature-icon tone-sky"><svg class="icon"><use href="/assets/icons.svg#icon-plane"/></svg></div>
+            <h3>Live Flight Tracking</h3>
+            <p>Follow each other's flights in real time and get a notification the moment your partner lands.</p>
+          </article>
+          <article class="feature-card reveal">
+            <div class="feature-icon tone-red"><svg class="icon"><use href="/assets/icons.svg#icon-pin"/></svg></div>
+            <h3>Memories</h3>
+            <p>Save photos and moments to the exact places they happened, building a map of your story together.</p>
+          </article>
+          <article class="feature-card reveal">
+            <div class="feature-icon tone-green"><svg class="icon"><use href="/assets/icons.svg#icon-gamepad"/></svg></div>
+            <h3>Couple Games</h3>
+            <p>Bite-sized questions and games built for two, made to close the distance even when you can't be in the same room.</p>
+          </article>
+          <article class="feature-card reveal">
+            <div class="feature-icon tone-ink"><svg class="icon"><use href="/assets/icons.svg#icon-grid"/></svg></div>
+            <h3>Widgets &amp; Live Activities</h3>
+            <p>Countdown to your next reunion, or a live flight tracker right on your Lock Screen and Home Screen.</p>
+          </article>
+          <article class="feature-card reveal">
+            <div class="feature-icon tone-sky"><svg class="icon"><use href="/assets/icons.svg#icon-file-download"/></svg></div>
+            <h3>Relationship Record</h3>
+            <p>Export a beautiful PDF of every trip, memory, and mile — a keepsake of your long-distance story so far.</p>
+          </article>
+        </div>
+        <p style="text-align:center; margin-top: 36px;">
+          <a class="text-link" href="/features.html">See every feature <svg class="icon"><use href="/assets/icons.svg#icon-arrow-right"/></svg></a>
+        </p>
+      </div>
+    </section>
 
-        <form id="waitlist-form" class="waitlist-form" novalidate>
-          <div class="field-row">
-            <label class="sr-only" for="waitlist-email">Email address</label>
-            <input
-              id="waitlist-email"
-              name="email"
-              type="email"
-              inputmode="email"
-              autocomplete="email"
-              placeholder="you@example.com"
-              required
-            />
-            <!-- Honeypot: hidden from real users, bots tend to fill every field -->
-            <input class="hp-field" type="text" name="company" tabindex="-1" autocomplete="off" aria-hidden="true" />
-            <button type="submit">Join waitlist</button>
+    <section aria-labelledby="pricing-teaser-heading">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <p class="eyebrow"><svg class="icon"><use href="/assets/icons.svg#icon-sparkle"/></svg>Simple pricing</p>
+          <h2 id="pricing-teaser-heading">Plus for the everyday, Premium for the full globe</h2>
+          <p>Start with a plan that fits your relationship — upgrade any time, and either partner's subscription unlocks it for both of you.</p>
+        </div>
+        <div class="pricing-grid reveal">
+          <div class="price-card">
+            <h3>Twofold Plus</h3>
+            <p class="price-tagline">Everything you need for long-distance love</p>
+            <div class="price-amount"><span class="num">$5</span><span class="period">/mo, billed yearly</span></div>
+            <p class="price-sub">or $9.99/month</p>
+            <ul class="feature-list">
+              <li><svg class="icon"><use href="/assets/icons.svg#icon-check"/></svg>Unlimited trips &amp; memories</li>
+              <li><svg class="icon"><use href="/assets/icons.svg#icon-check"/></svg>Track up to 5 flights a month</li>
+              <li><svg class="icon"><use href="/assets/icons.svg#icon-check"/></svg>500+ questions and games</li>
+            </ul>
+            <a class="btn btn-outline btn-block" href="/pricing.html">Choose Plus</a>
           </div>
-          <p class="form-status" id="waitlist-status" role="status" aria-live="polite"></p>
-        </form>
+          <div class="price-card is-featured">
+            <span class="price-ribbon">Most popular</span>
+            <h3>Twofold Premium</h3>
+            <p class="price-tagline">The full relationship globe experience</p>
+            <div class="price-amount"><span class="num">$10</span><span class="period">/mo, billed yearly</span></div>
+            <p class="price-sub">or $19.99/month</p>
+            <ul class="feature-list">
+              <li><svg class="icon"><use href="/assets/icons.svg#icon-check"/></svg>Everything in Plus</li>
+              <li><svg class="icon"><use href="/assets/icons.svg#icon-check"/></svg>Interactive 3D globe &amp; premium widgets</li>
+              <li><svg class="icon"><use href="/assets/icons.svg#icon-check"/></svg>Relationship Record PDF export</li>
+            </ul>
+            <a class="btn btn-primary btn-block" href="/pricing.html">Choose Premium</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="cta-heading">
+      <div class="cta-banner reveal">
+        <h2 id="cta-heading">Start closing the distance today</h2>
+        <p>Twofold is free to download, with Plus and Premium unlocking the full experience for both of you.</p>
+        <div class="cta-row">
+          <a class="btn btn-dark btn-lg" data-appstore-link href="#">
+            <svg class="icon"><use href="/assets/icons.svg#icon-apple"/></svg>
+            Download for iOS
+          </a>
+          <a class="btn btn-ghost btn-lg" href="/pricing.html" style="background:rgba(255,255,255,0.9)">See pricing</a>
+        </div>
+      </div>
+    </section>
+
+    <section id="waitlist" aria-labelledby="waitlist-heading">
+      <div class="wrap">
+        <div class="waitlist-card reveal">
+          <p class="eyebrow" style="justify-content:center"><svg class="icon"><use href="/assets/icons.svg#icon-bell"/></svg>Coming soon</p>
+          <h2 id="waitlist-heading">Twofold for Android is coming</h2>
+          <p>We're building the Android version next. Leave your email and we'll let you know the moment it's ready — no spam, just one message when it ships.</p>
+
+          <form id="waitlist-form" class="waitlist-form" novalidate>
+            <div class="field-row">
+              <label class="sr-only" for="waitlist-email">Email address</label>
+              <input
+                id="waitlist-email"
+                name="email"
+                type="email"
+                inputmode="email"
+                autocomplete="email"
+                placeholder="you@example.com"
+                required
+              />
+              <input class="hp-field" type="text" name="company" tabindex="-1" autocomplete="off" aria-hidden="true" />
+              <button type="submit" class="btn btn-primary">Join waitlist</button>
+            </div>
+            <p class="form-status" id="waitlist-status" role="status" aria-live="polite"></p>
+          </form>
+        </div>
       </div>
     </section>
   </main>
 
   <footer class="footer">
-    <div class="wrap footer-inner">
-      <div class="brand">
-        <img src="/assets/globe-heart.png" alt="" width="20" height="20" />
-        <span>twofold</span>
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <div class="brand">
+          <img src="/assets/globe-heart.png" alt="" width="22" height="22" />
+          <span>twofold</span>
+        </div>
+        <p>The living map for long-distance couples. Track flights, close the distance, keep the memories.</p>
       </div>
-      <p>© <span id="year"></span> Twofold. Made for the couples doing long distance.</p>
+      <div class="footer-col">
+        <h4>Product</h4>
+        <ul>
+          <li><a href="/features.html">Features</a></li>
+          <li><a href="/pricing.html">Pricing</a></li>
+          <li><a href="/faq.html">FAQ</a></li>
+          <li><a data-appstore-link href="#">Download on iOS</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Support</h4>
+        <ul>
+          <li><a href="mailto:hello@twofoldapp.com.au">Contact us</a></li>
+          <li><a href="/faq.html#subscriptions">Manage subscription</a></li>
+          <li><a href="/#waitlist">Android waitlist</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Legal</h4>
+        <ul>
+          <li><a href="/privacy.html">Privacy Policy</a></li>
+          <li><a href="/terms.html">Terms of Use</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© <span data-year></span> Twofold. Made for the couples doing long distance.</span>
     </div>
   </footer>
 
-  <script src="/script.js"></script>
+  <script type="module" src="/assets/js/site.js"></script>
+  <script type="module" src="/assets/js/waitlist.js"></script>
 </body>
 </html>

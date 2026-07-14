@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="no-js">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -8,20 +8,6 @@
   <link rel="icon" href="/assets/favicon-32.png" sizes="32x32" />
   <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
   <link rel="stylesheet" href="/styles.css" />
-  <style>
-    .legal-wrap { max-width: 720px; margin: 0 auto; padding: 48px 24px 96px; }
-    .legal-wrap h1 { margin-bottom: 4px; }
-    .legal-notice {
-      background: #fff8e6;
-      border: 1px solid #f0d98a;
-      border-radius: var(--radius-card);
-      padding: 16px 20px;
-      margin: 20px 0 40px;
-      font-size: 0.95em;
-    }
-    .legal-wrap h2 { margin-top: 40px; }
-    .legal-wrap p, .legal-wrap li { color: var(--subtle-ink); }
-  </style>
 </head>
 <body>
   <header class="nav">
@@ -30,6 +16,21 @@
         <img src="/assets/globe-heart.png" alt="" width="28" height="28" />
         <span>twofold</span>
       </a>
+      <nav>
+        <ul class="nav-links">
+          <li><a href="/">Home</a></li>
+          <li><a href="/features.html">Features</a></li>
+          <li><a href="/pricing.html">Pricing</a></li>
+          <li><a href="/faq.html">FAQ</a></li>
+        </ul>
+      </nav>
+      <div class="nav-actions">
+        <a class="nav-cta nav-cta-desktop" data-appstore-link href="#">Get the App</a>
+        <button class="nav-toggle" aria-label="Toggle menu" aria-expanded="false">
+          <svg class="icon icon-menu"><use href="/assets/icons.svg#icon-menu"/></svg>
+          <svg class="icon icon-x"><use href="/assets/icons.svg#icon-x"/></svg>
+        </button>
+      </div>
     </div>
   </header>
 
@@ -38,17 +39,18 @@
     <p><em>Last updated: 12 July 2026</em></p>
 
     <div class="legal-notice">
-      <strong>Draft — pending legal review.</strong> This page is a placeholder so the app's
+      <svg class="icon"><use href="/assets/icons.svg#icon-shield"/></svg>
+      <span><strong>Draft — pending legal review.</strong> This page is a placeholder so the app's
       Terms of Use link works end-to-end. It has not been reviewed by a lawyer and should not be
-      treated as final before Twofold is publicly released.
+      treated as final before Twofold is publicly released.</span>
     </div>
 
     <h2>Using Twofold</h2>
     <p>
       Twofold is a companion app for couples navigating a long-distance relationship. By using
-      the app, you agree to provide accurate information, use it respectfully toward your
-      partner, and not misuse features (flight tracking, memories, games, or doodles) to harass
-      or harm another person.
+      the app or this website, you agree to provide accurate information, use it respectfully
+      toward your partner, and not misuse features (flight tracking, memories, games, or
+      doodles) to harass or harm another person.
     </p>
 
     <h2>Your account</h2>
@@ -59,10 +61,16 @@
 
     <h2>Subscriptions</h2>
     <p>
-      Twofold Plus is an auto-renewing subscription billed through the App Store. You can manage
-      or cancel it any time in your device's Settings. Either partner's active subscription
-      unlocks Plus features for both of you.
+      Twofold Plus and Twofold Premium are auto-renewing subscriptions, billed either through
+      the App Store or, if purchased on this website, through Stripe. Either partner's active
+      subscription unlocks the corresponding features for both of you.
     </p>
+    <ul>
+      <li><strong>App Store subscriptions</strong> renew automatically at the end of each billing period unless cancelled at least 24 hours before renewal, and are managed from your device's Settings → Apple ID → Subscriptions, per Apple's standard terms.</li>
+      <li><strong>Web subscriptions</strong> (twofoldapp.com.au/pricing) renew automatically at the end of each billing period and can be cancelled at any time; you keep access until the end of the period already paid for. Payment is processed by Stripe via RevenueCat — Twofold does not store your card details. Prices are shown in USD and may be subject to applicable taxes.</li>
+      <li>Refunds for App Store purchases are handled by Apple under their own policies. Refund requests for web purchases can be sent to <a href="mailto:hello@twofoldapp.com.au">hello@twofoldapp.com.au</a> and are considered on a case-by-case basis.</li>
+      <li>A subscription started on the web is tied to the Apple ID used to sign in at checkout — sign in with that same Apple ID in the app to access what you've paid for.</li>
+    </ul>
 
     <h2>Content you share</h2>
     <p>
@@ -88,13 +96,18 @@
   </main>
 
   <footer class="footer">
-    <div class="wrap footer-inner">
-      <div class="brand">
-        <img src="/assets/globe-heart.png" alt="" width="20" height="20" />
-        <span>twofold</span>
+    <div class="footer-inner" style="grid-template-columns:1fr;">
+      <div class="footer-brand">
+        <div class="brand">
+          <img src="/assets/globe-heart.png" alt="" width="20" height="20" />
+          <span>twofold</span>
+        </div>
       </div>
-      <p>© 2026 Twofold. Made for the couples doing long distance.</p>
+    </div>
+    <div class="footer-bottom">
+      <span>© <span data-year></span> Twofold. Made for the couples doing long distance.</span>
     </div>
   </footer>
+  <script type="module" src="/assets/js/site.js"></script>
 </body>
 </html>
