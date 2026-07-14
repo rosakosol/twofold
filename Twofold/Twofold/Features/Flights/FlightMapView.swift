@@ -43,6 +43,7 @@ struct FlightMapView: View {
                 positionHeading: flight.positionHeading,
                 traveler: traveler,
                 progress: flight.progress,
+                status: flight.status,
                 interactive: interactive,
                 edgePadding: edgePadding
             )
@@ -84,6 +85,7 @@ private struct MapLibreRouteView: UIViewRepresentable {
     /// 0...1, mirrors `Flight.progress` — how far along the route the traveled (colored)
     /// portion of the line extends before giving way to the grey untraveled remainder.
     let progress: Double
+    let status: FlightStatus
     let interactive: Bool
     let edgePadding: CGFloat
 
@@ -116,7 +118,8 @@ private struct MapLibreRouteView: UIViewRepresentable {
             position: position,
             positionHeading: positionHeading,
             traveler: traveler,
-            progress: progress
+            progress: progress,
+            status: status
         )
     }
 
@@ -132,6 +135,7 @@ private struct MapLibreRouteView: UIViewRepresentable {
             var positionHeading: Double?
             var traveler: Person?
             var progress: Double
+            var status: FlightStatus
 
             static func == (lhs: Route, rhs: Route) -> Bool {
                 lhs.origin.latitude == rhs.origin.latitude && lhs.origin.longitude == rhs.origin.longitude
@@ -139,7 +143,7 @@ private struct MapLibreRouteView: UIViewRepresentable {
                     && lhs.originCode == rhs.originCode && lhs.destinationCode == rhs.destinationCode
                     && lhs.position?.latitude == rhs.position?.latitude && lhs.position?.longitude == rhs.position?.longitude
                     && lhs.positionHeading == rhs.positionHeading && lhs.traveler?.id == rhs.traveler?.id
-                    && lhs.progress == rhs.progress
+                    && lhs.progress == rhs.progress && lhs.status == rhs.status
             }
         }
 
@@ -316,8 +320,14 @@ private struct MapLibreRouteView: UIViewRepresentable {
         /// live position polling stops once a flight is no longer airborne — see
         /// `AIRBORNE_STATUSES` server-side). The plane-icon fallback (no traveler set) still
         /// uses the raw live position, unaffected.
+        ///
+        /// Diverted is the one exception: the plane is no longer following the original
+        /// origin-destination line at all, so a progress-interpolated point along it would be
+        /// actively misleading. Falls back to the real live position there (same as the
+        /// no-traveler case), or the origin if no position has ever been reported.
         private func markerCoordinate(for route: Route) -> CLLocationCoordinate2D? {
             guard route.traveler != nil else { return route.position }
+            if route.status == .diverted { return route.position ?? route.origin }
             if route.progress <= 0.001 { return route.origin }
             if route.progress >= 0.999 { return route.destination }
             return Self.intermediateGreatCirclePoint(route.origin, route.destination, fraction: route.progress)

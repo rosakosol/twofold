@@ -73,10 +73,30 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
+  // Defense in depth, not just a fix for one call site: `tracking_enabled` alone doesn't catch
+  // every way a flight can become orphaned — a couple dissolving is the confirmed case
+  // (`leave_couple` now clears it directly, see 20260723000000), but this guards against any
+  // *other* path that leaves tracking_enabled = true on a flight whose couple can no longer load
+  // it client-side (fetchCoupleState() only ever loads active couples), which would otherwise
+  // poll AeroAPI for it every 5 minutes forever with nobody able to see the result.
+  const { data: activeCouples, error: couplesErr } = await serviceClient
+    .from("couples")
+    .select("id")
+    .eq("status", "active");
+  if (couplesErr) {
+    console.error("[refresh-due-flights] failed to load active couples:", couplesErr.message);
+    return Response.json({ error: "Failed to load active couples" }, { status: 500 });
+  }
+  const activeCoupleIds = (activeCouples ?? []).map((c) => c.id as string);
+  if (activeCoupleIds.length === 0) {
+    return Response.json({ refreshed: 0, skipped: 0 });
+  }
+
   const { data: flights, error } = await serviceClient
     .from("flights")
     .select("*")
-    .eq("tracking_enabled", true);
+    .eq("tracking_enabled", true)
+    .in("couple_id", activeCoupleIds);
 
   if (error) {
     console.error("[refresh-due-flights] failed to load flights:", error.message);
