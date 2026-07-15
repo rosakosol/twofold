@@ -8,18 +8,18 @@
 //  already run. Kept separate from `SubscriptionStore` since this only ever runs once per
 //  process, unlike everything else in that file.
 //
-//  ⚠️ `apiKey` below is the RevenueCat **Test Store** public API key (`test_...`), meant for
-//  development — it drives RevenueCat's sandboxed test store rather than real App Store/
-//  StoreKit transactions. Swap it for the real "Apple App Store" public API key from the
-//  RevenueCat dashboard (Project settings → API keys) before shipping; the SDK key format is
-//  the only thing that changes, no code here needs to.
-//
+
 
 import Foundation
 import RevenueCat
 
 enum RevenueCatConfig {
-    static let apiKey = "test_BfcxVYQJiTBVYOktDZKPnRUZxRw"
+    /// The real "Apple App Store" public API key from the RevenueCat dashboard (Project
+    /// settings → API keys) — a `test_...` Test Store key was used here during development,
+    /// but RevenueCat's SDK deliberately fatal-crashes if it detects one running inside a
+    /// Release-configured build (which every TestFlight archive is), as a guardrail against
+    /// shipping a sandbox key by accident.
+    static let apiKey = "appl_DoPckVWWpcnAifAJxyqVrIgqGna"
 
     /// The two entitlements configured in the RevenueCat dashboard, one per subscription tier —
     /// mirrors `SubscriptionTier`, see that enum for the couple-facing display/DB-value side of
