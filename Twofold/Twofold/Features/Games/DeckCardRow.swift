@@ -16,6 +16,12 @@
 import SwiftUI
 
 struct DeckCardRow: View {
+    /// Fixed total card height (padding included) — sized for a 2-line title, the longest
+    /// `Text(deck.title)` is now allowed to grow to. Every card uses this same constant so decks
+    /// with short one-line titles don't render visibly shorter than ones that wrap to two lines,
+    /// both side-by-side in the Travel carousel and stacked in the full-width browse lists.
+    private static let cardHeight: CGFloat = 150
+
     let deck: GameDeck
     let progress: DeckProgress?
     /// Shows the deck's topic instead of its game type — used by cross-topic lists (one game
@@ -64,6 +70,12 @@ struct DeckCardRow: View {
                         .font(.subheadline.weight(.bold))
                         .foregroundStyle(Theme.ink)
                         .multilineTextAlignment(.leading)
+                        // Capped and given a stable intrinsic height so every card in the same
+                        // row/list ends up the same total height regardless of title length —
+                        // paired with `.frame(height: cardHeight)` below and the vertical
+                        // `Spacer` that pins the avatar row to the bottom.
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                     if bothCompleted {
                         Label("Completed", systemImage: "checkmark.seal.fill")
                             .font(.caption2.weight(.semibold))
@@ -88,6 +100,11 @@ struct DeckCardRow: View {
                 }
             }
 
+            // Absorbs whatever vertical slack a short (1-line) title leaves inside the fixed
+            // card height, so the avatar row below always sits at the same distance from the
+            // card's bottom edge instead of drifting up when there's less title above it.
+            Spacer(minLength: 0)
+
             HStack(spacing: 0) {
                 // ZStack (not HStack's negative spacing) so draw order can put "me" on top
                 // regardless of left-to-right position — otherwise partner's avatar, added
@@ -106,6 +123,7 @@ struct DeckCardRow: View {
             }
         }
         .padding(Theme.Spacing.sm)
+        .frame(height: Self.cardHeight, alignment: .top)
         .background(bothCompleted ? Theme.leafGreen.opacity(0.1) : Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         .overlay {
             // A completed deck's pale green fill barely reads as different from the page
