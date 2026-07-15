@@ -1963,14 +1963,14 @@ enum BackendService {
         func toModel() -> ThisOrThatPrompt { ThisOrThatPrompt(id: id, optionA: optionA, optionB: optionB, active: active, category: category, tier: tier) }
     }
 
-    private struct DiscussionTopicRow: Decodable {
+    private struct DeepConversationTopicRow: Decodable {
         var id: UUID
         var topic: String
         var active: Bool
         var category: String
         var tier: String
 
-        func toModel() -> DiscussionTopic { DiscussionTopic(id: id, topic: topic, active: active, category: category, tier: tier) }
+        func toModel() -> DeepConversationTopic { DeepConversationTopic(id: id, topic: topic, active: active, category: category, tier: tier) }
     }
 
     struct GameSessionDetail {
@@ -2079,7 +2079,7 @@ enum BackendService {
     }
 
     /// Returns today's Daily Activity session id, creating it server-side on first call each day
-    /// — see `get_daily_question_session` (an ordinary 1-round `discuss_before_travelling`
+    /// — see `get_daily_question_session` (an ordinary 1-round `deep_conversations`
     /// session flagged `is_daily`, so it plays through the exact same `GameSessionStore` flow as
     /// any other game).
     static func getDailyQuestionSession() async throws -> UUID {
@@ -2187,7 +2187,7 @@ enum BackendService {
         let unique = Array(Set(contentIDs))
         guard !unique.isEmpty else { return [:] }
         switch gameType {
-        case .travelTrivia:
+        case .triviaBattle:
             let rows: [TriviaQuestionRow] = try await supabase.from("trivia_questions").select().in("id", values: unique).execute().value
             return Dictionary(uniqueKeysWithValues: rows.map { ($0.id, GameRoundContent.trivia($0.toModel())) })
         case .moreLikely:
@@ -2196,9 +2196,9 @@ enum BackendService {
         case .thisOrThat:
             let rows: [ThisOrThatPromptRow] = try await supabase.from("this_or_that_prompts").select().in("id", values: unique).execute().value
             return Dictionary(uniqueKeysWithValues: rows.map { ($0.id, GameRoundContent.thisOrThat($0.toModel())) })
-        case .discussBeforeTravelling:
-            let rows: [DiscussionTopicRow] = try await supabase.from("discussion_topics").select().in("id", values: unique).execute().value
-            return Dictionary(uniqueKeysWithValues: rows.map { ($0.id, GameRoundContent.discuss($0.toModel())) })
+        case .deepConversations:
+            let rows: [DeepConversationTopicRow] = try await supabase.from("deep_conversation_topics").select().in("id", values: unique).execute().value
+            return Dictionary(uniqueKeysWithValues: rows.map { ($0.id, GameRoundContent.deepConversation($0.toModel())) })
         }
     }
 

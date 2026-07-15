@@ -4,7 +4,7 @@
 //
 //  Shown once I've answered every round but the session isn't fully completed yet (my partner
 //  hasn't finished theirs). Shared across all 4 game types — nothing here is game-type-specific,
-//  except `myAnswersRecap` (only Discuss Before Travelling passes one — my own responses are
+//  except `myAnswersRecap` (only Deep Conversations passes one — my own responses are
 //  always visible to me regardless of session completion, unlike the match/trivia games where
 //  showing anything pre-reveal would spoil the point).
 //

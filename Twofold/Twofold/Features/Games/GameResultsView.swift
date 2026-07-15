@@ -132,7 +132,7 @@ struct GameResultsView: View {
     @ViewBuilder
     private var header: some View {
         switch gameType {
-        case .travelTrivia:
+        case .triviaBattle:
             let myScore = GameLogic.triviaScore(responses: store.responses, responderID: myID)
             let partnerScore = GameLogic.triviaScore(responses: store.responses, responderID: partnerID)
             VStack(spacing: Theme.Spacing.xs) {
@@ -154,7 +154,7 @@ struct GameResultsView: View {
                     .font(.title3.weight(.bold))
                     .multilineTextAlignment(.center)
             }
-        case .discussBeforeTravelling:
+        case .deepConversations:
             VStack(spacing: Theme.Spacing.xs) {
                 Image(systemName: "bubble.left.and.bubble.right.fill").font(.system(size: 40)).foregroundStyle(Theme.leafGreen)
                 Text("You both shared your thoughts")
@@ -200,9 +200,9 @@ struct GameResultsView: View {
             switch gameType {
             case .thisOrThat, .moreLikely:
                 return mine?.answerValue == partner?.answerValue && mine?.answerValue.isEmpty == false
-            case .travelTrivia:
+            case .triviaBattle:
                 return mine?.isCorrect == true && partner?.isCorrect == true
-            case .discussBeforeTravelling:
+            case .deepConversations:
                 return false
             }
         }()
@@ -216,7 +216,7 @@ struct GameResultsView: View {
                 // right under the badge instead of next to it.
                 .padding(.trailing, matched ? 36 : 0)
 
-            if gameType == .discussBeforeTravelling {
+            if gameType == .deepConversations {
                 responseBlock(name: "You", text: mine?.answerValue)
                 responseBlock(name: partnerName, text: partner?.answerValue)
                 discussionMarkers(round)
@@ -227,7 +227,7 @@ struct GameResultsView: View {
                     answerChip(name: partnerName, text: answerText(partner?.answerValue, for: round), tint: matched ? Theme.leafGreen : Theme.ink)
                 }
 
-                if gameType == .travelTrivia, case let .trivia(question)? = store.content(for: round) {
+                if gameType == .triviaBattle, case let .trivia(question)? = store.content(for: round) {
                     HStack(spacing: 4) {
                         correctnessBadge(label: "You", isCorrect: mine?.isCorrect)
                         correctnessBadge(label: partnerName, isCorrect: partner?.isCorrect)
@@ -318,7 +318,7 @@ struct GameResultsView: View {
     @ViewBuilder
     private var summarySection: some View {
         switch gameType {
-        case .travelTrivia:
+        case .triviaBattle:
             EmptyView()
         case .moreLikely, .thisOrThat:
             let mismatched = GameLogic.mismatchedRounds(rounds: store.rounds, responses: store.responses, partnerAID: myID, partnerBID: partnerID)
@@ -334,7 +334,7 @@ struct GameResultsView: View {
                     }
                 }
             }
-        case .discussBeforeTravelling:
+        case .deepConversations:
             let talkedAbout = store.rounds.filter { $0.discussionStatus == .talkedAbout }.count
             let comeBackLater = store.rounds.filter { $0.discussionStatus == .comeBackLater }.count
             if talkedAbout + comeBackLater < store.rounds.count {
@@ -371,7 +371,7 @@ struct GameResultsView: View {
         case .trivia(let question): question.question
         case .moreLikely(let prompt): prompt.prompt
         case .thisOrThat(let prompt): "\(prompt.optionA) or \(prompt.optionB)"
-        case .discuss(let topic): topic.topic
+        case .deepConversation(let topic): topic.topic
         case .none: ""
         }
     }
@@ -396,7 +396,7 @@ struct GameResultsView: View {
             case ThisOrThatChoice.optionB.rawValue: return prompt.optionB
             default: return "—"
             }
-        case .discuss, .none:
+        case .deepConversation, .none:
             return value
         }
     }

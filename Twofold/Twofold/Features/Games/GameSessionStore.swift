@@ -95,8 +95,15 @@ final class GameSessionStore {
     /// answer feels like the same forward motion as answering it the first time. Naturally
     /// resumes the live "next unanswered" edge once it steps past the last previously-answered
     /// round.
+    ///
+    /// Must only advance if the cursor still points at the round this submit actually belongs
+    /// to — a swipe's answer doesn't reach here until its fly-off animation (and then the
+    /// network round trip) finishes, and `goBack(myID:)` can run in that gap if the player taps
+    /// back before this fires. Advancing unconditionally on `!= nil` used to blindly overwrite
+    /// wherever that back tap had just rewound the cursor to, making back-during-a-swipe look
+    /// like it silently did nothing.
     private func advanceViewingCursorIfNeeded(afterSubmittingRound roundNumber: Int) {
-        guard viewingRoundNumber != nil else { return }
+        guard viewingRoundNumber == roundNumber else { return }
         let next = roundNumber + 1
         viewingRoundNumber = rounds.contains(where: { $0.roundNumber == next }) ? next : nil
     }

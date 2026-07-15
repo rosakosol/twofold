@@ -86,7 +86,7 @@ struct GameTypeDecksView: View {
 
 #Preview {
     NavigationStack {
-        GameTypeDecksView(gameType: .travelTrivia)
+        GameTypeDecksView(gameType: .triviaBattle)
     }
     .environment(AppModel())
 }

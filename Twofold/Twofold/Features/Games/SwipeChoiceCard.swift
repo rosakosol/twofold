@@ -21,7 +21,7 @@ import SwiftUI
 private let swipeCardFlyDuration: Double = 0.3
 
 /// Card background — deliberately the same sky-blue-to-leaf-green gradient Trivia Battle uses
-/// (`GameType.travelTrivia.iconGradient`) so every game's cards read as one consistent family
+/// (`GameType.triviaBattle.iconGradient`) so every game's cards read as one consistent family
 /// rather than This or That/More Likely looking like a different, plainer app.
 private let swipeCardGradient = LinearGradient(colors: [Theme.skyBlue, Theme.leafGreen], startPoint: .topLeading, endPoint: .bottomTrailing)
 

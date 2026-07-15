@@ -12,7 +12,7 @@ import SwiftUI
 struct RecommendedGamesSection: View {
     @Environment(AppModel.self) private var appModel
 
-    static let recommended: [GameType] = [.travelTrivia, .moreLikely, .thisOrThat, .discussBeforeTravelling]
+    static let recommended: [GameType] = [.triviaBattle, .moreLikely, .thisOrThat, .deepConversations]
 
     /// `GamesHubView` wraps itself in its own `NavigationStack` (it doubles as the Games tab's
     /// root), so it's presented as a sheet here rather than pushed — pushing a

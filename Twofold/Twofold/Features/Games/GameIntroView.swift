@@ -86,5 +86,5 @@ struct GameIntroView: View {
 }
 
 #Preview {
-    GameIntroView(gameType: .travelTrivia, onStart: {})
+    GameIntroView(gameType: .triviaBattle, onStart: {})
 }

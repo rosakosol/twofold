@@ -80,5 +80,5 @@ struct DeckPremiumGateView: View {
 }
 
 #Preview {
-    DeckPremiumGateView(deck: GameDeck(id: UUID(), topic: "Travel", gameType: .travelTrivia, title: "Airport Chaos", emoji: "🛫", tier: "premium", sortOrder: 0, questionCount: 10))
+    DeckPremiumGateView(deck: GameDeck(id: UUID(), topic: "Travel", gameType: .triviaBattle, title: "Airport Chaos", emoji: "🛫", tier: "premium", sortOrder: 0, questionCount: 10))
 }

@@ -5,7 +5,7 @@
 //  Shown at the top of the Games hub — a shared, couple-wide streak (increments the moment
 //  either partner answers, see the migration comment on advance_game_session) plus a themed
 //  teaser leading into today's question. The destination is an ordinary
-//  DiscussBeforeTravellingGameView driven by `is_daily` session id — that view already handles
+//  DeepConversationsGameView driven by `is_daily` session id — that view already handles
 //  every session state (fresh/in-progress/waiting-on-partner/revealed) via GameSessionStore, so
 //  this card's only job is getting the user to the right session id, not re-deriving that state.
 //
@@ -97,7 +97,7 @@ struct DailyActivityCard: View {
     @ViewBuilder
     private var dailyDestination: some View {
         if let sessionID = appModel.todaysDailySessionID {
-            DiscussBeforeTravellingGameView(sessionID: sessionID)
+            DeepConversationsGameView(sessionID: sessionID)
         } else {
             ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)

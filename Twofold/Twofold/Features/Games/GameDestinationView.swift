@@ -25,9 +25,9 @@ struct SessionRoute: Identifiable, Hashable {
 @ViewBuilder
 func gameDestinationView(gameType: GameType, sessionID: UUID, title: String? = nil, topic: String? = nil) -> some View {
     switch gameType {
-    case .travelTrivia: TravelTriviaGameView(sessionID: sessionID, title: title, topic: topic)
+    case .triviaBattle: TriviaBattleGameView(sessionID: sessionID, title: title, topic: topic)
     case .moreLikely: WhosMoreLikelyGameView(sessionID: sessionID, title: title)
     case .thisOrThat: ThisOrThatGameView(sessionID: sessionID, title: title)
-    case .discussBeforeTravelling: DiscussBeforeTravellingGameView(sessionID: sessionID, title: title, topic: topic)
+    case .deepConversations: DeepConversationsGameView(sessionID: sessionID, title: title, topic: topic)
     }
 }

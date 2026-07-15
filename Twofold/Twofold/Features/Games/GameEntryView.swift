@@ -75,10 +75,10 @@ struct GameEntryView: View {
     @ViewBuilder
     private func gameDestination(sessionID: UUID) -> some View {
         switch gameType {
-        case .travelTrivia: TravelTriviaGameView(sessionID: sessionID)
+        case .triviaBattle: TriviaBattleGameView(sessionID: sessionID)
         case .moreLikely: WhosMoreLikelyGameView(sessionID: sessionID)
         case .thisOrThat: ThisOrThatGameView(sessionID: sessionID)
-        case .discussBeforeTravelling: DiscussBeforeTravellingGameView(sessionID: sessionID)
+        case .deepConversations: DeepConversationsGameView(sessionID: sessionID)
         }
     }
 

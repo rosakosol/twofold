@@ -1,5 +1,5 @@
 //
-//  DiscussBeforeTravellingGameView.swift
+//  DeepConversationsGameView.swift
 //  Twofold
 //
 //  A guided conversation, not a competition — gentler copy/pacing than the other three games,
@@ -10,7 +10,7 @@
 
 import SwiftUI
 
-struct DiscussBeforeTravellingGameView: View {
+struct DeepConversationsGameView: View {
     let sessionID: UUID
     /// Overrides the generic "Deep Conversation" nav title — set to the deck's own title when
     /// reached via DeckEntryView, so the title doesn't shift once play actually starts.
@@ -46,11 +46,11 @@ struct DiscussBeforeTravellingGameView: View {
                 GameAbandonedState()
             } else if store.isRevealed {
                 GameResultsView(
-                    gameType: .discussBeforeTravelling, store: store, myID: myID, partnerID: partnerID,
+                    gameType: .deepConversations, store: store, myID: myID, partnerID: partnerID,
                     myName: appModel.currentUser.name, partnerName: appModel.partner.name,
                     onPlayAnother: { dismiss() }
                 )
-            } else if let round = store.displayedRound(myID: myID), case let .discuss(topic)? = store.content(for: round) {
+            } else if let round = store.displayedRound(myID: myID), case let .deepConversation(topic)? = store.content(for: round) {
                 roundView(round: round, topic: topic)
                     .onAppear { responseText = store.myResponse(for: round, myID: myID)?.answerValue ?? "" }
                     .onChange(of: round.id) { _, _ in
@@ -82,7 +82,7 @@ struct DiscussBeforeTravellingGameView: View {
         // Pinned static regardless of any surrounding animated transaction — see the other 3
         // typed game views for why.
         .background(Theme.backgroundGradient.ignoresSafeArea().transaction { $0.animation = nil })
-        .navigationTitle(title ?? GameType.discussBeforeTravelling.displayName)
+        .navigationTitle(title ?? GameType.deepConversations.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if isActivelyPlaying {
@@ -95,7 +95,7 @@ struct DiscussBeforeTravellingGameView: View {
             if !store.isRevealed {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
-                        SupportMenuItems(userID: myID, context: "\(GameType.discussBeforeTravelling.displayName) — session \(sessionID.uuidString)", showingNoMailAppAlert: $showingNoMailAppAlert)
+                        SupportMenuItems(userID: myID, context: "\(GameType.deepConversations.displayName) — session \(sessionID.uuidString)", showingNoMailAppAlert: $showingNoMailAppAlert)
                     } label: {
                         Image(systemName: "ellipsis.circle")
                     }
@@ -114,7 +114,7 @@ struct DiscussBeforeTravellingGameView: View {
         }
     }
 
-    private func roundView(round: GameSessionRound, topic: DiscussionTopic) -> some View {
+    private func roundView(round: GameSessionRound, topic: DeepConversationTopic) -> some View {
         // Vertically centered like the other 3 typed game views (Trivia/This or That/More
         // Likely all already did this via the same GeometryReader + minHeight pattern) — this
         // one was left as a plain top-aligned ScrollView, so its content sat up against the nav
@@ -188,7 +188,7 @@ struct DiscussBeforeTravellingGameView: View {
 
     private func sendReminder() async {
         isSendingReminder = true
-        await BackendService.notifyPartner(event: .gameReminder, detail: GameType.discussBeforeTravelling.displayName, sessionID: sessionID, gameType: .discussBeforeTravelling)
+        await BackendService.notifyPartner(event: .gameReminder, detail: GameType.deepConversations.displayName, sessionID: sessionID, gameType: .deepConversations)
         isSendingReminder = false
     }
 
@@ -222,7 +222,7 @@ struct DiscussBeforeTravellingGameView: View {
     private var myAnswersRecap: [GameCompletionAnswerRecap] {
         store.rounds.compactMap { round in
             guard let response = store.myResponse(for: round, myID: myID),
-                  case let .discuss(topic)? = store.content(for: round) else { return nil }
+                  case let .deepConversation(topic)? = store.content(for: round) else { return nil }
             return GameCompletionAnswerRecap(id: round.roundNumber, question: topic.topic, answer: response.answerValue)
         }
     }
@@ -230,7 +230,7 @@ struct DiscussBeforeTravellingGameView: View {
 
 #Preview {
     NavigationStack {
-        DiscussBeforeTravellingGameView(sessionID: UUID())
+        DeepConversationsGameView(sessionID: UUID())
     }
     .environment(AppModel())
 }

@@ -440,7 +440,7 @@ final class AppModel {
         if let sessionID = try? await BackendService.getDailyQuestionSession() {
             todaysDailySessionID = sessionID
             if let detail = try? await BackendService.fetchGameSession(id: sessionID),
-               let round = detail.rounds.first, case let .discuss(topic)? = detail.content[round.contentID] {
+               let round = detail.rounds.first, case let .deepConversation(topic)? = detail.content[round.contentID] {
                 todaysDailyQuestionText = topic.topic
             }
         }

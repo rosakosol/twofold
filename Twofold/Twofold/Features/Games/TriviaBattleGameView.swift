@@ -1,5 +1,5 @@
 //
-//  TravelTriviaGameView.swift
+//  TriviaBattleGameView.swift
 //  Twofold
 //
 //  Competitive 5-question multiple choice quiz. Each partner answers all their own rounds
@@ -9,7 +9,7 @@
 
 import SwiftUI
 
-struct TravelTriviaGameView: View {
+struct TriviaBattleGameView: View {
     let sessionID: UUID
     /// Overrides the generic "Trivia Battle" nav title — set to the deck's own title when
     /// reached via DeckEntryView, so the title doesn't shift once play actually starts.
@@ -48,7 +48,7 @@ struct TravelTriviaGameView: View {
                 GameAbandonedState()
             } else if store.isRevealed {
                 GameResultsView(
-                    gameType: .travelTrivia, store: store, myID: myID, partnerID: partnerID,
+                    gameType: .triviaBattle, store: store, myID: myID, partnerID: partnerID,
                     myName: appModel.currentUser.name, partnerName: appModel.partner.name,
                     onPlayAnother: { dismiss() }
                 )
@@ -79,7 +79,7 @@ struct TravelTriviaGameView: View {
         // — without it, the full-bleed background was observed interpolating its own width
         // alongside that animation instead of staying static.
         .background(Theme.backgroundGradient.ignoresSafeArea().transaction { $0.animation = nil })
-        .navigationTitle(title ?? GameType.travelTrivia.displayName)
+        .navigationTitle(title ?? GameType.triviaBattle.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if isActivelyPlaying {
@@ -92,7 +92,7 @@ struct TravelTriviaGameView: View {
             if !store.isRevealed {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
-                        SupportMenuItems(userID: myID, context: "\(GameType.travelTrivia.displayName) — session \(sessionID.uuidString)", showingNoMailAppAlert: $showingNoMailAppAlert)
+                        SupportMenuItems(userID: myID, context: "\(GameType.triviaBattle.displayName) — session \(sessionID.uuidString)", showingNoMailAppAlert: $showingNoMailAppAlert)
                     } label: {
                         Image(systemName: "ellipsis.circle")
                     }
@@ -227,7 +227,7 @@ struct TravelTriviaGameView: View {
 
     private func sendReminder() async {
         isSendingReminder = true
-        await BackendService.notifyPartner(event: .gameReminder, detail: GameType.travelTrivia.displayName, sessionID: sessionID, gameType: .travelTrivia)
+        await BackendService.notifyPartner(event: .gameReminder, detail: GameType.triviaBattle.displayName, sessionID: sessionID, gameType: .triviaBattle)
         isSendingReminder = false
     }
 
@@ -259,7 +259,7 @@ struct TravelTriviaGameView: View {
 
 #Preview {
     NavigationStack {
-        TravelTriviaGameView(sessionID: UUID())
+        TriviaBattleGameView(sessionID: UUID())
     }
     .environment(AppModel())
 }
