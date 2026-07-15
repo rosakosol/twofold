@@ -10,7 +10,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { sendAPNs } from "../_shared/apns.ts";
 
-type EventType = "drawing_saved" | "trip_added" | "memory_added" | "game_started" | "game_results_ready" | "game_reminder";
+type EventType = "drawing_saved" | "trip_added" | "memory_added" | "game_started" | "game_results_ready" | "game_partner_finished" | "game_reminder";
 
 interface Input {
   eventType: EventType;
@@ -27,6 +27,7 @@ const VALID_EVENT_TYPES: EventType[] = [
   "memory_added",
   "game_started",
   "game_results_ready",
+  "game_partner_finished",
   "game_reminder",
 ];
 
@@ -39,6 +40,7 @@ const PREFERENCE_COLUMN: Partial<Record<EventType, string>> = {
   memory_added: "partner_memory_added",
   game_started: "partner_game_started",
   game_results_ready: "partner_game_results_ready",
+  game_partner_finished: "partner_game_partner_finished",
 };
 
 function buildMessage(eventType: EventType, actorName: string, detail?: string): { title: string; body: string } {
@@ -53,6 +55,8 @@ function buildMessage(eventType: EventType, actorName: string, detail?: string):
       return { title: "Game time", body: detail ? `${actorName} started a game: ${detail}.` : `${actorName} started a game.` };
     case "game_results_ready":
       return { title: "Results are ready!", body: `You and ${actorName} both finished - see how you matched.` };
+    case "game_partner_finished":
+      return { title: "Your turn!", body: `${actorName} finished their answers - it's your turn to play.` };
     case "game_reminder":
       return { title: "Reminder", body: detail ? `${actorName} wants you to to complete "${detail}".` : `${actorName} sent you a reminder to complete your game.` };
   }

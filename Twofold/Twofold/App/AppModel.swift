@@ -46,6 +46,11 @@ final class AppModel {
     /// The actual discussion topic text for today's session — shown on `DailyActivityCard`
     /// instead of a generic teaser line. Nil while loading or if the fetch fails.
     var todaysDailyQuestionText: String?
+    /// Per-partner completion for today's question — drives the checkmark on each avatar in
+    /// `DailyActivityCard`. See `get_daily_question_status` for why this needs its own
+    /// RLS-bypassing RPC rather than reading `game_responses` directly.
+    var todaysMyAnswered = false
+    var todaysPartnerAnswered = false
 
     /// All active decks + which ones this couple has started, cached after first load
     /// (`loadGameDecksIfNeeded()`) — powers the Games hub's topic list and progress bars. Not
@@ -443,6 +448,10 @@ final class AppModel {
                let round = detail.rounds.first, case let .deepConversation(topic)? = detail.content[round.contentID] {
                 todaysDailyQuestionText = topic.topic
             }
+        }
+        if let status = try? await BackendService.fetchDailyQuestionStatus() {
+            todaysMyAnswered = status.mine
+            todaysPartnerAnswered = status.partner
         }
         await refreshDailyStreak()
     }

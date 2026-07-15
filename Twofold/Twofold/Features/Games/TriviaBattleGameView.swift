@@ -20,10 +20,10 @@ struct TriviaBattleGameView: View {
 
     @Environment(AppModel.self) private var appModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.popToGamesRoot) private var popToGamesRoot
     @State private var store = GameSessionStore()
     @State private var isSubmitting = false
     @State private var isSendingReminder = false
-    @State private var isEditingAnswers = false
     @State private var hapticTrigger = false
     @State private var showingNoMailAppAlert = false
     @State private var showingLeaveConfirm = false
@@ -31,11 +31,18 @@ struct TriviaBattleGameView: View {
     private var myID: UUID { appModel.currentUser.id }
     private var partnerID: UUID { appModel.partner.id }
     /// Gates the custom back button/leave-confirmation to the actual round-answering phase —
-    /// false while loading, errored, already abandoned, or fully revealed, where the native back
-    /// button (nothing to lose) is fine.
+    /// false while loading, errored, already abandoned, or fully revealed. Also true while
+    /// revisiting a round via "Edit My Answers" even though the session itself is still
+    /// `completed` (`viewingRoundNumber` set — see `GameSessionStore.beginEditingAnswers()`), so
+    /// that case gets the same in-round back behavior as live play rather than the results
+    /// screen's "pop to hub" one below.
     private var isActivelyPlaying: Bool {
-        !store.isLoading && store.errorMessage == nil && store.session?.status != .abandoned && !store.isRevealed
+        !store.isLoading && store.errorMessage == nil && store.session?.status != .abandoned
+            && (!store.isRevealed || store.viewingRoundNumber != nil)
     }
+    /// The actual "completed game screen" — fully revealed and not mid-edit. Its back button
+    /// pops straight to the Games hub root instead of one level, see `popToGamesRoot`.
+    private var isShowingResults: Bool { store.isRevealed && store.viewingRoundNumber == nil }
     private var resolvedTopic: GameTopic? { topic.flatMap(GameTopic.init(rawValue:)) }
 
     var body: some View {
@@ -46,7 +53,7 @@ struct TriviaBattleGameView: View {
                 GameErrorState(message: errorMessage)
             } else if let session = store.session, session.status == .abandoned {
                 GameAbandonedState()
-            } else if store.isRevealed {
+            } else if isShowingResults {
                 GameResultsView(
                     gameType: .triviaBattle, store: store, myID: myID, partnerID: partnerID,
                     myName: appModel.currentUser.name, partnerName: appModel.partner.name,
@@ -64,8 +71,7 @@ struct TriviaBattleGameView: View {
                     isSendingReminder: isSendingReminder,
                     onSendReminder: { Task { await sendReminder() } },
                     onPlayAnother: { dismiss() },
-                    isEditingAnswers: isEditingAnswers,
-                    onEditAnswers: { Task { await editAnswers() } },
+                    onEditAnswers: { store.beginEditingAnswers() },
                     pendingSyncCount: store.pendingSyncCount
                 )
             }
@@ -86,6 +92,10 @@ struct TriviaBattleGameView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     GameBackButton(action: handleBack)
                 }
+            } else if isShowingResults {
+                ToolbarItem(placement: .topBarLeading) {
+                    GameBackButton(action: popToGamesRoot)
+                }
             }
             // Not offered once results are showing — GameResultsView has its own toolbar
             // (Edit My Answers / Reset Game / support menu) for the post-completion case.
@@ -99,8 +109,8 @@ struct TriviaBattleGameView: View {
                 }
             }
         }
-        .navigationBarBackButtonHidden(isActivelyPlaying)
-        .interactivePopGestureDisabled(isActivelyPlaying)
+        .navigationBarBackButtonHidden(isActivelyPlaying || isShowingResults)
+        .interactivePopGestureDisabled(isActivelyPlaying || isShowingResults)
         .noMailAppAlert(isPresented: $showingNoMailAppAlert)
         .gameLeaveConfirmation(isPresented: $showingLeaveConfirm) { Task { await leaveGame() } }
         .task { await store.load(sessionID: sessionID) }
@@ -231,15 +241,14 @@ struct TriviaBattleGameView: View {
         isSendingReminder = false
     }
 
-    private func editAnswers() async {
-        isEditingAnswers = true
-        await store.editMyAnswers()
-        isEditingAnswers = false
-    }
-
     private func handleBack() {
         if store.canGoBack(myID: myID) {
             store.goBack(myID: myID)
+        } else if store.isRevealed {
+            // Editing an already-completed session with nothing before round 1 — nothing here
+            // is actually in danger of being lost (every answer's already saved), so this just
+            // exits editing back to the results screen rather than the leave-confirmation below.
+            store.viewingRoundNumber = nil
         } else if store.hasAnsweredAnyRounds(myID: myID) {
             showingLeaveConfirm = true
         } else {

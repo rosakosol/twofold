@@ -16,6 +16,7 @@ struct NotificationPreferencesView: View {
     @State private var partnerMemoryAdded = true
     @State private var partnerGameStarted = true
     @State private var partnerGameResultsReady = true
+    @State private var partnerGamePartnerFinished = true
     @State private var dailyStreakReminder = true
     @State private var partnerInviteReminder = true
     @State private var isLoaded = false
@@ -52,6 +53,13 @@ struct NotificationPreferencesView: View {
                 }
 
                 SectionCard {
+                    Toggle("Finishes their answers first", isOn: $partnerGamePartnerFinished).font(.subheadline)
+                    Text("Sent when \(appModel.partner.name) finishes a game before you do, so you know it's your turn.")
+                        .font(.caption2)
+                        .foregroundStyle(Theme.subtleInk)
+                }
+
+                SectionCard {
                     Toggle("Daily streak reminder", isOn: $dailyStreakReminder).font(.subheadline)
                     Text("A nudge if today's Daily Activity question hasn't been answered yet.")
                         .font(.caption2)
@@ -74,6 +82,7 @@ struct NotificationPreferencesView: View {
         .onChange(of: partnerMemoryAdded) { _, _ in saveIfLoaded() }
         .onChange(of: partnerGameStarted) { _, _ in saveIfLoaded() }
         .onChange(of: partnerGameResultsReady) { _, _ in saveIfLoaded() }
+        .onChange(of: partnerGamePartnerFinished) { _, _ in saveIfLoaded() }
         .onChange(of: dailyStreakReminder) { _, _ in saveIfLoaded() }
         .onChange(of: partnerInviteReminder) { _, _ in saveIfLoaded() }
     }
@@ -85,6 +94,7 @@ struct NotificationPreferencesView: View {
             partnerMemoryAdded = prefs.partnerMemoryAdded
             partnerGameStarted = prefs.partnerGameStarted
             partnerGameResultsReady = prefs.partnerGameResultsReady
+            partnerGamePartnerFinished = prefs.partnerGamePartnerFinished
             dailyStreakReminder = prefs.dailyStreakReminder
             partnerInviteReminder = prefs.partnerInviteReminder
         }
@@ -102,6 +112,7 @@ struct NotificationPreferencesView: View {
             partnerMemoryAdded: partnerMemoryAdded,
             partnerGameStarted: partnerGameStarted,
             partnerGameResultsReady: partnerGameResultsReady,
+            partnerGamePartnerFinished: partnerGamePartnerFinished,
             dailyStreakReminder: dailyStreakReminder,
             partnerInviteReminder: partnerInviteReminder
         )

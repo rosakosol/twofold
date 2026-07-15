@@ -119,13 +119,6 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
 
     var durationLabel: String { "\(durationMinutes) min" }
 
-    /// Matches `start_game_session`'s round count for this game type — used client-side only as
-    /// the *display* default before a session exists yet (`GameEntryView`'s brand-new-game
-    /// case); the RPC itself is the actual source of truth once a session is created.
-    var defaultRoundCount: Int {
-        self == .deepConversations ? 8 : 12
-    }
-
     var icon: String {
         switch self {
         case .triviaBattle: "questionmark.circle.fill"

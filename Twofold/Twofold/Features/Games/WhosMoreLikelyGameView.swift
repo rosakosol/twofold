@@ -16,19 +16,24 @@ struct WhosMoreLikelyGameView: View {
 
     @Environment(AppModel.self) private var appModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.popToGamesRoot) private var popToGamesRoot
     @State private var store = GameSessionStore()
     @State private var isSubmitting = false
     @State private var isSendingReminder = false
-    @State private var isEditingAnswers = false
     @State private var hapticTrigger = false
     @State private var showingNoMailAppAlert = false
     @State private var showingLeaveConfirm = false
 
     private var myID: UUID { appModel.currentUser.id }
     private var partnerID: UUID { appModel.partner.id }
+    /// Also true while revisiting a round via "Edit My Answers" even though the session itself
+    /// is still `completed` — see `TriviaBattleGameView`'s identical property for the full
+    /// reasoning.
     private var isActivelyPlaying: Bool {
-        !store.isLoading && store.errorMessage == nil && store.session?.status != .abandoned && !store.isRevealed
+        !store.isLoading && store.errorMessage == nil && store.session?.status != .abandoned
+            && (!store.isRevealed || store.viewingRoundNumber != nil)
     }
+    private var isShowingResults: Bool { store.isRevealed && store.viewingRoundNumber == nil }
 
     var body: some View {
         Group {
@@ -38,7 +43,7 @@ struct WhosMoreLikelyGameView: View {
                 GameErrorState(message: errorMessage)
             } else if let session = store.session, session.status == .abandoned {
                 GameAbandonedState()
-            } else if store.isRevealed {
+            } else if isShowingResults {
                 GameResultsView(
                     gameType: .moreLikely, store: store, myID: myID, partnerID: partnerID,
                     myName: appModel.currentUser.name, partnerName: appModel.partner.name,
@@ -56,8 +61,7 @@ struct WhosMoreLikelyGameView: View {
                     isSendingReminder: isSendingReminder,
                     onSendReminder: { Task { await sendReminder() } },
                     onPlayAnother: { dismiss() },
-                    isEditingAnswers: isEditingAnswers,
-                    onEditAnswers: { Task { await editAnswers() } },
+                    onEditAnswers: { store.beginEditingAnswers() },
                     pendingSyncCount: store.pendingSyncCount
                 )
             }
@@ -78,6 +82,10 @@ struct WhosMoreLikelyGameView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     GameBackButton(action: handleBack)
                 }
+            } else if isShowingResults {
+                ToolbarItem(placement: .topBarLeading) {
+                    GameBackButton(action: popToGamesRoot)
+                }
             }
             // Not offered once results are showing — GameResultsView has its own toolbar
             // (Edit My Answers / Reset Game / support menu) for the post-completion case.
@@ -91,8 +99,8 @@ struct WhosMoreLikelyGameView: View {
                 }
             }
         }
-        .navigationBarBackButtonHidden(isActivelyPlaying)
-        .interactivePopGestureDisabled(isActivelyPlaying)
+        .navigationBarBackButtonHidden(isActivelyPlaying || isShowingResults)
+        .interactivePopGestureDisabled(isActivelyPlaying || isShowingResults)
         .noMailAppAlert(isPresented: $showingNoMailAppAlert)
         .gameLeaveConfirmation(isPresented: $showingLeaveConfirm) { Task { await leaveGame() } }
         .task { await store.load(sessionID: sessionID) }
@@ -224,15 +232,13 @@ struct WhosMoreLikelyGameView: View {
         isSendingReminder = false
     }
 
-    private func editAnswers() async {
-        isEditingAnswers = true
-        await store.editMyAnswers()
-        isEditingAnswers = false
-    }
-
     private func handleBack() {
         if store.canGoBack(myID: myID) {
             store.goBack(myID: myID)
+        } else if store.isRevealed {
+            // Editing an already-completed session with nothing before round 1 — exits editing
+            // back to the results screen rather than the leave-confirmation below.
+            store.viewingRoundNumber = nil
         } else if store.hasAnsweredAnyRounds(myID: myID) {
             showingLeaveConfirm = true
         } else {

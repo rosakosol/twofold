@@ -23,7 +23,6 @@ struct GameResultsView: View {
     @State private var revealedCount = 0
     @State private var isMarkingDiscussion = false
     @State private var confettiTrigger = false
-    @State private var isEditingAnswers = false
     @State private var isResettingDeck = false
     @State private var resetRoute: SessionRoute?
     /// Set alongside `resetRoute` in `resetDeck(deckID:)` — `SessionRoute` itself only carries
@@ -88,12 +87,13 @@ struct GameResultsView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button {
-                        Task { await editMyAnswers() }
+                        store.beginEditingAnswers()
                     } label: {
                         Label("Edit My Answers", systemImage: "pencil")
                     }
-                    // Only deck-originated sessions know what to restart — a regular
-                    // shared-pool session (GameEntryView) has no single "this exact game" to
+                    // Only deck-originated sessions know what to restart — every session is
+                    // deck-originated now, but older rows from before the shared-pool flow was
+                    // removed can still have a nil deckID with no single "this exact game" to
                     // reset back to.
                     if let deckID = store.session?.deckID {
                         Button(role: .destructive) {
@@ -107,7 +107,7 @@ struct GameResultsView: View {
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
-                .disabled(isEditingAnswers || isResettingDeck)
+                .disabled(isResettingDeck)
             }
         }
         .noMailAppAlert(isPresented: $showingNoMailAppAlert)
@@ -409,15 +409,6 @@ struct GameResultsView: View {
             await store.markDiscussionRound(round, status: status)
             isMarkingDiscussion = false
         }
-    }
-
-    /// Deletes my own responses and drops the session back to `active` — the partner's answers
-    /// are untouched, so the couple's shared game view naturally shows my unanswered rounds
-    /// again (GameSessionStore.isRevealed flips false) without any extra reveal bookkeeping here.
-    private func editMyAnswers() async {
-        isEditingAnswers = true
-        await store.editMyAnswers()
-        isEditingAnswers = false
     }
 
     /// Only ever offered when this session came from a deck (see the toolbar Menu) — abandons

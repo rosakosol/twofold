@@ -3,8 +3,10 @@
 //  Twofold
 //
 //  Globe homepage section. Game metadata (title/tagline/duration/icon) is static local content
-//  (see `GameType`), not a network fetch, so there's no loading/error state to handle here —
-//  only actual game sessions are server-driven, and those live behind `GameEntryView`.
+//  (see `GameType`), not a network fetch, so there's no loading/error state to handle here.
+//  Tapping a card opens that game type's deck list (`GameTypeDecksView`), same destination as
+//  the Games hub's own cards — every game is played from a specific curated deck now, there's no
+//  "start a random session across every topic" entry point left anywhere in the app.
 //
 
 import SwiftUI
@@ -43,7 +45,7 @@ struct RecommendedGamesSection: View {
                     ForEach(Self.recommended) { gameType in
                         if appModel.partnerConnected {
                             NavigationLink {
-                                GameEntryView(gameType: gameType)
+                                GameTypeDecksView(gameType: gameType)
                             } label: {
                                 GameCard(gameType: gameType, width: 220)
                             }

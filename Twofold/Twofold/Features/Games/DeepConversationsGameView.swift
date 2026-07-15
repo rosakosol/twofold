@@ -21,19 +21,24 @@ struct DeepConversationsGameView: View {
 
     @Environment(AppModel.self) private var appModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.popToGamesRoot) private var popToGamesRoot
     @State private var store = GameSessionStore()
     @State private var responseText = ""
     @State private var isSubmitting = false
     @State private var isSendingReminder = false
-    @State private var isEditingAnswers = false
     @State private var showingNoMailAppAlert = false
     @State private var showingLeaveConfirm = false
 
     private var myID: UUID { appModel.currentUser.id }
     private var partnerID: UUID { appModel.partner.id }
+    /// Also true while revisiting a round via "Edit My Answers" even though the session itself
+    /// is still `completed` — see `TriviaBattleGameView`'s identical property for the full
+    /// reasoning.
     private var isActivelyPlaying: Bool {
-        !store.isLoading && store.errorMessage == nil && store.session?.status != .abandoned && !store.isRevealed
+        !store.isLoading && store.errorMessage == nil && store.session?.status != .abandoned
+            && (!store.isRevealed || store.viewingRoundNumber != nil)
     }
+    private var isShowingResults: Bool { store.isRevealed && store.viewingRoundNumber == nil }
     private var resolvedTopic: GameTopic? { topic.flatMap(GameTopic.init(rawValue:)) }
 
     var body: some View {
@@ -44,7 +49,7 @@ struct DeepConversationsGameView: View {
                 GameErrorState(message: errorMessage)
             } else if let session = store.session, session.status == .abandoned {
                 GameAbandonedState()
-            } else if store.isRevealed {
+            } else if isShowingResults {
                 GameResultsView(
                     gameType: .deepConversations, store: store, myID: myID, partnerID: partnerID,
                     myName: appModel.currentUser.name, partnerName: appModel.partner.name,
@@ -68,8 +73,7 @@ struct DeepConversationsGameView: View {
                     onSendReminder: { Task { await sendReminder() } },
                     onPlayAnother: { dismiss() },
                     myAnswersRecap: myAnswersRecap,
-                    isEditingAnswers: isEditingAnswers,
-                    onEditAnswers: { Task { await editAnswers() } },
+                    onEditAnswers: { store.beginEditingAnswers() },
                     pendingSyncCount: store.pendingSyncCount
                 )
             }
@@ -89,6 +93,10 @@ struct DeepConversationsGameView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     GameBackButton(action: handleBack)
                 }
+            } else if isShowingResults {
+                ToolbarItem(placement: .topBarLeading) {
+                    GameBackButton(action: popToGamesRoot)
+                }
             }
             // Not offered once results are showing — GameResultsView has its own toolbar
             // (Edit My Answers / Reset Game / support menu) for the post-completion case.
@@ -102,8 +110,8 @@ struct DeepConversationsGameView: View {
                 }
             }
         }
-        .navigationBarBackButtonHidden(isActivelyPlaying)
-        .interactivePopGestureDisabled(isActivelyPlaying)
+        .navigationBarBackButtonHidden(isActivelyPlaying || isShowingResults)
+        .interactivePopGestureDisabled(isActivelyPlaying || isShowingResults)
         .noMailAppAlert(isPresented: $showingNoMailAppAlert)
         .gameLeaveConfirmation(isPresented: $showingLeaveConfirm) { Task { await leaveGame() } }
         .task { await store.load(sessionID: sessionID) }
@@ -166,10 +174,18 @@ struct DeepConversationsGameView: View {
             }
             .background(Theme.primaryButtonGradient, in: Capsule())
             .foregroundStyle(.white)
-            .disabled(isSubmitting)
+            // On the daily question, an empty "Next" tap would otherwise be a skip in
+            // everything but name — require real text there, same intent as hiding SkipButton
+            // below.
+            .disabled(isSubmitting || (store.session?.isDaily == true && responseText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
 
-            SkipButton(isDisabled: isSubmitting) {
-                submit(round: round, value: "")
+            // The couple's one shared daily question is meant to always get a real answer from
+            // both of you — every other Discuss deck stays skippable (content-safety
+            // requirement, see SkipButton), this is the one deliberate exception.
+            if store.session?.isDaily != true {
+                SkipButton(isDisabled: isSubmitting) {
+                    submit(round: round, value: "")
+                }
             }
         }
     }
@@ -192,15 +208,13 @@ struct DeepConversationsGameView: View {
         isSendingReminder = false
     }
 
-    private func editAnswers() async {
-        isEditingAnswers = true
-        await store.editMyAnswers()
-        isEditingAnswers = false
-    }
-
     private func handleBack() {
         if store.canGoBack(myID: myID) {
             store.goBack(myID: myID)
+        } else if store.isRevealed {
+            // Editing an already-completed session with nothing before round 1 — exits editing
+            // back to the results screen rather than the leave-confirmation below.
+            store.viewingRoundNumber = nil
         } else if store.hasAnsweredAnyRounds(myID: myID) {
             showingLeaveConfirm = true
         } else {

@@ -197,6 +197,11 @@ final class GameSessionStore {
 
     private func performSubmit(roundNumber: Int, answerValue: String, isCorrect: Bool?) async -> Bool {
         guard let session else { return false }
+        let myID = BackendService.currentUserID
+        // Captured before the optimistic update below touches `responses` — this is "did I have
+        // any rounds left before this submit", used after the round-trip to detect the one
+        // moment *I* become the one who's finished (see the `.gamePartnerFinished` branch).
+        let wasAllMineAnsweredBefore = myID.map { hasAnsweredAllRounds(myID: $0) } ?? false
         guard NetworkMonitor.shared.isConnected else {
             queueOffline(sessionID: session.id, roundNumber: roundNumber, answerValue: answerValue, isCorrect: isCorrect)
             return true
@@ -207,7 +212,7 @@ final class GameSessionStore {
         // card's fly-off animation was completing well before the network calls did, leaving a
         // visible stall between the old card leaving and the next one appearing. `refresh()`
         // still runs afterward and reconciles with the server's actual state.
-        if let myID = BackendService.currentUserID {
+        if let myID {
             applyOptimistic(PendingGameResponse(sessionID: session.id, roundNumber: roundNumber, responderID: myID, answerValue: answerValue, isCorrect: isCorrect))
         }
 
@@ -222,6 +227,13 @@ final class GameSessionStore {
             if !wasRevealed, isRevealed {
                 Analytics.capture(Analytics.Event.sessionComplete, properties: ["game_type": session.gameType.rawValue])
                 await BackendService.notifyPartner(event: .gameResultsReady, sessionID: session.id, gameType: session.gameType)
+            } else if !wasAllMineAnsweredBefore, !isRevealed, let myID, hasAnsweredAllRounds(myID: myID) {
+                // I just answered my own last round, but the session isn't fully complete (my
+                // partner hasn't finished theirs yet) — let them know it's their turn, distinct
+                // from `.gameResultsReady` above which only fires once *both* sides are done.
+                // Never fires while re-editing an already-completed session: in that case
+                // `wasAllMineAnsweredBefore` is already true going in, since nothing was deleted.
+                await BackendService.notifyPartner(event: .gamePartnerFinished, sessionID: session.id, gameType: session.gameType)
             }
             return true
         } catch {
@@ -272,6 +284,8 @@ final class GameSessionStore {
         isSyncingPendingResponses = true
         defer { isSyncingPendingResponses = false }
         let wasRevealed = isRevealed
+        let myID = BackendService.currentUserID
+        let wasAllMineAnsweredBefore = myID.map { hasAnsweredAllRounds(myID: $0) } ?? false
         for item in pending {
             try? await BackendService.submitGameResponse(sessionID: item.sessionID, roundNumber: item.roundNumber, answerValue: item.answerValue, isCorrect: item.isCorrect)
             PendingGameResponseStore.remove(id: item.id)
@@ -280,6 +294,10 @@ final class GameSessionStore {
         await refresh()
         if !wasRevealed, isRevealed {
             await BackendService.notifyPartner(event: .gameResultsReady, sessionID: session.id, gameType: session.gameType)
+        } else if !wasAllMineAnsweredBefore, !isRevealed, let myID, hasAnsweredAllRounds(myID: myID) {
+            // Mirrors the same detection in `performSubmit` — the offline queue just finished
+            // flushing my last unanswered round.
+            await BackendService.notifyPartner(event: .gamePartnerFinished, sessionID: session.id, gameType: session.gameType)
         }
     }
 
@@ -288,13 +306,16 @@ final class GameSessionStore {
         await refresh()
     }
 
-    /// Deletes only my own responses and drops the session back to `active` if it had already
-    /// completed — the partner's answers are untouched. Works both pre-reveal (GameCompletionView,
-    /// session already `active` since the partner isn't done) and post-reveal (GameResultsView,
-    /// session `completed`); see `edit_my_game_responses`.
-    func editMyAnswers() async {
-        guard let session else { return }
-        try? await BackendService.editMyGameResponses(sessionID: session.id)
-        await refresh()
+    /// Re-enters round 1 without touching any saved data — every round's existing answer is
+    /// still intact (`submitGameResponse` is an upsert), so revisiting a round shows exactly
+    /// what was previously picked (see each typed game view's `previousAnswer`-style UI) and
+    /// resubmitting it simply overwrites it in place via the same `viewingRoundNumber`/
+    /// `goBack`/`advanceViewingCursorIfNeeded` machinery already used to revisit a round
+    /// mid-game. Works whether the session is already fully `completed` (GameResultsView) or
+    /// still waiting on the partner (GameCompletionView) — either way this just walks the
+    /// cursor back to the first round; `displayedRound(myID:)` and each typed view's own
+    /// branching take care of showing the right screen from there.
+    func beginEditingAnswers() {
+        viewingRoundNumber = rounds.map(\.roundNumber).min()
     }
 }

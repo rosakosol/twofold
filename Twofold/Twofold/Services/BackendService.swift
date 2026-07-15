@@ -1985,19 +1985,6 @@ enum BackendService {
         var responses: [GameResponse]
     }
 
-    static func startGameSession(gameType: GameType) async throws -> UUID {
-        struct Params: Encodable {
-            var pGameType: String
-            enum CodingKeys: String, CodingKey { case pGameType = "p_game_type" }
-        }
-        let id: UUID = try await supabase
-            .rpc("start_game_session", params: Params(pGameType: gameType.rawValue))
-            .execute()
-            .value
-        Analytics.capture(Analytics.Event.sessionStart, properties: ["game_type": gameType.rawValue, "is_deck": false])
-        return id
-    }
-
     private struct GameDeckRow: Decodable {
         var id: UUID
         var topic: String
@@ -2054,18 +2041,6 @@ enum BackendService {
         try await supabase.rpc("abandon_game_session", params: Params(pSessionId: id)).execute()
     }
 
-    /// Deletes only the caller's own responses for a completed session and resets it back to
-    /// `active` — see `edit_my_game_responses` (the partner's own answers are left untouched;
-    /// `advance_game_session` naturally re-completes the session once the caller finishes
-    /// resubmitting all rounds).
-    static func editMyGameResponses(sessionID: UUID) async throws {
-        struct Params: Encodable {
-            var pSessionId: UUID
-            enum CodingKeys: String, CodingKey { case pSessionId = "p_session_id" }
-        }
-        try await supabase.rpc("edit_my_game_responses", params: Params(pSessionId: sessionID)).execute()
-    }
-
     static func markDiscussionRound(roundID: UUID, status: DiscussionRoundStatus) async throws {
         struct Params: Encodable {
             var pRoundId: UUID
@@ -2105,6 +2080,24 @@ enum BackendService {
         let rows: [DailyStreakRow] = try await supabase.from("daily_streaks").select().limit(1).execute().value
         guard let row = rows.first else { return (0, 0) }
         return (row.currentStreak, row.longestStreak)
+    }
+
+    private struct DailyQuestionStatusRow: Decodable {
+        var myAnswered: Bool
+        var partnerAnswered: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case myAnswered = "my_answered"
+            case partnerAnswered = "partner_answered"
+        }
+    }
+
+    /// No row yet means today's session hasn't even been created (neither partner has opened
+    /// it), which reads the same as "nobody's answered" — see `get_daily_question_status`.
+    static func fetchDailyQuestionStatus() async throws -> (mine: Bool, partner: Bool) {
+        let rows: [DailyQuestionStatusRow] = try await supabase.rpc("get_daily_question_status").execute().value
+        guard let row = rows.first else { return (false, false) }
+        return (row.myAnswered, row.partnerAnswered)
     }
 
     private struct DeckProgressRow: Decodable {
@@ -2256,6 +2249,7 @@ enum BackendService {
         case memoryAdded = "memory_added"
         case gameStarted = "game_started"
         case gameResultsReady = "game_results_ready"
+        case gamePartnerFinished = "game_partner_finished"
         case gameReminder = "game_reminder"
     }
 
@@ -2263,9 +2257,10 @@ enum BackendService {
     /// never throws. Called right after a real, synced write succeeds (never for a
     /// pending/local-only trip or memory added before pairing), since notifying about
     /// something that doesn't exist in the partner's own view yet would be misleading.
-    /// `sessionID`/`gameType` are only meaningful for `.gameReminder`/`.gameResultsReady` — they
-    /// ride along in the push payload so tapping the delivered notification can deep-link
-    /// straight into that session (see `PushNotificationDelegate`) instead of just opening the app.
+    /// `sessionID`/`gameType` are only meaningful for `.gameReminder`/`.gameResultsReady`/
+    /// `.gamePartnerFinished` — they ride along in the push payload so tapping the delivered
+    /// notification can deep-link straight into that session (see `PushNotificationDelegate`)
+    /// instead of just opening the app.
     static func notifyPartner(event: CoupleNotificationEvent, detail: String? = nil, sessionID: UUID? = nil, gameType: GameType? = nil) async {
         guard let accessToken = currentAccessToken else { return }
         var body: [String: Any] = ["eventType": event.rawValue]
@@ -2289,13 +2284,14 @@ enum BackendService {
         var partnerMemoryAdded: Bool
         var partnerGameStarted: Bool
         var partnerGameResultsReady: Bool
+        var partnerGamePartnerFinished: Bool
         var dailyStreakReminder: Bool
         var partnerInviteReminder: Bool
 
         static let allEnabled = CoupleNotificationPreferences(
             partnerDrawingSaved: true, partnerTripAdded: true, partnerMemoryAdded: true,
-            partnerGameStarted: true, partnerGameResultsReady: true, dailyStreakReminder: true,
-            partnerInviteReminder: true
+            partnerGameStarted: true, partnerGameResultsReady: true, partnerGamePartnerFinished: true,
+            dailyStreakReminder: true, partnerInviteReminder: true
         )
     }
 
@@ -2306,6 +2302,7 @@ enum BackendService {
         var partnerMemoryAdded: Bool
         var partnerGameStarted: Bool
         var partnerGameResultsReady: Bool
+        var partnerGamePartnerFinished: Bool
         var dailyStreakReminder: Bool
         var partnerInviteReminder: Bool
 
@@ -2316,6 +2313,7 @@ enum BackendService {
             case partnerMemoryAdded = "partner_memory_added"
             case partnerGameStarted = "partner_game_started"
             case partnerGameResultsReady = "partner_game_results_ready"
+            case partnerGamePartnerFinished = "partner_game_partner_finished"
             case dailyStreakReminder = "daily_streak_reminder"
             case partnerInviteReminder = "partner_invite_reminder"
         }
@@ -2339,6 +2337,7 @@ enum BackendService {
             partnerMemoryAdded: row.partnerMemoryAdded,
             partnerGameStarted: row.partnerGameStarted,
             partnerGameResultsReady: row.partnerGameResultsReady,
+            partnerGamePartnerFinished: row.partnerGamePartnerFinished,
             dailyStreakReminder: row.dailyStreakReminder,
             partnerInviteReminder: row.partnerInviteReminder
         )
@@ -2353,6 +2352,7 @@ enum BackendService {
             partnerMemoryAdded: prefs.partnerMemoryAdded,
             partnerGameStarted: prefs.partnerGameStarted,
             partnerGameResultsReady: prefs.partnerGameResultsReady,
+            partnerGamePartnerFinished: prefs.partnerGamePartnerFinished,
             dailyStreakReminder: prefs.dailyStreakReminder,
             partnerInviteReminder: prefs.partnerInviteReminder
         )

@@ -26,6 +26,14 @@ struct GamesHubView: View {
     /// Tapping a locked (partner-required) card opens this rather than doing nothing — a lock
     /// badge with no tap action just teaches people the card is broken.
     @State private var showingPartnerSetup = false
+    /// Bumped to pop every pushed screen back to this root in one shot — see `.popToGamesRoot`.
+    /// A plain `.id()` reset rather than an explicit `NavigationPath`, since several screens in
+    /// this tree (`DeckCardRow`, `GameTypeDecksView`, `GameHistoryView`, ...) still push via
+    /// plain `NavigationLink(destination:)` rather than value-based navigation, and mixing that
+    /// style with a bound `NavigationPath` doesn't reliably reflect those pushes for
+    /// programmatic popping. Tearing down and rebuilding the whole `NavigationStack` pops
+    /// everything regardless of how each screen got pushed.
+    @State private var navigationResetToken = UUID()
 
     private var competeGames: [GameType] { GameType.allCases.filter { $0.category == .compete } }
     private var connectGames: [GameType] { GameType.allCases.filter { $0.category == .connect } }
@@ -65,7 +73,9 @@ struct GamesHubView: View {
             .sheet(isPresented: $showingPartnerSetup) {
                 PartnerSetupView()
             }
+            .environment(\.popToGamesRoot, { navigationResetToken = UUID() })
         }
+        .id(navigationResetToken)
     }
 
     private var searchAndFilterBar: some View {

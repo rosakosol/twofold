@@ -24,7 +24,6 @@ struct GameCompletionView: View {
     let onSendReminder: () -> Void
     let onPlayAnother: () -> Void
     var myAnswersRecap: [GameCompletionAnswerRecap] = []
-    var isEditingAnswers = false
     var onEditAnswers: (() -> Void)? = nil
     /// Answers still sitting in `GameSessionStore`'s offline queue for this session — shown as
     /// its own reassurance card since "waiting for partner" alone would be misleading here (my
@@ -113,16 +112,11 @@ struct GameCompletionView: View {
                 if let onEditAnswers {
                     Button(action: onEditAnswers) {
                         HStack(spacing: 4) {
-                            if isEditingAnswers {
-                                ProgressView()
-                            } else {
-                                Image(systemName: "pencil")
-                                Text("Edit My Answers")
-                            }
+                            Image(systemName: "pencil")
+                            Text("Edit My Answers")
                         }
                         .font(.subheadline.weight(.medium))
                     }
-                    .disabled(isEditingAnswers)
                     .padding(.top, Theme.Spacing.xs)
                 }
             }

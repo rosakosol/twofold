@@ -41,6 +41,14 @@ struct DailyActivityCard: View {
 
                 Spacer()
 
+                if appModel.partnerConnected {
+                    HStack(spacing: -8) {
+                        completionAvatar(person: appModel.currentUser, answered: appModel.todaysMyAnswered)
+                            .zIndex(1)
+                        completionAvatar(person: appModel.partner, answered: appModel.todaysPartnerAnswered)
+                    }
+                }
+
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     Text(Self.countdownLabel(from: context.date))
                         .font(.caption2.weight(.medium))
@@ -103,6 +111,25 @@ struct DailyActivityCard: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .task { await appModel.startOrResumeDailyQuestion() }
         }
+    }
+
+    /// A small avatar with a green checkmark badge once that person has answered today's
+    /// question — the two overlap slightly (see the `-8` spacing above) so they read as one
+    /// "who's done" glance rather than two separate, unrelated icons.
+    private func completionAvatar(person: Person, answered: Bool) -> some View {
+        AvatarView(person: person, size: 26, showsRing: true)
+            .overlay(alignment: .bottomTrailing) {
+                if answered {
+                    ZStack {
+                        Circle().fill(Theme.leafGreen)
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundStyle(.white)
+                    }
+                    .frame(width: 13, height: 13)
+                    .overlay(Circle().strokeBorder(.white, lineWidth: 1.5))
+                }
+            }
     }
 
     private static func countdownLabel(from now: Date) -> String {
