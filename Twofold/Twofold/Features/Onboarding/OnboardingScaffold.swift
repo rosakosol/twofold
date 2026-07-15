@@ -92,7 +92,7 @@ struct OnboardingScaffold<Content: View>: View {
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: titleAlignment == .center ? .center : .leading)
-                    .padding(.top, centered ? 0 : Theme.Spacing.lg)
+                    .padding(.top, (centered || centersTitleAndSubtitle) ? 0 : Theme.Spacing.lg)
 
                     content
                 }

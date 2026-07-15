@@ -353,7 +353,7 @@ private struct PeriodCard: View {
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(priceCaption)
-                        .font(.headline.weight(.bold))
+                        .font(.callout.weight(.medium))
                         .foregroundStyle(Theme.ink)
                     if let perPersonCaption {
                         Text(perPersonCaption)
@@ -364,7 +364,7 @@ private struct PeriodCard: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(.horizontal, Theme.Spacing.lg)
-            .padding(.vertical, Theme.Spacing.sm)
+            .padding(.vertical, Theme.Spacing.md)
             .frame(maxWidth: .infinity)
             .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
             .overlay(
