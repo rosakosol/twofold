@@ -35,9 +35,11 @@ final class AppModel {
     /// as "plus" server-side, so this being nil never actually locks anyone out of content).
     var subscriptionTier: String?
 
-    /// Daily Activity streak — see `startOrResumeDailyQuestion()`/`refreshDailyStreak()`.
-    var dailyStreak = 0
-    var longestDailyStreak = 0
+    /// Daily Activity streak — see `startOrResumeDailyQuestion()`/`refreshDailyStreak()`. Nil
+    /// until the first fetch resolves (not defaulted to 0) so `DailyActivityCard` can show a
+    /// placeholder instead of visibly flashing "Start a streak" before the real value loads.
+    var dailyStreak: Int?
+    var longestDailyStreak: Int?
     /// Today's Daily Activity session id, once known (fetched lazily, not at launch — see
     /// `startOrResumeDailyQuestion()`).
     var todaysDailySessionID: UUID?
@@ -763,16 +765,17 @@ final class AppModel {
         try? await BackendService.setFlightTrip(flightID: flight.id, tripID: nil)
     }
 
-    /// Same gap `linkFlight`/`unlinkFlight` closed for `tripID` — `travelerID` was also only
-    /// ever set once, at add-flight time, with no way to change it afterward. Pass `nil` to
-    /// clear it (e.g. neither partner is confirmed as the traveler yet).
-    func setFlightTraveler(_ flight: Flight, travelerID: UUID?) async {
+    /// Same gap `linkFlight`/`unlinkFlight` closed for `tripID` — travelers were also only ever
+    /// set once, at add-flight time, with no way to change them afterward. Pass an empty array
+    /// to clear (e.g. neither partner is confirmed as the traveler yet); pass both ids when
+    /// they're travelling together.
+    func setFlightTravelers(_ flight: Flight, travelerIDs: [UUID]) async {
         guard let index = flights.firstIndex(where: { $0.id == flight.id }) else { return }
-        flights[index].travelerID = travelerID
+        flights[index].travelerIDs = travelerIDs
         if let tripID = flights[index].tripID, let tripIndex = trips.firstIndex(where: { $0.id == tripID }) {
             trips[tripIndex].flight = flights[index]
         }
-        try? await BackendService.setFlightTraveler(flightID: flight.id, travelerID: travelerID)
+        try? await BackendService.setFlightTravelers(flightID: flight.id, travelerIDs: travelerIDs)
     }
 
     /// Memories have no automatic trip association (no place/date matching) — linking is

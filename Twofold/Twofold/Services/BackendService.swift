@@ -956,7 +956,7 @@ enum BackendService {
         var tripId: UUID?
         var coupleId: UUID
         var createdBy: UUID?
-        var travelerId: UUID?
+        var travelerIds: [UUID]?
         var faFlightId: String?
         var flightNumberIata: String
         var flightNumberIcao: String?
@@ -1018,7 +1018,7 @@ enum BackendService {
             case tripId = "trip_id"
             case coupleId = "couple_id"
             case createdBy = "created_by"
-            case travelerId = "traveler_id"
+            case travelerIds = "traveler_ids"
             case faFlightId = "fa_flight_id"
             case flightNumberIata = "flight_number_iata"
             case flightNumberIcao = "flight_number_icao"
@@ -1078,7 +1078,7 @@ enum BackendService {
             tripID: row.tripId,
             coupleID: row.coupleId,
             createdBy: row.createdBy,
-            travelerID: row.travelerId,
+            travelerIDs: row.travelerIds ?? [],
             faFlightID: row.faFlightId,
             flightNumberIATA: row.flightNumberIata,
             flightNumberICAO: row.flightNumberIcao,
@@ -1208,6 +1208,24 @@ enum BackendService {
                 guard let row = try? insertion.decodeRecord(as: FlightStatusEventRow.self, decoder: AnyJSON.decoder) else { continue }
                 continuation.yield(row.toModel())
             }
+            continuation.finish()
+        }
+        return (channel, stream)
+    }
+
+    /// Signal-only, same idea as `subscribeToGameSession` — the server-side 5-minute cron
+    /// (`refresh-due-flights`) writes straight to this row, and without this the live-tracking
+    /// screen had no way to learn about that except an initial load or an explicit pull-to-
+    /// refresh, so it just sat stale between visits. The caller re-fetches via `fetchFlight`
+    /// rather than trusting the realtime payload's shape.
+    static func subscribeToFlightRefresh(flightID: UUID) -> (channel: RealtimeChannelV2, stream: AsyncStream<Void>) {
+        let channel = supabase.channel("flight_refresh_\(flightID.uuidString)")
+        let updates = channel.postgresChange(UpdateAction.self, table: "flights", filter: .eq("id", value: flightID.uuidString))
+
+        let (stream, continuation) = AsyncStream<Void>.makeStream()
+        Task {
+            try? await channel.subscribeWithError()
+            for await _ in updates { continuation.yield(()) }
             continuation.finish()
         }
         return (channel, stream)
@@ -1504,16 +1522,17 @@ enum BackendService {
     }
 
     private struct FlightTravelerUpdate: Encodable {
-        var travelerId: UUID?
-        enum CodingKeys: String, CodingKey { case travelerId = "traveler_id" }
+        var travelerIds: [UUID]
+        enum CodingKeys: String, CodingKey { case travelerIds = "traveler_ids" }
     }
 
-    /// Same gap as `flight.tripID` used to be — `travelerID` was only ever set once, at
-    /// add-flight time, with no way to change it afterward. Pass `nil` to clear it.
-    static func setFlightTraveler(flightID: UUID, travelerID: UUID?) async throws {
+    /// Same gap as `flight.tripID` used to be — travelers were only ever set once, at
+    /// add-flight time, with no way to change them afterward. Pass an empty array to clear.
+    /// Holds 0, 1, or 2 ids — both partners can be marked as travelling together on one flight.
+    static func setFlightTravelers(flightID: UUID, travelerIDs: [UUID]) async throws {
         try await supabase
             .from("flights")
-            .update(FlightTravelerUpdate(travelerId: travelerID))
+            .update(FlightTravelerUpdate(travelerIds: travelerIDs))
             .eq("id", value: flightID)
             .execute()
     }

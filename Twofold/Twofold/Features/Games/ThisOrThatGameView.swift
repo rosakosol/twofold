@@ -108,35 +108,43 @@ struct ThisOrThatGameView: View {
         GeometryReader { geometry in
             ScrollView {
                 VStack(spacing: Theme.Spacing.lg) {
-                    Text("Round \(round.roundNumber) of \(store.rounds.count)")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Theme.subtleInk)
-
-                    Text("Swipe or tap a side")
-                        .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
-
                     VStack(spacing: Theme.Spacing.md) {
                         SwipeChoiceCard(
                             leftLabel: "🅰️ THIS",
-                            leftColor: Theme.skyBlue,
                             rightLabel: "🅱️ THAT",
-                            rightColor: Theme.heartRed,
                             isDisabled: isSubmitting,
+                            previousAnswerLabel: previousAnswerLabel(for: round, prompt: prompt),
                             content: {
-                                // One flowing "Answer or Answer" phrase, not separate stacked
-                                // lines, with each option keeping its own swipe-direction color —
-                                // built as a single AttributedString/Text rather than the
-                                // `Text + Text` concatenation this replaced, which iOS 26
-                                // deprecated in favor of exactly this.
-                                optionsPhrase(prompt)
-                                    .font(.title2)
-                                    .multilineTextAlignment(.center)
-                                    .frame(maxWidth: .infinity)
+                                VStack(spacing: Theme.Spacing.lg) {
+                                    Text("\(round.roundNumber) / \(store.rounds.count)")
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(.white.opacity(0.7))
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                                    Spacer(minLength: Theme.Spacing.md)
+
+                                    // One flowing "Answer or Answer" phrase, not separate stacked
+                                    // lines — built as a single AttributedString/Text rather than
+                                    // the `Text + Text` concatenation this replaced, which iOS 26
+                                    // deprecated in favor of exactly this. Constrained to one
+                                    // line — shrinking to fit rather than wrapping keeps the card
+                                    // height consistent regardless of how long either option is.
+                                    optionsPhrase(prompt)
+                                        .font(.title2)
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.4)
+                                        .frame(maxWidth: .infinity)
+
+                                    Spacer(minLength: Theme.Spacing.md)
+                                }
                             },
                             onChooseLeft: { submit(round: round, value: ThisOrThatChoice.optionA.rawValue) },
                             onChooseRight: { submit(round: round, value: ThisOrThatChoice.optionB.rawValue) }
                         )
+
+                        Text("Swipe a side")
+                            .font(.caption)
+                            .foregroundStyle(Theme.subtleInk)
 
                         SkipButton(isDisabled: isSubmitting) {
                             submit(round: round, value: "")
@@ -149,25 +157,38 @@ struct ThisOrThatGameView: View {
         }
     }
 
+    /// Both options now read in plain white (the card itself is the sky-blue-to-leaf-green
+    /// gradient, see `SwipeChoiceCard`) rather than tinting each option its own swipe-direction
+    /// color — colored text didn't hold up for contrast against the new gradient background.
     private func optionsPhrase(_ prompt: ThisOrThatPrompt) -> Text {
-        var phrase = AttributedString("👈 ")
-
         var optionA = AttributedString(prompt.optionA)
-        optionA.foregroundColor = Theme.skyBlue
+        optionA.foregroundColor = .white
         optionA.font = .title2.weight(.heavy)
-        phrase += optionA
 
         var or = AttributedString(" or ")
-        or.foregroundColor = Theme.subtleInk
+        or.foregroundColor = .white.opacity(0.75)
+        var phrase = optionA
         phrase += or
 
         var optionB = AttributedString(prompt.optionB)
-        optionB.foregroundColor = Theme.heartRed
+        optionB.foregroundColor = .white
         optionB.font = .title2.weight(.heavy)
         phrase += optionB
 
-        phrase += AttributedString(" 👉")
         return Text(phrase)
+    }
+
+    /// What to show in the card's "You chose: ___" pill when revisiting an already-answered
+    /// round via the back button — nil for a fresh round (no response yet), so the pill simply
+    /// doesn't appear.
+    private func previousAnswerLabel(for round: GameSessionRound, prompt: ThisOrThatPrompt) -> String? {
+        guard let response = store.myResponse(for: round, myID: myID) else { return nil }
+        if response.answerValue.isEmpty { return "Skipped" }
+        switch response.answerValue {
+        case ThisOrThatChoice.optionA.rawValue: return prompt.optionA
+        case ThisOrThatChoice.optionB.rawValue: return prompt.optionB
+        default: return nil
+        }
     }
 
     private func submit(round: GameSessionRound, value: String) {
@@ -194,8 +215,12 @@ struct ThisOrThatGameView: View {
     private func handleBack() {
         if store.canGoBack(myID: myID) {
             store.goBack(myID: myID)
-        } else {
+        } else if store.hasAnsweredAnyRounds(myID: myID) {
             showingLeaveConfirm = true
+        } else {
+            // Nothing answered yet — nothing a confirmation would actually be protecting, so
+            // just let them out.
+            dismiss()
         }
     }
 

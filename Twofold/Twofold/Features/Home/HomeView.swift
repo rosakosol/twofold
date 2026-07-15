@@ -481,7 +481,12 @@ struct HomeView: View {
             // shows this map for any flight regardless of status (FlightMapView has its own
             // graceful fallback for missing coordinates), so a merely-.scheduled flight on Home
             // was the one place showing no map at all, reading as a bug rather than by-design.
-            FlightMapView(flight: flight, interactive: false, edgePadding: 28)
+            // A much shorter frame than the detail screen's map (140pt vs 260pt) — the same
+            // 28pt padding used there left the route looking tiny and over-zoomed-out here,
+            // since `setVisibleCoordinates` reserves that margin on every edge regardless of
+            // how little vertical space is left to fit the route in. A tighter margin lets the
+            // route fill more of the card, closer to how it reads on the detail screen.
+            FlightMapView(flight: flight, interactive: false, edgePadding: 12)
                 .frame(height: 140)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                 .allowsHitTesting(false)

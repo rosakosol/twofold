@@ -27,18 +27,17 @@ struct DailyActivityCard: View {
                 .frame(width: 44, height: 44)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(appModel.dailyStreak > 0 ? "\(appModel.dailyStreak)-day streak" : "Start a streak")
+                    Text(streakHeadline)
                         .font(.subheadline.weight(.bold))
-                    Group {
-                        if appModel.dailyStreak > 0 {
-                            Text("Longest: \(appModel.longestDailyStreak) day\(appModel.longestDailyStreak == 1 ? "" : "s")")
-                        } else {
-                            Text("Answer today's question together")
-                        }
-                    }
-                    .font(.caption2)
-                    .foregroundStyle(Theme.subtleInk)
+                    Text(streakSubline)
+                        .font(.caption2)
+                        .foregroundStyle(Theme.subtleInk)
                 }
+                // Redacted (not just showing a "0" default) until the first real fetch resolves —
+                // otherwise this briefly flashes "Start a streak" before flipping to the real
+                // streak count on every cold load, which read as a glitch rather than a loading
+                // state.
+                .redacted(reason: appModel.dailyStreak == nil ? .placeholder : [])
 
                 Spacer()
 
@@ -57,7 +56,7 @@ struct DailyActivityCard: View {
                     ShimmeringGlobeHeart()
                         .frame(width: 28, height: 28)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Today's Deep Conversation")
+                        Text("Today's Deep Question")
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.white)
                         Text(appModel.todaysDailyQuestionText ?? "A new question, just for you two")
@@ -80,6 +79,19 @@ struct DailyActivityCard: View {
             .buttonStyle(.plain)
         }
         .task { await appModel.startOrResumeDailyQuestion() }
+    }
+
+    /// Placeholder text while `appModel.dailyStreak` is nil — never actually shown (the whole
+    /// block is `.redacted` in that state), just needs to occupy roughly the right width/shape.
+    private var streakHeadline: String {
+        guard let dailyStreak = appModel.dailyStreak else { return "Start a streak" }
+        return dailyStreak > 0 ? "\(dailyStreak)-day streak" : "Start a streak"
+    }
+
+    private var streakSubline: String {
+        guard let dailyStreak = appModel.dailyStreak, dailyStreak > 0 else { return "Answer today's question together" }
+        let longest = appModel.longestDailyStreak ?? dailyStreak
+        return "Longest: \(longest) day\(longest == 1 ? "" : "s")"
     }
 
     @ViewBuilder

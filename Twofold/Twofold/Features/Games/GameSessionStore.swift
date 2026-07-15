@@ -69,6 +69,14 @@ final class GameSessionStore {
         GameLogic.answeredRoundNumbers(responses: responses, responderID: myID).count
     }
 
+    /// True once the player has answered at least one round — distinguishes "just opened this
+    /// game, nothing to lose" (round 1, never answered) from "revisited round 1 after making
+    /// progress further in" (leaving would discard that progress), so the game view's back
+    /// button only shows a leave-confirmation in the latter case.
+    func hasAnsweredAnyRounds(myID: UUID) -> Bool {
+        myAnsweredCount(myID: myID) > 0
+    }
+
     /// False only at round 1 (whether live or already being revisited) — that's the one point
     /// the game view's back button should show a leave-confirmation instead of rewinding.
     func canGoBack(myID: UUID) -> Bool {
@@ -186,6 +194,16 @@ final class GameSessionStore {
             queueOffline(sessionID: session.id, roundNumber: roundNumber, answerValue: answerValue, isCorrect: isCorrect)
             return true
         }
+
+        // Reflected in `responses` immediately (same optimistic shape `queueOffline` already
+        // uses) rather than waiting on the submit-then-refresh round trip below — the swipe
+        // card's fly-off animation was completing well before the network calls did, leaving a
+        // visible stall between the old card leaving and the next one appearing. `refresh()`
+        // still runs afterward and reconciles with the server's actual state.
+        if let myID = BackendService.currentUserID {
+            applyOptimistic(PendingGameResponse(sessionID: session.id, roundNumber: roundNumber, responderID: myID, answerValue: answerValue, isCorrect: isCorrect))
+        }
+
         let wasRevealed = isRevealed
         do {
             try await BackendService.submitGameResponse(sessionID: session.id, roundNumber: roundNumber, answerValue: answerValue, isCorrect: isCorrect)

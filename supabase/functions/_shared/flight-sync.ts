@@ -293,12 +293,17 @@ function diffEvents(existing: FlightRow, mapped: MappedAeroFields): PendingEvent
   // a few seconds of re-estimation drift between 5-minute polls, spamming an event + push
   // notification every single tick near departure. Only treat it as a real change worth telling
   // someone about once it's moved by at least a minute, same threshold class as the delay check
-  // below.
+  // below. Also stops entirely once the flight has already landed — a confirmed arrival isn't
+  // going to move again, so any further "estimated arrival" drift AeroAPI reports past that
+  // point is noise, not something worth another push notification for.
+  const alreadyLanded = existing.status === "landed" || existing.status === "arrived" || existing.actual_in != null;
   const ARRIVAL_CHANGE_THRESHOLD_MS = 60_000;
-  if (mapped.scheduled_in && hasMeaningfulTimeChange(existing.scheduled_in, mapped.scheduled_in, ARRIVAL_CHANGE_THRESHOLD_MS)) {
-    events.push({ type: "arrival_time_change", previous_value: existing.scheduled_in, new_value: mapped.scheduled_in });
-  } else if (mapped.estimated_in && hasMeaningfulTimeChange(existing.estimated_in, mapped.estimated_in, ARRIVAL_CHANGE_THRESHOLD_MS)) {
-    events.push({ type: "arrival_time_change", previous_value: existing.estimated_in, new_value: mapped.estimated_in });
+  if (!alreadyLanded) {
+    if (mapped.scheduled_in && hasMeaningfulTimeChange(existing.scheduled_in, mapped.scheduled_in, ARRIVAL_CHANGE_THRESHOLD_MS)) {
+      events.push({ type: "arrival_time_change", previous_value: existing.scheduled_in, new_value: mapped.scheduled_in });
+    } else if (mapped.estimated_in && hasMeaningfulTimeChange(existing.estimated_in, mapped.estimated_in, ARRIVAL_CHANGE_THRESHOLD_MS)) {
+      events.push({ type: "arrival_time_change", previous_value: existing.estimated_in, new_value: mapped.estimated_in });
+    }
   }
 
   if (mapped.gate_origin && mapped.gate_origin !== existing.gate_origin) {
@@ -355,6 +360,12 @@ function diffEvents(existing: FlightRow, mapped: MappedAeroFields): PendingEvent
   return events;
 }
 
+// How long after a flight's best-known arrival it stops being actively tracked (the Trips page's
+// "Tracked flights" section drops it, moving it to "Past flights") — shared by the confirmed-
+// arrival path below and `reconcileOverdueArrival`'s provider-went-silent fallback, so both count
+// down from the same clock.
+const ARCHIVE_AFTER_ARRIVAL_MS = 2 * 60 * 60 * 1000;
+
 export async function syncFlight(
   serviceClient: SupabaseClient,
   flightRow: FlightRow,
@@ -395,7 +406,7 @@ export async function syncFlight(
   Object.assign(update, coordinatePatch);
 
   const actualIn = mapped.actual_in ?? flightRow.actual_in;
-  if (actualIn && Date.now() - new Date(actualIn).getTime() > 30 * 60 * 1000) {
+  if (actualIn && Date.now() - new Date(actualIn).getTime() > ARCHIVE_AFTER_ARRIVAL_MS) {
     update.tracking_enabled = false;
   }
 
@@ -632,6 +643,75 @@ export async function refreshOneFlight(serviceClient: SupabaseClient, flightRow:
 
   const { data: updated } = await serviceClient.from("flights").select("*").eq("id", flightRow.id).single();
   return (updated as FlightRow) ?? flightRow;
+}
+
+// How long past a flight's best-known arrival time with no actual_in/actual_on confirmation
+// before assuming it landed anyway. AeroAPI's /flights/{id} lookup can go permanently silent on
+// an old flight (confirmed live: a tracked flight got stuck at "landing_soon" for 7+ hours,
+// last_refreshed_at frozen, despite refresh-due-flights attempting a refresh on every single
+// 5-minute cron tick) — deriveFlightStatus() only ever reaches "landed"/"arrived" from actual_on/
+// actual_in, so without this fallback a flight the provider goes quiet on is stuck forever,
+// visibly wrong (still says "Landing soon") and never eligible to archive.
+const ARRIVAL_STATUS_OVERDUE_MS = 90 * 60 * 1000;
+
+function bestKnownArrivalMs(flight: FlightRow): number | null {
+  const arrival = flight.actual_in ?? flight.estimated_in ?? flight.scheduled_in;
+  return arrival ? new Date(arrival).getTime() : null;
+}
+
+// Called for every actively-tracked, non-terminal flight on every refresh-due-flights tick
+// (independent of isDue()'s own AeroAPI-refresh cadence, and also from refresh-flight's
+// user-triggered path) — a flight the provider has gone silent on still needs to be reconciled
+// even on ticks where a real API call isn't due. Two independent, additive effects:
+//   1. Past ARRIVAL_STATUS_OVERDUE_MS since best-known arrival with no confirmed actual_in/
+//      actual_on: force status to "arrived" locally, and notify same as a normal landing would.
+//   2. Past ARCHIVE_AFTER_ARRIVAL_MS since arrival (confirmed or just forced above): disable
+//      tracking_enabled, same threshold `syncFlight` already uses for a confirmed actual_in.
+export async function reconcileOverdueArrival(serviceClient: SupabaseClient, flight: FlightRow, now: number): Promise<void> {
+  if (!flight.tracking_enabled || flight.status === "cancelled" || flight.status === "diverted") return;
+  const arrivalMs = bestKnownArrivalMs(flight);
+  if (arrivalMs === null) return;
+
+  let currentStatus = flight.status;
+  const wasTerminal = currentStatus === "arrived" || currentStatus === "landed";
+
+  if (!wasTerminal && now - arrivalMs > ARRIVAL_STATUS_OVERDUE_MS) {
+    const { error } = await serviceClient.from("flights").update({ status: "arrived" }).eq("id", flight.id);
+    if (error) {
+      console.error(`[flight-sync] failed to mark overdue flight ${flight.id} arrived:`, error.message);
+      return;
+    }
+    currentStatus = "arrived";
+
+    const arrivalIso = flight.estimated_in ?? flight.scheduled_in;
+    const { error: insertErr } = await serviceClient.from("flight_status_events").insert({
+      flight_id: flight.id,
+      type: "arrived_at_gate",
+      previous_value: null,
+      new_value: arrivalIso,
+      source: "poll",
+    });
+    if (insertErr) {
+      console.error(`[flight-sync] failed to insert overdue-arrival event for ${flight.id}:`, insertErr.message);
+    }
+
+    try {
+      await notifyForEvent(serviceClient, flight.id, { type: "arrived_at_gate", newValue: arrivalIso });
+    } catch (err) {
+      console.error(`[flight-sync] notifyForEvent threw for overdue arrival ${flight.id}:`, (err as Error).message);
+    }
+    try {
+      await notifyLiveActivity(serviceClient, flight, { ...flight, status: "arrived" });
+    } catch (err) {
+      console.error(`[flight-sync] notifyLiveActivity threw for overdue arrival ${flight.id}:`, (err as Error).message);
+    }
+  }
+
+  const isNowTerminal = wasTerminal || currentStatus === "arrived";
+  if (isNowTerminal && now - arrivalMs > ARCHIVE_AFTER_ARRIVAL_MS) {
+    const { error } = await serviceClient.from("flights").update({ tracking_enabled: false }).eq("id", flight.id);
+    if (error) console.error(`[flight-sync] failed to archive flight ${flight.id}:`, error.message);
+  }
 }
 
 // Best-effort weather refresh — only called from refresh-due-flights (not from every user-

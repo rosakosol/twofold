@@ -15,6 +15,8 @@ import { fetchFlightByFaId, registerWebhookEndpoint, resolveFlightByIdent } from
 import { diagnoseApnsConfig } from "../_shared/apns.ts";
 import { type FlightRow, syncFlight } from "../_shared/flight-sync.ts";
 
+const TERMINAL_STATUSES = ["arrived", "landed", "cancelled", "diverted"];
+
 // AeroAPI's webhook payload shape isn't fully confirmed — pull whatever's available defensively
 // rather than assuming a fixed structure.
 interface WebhookPayload {
@@ -105,6 +107,23 @@ Deno.serve(async (req) => {
 
     if (!flightRow) {
       // Not a flight this account is tracking (or already detracked) — silent no-op.
+      return Response.json({ ok: true });
+    }
+
+    // Not tracked anymore (archived post-arrival, or its couple dissolved — see leave_couple in
+    // 20260723000000). tracking_enabled = false is the general "stop" signal — terminal status
+    // is only one reason it might be set (the other guard below); a dissolved-couple flight can
+    // still be sitting at status "scheduled" with tracking_enabled already false.
+    if (!(flightRow as FlightRow).tracking_enabled) {
+      return Response.json({ ok: true });
+    }
+
+    // Already done — same reasoning as refresh-flight's terminal-status guard: re-syncing here
+    // would re-diff against a row whose actual_in/actual_on may still be null (if
+    // reconcileOverdueArrival is what declared this one arrived, not a genuine provider
+    // confirmation), and a webhook arriving afterward with the real values set would then look
+    // like a fresh change and fire a duplicate "arrived"/"landed" push.
+    if (TERMINAL_STATUSES.includes((flightRow as FlightRow).status)) {
       return Response.json({ ok: true });
     }
 

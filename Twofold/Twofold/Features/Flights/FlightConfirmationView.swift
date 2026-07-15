@@ -16,11 +16,24 @@ struct FlightConfirmationView: View {
     @Environment(AppModel.self) private var appModel
     @Environment(\.dismiss) private var dismiss
     @State private var linkedTripID: Trip.ID?
-    @State private var travelerID: Person.ID?
+    @State private var travelerChoice: TravelerChoice = .notSure
     @State private var shareWithPartner = true
     @State private var notifyMe = true
     @State private var isSaving = false
     @State private var errorMessage: String?
+
+    private enum TravelerChoice: Hashable {
+        case notSure, me, partner, both
+    }
+
+    private var travelerIDs: [UUID] {
+        switch travelerChoice {
+        case .notSure: []
+        case .me: [appModel.currentUser.id]
+        case .partner: [appModel.partner.id]
+        case .both: [appModel.currentUser.id, appModel.partner.id]
+        }
+    }
 
     private var flightlessTrips: [Trip] {
         appModel.trips.filter { $0.flight == nil }
@@ -51,9 +64,9 @@ struct FlightConfirmationView: View {
 
                     VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                         Text("Who's travelling?").font(.caption).foregroundStyle(Theme.subtleInk)
-                        Picker("Who's travelling?", selection: $travelerID) {
-                            Text("Not sure yet").tag(Person.ID?.none)
-                            Text(appModel.currentUser.name).tag(Person.ID?.some(appModel.currentUser.id))
+                        Picker("Who's travelling?", selection: $travelerChoice) {
+                            Text("Not sure yet").tag(TravelerChoice.notSure)
+                            Text(appModel.currentUser.name).tag(TravelerChoice.me)
                             // Disabled rather than just warned-about — `appModel.partner` is a
                             // placeholder person pre-pairing, with no real profile row behind its
                             // id, so letting this actually get submitted as a flight's traveler
@@ -61,7 +74,10 @@ struct FlightConfirmationView: View {
                             // only ever runs in the live app (never during onboarding — see
                             // `AddFlightFlowView.Completion.confirmAndTrack`'s doc comment), so
                             // there's no "partner isn't connected yet" exemption to make here.
-                            Text(appModel.partner.name).tag(Person.ID?.some(appModel.partner.id))
+                            // Same reasoning applies to "Both", since it includes the partner.
+                            Text(appModel.partner.name).tag(TravelerChoice.partner)
+                                .disabled(!appModel.partnerConnected)
+                            Text("Both of us").tag(TravelerChoice.both)
                                 .disabled(!appModel.partnerConnected)
                         }
                         .pickerStyle(.segmented)
@@ -130,7 +146,7 @@ struct FlightConfirmationView: View {
         errorMessage = nil
         Task {
             do {
-                try await AeroFlightService.addFlight(faFlightId: candidate.faFlightId, tripID: linkedTripID, travelerID: travelerID, shared: shareWithPartner, notifyMe: notifyMe)
+                try await AeroFlightService.addFlight(faFlightId: candidate.faFlightId, tripID: linkedTripID, travelerIDs: travelerIDs, shared: shareWithPartner, notifyMe: notifyMe)
                 await appModel.refreshFlights()
                 onDone()
             } catch {

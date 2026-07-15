@@ -39,6 +39,29 @@ struct TripsListView: View {
     var body: some View {
         NavigationStack {
             List {
+                // Tracked/past flights lead the list, above trip content — a flight someone's
+                // actively watching (or just landed) is the most time-sensitive thing on this
+                // screen, more so than trip planning content below.
+                let untetheredFlights = appModel.flights.filter { $0.tripID == nil }
+                let activeFlights = untetheredFlights.filter(\.trackingEnabled)
+                let pastFlights = untetheredFlights.filter { !$0.trackingEnabled }
+
+                if !activeFlights.isEmpty {
+                    Section("Tracked flights") {
+                        ForEach(activeFlights) { flight in
+                            flightRow(flight)
+                        }
+                    }
+                }
+
+                if !pastFlights.isEmpty {
+                    Section("Past flights") {
+                        ForEach(pastFlights) { flight in
+                            flightRow(flight)
+                        }
+                    }
+                }
+
                 Section {
                     Picker("Filter", selection: $filter) {
                         ForEach(TripFilter.allCases, id: \.self) { option in
@@ -57,26 +80,6 @@ struct TripsListView: View {
                     }
                 }
                 .listRowBackground(Color.clear)
-
-                let untetheredFlights = appModel.flights.filter { $0.tripID == nil }
-                if !untetheredFlights.isEmpty {
-                    Section("Tracked flights") {
-                        ForEach(untetheredFlights) { flight in
-                            NavigationLink {
-                                FlightTrackingView(flight: flight)
-                            } label: {
-                                FlightRowView(flight: flight)
-                            }
-                            .swipeActions(edge: .trailing) {
-                                Button(role: .destructive) {
-                                    Task { await appModel.deleteFlight(flight) }
-                                } label: {
-                                    Label("Remove", systemImage: "trash")
-                                }
-                            }
-                        }
-                    }
-                }
 
                 let upcoming = filtered(appModel.upcomingTrips)
                 if !upcoming.isEmpty {
@@ -140,6 +143,21 @@ struct TripsListView: View {
             }
             .sheet(isPresented: $showingAddFlight) {
                 AddFlightView()
+            }
+        }
+    }
+
+    private func flightRow(_ flight: Flight) -> some View {
+        NavigationLink {
+            FlightTrackingView(flight: flight)
+        } label: {
+            FlightRowView(flight: flight)
+        }
+        .swipeActions(edge: .trailing) {
+            Button(role: .destructive) {
+                Task { await appModel.deleteFlight(flight) }
+            } label: {
+                Label("Remove", systemImage: "trash")
             }
         }
     }

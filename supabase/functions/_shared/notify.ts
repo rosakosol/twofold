@@ -48,11 +48,14 @@ function displayFlightNumber(flightNumberIATA: string | null, airlineCode: strin
   return flightNumberIATA;
 }
 
-// Every push needs to say *whose* flight this is about, never a generic "Their" — the traveler's
-// first name plus the flight number when a traveler is set, otherwise just the flight number.
-function flightLabel(travelerName: string | null, flightNumberIATA: string | null, airlineCode: string | null): string {
+// Every push needs to say *whose* flight this is about, never a generic "Their" — the
+// traveler's first name plus the flight number when exactly one traveler is set. With zero
+// travelers (unknown) or both partners travelling together, a possessive reads oddly ("Alice &
+// Bob's UA123" going out to Alice and Bob about their own shared flight) — just the flight
+// number in both of those cases.
+function flightLabel(travelerNames: string[], flightNumberIATA: string | null, airlineCode: string | null): string {
   const number = displayFlightNumber(flightNumberIATA, airlineCode);
-  return travelerName ? `${travelerName}'s ${number}` : number;
+  return travelerNames.length === 1 ? `${travelerNames[0]}'s ${number}` : number;
 }
 
 function buildMessage(event: FlightEvent, label: string, destinationTimezone: string | null): { title: string; body: string } {
@@ -95,21 +98,23 @@ export async function notifyForEvent(
 
   const { data: flight, error: flightErr } = await serviceClient
     .from("flights")
-    .select("couple_id, destination_timezone, shared, created_by, traveler_id, flight_number_iata, airline_code")
+    .select("couple_id, destination_timezone, shared, created_by, traveler_ids, flight_number_iata, airline_code")
     .eq("id", flightId)
     .single();
   if (flightErr || !flight) return;
 
-  let travelerName: string | null = null;
-  if (flight.traveler_id) {
-    const { data: traveler } = await serviceClient
+  const travelerIds: string[] = flight.traveler_ids ?? [];
+  let travelerNames: string[] = [];
+  if (travelerIds.length > 0) {
+    const { data: travelers } = await serviceClient
       .from("profiles")
       .select("first_name")
-      .eq("id", flight.traveler_id)
-      .single();
-    travelerName = traveler?.first_name || null;
+      .in("id", travelerIds);
+    travelerNames = (travelers ?? [])
+      .map((t: { first_name: string | null }) => t.first_name)
+      .filter((name: string | null): name is string => Boolean(name));
   }
-  const label = flightLabel(travelerName, flight.flight_number_iata ?? null, flight.airline_code ?? null);
+  const label = flightLabel(travelerNames, flight.flight_number_iata ?? null, flight.airline_code ?? null);
 
   // This runs under the service-role client (RLS-bypassing), so a private (shared: false)
   // flight needs its own explicit check here — otherwise the creator's partner would still get
@@ -172,17 +177,24 @@ export async function notifyPreDeparture(
 ): Promise<void> {
   const { data: flight, error: flightErr } = await serviceClient
     .from("flights")
-    .select("couple_id, shared, created_by, traveler_id, flight_number_iata, airline_code")
+    .select("couple_id, shared, created_by, traveler_ids, flight_number_iata, airline_code")
     .eq("id", flightId)
     .single();
-  if (flightErr || !flight || !flight.traveler_id) return; // no known traveler — "wish them" wouldn't mean anything
+  const travelerIds: string[] = flight?.traveler_ids ?? [];
+  if (flightErr || !flight || travelerIds.length === 0) return; // no known traveler — "wish them" wouldn't mean anything
 
-  const { data: traveler } = await serviceClient
-    .from("profiles")
-    .select("first_name")
-    .eq("id", flight.traveler_id)
-    .single();
-  const travelerName: string | null = traveler?.first_name || null;
+  // Only meaningful when there's exactly one traveler — with both partners travelling, every
+  // couple member is a traveler, `recipientIds` below ends up empty, and this reminder no-ops
+  // (there's no "other partner" left to wish them a safe flight).
+  let travelerName: string | null = null;
+  if (travelerIds.length === 1) {
+    const { data: traveler } = await serviceClient
+      .from("profiles")
+      .select("first_name")
+      .eq("id", travelerIds[0])
+      .single();
+    travelerName = traveler?.first_name || null;
+  }
 
   // A private (shared: false) flight has no partner who can even see it — nothing to notify.
   if (flight.shared === false) return;
@@ -196,7 +208,7 @@ export async function notifyPreDeparture(
 
   const recipientIds = [couple.partner_a_id, couple.partner_b_id]
     .filter((id): id is string => Boolean(id))
-    .filter((id) => id !== flight.traveler_id);
+    .filter((id) => !travelerIds.includes(id));
   if (recipientIds.length === 0) return;
 
   const { data: prefRows } = await serviceClient
@@ -218,7 +230,7 @@ export async function notifyPreDeparture(
     .in("profile_id", allowedIds);
   if (!tokens || tokens.length === 0) return;
 
-  const label = flightLabel(travelerName, flight.flight_number_iata ?? null, flight.airline_code ?? null);
+  const label = flightLabel(travelerName ? [travelerName] : [], flight.flight_number_iata ?? null, flight.airline_code ?? null);
   const title = "Wheels up soon";
   const body = travelerName
     ? `${label} departs in about 10 minutes. Wish ${travelerName} a safe flight! ✈️`

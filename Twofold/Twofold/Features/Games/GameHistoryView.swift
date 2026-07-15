@@ -92,8 +92,8 @@ struct GameHistoryView: View {
 
     @ViewBuilder
     private func gameDestination(session: GameSession) -> some View {
-        let deckTitle = session.deckID.flatMap { deckID in appModel.gameDecks?.first(where: { $0.id == deckID })?.title }
-        gameDestinationView(gameType: session.gameType, sessionID: session.id, title: deckTitle)
+        let deck = session.deckID.flatMap { deckID in appModel.gameDecks?.first(where: { $0.id == deckID }) }
+        gameDestinationView(gameType: session.gameType, sessionID: session.id, title: deck?.title, topic: deck?.topic)
     }
 
     private func load() async {

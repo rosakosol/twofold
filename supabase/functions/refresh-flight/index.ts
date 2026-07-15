@@ -10,9 +10,10 @@
 // session).
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { refreshOneFlight } from "../_shared/flight-sync.ts";
+import { type FlightRow, reconcileOverdueArrival, refreshOneFlight } from "../_shared/flight-sync.ts";
 
 const DEDUP_WINDOW_MS = 60 * 1000;
+const TERMINAL_STATUSES = ["arrived", "landed", "cancelled", "diverted"];
 
 interface Input {
   flightId: string;
@@ -69,14 +70,55 @@ Deno.serve(async (req) => {
     return Response.json({ error: "Flight not found" }, { status: 404 });
   }
 
+  // Not tracked anymore (archived post-arrival, or its couple dissolved — see leave_couple in
+  // 20260723000000) — a stale client holding this flight ID shouldn't be able to resurrect an
+  // AeroAPI call for it. RLS already lets a couple member view the row's history regardless of
+  // couple status (see flights_select_members), so this endpoint being reachable at all doesn't
+  // imply it should still poll.
+  if (!flightRow.tracking_enabled) {
+    return Response.json({ flight: flightRow });
+  }
+
+  // Already done — no point asking AeroAPI for more (and, critically, if reconcileOverdueArrival
+  // forced this to "arrived" itself without ever getting a real actual_in from the provider, a
+  // *later* genuine AeroAPI response with actual_in set would otherwise re-fire a second
+  // "arrived at gate" push — diffEvents' actual_in check only knows about the existing row's
+  // actual_in, not that reconcileOverdueArrival already declared it arrived by another means).
+  if (TERMINAL_STATUSES.includes(flightRow.status)) {
+    try {
+      await reconcileOverdueArrival(serviceClient, flightRow as FlightRow, Date.now());
+    } catch (err) {
+      console.error("[refresh-flight] reconcileOverdueArrival failed:", (err as Error).message);
+    }
+    const { data: current } = await serviceClient.from("flights").select("*").eq("id", input.flightId).single();
+    return Response.json({ flight: current ?? flightRow });
+  }
+
   const lastRefreshedAt = flightRow.last_refreshed_at ? new Date(flightRow.last_refreshed_at).getTime() : 0;
   if (Date.now() - lastRefreshedAt < DEDUP_WINDOW_MS) {
-    return Response.json({ flight: flightRow });
+    // Still worth reconciling even without a fresh AeroAPI call — someone pulling to refresh on
+    // a flight the provider has gone silent on should see it self-heal immediately rather than
+    // waiting for the next 5-minute cron tick.
+    try {
+      await reconcileOverdueArrival(serviceClient, flightRow as FlightRow, Date.now());
+    } catch (err) {
+      console.error("[refresh-flight] reconcileOverdueArrival failed:", (err as Error).message);
+    }
+    const { data: current } = await serviceClient.from("flights").select("*").eq("id", input.flightId).single();
+    return Response.json({ flight: current ?? flightRow });
   }
 
   try {
     const updated = await refreshOneFlight(serviceClient, flightRow);
-    return Response.json({ flight: updated ?? flightRow });
+    if (updated) {
+      try {
+        await reconcileOverdueArrival(serviceClient, updated, Date.now());
+      } catch (err) {
+        console.error("[refresh-flight] reconcileOverdueArrival failed:", (err as Error).message);
+      }
+    }
+    const { data: finalRow } = await serviceClient.from("flights").select("*").eq("id", input.flightId).single();
+    return Response.json({ flight: finalRow ?? updated ?? flightRow });
   } catch (err) {
     console.error("[refresh-flight] refresh failed:", (err as Error).message);
     return Response.json({ error: "Refresh failed, please try again" }, { status: 502 });

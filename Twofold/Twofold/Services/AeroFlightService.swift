@@ -122,10 +122,10 @@ enum AeroFlightService {
     /// to a trip. Returns the new flight's id; callers should follow up with
     /// `AppModel.refreshFlights()` to pull the full row.
     @discardableResult
-    static func addFlight(faFlightId: String, tripID: UUID?, travelerID: UUID?, shared: Bool = true, notifyMe: Bool) async throws -> UUID {
+    static func addFlight(faFlightId: String, tripID: UUID?, travelerIDs: [UUID] = [], shared: Bool = true, notifyMe: Bool) async throws -> UUID {
         var body: [String: Any] = ["faFlightId": faFlightId, "shared": shared, "notifyMe": notifyMe]
         if let tripID { body["tripId"] = tripID.uuidString }
-        if let travelerID { body["travelerId"] = travelerID.uuidString }
+        if !travelerIDs.isEmpty { body["travelerIds"] = travelerIDs.map { $0.uuidString } }
         let response: AddFlightResponse = try await call("add-flight", body: body)
         Analytics.capture(Analytics.Event.flightAdd, properties: ["is_shared": shared, "is_linked_to_trip": tripID != nil])
         return response.flightId
