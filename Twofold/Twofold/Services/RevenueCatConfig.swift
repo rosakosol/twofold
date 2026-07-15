@@ -30,16 +30,18 @@ enum RevenueCatConfig {
     }
 
     /// The 4 App Store Connect / RevenueCat product identifiers this app expects to exist.
-    /// Referenced here for documentation only — the RevenueCatUI paywall (`PaywallView`)
-    /// resolves packages entirely from whichever Offering is marked "current" in the RevenueCat
-    /// dashboard, so nothing in this app's Swift code looks these strings up directly. This is
-    /// the source of truth for what to create in App Store Connect and attach to an Offering +
-    /// one of the two `Entitlement`s above in the RevenueCat dashboard.
+    /// `SubscriptionStore.mapToPricedPackages` switches on these exact strings (matched against
+    /// each package's `StoreProduct.productIdentifier`) to resolve which `SubscriptionTier` a
+    /// package belongs to — RevenueCat's own `Package.packageType` can't tell Plus from Premium,
+    /// since both have a monthly and an annual variant. These must match both the App Store
+    /// Connect product IDs *and* whatever's attached to the current Offering in the RevenueCat
+    /// dashboard exactly — a mismatch silently drops that package from the paywall rather than
+    /// erroring, since an unrecognized identifier is treated as "not one of ours," not a crash.
     enum ProductIdentifier {
-        static let monthlyPlus = "subscription_monthly_plus"
-        static let yearlyPlus = "subscription_yearly_plus"
-        static let monthlyPremium = "subscription_monthly_premium"
-        static let yearlyPremium = "subscription_yearly_premium"
+        static let monthlyPlus = "com.orangefinch.Twofold.plus.monthly"
+        static let yearlyPlus = "com.orangefinch.Twofold.plus.yearly"
+        static let monthlyPremium = "com.orangefinch.Twofold.premium.monthly"
+        static let yearlyPremium = "com.orangefinch.Twofold.premium.yearly"
     }
 
     static func configure() {
