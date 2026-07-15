@@ -122,29 +122,33 @@ struct PaywallView: View {
 
     private var loadedContent: some View {
         OnboardingScaffold(
-            title: "Choose Your Plan",
-            subtitle: "Cancel anytime.",
+            title: "Stay close, no matter the distance",
+            titleAccessoryImageName: "GlobeHeart",
+            titleFont: .system(.title2, design: .rounded, weight: .bold),
+            subtitle: "One subscription covers you and your partner",
+            subtitleFont: .footnote,
+            centersTitleAndSubtitle: true,
             content: {
-                VStack(spacing: Theme.Spacing.lg) {
-                    VStack(spacing: Theme.Spacing.sm) {
-                        ForEach(SubscriptionTier.allCases, id: \.self) { tier in
-                            TierCard(
-                                tier: tier,
-                                priceCaption: priceCaption(for: tier),
-                                isSelected: selectedTier == tier
-                            ) {
-                                selectedTier = tier
+                VStack(spacing: Theme.Spacing.md) {
+                    VStack(spacing: Theme.Spacing.xs) {
+                        HStack(spacing: 4) {
+                            Text("Best for frequent flyers")
+                            Image(systemName: "arrow.down")
+                        }
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(Theme.heartRed)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .padding(.trailing, Theme.Spacing.md)
+
+                        Picker("Plan", selection: $selectedTier) {
+                            ForEach(SubscriptionTier.allCases, id: \.self) { tier in
+                                Text(tier.displayName).tag(tier)
                             }
                         }
+                        .pickerStyle(.segmented)
                     }
 
-                    Picker("Billing period", selection: $selectedPeriod) {
-                        Text("Monthly").tag(BillingPeriod.monthly)
-                        Text(yearlyPickerLabel).tag(BillingPeriod.yearly)
-                    }
-                    .pickerStyle(.segmented)
-
-                    VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.md) {
                         ForEach(selectedTier.features, id: \.self) { feature in
                             HStack(alignment: .top, spacing: Theme.Spacing.xs) {
                                 Image(systemName: "checkmark.circle.fill")
@@ -156,54 +160,97 @@ struct PaywallView: View {
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(Theme.Spacing.md)
+                    .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
 
-                    Button("Restore Purchases") {
-                        Task { await performRestore() }
+                    VStack(spacing: Theme.Spacing.sm) {
+                        ForEach(BillingPeriod.allCases, id: \.self) { period in
+                            PeriodCard(
+                                title: periodTitle(for: period),
+                                priceCaption: priceCaption(for: period),
+                                perPersonCaption: perPersonCaption(for: period),
+                                badge: savingsBadge(for: period),
+                                isSelected: selectedPeriod == period
+                            ) {
+                                selectedPeriod = period
+                            }
+                        }
                     }
-                    .font(.footnote.weight(.medium))
-                    .foregroundStyle(Theme.subtleInk)
-                    .disabled(isPurchasing || isRestoring)
-
-                    HStack(spacing: Theme.Spacing.sm) {
-                        Link("Privacy Policy", destination: URL(string: "https://www.twofoldapp.com.au/privacy.html")!)
-                        Text("·").foregroundStyle(Theme.subtleInk)
-                        Link("Terms of Use", destination: URL(string: "https://www.twofoldapp.com.au/terms.html")!)
-                    }
-                    .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
                 }
             },
-            primaryTitle: primaryButtonTitle,
+            primaryTitle: selectedPricedPackage == nil ? "Not available" : "Start my 14-day free trial",
             primaryAction: { Task { await performPurchase() } },
             primaryDisabled: selectedPricedPackage == nil || isPurchasing || isRestoring,
-            primaryLoading: isPurchasing
+            primaryLoading: isPurchasing,
+            primaryCaption: trialCaption,
+            footer: AnyView(legalFooter)
         )
     }
 
-    private var yearlyPickerLabel: String {
-        guard let monthly = store.package(for: selectedTier, period: .monthly)?.package.storeProduct,
-              let yearly = store.package(for: selectedTier, period: .yearly)?.package.storeProduct else {
-            return "Yearly"
+    private var legalFooter: some View {
+        HStack(spacing: Theme.Spacing.sm) {
+            Button("Restore Purchases") {
+                Task { await performRestore() }
+            }
+            .disabled(isPurchasing || isRestoring)
+            Text("·").foregroundStyle(Theme.subtleInk)
+            Link("Privacy Policy", destination: URL(string: "https://www.twofoldapp.com.au/privacy.html")!)
+            Text("·").foregroundStyle(Theme.subtleInk)
+            Link("Terms of Use", destination: URL(string: "https://www.twofoldapp.com.au/terms.html")!)
         }
+        .font(.caption2)
+        .lineLimit(1)
+        .minimumScaleFactor(0.8)
+        .foregroundStyle(Theme.subtleInk)
+    }
+
+    private func periodTitle(for period: BillingPeriod) -> String {
+        period == .monthly ? "Monthly" : "Yearly"
+    }
+
+    /// "$X.XX / month for 2 users" — the actual subscription price/period, framed around the fact
+    /// one subscription covers both partners.
+    private func priceCaption(for period: BillingPeriod) -> String {
+        guard let priced = store.package(for: selectedTier, period: period) else { return "Not available" }
+        let periodLabel = period == .monthly ? "month" : "year"
+        return "\(priced.package.storeProduct.localizedPriceString) / \(periodLabel) for 2 users"
+    }
+
+    /// "$X.XX / person / month" — the price normalized to a per-person, per-month rate (dividing
+    /// by 12 first for the yearly card) so both cards read on the same, easily comparable basis
+    /// regardless of billing period.
+    private func perPersonCaption(for period: BillingPeriod) -> String? {
+        guard let product = store.package(for: selectedTier, period: period)?.package.storeProduct else { return nil }
+        let price = NSDecimalNumber(decimal: product.price).doubleValue
+        let monthlyEquivalent = period == .monthly ? price : price / 12
+        let perPerson = monthlyEquivalent / 2
+        let formatted = product.priceFormatter?.string(from: NSNumber(value: perPerson))
+            ?? String(format: "%.2f", perPerson)
+        return "\(formatted) / person / month"
+    }
+
+    /// "14 days free, then $X.XX/month" (or /year, matching whichever period is selected) — shown
+    /// as a small disclosure under the primary CTA, never hardcoded to "/month" regardless of the
+    /// actual selection, since that would misstate the real renewal price for a yearly pick.
+    private var trialCaption: String? {
+        guard let priced = selectedPricedPackage else { return nil }
+        let periodLabel = selectedPeriod == .monthly ? "month" : "year"
+        return "14 days free, then \(priced.package.storeProduct.localizedPriceString)/\(periodLabel)"
+    }
+
+    /// "Save X%" badge for the yearly card, comparing its effective monthly cost against the
+    /// actual monthly plan's price — `nil` (no badge) for the monthly card, or if either price
+    /// isn't available yet, or there's no real saving to show.
+    private func savingsBadge(for period: BillingPeriod) -> String? {
+        guard period == .yearly,
+              let monthly = store.package(for: selectedTier, period: .monthly)?.package.storeProduct,
+              let yearly = store.package(for: selectedTier, period: .yearly)?.package.storeProduct else { return nil }
         let monthlyPrice = NSDecimalNumber(decimal: monthly.price).doubleValue
         let yearlyPrice = NSDecimalNumber(decimal: yearly.price).doubleValue
-        guard monthlyPrice > 0 else { return "Yearly" }
+        guard monthlyPrice > 0 else { return nil }
         let yearlyMonthlyEquivalent = yearlyPrice / 12
         let savings = Int(((monthlyPrice - yearlyMonthlyEquivalent) / monthlyPrice * 100).rounded())
-        return savings > 0 ? "Yearly — Save \(savings)%" : "Yearly"
-    }
-
-    private func priceCaption(for tier: SubscriptionTier) -> String {
-        guard let priced = store.package(for: tier, period: selectedPeriod) else { return "Not available" }
-        let product = priced.package.storeProduct
-        let periodLabel = selectedPeriod == .monthly ? "month" : "year"
-        return "\(product.localizedPriceString)/\(periodLabel)"
-    }
-
-    private var primaryButtonTitle: String {
-        guard let priced = selectedPricedPackage else { return "Not available" }
-        let periodLabel = selectedPeriod == .monthly ? "month" : "year"
-        return "Continue — \(priced.package.storeProduct.localizedPriceString)/\(periodLabel), auto-renews"
+        return savings > 0 ? "Save \(savings)%" : nil
     }
 
     // MARK: - Toolbar
@@ -273,31 +320,52 @@ struct PaywallView: View {
     }
 }
 
-/// A selectable plan card — tier name, its price for the currently chosen billing period, and a
-/// trailing selection indicator. Similar visual language to `OnboardingCard`, but with its own
-/// layout since that component has no slot for a price line.
-private struct TierCard: View {
-    let tier: SubscriptionTier
+/// A selectable billing-period card — shown two-up (Monthly / Yearly) side by side for whichever
+/// tier is currently picked via the tab above. Optional badge slot for "Save X%" on the yearly
+/// card. Similar visual language to `OnboardingCard`, but with its own layout since that
+/// component has no slot for a price line or badge.
+private struct PeriodCard: View {
+    let title: String
     let priceCaption: String
+    let perPersonCaption: String?
+    let badge: String?
     let isSelected: Bool
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: Theme.Spacing.md) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(tier.displayName)
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                HStack(spacing: Theme.Spacing.xs) {
+                    Text(title)
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Theme.ink)
-                    Text(priceCaption)
-                        .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
+                    if let badge {
+                        Text(badge)
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, Theme.Spacing.sm)
+                            .padding(.vertical, 2)
+                            .background(Theme.leafGreen, in: Capsule())
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        .foregroundStyle(isSelected ? Theme.leafGreen : Theme.subtleInk.opacity(0.3))
                 }
-                Spacer(minLength: 0)
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(isSelected ? Theme.leafGreen : Theme.subtleInk.opacity(0.3))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(priceCaption)
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(Theme.ink)
+                    if let perPersonCaption {
+                        Text(perPersonCaption)
+                            .font(.caption2)
+                            .foregroundStyle(Theme.subtleInk.opacity(0.8))
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(Theme.Spacing.md)
+            .padding(.horizontal, Theme.Spacing.lg)
+            .padding(.vertical, Theme.Spacing.sm)
+            .frame(maxWidth: .infinity)
             .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)

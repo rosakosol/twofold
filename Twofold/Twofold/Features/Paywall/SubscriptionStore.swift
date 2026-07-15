@@ -74,7 +74,7 @@ enum SubscriptionTier: String, CaseIterable {
     }
 }
 
-enum BillingPeriod {
+enum BillingPeriod: CaseIterable {
     case monthly, yearly
 }
 

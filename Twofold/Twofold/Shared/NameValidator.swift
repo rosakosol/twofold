@@ -11,7 +11,6 @@ import Foundation
 
 enum NameValidator {
     static let minLength = 2
-
     /// Letters plus the punctuation real names actually use (space, hyphen, apostrophe) —
     /// no digits or other symbols.
     private static let allowedCharacters = CharacterSet.letters.union(CharacterSet(charactersIn: " '-"))
