@@ -113,7 +113,6 @@ struct WhosMoreLikelyGameView: View {
                             leftLabel: "🙋 \(appModel.currentUser.name.uppercased())",
                             rightLabel: "👉 \(appModel.partner.name.uppercased())",
                             isDisabled: isSubmitting,
-                            previousAnswerLabel: previousAnswerLabel(for: round),
                             content: {
                                 VStack(spacing: Theme.Spacing.lg) {
                                     Text("\(round.roundNumber) / \(store.rounds.count)")
@@ -131,6 +130,19 @@ struct WhosMoreLikelyGameView: View {
                                         .foregroundStyle(.white)
                                         .multilineTextAlignment(.center)
                                         .frame(maxWidth: .infinity)
+
+                                    // Revisiting an already-answered round via the back button —
+                                    // sits right under the question, rather than the previous
+                                    // top-of-card pill placement, so it's clearly tied to what it
+                                    // describes.
+                                    if let previousAnswerLabel = previousAnswerLabel(for: round) {
+                                        Text("You chose: \(previousAnswerLabel)")
+                                            .font(.caption.weight(.bold))
+                                            .foregroundStyle(.white)
+                                            .padding(.horizontal, Theme.Spacing.sm)
+                                            .padding(.vertical, 6)
+                                            .background(.white.opacity(0.22), in: Capsule())
+                                    }
 
                                     Spacer(minLength: Theme.Spacing.sm)
 

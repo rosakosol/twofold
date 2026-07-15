@@ -29,10 +29,6 @@ struct SwipeChoiceCard<Content: View>: View {
     let leftLabel: String
     let rightLabel: String
     var isDisabled: Bool = false
-    /// Set when revisiting an already-answered round (via the back button) — shown as a
-    /// permanent pill at the top of the card so it's obvious what was picked before, instead of
-    /// presenting what looks like a fresh, unanswered question.
-    var previousAnswerLabel: String? = nil
     @ViewBuilder var content: Content
     let onChooseLeft: () -> Void
     let onChooseRight: () -> Void
@@ -73,17 +69,6 @@ struct SwipeChoiceCard<Content: View>: View {
                 // opacity-0 except mid-swipe, so this is the only thing here the rest of the
                 // time.
                 .overlay(alignment: .topTrailing) { brandMark }
-                .overlay(alignment: .top) {
-                    if let previousAnswerLabel {
-                        Text("You chose: \(previousAnswerLabel)")
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, Theme.Spacing.sm)
-                            .padding(.vertical, 6)
-                            .background(.white.opacity(0.22), in: Capsule())
-                            .padding(.top, Theme.Spacing.sm)
-                    }
-                }
                 .shadow(color: .black.opacity(0.2), radius: 18, y: 10)
                 .rotationEffect(.degrees(offset.width / 18))
                 .offset(offset)

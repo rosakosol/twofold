@@ -117,6 +117,12 @@ struct GameResultsView: View {
         .onAppear {
             animateReveal()
             appModel.noteReviewMilestone(.firstGameResults)
+            // `AppModel.gameDecks`/`deckProgress` are cached for the whole app session and only
+            // ever refreshed explicitly (see `loadGameDecksIfNeeded()`'s doc comment) — without
+            // this, the deck list's "Completed" checkmark stayed stale (from whenever it was
+            // first loaded) until the app relaunched, even though the session backing this exact
+            // screen just completed.
+            Task { await appModel.refreshGameDecks() }
         }
         .sensoryFeedback(.success, trigger: confettiTrigger)
     }
@@ -185,8 +191,21 @@ struct GameResultsView: View {
     private func roundRow(_ round: GameSessionRound) -> some View {
         let mine = store.myResponse(for: round, myID: myID)
         let partner = store.partnerResponse(for: round, partnerID: partnerID)
-        let matched = gameType != .discussBeforeTravelling && gameType != .travelTrivia
-            && mine?.answerValue == partner?.answerValue && mine?.answerValue.isEmpty == false
+        // "Success" state for this round's card — driving the green border/tint, the checkmark
+        // badge, and the answer-chip colors below. For the match games (This or That, More
+        // Likely) that means both partners picked the same answer; for Trivia it means both
+        // partners got the question right, since there's no "same answer" concept to match on
+        // there. Discuss has neither notion — its rows never turn green.
+        let matched: Bool = {
+            switch gameType {
+            case .thisOrThat, .moreLikely:
+                return mine?.answerValue == partner?.answerValue && mine?.answerValue.isEmpty == false
+            case .travelTrivia:
+                return mine?.isCorrect == true && partner?.isCorrect == true
+            case .discussBeforeTravelling:
+                return false
+            }
+        }()
 
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             Text(questionText(for: round))
@@ -203,9 +222,9 @@ struct GameResultsView: View {
                 discussionMarkers(round)
             } else {
                 HStack {
-                    answerChip(name: "You", text: answerText(mine?.answerValue, for: round), tint: Theme.skyBlue)
+                    answerChip(name: "You", text: answerText(mine?.answerValue, for: round), tint: matched ? Theme.leafGreen : Theme.ink)
                     Spacer(minLength: Theme.Spacing.sm)
-                    answerChip(name: partnerName, text: answerText(partner?.answerValue, for: round), tint: Theme.heartRed)
+                    answerChip(name: partnerName, text: answerText(partner?.answerValue, for: round), tint: matched ? Theme.leafGreen : Theme.ink)
                 }
 
                 if gameType == .travelTrivia, case let .trivia(question)? = store.content(for: round) {

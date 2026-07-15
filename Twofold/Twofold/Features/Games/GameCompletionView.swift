@@ -31,6 +31,7 @@ struct GameCompletionView: View {
     /// own answers haven't even reached the server yet, regardless of what my partner's doing).
     var pendingSyncCount = 0
 
+    @Environment(AppModel.self) private var appModel
     @State private var showingReminderSentConfirmation = false
 
     private var progressStage: Int {
@@ -130,6 +131,13 @@ struct GameCompletionView: View {
             .padding(.bottom, Theme.Spacing.xl)
         }
         .background(Theme.backgroundGradient.ignoresSafeArea())
+        .onAppear {
+            // `AppModel.gameDecks`/`deckProgress` are cached for the whole app session and only
+            // ever refreshed explicitly — without this, the deck list's "you're done" checkmark
+            // for my own side stayed stale until the app relaunched, even though I've just
+            // finished every round of the session backing this exact screen.
+            Task { await appModel.refreshGameDecks() }
+        }
         // `isSendingReminder` is owned by the caller (each typed game view runs its own
         // fire-and-forget `notifyPartner` call) — watching its true → false transition here
         // means every call site gets this confirmation for free, no changes needed there.
@@ -200,10 +208,12 @@ struct GameCompletionView: View {
 
 #Preview {
     GameCompletionView(partnerName: "Erin", partnerProgress: .inProgress(answered: 2, total: 5), onSendReminder: {}, onPlayAnother: {})
+        .environment(AppModel())
 }
 
 #Preview("Offline") {
     GameCompletionView(partnerName: "Erin", partnerProgress: .notStarted, onSendReminder: {}, onPlayAnother: {}, pendingSyncCount: 3)
+        .environment(AppModel())
 }
 
 #Preview("With recap") {
@@ -215,4 +225,5 @@ struct GameCompletionView: View {
         ],
         onEditAnswers: {}
     )
+    .environment(AppModel())
 }

@@ -113,7 +113,6 @@ struct ThisOrThatGameView: View {
                             leftLabel: "🅰️ THIS",
                             rightLabel: "🅱️ THAT",
                             isDisabled: isSubmitting,
-                            previousAnswerLabel: previousAnswerLabel(for: round, prompt: prompt),
                             content: {
                                 VStack(spacing: Theme.Spacing.lg) {
                                     Text("\(round.roundNumber) / \(store.rounds.count)")
@@ -134,6 +133,19 @@ struct ThisOrThatGameView: View {
                                         .lineLimit(1)
                                         .minimumScaleFactor(0.4)
                                         .frame(maxWidth: .infinity)
+
+                                    // Revisiting an already-answered round via the back button —
+                                    // sits right under the question, rather than the previous
+                                    // top-of-card pill placement, so it's clearly tied to what it
+                                    // describes.
+                                    if let previousAnswerLabel = previousAnswerLabel(for: round, prompt: prompt) {
+                                        Text("You chose: \(previousAnswerLabel)")
+                                            .font(.caption.weight(.bold))
+                                            .foregroundStyle(.white)
+                                            .padding(.horizontal, Theme.Spacing.sm)
+                                            .padding(.vertical, 6)
+                                            .background(.white.opacity(0.22), in: Capsule())
+                                    }
 
                                     Spacer(minLength: Theme.Spacing.md)
                                 }
