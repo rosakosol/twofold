@@ -2,9 +2,9 @@
 //  RelationshipDashboardWidget.swift
 //  LiveActivities
 //
-//  Premium tier — the .systemLarge composite view: every relationship stat RelationshipStatsWidget
-//  shows individually, plus partner's local time, in one glance. Reuses the same day/night gradient
-//  math as PartnersTimeWidget/TimeWeatherWidget rather than inventing a new background treatment.
+//  Premium tier — the .systemLarge composite view: days together, memories, trips, and partner's
+//  local time, all in one glance. Reuses the same day/night gradient math as
+//  PartnersTimeWidget/TimeWeatherWidget rather than inventing a new background treatment.
 //
 
 import SwiftUI

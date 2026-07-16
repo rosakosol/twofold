@@ -17,13 +17,9 @@ struct LiveActivitiesBundle: WidgetBundle {
         FlightCountdownWidget()
         FlightTrackingWidget()
         TimeWeatherWidget()
-        LatestMemoryWidget()
         DoodlePadWidget()
-        DoodleSideBySideWidget()
-        RelationshipStatsWidget()
         RelationshipDashboardWidget()
         TravelDashboardWidget()
-        GlobeWidget()
         SmartRotatingWidget()
     }
 }

@@ -2,12 +2,12 @@
 //  FlightTrackingWidget.swift
 //  LiveActivities
 //
-//  Plus tier — replaces FlightStatusWidget. Small mirrors the in-app progress-rail treatment
+//  Plus tier — replaces FlightStatusWidget. Mirrors the in-app progress-rail treatment
 //  (JourneyLockScreenView's progressRail: solid-to-dashed line + a marker riding the current
 //  progress), but rides the traveler's avatar instead of a plain plane icon when one's set —
-//  same idea as FlightMapView's travelerMarker. Large adds WidgetSnapshotWriter's pre-composited
-//  route map (see refreshFlightMapImage — a real MKMapSnapshotter basemap with the route/marker
-//  baked in, since the extension can't redo that coordinate math itself).
+//  same idea as FlightMapView's travelerMarker. Small and Medium share the same layout (like
+//  DoodlePadWidget) — there's no route map here (that was Large-only and got dropped along with
+//  the WidgetSnapshotWriter map-rendering pipeline it needed).
 //
 
 import SwiftUI
@@ -21,13 +21,11 @@ struct FlightTrackingEntry: TimelineEntry {
     let destinationCity: String?
     let flightNumber: String?
     let flightID: UUID?
-    let airlineName: String?
     let delaySeconds: Int?
     let progress: Double
     let travelerIsMe: Bool?
     let myName: String
     let partnerName: String
-    let mapImageData: Data?
 }
 
 struct FlightTrackingProvider: TimelineProvider {
@@ -35,8 +33,8 @@ struct FlightTrackingProvider: TimelineProvider {
         FlightTrackingEntry(
             date: .now, subscriptionTier: WidgetTier.plus, status: .inAir,
             originCity: "Melbourne", destinationCity: "Singapore",
-            flightNumber: "QF31", flightID: nil, airlineName: "Qantas", delaySeconds: nil, progress: 0.4,
-            travelerIsMe: true, myName: "You", partnerName: "Partner", mapImageData: nil
+            flightNumber: "QF31", flightID: nil, delaySeconds: nil, progress: 0.4,
+            travelerIsMe: true, myName: "You", partnerName: "Partner"
         )
     }
 
@@ -60,13 +58,11 @@ struct FlightTrackingProvider: TimelineProvider {
             destinationCity: flight?.destinationCity,
             flightNumber: flight?.flightNumber,
             flightID: flight?.id,
-            airlineName: flight?.airlineName,
             delaySeconds: flight?.delaySeconds,
             progress: flight?.progress ?? 0,
             travelerIsMe: flight?.travelerIsMe,
             myName: snapshot?.myName ?? "You",
-            partnerName: snapshot?.partnerName ?? "Partner",
-            mapImageData: WidgetImageCache.readFlightMapImage()
+            partnerName: snapshot?.partnerName ?? "Partner"
         )
     }
 }
@@ -96,8 +92,7 @@ struct FlightTrackingWidgetView: View {
         Group {
             switch family {
             case .accessoryRectangular: accessoryRectangular
-            case .systemLarge: largeBody
-            default: smallBody
+            default: homeScreenBody
             }
         }
         .widgetURL(deepLinkURL)
@@ -121,10 +116,10 @@ struct FlightTrackingWidgetView: View {
         }
     }
 
-    // MARK: - Small
+    // MARK: - Small / Medium
 
     @ViewBuilder
-    private var smallBody: some View {
+    private var homeScreenBody: some View {
         if let status = entry.status {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 4) {
@@ -167,55 +162,6 @@ struct FlightTrackingWidgetView: View {
             .background(
                 LinearGradient(colors: [LiveActivityPalette.color(for: status), LiveActivityPalette.color(for: status).opacity(0.6)], startPoint: .topLeading, endPoint: .bottomTrailing)
             )
-            .widgetBranded()
-            .widgetLock(requiredTier: WidgetTier.plus, currentTier: entry.subscriptionTier)
-        } else {
-            emptyState
-                .widgetLock(requiredTier: WidgetTier.plus, currentTier: entry.subscriptionTier)
-        }
-    }
-
-    // MARK: - Large
-
-    @ViewBuilder
-    private var largeBody: some View {
-        if let status = entry.status {
-            ZStack(alignment: .bottom) {
-                if let mapImageData = entry.mapImageData, let uiImage = UIImage(data: mapImageData) {
-                    Image(uiImage: uiImage).resizable().scaledToFill()
-                } else {
-                    LinearGradient(colors: [LiveActivityPalette.color(for: status), LiveActivityPalette.color(for: status).opacity(0.6)], startPoint: .top, endPoint: .bottom)
-                }
-
-                LinearGradient(colors: [.clear, .clear, .black.opacity(0.75)], startPoint: .top, endPoint: .bottom)
-
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(spacing: 6) {
-                        airlineLogo(size: 22)
-                        VStack(alignment: .leading, spacing: 0) {
-                            Text(entry.flightNumber ?? "").font(.caption.weight(.bold))
-                            if let airlineName = entry.airlineName {
-                                Text(airlineName).font(.caption2).opacity(0.8)
-                            }
-                        }
-                        Spacer()
-                        Label(status.displayLabel, systemImage: status.icon)
-                            .font(.caption.weight(.semibold))
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(LiveActivityPalette.color(for: status).opacity(0.85), in: Capsule())
-                    }
-
-                    if let originCity = entry.originCity, let destinationCity = entry.destinationCity {
-                        Text("\(originCity) → \(destinationCity)")
-                            .font(.subheadline.weight(.semibold))
-                    }
-
-                    progressRail(markerSize: 32)
-                }
-                .foregroundStyle(.white)
-                .padding()
-            }
             .widgetBranded()
             .widgetLock(requiredTier: WidgetTier.plus, currentTier: entry.subscriptionTier)
         } else {
@@ -304,7 +250,7 @@ struct FlightTrackingWidget: Widget {
         }
         .configurationDisplayName("Flight Tracking")
         .description("Live status and route, on your Home Screen or Lock Screen.")
-        .supportedFamilies([.systemSmall, .systemLarge, .accessoryRectangular])
+        .supportedFamilies([.systemSmall, .systemMedium, .accessoryRectangular])
         .contentMarginsDisabled()
     }
 }
@@ -315,7 +261,7 @@ struct FlightTrackingWidget: Widget {
     FlightTrackingEntry(
         date: .now, subscriptionTier: WidgetTier.plus, status: .inAir,
         originCity: "Melbourne", destinationCity: "Singapore",
-        flightNumber: "QF31", flightID: nil, airlineName: "Qantas", delaySeconds: 720, progress: 0.4,
-        travelerIsMe: true, myName: "You", partnerName: "Partner", mapImageData: nil
+        flightNumber: "QF31", flightID: nil, delaySeconds: 720, progress: 0.4,
+        travelerIsMe: true, myName: "You", partnerName: "Partner"
     )
 }
