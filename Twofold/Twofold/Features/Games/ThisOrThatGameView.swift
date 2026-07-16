@@ -16,24 +16,31 @@ struct ThisOrThatGameView: View {
 
     @Environment(AppModel.self) private var appModel
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.popToGamesRoot) private var popToGamesRoot
     @State private var store = GameSessionStore()
     @State private var isSubmitting = false
     @State private var isSendingReminder = false
     @State private var hapticTrigger = false
     @State private var showingNoMailAppAlert = false
     @State private var showingLeaveConfirm = false
+    /// Resolved directly on this screen — see `TriviaBattleGameView`'s identical property for
+    /// the full reasoning.
+    @State private var navigationController: UINavigationController?
 
     private var myID: UUID { appModel.currentUser.id }
     private var partnerID: UUID { appModel.partner.id }
-    /// Also true while revisiting a round via "Edit My Answers" even though the session itself
-    /// is still `completed` — see `TriviaBattleGameView`'s identical property for the full
+    /// Also true while revisiting a round via "Edit My Answers" even though I've already
+    /// answered every round — see `TriviaBattleGameView`'s identical property for the full
     /// reasoning.
     private var isActivelyPlaying: Bool {
         !store.isLoading && store.errorMessage == nil && store.session?.status != .abandoned
-            && (!store.isRevealed || store.viewingRoundNumber != nil)
+            && (!store.hasAnsweredAllRounds(myID: myID) || store.viewingRoundNumber != nil)
     }
-    private var isShowingResults: Bool { store.isRevealed && store.viewingRoundNumber == nil }
+    /// Covers both "I'm done, waiting on my partner" and "we're both done" — see
+    /// `TriviaBattleGameView`'s identical property for the full reasoning.
+    private var isDoneWithMyRounds: Bool {
+        !store.isLoading && store.errorMessage == nil && store.session?.status != .abandoned
+            && store.hasAnsweredAllRounds(myID: myID) && store.viewingRoundNumber == nil
+    }
 
     var body: some View {
         Group {
@@ -43,7 +50,7 @@ struct ThisOrThatGameView: View {
                 GameErrorState(message: errorMessage)
             } else if let session = store.session, session.status == .abandoned {
                 GameAbandonedState()
-            } else if isShowingResults {
+            } else if store.isRevealed && store.viewingRoundNumber == nil {
                 GameResultsView(
                     gameType: .thisOrThat, store: store, myID: myID, partnerID: partnerID,
                     myName: appModel.currentUser.name, partnerName: appModel.partner.name,
@@ -75,6 +82,7 @@ struct ThisOrThatGameView: View {
         // — without it, the full-bleed background was observed interpolating its own width
         // alongside that animation instead of staying static.
         .background(Theme.backgroundGradient.ignoresSafeArea().transaction { $0.animation = nil })
+        .capturingNavigationController { navigationController = $0 }
         .navigationTitle(title ?? GameType.thisOrThat.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -82,9 +90,9 @@ struct ThisOrThatGameView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     GameBackButton(action: handleBack)
                 }
-            } else if isShowingResults {
+            } else if isDoneWithMyRounds {
                 ToolbarItem(placement: .topBarLeading) {
-                    GameBackButton(action: popToGamesRoot)
+                    GameBackButton(action: popToGamesHub)
                 }
             }
             // Not offered once results are showing — GameResultsView has its own toolbar
@@ -99,8 +107,8 @@ struct ThisOrThatGameView: View {
                 }
             }
         }
-        .navigationBarBackButtonHidden(isActivelyPlaying || isShowingResults)
-        .interactivePopGestureDisabled(isActivelyPlaying || isShowingResults)
+        .navigationBarBackButtonHidden(isActivelyPlaying || isDoneWithMyRounds)
+        .interactivePopGestureDisabled(isActivelyPlaying || isDoneWithMyRounds)
         .noMailAppAlert(isPresented: $showingNoMailAppAlert)
         .gameLeaveConfirmation(isPresented: $showingLeaveConfirm) { Task { await leaveGame() } }
         .task { await store.load(sessionID: sessionID) }
@@ -226,12 +234,18 @@ struct ThisOrThatGameView: View {
         isSendingReminder = false
     }
 
+    private func popToGamesHub() {
+        navigationController?.popToRootViewController(animated: true)
+    }
+
     private func handleBack() {
         if store.canGoBack(myID: myID) {
             store.goBack(myID: myID)
-        } else if store.isRevealed {
-            // Editing an already-completed session with nothing before round 1 — exits editing
-            // back to the results screen rather than the leave-confirmation below.
+        } else if store.viewingRoundNumber != nil, store.hasAnsweredAllRounds(myID: myID) {
+            // Editing — only reachable once every round is already answered, which is what
+            // distinguishes this from genuinely live-playing and having stepped back to round 1
+            // (viewingRoundNumber is non-nil in both cases). Exits editing back to whichever
+            // "I'm done" screen prompted it, rather than the leave-confirmation below.
             store.viewingRoundNumber = nil
         } else if store.hasAnsweredAnyRounds(myID: myID) {
             showingLeaveConfirm = true

@@ -26,18 +26,17 @@ struct GamesHubView: View {
     /// Tapping a locked (partner-required) card opens this rather than doing nothing — a lock
     /// badge with no tap action just teaches people the card is broken.
     @State private var showingPartnerSetup = false
-    /// Bumped to pop every pushed screen back to this root in one shot — see `.popToGamesRoot`.
-    /// A plain `.id()` reset rather than an explicit `NavigationPath`, since several screens in
-    /// this tree (`DeckCardRow`, `GameTypeDecksView`, `GameHistoryView`, ...) still push via
-    /// plain `NavigationLink(destination:)` rather than value-based navigation, and mixing that
-    /// style with a bound `NavigationPath` doesn't reliably reflect those pushes for
-    /// programmatic popping. Tearing down and rebuilding the whole `NavigationStack` pops
-    /// everything regardless of how each screen got pushed.
-    @State private var navigationResetToken = UUID()
 
     private var competeGames: [GameType] { GameType.allCases.filter { $0.category == .compete } }
     private var connectGames: [GameType] { GameType.allCases.filter { $0.category == .connect } }
-    private var travelDecks: [GameDeck] { appModel.decks(for: .travel) }
+    /// Once both partners have finished a Travel deck it drops off this carousel — Travel is
+    /// the app's front-door showcase, so it stays focused on what's still playable rather than
+    /// accumulating finished decks the way the full topic/browse lists intentionally do (those
+    /// keep completed decks visible, since jumping straight to results from a finished deck is
+    /// still a useful shortcut there).
+    private var travelDecks: [GameDeck] {
+        appModel.decks(for: .travel).filter { appModel.deckProgress?[$0.id]?.bothCompleted != true }
+    }
 
     var body: some View {
         NavigationStack {
@@ -59,6 +58,13 @@ struct GamesHubView: View {
             .background(Theme.backgroundGradient.ignoresSafeArea())
             .navigationTitle("Games")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        browseRoute = BrowseRoute(filter: nil)
+                    } label: {
+                        Image(systemName: "magnifyingglass")
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink {
                         GameHistoryView()
@@ -73,40 +79,55 @@ struct GamesHubView: View {
             .sheet(isPresented: $showingPartnerSetup) {
                 PartnerSetupView()
             }
-            .environment(\.popToGamesRoot, { navigationResetToken = UUID() })
         }
-        .id(navigationResetToken)
     }
 
+    /// Plain (non-scrolling) `HStack`, each pill given equal width — search moved out to its own
+    /// leading toolbar button (in line with the "past games" one), which freed up enough room
+    /// for all 3 filter pills to fit on one row without needing horizontal scroll.
     private var searchAndFilterBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: Theme.Spacing.sm) {
+        HStack(spacing: Theme.Spacing.sm) {
+            ForEach(DeckBrowseFilter.allCases) { filter in
                 Button {
-                    browseRoute = BrowseRoute(filter: nil)
+                    browseRoute = BrowseRoute(filter: filter)
                 } label: {
-                    Image(systemName: "magnifyingglass")
-                        .font(.subheadline.weight(.semibold))
+                    Label(filter.rawValue, systemImage: filter.icon)
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, Theme.Spacing.sm)
+                        .padding(.vertical, Theme.Spacing.xs)
+                        .frame(maxWidth: .infinity)
                         .foregroundStyle(Theme.ink)
-                        .frame(width: 32, height: 32)
-                        .background(Theme.cardBackground, in: Circle())
+                        .background(Theme.cardBackground, in: Capsule())
                 }
                 .buttonStyle(.plain)
-
-                ForEach(DeckBrowseFilter.allCases) { filter in
-                    Button {
-                        browseRoute = BrowseRoute(filter: filter)
-                    } label: {
-                        Label(filter.rawValue, systemImage: filter.icon)
-                            .font(.caption.weight(.semibold))
-                            .padding(.horizontal, Theme.Spacing.md)
-                            .padding(.vertical, Theme.Spacing.xs)
-                            .foregroundStyle(Theme.ink)
-                            .background(Theme.cardBackground, in: Capsule())
+                // Floating badge (hovering over the pill's corner) rather than sitting inline
+                // next to the label — inline was eating into "Answered"'s share of the equal-width
+                // pill, forcing every label down to a smaller, shrink-to-fit font size.
+                .overlay(alignment: .topTrailing) {
+                    if let count = deckBrowseFilterCounts[filter], count > 0 {
+                        Text("\(count)")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Theme.heartRed, in: Capsule())
+                            .offset(x: 8, y: -8)
                     }
-                    .buttonStyle(.plain)
                 }
             }
         }
+    }
+
+    /// How many decks fall into each `DeckBrowseFilter` bucket right now — shown as the small
+    /// number bubble on each pill above, same bucketing `AllDecksBrowseView` uses so the counts
+    /// promise exactly what tapping through to that filter will show.
+    private var deckBrowseFilterCounts: [DeckBrowseFilter: Int] {
+        guard let decks = appModel.gameDecks else { return [:] }
+        var counts: [DeckBrowseFilter: Int] = [:]
+        for deck in decks {
+            counts[DeckBrowseFilter.bucket(for: deck, progress: appModel.deckProgress), default: 0] += 1
+        }
+        return counts
     }
 
     private func section(title: String, games: [GameType]) -> some View {

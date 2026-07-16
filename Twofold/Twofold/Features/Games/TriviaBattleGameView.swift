@@ -20,29 +20,36 @@ struct TriviaBattleGameView: View {
 
     @Environment(AppModel.self) private var appModel
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.popToGamesRoot) private var popToGamesRoot
     @State private var store = GameSessionStore()
     @State private var isSubmitting = false
     @State private var isSendingReminder = false
     @State private var hapticTrigger = false
     @State private var showingNoMailAppAlert = false
     @State private var showingLeaveConfirm = false
+    /// Resolved directly on this screen (not injected from an ancestor) — same technique
+    /// `.interactivePopGestureDisabled` already uses to reach the real `UINavigationController`,
+    /// applied here too so `popToGamesHub()` is guaranteed to be reaching the navigation
+    /// controller that's actually hosting this exact pushed screen.
+    @State private var navigationController: UINavigationController?
 
     private var myID: UUID { appModel.currentUser.id }
     private var partnerID: UUID { appModel.partner.id }
-    /// Gates the custom back button/leave-confirmation to the actual round-answering phase —
-    /// false while loading, errored, already abandoned, or fully revealed. Also true while
-    /// revisiting a round via "Edit My Answers" even though the session itself is still
-    /// `completed` (`viewingRoundNumber` set — see `GameSessionStore.beginEditingAnswers()`), so
-    /// that case gets the same in-round back behavior as live play rather than the results
-    /// screen's "pop to hub" one below.
+    /// Gates the custom back button/leave-confirmation to still actively answering my own
+    /// rounds for the first time — false once I've answered every round, whether or not my
+    /// partner has too (see `isDoneWithMyRounds` below). Also true while revisiting a round via
+    /// "Edit My Answers" (`viewingRoundNumber` set — see `GameSessionStore.beginEditingAnswers()`),
+    /// so that case gets the same in-round back behavior as live play.
     private var isActivelyPlaying: Bool {
         !store.isLoading && store.errorMessage == nil && store.session?.status != .abandoned
-            && (!store.isRevealed || store.viewingRoundNumber != nil)
+            && (!store.hasAnsweredAllRounds(myID: myID) || store.viewingRoundNumber != nil)
     }
-    /// The actual "completed game screen" — fully revealed and not mid-edit. Its back button
-    /// pops straight to the Games hub root instead of one level, see `popToGamesRoot`.
-    private var isShowingResults: Bool { store.isRevealed && store.viewingRoundNumber == nil }
+    /// Covers both "I'm done, waiting on my partner" (GameCompletionView) and "we're both done"
+    /// (GameResultsView) — the two screens where back should pop straight to the Games hub
+    /// instead of revisiting a round.
+    private var isDoneWithMyRounds: Bool {
+        !store.isLoading && store.errorMessage == nil && store.session?.status != .abandoned
+            && store.hasAnsweredAllRounds(myID: myID) && store.viewingRoundNumber == nil
+    }
     private var resolvedTopic: GameTopic? { topic.flatMap(GameTopic.init(rawValue:)) }
 
     var body: some View {
@@ -53,7 +60,7 @@ struct TriviaBattleGameView: View {
                 GameErrorState(message: errorMessage)
             } else if let session = store.session, session.status == .abandoned {
                 GameAbandonedState()
-            } else if isShowingResults {
+            } else if store.isRevealed && store.viewingRoundNumber == nil {
                 GameResultsView(
                     gameType: .triviaBattle, store: store, myID: myID, partnerID: partnerID,
                     myName: appModel.currentUser.name, partnerName: appModel.partner.name,
@@ -85,6 +92,7 @@ struct TriviaBattleGameView: View {
         // — without it, the full-bleed background was observed interpolating its own width
         // alongside that animation instead of staying static.
         .background(Theme.backgroundGradient.ignoresSafeArea().transaction { $0.animation = nil })
+        .capturingNavigationController { navigationController = $0 }
         .navigationTitle(title ?? GameType.triviaBattle.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -92,9 +100,9 @@ struct TriviaBattleGameView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     GameBackButton(action: handleBack)
                 }
-            } else if isShowingResults {
+            } else if isDoneWithMyRounds {
                 ToolbarItem(placement: .topBarLeading) {
-                    GameBackButton(action: popToGamesRoot)
+                    GameBackButton(action: popToGamesHub)
                 }
             }
             // Not offered once results are showing — GameResultsView has its own toolbar
@@ -109,8 +117,8 @@ struct TriviaBattleGameView: View {
                 }
             }
         }
-        .navigationBarBackButtonHidden(isActivelyPlaying || isShowingResults)
-        .interactivePopGestureDisabled(isActivelyPlaying || isShowingResults)
+        .navigationBarBackButtonHidden(isActivelyPlaying || isDoneWithMyRounds)
+        .interactivePopGestureDisabled(isActivelyPlaying || isDoneWithMyRounds)
         .noMailAppAlert(isPresented: $showingNoMailAppAlert)
         .gameLeaveConfirmation(isPresented: $showingLeaveConfirm) { Task { await leaveGame() } }
         .task { await store.load(sessionID: sessionID) }
@@ -241,13 +249,20 @@ struct TriviaBattleGameView: View {
         isSendingReminder = false
     }
 
+    private func popToGamesHub() {
+        navigationController?.popToRootViewController(animated: true)
+    }
+
     private func handleBack() {
         if store.canGoBack(myID: myID) {
             store.goBack(myID: myID)
-        } else if store.isRevealed {
-            // Editing an already-completed session with nothing before round 1 — nothing here
-            // is actually in danger of being lost (every answer's already saved), so this just
-            // exits editing back to the results screen rather than the leave-confirmation below.
+        } else if store.viewingRoundNumber != nil, store.hasAnsweredAllRounds(myID: myID) {
+            // Editing (from either GameCompletionView or GameResultsView) with nothing before
+            // round 1 — only reachable once every round is already answered, which is what
+            // distinguishes this from genuinely live-playing and having stepped back to round 1
+            // (viewingRoundNumber is non-nil in both cases). Nothing here is actually in danger
+            // of being lost (every answer's already saved), so this just exits editing back to
+            // whichever "I'm done" screen prompted it, rather than the leave-confirmation below.
             store.viewingRoundNumber = nil
         } else if store.hasAnsweredAnyRounds(myID: myID) {
             showingLeaveConfirm = true

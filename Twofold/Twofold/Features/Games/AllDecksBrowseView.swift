@@ -24,6 +24,15 @@ enum DeckBrowseFilter: String, CaseIterable, Identifiable {
         case .answered: "checkmark.circle.fill"
         }
     }
+
+    /// New = never started by either partner. Your turn = started, but I haven't finished my
+    /// side yet. Answered = I've finished my side (regardless of whether my partner has) —
+    /// mutually exclusive and exhaustive over every deck. Shared by `AllDecksBrowseView`'s own
+    /// filtering and `GamesHubView`'s pill count badges, so the two never drift apart.
+    static func bucket(for deck: GameDeck, progress: [UUID: DeckProgress]?) -> DeckBrowseFilter {
+        guard let progress = progress?[deck.id] else { return .new }
+        return progress.myCompleted ? .answered : .yourTurn
+    }
 }
 
 struct AllDecksBrowseView: View {
@@ -35,18 +44,10 @@ struct AllDecksBrowseView: View {
         _selectedFilter = State(initialValue: initialFilter)
     }
 
-    /// New = never started by either partner. Your turn = started, but I haven't finished my
-    /// side yet. Answered = I've finished my side (regardless of whether my partner has) —
-    /// mutually exclusive and exhaustive over every deck.
-    private func bucket(for deck: GameDeck) -> DeckBrowseFilter {
-        guard let progress = appModel.deckProgress?[deck.id] else { return .new }
-        return progress.myCompleted ? .answered : .yourTurn
-    }
-
     private var filteredDecks: [GameDeck] {
         var decks = appModel.gameDecks ?? []
         if let selectedFilter {
-            decks = decks.filter { bucket(for: $0) == selectedFilter }
+            decks = decks.filter { DeckBrowseFilter.bucket(for: $0, progress: appModel.deckProgress) == selectedFilter }
         }
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if !query.isEmpty {

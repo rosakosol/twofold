@@ -10,21 +10,6 @@
 
 import SwiftUI
 
-/// Lets a deeply-pushed game screen (results, a few `NavigationLink`s deep from `GamesHubView`)
-/// pop all the way back to the Games hub's root in one tap, regardless of how many screens deep
-/// it was reached through — see `GamesHubView`'s `navigationResetToken`. Defaults to a no-op so
-/// previews/tests that don't sit under `GamesHubView` don't crash, just do nothing.
-private struct PopToGamesRootKey: EnvironmentKey {
-    static let defaultValue: () -> Void = {}
-}
-
-extension EnvironmentValues {
-    var popToGamesRoot: () -> Void {
-        get { self[PopToGamesRootKey.self] }
-        set { self[PopToGamesRootKey.self] = newValue }
-    }
-}
-
 /// Content-safety requirement: every prompt must be skippable.
 struct SkipButton: View {
     var isDisabled = false

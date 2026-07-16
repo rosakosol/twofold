@@ -67,7 +67,9 @@ struct GameHistoryView: View {
     }
 
     private func historyRow(_ session: GameSession) -> some View {
-        SectionCard {
+        let deck = deck(for: session)
+        let topic = deck.flatMap { GameTopic(rawValue: $0.topic) }
+        return SectionCard {
             HStack {
                 ZStack {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -76,13 +78,25 @@ struct GameHistoryView: View {
                 }
                 .frame(width: 36, height: 36)
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(session.gameType.displayName).font(.subheadline.weight(.semibold))
-                    if let completedAt = session.completedAt {
-                        Text(completedAt, format: .dateTime.day().month(.abbreviated).year())
-                            .font(.caption)
-                            .foregroundStyle(Theme.subtleInk)
+                VStack(alignment: .leading, spacing: 4) {
+                    if let topic {
+                        PillBadge(text: topic.displayName, tint: topic.color)
                     }
+                    // The deck's own title (e.g. "How Well Do You Know European History?") when
+                    // this session came from a deck — falls back to the generic game type name
+                    // for older, pre-deck sessions with no deckID to resolve.
+                    Text(deck?.title ?? session.gameType.displayName)
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(2)
+                    HStack(spacing: 4) {
+                        Text(session.gameType.displayName)
+                        if let completedAt = session.completedAt {
+                            Text("•")
+                            Text(completedAt, format: .dateTime.day().month(.abbreviated).year())
+                        }
+                    }
+                    .font(.caption)
+                    .foregroundStyle(Theme.subtleInk)
                 }
                 Spacer()
                 Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
@@ -90,9 +104,13 @@ struct GameHistoryView: View {
         }
     }
 
+    private func deck(for session: GameSession) -> GameDeck? {
+        session.deckID.flatMap { deckID in appModel.gameDecks?.first(where: { $0.id == deckID }) }
+    }
+
     @ViewBuilder
     private func gameDestination(session: GameSession) -> some View {
-        let deck = session.deckID.flatMap { deckID in appModel.gameDecks?.first(where: { $0.id == deckID }) }
+        let deck = deck(for: session)
         gameDestinationView(gameType: session.gameType, sessionID: session.id, title: deck?.title, topic: deck?.topic)
     }
 
