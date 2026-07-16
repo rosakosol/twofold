@@ -14,12 +14,10 @@ struct LiveActivitiesBundle: WidgetBundle {
         JourneyLiveActivityWidget()
         PartnersTimeWidget()
         DaysTogetherWidget()
-        FlightCountdownWidget()
+        TripCountdownWidget()
         FlightTrackingWidget()
         TimeWeatherWidget()
         DoodlePadWidget()
-        RelationshipDashboardWidget()
-        TravelDashboardWidget()
         SmartRotatingWidget()
     }
 }

@@ -30,7 +30,6 @@ enum WidgetSnapshotWriter {
                     latestMemory: nil,
                     partnerWeather: nil,
                     relationshipStats: nil,
-                    travelStats: nil,
                     coupleID: nil,
                     partnerID: nil,
                     writtenAt: .now
@@ -57,6 +56,8 @@ enum WidgetSnapshotWriter {
                 status: flight.status,
                 originCity: flight.origin.displayName,
                 destinationCity: flight.destination.displayName,
+                originCode: flight.origin.displayCode,
+                destinationCode: flight.destination.displayCode,
                 bestDeparture: flight.bestDeparture,
                 bestArrival: flight.bestArrival,
                 delaySeconds: hasDeparted ? flight.arrivalDelaySeconds : flight.departureDelaySeconds,
@@ -89,16 +90,6 @@ enum WidgetSnapshotWriter {
             tripCount: appModel.trips.count
         )
 
-        let flightStats = FlightStats(trips: appModel.trips, couple: appModel.couple)
-        let nextTrip = appModel.upcomingTrips.first
-        let travelStats = WidgetSnapshot.TravelStats(
-            flightCount: flightStats.flightCount,
-            countryCount: flightStats.countries.count,
-            totalDistanceKm: flightStats.totalDistanceKm,
-            nextTripDestination: nextTrip?.destination.city,
-            nextTripDate: nextTrip?.departureDate
-        )
-
         WidgetSnapshot.write(
             WidgetSnapshot(
                 myID: appModel.currentUser.id,
@@ -112,7 +103,6 @@ enum WidgetSnapshotWriter {
                 latestMemory: memoryInfo,
                 partnerWeather: weatherInfo,
                 relationshipStats: relationshipStats,
-                travelStats: travelStats,
                 coupleID: appModel.couple.id,
                 partnerID: appModel.partner.id,
                 writtenAt: .now

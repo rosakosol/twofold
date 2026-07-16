@@ -21,7 +21,6 @@ struct HomeView: View {
     @State private var myWeatherReading: CurrentWeatherReading?
     @State private var myWeatherFetchedForCityID: UUID?
     @State private var flightCarouselPage: Flight.ID?
-    @AppStorage("setupChecklistDismissed") private var setupChecklistDismissed = false
 
     private var distanceKm: Double? {
         guard let mine = appModel.currentUser.homeCity?.coordinate, let theirs = appModel.partner.homeCity?.coordinate else { return nil }
@@ -140,14 +139,14 @@ struct HomeView: View {
 
     @ViewBuilder
     private var setupChecklistCard: some View {
-        if !setupChecklistDismissed && (appModel.needsFirstTrip || appModel.needsFirstFlight || appModel.needsHomeCities) {
+        if !appModel.setupChecklistDismissed && (appModel.needsFirstTrip || appModel.needsFirstFlight || appModel.needsHomeCities) {
             SectionCard {
                 HStack {
                     Text("Finish setting up Twofold")
                         .font(.headline)
                     Spacer()
                     Button {
-                        setupChecklistDismissed = true
+                        appModel.dismissSetupChecklist()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundStyle(Theme.subtleInk.opacity(0.5))

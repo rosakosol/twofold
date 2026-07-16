@@ -20,8 +20,13 @@ struct AddFlightResultsStepView: View {
     @State private var hideCodeshares = false
     @State private var airlineFilter: String?
 
+    /// Flight-number mode is never filtered — the caller already told us exactly which flight
+    /// they're after, so hiding a codeshare-linked or differently-operated result there could
+    /// hide the very match they searched for. Filtering only makes sense in route mode, where a
+    /// single route can turn up many unrelated flights across several airlines/times.
     private var filteredCandidates: [AeroFlightCandidate] {
-        model.candidates.filter { candidate in
+        guard model.mode == .route else { return model.candidates }
+        return model.candidates.filter { candidate in
             if hideCodeshares, candidate.isCodeshare == true { return false }
             if let airlineFilter, candidate.operatorName != airlineFilter { return false }
             return true
@@ -37,7 +42,7 @@ struct AddFlightResultsStepView: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.md) {
                 routeChips
 
-                if model.candidates.count > 1 || model.candidates.contains(where: { $0.isCodeshare == true }) {
+                if model.mode == .route && (model.candidates.count > 1 || model.candidates.contains(where: { $0.isCodeshare == true })) {
                     filterRow
                 }
 

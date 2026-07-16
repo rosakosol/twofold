@@ -1,18 +1,21 @@
 //
-//  FlightCountdownWidget.swift
+//  TripCountdownWidget.swift
 //  LiveActivities
 //
-//  Plus tier (reunion/flight countdown, per the widget matrix) — reuses WidgetSellView.swift's
-//  countdownWidget mockup design. First widget needing a ticking multi-entry timeline:
-//  WidgetKit's reload budget is limited, so rather than asking the OS to reload every minute,
-//  one getTimeline call generates a tiered run of future entries (dense near the target, sparse
-//  further out) and WidgetKit just walks through them.
+//  Plus tier (reunion/trip countdown, per the widget matrix) — reuses WidgetSellView.swift's
+//  countdownWidget mockup design. Renamed from FlightCountdownWidget to Trip Countdown (this
+//  couple's next trip, not just a bare flight) — `kind` stays "FlightCountdownWidget" though;
+//  it's WidgetKit's stable identity for any instance already placed on someone's Home Screen,
+//  so changing it would orphan those, and it's an internal string nobody sees. First widget
+//  needing a ticking multi-entry timeline: WidgetKit's reload budget is limited, so rather than
+//  asking the OS to reload every minute, one getTimeline call generates a tiered run of future
+//  entries (dense near the target, sparse further out) and WidgetKit just walks through them.
 //
 
 import SwiftUI
 import WidgetKit
 
-struct FlightCountdownEntry: TimelineEntry {
+struct TripCountdownEntry: TimelineEntry {
     let date: Date
     let subscriptionTier: String?
     let targetDate: Date?
@@ -26,28 +29,28 @@ struct FlightCountdownEntry: TimelineEntry {
     let partnerName: String
 }
 
-struct FlightCountdownProvider: TimelineProvider {
-    func placeholder(in context: Context) -> FlightCountdownEntry {
-        FlightCountdownEntry(date: .now, subscriptionTier: WidgetTier.plus, targetDate: .now.addingTimeInterval(3600 * 5), isDeparted: true, originCity: "Melbourne", destinationCity: "Singapore", flightNumber: "QF31", flightID: nil, travelerIsMe: true, myName: "You", partnerName: "Partner")
+struct TripCountdownProvider: TimelineProvider {
+    func placeholder(in context: Context) -> TripCountdownEntry {
+        TripCountdownEntry(date: .now, subscriptionTier: WidgetTier.plus, targetDate: .now.addingTimeInterval(3600 * 5), isDeparted: true, originCity: "Melbourne", destinationCity: "Singapore", flightNumber: "QF31", flightID: nil, travelerIsMe: true, myName: "You", partnerName: "Partner")
     }
 
-    func getSnapshot(in context: Context, completion: @escaping (FlightCountdownEntry) -> Void) {
+    func getSnapshot(in context: Context, completion: @escaping (TripCountdownEntry) -> Void) {
         completion(entries(from: WidgetSnapshot.read()).first ?? placeholder(in: context))
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<FlightCountdownEntry>) -> Void) {
+    func getTimeline(in context: Context, completion: @escaping (Timeline<TripCountdownEntry>) -> Void) {
         let all = entries(from: WidgetSnapshot.read())
         // .atEnd re-invokes getTimeline once the tiered run is exhausted, which naturally
         // re-reads whatever the main app has written to the snapshot by then.
         completion(Timeline(entries: all, policy: .atEnd))
     }
 
-    private func entries(from snapshot: WidgetSnapshot?) -> [FlightCountdownEntry] {
+    private func entries(from snapshot: WidgetSnapshot?) -> [TripCountdownEntry] {
         let subscriptionTier = snapshot?.subscriptionTier
         let myName = snapshot?.myName ?? "You"
         let partnerName = snapshot?.partnerName ?? "Partner"
         guard let flight = snapshot?.nextFlight else {
-            return [FlightCountdownEntry(date: .now, subscriptionTier: subscriptionTier, targetDate: nil, isDeparted: false, originCity: nil, destinationCity: nil, flightNumber: nil, flightID: nil, travelerIsMe: nil, myName: myName, partnerName: partnerName)]
+            return [TripCountdownEntry(date: .now, subscriptionTier: subscriptionTier, targetDate: nil, isDeparted: false, originCity: nil, destinationCity: nil, flightNumber: nil, flightID: nil, travelerIsMe: nil, myName: myName, partnerName: partnerName)]
         }
 
         let now = Date.now
@@ -55,11 +58,11 @@ struct FlightCountdownProvider: TimelineProvider {
         let target = isDeparted ? flight.bestArrival : flight.bestDeparture
 
         guard let target else {
-            return [FlightCountdownEntry(date: now, subscriptionTier: subscriptionTier, targetDate: nil, isDeparted: isDeparted, originCity: flight.originCity, destinationCity: flight.destinationCity, flightNumber: flight.flightNumber, flightID: flight.id, travelerIsMe: flight.travelerIsMe, myName: myName, partnerName: partnerName)]
+            return [TripCountdownEntry(date: now, subscriptionTier: subscriptionTier, targetDate: nil, isDeparted: isDeparted, originCity: flight.originCity, destinationCity: flight.destinationCity, flightNumber: flight.flightNumber, flightID: flight.id, travelerIsMe: flight.travelerIsMe, myName: myName, partnerName: partnerName)]
         }
 
         return Self.tieredDates(from: now, to: target).map { date in
-            FlightCountdownEntry(date: date, subscriptionTier: subscriptionTier, targetDate: target, isDeparted: isDeparted, originCity: flight.originCity, destinationCity: flight.destinationCity, flightNumber: flight.flightNumber, flightID: flight.id, travelerIsMe: flight.travelerIsMe, myName: myName, partnerName: partnerName)
+            TripCountdownEntry(date: date, subscriptionTier: subscriptionTier, targetDate: target, isDeparted: isDeparted, originCity: flight.originCity, destinationCity: flight.destinationCity, flightNumber: flight.flightNumber, flightID: flight.id, travelerIsMe: flight.travelerIsMe, myName: myName, partnerName: partnerName)
         }
     }
 
@@ -81,8 +84,8 @@ struct FlightCountdownProvider: TimelineProvider {
     }
 }
 
-struct FlightCountdownWidgetView: View {
-    let entry: FlightCountdownEntry
+struct TripCountdownWidgetView: View {
+    let entry: TripCountdownEntry
 
     @Environment(\.widgetFamily) private var family
 
@@ -98,12 +101,12 @@ struct FlightCountdownWidgetView: View {
     }
 
     private var caption: String {
-        guard entry.targetDate != nil else { return "No upcoming flight" }
+        guard entry.targetDate != nil else { return "No upcoming trip" }
         return entry.isDeparted ? "until \(entry.destinationCity ?? "arrival")" : "until departure"
     }
 
     /// Locked → paywall (existing convention). Unlocked → this exact flight's tracking screen
-    /// when there is one, otherwise Passport (where flights are viewed/added).
+    /// when there is one, otherwise Passport (where trips/flights are viewed/added).
     private var deepLinkURL: URL? {
         if isLocked { return URL(string: "twofold://paywall") }
         if let flightID = entry.flightID { return URL(string: "twofold://flight/\(flightID.uuidString)") }
@@ -127,7 +130,7 @@ struct FlightCountdownWidgetView: View {
             Label("Twofold Plus", systemImage: "lock.fill")
         } else {
             VStack(alignment: .leading, spacing: 1) {
-                Label(entry.targetDate != nil ? remainingLabel : "No upcoming flight", systemImage: "airplane.departure")
+                Label(entry.targetDate != nil ? remainingLabel : "No upcoming trip", systemImage: "airplane.departure")
                     .font(.headline)
                 if entry.targetDate != nil {
                     Text(caption).font(.caption2)
@@ -184,23 +187,24 @@ struct FlightCountdownWidgetView: View {
     }
 }
 
-struct FlightCountdownWidget: Widget {
+struct TripCountdownWidget: Widget {
+    // Deliberately unchanged from the pre-rename "FlightCountdownWidget" — see the file header.
     let kind = "FlightCountdownWidget"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: FlightCountdownProvider()) { entry in
-            FlightCountdownWidgetView(entry: entry)
+        StaticConfiguration(kind: kind, provider: TripCountdownProvider()) { entry in
+            TripCountdownWidgetView(entry: entry)
                 .containerBackground(for: .widget) { Color.clear }
         }
-        .configurationDisplayName("Flight Countdown")
-        .description("Time until your next flight departs or lands, on your Home Screen or Lock Screen.")
+        .configurationDisplayName("Trip Countdown")
+        .description("Time until your next trip departs or arrives, on your Home Screen or Lock Screen.")
         .supportedFamilies([.systemSmall, .accessoryRectangular])
         .contentMarginsDisabled()
     }
 }
 
 #Preview(as: .systemSmall) {
-    FlightCountdownWidget()
+    TripCountdownWidget()
 } timeline: {
-    FlightCountdownEntry(date: .now, subscriptionTier: WidgetTier.plus, targetDate: .now.addingTimeInterval(3600 * 2 + 600), isDeparted: true, originCity: "Melbourne", destinationCity: "Singapore", flightNumber: "QF31", flightID: nil, travelerIsMe: true, myName: "You", partnerName: "Partner")
+    TripCountdownEntry(date: .now, subscriptionTier: WidgetTier.plus, targetDate: .now.addingTimeInterval(3600 * 2 + 600), isDeparted: true, originCity: "Melbourne", destinationCity: "Singapore", flightNumber: "QF31", flightID: nil, travelerIsMe: true, myName: "You", partnerName: "Partner")
 }

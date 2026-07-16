@@ -19,9 +19,13 @@ struct FlightTrackingEntry: TimelineEntry {
     let status: FlightStatus?
     let originCity: String?
     let destinationCity: String?
+    let originCode: String?
+    let destinationCode: String?
     let flightNumber: String?
     let flightID: UUID?
     let delaySeconds: Int?
+    let bestDeparture: Date?
+    let bestArrival: Date?
     let progress: Double
     let travelerIsMe: Bool?
     let myName: String
@@ -32,8 +36,9 @@ struct FlightTrackingProvider: TimelineProvider {
     func placeholder(in context: Context) -> FlightTrackingEntry {
         FlightTrackingEntry(
             date: .now, subscriptionTier: WidgetTier.plus, status: .inAir,
-            originCity: "Melbourne", destinationCity: "Singapore",
-            flightNumber: "QF31", flightID: nil, delaySeconds: nil, progress: 0.4,
+            originCity: "Melbourne", destinationCity: "Singapore", originCode: "MEL", destinationCode: "SIN",
+            flightNumber: "QF31", flightID: nil, delaySeconds: nil,
+            bestDeparture: .now.addingTimeInterval(-3600 * 3), bestArrival: .now.addingTimeInterval(3600 * 5), progress: 0.4,
             travelerIsMe: true, myName: "You", partnerName: "Partner"
         )
     }
@@ -56,9 +61,13 @@ struct FlightTrackingProvider: TimelineProvider {
             status: flight?.status,
             originCity: flight?.originCity,
             destinationCity: flight?.destinationCity,
+            originCode: flight?.originCode,
+            destinationCode: flight?.destinationCode,
             flightNumber: flight?.flightNumber,
             flightID: flight?.id,
             delaySeconds: flight?.delaySeconds,
+            bestDeparture: flight?.bestDeparture,
+            bestArrival: flight?.bestArrival,
             progress: flight?.progress ?? 0,
             travelerIsMe: flight?.travelerIsMe,
             myName: snapshot?.myName ?? "You",
@@ -78,6 +87,28 @@ struct FlightTrackingWidgetView: View {
         guard let delaySeconds = entry.delaySeconds, delaySeconds > 300 else { return nil }
         let minutes = delaySeconds / 60
         return minutes >= 60 ? "+\(minutes / 60)h \(minutes % 60)m" : "+\(minutes)m"
+    }
+
+    /// True once the *departure* has actually happened — same "which leg's estimate is
+    /// relevant right now" logic WidgetSnapshotWriter uses to pick delaySeconds' source leg.
+    private var isDeparted: Bool { (entry.bestDeparture ?? .distantFuture) <= entry.date }
+
+    /// "Departs 3:45 PM" pre-departure, "Arrives 9:20 PM" once airborne (or landed) — whichever
+    /// leg's estimate is still actionable, in the device's local time (no per-airport timezone
+    /// data reaches this widget, same as every other time shown here).
+    private var etaLabel: String? {
+        let target = isDeparted ? entry.bestArrival : entry.bestDeparture
+        guard let target else { return nil }
+        let time = target.formatted(date: .omitted, time: .shortened)
+        return isDeparted ? "Arrives \(time)" : "Departs \(time)"
+    }
+
+    private var routeLabel: String? {
+        guard let originCity = entry.originCity, let destinationCity = entry.destinationCity else { return nil }
+        guard let originCode = entry.originCode, let destinationCode = entry.destinationCode else {
+            return "\(originCity) → \(destinationCity)"
+        }
+        return "\(originCode) \(originCity) → \(destinationCode) \(destinationCity)"
     }
 
     /// Locked → paywall. Unlocked → this exact flight's tracking screen when there is one,
@@ -148,10 +179,18 @@ struct FlightTrackingWidgetView: View {
                 progressRail(markerSize: 26)
                     .padding(.vertical, 2)
 
-                if let originCity = entry.originCity, let destinationCity = entry.destinationCity {
-                    Text("\(originCity) → \(destinationCity)")
+                if let routeLabel {
+                    Text(routeLabel)
                         .font(.caption2)
                         .opacity(0.85)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+
+                if let etaLabel {
+                    Text(etaLabel)
+                        .font(.caption2.weight(.semibold))
+                        .opacity(0.95)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
                 }
@@ -260,8 +299,21 @@ struct FlightTrackingWidget: Widget {
 } timeline: {
     FlightTrackingEntry(
         date: .now, subscriptionTier: WidgetTier.plus, status: .inAir,
-        originCity: "Melbourne", destinationCity: "Singapore",
-        flightNumber: "QF31", flightID: nil, delaySeconds: 720, progress: 0.4,
+        originCity: "Melbourne", destinationCity: "Singapore", originCode: "MEL", destinationCode: "SIN",
+        flightNumber: "QF31", flightID: nil, delaySeconds: 720,
+        bestDeparture: .now.addingTimeInterval(-3600 * 3), bestArrival: .now.addingTimeInterval(3600 * 5), progress: 0.4,
+        travelerIsMe: true, myName: "You", partnerName: "Partner"
+    )
+}
+
+#Preview(as: .systemMedium) {
+    FlightTrackingWidget()
+} timeline: {
+    FlightTrackingEntry(
+        date: .now, subscriptionTier: WidgetTier.plus, status: .inAir,
+        originCity: "Melbourne", destinationCity: "Singapore", originCode: "MEL", destinationCode: "SIN",
+        flightNumber: "QF31", flightID: nil, delaySeconds: 720,
+        bestDeparture: .now.addingTimeInterval(-3600 * 3), bestArrival: .now.addingTimeInterval(3600 * 5), progress: 0.4,
         travelerIsMe: true, myName: "You", partnerName: "Partner"
     )
 }

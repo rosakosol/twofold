@@ -114,12 +114,12 @@ struct RootView: View {
         // `partnerConnected` also flips false → true on every cold launch of an already-paired
         // couple (it starts `false` by default and only becomes `true` once `restoreSession()`
         // finishes loading), which looks identical to a genuine new-pairing transition — so a
-        // per-couple persisted flag is the actual gate here, not just the transition itself.
+        // server-persisted flag is the actual gate here, not just the transition itself (see
+        // AppModel.partnerConnectedCelebrationShown — survives a reinstall, unlike UserDefaults).
         .onChange(of: appModel.partnerConnected) { wasConnected, isConnected in
             guard !wasConnected, isConnected else { return }
-            let key = "partnerConnectedCelebrationShown_\(appModel.couple.id.uuidString)"
-            guard !UserDefaults.standard.bool(forKey: key) else { return }
-            UserDefaults.standard.set(true, forKey: key)
+            guard !appModel.partnerConnectedCelebrationShown else { return }
+            appModel.markPartnerConnectedCelebrationShown()
             showingPartnerConnectedCelebration = true
         }
         .fullScreenCover(isPresented: $showingPartnerConnectedCelebration) {

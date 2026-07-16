@@ -22,6 +22,10 @@ struct WidgetSnapshot: Codable {
         var status: FlightStatus
         var originCity: String
         var destinationCity: String
+        /// IATA/ICAO airport code (e.g. "MEL") — FlightAirport.displayCode's same fallback
+        /// chain, shown alongside the city name rather than instead of it.
+        var originCode: String
+        var destinationCode: String
         var bestDeparture: Date?
         var bestArrival: Date?
         /// Whichever leg is currently relevant (departure delay pre-takeoff, arrival delay once
@@ -60,16 +64,6 @@ struct WidgetSnapshot: Codable {
         var tripCount: Int
     }
 
-    /// Sourced from FlightStats(trips:couple:) (PassportView.swift) — pure/sync/cheap, computed
-    /// in WidgetSnapshotWriter rather than duplicating that aggregation logic here.
-    struct TravelStats: Codable {
-        var flightCount: Int
-        var countryCount: Int
-        var totalDistanceKm: Double
-        var nextTripDestination: String?
-        var nextTripDate: Date?
-    }
-
     /// Needed alongside coupleID/partnerID for DoodlePadWidget's Medium side-by-side layout to
     /// build *my* public drawing-pad URL, the same way it already builds the partner's.
     var myID: UUID?
@@ -87,7 +81,6 @@ struct WidgetSnapshot: Codable {
     var latestMemory: MemoryInfo?
     var partnerWeather: WeatherInfo?
     var relationshipStats: RelationshipStats?
-    var travelStats: TravelStats?
     /// Needed by DoodlePadWidget to build the partner's public drawing-pad URL itself
     /// (PublicStorageURL.swift) — the one widget allowed its own network call.
     var coupleID: UUID?

@@ -187,6 +187,8 @@ enum BackendService {
         var anniversaryDate: Date?
         var subscriptionActive: Bool
         var subscriptionTier: String?
+        var partnerConnectedCelebrationShown: Bool
+        var setupChecklistDismissed: Bool
     }
 
     /// The signed-in user's own profile — used when they're authenticated but not (yet)
@@ -223,7 +225,9 @@ enum BackendService {
             partnerAvatarURL: profile.partnerAvatarPath.flatMap { avatarPublicURL(path: $0) },
             anniversaryDate: profile.anniversaryDate.flatMap { Self.dateOnlyFormatter.date(from: $0) },
             subscriptionActive: profile.subscriptionActive,
-            subscriptionTier: profile.subscriptionTier
+            subscriptionTier: profile.subscriptionTier,
+            partnerConnectedCelebrationShown: profile.partnerConnectedCelebrationShown,
+            setupChecklistDismissed: profile.setupChecklistDismissed
         )
     }
 
@@ -326,6 +330,8 @@ enum BackendService {
         var anniversaryDate: String?
         var subscriptionActive: Bool
         var subscriptionTier: String?
+        var partnerConnectedCelebrationShown: Bool
+        var setupChecklistDismissed: Bool
 
         enum CodingKeys: String, CodingKey {
             case id
@@ -338,6 +344,8 @@ enum BackendService {
             case anniversaryDate = "anniversary_date"
             case subscriptionActive = "subscription_active"
             case subscriptionTier = "subscription_tier"
+            case partnerConnectedCelebrationShown = "partner_connected_celebration_shown"
+            case setupChecklistDismissed = "setup_checklist_dismissed"
         }
     }
 
@@ -354,6 +362,59 @@ enum BackendService {
         try await supabase
             .from("profiles")
             .update(HomeCityUpdate(homePlaceId: placeID))
+            .eq("id", value: userID)
+            .execute()
+    }
+
+    private struct PartnerConnectedCelebrationUpdate: Encodable {
+        var partnerConnectedCelebrationShown = true
+        enum CodingKeys: String, CodingKey { case partnerConnectedCelebrationShown = "partner_connected_celebration_shown" }
+    }
+
+    /// Marks the "you and your partner are connected" reveal as shown, server-side — a plain
+    /// UserDefaults flag here would reset every time someone reinstalls the app, showing the
+    /// celebration again even though nothing about their account changed. Best-effort: worst
+    /// case on failure is the celebration shows once more next launch, not worth surfacing an
+    /// error for.
+    static func markPartnerConnectedCelebrationShown() async {
+        guard let userID = currentUserID else { return }
+        try? await supabase
+            .from("profiles")
+            .update(PartnerConnectedCelebrationUpdate())
+            .eq("id", value: userID)
+            .execute()
+    }
+
+    private struct SetupChecklistDismissedUpdate: Encodable {
+        var setupChecklistDismissed = true
+        enum CodingKeys: String, CodingKey { case setupChecklistDismissed = "setup_checklist_dismissed" }
+    }
+
+    /// Same reasoning as `markPartnerConnectedCelebrationShown` — the Home screen's "Finish
+    /// setting up Twofold" card dismissal needs to survive a reinstall, not just live in
+    /// UserDefaults.
+    static func markSetupChecklistDismissed() async {
+        guard let userID = currentUserID else { return }
+        try? await supabase
+            .from("profiles")
+            .update(SetupChecklistDismissedUpdate())
+            .eq("id", value: userID)
+            .execute()
+    }
+
+    private struct SetupChecklistResetUpdate: Encodable {
+        var setupChecklistDismissed = false
+        enum CodingKeys: String, CodingKey { case setupChecklistDismissed = "setup_checklist_dismissed" }
+    }
+
+    /// Re-shows the setup checklist after someone removes their partner — they're genuinely
+    /// back in the same unpaired state a brand-new user starts in, and need that same nudge
+    /// again even if they'd already dismissed it once during their original onboarding.
+    static func resetSetupChecklistDismissed() async {
+        guard let userID = currentUserID else { return }
+        try? await supabase
+            .from("profiles")
+            .update(SetupChecklistResetUpdate())
             .eq("id", value: userID)
             .execute()
     }
@@ -736,6 +797,10 @@ enum BackendService {
         /// The higher of the two partners' tiers ("premium" beats "plus") — nil only if neither
         /// has ever purchased since this column was added (pre-existing subscribers).
         var subscriptionTier: String?
+        /// Both of these are the *caller's own* flags (from `meProfile`, never the partner's) —
+        /// each side dismisses their own copy of these one-time prompts independently.
+        var partnerConnectedCelebrationShown: Bool
+        var setupChecklistDismissed: Bool
     }
 
     static func fetchCoupleState() async throws -> CoupleState? {
@@ -897,7 +962,9 @@ enum BackendService {
             memories: memories,
             flights: flights,
             subscriptionActive: meProfile.subscriptionActive || partnerProfile.subscriptionActive,
-            subscriptionTier: effectiveTier
+            subscriptionTier: effectiveTier,
+            partnerConnectedCelebrationShown: meProfile.partnerConnectedCelebrationShown,
+            setupChecklistDismissed: meProfile.setupChecklistDismissed
         )
     }
 

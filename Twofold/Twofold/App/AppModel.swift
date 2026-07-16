@@ -35,6 +35,13 @@ final class AppModel {
     /// as "plus" server-side, so this being nil never actually locks anyone out of content).
     var subscriptionTier: String?
 
+    /// Server-persisted "seen it" flags — deliberately not UserDefaults/@AppStorage, since those
+    /// live in the app's local sandbox and get wiped on every uninstall/reinstall, showing these
+    /// one-time prompts again even though nothing about the account changed. See
+    /// `markPartnerConnectedCelebrationShown()`/`dismissSetupChecklist()`.
+    var partnerConnectedCelebrationShown = false
+    var setupChecklistDismissed = false
+
     /// Daily Activity streak — see `startOrResumeDailyQuestion()`/`refreshDailyStreak()`. Nil
     /// until the first fetch resolves (not defaulted to 0) so `DailyActivityCard` can show a
     /// placeholder instead of visibly flashing "Start a streak" before the real value loads.
@@ -234,6 +241,8 @@ final class AppModel {
         }
         isSubscriptionActive = profile.subscriptionActive
         subscriptionTier = profile.subscriptionTier
+        partnerConnectedCelebrationShown = profile.partnerConnectedCelebrationShown
+        setupChecklistDismissed = profile.setupChecklistDismissed
     }
 
     /// A device's own successful purchase/restore, applied instantly and locally (no network
@@ -243,6 +252,22 @@ final class AppModel {
     /// this local flag is what `RootView` actually reads).
     func markSubscriptionActive() {
         isSubscriptionActive = true
+    }
+
+    /// Flips instantly (so the caller's UI never shows the celebration twice in one session)
+    /// and persists server-side in the background — see `BackendService.markPartnerConnectedCelebrationShown`.
+    func markPartnerConnectedCelebrationShown() {
+        guard !partnerConnectedCelebrationShown else { return }
+        partnerConnectedCelebrationShown = true
+        Task { await BackendService.markPartnerConnectedCelebrationShown() }
+    }
+
+    /// Same pattern as `markPartnerConnectedCelebrationShown()` — instant local flip, persisted
+    /// server-side in the background.
+    func dismissSetupChecklist() {
+        guard !setupChecklistDismissed else { return }
+        setupChecklistDismissed = true
+        Task { await BackendService.markSetupChecklistDismissed() }
     }
 
     /// Tells RevenueCat who this device's user actually is, so its entitlement/purchase history
@@ -364,11 +389,12 @@ final class AppModel {
         Analytics.capture(Analytics.Event.partnerRemove)
         await loadSignedInState()
         // HomeView's setup checklist card (the "invite your partner" hint) remembers a past
-        // dismissal forever via this UserDefaults key — without clearing it, someone who'd
-        // already dismissed it once (e.g. during their original onboarding) would see no hint
-        // at all here, even though they're now genuinely back in the same unpaired state a
-        // brand-new user starts in and need that same nudge again.
-        UserDefaults.standard.set(false, forKey: "setupChecklistDismissed")
+        // dismissal forever, server-side — without resetting it, someone who'd already
+        // dismissed it once (e.g. during their original onboarding) would see no hint at all
+        // here, even though they're now genuinely back in the same unpaired state a brand-new
+        // user starts in and need that same nudge again.
+        setupChecklistDismissed = false
+        Task { await BackendService.resetSetupChecklistDismissed() }
         return nil
     }
 
@@ -540,6 +566,8 @@ final class AppModel {
         hasCouple = true
         isSubscriptionActive = state.subscriptionActive
         subscriptionTier = state.subscriptionTier
+        partnerConnectedCelebrationShown = state.partnerConnectedCelebrationShown
+        setupChecklistDismissed = state.setupChecklistDismissed
 
         var stillPendingTrips = Set<Trip.ID>()
         for trip in localOnlyTrips {
