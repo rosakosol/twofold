@@ -19,6 +19,7 @@ enum WidgetSnapshotWriter {
         guard appModel.partnerConnected else {
             WidgetSnapshot.write(
                 WidgetSnapshot(
+                    myID: nil,
                     myName: appModel.currentUser.name,
                     partnerName: appModel.partner.name,
                     partnerCity: nil,
@@ -100,6 +101,7 @@ enum WidgetSnapshotWriter {
 
         WidgetSnapshot.write(
             WidgetSnapshot(
+                myID: appModel.currentUser.id,
                 myName: appModel.currentUser.name,
                 partnerName: appModel.partner.name,
                 partnerCity: partnerCity?.city,

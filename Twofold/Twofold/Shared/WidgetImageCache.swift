@@ -60,6 +60,26 @@ enum WidgetImageCache {
         return try? Data(contentsOf: url)
     }
 
+    /// My own doodle-pad's last-good fetch — mirrors doodlePadImageURL (partner's), needed by
+    /// DoodlePadWidget's Medium side-by-side layout, which shows both at once. Same "the widget
+    /// fetches it live from the public bucket, this is just the offline/stale-network fallback"
+    /// reasoning.
+    private static let myDoodleFilename = "my-doodle-pad-last-good.png"
+
+    static var myDoodleImageURL: URL? {
+        containerURL?.appendingPathComponent(myDoodleFilename)
+    }
+
+    static func writeMyDoodleImage(_ data: Data) {
+        guard let url = myDoodleImageURL else { return }
+        try? data.write(to: url, options: .atomic)
+    }
+
+    static func readMyDoodleImage() -> Data? {
+        guard let url = myDoodleImageURL else { return nil }
+        return try? Data(contentsOf: url)
+    }
+
     /// Profile photos — public URLs (see Person.avatarURL's doc comment), downloaded and cached
     /// by the main app the same way the latest memory photo is, so avatar-bearing widgets
     /// (Days Together, Partner's Time, Flight Countdown, etc.) never need their own network call.

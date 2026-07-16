@@ -70,6 +70,9 @@ struct WidgetSnapshot: Codable {
         var nextTripDate: Date?
     }
 
+    /// Needed alongside coupleID/partnerID for DoodlePadWidget's Medium side-by-side layout to
+    /// build *my* public drawing-pad URL, the same way it already builds the partner's.
+    var myID: UUID?
     var myName: String
     var partnerName: String
     var partnerCity: String?
