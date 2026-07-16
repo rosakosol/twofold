@@ -438,16 +438,32 @@ struct HomeView: View {
                 PillBadge(text: flight.status.displayLabel, tint: flight.status.semanticColor)
             }
 
+            // No minimumScaleFactor here — cities stay a fixed size regardless of name length;
+            // a long pair truncates with an ellipsis instead of shrinking the whole row.
             HStack(spacing: Theme.Spacing.xs) {
-                Text(flight.origin.displayCode)
+                Text(flight.origin.displayName)
                 Image(systemName: "arrow.right")
-                Text(flight.destination.displayCode)
+                Text(flight.destination.displayName)
             }
             .font(.title3.weight(.bold))
+            .lineLimit(1)
 
-            Text(flight.countdownSummary)
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(Theme.skyBlue)
+            HStack(alignment: .firstTextBaseline) {
+                Text(flight.countdownSummary)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(Theme.skyBlue)
+
+                Spacer(minLength: Theme.Spacing.sm)
+
+                // Port + local time for each end, side by side — departure in the origin's
+                // timezone, arrival in the destination's, same convention FlightTrackingView's
+                // journey rows use. A small departure/arrival glyph ahead of each so the two
+                // reads unambiguously even out of context (not just "two airport codes").
+                HStack(spacing: Theme.Spacing.sm) {
+                    portTimeRow(icon: "airplane.departure", code: flight.origin.displayCode, time: flight.bestDeparture, timeZone: flight.origin.timeZone)
+                    portTimeRow(icon: "airplane.arrival", code: flight.destination.displayCode, time: flight.bestArrival, timeZone: flight.destination.timeZone)
+                }
+            }
 
             // No separate linear progress bar here anymore — with the route drawn on the map
             // right below, a second progress indicator heading a different direction (straight
@@ -468,6 +484,18 @@ struct HomeView: View {
                 .frame(height: 140)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                 .allowsHitTesting(false)
+        }
+    }
+
+    /// A departure/arrival glyph + airport code + its local time — "—" when the time isn't
+    /// known yet rather than omitting the row, so the pair always lines up evenly.
+    private func portTimeRow(icon: String, code: String, time: Date?, timeZone: TimeZone?) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: icon).font(.caption2).foregroundStyle(Theme.subtleInk)
+            Text(code).font(.caption.weight(.semibold))
+            Text(time.map { $0.formatted(Date.FormatStyle(timeZone: timeZone ?? .current).hour().minute()) } ?? "—")
+                .font(.caption)
+                .foregroundStyle(Theme.subtleInk)
         }
     }
 
