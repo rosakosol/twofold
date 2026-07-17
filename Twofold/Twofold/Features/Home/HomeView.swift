@@ -440,13 +440,25 @@ struct HomeView: View {
 
             // No minimumScaleFactor here — cities stay a fixed size regardless of name length;
             // a long pair truncates with an ellipsis instead of shrinking the whole row.
-            HStack(spacing: Theme.Spacing.xs) {
-                Text(flight.origin.displayName)
-                Image(systemName: "arrow.right")
-                Text(flight.destination.displayName)
+            HStack(alignment: .firstTextBaseline) {
+                HStack(spacing: Theme.Spacing.xs) {
+                    Text(flight.origin.displayName)
+                    Image(systemName: "arrow.right")
+                    Text(flight.destination.displayName)
+                }
+                .font(.title3.weight(.bold))
+                .lineLimit(1)
+
+                Spacer(minLength: Theme.Spacing.sm)
+
+                if let totalDurationSummary = flight.totalDurationSummary {
+                    Text(totalDurationSummary)
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(Theme.subtleInk)
+                        .lineLimit(1)
+                        .layoutPriority(1)
+                }
             }
-            .font(.title3.weight(.bold))
-            .lineLimit(1)
 
             HStack(alignment: .firstTextBaseline) {
                 Text(flight.countdownSummary)
@@ -475,13 +487,13 @@ struct HomeView: View {
             // shows this map for any flight regardless of status (FlightMapView has its own
             // graceful fallback for missing coordinates), so a merely-.scheduled flight on Home
             // was the one place showing no map at all, reading as a bug rather than by-design.
-            // A much shorter frame than the detail screen's map (140pt vs 260pt) — the same
-            // 28pt padding used there left the route looking tiny and over-zoomed-out here,
-            // since `setVisibleCoordinates` reserves that margin on every edge regardless of
-            // how little vertical space is left to fit the route in. A tighter margin lets the
-            // route fill more of the card, closer to how it reads on the detail screen.
+            // Shorter than the detail screen's map (200pt vs 260pt) — the same 40pt padding used
+            // there left the route looking tiny and over-zoomed-out here, since the camera fit
+            // reserves that margin on every edge regardless of how little vertical space is left
+            // to fit the route in. A tighter margin lets the route fill more of the card, closer
+            // to how it reads on the detail screen.
             FlightMapView(flight: flight, interactive: false, edgePadding: 12)
-                .frame(height: 140)
+                .frame(height: 200)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                 .allowsHitTesting(false)
         }

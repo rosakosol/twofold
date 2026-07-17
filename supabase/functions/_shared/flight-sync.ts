@@ -133,7 +133,39 @@ export type MappedAeroFields = Pick<
   | "status"
 >;
 
-export function mapAeroFlightToRow(aeroFlight: AeroFlight): MappedAeroFields {
+// AeroAPI's `city` field on an airport is sometimes the airport's literal municipality rather
+// than the metro area travelers actually know it by — Haneda (HND) comes back as "Ota" (the ward
+// Haneda sits in) instead of "Tokyo", which read as a bug ("NH160 HND → JFK" showing "Ota → New
+// York"). Our own `airports` table (seeded from a proper reference dataset, not AeroAPI) already
+// has the traveler-recognizable city for HND and airports like it, so it's preferred here whenever
+// a match exists; AeroAPI's own value is only a fallback for airports outside that table.
+async function resolveAirportCity(
+  client: SupabaseClient,
+  iata: string | null | undefined,
+  icao: string | null | undefined,
+  fallback: string | null,
+): Promise<string | null> {
+  const code = iata || icao;
+  if (!code) return fallback;
+  try {
+    const { data } = await client
+      .from("airports")
+      .select("city")
+      .or(`iata.eq.${code},icao.eq.${code}`)
+      .limit(1)
+      .maybeSingle();
+    return data?.city ?? fallback;
+  } catch (err) {
+    console.error("[flight-sync] airport city lookup threw:", (err as Error).message);
+    return fallback;
+  }
+}
+
+export async function mapAeroFlightToRow(client: SupabaseClient, aeroFlight: AeroFlight): Promise<MappedAeroFields> {
+  const [originCity, destinationCity] = await Promise.all([
+    resolveAirportCity(client, aeroFlight.origin?.code_iata, aeroFlight.origin?.code_icao, aeroFlight.origin?.city ?? null),
+    resolveAirportCity(client, aeroFlight.destination?.code_iata, aeroFlight.destination?.code_icao, aeroFlight.destination?.city ?? null),
+  ]);
   return {
     fa_flight_id: aeroFlight.fa_flight_id ?? null,
     flight_number_iata: aeroFlight.ident_iata ?? aeroFlight.ident ?? null,
@@ -149,7 +181,7 @@ export function mapAeroFlightToRow(aeroFlight: AeroFlight): MappedAeroFields {
     origin_iata: aeroFlight.origin?.code_iata ?? null,
     origin_icao: aeroFlight.origin?.code_icao ?? null,
     origin_name: aeroFlight.origin?.name ?? null,
-    origin_city: aeroFlight.origin?.city ?? null,
+    origin_city: originCity,
     origin_timezone: aeroFlight.origin?.timezone ?? null,
     // Not present on the /flights response fields confirmed from the docs (only the dedicated
     // /airports/{id} endpoint documents lat/long) — mapped opportunistically if the payload
@@ -160,7 +192,7 @@ export function mapAeroFlightToRow(aeroFlight: AeroFlight): MappedAeroFields {
     destination_iata: aeroFlight.destination?.code_iata ?? null,
     destination_icao: aeroFlight.destination?.code_icao ?? null,
     destination_name: aeroFlight.destination?.name ?? null,
-    destination_city: aeroFlight.destination?.city ?? null,
+    destination_city: destinationCity,
     destination_timezone: aeroFlight.destination?.timezone ?? null,
     destination_latitude: aeroFlight.destination?.latitude ?? null,
     destination_longitude: aeroFlight.destination?.longitude ?? null,
@@ -372,7 +404,7 @@ export async function syncFlight(
   aeroFlight: AeroFlight,
   source: "poll" | "webhook",
 ): Promise<void> {
-  const mapped = mapAeroFlightToRow(aeroFlight);
+  const mapped = await mapAeroFlightToRow(serviceClient, aeroFlight);
   const events = diffEvents(flightRow, mapped);
 
   const update: Record<string, unknown> = { ...mapped, last_refreshed_at: new Date().toISOString() };

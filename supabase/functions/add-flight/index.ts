@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
     return Response.json({ error: "Flight not found" }, { status: 404 });
   }
 
-  const mapped = mapAeroFlightToRow(aeroFlight);
+  const mapped = await mapAeroFlightToRow(serviceClient, aeroFlight);
 
   // Airport coordinates aren't on the /flights response — a one-time /airports/{id} lookup per
   // side. Best-effort: a failed lookup just leaves the columns null, which the map screen

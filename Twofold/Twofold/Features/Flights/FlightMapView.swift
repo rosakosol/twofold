@@ -3,16 +3,24 @@
 //  Twofold
 //
 //  Shared map used by both the Home active-flight card (compact) and the full flight detail
-//  screen. Built on MapLibre (`MLNMapView`, UIKit) rather than Apple MapKit — MapKit's SwiftUI
-//  `Map` couldn't give real vector-style control, a gradient route line, or arbitrary SwiftUI
-//  content hosted at an annotation, so this bridges MapLibre in directly via
-//  `UIViewRepresentable` instead of reaching for a third-party SwiftUI wrapper package, trading a
-//  little more code here for full control over camera fitting, line-layer styling, and markers.
-//  Tiles/style come from OpenFreeMap (free, no API key — see `MapLibreStyle`).
+//  screen. Built directly on `MKMapView` (`UIViewRepresentable`) rather than SwiftUI's high-level
+//  `Map` — three things needed that `Map` doesn't expose:
+//    1. Screen-point edge padding when fitting the route (`setVisibleMapRect(_:edgePadding:)`),
+//       which is what keeps the endpoint labels from being cropped near the frame's edge —
+//       `Map`'s own coordinate-fraction-based region fitting can't reliably reserve pixel space
+//       for a label sitting below a marker.
+//    2. Native, uninterrupted pinch/pan: driving `Map` via a freshly-computed `initialPosition`
+//       on every SwiftUI re-render (e.g. each time this flight's live-tracking data refreshes)
+//       made the camera visibly snap back, which felt indistinguishable from "pinch doesn't
+//       work." `MKMapView`'s own camera is untouched by SwiftUI body re-evaluations — this view
+//       only ever calls into it explicitly (see `Coordinator.apply`), never resets it just
+//       because the surrounding view redrew.
+//    3. A live-follow camera for en-route flights (see `Coordinator.isFollowing`) that recenters
+//       on the moving marker without resetting whatever zoom level the user last chose —
+//       `setCenter(_:animated:)` alone, not a fresh region fit.
 //
 
-import CoreLocation
-import MapLibre
+import MapKit
 import SwiftUI
 import UIKit
 
@@ -21,9 +29,7 @@ struct FlightMapView: View {
     let flight: Flight
     var interactive: Bool = true
     /// Minimum padding (screen points) reserved around the fitted route on every edge, passed
-    /// straight through to `MLNMapView.setVisibleCoordinates(_:count:edgePadding:animated:)` —
-    /// MapLibre computes the exact camera to keep the whole route inside (frame - this padding),
-    /// so unlike the old MapKit implementation there's no manual bounding-box math to get wrong.
+    /// straight through to `MKMapView.setVisibleMapRect(_:edgePadding:animated:)`.
     var edgePadding: CGFloat = 40
 
     /// Resolved directly from the flight (set explicitly when adding it) rather than a linked
@@ -36,12 +42,12 @@ struct FlightMapView: View {
     var body: some View {
         // `.isFinite` alongside the nil-check — a NaN/infinite latitude or longitude (garbage
         // upstream data, not the normal "not resolved yet" case, which is nil and already
-        // handled below) would otherwise flow straight into MapLibre's camera-fitting and
-        // annotation coordinates and crash the map view outright.
+        // handled below) would otherwise flow straight into the camera-fitting math and crash
+        // the map view outright.
         if let origin = flight.origin.coordinate, let destination = flight.destination.coordinate,
            origin.latitude.isFinite, origin.longitude.isFinite,
            destination.latitude.isFinite, destination.longitude.isFinite {
-            MapLibreRouteView(
+            MapKitRouteView(
                 origin: origin,
                 destination: destination,
                 originCode: flight.origin.displayCode,
@@ -52,6 +58,11 @@ struct FlightMapView: View {
                 progress: flight.progress,
                 status: flight.status,
                 interactive: interactive,
+                // Only the full detail screen (interactive) gets the immersive live-follow
+                // camera when en route — the compact Home card is a glanceable route overview,
+                // and it's non-interactive anyway so a user could never pinch back out of a tight
+                // follow zoom there.
+                followWhenEnRoute: interactive,
                 edgePadding: edgePadding
             )
         } else {
@@ -78,10 +89,10 @@ struct FlightMapView: View {
     }
 }
 
-/// The MapLibre map itself. A thin `UIViewRepresentable` shell — all the real work (building the
-/// route source/layers, placing annotations, fitting the camera) happens in `Coordinator`, which
-/// persists across SwiftUI body re-evaluations exactly like the underlying `MLNMapView` does.
-private struct MapLibreRouteView: UIViewRepresentable {
+/// The `MKMapView` itself. A thin `UIViewRepresentable` shell — all the real work (building the
+/// route overlays, placing annotations, fitting/following the camera) happens in `Coordinator`,
+/// which persists across SwiftUI body re-evaluations exactly like the underlying `MKMapView` does.
+private struct MapKitRouteView: UIViewRepresentable {
     let origin: CLLocationCoordinate2D
     let destination: CLLocationCoordinate2D
     let originCode: String
@@ -90,31 +101,48 @@ private struct MapLibreRouteView: UIViewRepresentable {
     let positionHeading: Double?
     /// 0, 1, or 2 people — both partners can be marked as travelling together on one flight.
     let travelers: [Person]
-    /// 0...1, mirrors `Flight.progress` — how far along the route the traveled (colored)
-    /// portion of the line extends before giving way to the grey untraveled remainder.
+    /// 0...1, mirrors `Flight.progress` — how far along the route the traveled (colored) portion
+    /// of the line extends before giving way to the grey untraveled remainder.
     let progress: Double
     let status: FlightStatus
     let interactive: Bool
+    let followWhenEnRoute: Bool
     let edgePadding: CGFloat
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
-    func makeUIView(context: Context) -> MLNMapView {
-        let mapView = MLNMapView(frame: .zero, styleURL: MapLibreStyle.openFreeMapLiberty)
+    func makeUIView(context: Context) -> SizeAwareMapView {
+        let mapView = SizeAwareMapView(frame: .zero)
         mapView.delegate = context.coordinator
-        mapView.logoView.isHidden = true
-        mapView.compassView.isHidden = true
+        mapView.pointOfInterestFilter = .excludingAll
+        mapView.showsCompass = false
+        mapView.showsScale = false
         mapView.isZoomEnabled = interactive
         mapView.isScrollEnabled = interactive
-        mapView.isRotateEnabled = interactive
+        mapView.isRotateEnabled = false
         mapView.isPitchEnabled = false
+        // `MKMapView` ships with a non-nil default `cameraZoomRange`, and re-assigning `nil`
+        // doesn't clear it (reading it back immediately afterward still shows a non-nil value) —
+        // an explicit, generous max distance here guards against it constraining `fitCamera`'s
+        // `MKMapCamera`-based fit (see that function's comment for the actual root cause of why
+        // region-based fitting doesn't work for a wide route in the first place).
+        mapView.cameraZoomRange = MKMapView.CameraZoomRange(maxCenterCoordinateDistance: 40_000_000)
         context.coordinator.mapView = mapView
-        context.coordinator.apply(route(), edgePadding: edgePadding)
+        // `makeUIView` runs before SwiftUI has laid the view out, so `mapView.bounds` is still
+        // zero here — fitting the camera against a zero-sized view produces a garbage zoom level
+        // (this was the actual cause of "ports cropped out of view": the very first fit landed on
+        // whatever degenerate span a zero-width/height rect implies). `onLayout` below catches the
+        // real size once UIKit actually lays the view out and (re)runs the deferred fit then.
+        mapView.onLayout = { [weak mapView, weak coordinator = context.coordinator] in
+            guard let mapView, let coordinator else { return }
+            coordinator.layoutDidChange(mapView: mapView)
+        }
+        context.coordinator.apply(route(), edgePadding: edgePadding, followWhenEnRoute: followWhenEnRoute)
         return mapView
     }
 
-    func updateUIView(_ mapView: MLNMapView, context: Context) {
-        context.coordinator.apply(route(), edgePadding: edgePadding)
+    func updateUIView(_ mapView: SizeAwareMapView, context: Context) {
+        context.coordinator.apply(route(), edgePadding: edgePadding, followWhenEnRoute: followWhenEnRoute)
     }
 
     private func route() -> Coordinator.Route {
@@ -131,9 +159,10 @@ private struct MapLibreRouteView: UIViewRepresentable {
         )
     }
 
-    /// Owns the `MLNMapView` delegate callbacks, the route source/line layers, and the three
-    /// annotations (origin, destination, live/traveler position).
-    final class Coordinator: NSObject, MLNMapViewDelegate {
+    /// Owns the `MKMapView` delegate callbacks, the route overlays, and the three annotations
+    /// (origin, destination, live/traveler position) — plus the follow-camera state machine for
+    /// en-route flights.
+    final class Coordinator: NSObject, MKMapViewDelegate {
         struct Route: Equatable {
             var origin: CLLocationCoordinate2D
             var destination: CLLocationCoordinate2D
@@ -155,20 +184,21 @@ private struct MapLibreRouteView: UIViewRepresentable {
             }
         }
 
-        private static let sourceIdentifier = "flight-route"
-        private static let casingLayerIdentifier = "flight-route-casing"
-        private static let gradientLayerIdentifier = "flight-route-gradient"
         private static let originIdentifier = "flight-origin"
         private static let destinationIdentifier = "flight-destination"
         private static let positionIdentifier = "flight-position"
 
-        weak var mapView: MLNMapView?
+        weak var mapView: MKMapView?
 
-        private var styleIsLoaded = false
-        private var hasBuiltRoute = false
         private var hasFittedCamera = false
-        private var pendingRoute: Route?
-        private var pendingEdgePadding: CGFloat = 40
+        /// Once true, the camera recenters on the marker as it moves without touching zoom —
+        /// turned off the moment the user manually pans/pinches (see
+        /// `mapView(_:regionDidChangeAnimated:)`), so it never fights a deliberate gesture.
+        private var isFollowing = false
+        /// Guards `regionDidChangeAnimated` from mistaking our own programmatic camera calls
+        /// (`setVisibleMapRect`/`setRegion`/`setCenter`) for user-driven ones — set immediately
+        /// before each such call, consumed on the very next delegate callback.
+        private var isProgrammaticCameraChange = false
         private var lastAppliedRoute: Route?
 
         private var originAnnotation: RouteAnnotation?
@@ -177,26 +207,268 @@ private struct MapLibreRouteView: UIViewRepresentable {
         private var originHasOverlappingMarker = false
         private var destinationHasOverlappingMarker = false
 
-        func apply(_ route: Route, edgePadding: CGFloat) {
-            pendingRoute = route
-            pendingEdgePadding = edgePadding
-            guard styleIsLoaded, let mapView, let style = mapView.style else { return }
-            guard lastAppliedRoute != route else { return }
-            render(route, edgePadding: edgePadding, style: style, mapView: mapView)
+        /// The most recent values passed to `apply` — replayed by `layoutDidChange` if the very
+        /// first fit had to be deferred because the view wasn't laid out yet, or if the view's
+        /// real size later turns out to differ from what it was fitted against.
+        private var pendingEdgePadding: CGFloat = 40
+        private var pendingFollowWhenEnRoute = false
+        /// The `MKMapView` bounds size the last fit was computed against — `layoutSubviews` fires
+        /// on every relayout, not just the first one, and a card living inside a
+        /// `ScrollView`/`containerRelativeFrame` carousel (the Home flight carousel) can settle
+        /// through more than one width before reaching its final size. Comparing against this
+        /// lets `layoutDidChange` tell "just another relayout at the same size" (ignore) apart
+        /// from "the container actually resized since we last fitted" (refit) — without it, a fit
+        /// computed against an early, too-narrow intermediate width stuck permanently, which is
+        /// what made the Home card's route look wrong/never-corrected.
+        private var lastFittedBoundsSize: CGSize = .zero
+
+        /// Flighty-style close tracking: statuses where the plane is genuinely airborne and its
+        /// live position is worth zooming in on. Excludes `.boarding` (still at the gate — the
+        /// marker just sits on the origin, nothing to zoom into yet).
+        private static func isFollowEligible(_ status: FlightStatus) -> Bool {
+            status == .departed || status == .inAir || status == .landingSoon
         }
 
-        func mapView(_ mapView: MLNMapView, didFinishLoading style: MLNStyle) {
-            styleIsLoaded = true
-            if let pendingRoute {
-                render(pendingRoute, edgePadding: pendingEdgePadding, style: style, mapView: mapView)
+        func apply(_ route: Route, edgePadding: CGFloat, followWhenEnRoute: Bool) {
+            guard let mapView else { return }
+            pendingEdgePadding = edgePadding
+            pendingFollowWhenEnRoute = followWhenEnRoute
+
+            guard route != lastAppliedRoute else { return }
+
+            let previousStatus = lastAppliedRoute?.status
+            updateOverlays(route, mapView: mapView)
+            lastAppliedRoute = route
+
+            let wasFollowEligible = previousStatus.map(Self.isFollowEligible) ?? false
+            let isFollowEligible = Self.isFollowEligible(route.status)
+            let enteredEnRoute = followWhenEnRoute && isFollowEligible && !wasFollowEligible
+            let leftEnRoute = followWhenEnRoute && !isFollowEligible && wasFollowEligible
+            guard !hasFittedCamera || enteredEnRoute || leftEnRoute else {
+                // The camera's already been fitted at least once, so it's safe to touch
+                // annotations here too (see `updateAnnotations`).
+                updateAnnotations(route, mapView: mapView)
+                if isFollowing, let marker = markerCoordinate(for: route) {
+                    isProgrammaticCameraChange = true
+                    mapView.setCenter(marker, animated: true)
+                }
+                return
+            }
+
+            // A zero-sized view can't be fitted meaningfully — `layoutDidChange` retries once
+            // UIKit actually lays it out, so `hasFittedCamera` stays false here rather than
+            // getting marked done against a bogus size. Annotations wait too (see
+            // `updateAnnotations`'s doc comment) — added now, they'd position themselves against
+            // this not-yet-fitted camera and never get corrected.
+            guard mapView.bounds.width > 1, mapView.bounds.height > 1 else { return }
+            // Never animated — an animated `setVisibleMapRect` reads back its *starting* region
+            // (not the target) from `visibleMapRect`/annotation positions until the animation
+            // actually finishes, which given how often this can re-run (e.g. the carousel's
+            // container settling to its final width across a couple of layout passes) meant a
+            // later, correctly-computed fit could visually appear to do nothing or look wrong for
+            // the ~0.3s the previous animation was still mid-flight.
+            fitCamera(for: route, edgePadding: edgePadding, followWhenEnRoute: followWhenEnRoute, mapView: mapView, animated: false)
+            hasFittedCamera = true
+            lastFittedBoundsSize = mapView.bounds.size
+            isFollowing = followWhenEnRoute && isFollowEligible
+            updateAnnotations(route, mapView: mapView)
+        }
+
+        /// Fires on every `layoutSubviews` of the underlying `MKMapView` — re-fits whenever
+        /// there's been no fit yet, or the view's real size has meaningfully changed since the
+        /// last one (see `lastFittedBoundsSize`); otherwise a no-op.
+        func layoutDidChange(mapView: MKMapView) {
+            guard let route = lastAppliedRoute, mapView.bounds.width > 1, mapView.bounds.height > 1 else { return }
+            let currentSize = mapView.bounds.size
+            let sizeChanged = abs(currentSize.width - lastFittedBoundsSize.width) > 2 || abs(currentSize.height - lastFittedBoundsSize.height) > 2
+            guard !hasFittedCamera || sizeChanged else { return }
+            fitCamera(for: route, edgePadding: pendingEdgePadding, followWhenEnRoute: pendingFollowWhenEnRoute, mapView: mapView, animated: false)
+            hasFittedCamera = true
+            lastFittedBoundsSize = currentSize
+            isFollowing = pendingFollowWhenEnRoute && Self.isFollowEligible(route.status)
+            updateAnnotations(route, mapView: mapView)
+        }
+
+        func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
+            if isProgrammaticCameraChange {
+                isProgrammaticCameraChange = false
+                return
+            }
+            // A real pinch/pan from the user — let them keep it; stop overriding their view with
+            // follow-camera recenters until the flight's en-route state changes again.
+            isFollowing = false
+        }
+
+        // MARK: - Camera
+
+        /// Tight zoom on the live marker for an en-route flight, close enough that the
+        /// plane/avatar's motion between successive position updates is clearly visible against
+        /// nearby geography (roads, towns) — matching the close-tracking view flight-tracking
+        /// apps like Flighty use, rather than a wide regional overview.
+        private static let followSpanMeters: CLLocationDistance = 25_000
+
+        private func fitCamera(for route: Route, edgePadding: CGFloat, followWhenEnRoute: Bool, mapView: MKMapView, animated: Bool) {
+            isProgrammaticCameraChange = true
+            if followWhenEnRoute, Self.isFollowEligible(route.status), let marker = markerCoordinate(for: route) {
+                mapView.setRegion(MKCoordinateRegion(center: marker, latitudinalMeters: Self.followSpanMeters, longitudinalMeters: Self.followSpanMeters), animated: animated)
+                return
+            }
+
+            // Endpoint labels hang below their coordinate, not around it symmetrically (see
+            // `endpointMarker`/`endpointMarkerSize`) — whichever endpoint lands at the bottom of
+            // the fitted route needs that much extra clearance below it, or its label gets
+            // clipped by the card's edge instead of just sitting there unread. Based on the
+            // marker's actual current overlap state (usually smaller than the worst case) rather
+            // than always assuming a traveler avatar is parked on that endpoint — reserving the
+            // full worst-case clearance unconditionally was eating nearly a third of the Home
+            // card's short 140pt height, forcing the whole route to zoom out far more than
+            // necessary just to leave room for a label overlap that, most of the time, isn't
+            // actually happening.
+            let hasOverlap = markerOverlapsEndpoint(for: route)
+            let markerSize = Self.endpointMarkerSize(hasOverlappingMarker: hasOverlap)
+            let labelClearance = markerSize.height - 5
+            // The label capsule is centered under the dot and wider than the base edge padding
+            // alone accounts for — whichever endpoint lands near the *left or right* edge (common
+            // for a route that crosses mostly east-west, like an ocean-spanning one, rather than
+            // pole-to-pole) needs that half-width reserved too, or the capsule clips off the side
+            // instead of just the bottom.
+            let horizontalClearance = max(edgePadding, markerSize.width / 2)
+            let insets = UIEdgeInsets(top: edgePadding, left: horizontalClearance, bottom: edgePadding + labelClearance, right: horizontalClearance)
+
+            // `MKCoordinateRegion`-based fitting (`setRegion`/`setVisibleMapRect`/`showAnnotations`
+            // — all three tried) silently caps how wide a region's *span in degrees* can be at a
+            // given center latitude, well short of what a route like this genuinely needs — empty
+            // ocean got zoomed into instead of the actual route, no matter how much padding or
+            // extra span was requested. `MKMapCamera(lookingAtCenter:fromDistance:)` sets the
+            // camera by altitude instead of a coordinate span, which isn't subject to that same
+            // ceiling, so this fits the *whole* curve (not just the two ports) — including its
+            // high-latitude peak (e.g. ~62°N for a Shanghai–Dallas polar great circle) — via the
+            // same empirical grow-until-it-fits loop, driven through the camera API instead.
+            let samples = Self.routeSamples(from: route.origin, to: route.destination)
+            let points = Self.unwrappedMapPoints(for: samples)
+            let worldWidth = MKMapSize.world.width
+            let minX = points.map(\.x).min()!, maxX = points.map(\.x).max()!
+            let minY = points.map(\.y).min()!, maxY = points.map(\.y).max()!
+            var midX = (minX + maxX) / 2
+            if midX < 0 { midX += worldWidth }
+            if midX >= worldWidth { midX -= worldWidth }
+            let center = MKMapPoint(x: midX, y: (minY + maxY) / 2).coordinate
+            let metersPerMapPoint = MKMetersPerMapPointAtLatitude(center.latitude)
+            let minSpanMapPoints = 2_000.0
+            let spanMeters = max(max(maxY - minY, minSpanMapPoints), max(maxX - minX, minSpanMapPoints)) * metersPerMapPoint
+            let safeMinX = insets.left, safeMinY = insets.top
+            let safeMaxX = mapView.bounds.width - insets.right, safeMaxY = mapView.bounds.height - insets.bottom
+
+            let maxDistance: CLLocationDistance = 30_000_000
+            var distance: CLLocationDistance = min(spanMeters * 2.4, maxDistance)
+            for attempt in 0..<10 {
+                mapView.setCamera(MKMapCamera(lookingAtCenter: center, fromDistance: distance, pitch: 0, heading: 0), animated: animated && attempt == 0)
+                let fits = samples.allSatisfy { sample in
+                    let p = mapView.convert(sample, toPointTo: mapView)
+                    return p.x >= safeMinX && p.x <= safeMaxX && p.y >= safeMinY && p.y <= safeMaxY
+                }
+                if fits { break }
+                distance = min(distance * 1.4, maxDistance)
             }
         }
 
-        func mapView(_ mapView: MLNMapView, viewFor annotation: any MLNAnnotation) -> MLNAnnotationView? {
+        private func markerOverlapsEndpoint(for route: Route) -> Bool {
+            guard let marker = markerCoordinate(for: route) else { return false }
+            let originOverlap = marker.latitude == route.origin.latitude && marker.longitude == route.origin.longitude
+            let destinationOverlap = marker.latitude == route.destination.latitude && marker.longitude == route.destination.longitude
+            return originOverlap || destinationOverlap
+        }
+
+        // MARK: - Building the route
+
+        /// Endpoint and position annotation views — `MKAnnotationView` positions itself once,
+        /// against whatever camera is active the moment `viewFor` runs for it; adding one before
+        /// the map has ever had a real camera fit applied left it stuck rendered at a degenerate
+        /// off-screen position that MapKit never corrected afterward once the camera later became
+        /// valid (unlike overlays, which redraw fresh every frame regardless of when they were
+        /// added — see `updateOverlays`, safe to call anytime). Callers only invoke this once
+        /// `hasFittedCamera` is true.
+        private func updateAnnotations(_ route: Route, mapView: MKMapView) {
+            updateEndpointAnnotations(route, mapView: mapView)
+            updatePositionAnnotation(route, mapView: mapView)
+        }
+
+        /// Traveled portion (origin up to the flight's current progress) vs. the leg not yet
+        /// flown — same hue, so the line still reads as one continuous route, just with the
+        /// traveled part vivid and the rest faded back, rather than the two-color progress-
+        /// gradient banding tried earlier (visually busy, and its per-segment color bands didn't
+        /// line up with the real progress closely enough to read as meaningful).
+        private static let traveledColor = UIColor(red: 0.10, green: 0.48, blue: 1.0, alpha: 1.0)
+        private static let untraveledColor = UIColor(red: 0.10, green: 0.48, blue: 1.0, alpha: 0.35)
+
+        private func updateOverlays(_ route: Route, mapView: MKMapView) {
+            mapView.removeOverlays(mapView.overlays)
+
+            // Built from `MKMapPoint`s already unwrapped across the antimeridian (see
+            // `unwrappedMapPoints`), not raw coordinates — `MKPolyline(coordinates:count:)` would
+            // otherwise draw a route that legitimately swings past ±180° longitude (common for
+            // near-polar great circles) as if it looped the long way around the globe instead of
+            // the short way across the date line.
+            let points = Self.unwrappedMapPoints(for: Self.routeSamples(from: route.origin, to: route.destination))
+            let casing = ColoredPolyline(points: points, count: points.count)
+            casing.strokeColor = .white
+            casing.lineWidth = 7
+            mapView.addOverlay(casing)
+
+            let progress = route.status == .diverted ? 0 : route.progress
+            let (traveled, untraveled) = Self.splitPoints(points, progress: progress)
+            if !untraveled.isEmpty {
+                let line = ColoredPolyline(points: untraveled, count: untraveled.count)
+                line.strokeColor = Self.untraveledColor
+                line.lineWidth = 4
+                mapView.addOverlay(line)
+            }
+            if !traveled.isEmpty {
+                let line = ColoredPolyline(points: traveled, count: traveled.count)
+                line.strokeColor = Self.traveledColor
+                line.lineWidth = 4
+                mapView.addOverlay(line)
+            }
+        }
+
+        /// Splits the evenly-spaced route samples into a traveled prefix and untraveled suffix at
+        /// `progress`, linearly interpolating the exact split point between the two samples it
+        /// falls between so the two polylines meet without a visible gap or overlap.
+        private static func splitPoints(_ points: [MKMapPoint], progress: Double) -> (traveled: [MKMapPoint], untraveled: [MKMapPoint]) {
+            guard points.count > 1 else { return (points, points) }
+            if progress <= 0.001 { return ([], points) }
+            if progress >= 0.999 { return (points, []) }
+
+            let totalSegments = points.count - 1
+            let exactIndex = progress * Double(totalSegments)
+            let splitIndex = min(max(Int(exactIndex), 0), totalSegments - 1)
+            let fraction = exactIndex - Double(splitIndex)
+            let a = points[splitIndex], b = points[splitIndex + 1]
+            let splitPoint = MKMapPoint(x: a.x + (b.x - a.x) * fraction, y: a.y + (b.y - a.y) * fraction)
+
+            var traveled = Array(points[0...splitIndex])
+            traveled.append(splitPoint)
+            var untraveled = [splitPoint]
+            untraveled.append(contentsOf: points[(splitIndex + 1)...])
+            return (traveled, untraveled)
+        }
+
+        func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
+            guard let colored = overlay as? ColoredPolyline else { return MKOverlayRenderer(overlay: overlay) }
+            let renderer = MKPolylineRenderer(polyline: colored)
+            renderer.strokeColor = colored.strokeColor
+            renderer.lineWidth = colored.lineWidth
+            renderer.lineCap = .round
+            renderer.lineJoin = .round
+            return renderer
+        }
+
+        func mapView(_ mapView: MKMapView, viewFor annotation: any MKAnnotation) -> MKAnnotationView? {
             guard let annotation = annotation as? RouteAnnotation else { return nil }
             let identifier = annotation.reuseIdentifier
             let view = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? SwiftUIAnnotationView
-                ?? SwiftUIAnnotationView(reuseIdentifier: identifier)
+                ?? SwiftUIAnnotationView(annotation: annotation, reuseIdentifier: identifier)
+            view.annotation = annotation
             switch annotation.kind {
             case .origin, .destination:
                 // Anchored so the dot (not the whole dot+label stack) sits on the true
@@ -208,8 +480,12 @@ private struct MapLibreRouteView: UIViewRepresentable {
                 view.setContent(
                     Self.endpointMarker(code: annotation.title ?? "", hasOverlappingMarker: annotation.hasOverlappingMarker),
                     size: size,
-                    centerOffset: CGVector(dx: 0, dy: size.height / 2 - 5)
+                    centerOffset: CGPoint(x: 0, y: size.height / 2 - 5)
                 )
+                // Below the live position marker in z-order (set explicitly below) — when they
+                // coincide (pre-departure or just after arrival), the plane/avatar is the more
+                // important thing to actually see, not the plain endpoint dot underneath it.
+                view.zPriority = .init(rawValue: 1)
             case .position:
                 switch annotation.travelers.count {
                 case 0:
@@ -219,120 +495,11 @@ private struct MapLibreRouteView: UIViewRepresentable {
                 default:
                     view.setContent(Self.bothTravelersMarker(annotation.travelers), size: CGSize(width: 56, height: 44))
                 }
+                view.zPriority = .init(rawValue: 2)
             }
             return view
         }
 
-        // MARK: - Building the route
-
-        private func render(_ route: Route, edgePadding: CGFloat, style: MLNStyle, mapView: MLNMapView) {
-            let samples = Self.routeSamples(from: route.origin, to: route.destination)
-
-            if !hasBuiltRoute {
-                buildRoute(samples: samples, style: style)
-                hasBuiltRoute = true
-            } else if let source = style.source(withIdentifier: Self.sourceIdentifier) as? MLNShapeSource {
-                source.shape = MLNPolyline(coordinates: samples, count: UInt(samples.count))
-            }
-            updateGradient(progress: route.progress, style: style)
-
-            updateEndpointAnnotations(route, mapView: mapView)
-            updatePositionAnnotation(route, mapView: mapView)
-
-            if !hasFittedCamera {
-                // Endpoint labels hang below their coordinate, not around it symmetrically (see
-                // `endpointMarker`/`endpointMarkerSize`) — whichever endpoint lands at the bottom
-                // of the fitted route needs that much extra clearance below it, or its label gets
-                // clipped by the card's edge instead of just sitting there unread. Sized for the
-                // worst case (a traveler avatar parked on that endpoint) since this fit only runs
-                // once, before it's necessarily known whether that'll happen later.
-                let labelClearance = Self.endpointMarkerSize(hasOverlappingMarker: true).height - 5
-                let insets = UIEdgeInsets(top: edgePadding, left: edgePadding, bottom: edgePadding + labelClearance, right: edgePadding)
-                mapView.setVisibleCoordinates(samples, count: UInt(samples.count), edgePadding: insets, animated: false)
-                hasFittedCamera = true
-            }
-
-            lastAppliedRoute = route
-        }
-
-        private func buildRoute(samples: [CLLocationCoordinate2D], style: MLNStyle) {
-            let polyline = MLNPolyline(coordinates: samples, count: UInt(samples.count))
-            let source = MLNShapeSource(
-                identifier: Self.sourceIdentifier,
-                shape: polyline,
-                options: [MLNShapeSourceOption.lineDistanceMetrics: true]
-            )
-            style.addSource(source)
-
-            // A light halo underneath a solid, higher-contrast line — even a saturated gradient
-            // can wash out against ocean/land on the basemap, so the white outline keeps it
-            // legible everywhere regardless of what's underneath.
-            let casing = MLNLineStyleLayer(identifier: Self.casingLayerIdentifier, source: source)
-            casing.lineJoin = NSExpression(forConstantValue: "round")
-            casing.lineCap = NSExpression(forConstantValue: "round")
-            casing.lineColor = NSExpression(forConstantValue: UIColor.white)
-            casing.lineOpacity = NSExpression(forConstantValue: 0.9)
-            casing.lineWidth = NSExpression(forConstantValue: 6)
-            style.addLayer(casing)
-
-            let gradient = MLNLineStyleLayer(identifier: Self.gradientLayerIdentifier, source: source)
-            gradient.lineJoin = NSExpression(forConstantValue: "round")
-            gradient.lineCap = NSExpression(forConstantValue: "round")
-            gradient.lineWidth = NSExpression(forConstantValue: 4)
-            style.addLayer(gradient)
-        }
-
-        /// The traveled portion of the route (origin up to the flight's current progress) shows
-        /// the sky-blue-to-leaf-green gradient; everything beyond that — the leg not yet
-        /// flown — is a plain grey, so the line itself reads as a progress indicator rather than
-        /// a static route outline. Re-applied on every `render()` call (not just the one-time
-        /// `buildRoute`), since progress advances continuously over a flight's duration.
-        private func updateGradient(progress: Double, style: MLNStyle) {
-            guard let gradient = style.layer(withIdentifier: Self.gradientLayerIdentifier) as? MLNLineStyleLayer else { return }
-
-            let traveledStart = UIColor(Theme.skyBlue)
-            let traveledEnd = UIColor(Theme.leafGreen)
-            let untraveled = UIColor(Theme.subtleInk.opacity(0.35))
-
-            let stops: [NSNumber: UIColor]
-            if progress <= 0.001 {
-                // Not departed yet (or no schedule to gauge progress against) — nothing traveled.
-                stops = [0: untraveled, 1: untraveled]
-            } else if progress >= 0.999 {
-                // Arrived — the whole route is "traveled."
-                stops = [0: traveledStart, 1: traveledEnd]
-            } else {
-                stops = [
-                    0: traveledStart,
-                    NSNumber(value: progress): traveledEnd,
-                    NSNumber(value: min(1, progress + 0.001)): untraveled,
-                    1: untraveled,
-                ]
-            }
-
-            gradient.lineGradient = NSExpression(
-                forMLNInterpolating: NSExpression.lineProgressVariable,
-                curveType: .linear,
-                parameters: nil,
-                stops: NSExpression(forConstantValue: stops)
-            )
-        }
-
-        /// Whether the position marker (traveler avatar or plane-icon fallback — see
-        /// `updatePositionAnnotation`) sits exactly on a given endpoint right now — the one case
-        /// where that endpoint's label needs extra clearance underneath it.
-        ///
-        /// Both the traveler avatar and the plane-icon fallback ride the drawn route curve by
-        /// `progress` — the same fraction the gradient line uses — rather than the raw live GPS
-        /// ping: real ADS-B tracks wander off the idealized great-circle line (wind routing, ATC
-        /// vectoring), which made the marker visibly drift off the drawn path. This also means it
-        /// lands exactly on the destination dot once the flight completes, instead of wherever
-        /// the last GPS fix happened to be (which may never be updated again after landing, since
-        /// live position polling stops once a flight is no longer airborne — see
-        /// `AIRBORNE_STATUSES` server-side), and that with no traveler set, the plane still
-        /// visibly travels the path pre-departure through arrival rather than only appearing once
-        /// a live GPS ping exists.
-        ///
         /// Diverted is the one exception: the plane is no longer following the original
         /// origin-destination line at all, so a progress-interpolated point along it would be
         /// actively misleading. Falls back to the real live position there, or the origin if no
@@ -344,7 +511,7 @@ private struct MapLibreRouteView: UIViewRepresentable {
             return Self.intermediateGreatCirclePoint(route.origin, route.destination, fraction: route.progress)
         }
 
-        private func updateEndpointAnnotations(_ route: Route, mapView: MLNMapView) {
+        private func updateEndpointAnnotations(_ route: Route, mapView: MKMapView) {
             let marker = markerCoordinate(for: route)
             let originOverlap = marker.map { $0.latitude == route.origin.latitude && $0.longitude == route.origin.longitude } ?? false
             let destinationOverlap = marker.map { $0.latitude == route.destination.latitude && $0.longitude == route.destination.longitude } ?? false
@@ -380,7 +547,7 @@ private struct MapLibreRouteView: UIViewRepresentable {
         /// airborne. That's true whether it's a traveler's avatar or the plane-icon fallback (no
         /// traveler set): both are driven by `progress`, not the raw live GPS ping (see
         /// `markerCoordinate(for:)`), so there's always something to show once a route exists.
-        private func updatePositionAnnotation(_ route: Route, mapView: MLNMapView) {
+        private func updatePositionAnnotation(_ route: Route, mapView: MKMapView) {
             if let existing = positionAnnotation {
                 mapView.removeAnnotation(existing)
                 positionAnnotation = nil
@@ -523,36 +690,62 @@ private struct MapLibreRouteView: UIViewRepresentable {
             return θ.truncatingRemainder(dividingBy: 360) + (θ < 0 ? 360 : 0)
         }
 
-        /// Samples 16 points along the great-circle curve (plus both endpoints) and unwraps
-        /// longitude incrementally across the sequence so a route crossing the antimeridian
-        /// doesn't jump back around through the opposite hemisphere. `MLNMapView` requires the
-        /// caller to do this unwrapping itself — it doesn't happen automatically (confirmed
-        /// against the SDK's own header docs, which describe passing longitudes outside ±180°
-        /// to bring both sides of the antimeridian into view).
+        /// Samples 200 points along the great-circle curve (plus both endpoints) — dense enough
+        /// that the short straight segments between consecutive samples read as a genuinely
+        /// smooth curve rather than a faceted polyline even at the tight zoom levels the peak of
+        /// a long-haul great circle gets viewed at (a coarser sample count left visible facets
+        /// right where the curve bends the most). Cheap either way — it's a couple hundred trig
+        /// calls, not a rendering bottleneck. Deliberately left in raw (non-unwrapped) coordinate
+        /// form — `MKMapPoint`'s conversion from `CLLocationCoordinate2D` expects longitude in
+        /// its normal ±180° range, so unwrapping happens exactly once, afterward, in map-point
+        /// space (`unwrappedMapPoints`) rather than here too; doing it at both stages fed already-
+        /// out-of-range longitudes back into `MKMapPoint`, corrupting the projection for any route
+        /// whose great-circle path swings past ±180° (common for near-polar routes) and was the
+        /// actual cause of the map fitting to a tiny, wrong sub-region instead of the real route.
         private static func routeSamples(from a: CLLocationCoordinate2D, to b: CLLocationCoordinate2D) -> [CLLocationCoordinate2D] {
-            let sampleCount = 16
+            let sampleCount = 200
             var coordinates: [CLLocationCoordinate2D] = [a]
             for i in 1..<sampleCount {
                 coordinates.append(intermediateGreatCirclePoint(a, b, fraction: Double(i) / Double(sampleCount)))
             }
             coordinates.append(b)
-
-            for i in 1..<coordinates.count {
-                while coordinates[i].longitude - coordinates[i - 1].longitude > 180 {
-                    coordinates[i].longitude -= 360
-                }
-                while coordinates[i].longitude - coordinates[i - 1].longitude < -180 {
-                    coordinates[i].longitude += 360
-                }
-            }
             return coordinates
         }
+
+        /// `MKMapPoint.x` runs monotonically west-to-east across a single flat Mercator strip —
+        /// it has no concept of "the short way around." Unwrapping longitude incrementally across
+        /// the sequence, here in map-point space (the one place it happens — see `routeSamples`),
+        /// keeps every sample's x consistent even where the curve crosses the antimeridian, so
+        /// both the drawn line and the camera-fitting bounds span the route's real short way
+        /// across rather than jumping back around through the opposite hemisphere.
+        private static func unwrappedMapPoints(for samples: [CLLocationCoordinate2D]) -> [MKMapPoint] {
+            var points = samples.map { MKMapPoint($0) }
+            let worldWidth = MKMapSize.world.width
+            for i in 1..<points.count {
+                while points[i].x - points[i - 1].x > worldWidth / 2 { points[i].x -= worldWidth }
+                while points[i].x - points[i - 1].x < -worldWidth / 2 { points[i].x += worldWidth }
+            }
+            return points
+        }
+
     }
 }
 
-/// Carries per-annotation metadata (`MLNPointAnnotation` alone has no room for it) so the
-/// delegate's `viewForAnnotation` can tell markers apart and render the right SwiftUI content.
-private final class RouteAnnotation: MLNPointAnnotation {
+/// A plain `MKMapView` that also reports its own `layoutSubviews` — used to catch the moment
+/// SwiftUI actually gives this view a real, non-zero frame (see the `onLayout` wiring in
+/// `MapKitRouteView.makeUIView`), since `makeUIView` itself runs before that layout pass happens.
+private final class SizeAwareMapView: MKMapView {
+    var onLayout: (() -> Void)?
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        onLayout?()
+    }
+}
+
+/// Carries per-annotation metadata (`MKPointAnnotation` alone has no room for it) so the
+/// delegate's `viewFor annotation:` can tell markers apart and render the right SwiftUI content.
+private final class RouteAnnotation: MKPointAnnotation {
     enum Kind { case origin, destination, position }
 
     let kind: Kind
@@ -568,22 +761,23 @@ private final class RouteAnnotation: MLNPointAnnotation {
         self.reuseIdentifier = reuseIdentifier
         super.init()
     }
-
-    required init?(coder: NSCoder) {
-        self.kind = .origin
-        self.reuseIdentifier = ""
-        super.init(coder: coder)
-    }
 }
 
-/// Hosts SwiftUI marker content inside a MapLibre annotation view — `MLNAnnotationView` is plain
-/// UIKit, so this is the standard SwiftUI-in-UIKit bridge (a `UIHostingController` whose view is
-/// added as a subview), not anything MapLibre-specific.
-private final class SwiftUIAnnotationView: MLNAnnotationView {
+/// A route polyline carrying its own render styling — used for both the white casing and the
+/// blue line on top of it (see `Coordinator.updateOverlays`), since a plain `MKPolyline` has no
+/// room to say which is which.
+private final class ColoredPolyline: MKPolyline {
+    var strokeColor: UIColor = .gray
+    var lineWidth: CGFloat = 4
+}
+
+/// Hosts SwiftUI marker content inside an `MKAnnotationView` — a standard SwiftUI-in-UIKit bridge
+/// (a `UIHostingController` whose view is added as a subview), not anything MapKit-specific.
+private final class SwiftUIAnnotationView: MKAnnotationView {
     private var hostingController: UIHostingController<AnyView>?
 
-    override init(reuseIdentifier: String?) {
-        super.init(reuseIdentifier: reuseIdentifier)
+    override init(annotation: MKAnnotation?, reuseIdentifier: String?) {
+        super.init(annotation: annotation, reuseIdentifier: reuseIdentifier)
         backgroundColor = .clear
     }
 
@@ -591,7 +785,7 @@ private final class SwiftUIAnnotationView: MLNAnnotationView {
         super.init(coder: coder)
     }
 
-    func setContent<Content: View>(_ content: Content, size: CGSize, centerOffset: CGVector = .zero) {
+    func setContent<Content: View>(_ content: Content, size: CGSize, centerOffset: CGPoint = .zero) {
         bounds = CGRect(origin: .zero, size: size)
         self.centerOffset = centerOffset
         if let hostingController {

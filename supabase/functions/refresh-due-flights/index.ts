@@ -5,10 +5,15 @@
 // mass AeroAPI-billing run.
 //
 // Cadence (checked in TS against each row's scheduled_out/last_refreshed_at):
-//   - more than 24h to departure: refresh only if last_refreshed_at is null or >6h old
-//   - 2h-24h to departure: refresh if stale >15 min
+//   - in the 10 minutes leading up to best-known departure, or leading up to best-known
+//     arrival: refresh if stale >1 min (the cron itself now fires every minute — see
+//     20260826000000_flight_refresh_cron_every_minute.sql — specifically so this tier can
+//     actually act that fast; a 5-minute cron can't poll faster than every 5 minutes no
+//     matter how tight this threshold is)
 //   - within 2h of departure, or currently boarding/departed/in_air/landing_soon: refresh if
 //     stale >2 min
+//   - 2h-24h to departure: refresh if stale >15 min
+//   - more than 24h to departure: refresh only if last_refreshed_at is null or >6h old
 //   - tracking_enabled = false: never selected (query excludes it)
 //   - already arrived/landed/cancelled/diverted: selected, but never polls AeroAPI again — only
 //     reconcileOverdueArrival's archive-after-2h check runs for these (see below)
@@ -31,11 +36,24 @@ const INTER_CALL_DELAY_MS = 200;
 
 const ACTIVE_STATUSES = ["boarding", "departed", "in_air", "landing_soon"];
 
+const NEAR_EVENT_WINDOW_MS = 10 * 60 * 1000;
+
 function isDue(flight: FlightRow, now: number): boolean {
   if (!flight.scheduled_out) return true; // no schedule to gauge against — always worth a look
-  const msToDeparture = new Date(flight.scheduled_out).getTime() - now;
   const lastRefreshedMs = flight.last_refreshed_at ? new Date(flight.last_refreshed_at).getTime() : null;
   const staleMs = lastRefreshedMs === null ? Infinity : now - lastRefreshedMs;
+
+  // Best-known (not just scheduled) times — once AeroAPI reports an estimate, that's a more
+  // honest read of "how close is this to actually happening" than the original schedule.
+  const bestDeparture = flight.estimated_out ?? flight.scheduled_out;
+  const bestArrival = flight.estimated_in ?? flight.scheduled_in;
+  const msToDeparture = new Date(bestDeparture).getTime() - now;
+  const msToArrival = bestArrival ? new Date(bestArrival).getTime() - now : null;
+  const isNearDeparture = msToDeparture >= 0 && msToDeparture <= NEAR_EVENT_WINDOW_MS;
+  const isNearArrival = msToArrival !== null && msToArrival >= 0 && msToArrival <= NEAR_EVENT_WINDOW_MS;
+  if (isNearDeparture || isNearArrival) {
+    return staleMs > 1 * 60 * 1000;
+  }
 
   const isActive = ACTIVE_STATUSES.includes(flight.status);
   if (isActive || msToDeparture <= 2 * 60 * 60 * 1000) {

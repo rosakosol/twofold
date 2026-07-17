@@ -24,5 +24,6 @@ struct JourneyExpandedProgressView: View {
                 .tint(tint)
                 .frame(maxWidth: 140)
         }
+        .padding(.horizontal, 8)
     }
 }

@@ -41,6 +41,15 @@ struct RelationshipGlobeView: View {
 
     var body: some View {
         Map(position: $cameraPosition) {
+            // The connection this whole card is about ("Distance between you") — always drawn,
+            // not just during an active trip, so there's actually a visible path between the two
+            // pins rather than just two disconnected avatars floating on the globe. `.geodesic`
+            // (backed by MKGeodesicPolyline) draws the shortest-path curve over the sphere's
+            // surface — the default `.straight` contour is a flat-projection line that doesn't
+            // map correctly onto a rendered 3D globe.
+            MapPolyline(coordinates: [partnerACity.coordinate, partnerBCity.coordinate], contourStyle: .geodesic)
+                .stroke(Theme.skyBlue.opacity(0.85), style: StrokeStyle(lineWidth: 2.5, lineCap: .round, dash: [1, 8]))
+
             Annotation(couple.partnerA.name, coordinate: partnerACity.coordinate) {
                 AvatarView(person: couple.partnerA, size: 36, showsRing: true)
             }
@@ -49,10 +58,10 @@ struct RelationshipGlobeView: View {
             }
 
             if let activeTrip {
-                // `.geodesic` (backed by MKGeodesicPolyline) draws the shortest-path curve over
-                // the sphere's surface — the default `.straight` contour is a flat-projection
-                // line that doesn't map correctly onto a rendered 3D globe, which was making
-                // the route between the two pins invisible/broken here.
+                // The trip's own flight route, when there is one — distinct from the always-on
+                // partner-to-partner line above (solid weight/dash vs. this one), since the two
+                // aren't the same line whenever the trip's endpoints differ from either partner's
+                // current city.
                 MapPolyline(coordinates: [activeTrip.origin.coordinate, activeTrip.destination.coordinate], contourStyle: .geodesic)
                     .stroke(Theme.skyBlue, style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [1, 10]))
 

@@ -19,5 +19,7 @@ struct JourneyExpandedFooterView: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
+        .padding(.horizontal, 16)
+        .padding(.top, 2)
     }
 }

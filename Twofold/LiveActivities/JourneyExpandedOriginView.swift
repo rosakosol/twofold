@@ -25,5 +25,6 @@ struct JourneyExpandedOriginView: View {
                     .foregroundStyle(.secondary)
             }
         }
+        .padding(.leading, 16)
     }
 }

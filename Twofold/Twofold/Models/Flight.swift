@@ -283,6 +283,22 @@ struct Flight: Identifiable, Hashable {
         max(0, (bestArrival ?? .now).timeIntervalSinceNow)
     }
 
+    /// Gate-to-gate duration, using the same best-known-time fallback chain as `progress` (actual
+    /// times once flown, estimated/scheduled beforehand) — nil rather than a bogus value when
+    /// either end isn't known yet.
+    var totalDuration: TimeInterval? {
+        guard let departure = bestDeparture, let arrival = bestArrival, arrival > departure else { return nil }
+        return arrival.timeIntervalSince(departure)
+    }
+
+    /// "8h 1m" — the compact, unlabeled form used alongside the city→city route text, where the
+    /// route itself already makes clear this is a flight duration.
+    var totalDurationSummary: String? {
+        guard let totalDuration else { return nil }
+        let totalMinutes = Int(totalDuration / 60)
+        return "\(totalMinutes / 60)h \(totalMinutes % 60)m"
+    }
+
     var hasLivePosition: Bool { positionLatitude != nil && positionLongitude != nil }
 
     var positionCoordinate: CLLocationCoordinate2D? {
