@@ -65,8 +65,16 @@ private struct FlightIconWithProgressArc: View {
         let tint = LiveActivityPalette.color(for: status)
         ZStack {
             if status == .inAir {
+                // A stroke draws centered on its shape's edge, so it bleeds ~1pt past this
+                // circle's own nominal bounds — both rings are inset here so that overflow lands
+                // inside `size`, not past it. The compact-leading Dynamic Island region isn't a
+                // plain rounded rect (it hugs the camera cutout), so it doesn't offer even
+                // clipping margin on every side, and that 1pt bleed was enough to visibly crop
+                // the arc on the side nearest the sensor housing. Both circles get the same inset
+                // so the progress ring stays concentric with its background track.
                 Circle()
                     .stroke(tint.opacity(0.25), lineWidth: 2)
+                    .padding(1.5)
                 Circle()
                     // A sliver floor keeps the arc visible (rather than invisible at 0%) right
                     // after takeoff, before `progress` has moved meaningfully off zero.
@@ -76,6 +84,7 @@ private struct FlightIconWithProgressArc: View {
                     // rotating -90° moves the start to 12 o'clock so the arc fills clockwise
                     // from the top, matching the reading direction of a clock/progress ring.
                     .rotationEffect(.degrees(-90))
+                    .padding(1.5)
             }
             Image(systemName: icon)
                 .font(.system(size: size * 0.5, weight: .semibold))

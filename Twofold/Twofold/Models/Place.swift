@@ -34,6 +34,17 @@ struct Place: Identifiable, Hashable, Codable {
         timeZoneIdentifier.flatMap(TimeZone.init(identifier:))
     }
 
+    /// Best-effort "real" city name for display — `city` itself is whatever Apple's on-device
+    /// geocoder returned for this coordinate, which for many countries (Australia among them)
+    /// is the *suburb*, since there's no separate "locality vs. suburb" distinction in their
+    /// addressing (e.g. a West Footscray address geocodes with `locality` = "West Footscray",
+    /// not "Melbourne"). Resolves to the nearest bundled major city within a reasonable radius,
+    /// falling back to the raw geocoded name for anywhere too far from any of them (small towns,
+    /// rural areas) rather than pointing at a "nearest major city" that isn't really local.
+    var displayCity: String {
+        Geo.nearestMajorCity(to: coordinate)?.name ?? city
+    }
+
     static func == (lhs: Place, rhs: Place) -> Bool {
         lhs.id == rhs.id
     }

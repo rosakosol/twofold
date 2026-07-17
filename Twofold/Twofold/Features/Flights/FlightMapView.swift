@@ -55,6 +55,7 @@ struct FlightMapView: View {
                 position: flight.positionCoordinate,
                 positionHeading: flight.positionHeading,
                 travelers: travelers,
+                currentUserID: appModel.currentUser.id,
                 bestDeparture: flight.bestDeparture,
                 bestArrival: flight.bestArrival,
                 status: flight.status,
@@ -102,6 +103,10 @@ private struct MapKitRouteView: UIViewRepresentable {
     let positionHeading: Double?
     /// 0, 1, or 2 people — both partners can be marked as travelling together on one flight.
     let travelers: [Person]
+    /// Whose device this is — when both partners are travelling together, the marker keeps
+    /// `travelers`' own left/right layout order but draws this person's avatar on top (see
+    /// `Coordinator.bothTravelersMarker`), rather than repositioning it.
+    let currentUserID: Person.ID?
     /// Raw times, not a pre-computed progress fraction — the Coordinator recomputes "how far
     /// along the route" itself, live, on every animation tick (see `Coordinator.liveProgress`),
     /// so the marker keeps moving smoothly between polls instead of only jumping once per
@@ -159,6 +164,7 @@ private struct MapKitRouteView: UIViewRepresentable {
             position: position,
             positionHeading: positionHeading,
             travelers: travelers,
+            currentUserID: currentUserID,
             bestDeparture: bestDeparture,
             bestArrival: bestArrival,
             status: status
@@ -177,6 +183,7 @@ private struct MapKitRouteView: UIViewRepresentable {
             var position: CLLocationCoordinate2D?
             var positionHeading: Double?
             var travelers: [Person]
+            var currentUserID: Person.ID?
             var bestDeparture: Date?
             var bestArrival: Date?
             var status: FlightStatus
@@ -187,6 +194,7 @@ private struct MapKitRouteView: UIViewRepresentable {
                     && lhs.originCode == rhs.originCode && lhs.destinationCode == rhs.destinationCode
                     && lhs.position?.latitude == rhs.position?.latitude && lhs.position?.longitude == rhs.position?.longitude
                     && lhs.positionHeading == rhs.positionHeading && lhs.travelers.map(\.id) == rhs.travelers.map(\.id)
+                    && lhs.currentUserID == rhs.currentUserID
                     && lhs.bestDeparture == rhs.bestDeparture && lhs.bestArrival == rhs.bestArrival && lhs.status == rhs.status
             }
         }
@@ -488,48 +496,61 @@ private struct MapKitRouteView: UIViewRepresentable {
         private func updateOverlays(_ route: Route, mapView: MKMapView) {
             mapView.removeOverlays(mapView.overlays)
 
-            // `MKGeodesicPolyline` handles both the curve smoothness and the antimeridian
-            // wraparound itself, given nothing but the two endpoints — no manual sampling or
-            // longitude-unwrapping needed here (unlike `fitCamera`, which still uses
-            // `routeSamples`/`unwrappedMapPoints` for its own distance math).
-            let progress = route.status == .diverted ? 0 : Self.liveProgress(for: route)
-            let segments: [(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D, color: UIColor)]
-            if progress >= 0.999 {
-                segments = [(route.origin, route.destination, Self.traveledColor)]
-            } else if progress <= 0.001 {
-                segments = [(route.origin, route.destination, Self.untraveledColor)]
-            } else {
-                // The same slerp formula MapKit itself uses to fill in a geodesic polyline, so
-                // this split point lands exactly on the curve with no visible kink at the color
-                // change.
-                let split = Self.intermediateGreatCirclePoint(route.origin, route.destination, fraction: progress)
-                segments = [(route.origin, split, Self.traveledColor), (split, route.destination, Self.untraveledColor)]
-            }
+            // Manually sampled points (`routeSamples`/`unwrappedMapPoints` — the same ones
+            // `fitCamera` uses for its own distance math), not `MKGeodesicPolyline` — tried that
+            // first since it hands the curve math to MapKit, but its adaptive point insertion
+            // turned out to be noticeably *sparser* than this manual sampling, leaving a visible
+            // facet right at the peak of a long-haul arc (e.g. Seattle–Barcelona) that this
+            // denser sampling doesn't show. Building the casing from this exact same points array
+            // (not a separately-constructed line) also guarantees it traces exactly under the
+            // colored line — no separate curve computation to drift apart from it.
+            let points = Self.unwrappedMapPoints(for: Self.routeSamples(from: route.origin, to: route.destination))
+            let casing = ColoredPolyline(points: points, count: points.count)
+            casing.strokeColor = .white
+            casing.lineWidth = 7
+            mapView.addOverlay(casing)
 
-            // Casing is built from the exact same `[from, to]` endpoint pairs as the colored
-            // lines below it, not one long origin→destination line spanning both — MapKit's
-            // adaptive point insertion for a geodesic polyline depends on the span between its
-            // *own* two endpoints, so a single full-route casing and the two shorter split
-            // segments came out as visibly different curves (however identical the true great
-            // circle they both approximate), most noticeable at the tight zoom the flight-
-            // tracking screen's follow camera uses. Same endpoint pairs on both guarantees
-            // MapKit computes an identical curve for each, so casing and color trace exactly on
-            // top of each other regardless of zoom.
-            for segment in segments {
-                mapView.addOverlay(Self.coloredLine([segment.from, segment.to], color: .white, lineWidth: 7))
+            let progress = route.status == .diverted ? 0 : Self.liveProgress(for: route)
+            let (traveled, untraveled) = Self.splitPoints(points, progress: progress)
+            if !untraveled.isEmpty {
+                let line = ColoredPolyline(points: untraveled, count: untraveled.count)
+                line.strokeColor = Self.untraveledColor
+                line.lineWidth = 4
+                mapView.addOverlay(line)
             }
-            for segment in segments {
-                mapView.addOverlay(Self.coloredLine([segment.from, segment.to], color: segment.color, lineWidth: 4))
+            if !traveled.isEmpty {
+                let line = ColoredPolyline(points: traveled, count: traveled.count)
+                line.strokeColor = Self.traveledColor
+                line.lineWidth = 4
+                mapView.addOverlay(line)
             }
         }
 
-        private static func coloredLine(_ coordinates: [CLLocationCoordinate2D], color: UIColor, lineWidth: CGFloat) -> ColoredGeodesicOverlay {
-            ColoredGeodesicOverlay(coordinates: coordinates, strokeColor: color, lineWidth: lineWidth)
+        /// Splits the evenly-spaced route samples into a traveled prefix and untraveled suffix at
+        /// `progress`, linearly interpolating the exact split point between the two samples it
+        /// falls between so the two polylines meet without a visible gap or overlap.
+        private static func splitPoints(_ points: [MKMapPoint], progress: Double) -> (traveled: [MKMapPoint], untraveled: [MKMapPoint]) {
+            guard points.count > 1 else { return (points, points) }
+            if progress <= 0.001 { return ([], points) }
+            if progress >= 0.999 { return (points, []) }
+
+            let totalSegments = points.count - 1
+            let exactIndex = progress * Double(totalSegments)
+            let splitIndex = min(max(Int(exactIndex), 0), totalSegments - 1)
+            let fraction = exactIndex - Double(splitIndex)
+            let a = points[splitIndex], b = points[splitIndex + 1]
+            let splitPoint = MKMapPoint(x: a.x + (b.x - a.x) * fraction, y: a.y + (b.y - a.y) * fraction)
+
+            var traveled = Array(points[0...splitIndex])
+            traveled.append(splitPoint)
+            var untraveled = [splitPoint]
+            untraveled.append(contentsOf: points[(splitIndex + 1)...])
+            return (traveled, untraveled)
         }
 
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
-            guard let colored = overlay as? ColoredGeodesicOverlay else { return MKOverlayRenderer(overlay: overlay) }
-            let renderer = MKPolylineRenderer(polyline: colored.line)
+            guard let colored = overlay as? ColoredPolyline else { return MKOverlayRenderer(overlay: overlay) }
+            let renderer = MKPolylineRenderer(polyline: colored)
             renderer.strokeColor = colored.strokeColor
             renderer.lineWidth = colored.lineWidth
             renderer.lineCap = .round
@@ -567,7 +588,7 @@ private struct MapKitRouteView: UIViewRepresentable {
                 case 1:
                     view.setContent(Self.travelerMarker(annotation.travelers[0]), size: CGSize(width: 44, height: 44))
                 default:
-                    view.setContent(Self.bothTravelersMarker(annotation.travelers), size: CGSize(width: 56, height: 44))
+                    view.setContent(Self.bothTravelersMarker(annotation.travelers, currentUserID: annotation.currentUserID), size: CGSize(width: 56, height: 44))
                 }
                 view.zPriority = .init(rawValue: 2)
             }
@@ -663,6 +684,7 @@ private struct MapKitRouteView: UIViewRepresentable {
             annotation.coordinate = coordinate
             annotation.positionHeading = heading
             annotation.travelers = route.travelers
+            annotation.currentUserID = route.currentUserID
             mapView.addAnnotation(annotation)
             positionAnnotation = annotation
         }
@@ -706,12 +728,16 @@ private struct MapKitRouteView: UIViewRepresentable {
 
         /// Both partners travelling together — two smaller avatars overlapping rather than one
         /// 44pt avatar per person, so the marker doesn't balloon in size or obscure the route
-        /// underneath it. The second avatar sits slightly forward (in front, z-order-wise) and
-        /// offset so both faces stay fully visible.
-        private static func bothTravelersMarker(_ people: [Person]) -> some View {
+        /// underneath it. `HStack`'s paint order normally follows its layout order (later =
+        /// further right = drawn on top), which would force whoever's on-screen right to also be
+        /// the one in front — `.zIndex` decouples the two, so the current device's own person can
+        /// stay wherever `people` naturally puts them left-to-right while still drawing on top of
+        /// their partner.
+        private static func bothTravelersMarker(_ people: [Person], currentUserID: Person.ID?) -> some View {
             HStack(spacing: -14) {
                 ForEach(people) { person in
                     AvatarView(person: person, size: 34, showsRing: true)
+                        .zIndex(person.id == currentUserID ? 1 : 0)
                 }
             }
             .shadow(color: .black.opacity(0.25), radius: 5, y: 2)
@@ -796,12 +822,13 @@ private struct MapKitRouteView: UIViewRepresentable {
             return θ.truncatingRemainder(dividingBy: 360) + (θ < 0 ? 360 : 0)
         }
 
-        /// Samples 600 points along the great-circle curve (plus both endpoints) — dense enough
+        /// Samples 1500 points along the great-circle curve (plus both endpoints) — dense enough
         /// that the short straight segments between consecutive samples read as a genuinely
         /// smooth curve rather than a faceted polyline even at the wide, zoomed-out framing the
-        /// Home card uses, where a long-haul great circle's peak arc is exactly where a coarser
-        /// sample count used to leave visible facets. Cheap either way — it's a few hundred extra
-        /// trig calls, not a rendering bottleneck. Deliberately left in raw (non-unwrapped) coordinate
+        /// Home card uses, on a high pixel-density real device, where a long-haul great circle's
+        /// peak arc is exactly where a coarser sample count used to leave visible facets. Cheap
+        /// either way — a couple thousand trig calls, not a rendering bottleneck. Deliberately
+        /// left in raw (non-unwrapped) coordinate
         /// form — `MKMapPoint`'s conversion from `CLLocationCoordinate2D` expects longitude in
         /// its normal ±180° range, so unwrapping happens exactly once, afterward, in map-point
         /// space (`unwrappedMapPoints`) rather than here too; doing it at both stages fed already-
@@ -809,7 +836,7 @@ private struct MapKitRouteView: UIViewRepresentable {
         /// whose great-circle path swings past ±180° (common for near-polar routes) and was the
         /// actual cause of the map fitting to a tiny, wrong sub-region instead of the real route.
         private static func routeSamples(from a: CLLocationCoordinate2D, to b: CLLocationCoordinate2D) -> [CLLocationCoordinate2D] {
-            let sampleCount = 600
+            let sampleCount = 1500
             var coordinates: [CLLocationCoordinate2D] = [a]
             for i in 1..<sampleCount {
                 coordinates.append(intermediateGreatCirclePoint(a, b, fraction: Double(i) / Double(sampleCount)))
@@ -858,6 +885,7 @@ private final class RouteAnnotation: MKPointAnnotation {
     let reuseIdentifier: String
     var positionHeading: Double?
     var travelers: [Person] = []
+    var currentUserID: Person.ID?
     /// `.origin`/`.destination` only — whether the position marker currently sits on this exact
     /// endpoint, which needs the label pushed further down to stay clear of it.
     var hasOverlappingMarker = false
@@ -869,30 +897,21 @@ private final class RouteAnnotation: MKPointAnnotation {
     }
 }
 
-/// Pairs an `MKGeodesicPolyline` with its own render styling — used for the white casing and the
-/// blue line on top of it (see `Coordinator.updateOverlays`).
+/// A route polyline carrying its own render styling — used for both the white casing and the
+/// blue line on top of it (see `Coordinator.updateOverlays`), since a plain `MKPolyline` has no
+/// room to say which is which.
 ///
-/// Holds the geodesic line rather than subclassing it — `MKGeodesicPolyline` (unlike plain
-/// `MKPolyline`) turns out not to be safely subclassable: giving a subclass extra stored
-/// properties and constructing it via `init(coordinates:count:)` reliably crashed with
-/// `EXC_BAD_ACCESS` inside `objc_release`, a pointer-authentication failure consistent with
-/// MapKit's geodesic point-insertion internals assuming the base class's exact memory layout.
-/// Holding a plain, un-subclassed instance and rendering through it (`MKPolylineRenderer(polyline:
-/// colored.line)`) gets the same adaptive, antimeridian-safe curve without touching that class's
-/// internals at all.
-private final class ColoredGeodesicOverlay: NSObject, MKOverlay {
-    let line: MKGeodesicPolyline
-    var strokeColor: UIColor
-    var lineWidth: CGFloat
-
-    init(coordinates: [CLLocationCoordinate2D], strokeColor: UIColor, lineWidth: CGFloat) {
-        self.line = MKGeodesicPolyline(coordinates: coordinates, count: coordinates.count)
-        self.strokeColor = strokeColor
-        self.lineWidth = lineWidth
-    }
-
-    var coordinate: CLLocationCoordinate2D { line.coordinate }
-    var boundingMapRect: MKMapRect { line.boundingMapRect }
+/// Deliberately a plain `MKPolyline` subclass built from manually-sampled points, not
+/// `MKGeodesicPolyline` — that was tried, and while safe to *use* unsubclassed, its own adaptive
+/// point insertion was noticeably sparser than this manual sampling, leaving a visible facet at
+/// the peak of a long-haul arc. Subclassing `MKGeodesicPolyline` directly is also unsafe on its
+/// own terms: giving it extra stored properties and constructing via `init(coordinates:count:)`
+/// reliably crashed with `EXC_BAD_ACCESS` inside `objc_release`, consistent with its geodesic
+/// point-insertion internals assuming the base class's exact memory layout. Plain `MKPolyline`
+/// has neither problem.
+private final class ColoredPolyline: MKPolyline {
+    var strokeColor: UIColor = .gray
+    var lineWidth: CGFloat = 4
 }
 
 /// Hosts SwiftUI marker content inside an `MKAnnotationView` — a standard SwiftUI-in-UIKit bridge

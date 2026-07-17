@@ -59,7 +59,7 @@ struct PersonalizedInsightView: View {
     /// there's no distance to dramatize, so no count-up, map, or comparison.
     private var sameCityFallback: some View {
         OnboardingScaffold(
-            title: sameCity ? "Home is \(onboarding.homeCity?.city ?? "the same city") ❤️" : "You're apart right now ❤️",
+            title: sameCity ? "Home is \(onboarding.homeCity?.displayCity ?? "the same city") ❤️" : "You're apart right now ❤️",
             subtitle: "When \(partnerName) is away, Twofold helps you keep up with \(onboarding.partnerPossessive) journey home.",
             content: { EmptyView() },
             primaryTitle: "Continue",
@@ -159,10 +159,10 @@ struct PersonalizedInsightView: View {
 
     private func mapCard(myCity: Place, partnerCity: Place) -> some View {
         Map(initialPosition: .region(Self.region(containing: myCity.coordinate, partnerCity.coordinate)), interactionModes: []) {
-            Annotation(myCity.city, coordinate: myCity.coordinate) {
+            Annotation(myCity.displayCity, coordinate: myCity.coordinate) {
                 avatarMarker(onboarding.selfPhotoData, tint: Theme.skyBlue)
             }
-            Annotation(partnerCity.city, coordinate: partnerCity.coordinate) {
+            Annotation(partnerCity.displayCity, coordinate: partnerCity.coordinate) {
                 avatarMarker(onboarding.partnerPhotoData, tint: Theme.heartRed)
             }
             MapPolyline(coordinates: [myCity.coordinate, partnerCity.coordinate], contourStyle: .geodesic)
@@ -340,7 +340,7 @@ private struct DistanceSnapshotCard: View {
                 Text(comparison)
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(.white.opacity(0.85))
-                Text("\(myCity.city) ↔ \(partnerCity.city)")
+                Text("\(myCity.displayCity) ↔ \(partnerCity.displayCity)")
                     .font(.caption)
                     .foregroundStyle(.white.opacity(0.7))
             }

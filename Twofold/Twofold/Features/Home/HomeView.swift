@@ -5,10 +5,20 @@
 
 import SwiftUI
 
+/// `.sheet(item:)` needs `Identifiable` — a plain tuple can't back it, so the distance card's
+/// share button hands off through this instead.
+private struct DistanceShareContext: Identifiable {
+    let id = UUID()
+    let myCity: Place
+    let partnerCity: Place
+    let distanceKm: Double
+}
+
 struct HomeView: View {
     @Environment(AppModel.self) private var appModel
     @Environment(\.scenePhase) private var scenePhase
     @State private var showingSnapshot = false
+    @State private var distanceShareContext: DistanceShareContext?
     @State private var showingSettings = false
     @State private var showingPartnerSetup = false
     @State private var showingAddTrip = false
@@ -51,7 +61,7 @@ struct HomeView: View {
                             timeZone: partnerTimeZone,
                             comparisonTimeZone: appModel.currentUser.homeCity?.timeZone,
                             sameCity: sameCity,
-                            cityName: appModel.partner.homeCity?.city,
+                            cityName: appModel.partner.homeCity?.displayCity,
                             weather: weatherReading,
                             myWeather: myWeatherReading
                         )
@@ -116,6 +126,9 @@ struct HomeView: View {
                 }
             }
             .sheet(isPresented: $showingSnapshot) { SnapshotShareView() }
+            .sheet(item: $distanceShareContext) { context in
+                DistanceShareView(couple: appModel.couple, myCity: context.myCity, partnerCity: context.partnerCity, distanceKm: context.distanceKm)
+            }
             .sheet(isPresented: $showingSettings) { SettingsView() }
             .sheet(isPresented: $showingLocationPermission) { NavigationStack { LocationPermissionView() } }
             .sheet(isPresented: $showingAddFlight) { AddFlightView() }
@@ -324,7 +337,7 @@ struct HomeView: View {
                     Text("SAME CITY")
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(Theme.subtleInk)
-                    Text("You're both in \(city.city)")
+                    Text("You're both in \(city.displayCity)")
                         .font(.title3.weight(.bold))
                 }
                 Spacer()
@@ -350,7 +363,7 @@ struct HomeView: View {
                 }
                 Spacer()
                 Button {
-                    showingSnapshot = true
+                    distanceShareContext = DistanceShareContext(myCity: myCity, partnerCity: partnerCity, distanceKm: distanceKm)
                 } label: {
                     Image(systemName: "square.and.arrow.up.circle.fill")
                         .font(.largeTitle)

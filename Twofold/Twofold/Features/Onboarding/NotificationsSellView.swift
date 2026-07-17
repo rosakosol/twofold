@@ -61,7 +61,7 @@ struct NotificationsSellView: View {
     }
 
     private var destinationLabel: String {
-        onboarding.homeCity?.city ?? "your city"
+        onboarding.homeCity?.displayCity ?? "your city"
     }
 
     private var headline: String {

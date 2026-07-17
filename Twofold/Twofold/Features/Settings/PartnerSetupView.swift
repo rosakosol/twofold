@@ -72,7 +72,7 @@ struct PartnerSetupView: View {
                             HStack {
                                 Text("City").foregroundStyle(Theme.subtleInk)
                                 Spacer()
-                                Text(appModel.partner.homeCity?.city ?? "—").foregroundStyle(Theme.ink)
+                                Text(appModel.partner.homeCity?.displayCity ?? "—").foregroundStyle(Theme.ink)
                             }
                         }
                     } else {

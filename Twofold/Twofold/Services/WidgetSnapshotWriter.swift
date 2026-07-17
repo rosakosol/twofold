@@ -95,7 +95,7 @@ enum WidgetSnapshotWriter {
                 myID: appModel.currentUser.id,
                 myName: appModel.currentUser.name,
                 partnerName: appModel.partner.name,
-                partnerCity: partnerCity?.city,
+                partnerCity: partnerCity?.displayCity,
                 partnerTimeZoneIdentifier: partnerCity?.timeZoneIdentifier,
                 anniversaryDate: appModel.couple.startedDatingOn,
                 subscriptionTier: appModel.subscriptionTier,

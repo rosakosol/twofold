@@ -26,7 +26,7 @@ struct WidgetSellView: View {
     }
 
     private var partnerCityLabel: String {
-        onboarding.partnerCity?.city ?? "\(onboarding.partnerPossessive) city"
+        onboarding.partnerCity?.displayCity ?? "\(onboarding.partnerPossessive) city"
     }
 
     private var daysTogether: Int? {

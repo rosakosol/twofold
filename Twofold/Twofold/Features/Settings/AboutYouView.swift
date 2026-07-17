@@ -53,7 +53,7 @@ struct AboutYouView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Current city").font(.caption).foregroundStyle(Theme.subtleInk)
-                            Text(appModel.currentUser.homeCity.map { "\($0.city), \($0.country)" } ?? "Not detected yet")
+                            Text(appModel.currentUser.homeCity.map { "\($0.displayCity), \($0.country)" } ?? "Not detected yet")
                                 .foregroundStyle(Theme.ink)
                         }
                         Spacer()
