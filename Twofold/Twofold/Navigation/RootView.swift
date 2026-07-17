@@ -137,20 +137,43 @@ struct RootView: View {
 
     /// Only ever called for the three cases actually assigned to `recordDeepLink`
     /// (.flight/.memory/.drawingPad) — the tab/paywall cases route elsewhere in `.onOpenURL`.
+    ///
+    /// `.flight`/`.memory` get an explicit Close button here; `.drawingPad` doesn't need one
+    /// since `DrawingPadEditorView` already has its own. Both `FlightTrackingView` and
+    /// `MemoryDetailView` are normally reached by pushing onto an existing `NavigationStack`
+    /// (Home's flight card, the Memories list), where the system supplies a back chevron
+    /// automatically — but here they're the *root* of a brand-new `NavigationStack` inside a
+    /// `fullScreenCover` (no push to go back from, and `fullScreenCover` — unlike `sheet` —
+    /// has no swipe-to-dismiss either), so without this a widget tap left no way off the screen
+    /// at all.
     @ViewBuilder
     private func recordDeepLinkDestination(_ destination: WidgetDeepLink.Destination) -> some View {
         switch destination {
         case .flight(let id):
-            if let flight = appModel.flights.first(where: { $0.id == id }) {
-                FlightTrackingView(flight: flight)
-            } else {
-                GameErrorState(message: "This flight isn't available anymore.")
+            Group {
+                if let flight = appModel.flights.first(where: { $0.id == id }) {
+                    FlightTrackingView(flight: flight)
+                } else {
+                    GameErrorState(message: "This flight isn't available anymore.")
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Close") { recordDeepLink = nil }
+                }
             }
         case .memory(let id):
-            if let memory = appModel.memories.first(where: { $0.id == id }) {
-                MemoryDetailView(memory: memory)
-            } else {
-                GameErrorState(message: "This memory isn't available anymore.")
+            Group {
+                if let memory = appModel.memories.first(where: { $0.id == id }) {
+                    MemoryDetailView(memory: memory)
+                } else {
+                    GameErrorState(message: "This memory isn't available anymore.")
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Close") { recordDeepLink = nil }
+                }
             }
         case .drawingPad:
             DrawingPadEditorView()

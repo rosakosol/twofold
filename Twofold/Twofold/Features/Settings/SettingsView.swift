@@ -69,15 +69,6 @@ struct SettingsView: View {
 
                     SectionCard {
                         NavigationLink {
-                            WidgetsCatalogView()
-                        } label: {
-                            SettingsRow(title: "Widgets", systemImage: "square.grid.2x2.fill")
-                        }
-                        .buttonStyle(.plain)
-
-                        Divider()
-
-                        NavigationLink {
                             MeasurementsSettingsView()
                         } label: {
                             SettingsRow(title: "Measurements", systemImage: "ruler.fill", value: MeasurementPreference.current.displayName)
@@ -101,10 +92,6 @@ struct SettingsView: View {
                             SettingsRow(title: "Notifications", systemImage: "bell.fill")
                         }
                         .buttonStyle(.plain)
-
-                        Divider()
-
-                        SettingsRow(title: "Language", systemImage: "globe", showsChevron: false, unavailableBadge: "Not available yet")
                     }
 
                     SectionCard {
@@ -133,7 +120,12 @@ struct SettingsView: View {
 
                         Divider()
 
-                        SettingsRow(title: "Help", systemImage: "questionmark.circle.fill", showsChevron: false, unavailableBadge: "Not available yet")
+                        NavigationLink {
+                            HelpView()
+                        } label: {
+                            SettingsRow(title: "Help", systemImage: "questionmark.circle.fill")
+                        }
+                        .buttonStyle(.plain)
                     }
 
                     SectionCard {
