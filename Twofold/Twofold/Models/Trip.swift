@@ -5,20 +5,6 @@
 
 import Foundation
 
-enum TripCategory: String, CaseIterable, Hashable {
-    case seeingEachOther = "To see each other"
-    case together = "Together"
-    case personal = "Personal"
-
-    var shortLabel: String {
-        switch self {
-        case .seeingEachOther: "Reunion"
-        case .together: "Together"
-        case .personal: "Personal"
-        }
-    }
-}
-
 struct Trip: Identifiable, Hashable {
     let id: UUID
     var travelerID: Person.ID
@@ -26,7 +12,11 @@ struct Trip: Identifiable, Hashable {
     var destination: Place
     var departureDate: Date
     var arrivalDate: Date
-    var category: TripCategory
+    /// Replaces the old three-way "reason for travel" (Reunion/Together/Personal) category —
+    /// simplified to the one distinction that actually mattered for how a trip reads elsewhere
+    /// in the app (the reunion card, trip badges): is this trip about seeing your partner, or
+    /// not.
+    var isReunionTrip: Bool
     var distanceKm: Double
     var flight: Flight?
     var notes: String?
@@ -38,7 +28,7 @@ struct Trip: Identifiable, Hashable {
         destination: Place,
         departureDate: Date,
         arrivalDate: Date,
-        category: TripCategory,
+        isReunionTrip: Bool,
         distanceKm: Double,
         flight: Flight? = nil,
         notes: String? = nil
@@ -49,7 +39,7 @@ struct Trip: Identifiable, Hashable {
         self.destination = destination
         self.departureDate = departureDate
         self.arrivalDate = arrivalDate
-        self.category = category
+        self.isReunionTrip = isReunionTrip
         self.distanceKm = distanceKm
         self.flight = flight
         self.notes = notes

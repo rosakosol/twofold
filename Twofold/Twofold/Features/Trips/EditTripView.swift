@@ -20,7 +20,7 @@ struct EditTripView: View {
     @State private var destination: Place?
     @State private var departureDate: Date
     @State private var arrivalDate: Date
-    @State private var category: TripCategory
+    @State private var isReunionTrip: Bool
     @State private var isPartnerTraveling: Bool
     @State private var notes: String
     @State private var isSaving = false
@@ -31,7 +31,7 @@ struct EditTripView: View {
         _destination = State(initialValue: trip.destination)
         _departureDate = State(initialValue: trip.departureDate)
         _arrivalDate = State(initialValue: trip.arrivalDate)
-        _category = State(initialValue: trip.category)
+        _isReunionTrip = State(initialValue: trip.isReunionTrip)
         _notes = State(initialValue: trip.notes ?? "")
         _isPartnerTraveling = State(initialValue: false)
     }
@@ -57,11 +57,7 @@ struct EditTripView: View {
                     Text(appModel.currentUser.name).tag(false)
                     Text(appModel.partner.name).tag(true)
                 }
-                Picker("Reason for travel", selection: $category) {
-                    ForEach(TripCategory.allCases, id: \.self) { option in
-                        Text(option.rawValue).tag(option)
-                    }
-                }
+                Toggle("Is this a reunion trip?", isOn: $isReunionTrip)
             }
 
             Section("Notes") {
@@ -99,7 +95,7 @@ struct EditTripView: View {
         updated.destination = destination
         updated.departureDate = departureDate
         updated.arrivalDate = arrivalDate
-        updated.category = category
+        updated.isReunionTrip = isReunionTrip
         updated.travelerID = isPartnerTraveling ? appModel.partner.id : appModel.currentUser.id
         let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
         updated.notes = trimmedNotes.isEmpty ? nil : trimmedNotes

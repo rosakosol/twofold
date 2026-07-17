@@ -134,7 +134,7 @@ struct TripDetailsView: View {
                     .minimumScaleFactor(0.7)
                 }
                 Spacer(minLength: 0)
-                PillBadge(text: trip.category.shortLabel, tint: Theme.skyBlue)
+                PillBadge(text: trip.isReunionTrip ? "Reunion" : "Trip", tint: Theme.skyBlue)
             }
 
             Divider()

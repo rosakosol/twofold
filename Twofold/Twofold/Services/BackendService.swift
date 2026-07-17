@@ -909,8 +909,7 @@ enum BackendService {
 
         let trips: [Trip] = tripRows.compactMap { row in
             guard let origin = places[row.originId],
-                  let destination = places[row.destinationId],
-                  let category = TripCategory(dbValue: row.category) else { return nil }
+                  let destination = places[row.destinationId] else { return nil }
 
             var trip = Trip(
                 id: row.id,
@@ -919,7 +918,7 @@ enum BackendService {
                 destination: destination,
                 departureDate: row.departureAt,
                 arrivalDate: row.arrivalAt,
-                category: category,
+                isReunionTrip: isReunionCategory(row.category),
                 distanceKm: row.distanceKm,
                 notes: row.notes
             )
@@ -1538,7 +1537,7 @@ enum BackendService {
                     destinationId: destinationID,
                     departureAt: trip.departureDate,
                     arrivalAt: trip.arrivalDate,
-                    category: trip.category.dbValue,
+                    category: categoryDBValue(isReunion: trip.isReunionTrip),
                     distanceKm: trip.distanceKm
                 )
             )
@@ -1581,7 +1580,7 @@ enum BackendService {
                     destinationId: destinationID,
                     departureAt: trip.departureDate,
                     arrivalAt: trip.arrivalDate,
-                    category: trip.category.dbValue,
+                    category: categoryDBValue(isReunion: trip.isReunionTrip),
                     distanceKm: trip.distanceKm,
                     notes: trip.notes
                 )
@@ -2454,21 +2453,15 @@ enum BackendService {
     }
 }
 
-private extension TripCategory {
-    var dbValue: String {
-        switch self {
-        case .seeingEachOther: "seeing_each_other"
-        case .together: "together"
-        case .personal: "personal"
-        }
-    }
+/// `trips.category` is still the underlying TEXT column from when trips had a three-way
+/// "reason for travel" (Reunion/Together/Personal) — kept as-is rather than migrating the
+/// schema for what's now just a yes/no distinction, since it's a free-text column with no
+/// database-level enum constraint to fight. Any row written before this simplification (holding
+/// "together" or "personal") reads back as `false`, same as a fresh non-reunion trip would.
+private func isReunionCategory(_ raw: String) -> Bool {
+    raw == "seeing_each_other"
+}
 
-    init?(dbValue: String) {
-        switch dbValue {
-        case "seeing_each_other": self = .seeingEachOther
-        case "together": self = .together
-        case "personal": self = .personal
-        default: return nil
-        }
-    }
+private func categoryDBValue(isReunion: Bool) -> String {
+    isReunion ? "seeing_each_other" : "personal"
 }

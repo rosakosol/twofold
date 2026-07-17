@@ -26,7 +26,7 @@ struct MainTabView: View {
                 HomeView()
                     .postHogScreenView("Home")
             }
-            Tab("Trips", systemImage: "airplane", value: .trips) {
+            Tab("Travel", systemImage: "airplane", value: .trips) {
                 TripsListView()
                     .postHogScreenView("Trips")
             }

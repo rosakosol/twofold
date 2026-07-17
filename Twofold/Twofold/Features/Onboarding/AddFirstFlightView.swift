@@ -41,7 +41,7 @@ struct AddFirstFlightView: View {
                 departureDate: candidate.scheduledOut ?? Date.now,
                 arrivalDate: candidate.scheduledIn ?? Date.now.addingTimeInterval(3600 * 4),
                 traveler: .partner,
-                category: .seeingEachOther
+                isReunionTrip: true
             )
             do {
                 try await AeroFlightService.addFlight(faFlightId: candidate.faFlightId, tripID: trip.id, travelerIDs: [trip.travelerID], notifyMe: true)

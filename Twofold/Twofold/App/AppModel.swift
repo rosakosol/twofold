@@ -128,12 +128,12 @@ final class AppModel {
         trips.filter { !$0.isUpcoming && !$0.isActive }.sorted { $0.departureDate > $1.departureDate }
     }
 
-    /// Untethered (no linked trip) flights no longer being tracked — same population
-    /// `TripsListView`'s old inline "Past flights" section drew from, now surfaced via
-    /// `PastFlightsView` instead so a long flight history doesn't crowd the main trips list.
-    /// Most recent first.
-    var pastFlights: [Flight] {
-        flights.filter { $0.tripID == nil && !$0.trackingEnabled }
+    /// Every flight *not* in `activeOrUpcomingFlights` — trip-linked or not, for the Trips
+    /// screen's "Flights" tab, which surfaces every flight that's ever been added rather than
+    /// just untethered ones. Most recent first.
+    var completedFlights: [Flight] {
+        let activeIDs = Set(activeOrUpcomingFlights.map(\.id))
+        return flights.filter { !activeIDs.contains($0.id) }
             .sorted { ($0.bestArrival ?? $0.scheduledArrival) > ($1.bestArrival ?? $1.scheduledArrival) }
     }
 
@@ -714,7 +714,7 @@ final class AppModel {
     /// `AeroFlightService.addFlight(faFlightId:tripID:notifyMe:)` once this trip exists,
     /// exactly as `AddFirstFlightView`/`AddTripDetailsView` already do.
     @discardableResult
-    func addTrip(origin: Place, destination: Place, departureDate: Date, arrivalDate: Date, traveler: TripTraveler, category: TripCategory) async -> Trip {
+    func addTrip(origin: Place, destination: Place, departureDate: Date, arrivalDate: Date, traveler: TripTraveler, isReunionTrip: Bool) async -> Trip {
         let travelerID = traveler == .partner ? partner.id : currentUser.id
         let distance = Geo.distanceKm(origin.coordinate, destination.coordinate)
 
@@ -724,13 +724,13 @@ final class AppModel {
             destination: destination,
             departureDate: departureDate,
             arrivalDate: arrivalDate,
-            category: category,
+            isReunionTrip: isReunionTrip,
             distanceKm: distance
         )
 
         trips.append(trip)
         checkReviewMilestones()
-        Analytics.capture(Analytics.Event.tripCreate, properties: ["trip_category": category.rawValue])
+        Analytics.capture(Analytics.Event.tripCreate, properties: ["trip_category": isReunionTrip ? "reunion" : "personal"])
 
         if let backendCoupleID {
             do {
