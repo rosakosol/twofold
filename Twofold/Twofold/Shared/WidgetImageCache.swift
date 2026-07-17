@@ -17,7 +17,7 @@ import Foundation
 enum WidgetImageCache {
     private static let suiteName = "group.com.orangefinch.Twofold"
     private static let latestMemoryFilename = "latest-memory.jpg"
-    private static let doodlePadFilename = "doodle-pad-last-good.png"
+    private static let drawingPadFilename = "drawing-pad-last-good.png"
 
     private static var containerURL: URL? {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: suiteName)
@@ -43,40 +43,40 @@ enum WidgetImageCache {
         try? FileManager.default.removeItem(at: url)
     }
 
-    /// DoodlePadWidget's own last-good fetch — written by the widget extension itself (the one
+    /// DrawingPadWidget's own last-good fetch — written by the widget extension itself (the one
     /// widget allowed a network call, since the source bucket is public), so a stale/offline
     /// network still shows the last thing that loaded rather than a blank widget.
-    static var doodlePadImageURL: URL? {
-        containerURL?.appendingPathComponent(doodlePadFilename)
+    static var drawingPadImageURL: URL? {
+        containerURL?.appendingPathComponent(drawingPadFilename)
     }
 
-    static func writeDoodlePadImage(_ data: Data) {
-        guard let url = doodlePadImageURL else { return }
+    static func writeDrawingPadImage(_ data: Data) {
+        guard let url = drawingPadImageURL else { return }
         try? data.write(to: url, options: .atomic)
     }
 
-    static func readDoodlePadImage() -> Data? {
-        guard let url = doodlePadImageURL else { return nil }
+    static func readDrawingPadImage() -> Data? {
+        guard let url = drawingPadImageURL else { return nil }
         return try? Data(contentsOf: url)
     }
 
-    /// My own doodle-pad's last-good fetch — mirrors doodlePadImageURL (partner's), needed by
-    /// DoodlePadWidget's Medium side-by-side layout, which shows both at once. Same "the widget
+    /// My own drawing pad's last-good fetch — mirrors drawingPadImageURL (partner's), needed by
+    /// DrawingPadWidget's Medium side-by-side layout, which shows both at once. Same "the widget
     /// fetches it live from the public bucket, this is just the offline/stale-network fallback"
     /// reasoning.
-    private static let myDoodleFilename = "my-doodle-pad-last-good.png"
+    private static let myDrawingFilename = "my-drawing-pad-last-good.png"
 
-    static var myDoodleImageURL: URL? {
-        containerURL?.appendingPathComponent(myDoodleFilename)
+    static var myDrawingImageURL: URL? {
+        containerURL?.appendingPathComponent(myDrawingFilename)
     }
 
-    static func writeMyDoodleImage(_ data: Data) {
-        guard let url = myDoodleImageURL else { return }
+    static func writeMyDrawingImage(_ data: Data) {
+        guard let url = myDrawingImageURL else { return }
         try? data.write(to: url, options: .atomic)
     }
 
-    static func readMyDoodleImage() -> Data? {
-        guard let url = myDoodleImageURL else { return nil }
+    static func readMyDrawingImage() -> Data? {
+        guard let url = myDrawingImageURL else { return nil }
         return try? Data(contentsOf: url)
     }
 

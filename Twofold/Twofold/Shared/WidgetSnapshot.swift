@@ -5,7 +5,7 @@
 //  Everything a Home Screen widget needs to render, written by the main app (which is the only
 //  thing that talks to Supabase/WeatherKit) into the shared App Group container, then read
 //  synchronously and locally by each widget's TimelineProvider — no network/auth inside the
-//  extension except DoodlePadWidget (public bucket, see PublicStorageURL.swift). Key is
+//  extension except DrawingPadWidget (public bucket, see PublicStorageURL.swift). Key is
 //  versioned so a future shape change can't crash an old cached read.
 //
 //  Shared with LiveActivitiesExtension (see the "Twofold" folder's membership exception for
@@ -64,7 +64,7 @@ struct WidgetSnapshot: Codable {
         var tripCount: Int
     }
 
-    /// Needed alongside coupleID/partnerID for DoodlePadWidget's Medium side-by-side layout to
+    /// Needed alongside coupleID/partnerID for DrawingPadWidget's Medium side-by-side layout to
     /// build *my* public drawing-pad URL, the same way it already builds the partner's.
     var myID: UUID?
     var myName: String
@@ -81,7 +81,7 @@ struct WidgetSnapshot: Codable {
     var latestMemory: MemoryInfo?
     var partnerWeather: WeatherInfo?
     var relationshipStats: RelationshipStats?
-    /// Needed by DoodlePadWidget to build the partner's public drawing-pad URL itself
+    /// Needed by DrawingPadWidget to build the partner's public drawing-pad URL itself
     /// (PublicStorageURL.swift) — the one widget allowed its own network call.
     var coupleID: UUID?
     var partnerID: UUID?

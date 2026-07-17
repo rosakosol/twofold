@@ -17,7 +17,7 @@ struct LiveActivitiesBundle: WidgetBundle {
         TripCountdownWidget()
         FlightTrackingWidget()
         TimeWeatherWidget()
-        DoodlePadWidget()
+        DrawingPadWidget()
         SmartRotatingWidget()
     }
 }

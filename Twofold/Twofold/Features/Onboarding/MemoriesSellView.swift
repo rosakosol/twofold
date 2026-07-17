@@ -52,7 +52,7 @@ struct MemoriesSellView: View {
     /// Same structure as `MemoriesListView.memoryRow` — kept in lockstep with the real feature.
     private func memoryRow(_ memory: Memory) -> some View {
         SectionCard {
-            HStack(alignment: .top, spacing: Theme.Spacing.md) {
+            HStack(alignment: .center, spacing: Theme.Spacing.md) {
                 MemoryPhotoView(memory: memory, cornerRadius: 14)
                     .frame(width: 72, height: 72)
 

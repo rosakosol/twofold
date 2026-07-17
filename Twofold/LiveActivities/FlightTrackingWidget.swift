@@ -6,7 +6,7 @@
 //  (JourneyLockScreenView's progressRail: solid-to-dashed line + a marker riding the current
 //  progress), but rides the traveler's avatar instead of a plain plane icon when one's set —
 //  same idea as FlightMapView's travelerMarker. Small and Medium share the same layout (like
-//  DoodlePadWidget) — there's no route map here (that was Large-only and got dropped along with
+//  DrawingPadWidget) — there's no route map here (that was Large-only and got dropped along with
 //  the WidgetSnapshotWriter map-rendering pipeline it needed).
 //
 

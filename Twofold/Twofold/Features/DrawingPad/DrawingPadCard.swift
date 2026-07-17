@@ -12,7 +12,7 @@ struct DrawingPadCard: View {
 
     var body: some View {
         SectionCard {
-            Text("Doodle pad")
+            Text("Drawing pad")
                 .font(.headline)
             HStack(spacing: Theme.Spacing.md) {
                 padPreview(title: "You", url: appModel.myDrawingURL, isMine: true)
@@ -23,7 +23,7 @@ struct DrawingPadCard: View {
             DrawingPadEditorView()
         }
         .fullScreenCover(isPresented: $showingPartnerFullScreen) {
-            DoodlePadFullScreenView(title: appModel.partner.name, url: appModel.partnerDrawingURL)
+            DrawingPadFullScreenView(title: appModel.partner.name, url: appModel.partnerDrawingURL)
         }
         .onAppear { appModel.loadDrawingPads() }
     }

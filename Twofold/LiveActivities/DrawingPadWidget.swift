@@ -1,5 +1,5 @@
 //
-//  DoodlePadWidget.swift
+//  DrawingPadWidget.swift
 //  LiveActivities
 //
 //  Premium tier — the one widget allowed its own network call: drawing-pads is a public
@@ -13,7 +13,7 @@
 import SwiftUI
 import WidgetKit
 
-struct DoodlePadEntry: TimelineEntry {
+struct DrawingPadEntry: TimelineEntry {
     let date: Date
     let subscriptionTier: String?
     let imageData: Data?
@@ -22,16 +22,16 @@ struct DoodlePadEntry: TimelineEntry {
     let partnerName: String
 }
 
-struct DoodlePadProvider: TimelineProvider {
-    func placeholder(in context: Context) -> DoodlePadEntry {
-        DoodlePadEntry(date: .now, subscriptionTier: WidgetTier.premium, imageData: nil, myImageData: nil, myName: "You", partnerName: "Partner")
+struct DrawingPadProvider: TimelineProvider {
+    func placeholder(in context: Context) -> DrawingPadEntry {
+        DrawingPadEntry(date: .now, subscriptionTier: WidgetTier.premium, imageData: nil, myImageData: nil, myName: "You", partnerName: "Partner")
     }
 
-    func getSnapshot(in context: Context, completion: @escaping (DoodlePadEntry) -> Void) {
+    func getSnapshot(in context: Context, completion: @escaping (DrawingPadEntry) -> Void) {
         completion(cachedEntry())
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<DoodlePadEntry>) -> Void) {
+    func getTimeline(in context: Context, completion: @escaping (Timeline<DrawingPadEntry>) -> Void) {
         let snapshot = WidgetSnapshot.read()
         let nextRefresh = Calendar.current.date(byAdding: .minute, value: 30, to: .now) ?? .now.addingTimeInterval(1800)
 
@@ -41,19 +41,19 @@ struct DoodlePadProvider: TimelineProvider {
         }
 
         Task {
-            var partnerImageData = WidgetImageCache.readDoodlePadImage()
+            var partnerImageData = WidgetImageCache.readDrawingPadImage()
             if let url = PublicStorageURL.drawingPad(coupleID: coupleID, personID: partnerID),
                let fetched = try? await URLSession.shared.data(from: url).0, UIImage(data: fetched) != nil {
-                WidgetImageCache.writeDoodlePadImage(fetched)
+                WidgetImageCache.writeDrawingPadImage(fetched)
                 partnerImageData = fetched
             }
-            var myImageData = WidgetImageCache.readMyDoodleImage()
+            var myImageData = WidgetImageCache.readMyDrawingImage()
             if let url = PublicStorageURL.drawingPad(coupleID: coupleID, personID: myID),
                let fetched = try? await URLSession.shared.data(from: url).0, UIImage(data: fetched) != nil {
-                WidgetImageCache.writeMyDoodleImage(fetched)
+                WidgetImageCache.writeMyDrawingImage(fetched)
                 myImageData = fetched
             }
-            let entry = DoodlePadEntry(
+            let entry = DrawingPadEntry(
                 date: .now, subscriptionTier: snapshot?.subscriptionTier,
                 imageData: partnerImageData, myImageData: myImageData,
                 myName: snapshot?.myName ?? "You", partnerName: snapshot?.partnerName ?? "Partner"
@@ -62,18 +62,18 @@ struct DoodlePadProvider: TimelineProvider {
         }
     }
 
-    private func cachedEntry() -> DoodlePadEntry {
+    private func cachedEntry() -> DrawingPadEntry {
         let snapshot = WidgetSnapshot.read()
-        return DoodlePadEntry(
+        return DrawingPadEntry(
             date: .now, subscriptionTier: snapshot?.subscriptionTier,
-            imageData: WidgetImageCache.readDoodlePadImage(), myImageData: WidgetImageCache.readMyDoodleImage(),
+            imageData: WidgetImageCache.readDrawingPadImage(), myImageData: WidgetImageCache.readMyDrawingImage(),
             myName: snapshot?.myName ?? "You", partnerName: snapshot?.partnerName ?? "Partner"
         )
     }
 }
 
-struct DoodlePadWidgetView: View {
-    let entry: DoodlePadEntry
+struct DrawingPadWidgetView: View {
+    let entry: DrawingPadEntry
 
     @Environment(\.widgetFamily) private var family
 
@@ -91,7 +91,7 @@ struct DoodlePadWidgetView: View {
         .widgetURL(URL(string: isLocked ? "twofold://paywall" : "twofold://drawing-pad"))
     }
 
-    // MARK: - Small: partner's doodle only
+    // MARK: - Small: partner's drawing only
 
     @ViewBuilder
     private var singleBody: some View {
@@ -107,7 +107,7 @@ struct DoodlePadWidgetView: View {
         }
     }
 
-    // MARK: - Medium: both doodles side by side
+    // MARK: - Medium: both drawings side by side
 
     private var sideBySideBody: some View {
         HStack(spacing: 2) {
@@ -157,29 +157,33 @@ struct DoodlePadWidgetView: View {
     }
 }
 
-struct DoodlePadWidget: Widget {
+struct DrawingPadWidget: Widget {
+    // Deliberately still "DoodlePadWidget" — WidgetKit persists a home-screen widget instance
+    // by its `kind`, so changing this string would orphan every widget a user has already
+    // placed (it'd stop resolving to this configuration entirely). Only the Swift type name and
+    // the user-facing display strings below changed, not this identifier.
     let kind = "DoodlePadWidget"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: DoodlePadProvider()) { entry in
-            DoodlePadWidgetView(entry: entry)
+        StaticConfiguration(kind: kind, provider: DrawingPadProvider()) { entry in
+            DrawingPadWidgetView(entry: entry)
                 .containerBackground(for: .widget) { Color.white }
         }
-        .configurationDisplayName("Doodle Pad")
-        .description("Your partner's doodle — both of yours side by side at Medium size.")
+        .configurationDisplayName("Drawing Pad")
+        .description("Your partner's drawing — both of yours side by side at Medium size.")
         .supportedFamilies([.systemSmall, .systemMedium])
         .contentMarginsDisabled()
     }
 }
 
 #Preview(as: .systemSmall) {
-    DoodlePadWidget()
+    DrawingPadWidget()
 } timeline: {
-    DoodlePadEntry(date: .now, subscriptionTier: WidgetTier.premium, imageData: nil, myImageData: nil, myName: "Rosa", partnerName: "Dara")
+    DrawingPadEntry(date: .now, subscriptionTier: WidgetTier.premium, imageData: nil, myImageData: nil, myName: "Rosa", partnerName: "Dara")
 }
 
 #Preview(as: .systemMedium) {
-    DoodlePadWidget()
+    DrawingPadWidget()
 } timeline: {
-    DoodlePadEntry(date: .now, subscriptionTier: WidgetTier.premium, imageData: nil, myImageData: nil, myName: "Rosa", partnerName: "Dara")
+    DrawingPadEntry(date: .now, subscriptionTier: WidgetTier.premium, imageData: nil, myImageData: nil, myName: "Rosa", partnerName: "Dara")
 }

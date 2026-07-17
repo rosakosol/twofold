@@ -618,7 +618,7 @@ enum BackendService {
 
     // MARK: - Drawing pads
 
-    /// Each person's home-screen doodle lives at one fixed path, so a re-save overwrites
+    /// Each person's home-screen drawing lives at one fixed path, so a re-save overwrites
     /// rather than accumulates — no separate DB row needed, the path is fully deterministic.
     private static func drawingPadPath(coupleID: UUID, personID: UUID) -> String {
         "\(coupleID)/\(personID)/pad.png"

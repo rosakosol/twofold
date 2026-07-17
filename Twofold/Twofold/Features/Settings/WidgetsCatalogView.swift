@@ -28,7 +28,7 @@ struct WidgetsCatalogView: View {
         WidgetCatalogEntry(name: "Anniversary", subtitle: "Your running days-together total", systemImage: "heart.fill", tier: WidgetTier.plus),
         WidgetCatalogEntry(name: "Partner's Time", subtitle: "Their local time, at a glance", systemImage: "clock.fill", tier: WidgetTier.plus),
         WidgetCatalogEntry(name: "Time & Weather", subtitle: "Their time and forecast, side by side", systemImage: "cloud.sun.fill", tier: WidgetTier.plus),
-        WidgetCatalogEntry(name: "Doodle Pad", subtitle: "Whatever's currently drawn, with a nudge button", systemImage: "pencil.tip", tier: WidgetTier.plus),
+        WidgetCatalogEntry(name: "Drawing Pad", subtitle: "Whatever's currently drawn, with a nudge button", systemImage: "pencil.tip", tier: WidgetTier.plus),
         WidgetCatalogEntry(name: "Smart Rotating", subtitle: "Cycles through your other widgets automatically", systemImage: "arrow.triangle.2.circlepath", tier: WidgetTier.premium),
     ]
 

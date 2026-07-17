@@ -22,7 +22,7 @@ final class AppModel {
     /// Every flight for the couple, independent of trip linkage — the authoritative list.
     /// See `Trip.flight` for the trip-scoped mirror kept for backward-compat UI.
     var flights: [Flight] = []
-    /// Home-screen doodle pads — only meaningful once paired, since there's no partner pad to
+    /// Home-screen drawing pads — only meaningful once paired, since there's no partner pad to
     /// compare against (and nowhere real to save to) before then.
     var myDrawingURL: URL?
     var partnerDrawingURL: URL?
