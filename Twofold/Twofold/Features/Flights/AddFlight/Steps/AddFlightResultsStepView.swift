@@ -179,6 +179,7 @@ struct AddFlightResultsStepView: View {
         .buttonStyle(.plain)
     }
 
+
     private func timeChip(code: String, date: Date, timeZone: String?, systemImage: String) -> some View {
         let tz: TimeZone = timeZone.flatMap(TimeZone.init(identifier:)) ?? .current
         return HStack(spacing: 4) {

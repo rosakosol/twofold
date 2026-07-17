@@ -265,6 +265,11 @@ struct FlightTrackingView: View {
             FlightMapView(flight: flight)
                 .frame(height: 260)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                .overlay(alignment: .bottomTrailing) {
+                    if flight.hasLivePosition {
+                        liveStatsOverlay
+                    }
+                }
 
             if flight.hasLivePosition {
                 HStack(spacing: Theme.Spacing.sm) {
@@ -280,6 +285,29 @@ struct FlightTrackingView: View {
                 }
             }
         }
+    }
+
+    /// Speed/altitude readout directly on the map itself, bottom-right — alongside (not instead
+    /// of) the `StatTile` row below, which also carries heading and stays as the more detailed,
+    /// labeled version. Dark translucent pill regardless of theme, since it needs to stay legible
+    /// sitting on top of whatever's under it on the map (ocean blue, green terrain, ...), not
+    /// whatever the app's light/dark mode happens to be.
+    private var liveStatsOverlay: some View {
+        HStack(spacing: Theme.Spacing.sm) {
+            if let speed = flight.positionGroundspeed {
+                Label("\(Int(speed))kn", systemImage: "speedometer")
+            }
+            if let altitude = flight.positionAltitude {
+                Label("\(Int(altitude))ft", systemImage: "arrow.up.to.line")
+            }
+        }
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(.white)
+        .labelStyle(.titleAndIcon)
+        .padding(.horizontal, Theme.Spacing.sm)
+        .padding(.vertical, 6)
+        .background(.black.opacity(0.55), in: Capsule())
+        .padding(Theme.Spacing.sm)
     }
 
     // MARK: - Journey summary

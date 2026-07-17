@@ -55,7 +55,8 @@ struct FlightMapView: View {
                 position: flight.positionCoordinate,
                 positionHeading: flight.positionHeading,
                 travelers: travelers,
-                progress: flight.progress,
+                bestDeparture: flight.bestDeparture,
+                bestArrival: flight.bestArrival,
                 status: flight.status,
                 interactive: interactive,
                 // Only the full detail screen (interactive) gets the immersive live-follow
@@ -101,9 +102,13 @@ private struct MapKitRouteView: UIViewRepresentable {
     let positionHeading: Double?
     /// 0, 1, or 2 people — both partners can be marked as travelling together on one flight.
     let travelers: [Person]
-    /// 0...1, mirrors `Flight.progress` — how far along the route the traveled (colored) portion
-    /// of the line extends before giving way to the grey untraveled remainder.
-    let progress: Double
+    /// Raw times, not a pre-computed progress fraction — the Coordinator recomputes "how far
+    /// along the route" itself, live, on every animation tick (see `Coordinator.liveProgress`),
+    /// so the marker keeps moving smoothly between polls instead of only jumping once per
+    /// SwiftUI re-render (which only happens when this flight's underlying data actually changes,
+    /// every few minutes at best).
+    let bestDeparture: Date?
+    let bestArrival: Date?
     let status: FlightStatus
     let interactive: Bool
     let followWhenEnRoute: Bool
@@ -154,7 +159,8 @@ private struct MapKitRouteView: UIViewRepresentable {
             position: position,
             positionHeading: positionHeading,
             travelers: travelers,
-            progress: progress,
+            bestDeparture: bestDeparture,
+            bestArrival: bestArrival,
             status: status
         )
     }
@@ -171,7 +177,8 @@ private struct MapKitRouteView: UIViewRepresentable {
             var position: CLLocationCoordinate2D?
             var positionHeading: Double?
             var travelers: [Person]
-            var progress: Double
+            var bestDeparture: Date?
+            var bestArrival: Date?
             var status: FlightStatus
 
             static func == (lhs: Route, rhs: Route) -> Bool {
@@ -180,7 +187,7 @@ private struct MapKitRouteView: UIViewRepresentable {
                     && lhs.originCode == rhs.originCode && lhs.destinationCode == rhs.destinationCode
                     && lhs.position?.latitude == rhs.position?.latitude && lhs.position?.longitude == rhs.position?.longitude
                     && lhs.positionHeading == rhs.positionHeading && lhs.travelers.map(\.id) == rhs.travelers.map(\.id)
-                    && lhs.progress == rhs.progress && lhs.status == rhs.status
+                    && lhs.bestDeparture == rhs.bestDeparture && lhs.bestArrival == rhs.bestArrival && lhs.status == rhs.status
             }
         }
 
@@ -207,6 +214,20 @@ private struct MapKitRouteView: UIViewRepresentable {
         private var originHasOverlappingMarker = false
         private var destinationHasOverlappingMarker = false
 
+        /// Drives the marker (and, while en route, the follow camera) continuously between polls
+        /// — `apply`/`layoutDidChange` only ever fire when this flight's underlying data actually
+        /// changes or the view relays out, which without this left the plane/avatar sitting
+        /// frozen in place for however long the last poll interval was, then visibly snapping to
+        /// its new spot on the next update instead of having appeared to fly there. Started once
+        /// `mapView` is known (see `apply`) and invalidated in `deinit`; each tick is a no-op
+        /// unless the flight is actually between departure and arrival (see `tick`), so it isn't
+        /// spending anything on a flight that's scheduled or already landed.
+        private var animationTimer: Timer?
+
+        deinit {
+            animationTimer?.invalidate()
+        }
+
         /// The most recent values passed to `apply` — replayed by `layoutDidChange` if the very
         /// first fit had to be deferred because the view wasn't laid out yet, or if the view's
         /// real size later turns out to differ from what it was fitted against.
@@ -222,6 +243,20 @@ private struct MapKitRouteView: UIViewRepresentable {
         /// what made the Home card's route look wrong/never-corrected.
         private var lastFittedBoundsSize: CGSize = .zero
 
+        /// 0...1, computed fresh from wall-clock time on every call (mirrors `Flight.progress`'s
+        /// own formula) rather than trusting a value baked in at the last SwiftUI re-render —
+        /// re-render only happens when this flight's underlying data actually changes (a poll,
+        /// every couple of minutes at best), which is what made the plane/avatar marker sit
+        /// frozen between updates instead of visibly advancing along the route in real time.
+        private static func liveProgress(for route: Route) -> Double {
+            guard let departure = route.bestDeparture, let arrival = route.bestArrival, arrival > departure else {
+                return route.status == .arrived || route.status == .landed ? 1 : 0
+            }
+            let elapsed = Date.now.timeIntervalSince(departure)
+            let total = arrival.timeIntervalSince(departure)
+            return min(1, max(0, elapsed / total))
+        }
+
         /// Flighty-style close tracking: statuses where the plane is genuinely airborne and its
         /// live position is worth zooming in on. Excludes `.boarding` (still at the gate — the
         /// marker just sits on the origin, nothing to zoom into yet).
@@ -233,6 +268,7 @@ private struct MapKitRouteView: UIViewRepresentable {
             guard let mapView else { return }
             pendingEdgePadding = edgePadding
             pendingFollowWhenEnRoute = followWhenEnRoute
+            startAnimationTimerIfNeeded()
 
             guard route != lastAppliedRoute else { return }
 
@@ -297,6 +333,54 @@ private struct MapKitRouteView: UIViewRepresentable {
             // A real pinch/pan from the user — let them keep it; stop overriding their view with
             // follow-camera recenters until the flight's en-route state changes again.
             isFollowing = false
+        }
+
+        // MARK: - Continuous animation
+
+        /// Both the timer's firing interval and the duration of each `UIView.animate` step in
+        /// `updatePositionAnnotation` — keeping them equal is what makes the motion continuous:
+        /// each animated hop finishes exactly as the next tick starts a new one, instead of
+        /// pausing (interval > duration, a stutter) or overlapping (interval < duration, a snap
+        /// mid-flight as a new animation interrupts the one still running).
+        private static let animationTickInterval: TimeInterval = 1
+
+        private func startAnimationTimerIfNeeded() {
+            guard animationTimer == nil else { return }
+            let timer = Timer(timeInterval: Self.animationTickInterval, repeats: true) { [weak self] _ in
+                self?.tick()
+            }
+            // `.common` (not the default `.default` run loop mode) so this keeps firing while
+            // the user is actively touching the map — e.g. mid-pinch/pan — rather than pausing
+            // for however long their gesture lasts.
+            RunLoop.main.add(timer, forMode: .common)
+            animationTimer = timer
+        }
+
+        /// Once a second: re-renders the route/marker at whatever `liveProgress` is *right now*,
+        /// and — while following an en-route flight — recenters the camera on it, all without
+        /// waiting for `apply` to be called again by a fresh poll. A no-op whenever the flight
+        /// isn't actually between departure and arrival, so a scheduled or already-landed flight
+        /// isn't burning a tick on a marker that was never going to move anyway.
+        private func tick() {
+            guard let mapView, let route = lastAppliedRoute, hasFittedCamera else { return }
+            let progress = Self.liveProgress(for: route)
+            guard progress > 0.001, progress < 0.999 else { return }
+
+            updateOverlays(route, mapView: mapView)
+            updateAnnotations(route, mapView: mapView, animate: true)
+            if isFollowing, let marker = markerCoordinate(for: route) {
+                isProgrammaticCameraChange = true
+                // `animated: false` inside an explicit `UIView.animate` block, not MapKit's own
+                // `animated: true` — that used a fixed system duration/curve MapKit doesn't expose
+                // for tuning, which finished in well under a second and then sat still until the
+                // next tick's recenter, reading as a camera that snaps hard once a second rather
+                // than tracking the marker. Matching the duration and linear curve to the marker's
+                // own glide (`updatePositionAnnotation`) keeps the camera arriving exactly when the
+                // marker does, so the two move together instead of camera-snap-then-pause.
+                UIView.animate(withDuration: Self.animationTickInterval, delay: 0, options: [.curveLinear]) {
+                    mapView.setCenter(marker, animated: false)
+                }
+            }
         }
 
         // MARK: - Camera
@@ -388,9 +472,9 @@ private struct MapKitRouteView: UIViewRepresentable {
         /// valid (unlike overlays, which redraw fresh every frame regardless of when they were
         /// added — see `updateOverlays`, safe to call anytime). Callers only invoke this once
         /// `hasFittedCamera` is true.
-        private func updateAnnotations(_ route: Route, mapView: MKMapView) {
+        private func updateAnnotations(_ route: Route, mapView: MKMapView, animate: Bool = false) {
             updateEndpointAnnotations(route, mapView: mapView)
-            updatePositionAnnotation(route, mapView: mapView)
+            updatePositionAnnotation(route, mapView: mapView, animate: animate)
         }
 
         /// Traveled portion (origin up to the flight's current progress) vs. the leg not yet
@@ -404,58 +488,48 @@ private struct MapKitRouteView: UIViewRepresentable {
         private func updateOverlays(_ route: Route, mapView: MKMapView) {
             mapView.removeOverlays(mapView.overlays)
 
-            // Built from `MKMapPoint`s already unwrapped across the antimeridian (see
-            // `unwrappedMapPoints`), not raw coordinates — `MKPolyline(coordinates:count:)` would
-            // otherwise draw a route that legitimately swings past ±180° longitude (common for
-            // near-polar great circles) as if it looped the long way around the globe instead of
-            // the short way across the date line.
-            let points = Self.unwrappedMapPoints(for: Self.routeSamples(from: route.origin, to: route.destination))
-            let casing = ColoredPolyline(points: points, count: points.count)
-            casing.strokeColor = .white
-            casing.lineWidth = 7
-            mapView.addOverlay(casing)
-
-            let progress = route.status == .diverted ? 0 : route.progress
-            let (traveled, untraveled) = Self.splitPoints(points, progress: progress)
-            if !untraveled.isEmpty {
-                let line = ColoredPolyline(points: untraveled, count: untraveled.count)
-                line.strokeColor = Self.untraveledColor
-                line.lineWidth = 4
-                mapView.addOverlay(line)
+            // `MKGeodesicPolyline` handles both the curve smoothness and the antimeridian
+            // wraparound itself, given nothing but the two endpoints — no manual sampling or
+            // longitude-unwrapping needed here (unlike `fitCamera`, which still uses
+            // `routeSamples`/`unwrappedMapPoints` for its own distance math).
+            let progress = route.status == .diverted ? 0 : Self.liveProgress(for: route)
+            let segments: [(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D, color: UIColor)]
+            if progress >= 0.999 {
+                segments = [(route.origin, route.destination, Self.traveledColor)]
+            } else if progress <= 0.001 {
+                segments = [(route.origin, route.destination, Self.untraveledColor)]
+            } else {
+                // The same slerp formula MapKit itself uses to fill in a geodesic polyline, so
+                // this split point lands exactly on the curve with no visible kink at the color
+                // change.
+                let split = Self.intermediateGreatCirclePoint(route.origin, route.destination, fraction: progress)
+                segments = [(route.origin, split, Self.traveledColor), (split, route.destination, Self.untraveledColor)]
             }
-            if !traveled.isEmpty {
-                let line = ColoredPolyline(points: traveled, count: traveled.count)
-                line.strokeColor = Self.traveledColor
-                line.lineWidth = 4
-                mapView.addOverlay(line)
+
+            // Casing is built from the exact same `[from, to]` endpoint pairs as the colored
+            // lines below it, not one long origin→destination line spanning both — MapKit's
+            // adaptive point insertion for a geodesic polyline depends on the span between its
+            // *own* two endpoints, so a single full-route casing and the two shorter split
+            // segments came out as visibly different curves (however identical the true great
+            // circle they both approximate), most noticeable at the tight zoom the flight-
+            // tracking screen's follow camera uses. Same endpoint pairs on both guarantees
+            // MapKit computes an identical curve for each, so casing and color trace exactly on
+            // top of each other regardless of zoom.
+            for segment in segments {
+                mapView.addOverlay(Self.coloredLine([segment.from, segment.to], color: .white, lineWidth: 7))
+            }
+            for segment in segments {
+                mapView.addOverlay(Self.coloredLine([segment.from, segment.to], color: segment.color, lineWidth: 4))
             }
         }
 
-        /// Splits the evenly-spaced route samples into a traveled prefix and untraveled suffix at
-        /// `progress`, linearly interpolating the exact split point between the two samples it
-        /// falls between so the two polylines meet without a visible gap or overlap.
-        private static func splitPoints(_ points: [MKMapPoint], progress: Double) -> (traveled: [MKMapPoint], untraveled: [MKMapPoint]) {
-            guard points.count > 1 else { return (points, points) }
-            if progress <= 0.001 { return ([], points) }
-            if progress >= 0.999 { return (points, []) }
-
-            let totalSegments = points.count - 1
-            let exactIndex = progress * Double(totalSegments)
-            let splitIndex = min(max(Int(exactIndex), 0), totalSegments - 1)
-            let fraction = exactIndex - Double(splitIndex)
-            let a = points[splitIndex], b = points[splitIndex + 1]
-            let splitPoint = MKMapPoint(x: a.x + (b.x - a.x) * fraction, y: a.y + (b.y - a.y) * fraction)
-
-            var traveled = Array(points[0...splitIndex])
-            traveled.append(splitPoint)
-            var untraveled = [splitPoint]
-            untraveled.append(contentsOf: points[(splitIndex + 1)...])
-            return (traveled, untraveled)
+        private static func coloredLine(_ coordinates: [CLLocationCoordinate2D], color: UIColor, lineWidth: CGFloat) -> ColoredGeodesicOverlay {
+            ColoredGeodesicOverlay(coordinates: coordinates, strokeColor: color, lineWidth: lineWidth)
         }
 
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
-            guard let colored = overlay as? ColoredPolyline else { return MKOverlayRenderer(overlay: overlay) }
-            let renderer = MKPolylineRenderer(polyline: colored)
+            guard let colored = overlay as? ColoredGeodesicOverlay else { return MKOverlayRenderer(overlay: overlay) }
+            let renderer = MKPolylineRenderer(polyline: colored.line)
             renderer.strokeColor = colored.strokeColor
             renderer.lineWidth = colored.lineWidth
             renderer.lineCap = .round
@@ -506,9 +580,10 @@ private struct MapKitRouteView: UIViewRepresentable {
         /// position has ever been reported.
         private func markerCoordinate(for route: Route) -> CLLocationCoordinate2D? {
             if route.status == .diverted { return route.position ?? route.origin }
-            if route.progress <= 0.001 { return route.origin }
-            if route.progress >= 0.999 { return route.destination }
-            return Self.intermediateGreatCirclePoint(route.origin, route.destination, fraction: route.progress)
+            let progress = Self.liveProgress(for: route)
+            if progress <= 0.001 { return route.origin }
+            if progress >= 0.999 { return route.destination }
+            return Self.intermediateGreatCirclePoint(route.origin, route.destination, fraction: progress)
         }
 
         private func updateEndpointAnnotations(_ route: Route, mapView: MKMapView) {
@@ -538,24 +613,55 @@ private struct MapKitRouteView: UIViewRepresentable {
             }
         }
 
-        /// Removed and re-added (rather than mutated in place) on every position update — the
-        /// live position is the one thing about a flight that changes on its own timer, and
-        /// explicit remove/add avoids relying on undocumented in-place-repositioning behavior.
-        ///
         /// Before departure there's no live position from the provider yet, but the marker still
         /// rides the route — parked at the origin — rather than only appearing once the flight is
         /// airborne. That's true whether it's a traveler's avatar or the plane-icon fallback (no
         /// traveler set): both are driven by `progress`, not the raw live GPS ping (see
         /// `markerCoordinate(for:)`), so there's always something to show once a route exists.
-        private func updatePositionAnnotation(_ route: Route, mapView: MKMapView) {
+        ///
+        /// `animate: true` (used by the once-a-second animation tick) mutates the *existing*
+        /// annotation's coordinate inside a `UIView.animate` block instead of removing and
+        /// re-adding it — `MKPointAnnotation.coordinate` is KVO-observed by the map view's own
+        /// positioning, so wrapping the change in an animation block is what actually makes
+        /// MapKit interpolate the marker smoothly between the old and new spot over that second,
+        /// rather than teleporting there the instant this runs. Remove-and-re-add is still used
+        /// for every other case (first placement, a traveler being added/removed, or any
+        /// non-animated call) — those genuinely are a different marker, not a continuation of the
+        /// same one moving.
+        private func updatePositionAnnotation(_ route: Route, mapView: MKMapView, animate: Bool = false) {
+            guard let coordinate = markerCoordinate(for: route) else {
+                if let existing = positionAnnotation {
+                    mapView.removeAnnotation(existing)
+                    positionAnnotation = nil
+                }
+                return
+            }
+            let heading = Self.markerHeading(for: route, at: coordinate)
+
+            if animate, let existing = positionAnnotation, existing.travelers.map(\.id) == route.travelers.map(\.id) {
+                existing.positionHeading = heading
+                UIView.animate(withDuration: Self.animationTickInterval, delay: 0, options: [.curveLinear]) {
+                    existing.coordinate = coordinate
+                }
+                // The plane icon's heading-based rotation is the one bit of the hosted SwiftUI
+                // content that can change tick-to-tick even without a traveler/plane switch —
+                // refreshed in place (not via remove/re-add) and wrapped in the same animation
+                // duration so it turns smoothly alongside the move instead of snapping.
+                if route.travelers.isEmpty, let view = mapView.view(for: existing) as? SwiftUIAnnotationView {
+                    withAnimation(.linear(duration: Self.animationTickInterval)) {
+                        view.setContent(Self.planeMarker(heading: heading), size: CGSize(width: 30, height: 30))
+                    }
+                }
+                return
+            }
+
             if let existing = positionAnnotation {
                 mapView.removeAnnotation(existing)
                 positionAnnotation = nil
             }
-            guard let coordinate = markerCoordinate(for: route) else { return }
             let annotation = RouteAnnotation(kind: .position, reuseIdentifier: Self.positionIdentifier)
             annotation.coordinate = coordinate
-            annotation.positionHeading = Self.markerHeading(for: route, at: coordinate)
+            annotation.positionHeading = heading
             annotation.travelers = route.travelers
             mapView.addAnnotation(annotation)
             positionAnnotation = annotation
@@ -690,12 +796,12 @@ private struct MapKitRouteView: UIViewRepresentable {
             return θ.truncatingRemainder(dividingBy: 360) + (θ < 0 ? 360 : 0)
         }
 
-        /// Samples 200 points along the great-circle curve (plus both endpoints) — dense enough
+        /// Samples 600 points along the great-circle curve (plus both endpoints) — dense enough
         /// that the short straight segments between consecutive samples read as a genuinely
-        /// smooth curve rather than a faceted polyline even at the tight zoom levels the peak of
-        /// a long-haul great circle gets viewed at (a coarser sample count left visible facets
-        /// right where the curve bends the most). Cheap either way — it's a couple hundred trig
-        /// calls, not a rendering bottleneck. Deliberately left in raw (non-unwrapped) coordinate
+        /// smooth curve rather than a faceted polyline even at the wide, zoomed-out framing the
+        /// Home card uses, where a long-haul great circle's peak arc is exactly where a coarser
+        /// sample count used to leave visible facets. Cheap either way — it's a few hundred extra
+        /// trig calls, not a rendering bottleneck. Deliberately left in raw (non-unwrapped) coordinate
         /// form — `MKMapPoint`'s conversion from `CLLocationCoordinate2D` expects longitude in
         /// its normal ±180° range, so unwrapping happens exactly once, afterward, in map-point
         /// space (`unwrappedMapPoints`) rather than here too; doing it at both stages fed already-
@@ -703,7 +809,7 @@ private struct MapKitRouteView: UIViewRepresentable {
         /// whose great-circle path swings past ±180° (common for near-polar routes) and was the
         /// actual cause of the map fitting to a tiny, wrong sub-region instead of the real route.
         private static func routeSamples(from a: CLLocationCoordinate2D, to b: CLLocationCoordinate2D) -> [CLLocationCoordinate2D] {
-            let sampleCount = 200
+            let sampleCount = 600
             var coordinates: [CLLocationCoordinate2D] = [a]
             for i in 1..<sampleCount {
                 coordinates.append(intermediateGreatCirclePoint(a, b, fraction: Double(i) / Double(sampleCount)))
@@ -763,12 +869,30 @@ private final class RouteAnnotation: MKPointAnnotation {
     }
 }
 
-/// A route polyline carrying its own render styling — used for both the white casing and the
-/// blue line on top of it (see `Coordinator.updateOverlays`), since a plain `MKPolyline` has no
-/// room to say which is which.
-private final class ColoredPolyline: MKPolyline {
-    var strokeColor: UIColor = .gray
-    var lineWidth: CGFloat = 4
+/// Pairs an `MKGeodesicPolyline` with its own render styling — used for the white casing and the
+/// blue line on top of it (see `Coordinator.updateOverlays`).
+///
+/// Holds the geodesic line rather than subclassing it — `MKGeodesicPolyline` (unlike plain
+/// `MKPolyline`) turns out not to be safely subclassable: giving a subclass extra stored
+/// properties and constructing it via `init(coordinates:count:)` reliably crashed with
+/// `EXC_BAD_ACCESS` inside `objc_release`, a pointer-authentication failure consistent with
+/// MapKit's geodesic point-insertion internals assuming the base class's exact memory layout.
+/// Holding a plain, un-subclassed instance and rendering through it (`MKPolylineRenderer(polyline:
+/// colored.line)`) gets the same adaptive, antimeridian-safe curve without touching that class's
+/// internals at all.
+private final class ColoredGeodesicOverlay: NSObject, MKOverlay {
+    let line: MKGeodesicPolyline
+    var strokeColor: UIColor
+    var lineWidth: CGFloat
+
+    init(coordinates: [CLLocationCoordinate2D], strokeColor: UIColor, lineWidth: CGFloat) {
+        self.line = MKGeodesicPolyline(coordinates: coordinates, count: coordinates.count)
+        self.strokeColor = strokeColor
+        self.lineWidth = lineWidth
+    }
+
+    var coordinate: CLLocationCoordinate2D { line.coordinate }
+    var boundingMapRect: MKMapRect { line.boundingMapRect }
 }
 
 /// Hosts SwiftUI marker content inside an `MKAnnotationView` — a standard SwiftUI-in-UIKit bridge

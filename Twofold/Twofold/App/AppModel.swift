@@ -10,6 +10,7 @@ import Foundation
 import Observation
 import PostHog
 import RevenueCat
+import Supabase
 
 @Observable
 final class AppModel {
@@ -79,6 +80,15 @@ final class AppModel {
 
     /// Set once a real `couples` row exists for this user.
     private var backendCoupleID: UUID?
+    /// Kept alive for as long as a couple is loaded (started in `adopt`, torn down whenever
+    /// `backendCoupleID` is cleared) — without this, `flights` only ever learned about a
+    /// server-side change (a landed flight the cron just archived, a new flight the partner
+    /// added) when some specific view happened to call `refreshFlights()` itself. A flight the
+    /// server had already correctly marked done kept showing as "tracked" on Home/Trips
+    /// indefinitely if the app just sat open, only catching up once the user happened to open
+    /// that flight's own detail screen (which has its own, single-flight realtime subscription).
+    private var flightsRealtimeChannel: RealtimeChannelV2?
+    private var flightsRealtimeTask: Task<Void, Never>?
     /// Trips/memories added locally before pairing completed (no couple to attach them to
     /// yet). Flushed to the backend the moment a real couple shows up.
     private var pendingTripIDs: Set<Trip.ID> = []
@@ -217,6 +227,7 @@ final class AppModel {
     /// place (added before ever pairing, still only durable via `PendingMemoryStore`), so they
     /// survive this reset rather than being discarded along with the dissolved couple's data.
     private func adoptSoloProfile(_ profile: BackendService.OwnProfileState) async {
+        stopFlightsRealtimeSubscription()
         partnerConnected = false
         backendCoupleID = nil
         trips = []
@@ -295,6 +306,7 @@ final class AppModel {
     /// Signs out and resets all local state back to the pre-auth placeholder — `RootView`
     /// picks this up via `hasCouple` and routes back to `WelcomeView`.
     func signOut() async {
+        stopFlightsRealtimeSubscription()
         try? await BackendService.signOut()
         _ = try? await Purchases.shared.logOut()
         PostHogSDK.shared.reset()
@@ -607,6 +619,30 @@ final class AppModel {
         }
         pendingMemoryIDs = stillPendingMemories
         Task { await WidgetSnapshotWriter.refresh(appModel: self) }
+        startFlightsRealtimeSubscription(coupleID: state.couple.id)
+    }
+
+    /// Idempotent — safe to call even if a subscription for this exact couple is already
+    /// running (tears the old one down first) so `adopt` doesn't need to reason about whether
+    /// this is the first pairing or a couple switch.
+    private func startFlightsRealtimeSubscription(coupleID: UUID) {
+        stopFlightsRealtimeSubscription()
+        let (channel, stream) = BackendService.subscribeToCoupleFlights(coupleID: coupleID)
+        flightsRealtimeChannel = channel
+        flightsRealtimeTask = Task { [weak self] in
+            for await _ in stream {
+                await self?.refreshFlights()
+            }
+        }
+    }
+
+    private func stopFlightsRealtimeSubscription() {
+        flightsRealtimeTask?.cancel()
+        flightsRealtimeTask = nil
+        if let flightsRealtimeChannel {
+            Task { await BackendService.unsubscribe(flightsRealtimeChannel) }
+        }
+        flightsRealtimeChannel = nil
     }
 
     /// Called once account creation succeeds — now happens *before* the paywall/trial screens

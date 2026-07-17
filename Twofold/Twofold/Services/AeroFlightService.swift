@@ -101,6 +101,12 @@ enum AeroFlightService {
             "mode": "number",
             "flightNumber": flightNumber,
             "date": Self.dateOnly(date),
+            // "Departing today" is meant relative to wherever the caller actually is, not
+            // wherever the flight happens to originate — a flight leaving Los Angeles at 11pm
+            // reads as "tomorrow" there while still being "today, in a couple of hours" to a
+            // caller in Melbourne. The server prefers this over the flight's own origin timezone
+            // when deciding whether a result counts as a same-day match.
+            "deviceTimeZone": TimeZone.current.identifier,
         ]
         if let originIata, !originIata.isEmpty { body["originIata"] = originIata }
         let response: CandidatesResponse = try await call("resolve-flight", body: body)
@@ -113,6 +119,7 @@ enum AeroFlightService {
             "originIata": originIata,
             "destinationIata": destinationIata,
             "date": Self.dateOnly(date),
+            "deviceTimeZone": TimeZone.current.identifier,
         ])
         return response.candidates
     }

@@ -1298,6 +1298,30 @@ enum BackendService {
         return (channel, stream)
     }
 
+    /// App-wide counterpart to `subscribeToFlightRefresh` — that one only covers a single flight
+    /// while its detail screen happens to be open, which is exactly why a flight the server
+    /// already archived (landed hours ago, `tracking_enabled` flipped false by
+    /// `refresh-due-flights`'s cron) kept showing in Home/Trips until the user happened to open
+    /// its detail screen: `AppModel.flights` had no way to learn about *any* server-side change
+    /// while just sitting on a list screen. Scoped to the whole couple (every insert/update, not
+    /// filtered to one row) and kept alive for as long as a couple is loaded, not just one view.
+    static func subscribeToCoupleFlights(coupleID: UUID) -> (channel: RealtimeChannelV2, stream: AsyncStream<Void>) {
+        let channel = supabase.channel("couple_flights_\(coupleID.uuidString)")
+        let inserts = channel.postgresChange(InsertAction.self, table: "flights", filter: .eq("couple_id", value: coupleID.uuidString))
+        let updates = channel.postgresChange(UpdateAction.self, table: "flights", filter: .eq("couple_id", value: coupleID.uuidString))
+
+        let (stream, continuation) = AsyncStream<Void>.makeStream()
+        Task {
+            try? await channel.subscribeWithError()
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask { for await _ in inserts { continuation.yield(()) } }
+                group.addTask { for await _ in updates { continuation.yield(()) } }
+            }
+            continuation.finish()
+        }
+        return (channel, stream)
+    }
+
     private struct NotificationPreferencesRow: Codable {
         var flightId: UUID
         var profileId: UUID
