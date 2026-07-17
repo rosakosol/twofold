@@ -92,11 +92,14 @@ async function showAlreadySubscribed(tierName) {
 
 /** `buyBtn` is the actual button clicked (or re-derived from a pending post-signin resume). */
 async function attemptPurchase(buyBtn) {
+  console.log("[twofold] attemptPurchase called", buyBtn);
   const card = buyBtn.closest("[data-plan]");
   const planId = card?.dataset.plan ?? buyBtn.dataset.buy;
   const period = card?.dataset.period === "monthly" ? "monthly" : "yearly";
+  console.log("[twofold] resolved planId/period", planId, period);
 
   const session = await getSession();
+  console.log("[twofold] session", session);
   if (!session) {
     sessionStorage.setItem(PENDING_KEY, JSON.stringify({ planId, period }));
     await signInWithApple();
@@ -109,7 +112,9 @@ async function attemptPurchase(buyBtn) {
   buyBtn.textContent = "Opening checkout…";
 
   try {
+    console.log("[twofold] fetching offerings for", session.user.id);
     const offering = await fetchOfferings(session.user.id);
+    console.log("[twofold] offering result", offering);
     const pkg = offering ? findPackage(offering, plan[period].packageId) : null;
 
     if (!pkg) {
