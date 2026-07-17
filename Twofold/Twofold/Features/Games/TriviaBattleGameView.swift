@@ -26,11 +26,6 @@ struct TriviaBattleGameView: View {
     @State private var hapticTrigger = false
     @State private var showingNoMailAppAlert = false
     @State private var showingLeaveConfirm = false
-    /// Resolved directly on this screen (not injected from an ancestor) — same technique
-    /// `.interactivePopGestureDisabled` already uses to reach the real `UINavigationController`,
-    /// applied here too so `popToGamesHub()` is guaranteed to be reaching the navigation
-    /// controller that's actually hosting this exact pushed screen.
-    @State private var navigationController: UINavigationController?
 
     private var myID: UUID { appModel.currentUser.id }
     private var partnerID: UUID { appModel.partner.id }
@@ -92,7 +87,6 @@ struct TriviaBattleGameView: View {
         // — without it, the full-bleed background was observed interpolating its own width
         // alongside that animation instead of staying static.
         .background(Theme.backgroundGradient.ignoresSafeArea().transaction { $0.animation = nil })
-        .capturingNavigationController { navigationController = $0 }
         .navigationTitle(title ?? GameType.triviaBattle.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -102,7 +96,7 @@ struct TriviaBattleGameView: View {
                 }
             } else if isDoneWithMyRounds {
                 ToolbarItem(placement: .topBarLeading) {
-                    GameBackButton(action: popToGamesHub)
+                    GameBackButton(action: { dismiss() })
                 }
             }
             // Not offered once results are showing — GameResultsView has its own toolbar
@@ -247,10 +241,6 @@ struct TriviaBattleGameView: View {
         isSendingReminder = true
         await BackendService.notifyPartner(event: .gameReminder, detail: GameType.triviaBattle.displayName, sessionID: sessionID, gameType: .triviaBattle)
         isSendingReminder = false
-    }
-
-    private func popToGamesHub() {
-        navigationController?.popToRootViewController(animated: true)
     }
 
     private func handleBack() {

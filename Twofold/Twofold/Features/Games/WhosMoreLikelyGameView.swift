@@ -22,9 +22,6 @@ struct WhosMoreLikelyGameView: View {
     @State private var hapticTrigger = false
     @State private var showingNoMailAppAlert = false
     @State private var showingLeaveConfirm = false
-    /// Resolved directly on this screen — see `TriviaBattleGameView`'s identical property for
-    /// the full reasoning.
-    @State private var navigationController: UINavigationController?
 
     private var myID: UUID { appModel.currentUser.id }
     private var partnerID: UUID { appModel.partner.id }
@@ -82,7 +79,6 @@ struct WhosMoreLikelyGameView: View {
         // — without it, the full-bleed background was observed interpolating its own width
         // alongside that animation instead of staying static.
         .background(Theme.backgroundGradient.ignoresSafeArea().transaction { $0.animation = nil })
-        .capturingNavigationController { navigationController = $0 }
         .navigationTitle(title ?? GameType.moreLikely.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -92,7 +88,7 @@ struct WhosMoreLikelyGameView: View {
                 }
             } else if isDoneWithMyRounds {
                 ToolbarItem(placement: .topBarLeading) {
-                    GameBackButton(action: popToGamesHub)
+                    GameBackButton(action: { dismiss() })
                 }
             }
             // Not offered once results are showing — GameResultsView has its own toolbar
@@ -238,10 +234,6 @@ struct WhosMoreLikelyGameView: View {
         isSendingReminder = true
         await BackendService.notifyPartner(event: .gameReminder, detail: GameType.moreLikely.displayName, sessionID: sessionID, gameType: .moreLikely)
         isSendingReminder = false
-    }
-
-    private func popToGamesHub() {
-        navigationController?.popToRootViewController(animated: true)
     }
 
     private func handleBack() {

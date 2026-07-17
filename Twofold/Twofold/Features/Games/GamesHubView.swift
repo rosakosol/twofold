@@ -101,7 +101,7 @@ struct GamesHubView: View {
                 }
                 .buttonStyle(.plain)
                 // Floating badge (hovering over the pill's corner) rather than sitting inline
-                // next to the label — inline was eating into "Answered"'s share of the equal-width
+                // next to the label — inline was eating into "Their turn"'s share of the equal-width
                 // pill, forcing every label down to a smaller, shrink-to-fit font size.
                 .overlay(alignment: .topTrailing) {
                     if let count = deckBrowseFilterCounts[filter], count > 0 {

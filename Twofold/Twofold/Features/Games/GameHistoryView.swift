@@ -15,6 +15,12 @@ struct GameHistoryView: View {
     @State private var sessions: [GameSession] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
+    /// Trivia sessions' scores and daily-question sessions' actual question text — both need a
+    /// full `GameSessionDetail` fetch (rounds/content/responses) that the plain session list
+    /// doesn't carry, so they're loaded separately, in parallel, and only for the sessions that
+    /// actually need it (every other game type/session shows fine from the list alone).
+    @State private var scores: [UUID: (mine: Int, partner: Int)] = [:]
+    @State private var dailyQuestionText: [UUID: String] = [:]
 
     var body: some View {
         Group {
@@ -44,7 +50,7 @@ struct GameHistoryView: View {
             }
         }
         .background(Theme.backgroundGradient.ignoresSafeArea())
-        .navigationTitle("Past games")
+        .navigationTitle("Completed games")
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
         .task { await appModel.loadGameDecksIfNeeded() }
@@ -79,13 +85,17 @@ struct GameHistoryView: View {
                 .frame(width: 36, height: 36)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    if let topic {
+                    if session.isDaily {
+                        PillBadge(text: "Daily Deep Question", tint: Theme.heartRed)
+                    } else if let topic {
                         PillBadge(text: topic.displayName, tint: topic.color)
                     }
-                    // The deck's own title (e.g. "How Well Do You Know European History?") when
-                    // this session came from a deck — falls back to the generic game type name
-                    // for older, pre-deck sessions with no deckID to resolve.
-                    Text(deck?.title ?? session.gameType.displayName)
+                    // The daily question's own text takes priority over the deck's own title
+                    // (e.g. "How Well Do You Know European History?") — a daily session has no
+                    // deck to name it after, and the actual question is the more useful thing to
+                    // show anyway. Falls back to the generic game type name for older, pre-deck
+                    // sessions with no deckID or resolved question text to show instead.
+                    Text(session.isDaily ? (dailyQuestionText[session.id] ?? session.gameType.displayName) : (deck?.title ?? session.gameType.displayName))
                         .font(.subheadline.weight(.semibold))
                         .lineLimit(2)
                     HStack(spacing: 4) {
@@ -97,6 +107,14 @@ struct GameHistoryView: View {
                     }
                     .font(.caption)
                     .foregroundStyle(Theme.subtleInk)
+                    // Trivia is the one game type with an actual right/wrong score — the match
+                    // games show a match percentage instead (on the results screen itself, not
+                    // here), and Deep Conversations has no score concept at all.
+                    if let score = scores[session.id] {
+                        Text("\(appModel.currentUser.name) \(score.mine) · \(appModel.partner.name) \(score.partner)")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Theme.skyBlue)
+                    }
                 }
                 Spacer()
                 Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
@@ -120,10 +138,39 @@ struct GameHistoryView: View {
         do {
             let all = try await BackendService.fetchGameSessions(status: .completed)
             sessions = GameLogic.completedSessionsOnly(all)
+            await loadExtraDetails()
         } catch {
             errorMessage = error.localizedDescription
         }
         isLoading = false
+    }
+
+    /// Fetches full session detail — concurrently, one request per session — only for trivia
+    /// sessions (score) and daily-question sessions (actual question text), since every other
+    /// session already has everything `historyRow` needs from the plain session list.
+    private func loadExtraDetails() async {
+        let needsDetail = sessions.filter { $0.gameType == .triviaBattle || $0.isDaily }
+        guard !needsDetail.isEmpty else { return }
+        await withTaskGroup(of: (UUID, BackendService.GameSessionDetail?).self) { group in
+            for session in needsDetail {
+                group.addTask {
+                    let detail = try? await BackendService.fetchGameSession(id: session.id)
+                    return (session.id, detail)
+                }
+            }
+            for await (sessionID, detail) in group {
+                guard let detail, let session = sessions.first(where: { $0.id == sessionID }) else { continue }
+                if session.gameType == .triviaBattle {
+                    scores[sessionID] = (
+                        mine: GameLogic.triviaScore(responses: detail.responses, responderID: appModel.currentUser.id),
+                        partner: GameLogic.triviaScore(responses: detail.responses, responderID: appModel.partner.id)
+                    )
+                }
+                if session.isDaily, let round = detail.rounds.first, case .deepConversation(let topic)? = detail.content[round.contentID] {
+                    dailyQuestionText[sessionID] = topic.topic
+                }
+            }
+        }
     }
 }
 

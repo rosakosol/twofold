@@ -3,35 +3,35 @@
 //  Twofold
 //
 //  Search + status-filter browsing across every deck, every topic, every game type — reached
-//  from GamesHubView's search bar / "Your turn" / "New" / "Answered" pills. Distinct from
+//  from GamesHubView's search bar / "Your turn" / "Their turn" / "New" pills. Distinct from
 //  TopicDetailView/GameTypeDecksView's narrower Unanswered/Answered split: this is the one place
-//  status is 3-way (New vs. Your turn vs. Answered), matching what the top-level pills promise.
+//  status is 3-way (New vs. Your turn vs. Their turn), matching what the top-level pills promise.
 //
 
 import SwiftUI
 
 enum DeckBrowseFilter: String, CaseIterable, Identifiable {
     case yourTurn = "Your turn"
+    case theirTurn = "Their turn"
     case new = "New"
-    case answered = "Answered"
 
     var id: String { rawValue }
 
     var icon: String {
         switch self {
         case .yourTurn: "clock.fill"
+        case .theirTurn: "checkmark.circle.fill"
         case .new: "sparkles"
-        case .answered: "checkmark.circle.fill"
         }
     }
 
     /// New = never started by either partner. Your turn = started, but I haven't finished my
-    /// side yet. Answered = I've finished my side (regardless of whether my partner has) —
+    /// side yet. Their turn = I've finished my side (regardless of whether my partner has) —
     /// mutually exclusive and exhaustive over every deck. Shared by `AllDecksBrowseView`'s own
     /// filtering and `GamesHubView`'s pill count badges, so the two never drift apart.
     static func bucket(for deck: GameDeck, progress: [UUID: DeckProgress]?) -> DeckBrowseFilter {
         guard let progress = progress?[deck.id] else { return .new }
-        return progress.myCompleted ? .answered : .yourTurn
+        return progress.myCompleted ? .theirTurn : .yourTurn
     }
 }
 

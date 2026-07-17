@@ -27,9 +27,6 @@ struct DeepConversationsGameView: View {
     @State private var isSendingReminder = false
     @State private var showingNoMailAppAlert = false
     @State private var showingLeaveConfirm = false
-    /// Resolved directly on this screen — see `TriviaBattleGameView`'s identical property for
-    /// the full reasoning.
-    @State private var navigationController: UINavigationController?
 
     private var myID: UUID { appModel.currentUser.id }
     private var partnerID: UUID { appModel.partner.id }
@@ -93,7 +90,6 @@ struct DeepConversationsGameView: View {
         // Pinned static regardless of any surrounding animated transaction — see the other 3
         // typed game views for why.
         .background(Theme.backgroundGradient.ignoresSafeArea().transaction { $0.animation = nil })
-        .capturingNavigationController { navigationController = $0 }
         .navigationTitle(title ?? GameType.deepConversations.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -103,7 +99,7 @@ struct DeepConversationsGameView: View {
                 }
             } else if isDoneWithMyRounds {
                 ToolbarItem(placement: .topBarLeading) {
-                    GameBackButton(action: popToGamesHub)
+                    GameBackButton(action: { dismiss() })
                 }
             }
             // Not offered once results are showing — GameResultsView has its own toolbar
@@ -214,10 +210,6 @@ struct DeepConversationsGameView: View {
         isSendingReminder = true
         await BackendService.notifyPartner(event: .gameReminder, detail: GameType.deepConversations.displayName, sessionID: sessionID, gameType: .deepConversations)
         isSendingReminder = false
-    }
-
-    private func popToGamesHub() {
-        navigationController?.popToRootViewController(animated: true)
     }
 
     private func handleBack() {

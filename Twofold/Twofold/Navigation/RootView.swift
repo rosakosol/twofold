@@ -103,6 +103,10 @@ struct RootView: View {
             gameDeepLink = SessionRoute(id: link.sessionID, gameType: link.gameType)
         }
         .fullScreenCover(item: $gameDeepLink) { route in
+            // The typed game view's own back button (during active play or once results show)
+            // now just calls `dismiss()` — from here, the root of a fresh `NavigationStack`
+            // inside this `fullScreenCover`, that correctly closes the whole cover instead of
+            // being a no-op. No separate Close button needed on top of that one.
             NavigationStack { gameDestinationView(gameType: route.gameType, sessionID: route.id) }
         }
         // Fires for every post-onboarding path that can newly connect a partner — redeeming a
