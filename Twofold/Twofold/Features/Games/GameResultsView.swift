@@ -18,6 +18,7 @@ struct GameResultsView: View {
     let myName: String
     let partnerName: String
     let onPlayAnother: () -> Void
+    var title: String? = nil
 
     @Environment(AppModel.self) private var appModel
     @State private var revealedCount = 0
@@ -29,6 +30,7 @@ struct GameResultsView: View {
     /// id/gameType, so this rides separately to the `.navigationDestination` closure below.
     @State private var resetTopic: String?
     @State private var showingNoMailAppAlert = false
+    @State private var showingShare = false
 
     private var isFullyRevealed: Bool { revealedCount >= store.rounds.count }
 
@@ -81,9 +83,17 @@ struct GameResultsView: View {
         // observed interpolating its own size alongside those, briefly rendering narrower than
         // the screen before settling.
         .background(Theme.backgroundGradient.ignoresSafeArea().transaction { $0.animation = nil })
-        .navigationTitle(gameType.displayName)
+        .navigationTitle(title ?? gameType.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            if isFullyRevealed {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Share", systemImage: "square.and.arrow.up") {
+                        showingShare = true
+                    }
+                    .labelStyle(.iconOnly)
+                }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button {
@@ -111,6 +121,9 @@ struct GameResultsView: View {
             }
         }
         .noMailAppAlert(isPresented: $showingNoMailAppAlert)
+        .sheet(isPresented: $showingShare) {
+            GameResultsShareView(data: shareData)
+        }
         .navigationDestination(item: $resetRoute) { route in
             gameDestinationView(gameType: route.gameType, sessionID: route.id, topic: resetTopic)
         }
@@ -183,6 +196,34 @@ struct GameResultsView: View {
         case 50..<80: Theme.skyBlue
         default: Theme.heartRed
         }
+    }
+
+    // MARK: - Share
+
+    private var shareData: GameResultShareData {
+        let singleRound = store.rounds.count == 1 ? store.rounds[0] : nil
+        let deepConversationSummary: String? = {
+            guard gameType == .deepConversations, store.session?.isDaily != true else { return nil }
+            let talkedAbout = store.rounds.filter { $0.discussionStatus == .talkedAbout }.count
+            return "Talked about \(talkedAbout) of \(store.rounds.count) topics"
+        }()
+
+        return GameResultShareData(
+            gameType: gameType,
+            title: title ?? gameType.displayName,
+            isDaily: store.session?.isDaily ?? false,
+            me: appModel.currentUser,
+            partner: appModel.partner,
+            matchPercent: matchPercent,
+            triviaMyScore: gameType == .triviaBattle ? GameLogic.triviaScore(responses: store.responses, responderID: myID) : nil,
+            triviaPartnerScore: gameType == .triviaBattle ? GameLogic.triviaScore(responses: store.responses, responderID: partnerID) : nil,
+            triviaTotalRounds: gameType == .triviaBattle ? store.rounds.count : nil,
+            deepConversationSummary: deepConversationSummary,
+            singleRoundQuestion: singleRound.map { questionText(for: $0) },
+            myAnswer: singleRound.map { answerText(store.myResponse(for: $0, myID: myID)?.answerValue, for: $0) },
+            partnerAnswer: singleRound.map { answerText(store.partnerResponse(for: $0, partnerID: partnerID)?.answerValue, for: $0) },
+            dailyStreak: appModel.dailyStreak
+        )
     }
 
     // MARK: - Per-round reveal row

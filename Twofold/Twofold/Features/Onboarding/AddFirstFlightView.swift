@@ -9,20 +9,39 @@
 //  in onboarding (the partner hasn't joined) — in that case the trip is saved without a flight
 //  and the flow routes to the (now-mandatory) memory step, same as an explicit skip.
 //
+//  AddFlightFlowView owns its own internal NavigationStack, so it's presented here in a sheet
+//  rather than rendered directly as this screen's body — matching how the live app's
+//  AddFlightView and AddTripDetailsView both already use it. Rendering it directly used to push
+//  a second, independently-typed NavigationStack as a destination of the outer onboarding
+//  NavigationStack; with both stacks' paths getting mutated around the same time (this screen's
+//  own async `onboarding.path.append` calls, layered on top of the flow's own step pushes),
+//  that's a known SwiftUI crash — `AnyNavigationPath.Error.comparisonTypeMismatch` — which is
+//  what was happening here. A sheet keeps the two NavigationStacks in separate presentation
+//  contexts, which SwiftUI handles fine.
+//
 
 import SwiftUI
 
 struct AddFirstFlightView: View {
     @Environment(OnboardingModel.self) private var onboarding
     @Environment(AppModel.self) private var appModel
+    @State private var showingFlow = false
+    /// Where the outer onboarding path advances to once the sheet is gone — read in `onDismiss`,
+    /// never appended to while `AddFlightFlowView`'s sheet (and its own nested NavigationStack)
+    /// is still up.
+    @State private var nextStep: OnboardingStep = .firstMemory
 
     var body: some View {
-        AddFlightFlowView(
-            nearCoordinate: onboarding.homeCity?.coordinate,
-            topBarTitle: "Add this later",
-            onTopBarAction: { onboarding.path.append(.firstMemory) },
-            completion: .handOff(handleSelected)
-        )
+        Theme.backgroundGradient.ignoresSafeArea()
+            .onAppear { showingFlow = true }
+            .sheet(isPresented: $showingFlow, onDismiss: { onboarding.path.append(nextStep) }) {
+                AddFlightFlowView(
+                    nearCoordinate: onboarding.homeCity?.coordinate,
+                    topBarTitle: "Add this later",
+                    onTopBarAction: { showingFlow = false },
+                    completion: .handOff(handleSelected)
+                )
+            }
     }
 
     private func handleSelected(_ candidate: AeroFlightCandidate) {
@@ -30,7 +49,7 @@ struct AddFirstFlightView: View {
         onboarding.draftedFlightDate = candidate.scheduledOut
 
         guard let origin = onboarding.partnerCity, let destination = onboarding.homeCity else {
-            onboarding.path.append(.firstMemory)
+            showingFlow = false
             return
         }
 
@@ -48,13 +67,14 @@ struct AddFirstFlightView: View {
                 await appModel.refreshFlights()
                 // A flight was successfully tracked — skip the (now-mandatory-when-reached)
                 // memory step entirely and go straight to the "ready" screen.
-                onboarding.path.append(.twofoldPreview)
+                nextStep = .twofoldPreview
             } catch {
                 // add-flight requires an active couple, which may not exist yet this early in
                 // onboarding (partner hasn't joined) — the trip is still saved, just without a
-                // flight, so this routes the same place an explicit skip would.
-                onboarding.path.append(.firstMemory)
+                // flight, so this routes the same place an explicit skip would (nextStep's
+                // .firstMemory default, untouched here).
             }
+            showingFlow = false
         }
     }
 }

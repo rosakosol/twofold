@@ -57,7 +57,7 @@ struct DeepConversationsGameView: View {
                 GameResultsView(
                     gameType: .deepConversations, store: store, myID: myID, partnerID: partnerID,
                     myName: appModel.currentUser.name, partnerName: appModel.partner.name,
-                    onPlayAnother: { dismiss() }
+                    onPlayAnother: { dismiss() }, title: title
                 )
             } else if let round = store.displayedRound(myID: myID), case let .deepConversation(topic)? = store.content(for: round) {
                 roundView(round: round, topic: topic)

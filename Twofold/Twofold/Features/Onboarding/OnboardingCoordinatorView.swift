@@ -5,6 +5,7 @@
 
 import SwiftUI
 import GoogleSignIn
+import PostHog
 
 struct OnboardingCoordinatorView: View {
     @State private var onboarding = OnboardingModel()
@@ -12,8 +13,10 @@ struct OnboardingCoordinatorView: View {
     var body: some View {
         NavigationStack(path: $onboarding.path) {
             WelcomeView()
+                .postHogScreenView("Onboarding: Welcome")
                 .navigationDestination(for: OnboardingStep.self) { step in
                     destination(for: step)
+                        .postHogScreenView(step.analyticsName)
                 }
         }
         .environment(onboarding)
@@ -69,7 +72,12 @@ struct OnboardingCoordinatorView: View {
         case .trialTrust:
             TrialTrustView()
         case .paywall:
-            PaywallView(onSubscribed: { onboarding.path.append(.purchaseSuccess) })
+            // isDismissable: false — this is pushed onto the onboarding path, not sheeted, so
+            // there's nothing to dismiss to. Without this, `PaywallView.handleEntitlementChange`
+            // would call `dismiss()` right after `onSubscribed()` appends `.purchaseSuccess`,
+            // popping both it and this screen off `onboarding.path` in the same run-loop turn —
+            // the white screen bug this comment is here to prevent regressing.
+            PaywallView(onSubscribed: { onboarding.path.append(.purchaseSuccess) }, isDismissable: false)
         case .purchaseSuccess:
             PurchaseSuccessView()
         case .saveAccount:

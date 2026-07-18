@@ -59,7 +59,7 @@ struct TriviaBattleGameView: View {
                 GameResultsView(
                     gameType: .triviaBattle, store: store, myID: myID, partnerID: partnerID,
                     myName: appModel.currentUser.name, partnerName: appModel.partner.name,
-                    onPlayAnother: { dismiss() }
+                    onPlayAnother: { dismiss() }, title: title
                 )
             } else if let round = store.displayedRound(myID: myID), case let .trivia(question)? = store.content(for: round) {
                 roundView(round: round, question: question)

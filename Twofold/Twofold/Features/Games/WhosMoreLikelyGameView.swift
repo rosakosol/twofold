@@ -51,7 +51,7 @@ struct WhosMoreLikelyGameView: View {
                 GameResultsView(
                     gameType: .moreLikely, store: store, myID: myID, partnerID: partnerID,
                     myName: appModel.currentUser.name, partnerName: appModel.partner.name,
-                    onPlayAnother: { dismiss() }
+                    onPlayAnother: { dismiss() }, title: title
                 )
             } else if let round = store.displayedRound(myID: myID), case let .moreLikely(prompt)? = store.content(for: round) {
                 roundView(round: round, prompt: prompt)

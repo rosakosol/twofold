@@ -43,6 +43,47 @@ enum OnboardingStep: Hashable {
     case nextTrip
     case addTripDetails
     case reveal
+
+    /// PostHog `$screen_name` for this step — tagged once at `OnboardingCoordinatorView`'s single
+    /// `.navigationDestination` choke point rather than on each of the 31 individual screens.
+    var analyticsName: String {
+        switch self {
+        case .situation: "Onboarding: Situation"
+        case .frequency: "Onboarding: Frequency"
+        case .attribution: "Onboarding: Attribution"
+        case .goals: "Onboarding: Goals"
+        case .yourName: "Onboarding: Your Name"
+        case .partnerName: "Onboarding: Partner Name"
+        case .gender: "Onboarding: Gender"
+        case .coupleLocations: "Onboarding: Couple Locations"
+        case .anniversaryDate: "Onboarding: Anniversary Date"
+        case .personalizedInsight: "Onboarding: Personalized Insight"
+        case .notificationsSell: "Onboarding: Notifications Sell"
+        case .liveActivitySell: "Onboarding: Live Activity Sell"
+        case .memoriesSell: "Onboarding: Memories Sell"
+        case .mapSell: "Onboarding: Map Sell"
+        case .widgetSell: "Onboarding: Widget Sell"
+        case .addFirstFlight: "Onboarding: Add First Flight"
+        case .firstMemory: "Onboarding: First Memory"
+        case .twofoldPreview: "Onboarding: Twofold Preview"
+        case .saveAccount: "Onboarding: Save Account"
+        case .invitePartner: "Onboarding: Invite Partner"
+        case .trialTrust: "Onboarding: Trial Trust"
+        case .paywall: "Onboarding: Paywall"
+        case .purchaseSuccess: "Onboarding: Purchase Success"
+        case .createAccount: "Onboarding: Create Account"
+        case .homeCity: "Onboarding: Home City"
+        case .addPhoto: "Onboarding: Add Photo"
+        case .connectPartner: "Onboarding: Connect Partner"
+        case .shareInvite: "Onboarding: Share Invite"
+        case .enterPartnerCode: "Onboarding: Enter Partner Code"
+        case .joinInvite: "Onboarding: Join Invite"
+        case .connectedReveal: "Onboarding: Connected Reveal"
+        case .nextTrip: "Onboarding: Next Trip"
+        case .addTripDetails: "Onboarding: Add Trip Details"
+        case .reveal: "Onboarding: Reveal"
+        }
+    }
 }
 
 enum OnboardingRole {

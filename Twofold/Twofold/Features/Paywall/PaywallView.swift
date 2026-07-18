@@ -23,9 +23,14 @@ struct PaywallView: View {
     /// `RootView`'s forced (lapsed-subscription) case also leaves it a no-op — that screen
     /// routes reactively off `AppModel.isSubscriptionActive` instead (see `markSubscriptionActive`).
     var onSubscribed: () -> Void = {}
-    /// `false` only for `RootView`'s forced re-subscribe gate, which isn't presented as a
-    /// sheet/push and so has nothing to dismiss to — the toolbar shows "Sign Out" instead of a
-    /// close button in that case, as the only way out of a lapsed/no subscription.
+    /// Must be `false` for every call site that isn't a genuine `.sheet`/`.fullScreenCover` —
+    /// `RootView`'s forced re-subscribe gate (also shows "Sign Out" instead of a close button
+    /// there, the only way out of a lapsed/no subscription) and onboarding's pushed `.paywall`
+    /// step both qualify: `handleEntitlementChange` calls `dismiss()` on success when this is
+    /// `true`, and on a *pushed* destination that pops the current path entry — including
+    /// popping a `.purchaseSuccess` step just appended by `onSubscribed()` in the same call,
+    /// which is exactly the bug that motivated this comment. Only leave the default `true` for
+    /// real modal presentations, where `dismiss()` closing the sheet is the correct behavior.
     var isDismissable: Bool = true
 
     @Environment(\.dismiss) private var dismiss
