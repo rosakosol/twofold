@@ -3,6 +3,7 @@
 //  Twofold
 //
 
+import PostHog
 import SwiftUI
 
 struct GameResultsShareView: View {
@@ -50,6 +51,7 @@ struct GameResultsShareView: View {
                 }
             }
         }
+        .postHogScreenView("Games: Results Share")
     }
 
     private var layoutPicker: some View {

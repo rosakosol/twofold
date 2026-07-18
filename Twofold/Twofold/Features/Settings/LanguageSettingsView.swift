@@ -8,6 +8,7 @@
 //  it's still the honest, standard place to point someone who goes looking).
 //
 
+import PostHog
 import SwiftUI
 
 struct LanguageSettingsView: View {
@@ -46,6 +47,7 @@ struct LanguageSettingsView: View {
         .background(Theme.backgroundGradient.ignoresSafeArea())
         .navigationTitle("Language")
         .navigationBarTitleDisplayMode(.inline)
+        .postHogScreenView("Settings: Language")
     }
 }
 

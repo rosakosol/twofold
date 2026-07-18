@@ -6,6 +6,7 @@
 //  per-flight notification toggles, which stay scoped to each individual tracked flight.
 //
 
+import PostHog
 import SwiftUI
 
 struct NotificationPreferencesView: View {
@@ -85,6 +86,7 @@ struct NotificationPreferencesView: View {
         .onChange(of: partnerGamePartnerFinished) { _, _ in saveIfLoaded() }
         .onChange(of: dailyStreakReminder) { _, _ in saveIfLoaded() }
         .onChange(of: partnerInviteReminder) { _, _ in saveIfLoaded() }
+        .postHogScreenView("Settings: Notification Preferences")
     }
 
     private func load() async {

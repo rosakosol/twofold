@@ -8,6 +8,7 @@
 //  code path is needed here.
 //
 
+import PostHog
 import SwiftUI
 
 struct GameHistoryView: View {
@@ -54,6 +55,7 @@ struct GameHistoryView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
         .task { await appModel.loadGameDecksIfNeeded() }
+        .postHogScreenView("Games: History")
     }
 
     private var emptyState: some View {

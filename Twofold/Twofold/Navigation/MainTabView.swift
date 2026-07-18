@@ -28,7 +28,7 @@ struct MainTabView: View {
             }
             Tab("Travel", systemImage: "airplane", value: .trips) {
                 TripsListView()
-                    .postHogScreenView("Trips")
+                    .postHogScreenView("Travel")
             }
             Tab("Memories", systemImage: "photo.on.rectangle.angled", value: .memories) {
                 MemoriesView()

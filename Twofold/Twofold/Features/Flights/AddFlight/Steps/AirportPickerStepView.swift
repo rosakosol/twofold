@@ -9,6 +9,7 @@
 //
 
 import SwiftUI
+import PostHog
 
 struct AirportPickerStepView: View {
     let role: AirportRole
@@ -69,6 +70,7 @@ struct AirportPickerStepView: View {
         .task(id: query) {
             await performSearch()
         }
+        .postHogScreenView("Flights: Add Flight — Airport Picker")
     }
 
     private func performSearch() async {

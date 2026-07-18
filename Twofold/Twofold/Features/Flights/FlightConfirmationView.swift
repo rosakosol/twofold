@@ -8,6 +8,7 @@
 //
 
 import SwiftUI
+import PostHog
 
 struct FlightConfirmationView: View {
     let candidate: AeroFlightCandidate
@@ -139,6 +140,7 @@ struct FlightConfirmationView: View {
                 }
             }
         }
+        .postHogScreenView("Flights: Flight Confirmation")
     }
 
     private func confirm() {

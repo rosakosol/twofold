@@ -13,6 +13,7 @@
 //  never fabricated.
 //
 
+import PostHog
 import SwiftUI
 
 struct PassportView: View {
@@ -294,6 +295,7 @@ private struct FullStatsView: View {
         .background(Theme.backgroundGradient.ignoresSafeArea())
         .navigationTitle("Flight Stats")
         .navigationBarTitleDisplayMode(.inline)
+        .postHogScreenView("Passport: Full Stats")
     }
 
     private var heroName: String {

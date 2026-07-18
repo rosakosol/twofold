@@ -8,6 +8,7 @@
 //  starting from the trip, offering flights that don't already belong to one.
 //
 
+import PostHog
 import SwiftUI
 
 struct LinkFlightPickerView: View {
@@ -54,6 +55,7 @@ struct LinkFlightPickerView: View {
                 }
             }
         }
+        .postHogScreenView("Travel: Link Flight")
     }
 }
 

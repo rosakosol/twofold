@@ -12,6 +12,7 @@
 //  everything else here.
 //
 
+import PostHog
 import SwiftUI
 
 struct PartnerSetupView: View {
@@ -124,11 +125,13 @@ struct PartnerSetupView: View {
                         showingShareInvite = false
                     }
                 }
+                .postHogScreenView("Settings: Share Invite")
             }
             .sheet(isPresented: $showingRedeemCode) {
                 RedeemPartnerCodeView()
             }
         }
+        .postHogScreenView("Settings: Partner Setup")
     }
 
     private var connectCard: some View {

@@ -9,6 +9,7 @@
 //  "start a random session across every topic" entry point left anywhere in the app.
 //
 
+import PostHog
 import SwiftUI
 
 struct RecommendedGamesSection: View {
@@ -65,6 +66,7 @@ struct RecommendedGamesSection: View {
         }
         .sheet(isPresented: $showingHub) {
             GamesHubView()
+                .postHogScreenView("Games: Hub (From Home)")
         }
         .sheet(isPresented: $showingPartnerSetup) {
             PartnerSetupView()

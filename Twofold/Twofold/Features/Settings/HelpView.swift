@@ -3,6 +3,7 @@
 //  Twofold
 //
 
+import PostHog
 import SwiftUI
 
 struct HelpView: View {
@@ -36,6 +37,7 @@ struct HelpView: View {
         .background(Theme.backgroundGradient.ignoresSafeArea())
         .navigationTitle("Help")
         .navigationBarTitleDisplayMode(.inline)
+        .postHogScreenView("Settings: Help")
     }
 }
 

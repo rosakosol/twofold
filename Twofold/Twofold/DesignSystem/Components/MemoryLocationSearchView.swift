@@ -9,6 +9,7 @@
 import SwiftUI
 import MapKit
 import CoreLocation
+import PostHog
 
 struct MemoryLocationSearchView: View {
     var onSelect: (Place) -> Void
@@ -60,6 +61,7 @@ struct MemoryLocationSearchView: View {
                 }
             }
         }
+        .postHogScreenView("Memories: Location Search")
     }
 
     private func locationRow(title: String, subtitle: String) -> some View {

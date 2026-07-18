@@ -9,6 +9,7 @@
 //  partner who invited them.
 //
 
+import PostHog
 import SwiftUI
 
 struct RedeemPartnerCodeView: View {
@@ -87,6 +88,7 @@ struct RedeemPartnerCodeView: View {
                 }
             }
         }
+        .postHogScreenView("Settings: Redeem Partner Code")
     }
 
     private func redeem() {

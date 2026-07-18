@@ -8,6 +8,7 @@
 //  "Talked about" / "Come back later" marking for each topic.
 //
 
+import PostHog
 import SwiftUI
 
 struct DeepConversationsGameView: View {
@@ -124,6 +125,7 @@ struct DeepConversationsGameView: View {
         .onChange(of: NetworkMonitor.shared.isConnected) { wasConnected, isConnected in
             if isConnected, !wasConnected { Task { await store.syncPendingResponses() } }
         }
+        .postHogScreenView("Games: Deep Conversations")
     }
 
     private func roundView(round: GameSessionRound, topic: DeepConversationTopic) -> some View {

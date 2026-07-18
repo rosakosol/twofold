@@ -3,6 +3,7 @@
 //  Twofold
 //
 
+import PostHog
 import SwiftUI
 
 struct MeasurementsSettingsView: View {
@@ -36,6 +37,7 @@ struct MeasurementsSettingsView: View {
         .onChange(of: system) { _, newValue in
             MeasurementPreference.current = newValue
         }
+        .postHogScreenView("Settings: Measurements")
     }
 }
 

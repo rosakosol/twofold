@@ -9,6 +9,7 @@
 //
 
 import PhotosUI
+import PostHog
 import Supabase
 import SwiftUI
 import UniformTypeIdentifiers
@@ -177,6 +178,7 @@ struct FlightTrackingView: View {
         .sheet(item: $premiumGateFeature) { feature in
             FlightPremiumGateView(icon: feature.icon, title: feature.title, description: feature.description)
         }
+        .postHogScreenView("Flights: Flight Details")
     }
 
     // MARK: - Premium gating

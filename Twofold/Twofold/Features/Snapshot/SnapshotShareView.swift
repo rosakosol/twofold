@@ -5,6 +5,7 @@
 
 import SwiftUI
 import MapKit
+import PostHog
 
 struct SnapshotShareView: View {
     @Environment(AppModel.self) private var appModel
@@ -52,6 +53,7 @@ struct SnapshotShareView: View {
                 earthGlobeImage = await Self.loadEarthGlobeImage()
             }
         }
+        .postHogScreenView("Snapshot: Share")
     }
 
     /// A wide-angle satellite snapshot centered on the Atlantic so both hemispheres show some

@@ -11,6 +11,7 @@
 //
 
 import SwiftUI
+import PostHog
 
 struct AddFlightResultsStepView: View {
     let completion: AddFlightFlowView.Completion
@@ -67,6 +68,7 @@ struct AddFlightResultsStepView: View {
                 FlightConfirmationView(candidate: candidate, onDone: onDone)
             }
         }
+        .postHogScreenView("Flights: Add Flight — Results")
     }
 
     // MARK: - Chips / filters

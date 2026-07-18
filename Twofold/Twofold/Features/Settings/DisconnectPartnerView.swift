@@ -8,6 +8,7 @@
 //  path rather than sitting next to routine profile editing.
 //
 
+import PostHog
 import SwiftUI
 
 struct DisconnectPartnerView: View {
@@ -76,6 +77,7 @@ struct DisconnectPartnerView: View {
         } message: {
             Text("This will archive all your shared trips, memories, flights, game sessions, stats, and drawings with \(appModel.partner.name) — they'll only be visible afterward in Settings' Archived Data. You'll be able to connect with someone new right away.")
         }
+        .postHogScreenView("Settings: Disconnect Partner")
     }
 }
 

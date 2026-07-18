@@ -8,6 +8,7 @@
 //  discuss" for the match games, or an interactive talked-about/come-back-later list for Discuss.
 //
 
+import PostHog
 import SwiftUI
 
 struct GameResultsView: View {
@@ -138,6 +139,7 @@ struct GameResultsView: View {
             Task { await appModel.refreshGameDecks() }
         }
         .sensoryFeedback(.success, trigger: confettiTrigger)
+        .postHogScreenView("Games: Results")
     }
 
     // MARK: - Header

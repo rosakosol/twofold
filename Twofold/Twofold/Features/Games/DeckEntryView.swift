@@ -10,6 +10,7 @@
 //  curated content subset instead of a random sample of the shared pool.
 //
 
+import PostHog
 import SwiftUI
 
 struct DeckEntryView: View {
@@ -41,6 +42,7 @@ struct DeckEntryView: View {
         .navigationTitle(deck.title)
         .navigationBarTitleDisplayMode(.inline)
         .task { await determinePhase() }
+        .postHogScreenView("Games: Deck Entry")
     }
 
     private func errorState(_ message: String) -> some View {

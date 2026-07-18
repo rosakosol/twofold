@@ -9,6 +9,7 @@
 //  between two screens.
 //
 
+import PostHog
 import SwiftUI
 
 struct AboutRelationshipView: View {
@@ -47,6 +48,7 @@ struct AboutRelationshipView: View {
         .onAppear {
             anniversaryDate = appModel.couple.startedDatingOn
         }
+        .postHogScreenView("Settings: About Relationship")
     }
 
     private func save() {

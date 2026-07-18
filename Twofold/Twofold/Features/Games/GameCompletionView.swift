@@ -9,6 +9,7 @@
 //  showing anything pre-reveal would spoil the point).
 //
 
+import PostHog
 import SwiftUI
 
 struct GameCompletionAnswerRecap: Identifiable {
@@ -145,6 +146,7 @@ struct GameCompletionView: View {
         } message: {
             Text("Notification sent to \(partnerName).")
         }
+        .postHogScreenView("Games: Completion")
     }
 
     private var offlineSyncCard: some View {

@@ -6,6 +6,7 @@
 //  partner answers all their own rounds independently; results reveal once both are done.
 //
 
+import PostHog
 import SwiftUI
 
 struct WhosMoreLikelyGameView: View {
@@ -114,6 +115,7 @@ struct WhosMoreLikelyGameView: View {
             if isConnected, !wasConnected { Task { await store.syncPendingResponses() } }
         }
         .sensoryFeedback(.selection, trigger: hapticTrigger)
+        .postHogScreenView("Games: Who's More Likely To")
     }
 
     private func roundView(round: GameSessionRound, prompt: MoreLikelyPrompt) -> some View {

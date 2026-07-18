@@ -6,6 +6,7 @@
 //  edit-and-save only and always targets "your" pad, so it isn't reusable here as-is.
 //
 
+import PostHog
 import SwiftUI
 
 struct DrawingPadFullScreenView: View {
@@ -48,6 +49,7 @@ struct DrawingPadFullScreenView: View {
                 }
             }
         }
+        .postHogScreenView("Drawing Pad: Partner View")
     }
 
     private var emptyState: some View {

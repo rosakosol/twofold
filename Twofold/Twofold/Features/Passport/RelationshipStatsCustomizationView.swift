@@ -3,6 +3,7 @@
 //  Twofold
 //
 
+import PostHog
 import SwiftUI
 
 struct RelationshipStatsCustomizationView: View {
@@ -43,6 +44,7 @@ struct RelationshipStatsCustomizationView: View {
                 }
             }
         }
+        .postHogScreenView("Passport: Customize Share Card")
     }
 
     private var backgroundSwatches: some View {

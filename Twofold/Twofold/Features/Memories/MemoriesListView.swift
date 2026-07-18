@@ -7,6 +7,7 @@
 //  with a right-edge year index that scrolls on tap and highlights as you scroll.
 //
 
+import PostHog
 import SwiftUI
 
 struct MemoriesListView: View {
@@ -105,6 +106,7 @@ struct MemoriesListView: View {
                 }
             }
         }
+        .postHogScreenView("Memories: List")
     }
 
     // MARK: - Filters

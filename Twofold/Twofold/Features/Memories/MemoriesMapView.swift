@@ -5,6 +5,7 @@
 
 import SwiftUI
 import MapKit
+import PostHog
 
 struct MemoriesMapView: View {
     var onTapAddMemory: () -> Void = {}
@@ -77,6 +78,7 @@ struct MemoriesMapView: View {
             .presentationDragIndicator(.visible)
             .presentationBackgroundInteraction(.enabled(upThrough: Self.peekDetent))
         }
+        .postHogScreenView("Memories: Map")
     }
 
     /// Most recent memory's own photo, so the pin shows something real about that place

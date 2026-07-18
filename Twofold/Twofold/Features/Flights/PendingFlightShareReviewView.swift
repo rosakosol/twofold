@@ -8,6 +8,7 @@
 //
 
 import SwiftUI
+import PostHog
 
 struct PendingFlightShareReviewView: View {
     let share: PendingFlightShare
@@ -44,6 +45,7 @@ struct PendingFlightShareReviewView: View {
             }
         }
         .task { await load() }
+        .postHogScreenView("Flights: Shared Flight Review")
     }
 
     private var failureView: some View {

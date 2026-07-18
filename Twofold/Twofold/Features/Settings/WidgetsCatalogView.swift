@@ -8,6 +8,7 @@
 //  widgets are built; this is the navigable placeholder for that.
 //
 
+import PostHog
 import SwiftUI
 
 private struct WidgetCatalogEntry: Identifiable {
@@ -71,6 +72,7 @@ struct WidgetsCatalogView: View {
         .background(Theme.backgroundGradient.ignoresSafeArea())
         .navigationTitle("Widgets")
         .navigationBarTitleDisplayMode(.inline)
+        .postHogScreenView("Settings: Widgets Catalog")
     }
 
     @ViewBuilder

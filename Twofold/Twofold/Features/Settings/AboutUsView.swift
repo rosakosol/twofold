@@ -3,6 +3,7 @@
 //  Twofold
 //
 
+import PostHog
 import SwiftUI
 
 struct AboutUsView: View {
@@ -44,6 +45,7 @@ struct AboutUsView: View {
         .background(Theme.backgroundGradient.ignoresSafeArea())
         .navigationTitle("About Us")
         .navigationBarTitleDisplayMode(.inline)
+        .postHogScreenView("Settings: About Us")
     }
 }
 

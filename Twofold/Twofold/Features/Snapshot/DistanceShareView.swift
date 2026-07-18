@@ -5,6 +5,7 @@
 
 import SwiftUI
 import MapKit
+import PostHog
 
 struct DistanceShareView: View {
     let couple: Couple
@@ -54,6 +55,7 @@ struct DistanceShareView: View {
                 mapSnapshot = await Self.loadMapSnapshot(from: myCity.coordinate, to: partnerCity.coordinate, distanceKm: distanceKm)
             }
         }
+        .postHogScreenView("Snapshot: Distance Share")
     }
 
     private var themePicker: some View {

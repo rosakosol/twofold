@@ -14,6 +14,7 @@
 //
 
 import SwiftUI
+import PostHog
 
 struct AddFlightEntryStepView: View {
     @Environment(AddFlightFlowModel.self) private var model
@@ -72,6 +73,7 @@ struct AddFlightEntryStepView: View {
         .task(id: query) {
             await performSearch()
         }
+        .postHogScreenView("Flights: Add Flight — Entry")
     }
 
     @ViewBuilder

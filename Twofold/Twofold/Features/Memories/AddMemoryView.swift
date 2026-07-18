@@ -5,6 +5,7 @@
 
 import SwiftUI
 import PhotosUI
+import PostHog
 
 struct AddMemoryView: View {
     @Environment(AppModel.self) private var appModel
@@ -99,6 +100,7 @@ struct AddMemoryView: View {
             .sheet(isPresented: $showingDatePicker) { datePickerSheet }
             .sheet(isPresented: $showingTimePicker) { timePickerSheet }
         }
+        .postHogScreenView("Memories: Add/Edit Memory")
     }
 
     private var titleRow: some View {

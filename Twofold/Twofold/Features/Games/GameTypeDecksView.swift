@@ -8,6 +8,7 @@
 //  game-type-scoped equivalent of TopicDetailView's topic-scoped deck list.
 //
 
+import PostHog
 import SwiftUI
 
 struct GameTypeDecksView: View {
@@ -63,6 +64,7 @@ struct GameTypeDecksView: View {
         .navigationTitle(gameType.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .task { await appModel.loadGameDecksIfNeeded() }
+        .postHogScreenView("Games: Type Decks")
     }
 
     @ViewBuilder

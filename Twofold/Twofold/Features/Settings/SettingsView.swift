@@ -153,9 +153,11 @@ struct SettingsView: View {
             .postHogScreenView("Settings")
             .sheet(isPresented: $showingPaywall) {
                 NavigationStack { PaywallView() }
+                    .postHogScreenView("Paywall: Settings")
             }
             .sheet(isPresented: $showingCustomerCenter) {
                 CustomerCenterView()
+                    .postHogScreenView("Settings: Manage Subscription")
             }
             .confirmationDialog("Sign out of Twofold?", isPresented: $showingSignOutConfirm, titleVisibility: .visible) {
                 Button("Sign Out", role: .destructive) {

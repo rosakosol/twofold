@@ -7,6 +7,7 @@
 //  `RelationshipStatsShareCard.maxStoryPhotos` the card itself enforces.
 //
 
+import PostHog
 import SwiftUI
 
 struct RelationshipStatsPhotoPickerView: View {
@@ -44,6 +45,7 @@ struct RelationshipStatsPhotoPickerView: View {
                 }
             }
         }
+        .postHogScreenView("Passport: Choose Share Photos")
     }
 
     private func thumbnail(_ memory: Memory) -> some View {

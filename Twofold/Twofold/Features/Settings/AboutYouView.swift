@@ -6,6 +6,7 @@
 //  as part of the Settings/Profile IA restructure.
 //
 
+import PostHog
 import SwiftUI
 
 struct AboutYouView: View {
@@ -117,6 +118,7 @@ struct AboutYouView: View {
         .onAppear {
             name = appModel.currentUser.name
         }
+        .postHogScreenView("Settings: About You")
     }
 
     private func save() {

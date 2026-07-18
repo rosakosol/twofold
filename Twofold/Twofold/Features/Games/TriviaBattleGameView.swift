@@ -7,6 +7,7 @@
 //  both partners have answered every round (see `GameSessionStore.isRevealed`).
 //
 
+import PostHog
 import SwiftUI
 
 struct TriviaBattleGameView: View {
@@ -122,6 +123,7 @@ struct TriviaBattleGameView: View {
             if isConnected, !wasConnected { Task { await store.syncPendingResponses() } }
         }
         .sensoryFeedback(.selection, trigger: hapticTrigger)
+        .postHogScreenView("Games: Trivia Battle")
     }
 
     // MARK: - Round

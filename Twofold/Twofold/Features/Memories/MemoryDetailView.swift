@@ -3,6 +3,7 @@
 //  Twofold
 //
 
+import PostHog
 import SwiftUI
 
 struct MemoryDetailView: View {
@@ -87,6 +88,7 @@ struct MemoryDetailView: View {
         .background(Theme.backgroundGradient.ignoresSafeArea())
         .navigationTitle("Memory")
         .navigationBarTitleDisplayMode(.inline)
+        .postHogScreenView("Memories: Memory Detail")
     }
 
     @ViewBuilder

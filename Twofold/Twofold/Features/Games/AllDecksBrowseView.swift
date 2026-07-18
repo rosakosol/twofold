@@ -8,6 +8,7 @@
 //  status is 3-way (New vs. Your turn vs. Answered), matching what the top-level pills promise.
 //
 
+import PostHog
 import SwiftUI
 
 enum DeckBrowseFilter: String, CaseIterable, Identifiable {
@@ -112,6 +113,7 @@ struct AllDecksBrowseView: View {
         .navigationTitle("All Games")
         .navigationBarTitleDisplayMode(.inline)
         .task { await appModel.loadGameDecksIfNeeded() }
+        .postHogScreenView("Games: All Decks")
     }
 
     private func filterPill(_ filter: DeckBrowseFilter?, label: String) -> some View {

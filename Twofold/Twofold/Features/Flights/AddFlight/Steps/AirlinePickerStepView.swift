@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import PostHog
 
 struct AirlinePickerStepView: View {
     @Environment(AddFlightFlowModel.self) private var model
@@ -57,6 +58,7 @@ struct AirlinePickerStepView: View {
         .task(id: query) {
             await performSearch()
         }
+        .postHogScreenView("Flights: Add Flight — Airline Picker")
     }
 
     private func performSearch() async {

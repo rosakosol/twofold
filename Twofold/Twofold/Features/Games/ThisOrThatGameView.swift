@@ -6,6 +6,7 @@
 //  own rounds independently; match count + percentage reveal once both are done.
 //
 
+import PostHog
 import SwiftUI
 
 struct ThisOrThatGameView: View {
@@ -114,6 +115,7 @@ struct ThisOrThatGameView: View {
             if isConnected, !wasConnected { Task { await store.syncPendingResponses() } }
         }
         .sensoryFeedback(.selection, trigger: hapticTrigger)
+        .postHogScreenView("Games: This or That")
     }
 
     private func roundView(round: GameSessionRound, prompt: ThisOrThatPrompt) -> some View {

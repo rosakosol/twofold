@@ -3,6 +3,7 @@
 //  Twofold
 //
 
+import PostHog
 import SwiftUI
 
 struct RootView: View {
@@ -38,6 +39,7 @@ struct RootView: View {
                     NavigationStack {
                         PaywallView(isDismissable: false)
                     }
+                    .postHogScreenView("Paywall: Lapsed Subscription")
                 }
             } else {
                 OnboardingCoordinatorView()
@@ -91,6 +93,7 @@ struct RootView: View {
         }
         .sheet(isPresented: $showingPaywallFromWidget) {
             NavigationStack { PaywallView() }
+                .postHogScreenView("Paywall: Widget")
         }
         .fullScreenCover(item: $recordDeepLink) { destination in
             NavigationStack { recordDeepLinkDestination(destination) }
@@ -128,6 +131,7 @@ struct RootView: View {
         }
         .fullScreenCover(isPresented: $showingPartnerConnectedCelebration) {
             PartnerConnectedView()
+                .postHogScreenView("Partner Connected Celebration")
         }
         // Suppressed (not just delayed) while the partner-connected celebration is up — two
         // modal presentations competing from the same view hierarchy at once is asking for
@@ -136,6 +140,7 @@ struct RootView: View {
         // re-trigger needed.
         .sheet(item: reviewPromptBinding) { milestone in
             ReviewPromptView(milestone: milestone)
+                .postHogScreenView("Review Prompt")
         }
     }
 

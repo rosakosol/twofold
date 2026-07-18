@@ -8,6 +8,7 @@
 //
 
 import SwiftUI
+import PostHog
 
 struct AddFlightDateStepView: View {
     @Environment(AddFlightFlowModel.self) private var model
@@ -77,6 +78,7 @@ struct AddFlightDateStepView: View {
             }
             .presentationDetents([.medium])
         }
+        .postHogScreenView("Flights: Add Flight — Date")
     }
 
     private func dateRow(title: String, date: Date) -> some View {

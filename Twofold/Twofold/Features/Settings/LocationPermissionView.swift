@@ -9,6 +9,7 @@
 //
 
 import CoreLocation
+import PostHog
 import SwiftUI
 
 struct LocationPermissionView: View {
@@ -58,6 +59,7 @@ struct LocationPermissionView: View {
         .onAppear {
             status = CLLocationManager().authorizationStatus
         }
+        .postHogScreenView("Settings: Location Permission")
     }
 }
 

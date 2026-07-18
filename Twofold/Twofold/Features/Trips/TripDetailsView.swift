@@ -12,6 +12,7 @@
 //  immediately without needing manual refresh plumbing.
 //
 
+import PostHog
 import SwiftUI
 
 struct TripDetailsView: View {
@@ -102,6 +103,7 @@ struct TripDetailsView: View {
         } message: {
             Text("This can't be undone. Any linked flight or memories stay saved - they'll just no longer be linked to this trip.")
         }
+        .postHogScreenView("Travel: Trip Details")
     }
 
     @ViewBuilder

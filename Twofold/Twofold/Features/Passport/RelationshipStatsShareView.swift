@@ -3,6 +3,7 @@
 //  Twofold
 //
 
+import PostHog
 import SwiftUI
 
 struct RelationshipStatsShareView: View {
@@ -80,6 +81,7 @@ struct RelationshipStatsShareView: View {
                 selectedMemoryIDs = Self.defaultSelection(from: photoEligibleMemories)
             }
         }
+        .postHogScreenView("Passport: Share Our Story")
     }
 
     private var card: some View {

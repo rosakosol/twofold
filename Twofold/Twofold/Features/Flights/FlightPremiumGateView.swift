@@ -10,6 +10,7 @@
 //
 
 import SwiftUI
+import PostHog
 
 struct FlightPremiumGateView: View {
     let icon: String
@@ -80,8 +81,10 @@ struct FlightPremiumGateView: View {
             }
             .sheet(isPresented: $showingPaywall) {
                 NavigationStack { PaywallView(initialTier: .premium) }
+                    .postHogScreenView("Paywall: Flight Premium Gate")
             }
         }
+        .postHogScreenView("Flights: Premium Gate")
     }
 }
 

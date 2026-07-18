@@ -8,6 +8,7 @@
 //  serve two purposes.
 //
 
+import PostHog
 import SwiftUI
 
 struct EditTripView: View {
@@ -85,6 +86,7 @@ struct EditTripView: View {
         .onAppear {
             isPartnerTraveling = trip.travelerID == appModel.partner.id
         }
+        .postHogScreenView("Travel: Edit Trip")
     }
 
     private func save() {
