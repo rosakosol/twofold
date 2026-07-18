@@ -276,7 +276,12 @@ struct FlightTrackingView: View {
             .frame(height: 260)
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
             .overlay(alignment: .bottomTrailing) {
-                if flight.hasLivePosition {
+                // `hasLivePosition` only checks lat/lon — AeroAPI's own position fallback (used
+                // when the free ADS-B mirrors haven't picked up this aircraft yet, e.g. an
+                // oceanic leg outside terrestrial receiver coverage) can return a fix with no
+                // altitude/groundspeed at all, which rendered as an empty capsule with nothing
+                // inside it. Only show the overlay once there's actually something to put in it.
+                if flight.positionGroundspeed != nil || flight.positionAltitude != nil {
                     liveStatsOverlay
                 }
             }
@@ -318,7 +323,7 @@ struct FlightTrackingView: View {
         Button {
             mapRecenterNonce += 1
         } label: {
-            Image(systemName: "location.fill")
+            Image(systemName: "airplane")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.white)
                 .padding(10)

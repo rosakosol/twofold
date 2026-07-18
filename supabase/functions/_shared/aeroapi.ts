@@ -145,15 +145,38 @@ export async function resolveFlightByIdent(
 // the basis for delay-performance stats (see _shared/flight-sync.ts's computeDelayStats). Requires
 // AeroAPI's Standard tier; Personal-tier accounts will get an error response from AeroAPI itself,
 // which aeroRequest() already surfaces via its thrown error rather than silently returning nothing.
-// Paginates through AeroAPI's own `links.next` cursor (a full path+query the API hands back, not
-// something we construct), capped at 10 pages (~150 records) — well over what 60 days of even a
-// daily flight needs, just bounding worst-case cost against a pathological response.
+//
+// AeroAPI rejects any single /history/flights/{ident} call whose start/end span exceeds 7 days
+// (confirmed live: "start and end date cannot span more than than 7 days", HTTP 400) — not
+// documented on their public pricing page, only discovered once a real 60-day request failed.
+// So a 60-day lookback is chunked into <=6-day windows (6, not 7, as a small safety margin
+// against boundary rounding) and each window is queried — and paginated within itself via
+// AeroAPI's own `links.next` cursor — separately.
+const HISTORY_WINDOW_DAYS = 6;
+const HISTORY_MAX_PAGES_PER_WINDOW = 10; // ~150 records/window, well over what one window needs
+
 export async function fetchHistoricalFlights(ident: string, startISO: string, endISO: string): Promise<AeroFlight[]> {
+  const all: AeroFlight[] = [];
+  const rangeStart = new Date(startISO);
+  const rangeEnd = new Date(endISO);
+  const windowMs = HISTORY_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+
+  let windowStart = rangeStart;
+  while (windowStart < rangeEnd) {
+    const windowEnd = new Date(Math.min(windowStart.getTime() + windowMs, rangeEnd.getTime()));
+    all.push(...(await fetchHistoricalFlightsWindow(ident, windowStart.toISOString(), windowEnd.toISOString())));
+    windowStart = windowEnd;
+  }
+
+  return all;
+}
+
+async function fetchHistoricalFlightsWindow(ident: string, startISO: string, endISO: string): Promise<AeroFlight[]> {
   const all: AeroFlight[] = [];
   let path: string | null = `/history/flights/${encodeURIComponent(ident)}`;
   let params: Record<string, string> | undefined = { start: startISO, end: endISO };
 
-  for (let page = 0; page < 10 && path; page++) {
+  for (let page = 0; page < HISTORY_MAX_PAGES_PER_WINDOW && path; page++) {
     const json = await aeroRequest(path, params);
     if (!json) break;
     all.push(...(json.flights ?? []));
