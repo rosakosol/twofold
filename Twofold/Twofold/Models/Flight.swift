@@ -261,6 +261,21 @@ struct Flight: Identifiable, Hashable {
     var bestDeparture: Date? { actualOut ?? estimatedOut ?? scheduledOut }
     var bestArrival: Date? { actualIn ?? estimatedIn ?? scheduledIn }
 
+    /// The freshest of the two independent refresh cadences this flight has: schedule/status
+    /// (from AeroAPI, re-checked every ~2 min while airborne) and live position (from free ADS-B
+    /// mirrors, re-checked every ~1 min while airborne — see `syncLivePositionForFaFlightId` in
+    /// `supabase/functions/_shared/flight-sync.ts`). Showing only `lastRefreshedAt` made the
+    /// tracking screen's "Updated X ago" plateau at ~2 minutes even though position data is
+    /// genuinely newer — this reflects whichever backend actually has the most current data.
+    var mostRecentUpdateAt: Date? {
+        switch (lastRefreshedAt, positionUpdatedAt) {
+        case let (.some(refreshed), .some(position)): max(refreshed, position)
+        case let (.some(refreshed), nil): refreshed
+        case let (nil, .some(position)): position
+        case (nil, nil): nil
+        }
+    }
+
     /// Legacy convenience for call sites that only ever dealt in a single scheduled window.
     var scheduledDeparture: Date { scheduledOut ?? .now }
     var scheduledArrival: Date { scheduledIn ?? scheduledOut?.addingTimeInterval(3600 * 4) ?? .now }

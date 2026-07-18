@@ -250,27 +250,3 @@ export async function registerWebhookEndpoint(url: string, token: string): Promi
   }
 }
 
-// Best-effort, per-flight alert registration. Requires the account-wide webhook endpoint to
-// already be configured via `PUT /alerts/endpoint` (a one-time manual step — see
-// aeroapi-webhook/index.ts's header comment). Never throws — a failed alert registration should
-// not block adding a flight; polling still covers it.
-export async function createAlert(ident: string, origin: string, destination: string): Promise<void> {
-  try {
-    const key = apiKey();
-    const res = await fetch(`${AEROAPI_BASE}/alerts`, {
-      method: "POST",
-      headers: { "x-apikey": key, "content-type": "application/json" },
-      body: JSON.stringify({
-        ident,
-        origin,
-        destination,
-        events: { departure: true, arrival: true, cancelled: true, diverted: true },
-      }),
-    });
-    if (!res.ok) {
-      console.error(`[aeroapi] createAlert for ${ident} failed with status ${res.status}`);
-    }
-  } catch (err) {
-    console.error(`[aeroapi] createAlert for ${ident} threw:`, (err as Error).message);
-  }
-}

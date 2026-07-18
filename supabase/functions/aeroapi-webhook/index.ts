@@ -5,6 +5,14 @@
 // run it through the same syncFlight() routine polling uses. Always acks fast (200) since AeroAPI
 // expects a quick response; the sync is lightweight enough to run inline rather than queued.
 //
+// EFFECTIVELY DORMANT as of the cost-optimization pass that removed createAlert() from
+// add-flight/index.ts — nothing registers a per-flight alert anymore, so AeroAPI has nothing to
+// push here. Each delivery used to cost a "Push Alert Delivery" fee *plus* the extra
+// fetchFlightByFaId/resolveFlightByIdent query below, for events polling (refresh-due-flights)
+// already independently detects within 1-2 minutes — see diffEvents() in _shared/flight-sync.ts.
+// Left in place (not deleted) because it still hosts the unrelated `diag=apns` APNs config
+// diagnostic; the POST handler below only matters again if per-flight alerts are reintroduced.
+//
 // One-time setup required after this function is deployed — a self-registration GET request
 // (see the `register=1` branch below) rather than a manual curl with the raw AeroAPI key:
 //   curl "https://<project-ref>.supabase.co/functions/v1/aeroapi-webhook?token=<AEROAPI_WEBHOOK_TOKEN>&register=1"
