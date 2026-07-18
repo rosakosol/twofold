@@ -169,6 +169,11 @@ struct SettingsView: View {
         }
     }
 
+    /// `AppStore.requestReview` is an opportunistic, OS-throttled prompt (a handful of times per
+    /// year per device, no completion callback) — Apple doesn't guarantee it shows anything, so
+    /// this row can appear to do nothing even when wired correctly. Once Twofold has a real App
+    /// Store listing, switch this to a direct `.../id<APP_ID>?action=write-review` link instead —
+    /// reliable every tap, appropriate for an explicit "Rate us" CTA (vs. an automatic nudge).
     private func requestReview() {
         guard let scene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene else { return }
         AppStore.requestReview(in: scene)

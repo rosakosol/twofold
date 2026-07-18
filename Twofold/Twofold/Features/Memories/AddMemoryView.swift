@@ -140,7 +140,10 @@ struct AddMemoryView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: Theme.Spacing.sm) {
                 ForEach(existingPhotos) { photo in
-                    photoThumbnail(url: photo.url) { removeExistingPhoto(photo) }
+                    ZStack(alignment: .topTrailing) {
+                        ExistingPhotoThumbnail(photo: photo)
+                        removeButton { removeExistingPhoto(photo) }
+                    }
                 }
                 ForEach(pendingPhotos) { pending in
                     photoThumbnail(image: pending.image) {
@@ -148,21 +151,6 @@ struct AddMemoryView: View {
                     }
                 }
             }
-        }
-    }
-
-    private func photoThumbnail(url: URL, remove: @escaping () -> Void) -> some View {
-        ZStack(alignment: .topTrailing) {
-            AsyncImage(url: url) { phase in
-                if let image = phase.image {
-                    image.resizable().scaledToFill()
-                } else {
-                    Theme.cardBackground
-                }
-            }
-            .frame(width: 72, height: 72)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            removeButton(action: remove)
         }
     }
 
@@ -323,23 +311,42 @@ struct AddMemoryView: View {
     /// attempt the next time this runs (e.g. picking one more photo re-fires `onChange` with the
     /// whole selection) instead of being silently dropped forever with no way to retry it short
     /// of restarting the picker from scratch.
+    ///
+    /// Every item's load + decode + downscale + JPEG-encode runs concurrently via a `TaskGroup` —
+    /// this used to be a plain sequential loop, so picking the full 8-photo selection meant eight
+    /// full decode/resize/encode passes back to back (each one a real CPU cost on a full-resolution
+    /// source photo) before the last thumbnail ever appeared. Only the final bookkeeping
+    /// (`loadedItemKeys`/`pendingPhotos`/`errorMessage`) touches view state, and only after every
+    /// task has finished, same shape as `BackendService`'s photo-signing TaskGroup.
     private func loadNewPhotos(_ items: [PhotosPickerItem]) async {
+        let itemsToLoad = items
+            .map { ($0, $0.itemIdentifier ?? UUID().uuidString) }
+            .filter { !loadedItemKeys.contains($0.1) }
+        guard !itemsToLoad.isEmpty else { return }
+
+        let results = await withTaskGroup(of: (String, PendingPhoto?).self) { group in
+            for (item, key) in itemsToLoad {
+                group.addTask {
+                    guard let data = try? await item.loadTransferable(type: Data.self),
+                          let uiImage = UIImage(data: data) else { return (key, nil) }
+                    let resized = uiImage.resized(maxDimension: 1600)
+                    guard let jpeg = resized.jpegData(compressionQuality: 0.8) else { return (key, nil) }
+                    return (key, PendingPhoto(image: Image(uiImage: resized), data: jpeg))
+                }
+            }
+            var collected: [(String, PendingPhoto?)] = []
+            for await result in group { collected.append(result) }
+            return collected
+        }
+
         var failedCount = 0
-        for item in items {
-            let key = item.itemIdentifier ?? UUID().uuidString
-            guard !loadedItemKeys.contains(key) else { continue }
-            guard let data = try? await item.loadTransferable(type: Data.self),
-                  let uiImage = UIImage(data: data) else {
+        for (key, pending) in results {
+            if let pending {
+                loadedItemKeys.insert(key)
+                pendingPhotos.append(pending)
+            } else {
                 failedCount += 1
-                continue
             }
-            let resized = uiImage.resized(maxDimension: 1600)
-            guard let jpeg = resized.jpegData(compressionQuality: 0.8) else {
-                failedCount += 1
-                continue
-            }
-            loadedItemKeys.insert(key)
-            pendingPhotos.append(PendingPhoto(image: Image(uiImage: resized), data: jpeg))
         }
         if failedCount > 0 {
             errorMessage = failedCount == 1
@@ -368,6 +375,43 @@ struct AddMemoryView: View {
             isSaving = false
             dismiss()
         }
+    }
+}
+
+/// An already-uploaded photo's thumbnail (as opposed to a `pendingPhotos` entry, which is backed
+/// by local `Data` and needs no loading at all). Shares `MemoryPhotoView`'s path-keyed
+/// `MemoryPhotoImageCache` rather than plain `AsyncImage`, so re-opening this sheet for the same
+/// memory — or the same photo appearing again in the Memories list/Relationship Stats snapshot —
+/// resolves instantly from cache instead of re-downloading.
+private struct ExistingPhotoThumbnail: View {
+    let photo: MemoryPhoto
+
+    @State private var loadedImage: UIImage?
+
+    private var cacheKey: String { photo.path == "pending" ? photo.url.absoluteString : photo.path }
+    private var resolvedImage: UIImage? { loadedImage ?? MemoryPhotoImageCache.shared.image(for: cacheKey) }
+
+    var body: some View {
+        Group {
+            if let resolvedImage {
+                Image(uiImage: resolvedImage).resizable().scaledToFill()
+            } else {
+                Theme.cardBackground
+                    .task(id: cacheKey) { await load() }
+            }
+        }
+        .frame(width: 72, height: 72)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private func load() async {
+        if let cached = MemoryPhotoImageCache.shared.image(for: cacheKey) {
+            loadedImage = cached
+            return
+        }
+        guard let (data, _) = try? await URLSession.shared.data(from: photo.url), let image = UIImage(data: data) else { return }
+        MemoryPhotoImageCache.shared.store(image, for: cacheKey)
+        loadedImage = image
     }
 }
 

@@ -555,6 +555,58 @@ enum BackendService {
         return rows.contains { $0.subscriptionActive }
     }
 
+    private struct SubscriptionTierRow: Decodable {
+        var subscriptionActive: Bool
+        var subscriptionTier: String?
+        enum CodingKeys: String, CodingKey {
+            case subscriptionActive = "subscription_active"
+            case subscriptionTier = "subscription_tier"
+        }
+    }
+
+    /// Same couple-wide lookup as `fetchSubscriptionActive()`, but resolves which tier is
+    /// actually active *right now* across both partners (Premium wins if each partner
+    /// independently ended up on a different tier). Deliberately a fresh network fetch rather
+    /// than reading `AppModel.subscriptionTier` — that field is only set at couple-adoption time
+    /// and never refreshed on foreground the way `isSubscriptionActive` is, so it can miss a
+    /// partner's subscription that started after this device last loaded couple state. `PaywallView`
+    /// calls this right before allowing a purchase for exactly that reason: App Store Connect's
+    /// subscription-group exclusivity is per Apple ID, not per couple, so nothing on Apple's side
+    /// stops each partner from independently subscribing to a different tier — only this app-side
+    /// check can catch it before it turns into a second, real charge.
+    static func fetchCoupleSubscriptionTier() async throws -> String? {
+        guard let userID = currentUserID else { throw BackendError.notAuthenticated }
+
+        let coupleRows: [CoupleRow] = try await supabase
+            .from("couples")
+            .select()
+            .or("partner_a_id.eq.\(userID),partner_b_id.eq.\(userID)")
+            .eq("status", value: "active")
+            .limit(1)
+            .execute()
+            .value
+
+        let profileIDs: [UUID]
+        if let couple = coupleRows.first {
+            profileIDs = [couple.partnerAId, couple.partnerBId]
+        } else {
+            profileIDs = [userID]
+        }
+
+        let rows: [SubscriptionTierRow] = try await supabase
+            .from("profiles")
+            .select("subscription_active, subscription_tier")
+            .in("id", values: profileIDs)
+            .execute()
+            .value
+
+        // Only a still-active row's tier counts — a lapsed partner's `subscription_tier` column
+        // is left stale (never nulled out, see `updateSubscriptionStatus`'s doc comment), so an
+        // inactive row's tier must never block a fresh purchase.
+        let activeTiers = rows.compactMap { $0.subscriptionActive ? $0.subscriptionTier : nil }
+        return activeTiers.contains("premium") ? "premium" : activeTiers.first
+    }
+
     // MARK: - Avatar
 
     private struct AvatarPathUpdate: Encodable {
@@ -959,15 +1011,28 @@ enum BackendService {
 
         let photoRowsByMemory = Dictionary(grouping: memoryPhotoRows, by: \.memoryId)
 
+        // Every photo across every memory is signed concurrently — this used to be one
+        // sequential signed-URL round-trip per photo (each with its own retry/backoff on
+        // failure), so the whole couple-state load scaled linearly with total photo count. A
+        // TaskGroup fetches all of them in parallel, so N photos cost roughly as long as the
+        // slowest single fetch rather than the sum of all of them.
+        var signedURLsByPhotoID: [UUID: URL] = [:]
+        await withTaskGroup(of: (UUID, URL?).self) { group in
+            for photoRow in memoryPhotoRows {
+                group.addTask { (photoRow.id, await memoryPhotoSignedURLWithRetry(path: photoRow.photoPath)) }
+            }
+            for await (photoID, url) in group {
+                if let url { signedURLsByPhotoID[photoID] = url }
+            }
+        }
+
         var memories: [Memory] = []
         for row in memoryRows {
             let place = row.placeId.flatMap { places[$0] }
             let photoRows = (photoRowsByMemory[row.id] ?? []).sorted { $0.position < $1.position }
-            var photos: [MemoryPhoto] = []
-            for photoRow in photoRows {
-                if let url = await memoryPhotoSignedURLWithRetry(path: photoRow.photoPath) {
-                    photos.append(MemoryPhoto(id: photoRow.id, path: photoRow.photoPath, url: url))
-                }
+            let photos = photoRows.compactMap { photoRow -> MemoryPhoto? in
+                guard let url = signedURLsByPhotoID[photoRow.id] else { return nil }
+                return MemoryPhoto(id: photoRow.id, path: photoRow.photoPath, url: url)
             }
             memories.append(
                 Memory(
@@ -982,9 +1047,11 @@ enum BackendService {
             )
         }
 
-        let effectiveTier: String? = [meProfile.subscriptionTier, partnerProfile.subscriptionTier].contains("premium")
-            ? "premium"
-            : ([meProfile.subscriptionTier, partnerProfile.subscriptionTier].compactMap { $0 }.first)
+        // Only a still-active profile's tier counts — `subscription_tier` is left stale (never
+        // nulled out) once a subscription lapses, see `updateSubscriptionStatus`'s doc comment,
+        // so an inactive row's leftover tier must never be reported as the couple's active plan.
+        let activeTiers = [meProfile, partnerProfile].compactMap { $0.subscriptionActive ? $0.subscriptionTier : nil }
+        let effectiveTier: String? = activeTiers.contains("premium") ? "premium" : activeTiers.first
 
         return CoupleState(
             couple: couple,
@@ -1914,13 +1981,18 @@ enum BackendService {
             .execute()
             .value
 
-        var photos: [MemoryPhoto] = []
-        for row in rows.sorted(by: { $0.position < $1.position }) {
-            if let url = await memoryPhotoSignedURLWithRetry(path: row.photoPath) {
-                photos.append(MemoryPhoto(id: row.id, path: row.photoPath, url: url))
+        var signedURLsByPhotoID: [UUID: URL] = [:]
+        await withTaskGroup(of: (UUID, URL?).self) { group in
+            for row in rows {
+                group.addTask { (row.id, await memoryPhotoSignedURLWithRetry(path: row.photoPath)) }
+            }
+            for await (photoID, url) in group {
+                if let url { signedURLsByPhotoID[photoID] = url }
             }
         }
-        return photos
+        return rows.sorted(by: { $0.position < $1.position }).compactMap { row in
+            signedURLsByPhotoID[row.id].map { MemoryPhoto(id: row.id, path: row.photoPath, url: $0) }
+        }
     }
 
     static func deleteMemoryPhoto(id: UUID, path: String) async throws {

@@ -33,6 +33,10 @@ struct JourneyLockScreenView: View {
                     }
                 }
                 Spacer()
+                Text("Updated \(context.state.lastUpdatedAt, style: .relative) ago")
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.5))
+                    .frame(maxWidth: .infinity)
                 brandMark
             }
 
@@ -42,17 +46,15 @@ struct JourneyLockScreenView: View {
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
+                    .frame(maxWidth: .infinity, alignment: .center)
 
                 if context.state.isReunion {
                     Text("\(context.attributes.travelerName) is on the way to you ❤️")
                         .font(.caption)
                         .foregroundStyle(.white.opacity(0.6))
                         .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
                 }
-
-                Text("Updated \(context.state.lastUpdatedAt, style: .relative) ago")
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.5))
             }
             .frame(maxWidth: .infinity, alignment: .center)
 

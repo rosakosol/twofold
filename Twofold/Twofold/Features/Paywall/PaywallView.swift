@@ -15,6 +15,7 @@
 
 import SwiftUI
 import RevenueCat
+import RevenueCatUI
 
 struct PaywallView: View {
     /// Called once a purchase actually completes. Onboarding uses this to advance to the
@@ -30,13 +31,27 @@ struct PaywallView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(AppModel.self) private var appModel
     @State private var store = SubscriptionStore()
-    @State private var selectedTier: SubscriptionTier = .plus
+    @State private var selectedTier: SubscriptionTier
     @State private var selectedPeriod: BillingPeriod = .yearly
     @State private var isPurchasing = false
     @State private var isRestoring = false
     @State private var showingSignOutConfirm = false
+    @State private var showingCustomerCenter = false
     @State private var isSigningOut = false
     @State private var errorMessage: String?
+    /// Freshly fetched from both partners' profile rows (see `BackendService.fetchCoupleSubscriptionTier`)
+    /// — `store.subscribedTier` only knows about *this* Apple ID/device, which misses a tier the
+    /// partner subscribed to separately. `nil` while the fetch is in flight or if it fails, in
+    /// which case the guards below fall back to this device's own local knowledge.
+    @State private var coupleActiveTierFromServer: SubscriptionTier?
+
+    /// `initialTier` lets a specific upsell (e.g. `DeckPremiumGateView`'s "Continue to Premium")
+    /// land directly on the plan it's actually selling, instead of always defaulting to Plus.
+    init(onSubscribed: @escaping () -> Void = {}, isDismissable: Bool = true, initialTier: SubscriptionTier = .plus) {
+        self.onSubscribed = onSubscribed
+        self.isDismissable = isDismissable
+        _selectedTier = State(initialValue: initialTier)
+    }
 
     private var isShowingError: Binding<Bool> {
         Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })
@@ -44,6 +59,27 @@ struct PaywallView: View {
 
     private var selectedPricedPackage: PricedPackage? {
         store.package(for: selectedTier, period: selectedPeriod)
+    }
+
+    /// The tier actually active for this purchaser's *couple* right now — prefers the fresh
+    /// server-side check (catches a partner's separate subscription) and falls back to this
+    /// device's own local RevenueCat entitlement if that fetch hasn't completed or failed.
+    private var effectiveActiveTier: SubscriptionTier? { coupleActiveTierFromServer ?? store.subscribedTier }
+
+    /// Already on exactly the plan currently selected in the segmented control — purchasing
+    /// again would be redundant, so the CTA is disabled instead of firing.
+    private var isAlreadySubscribedToSelectedTier: Bool { effectiveActiveTier == selectedTier }
+
+    /// Either this account or their partner already holds the *other* tier. App Store Connect's
+    /// subscription-group exclusivity only applies within a single Apple ID — it does nothing to
+    /// stop two different partners from each independently subscribing to a different tier, which
+    /// is the real way this app's "one subscription per couple" design breaks (confirmed: each
+    /// partner's own `subscription_tier` is written to their own profile row independently, see
+    /// `BackendService.updateSubscriptionStatus`). So the CTA routes to RevenueCat's Customer
+    /// Center (a real upgrade/downgrade/cancel flow) instead of ever calling `purchase` directly
+    /// in this case — see `performPurchase()`'s matching guard.
+    private var isSubscribedToADifferentTier: Bool {
+        effectiveActiveTier != nil && effectiveActiveTier != selectedTier
     }
 
     var body: some View {
@@ -59,6 +95,12 @@ struct PaywallView: View {
         }
         .task {
             if store.loadState == .idle { await store.loadOfferings() }
+            // Needed to know which tier (if any) is already active, so the CTA below can refuse
+            // to stack a second purchase on top of it — see `isSubscribedToADifferentTier`.
+            await store.refreshEntitlementsOnly()
+            if let tierValue = try? await BackendService.fetchCoupleSubscriptionTier() {
+                coupleActiveTierFromServer = SubscriptionTier(rawValue: tierValue)
+            }
         }
         .toolbar { toolbarContent }
         .confirmationDialog("Sign out of Twofold?", isPresented: $showingSignOutConfirm, titleVisibility: .visible) {
@@ -74,6 +116,9 @@ struct PaywallView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(errorMessage ?? "")
+        }
+        .sheet(isPresented: $showingCustomerCenter) {
+            CustomerCenterView()
         }
         .onAppear {
             Analytics.capture(Analytics.Event.paywallView, properties: ["is_dismissable": isDismissable])
@@ -178,13 +223,28 @@ struct PaywallView: View {
                     }
                 }
             },
-            primaryTitle: selectedPricedPackage == nil ? "Not available" : "Start my 14-day free trial",
-            primaryAction: { Task { await performPurchase() } },
-            primaryDisabled: selectedPricedPackage == nil || isPurchasing || isRestoring,
+            primaryTitle: primaryButtonTitle,
+            primaryAction: {
+                if isSubscribedToADifferentTier {
+                    showingCustomerCenter = true
+                } else {
+                    Task { await performPurchase() }
+                }
+            },
+            primaryDisabled: (selectedPricedPackage == nil && !isSubscribedToADifferentTier) || isPurchasing || isRestoring || isAlreadySubscribedToSelectedTier,
             primaryLoading: isPurchasing,
-            primaryCaption: trialCaption,
+            primaryCaption: isSubscribedToADifferentTier || isAlreadySubscribedToSelectedTier ? nil : trialCaption,
             footer: AnyView(legalFooter)
         )
+    }
+
+    /// One subscription per couple, ever — see `isSubscribedToADifferentTier`'s doc comment.
+    /// These two states pre-empt the normal "buy it" copy so the CTA never reads as an offer to
+    /// purchase a plan the user (or their partner) already holds.
+    private var primaryButtonTitle: String {
+        if isAlreadySubscribedToSelectedTier { return "Current Plan" }
+        if isSubscribedToADifferentTier { return "Manage Subscription" }
+        return selectedPricedPackage == nil ? "Not available" : "Start my 14-day free trial"
     }
 
     private var legalFooter: some View {
@@ -278,7 +338,9 @@ struct PaywallView: View {
     // MARK: - Actions
 
     private func performPurchase() async {
-        guard let pricedPackage = selectedPricedPackage else { return }
+        // Belt-and-suspenders: the CTA above already routes to Customer Center instead of calling
+        // this when a different tier is active, but never fire a purchase here either way.
+        guard let pricedPackage = selectedPricedPackage, !isSubscribedToADifferentTier else { return }
         isPurchasing = true
         defer { isPurchasing = false }
         do {

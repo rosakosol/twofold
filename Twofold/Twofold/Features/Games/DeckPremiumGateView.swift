@@ -73,7 +73,7 @@ struct DeckPremiumGateView: View {
                 }
             }
             .sheet(isPresented: $showingPaywall) {
-                NavigationStack { PaywallView() }
+                NavigationStack { PaywallView(initialTier: .premium) }
             }
         }
     }
