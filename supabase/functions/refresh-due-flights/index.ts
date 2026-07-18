@@ -27,6 +27,7 @@ import {
   maybeRefreshWeather,
   reconcileOverdueArrival,
   refreshOneFlight,
+  syncLivePositions,
 } from "../_shared/flight-sync.ts";
 import { notifyPreDeparture } from "../_shared/notify.ts";
 
@@ -186,6 +187,17 @@ Deno.serve(async (req) => {
     }
 
     await new Promise((resolve) => setTimeout(resolve, INTER_CALL_DELAY_MS));
+  }
+
+  // A separate, flat pass — deduped by fa_flight_id across every couple tracking the same
+  // real-world flight (see syncLivePositions' own doc comment), run every cron tick regardless of
+  // isDue()'s AeroAPI-staleness tiering above. Deliberately after the main loop, not before, so a
+  // flight that just transitioned to airborne *this tick* (via refreshOneFlight's AeroAPI update)
+  // is already picked up by this pass's own fresh query rather than waiting a full extra minute.
+  try {
+    await syncLivePositions(serviceClient, activeCoupleIds);
+  } catch (err) {
+    console.error("[refresh-due-flights] syncLivePositions failed:", (err as Error).message);
   }
 
   return Response.json({ refreshed, skipped });

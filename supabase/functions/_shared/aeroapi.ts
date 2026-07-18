@@ -26,6 +26,10 @@ export interface AeroFlight {
   ident: string;
   ident_icao?: string | null;
   ident_iata?: string | null;
+  // The aircraft's actual broadcast ATC callsign — often differs from `ident`/`ident_icao` (the
+  // marketing flight designator). Free metadata on the same /flights/{ident} response; captured
+  // specifically as the primary ADS-B mirror lookup key, see _shared/adsb.ts.
+  atc_ident?: string | null;
   fa_flight_id: string;
   operator?: string | null;
   operator_icao?: string | null;
