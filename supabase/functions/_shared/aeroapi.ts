@@ -155,6 +155,17 @@ export async function resolveFlightByIdent(
 const HISTORY_WINDOW_DAYS = 6;
 const HISTORY_MAX_PAGES_PER_WINDOW = 10; // ~150 records/window, well over what one window needs
 
+// Confirmed live: a full ISO-8601 timestamp with milliseconds (`.toISOString()`'s default output,
+// e.g. "2026-05-19T07:52:17.177Z") gets past AeroAPI's own span-length validation (that check
+// fires a clean 400) but then triggers a 500 "Appfault"/backend-processing-error downstream on
+// /history/flights/{ident} specifically — a different, separate backend from /flights/{ident},
+// which tolerates the same millisecond-bearing format fine (see resolveFlightByIdent, unaffected,
+// left as-is). Stripping to whole-second precision is the one plausible, low-risk fix available
+// without access to AeroAPI's own docs/support to confirm the real cause.
+function toWholeSecondISOString(date: Date): string {
+  return date.toISOString().replace(/\.\d{3}Z$/, "Z");
+}
+
 export async function fetchHistoricalFlights(ident: string, startISO: string, endISO: string): Promise<AeroFlight[]> {
   const all: AeroFlight[] = [];
   const rangeStart = new Date(startISO);
@@ -164,7 +175,15 @@ export async function fetchHistoricalFlights(ident: string, startISO: string, en
   let windowStart = rangeStart;
   while (windowStart < rangeEnd) {
     const windowEnd = new Date(Math.min(windowStart.getTime() + windowMs, rangeEnd.getTime()));
-    all.push(...(await fetchHistoricalFlightsWindow(ident, windowStart.toISOString(), windowEnd.toISOString())));
+    // One window failing (confirmed live: a 500 "Appfault"/backend processing error from AeroAPI
+    // itself on an otherwise-valid request) must not abort the whole 60-day computation — stats
+    // based on 9 good windows and 1 skipped one are far more useful than no stats at all. Logged,
+    // not re-thrown.
+    try {
+      all.push(...(await fetchHistoricalFlightsWindow(ident, toWholeSecondISOString(windowStart), toWholeSecondISOString(windowEnd))));
+    } catch (err) {
+      console.error(`[aeroapi] history window ${windowStart.toISOString()}..${windowEnd.toISOString()} for ${ident} failed:`, (err as Error).message);
+    }
     windowStart = windowEnd;
   }
 

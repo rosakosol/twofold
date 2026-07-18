@@ -27,9 +27,11 @@ enum FlightDocumentType: String, Codable, CaseIterable, Hashable {
         case .boardingPass:
             return "Boarding pass"
         case .itinerary:
-            return "Travel documents"
+            return "Itinerary"
         case .other:
-            return "Document"
+            // Catch-all for anything that isn't a boarding pass or itinerary specifically —
+            // visa documents, travel insurance, hotel confirmations, etc.
+            return "Travel documents"
         }
     }
 

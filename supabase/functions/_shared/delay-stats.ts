@@ -22,6 +22,13 @@ export interface DelayStats {
 }
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+// A zero-observed result almost always means every history window failed (AeroAPI backend
+// errors, confirmed live — see fetchHistoricalFlights' per-window try/catch), not that a flight
+// number genuinely has zero history. Caching that outcome for the full 24h turned a transient
+// AeroAPI hiccup into a day-long "no data" for anyone who opens this flight, with no way to
+// self-heal short of manually clearing the row. A short TTL here means the next screen-open a
+// few minutes later just retries instead.
+const FAILURE_CACHE_TTL_MS = 5 * 60 * 1000;
 const LOOKBACK_DAYS = 60;
 
 interface DelayStatsRow {
@@ -84,8 +91,10 @@ export async function computeDelayStats(serviceClient: SupabaseClient, ident: st
     .maybeSingle();
 
   const cachedRow = cached as DelayStatsRow | null;
-  if (cachedRow && Date.now() - new Date(cachedRow.computed_at).getTime() < CACHE_TTL_MS) {
-    return toDelayStats(cachedRow);
+  if (cachedRow) {
+    const age = Date.now() - new Date(cachedRow.computed_at).getTime();
+    const ttl = cachedRow.observed_count === 0 ? FAILURE_CACHE_TTL_MS : CACHE_TTL_MS;
+    if (age < ttl) return toDelayStats(cachedRow);
   }
 
   const end = new Date();

@@ -539,6 +539,13 @@ final class AppModel {
         deck.tier == "premium" && subscriptionTier != "premium"
     }
 
+    /// Same "Plus can see it exists, Premium unlocks it" shape as `isDeckLocked`, for
+    /// non-deck features (e.g. the Flight Details screen's delay analysis/good-to-know/flight
+    /// information cards) that are Premium-only but not backed by a `GameDeck` row.
+    var isPremiumLocked: Bool {
+        subscriptionTier != "premium"
+    }
+
     /// Every deck of this game type, across every topic — powers "tap a game type card, see all
     /// its decks" browsing, as opposed to `decks(for topic:)`'s single-topic scoping.
     func decks(ofType gameType: GameType) -> [GameDeck] {
