@@ -38,7 +38,7 @@ struct MainTabView: View {
                 GamesHubView()
                     .postHogScreenView("Games")
             }
-            Tab("Passport", image: "passport", value: .passport) {
+            Tab("Stats", systemImage: "chart.bar.fill", value: .passport) {
                 PassportView()
                     .postHogScreenView("Passport")
             }

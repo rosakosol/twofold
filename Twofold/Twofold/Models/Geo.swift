@@ -84,6 +84,19 @@ enum Geo {
         return CLLocationCoordinate2D(latitude: φi * 180 / .pi, longitude: λi * 180 / .pi)
     }
 
+    /// Initial compass bearing (0° = north, 90° = east, clockwise) along the great-circle route
+    /// from `a` toward `b` — used to pick which direction on a rendered globe to route a path or
+    /// place an off-screen marker toward, since a flat delta of raw lat/lon values doesn't
+    /// account for the sphere's curvature the way this does.
+    static func initialBearing(from a: CLLocationCoordinate2D, to b: CLLocationCoordinate2D) -> Double {
+        let lat1 = a.latitude * .pi / 180, lat2 = b.latitude * .pi / 180
+        let deltaLon = (b.longitude - a.longitude) * .pi / 180
+        let y = sin(deltaLon) * cos(lat2)
+        let x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(deltaLon)
+        let bearingDegrees = atan2(y, x) * 180 / .pi
+        return (bearingDegrees + 360).truncatingRemainder(dividingBy: 360)
+    }
+
     /// The closest entry in `majorCities` to `coordinate`, provided it's actually close — a
     /// simple linear scan (a few hundred `distanceKm` calls, trivially cheap) rather than
     /// anything spatially indexed, since the list is small and this only runs on user-facing

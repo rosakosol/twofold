@@ -375,9 +375,16 @@ final class AppModel {
         couple.partnerB.avatarURL = url
     }
 
+    /// Once paired, `couples.started_dating_on` is the value re-fetches actually read back
+    /// (`profiles.anniversary_date` only matters pre-pairing), so this must target whichever one
+    /// is actually authoritative right now or the edit silently reverts on the next refresh.
     func updateAnniversaryDate(_ date: Date) async {
         guard date != couple.startedDatingOn else { return }
-        try? await BackendService.updateAnniversaryDate(date)
+        if let coupleID = backendCoupleID {
+            try? await BackendService.updateCoupleAnniversaryDate(coupleID: coupleID, date: date)
+        } else {
+            try? await BackendService.updateAnniversaryDate(date)
+        }
         couple.startedDatingOn = date
     }
 

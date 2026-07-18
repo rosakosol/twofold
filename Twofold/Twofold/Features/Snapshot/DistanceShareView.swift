@@ -51,7 +51,7 @@ struct DistanceShareView: View {
             }
             .task {
                 guard mapSnapshot == nil else { return }
-                mapSnapshot = await Self.loadMapSnapshot(from: myCity.coordinate, to: partnerCity.coordinate)
+                mapSnapshot = await Self.loadMapSnapshot(from: myCity.coordinate, to: partnerCity.coordinate, distanceKm: distanceKm)
             }
         }
     }
@@ -76,65 +76,27 @@ struct DistanceShareView: View {
         }
     }
 
-    /// A real Apple Maps snapshot framed to the great-circle path's own bounding box (sampled
-    /// the same way `DistanceShareCard` draws the curve), not just the two raw endpoints — a
-    /// route whose arc bulges well north or south of a straight line between its endpoints (any
-    /// long east-west route) needs that peak included in the frame too, or the drawn path runs
-    /// off the edge of the image.
-    private static func loadMapSnapshot(from a: CLLocationCoordinate2D, to b: CLLocationCoordinate2D) async -> MKMapSnapshotter.Snapshot? {
-        let sampleCount = 20
-        var longitudes = (0...sampleCount).map { i in
-            Geo.intermediateGreatCirclePoint(a, b, fraction: Double(i) / Double(sampleCount)).longitude
-        }
-        let latitudes = (0...sampleCount).map { i in
-            Geo.intermediateGreatCirclePoint(a, b, fraction: Double(i) / Double(sampleCount)).latitude
-        }
-        // Antimeridian-safe bounding box: if the raw longitudes span more than half the globe,
-        // they almost certainly wrapped around ±180° rather than the route genuinely being that
-        // wide — shift the negative side by a full turn before taking min/max, then unwrap the
-        // result back into range.
-        if let first = longitudes.first, longitudes.contains(where: { abs($0 - first) > 180 }) {
-            longitudes = longitudes.map { $0 < 0 ? $0 + 360 : $0 }
-        }
-
-        let minLat = latitudes.min() ?? a.latitude, maxLat = latitudes.max() ?? a.latitude
-        let minLon = longitudes.min() ?? a.longitude, maxLon = longitudes.max() ?? a.longitude
-        let rawLatSpan = maxLat - minLat
-        let rawLonSpan = maxLon - minLon
-
-        let padding = 1.6
-        let minDelta = 14.0
-        let maxDelta = 160.0
-        let latSpan = min(maxDelta, max(minDelta, rawLatSpan * padding))
-        let lonSpan = min(maxDelta, max(minDelta, rawLonSpan * padding))
-
-        // A snapshot's Apple Maps attribution is always anchored to its bottom-left corner, so
-        // the southmost point needs a bit of extra clearance below it — the bottom edge sits at
-        // `center - span/2`, so *lowering* center latitude moves that edge further south, away
-        // from that point. This is a fixed fraction of the *final, padded* span, not of the
-        // padding room itself — an earlier version scaled with the padding room, which is
-        // proportional to the route's raw span, so a long route (lots of padding room) got a
-        // wildly oversized shift that pushed the point out toward the opposite edge instead.
-        //
-        // Longitude is left uncentered (no matching leftward bias) — the attribution is a
-        // small, short strip along the very bottom edge, not really a left/right concern, and
-        // adding a horizontal bias on top of the vertical one consistently left one pin visibly
-        // closer to its edge than the other, which read as off-center rather than helpful.
-        let latBiasFraction = 0.09
-        var centerLongitude = (minLon + maxLon) / 2
-        if centerLongitude > 180 { centerLongitude -= 360 }
-        let center = CLLocationCoordinate2D(latitude: (minLat + maxLat) / 2 - latSpan * latBiasFraction, longitude: centerLongitude)
-
+    /// A real globe snapshot (`.hybrid(elevation: .realistic)`, the same configuration
+    /// `RelationshipGlobeView`'s live `Map` uses) — centered and sized differently depending on
+    /// whether both cities fit one cropped view (`DistanceShareCard.isOffGlobe`): close enough,
+    /// centered on your spherical midpoint at the larger `normalGlobeSize`; far enough apart that
+    /// they can't both land in frame, centered on just your own city at the smaller,
+    /// left-biased `offGlobeSize` `DistanceShareCard.offGlobeContent(_:)` expects.
+    private static func loadMapSnapshot(from a: CLLocationCoordinate2D, to b: CLLocationCoordinate2D, distanceKm: Double) async -> MKMapSnapshotter.Snapshot? {
         let options = MKMapSnapshotter.Options()
-        // `.standard` (Apple's ordinary bright colored map — green land, blue water), not
-        // `.hybrid` — the satellite imagery `.hybrid` layers underneath reads as dark and dull
-        // next to the rest of the app's maps, which are all this same bright standard style
-        // (`FlightMapView` never sets `mapType` at all, so it renders with this same default).
-        options.mapType = .standard
-        options.pointOfInterestFilter = .excludingAll
-        options.region = MKCoordinateRegion(center: center, span: MKCoordinateSpan(latitudeDelta: latSpan, longitudeDelta: lonSpan))
-        options.size = DistanceShareCard.mapSize
+        options.preferredConfiguration = MKHybridMapConfiguration(elevationStyle: .realistic)
         options.showsBuildings = false
+
+        if distanceKm > DistanceShareCard.offGlobeThresholdKm {
+            options.region = MKCoordinateRegion(center: a, span: MKCoordinateSpan(latitudeDelta: 70, longitudeDelta: 70))
+            options.size = CGSize(width: DistanceShareCard.offGlobeSize, height: DistanceShareCard.offGlobeSize)
+        } else {
+            options.region = MKCoordinateRegion(
+                center: Geo.sphericalMidpoint(a, b),
+                span: MKCoordinateSpan(latitudeDelta: 110, longitudeDelta: 110)
+            )
+            options.size = CGSize(width: DistanceShareCard.normalGlobeSize, height: DistanceShareCard.normalGlobeSize)
+        }
 
         do {
             return try await MKMapSnapshotter(options: options).start()

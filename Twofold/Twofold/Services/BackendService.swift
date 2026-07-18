@@ -473,6 +473,23 @@ enum BackendService {
             .execute()
     }
 
+    /// Once paired, `couples.started_dating_on` (not `profiles.anniversary_date`) is the value
+    /// `fetchCoupleState()` actually reads back — RLS blocks direct client writes to `couples`,
+    /// so this goes through the same RPC pattern as `redeem_invite_code`/`leave_couple`.
+    static func updateCoupleAnniversaryDate(coupleID: UUID, date: Date) async throws {
+        struct Params: Encodable {
+            var pCoupleId: UUID
+            var pDate: String
+            enum CodingKeys: String, CodingKey {
+                case pCoupleId = "p_couple_id"
+                case pDate = "p_date"
+            }
+        }
+        try await supabase
+            .rpc("update_couple_anniversary_date", params: Params(pCoupleId: coupleID, pDate: Self.dateOnlyFormatter.string(from: date)))
+            .execute()
+    }
+
     private struct SubscriptionStatusUpdate: Encodable {
         var subscriptionActive: Bool
         var subscriptionCheckedAt: Date
@@ -654,14 +671,25 @@ enum BackendService {
         var partnerBId: UUID
         var status: String
         var dissolvedAt: Date?
-        var startedDatingOn: Date?
+        /// `started_dating_on` is a bare Postgres `date` column ("2025-02-08", no time/zone) —
+        /// decoding it straight to `Date` throws under the client's timestamp-with-time-zone
+        /// strategy, the same reason `ProfileRow.anniversaryDate` is `String?` too. That throw
+        /// previously went unnoticed since every couple's `started_dating_on` was null until the
+        /// reconciliation migration started backfilling real values — a decode failure here
+        /// fails `fetchCoupleState()` entirely, which `loadSignedInState()` silently swallows and
+        /// falls back to the solo-profile path, making a fully paired couple look disconnected.
+        var startedDatingOnRaw: String?
 
         enum CodingKeys: String, CodingKey {
             case id, status
             case partnerAId = "partner_a_id"
             case partnerBId = "partner_b_id"
             case dissolvedAt = "dissolved_at"
-            case startedDatingOn = "started_dating_on"
+            case startedDatingOnRaw = "started_dating_on"
+        }
+
+        var startedDatingOn: Date? {
+            startedDatingOnRaw.flatMap { BackendService.dateOnlyFormatter.date(from: $0) }
         }
     }
 
@@ -898,7 +926,10 @@ enum BackendService {
             // the avatar — my own custom photo of them if I've set one, otherwise their own.
             // Home city is never overridden — that one's always shared/real once paired.
             partnerB: person(for: partnerProfile, nameOverride: meProfile.partnerName, avatarOverridePath: meProfile.partnerAvatarPath, paletteIndex: 0),
-            startedDatingOn: .now
+            // Couple-level once paired (`redeem_invite_code` seeds it from whichever partner set
+            // one during onboarding) — `.now` is only a last-resort fallback for the rare case
+            // neither partner ever set one.
+            startedDatingOn: coupleRow.startedDatingOn ?? .now
         )
 
         let flights = flightRows.map { Self.makeFlight(from: $0) }
