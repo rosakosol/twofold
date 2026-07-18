@@ -317,16 +317,34 @@ struct AddMemoryView: View {
         Task { await appModel.removePhoto(photo, from: existingMemory) }
     }
 
+    /// `loadTransferable` is known to fail intermittently — most visibly in the Simulator, where
+    /// PHPickerViewController's out-of-process data handoff for seeded library assets frequently
+    /// times out. A failed item deliberately isn't added to `loadedItemKeys`, so it gets another
+    /// attempt the next time this runs (e.g. picking one more photo re-fires `onChange` with the
+    /// whole selection) instead of being silently dropped forever with no way to retry it short
+    /// of restarting the picker from scratch.
     private func loadNewPhotos(_ items: [PhotosPickerItem]) async {
+        var failedCount = 0
         for item in items {
             let key = item.itemIdentifier ?? UUID().uuidString
             guard !loadedItemKeys.contains(key) else { continue }
-            loadedItemKeys.insert(key)
             guard let data = try? await item.loadTransferable(type: Data.self),
-                  let uiImage = UIImage(data: data) else { continue }
+                  let uiImage = UIImage(data: data) else {
+                failedCount += 1
+                continue
+            }
             let resized = uiImage.resized(maxDimension: 1600)
-            guard let jpeg = resized.jpegData(compressionQuality: 0.8) else { continue }
+            guard let jpeg = resized.jpegData(compressionQuality: 0.8) else {
+                failedCount += 1
+                continue
+            }
+            loadedItemKeys.insert(key)
             pendingPhotos.append(PendingPhoto(image: Image(uiImage: resized), data: jpeg))
+        }
+        if failedCount > 0 {
+            errorMessage = failedCount == 1
+                ? "Couldn't load that photo — try selecting it again."
+                : "Couldn't load \(failedCount) of those photos — try selecting them again."
         }
     }
 

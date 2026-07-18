@@ -3,7 +3,6 @@
 //  Twofold
 //
 
-import MapKit
 import SwiftUI
 
 struct RelationshipStatsShareView: View {
@@ -14,23 +13,24 @@ struct RelationshipStatsShareView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.displayScale) private var displayScale
-    @State private var mapSnapshot: MKMapSnapshotter.Snapshot?
+    @State private var selectedMemoryIDs: Set<Memory.ID> = []
+    @State private var showingPhotoPicker = false
+    @State private var showingCustomization = false
+    @State private var backgroundTheme: RelationshipStatsCardBackground = .auto
+    @State private var showTripsChip = true
+    @State private var showReunionsChip = true
+    @State private var showMemoriesChip = true
 
-    /// The same photo+place filter `RelationshipStatsShareCard.mappableMemories` applies —
-    /// duplicated rather than shared since this side only needs the coordinates, to fit the
-    /// snapshot's region around them.
-    private var mappableMemoryCoordinates: [CLLocationCoordinate2D] {
-        memories
-            .filter { $0.photoURL != nil && $0.place != nil }
-            .sorted { $0.date > $1.date }
-            .prefix(3)
-            .compactMap { $0.place?.coordinate }
+    /// Every memory that could possibly show in the grid — the picker's own list, and the pool
+    /// `defaultSelection()` draws its random pick from.
+    private var photoEligibleMemories: [Memory] {
+        memories.filter { $0.photoURL != nil }
     }
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                RelationshipStatsShareCard(couple: couple, trips: trips, memories: memories, stats: stats, mapSnapshot: mapSnapshot)
+                card
                     .padding(Theme.Spacing.lg)
                     .shadow(color: .black.opacity(0.25), radius: 24, y: 12)
             }
@@ -43,73 +43,70 @@ struct RelationshipStatsShareView: View {
                         .labelStyle(.iconOnly)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    ShareLink(
-                        item: renderCardImage(),
-                        preview: SharePreview("Our story so far", image: renderCardImage())
-                    ) {
-                        Image(systemName: "square.and.arrow.up")
+                    HStack(spacing: Theme.Spacing.sm) {
+                        Button("Customize", systemImage: "paintbrush") {
+                            showingCustomization = true
+                        }
+                        .labelStyle(.iconOnly)
+
+                        if !photoEligibleMemories.isEmpty {
+                            Button("Choose Photos", systemImage: "photo.on.rectangle") {
+                                showingPhotoPicker = true
+                            }
+                            .labelStyle(.iconOnly)
+                        }
+                        ShareLink(
+                            item: renderCardImage(),
+                            preview: SharePreview("Our story so far", image: renderCardImage())
+                        ) {
+                            Image(systemName: "square.and.arrow.up")
+                        }
                     }
                 }
             }
-            .task {
-                guard mapSnapshot == nil,
-                      let userCoordinate = couple.partnerA.homeCity?.coordinate,
-                      let partnerCoordinate = couple.partnerB.homeCity?.coordinate else { return }
-                mapSnapshot = await Self.loadMapSnapshot(userCoordinate: userCoordinate, partnerCoordinate: partnerCoordinate, memoryCoordinates: mappableMemoryCoordinates)
+            .sheet(isPresented: $showingPhotoPicker) {
+                RelationshipStatsPhotoPickerView(memories: photoEligibleMemories, selectedIDs: $selectedMemoryIDs)
+            }
+            .sheet(isPresented: $showingCustomization) {
+                RelationshipStatsCustomizationView(
+                    backgroundTheme: $backgroundTheme,
+                    showTripsChip: $showTripsChip,
+                    showReunionsChip: $showReunionsChip,
+                    showMemoriesChip: $showMemoriesChip
+                )
+            }
+            .onAppear {
+                guard selectedMemoryIDs.isEmpty else { return }
+                selectedMemoryIDs = Self.defaultSelection(from: photoEligibleMemories)
             }
         }
     }
 
-    /// A real Apple Maps snapshot framed to fit both home cities' great-circle path (sampled the
-    /// same way `DistanceShareCard` draws the curve — a straight endpoint-to-endpoint bounding
-    /// box would clip a route that bulges north/south of a straight line) *and* every mappable
-    /// memory location, so no marker this card draws ever lands outside the visible frame.
-    private static func loadMapSnapshot(userCoordinate: CLLocationCoordinate2D, partnerCoordinate: CLLocationCoordinate2D, memoryCoordinates: [CLLocationCoordinate2D]) async -> MKMapSnapshotter.Snapshot? {
-        let routeSampleCount = 20
-        var points = (0...routeSampleCount).map { i in
-            Geo.intermediateGreatCirclePoint(userCoordinate, partnerCoordinate, fraction: Double(i) / Double(routeSampleCount))
-        }
-        points += memoryCoordinates
+    private var card: some View {
+        RelationshipStatsShareCard(
+            couple: couple,
+            trips: trips,
+            memories: memories,
+            selectedMemoryIDs: selectedMemoryIDs,
+            stats: stats,
+            backgroundTheme: backgroundTheme,
+            showTripsChip: showTripsChip,
+            showReunionsChip: showReunionsChip,
+            showMemoriesChip: showMemoriesChip
+        )
+    }
 
-        var longitudes = points.map(\.longitude)
-        let latitudes = points.map(\.latitude)
-        // Antimeridian-safe bounding box — see `DistanceShareView.loadMapSnapshot`'s comment.
-        if let first = longitudes.first, longitudes.contains(where: { abs($0 - first) > 180 }) {
-            longitudes = longitudes.map { $0 < 0 ? $0 + 360 : $0 }
-        }
-
-        let minLat = latitudes.min() ?? userCoordinate.latitude, maxLat = latitudes.max() ?? userCoordinate.latitude
-        let minLon = longitudes.min() ?? userCoordinate.longitude, maxLon = longitudes.max() ?? userCoordinate.longitude
-
-        let padding = 1.5
-        let minDelta = 12.0
-        let maxDelta = 160.0
-        let latSpan = min(maxDelta, max(minDelta, (maxLat - minLat) * padding))
-        let lonSpan = min(maxDelta, max(minDelta, (maxLon - minLon) * padding))
-
-        var centerLongitude = (minLon + maxLon) / 2
-        if centerLongitude > 180 { centerLongitude -= 360 }
-        let center = CLLocationCoordinate2D(latitude: (minLat + maxLat) / 2, longitude: centerLongitude)
-
-        let options = MKMapSnapshotter.Options()
-        options.mapType = .standard
-        options.pointOfInterestFilter = .excludingAll
-        options.region = MKCoordinateRegion(center: center, span: MKCoordinateSpan(latitudeDelta: latSpan, longitudeDelta: lonSpan))
-        options.size = RelationshipStatsShareCard.canvasSize
-        options.showsBuildings = false
-        do {
-            return try await MKMapSnapshotter(options: options).start()
-        } catch {
-            return nil
-        }
+    /// A random default pick, capped at `RelationshipStatsShareCard.maxStoryPhotos` — random
+    /// rather than "most recent," so the same couple's card looks a little different each time
+    /// they generate one, and re-picking is as simple as reopening this screen. Overridable at
+    /// any time via "Choose Photos."
+    private static func defaultSelection(from eligible: [Memory]) -> Set<Memory.ID> {
+        Set(eligible.shuffled().prefix(RelationshipStatsShareCard.maxStoryPhotos).map(\.id))
     }
 
     @MainActor
     private func renderCardImage() -> Image {
-        let renderer = ImageRenderer(
-            content: RelationshipStatsShareCard(couple: couple, trips: trips, memories: memories, stats: stats, mapSnapshot: mapSnapshot)
-                .frame(width: 360)
-        )
+        let renderer = ImageRenderer(content: card.frame(width: 360))
         renderer.scale = displayScale
         if let uiImage = renderer.uiImage {
             return Image(uiImage: uiImage)

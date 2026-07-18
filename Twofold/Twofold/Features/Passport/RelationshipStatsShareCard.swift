@@ -2,16 +2,13 @@
 //  RelationshipStatsShareCard.swift
 //  Twofold
 //
-//  The relationship's own shareable "our story" card — genuinely unique per couple, since the
-//  background gradient comes from whichever country mattered most to this couple (their longest
-//  trip's destination, or their most-visited country if ties/no long trip exists yet) and the
-//  map at its center is a real flat snapshot of both home cities plus every mappable memory,
-//  pinned at the place it actually happened. Two couples with different travel histories get two
-//  genuinely different-looking cards, not just different numbers dropped into the same template.
+//  The relationship's own shareable "our story" card — the photo grid at its center is real
+//  memory photos, in the order they actually happened, each in the same white-bordered "polaroid"
+//  treatment `MemoryDetailView` uses for its own photo card. Background defaults to a warm sunset
+//  gradient (`RelationshipStatsCardBackground.auto`), with a few curated alternatives the user
+//  can pick instead via `RelationshipStatsCustomizationView`.
 //
 
-import CoreLocation
-import MapKit
 import SwiftUI
 import UIKit
 
@@ -19,48 +16,45 @@ struct RelationshipStatsShareCard: View {
     let couple: Couple
     let trips: [Trip]
     let memories: [Memory]
+    /// Which of `memories` to actually show, chosen by the caller (`RelationshipStatsShareView`)
+    /// — either its own random default or the user's explicit picks — rather than this view
+    /// silently picking its own "most recent" subset. Always rendered chronologically regardless
+    /// of the order IDs were selected in.
+    let selectedMemoryIDs: Set<Memory.ID>
     let stats: RelationshipMilestoneStats
-    /// Pre-rendered by the caller (`RelationshipStatsShareView`, via `MKMapSnapshotter`) — same
-    /// reason as `DistanceShareCard.mapSnapshot`: a network-backed snapshot can't be generated
-    /// synchronously inside `body`, and `ImageRenderer` can't rasterize a live MapKit `Map` that
-    /// was never actually placed in a window. `nil` while loading, or when either partner hasn't
-    /// set a home city yet (in which case `mapAndRoute` doesn't render at all).
-    var mapSnapshot: MKMapSnapshotter.Snapshot? = nil
+    var backgroundTheme: RelationshipStatsCardBackground = .auto
+    var showTripsChip = true
+    var showReunionsChip = true
+    var showMemoriesChip = true
 
-    static let canvasSize = CGSize(width: 340, height: 300)
+    /// Maximum photos this card ever shows — matches the cap `RelationshipStatsShareView`'s
+    /// selection UI enforces, kept here too as a last line of defense against a card that grows
+    /// past a single shareable screen.
+    static let maxStoryPhotos = 6
 
-    /// Recent memories that actually have both a photo and a place — the ones eligible to show
-    /// as markers on the map. A couple early in their memory-logging habit just gets fewer pins,
-    /// never a fabricated one.
-    private var mappableMemories: [Memory] {
+    /// Alternating tilt per photo, same scrapbook idea as `MemoryDetailView`'s single `-2°`
+    /// photo card, just varied per item so a grid of them doesn't look stamped from one mold.
+    /// Fixed (not random) so re-renders — including the offscreen one `ShareLink` triggers —
+    /// always produce the same image.
+    private static let photoRotations: [Double] = [-4, 3, -3, 4, -2, 3]
+
+    /// The selected memories, oldest first — a chronological "story" regardless of selection
+    /// order (random default or manual picks).
+    private var storyMemories: [Memory] {
         Array(
             memories
-                .filter { $0.photoURL != nil && $0.place != nil }
-                .sorted { $0.date > $1.date }
-                .prefix(3)
+                .filter { selectedMemoryIDs.contains($0.id) }
+                .sorted { $0.date < $1.date }
+                .prefix(Self.maxStoryPhotos)
         )
     }
 
-    /// The trip whose destination gives the card its color identity — the longest trip, since
-    /// that's usually the one that meant the most, falling back to whichever country shows up
-    /// most across every trip when there's no meaningful "longest" one yet (e.g. only short
-    /// weekend trips so far).
-    private var accentCountry: String? {
-        if let longest = stats.longestTrip { return longest.destination.country }
-        return FlightStats(trips: trips, couple: couple).countries.first?.name
-    }
+    private var gradientColors: [Color] { backgroundTheme.colors }
 
-    private var accentDestinationLabel: String? {
-        stats.longestTrip?.destination.displayCity
-    }
-
-    private var gradientColors: [Color] { CountryAccentPalette.gradientColors(for: accentCountry) }
-
-    /// Every country entry in `CountryAccentPalette` is fixed, code-defined hex — safe to
+    /// Every `RelationshipStatsCardBackground` case is a fixed, code-defined hex — safe to
     /// resolve via `UIColor` once, unlike an adaptive/system color. Text and dots below are
-    /// fixed white, so a light-flag country (near-white stops like Canada/Switzerland/Peru)
-    /// would otherwise render as white-on-white; this flips them to ink instead of trying to
-    /// keep every curated palette itself dark enough to hold white.
+    /// fixed white, so a light background would otherwise render as white-on-white; this flips
+    /// them to ink instead of trying to keep every curated option itself dark enough to hold white.
     private var isLightBackground: Bool {
         let luminances = gradientColors.map { color -> Double in
             var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
@@ -91,19 +85,14 @@ struct RelationshipStatsShareCard: View {
                     .foregroundStyle(textColor.opacity(0.85))
             }
 
-            mapAndRoute
-                .padding(.horizontal, -Theme.Spacing.lg)
+            storySection
 
-            HStack(spacing: Theme.Spacing.lg) {
-                chip(value: "\(stats.tripCount)", label: "Trips")
-                chip(value: "\(stats.reunionCount)", label: "Reunions")
-                chip(value: "\(stats.memoryCount)", label: "Memories")
-            }
-
-            if let accentDestinationLabel {
-                Text("Farthest reach: \(accentDestinationLabel)")
-                    .font(.caption)
-                    .foregroundStyle(textColor.opacity(0.75))
+            if showTripsChip || showReunionsChip || showMemoriesChip {
+                HStack(spacing: Theme.Spacing.lg) {
+                    if showTripsChip { chip(value: "\(stats.tripCount)", label: "Trips") }
+                    if showReunionsChip { chip(value: "\(stats.reunionCount)", label: "Reunions") }
+                    if showMemoriesChip { chip(value: "\(stats.memoryCount)", label: "Memories") }
+                }
             }
         }
         .padding(.horizontal, Theme.Spacing.lg)
@@ -113,8 +102,7 @@ struct RelationshipStatsShareCard: View {
         .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
     }
 
-    /// Plain circular avatars — the "who this story belongs to" header, unmoored from any
-    /// specific location now that memory photos moved onto the map itself as markers.
+    /// Plain circular avatars — the "who this story belongs to" header.
     private var coupleAvatars: some View {
         HStack(spacing: Theme.Spacing.md) {
             AvatarView(person: couple.partnerA, size: 56, showsRing: true)
@@ -129,102 +117,83 @@ struct RelationshipStatsShareCard: View {
         }
     }
 
-    private var userCoordinate: CLLocationCoordinate2D? { couple.partnerA.homeCity?.coordinate }
-    private var partnerCoordinate: CLLocationCoordinate2D? { couple.partnerB.homeCity?.coordinate }
-
-    /// A real flat map (`MKMapSnapshotter`, same mechanism `DistanceShareCard` uses) framed to
-    /// fit both home cities and every mappable memory, with a solid route between the cities and
-    /// each memory's own photo pinned at the place it actually happened. Doesn't render at all
-    /// when either partner hasn't set a home city — never a fabricated pin pair. Fills what used
-    /// to be a mostly-empty canvas for any couple without a long trip history yet, and works
-    /// regardless of trip count since it's about where they *live*, not where they've been.
+    /// Real memory photos when there are any; otherwise, if both partners have a home city set,
+    /// a curvy path and the real distance between them — never both empty and never a
+    /// placeholder grid of empty tiles.
     @ViewBuilder
-    private var mapAndRoute: some View {
-        if let userCoordinate, let partnerCoordinate {
-            ZStack {
-                if let mapSnapshot {
-                    Image(uiImage: mapSnapshot.image)
-                        .resizable()
-
-                    // Many short chords between closely-spaced great-circle samples — the same
-                    // technique `DistanceShareCard` uses — so the drawn line follows the true
-                    // geodesic arc rather than cutting a straight chord across the map image.
-                    Path { path in
-                        let sampleCount = 40
-                        let samples = (0...sampleCount).map { i in
-                            Geo.intermediateGreatCirclePoint(userCoordinate, partnerCoordinate, fraction: Double(i) / Double(sampleCount))
-                        }
-                        guard let first = samples.first else { return }
-                        path.move(to: mapSnapshot.point(for: first))
-                        for coordinate in samples.dropFirst() {
-                            path.addLine(to: mapSnapshot.point(for: coordinate))
-                        }
-                    }
-                    .stroke(Color(hex: "3D8FF5"), style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
-
-                    ForEach(mappableMemories) { memory in
-                        if let place = memory.place, let photoURL = memory.photoURL {
-                            memoryMarker(at: mapSnapshot.point(for: place.coordinate), photoURL: photoURL)
-                        }
-                    }
-
-                    cityPin(at: mapSnapshot.point(for: userCoordinate), label: couple.partnerA.homeCity?.displayCity)
-                    cityPin(at: mapSnapshot.point(for: partnerCoordinate), label: couple.partnerB.homeCity?.displayCity)
-                } else {
-                    Color(hex: "0B2340")
-                    ProgressView().tint(.white)
-                }
-            }
-            .frame(width: Self.canvasSize.width, height: Self.canvasSize.height)
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .overlay { RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(.white.opacity(0.25), lineWidth: 1) }
-            .shadow(color: .black.opacity(0.35), radius: 16, y: 8)
+    private var storySection: some View {
+        if !storyMemories.isEmpty {
+            memoryPhotoGrid
+        } else {
+            curvyDistancePath
         }
     }
 
-    private func cityPin(at point: CGPoint, label: String?) -> some View {
-        Group {
-            ZStack {
-                Circle().fill(.white.opacity(0.3)).frame(width: 20, height: 20)
-                Circle().fill(.white).frame(width: 10, height: 10)
-                Circle().fill(Color(hex: "FFD166")).frame(width: 6, height: 6)
-            }
-            .position(point)
-
-            if let label {
-                Text(label)
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(.black.opacity(0.55), in: Capsule())
-                    .fixedSize()
-                    .position(x: point.x, y: point.y + 16)
+    /// Real memory photos in chronological rows, each in `MemoryDetailView`'s own white-bordered,
+    /// drop-shadowed, gently-rotated "polaroid" treatment.
+    private var memoryPhotoGrid: some View {
+        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: Theme.Spacing.md) {
+            ForEach(Array(storyMemories.enumerated()), id: \.element.id) { index, memory in
+                memoryPolaroid(memory, rotation: Self.photoRotations[index % Self.photoRotations.count])
             }
         }
+        .padding(.top, Theme.Spacing.xs)
     }
 
-    /// A small circular photo, not a plain dot — a memory location is the one kind of marker
-    /// where showing the actual moment (rather than an abstract pin) is worth the extra weight.
-    private func memoryMarker(at point: CGPoint, photoURL: URL) -> some View {
-        AsyncImage(url: photoURL) { phase in
-            if let image = phase.image {
-                image.resizable().scaledToFill()
-            } else {
-                ZStack {
-                    LinearGradient(colors: [Theme.skyBlue, Theme.leafGreen], startPoint: .topLeading, endPoint: .bottomTrailing)
-                    Image(systemName: "photo.fill")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.white.opacity(0.85))
+    private func memoryPolaroid(_ memory: Memory, rotation: Double) -> some View {
+        MemoryPhotoView(memory: memory, cornerRadius: 8)
+            .frame(width: 88, height: 88)
+            .padding(5)
+            .background(.white, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .shadow(color: .black.opacity(0.25), radius: 6, y: 3)
+            .rotationEffect(.degrees(rotation))
+    }
+
+    /// The "no photographed memories yet" fallback — a hand-drawn (not a map) curve between the
+    /// two of you, with the real distance underneath. Doesn't render at all if either partner
+    /// hasn't set a home city — never a fabricated pair of cities.
+    @ViewBuilder
+    private var curvyDistancePath: some View {
+        if let userCity = couple.partnerA.homeCity, let partnerCity = couple.partnerB.homeCity {
+            VStack(spacing: Theme.Spacing.sm) {
+                VStack(spacing: 2) {
+                    Canvas { context, size in
+                        let leftAnchor = CGPoint(x: 30, y: size.height / 2)
+                        let rightAnchor = CGPoint(x: size.width - 30, y: size.height / 2)
+                        var path = Path()
+                        path.move(to: leftAnchor)
+                        path.addCurve(
+                            to: rightAnchor,
+                            control1: CGPoint(x: size.width * 0.38, y: 4),
+                            control2: CGPoint(x: size.width * 0.62, y: size.height - 4)
+                        )
+                        context.stroke(path, with: .color(textColor.opacity(0.7)), style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: [1, 7]))
+
+                        for point in [leftAnchor, rightAnchor] {
+                            context.fill(Path(ellipseIn: CGRect(x: point.x - 9, y: point.y - 9, width: 18, height: 18)), with: .color(textColor.opacity(0.18)))
+                            context.fill(Path(ellipseIn: CGRect(x: point.x - 4, y: point.y - 4, width: 8, height: 8)), with: .color(Color(hex: "FFD166")))
+                        }
+                    }
+                    .frame(height: 44)
+
+                    HStack {
+                        Text(userCity.displayCity)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(textColor.opacity(0.85))
+                        Spacer()
+                        Text(partnerCity.displayCity)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(textColor.opacity(0.85))
+                    }
+                    .padding(.horizontal, Theme.Spacing.lg)
                 }
+
+                Text("\(MeasurementPreference.distanceLabel(km: Geo.distanceKm(userCity.coordinate, partnerCity.coordinate))) apart")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(textColor)
             }
+            .padding(.top, Theme.Spacing.xs)
         }
-        .frame(width: 28, height: 28)
-        .clipShape(Circle())
-        .overlay { Circle().strokeBorder(.white, lineWidth: 2) }
-        .shadow(color: .black.opacity(0.35), radius: 3, y: 1)
-        .position(point)
     }
 
     private func chip(value: String, label: String) -> some View {
@@ -246,6 +215,7 @@ struct RelationshipStatsShareCard: View {
         couple: MockData.couple,
         trips: MockData.trips,
         memories: MockData.memories,
+        selectedMemoryIDs: Set(MockData.memories.prefix(6).map(\.id)),
         stats: RelationshipMilestoneStats(trips: MockData.trips, memories: MockData.memories, startedDatingOn: .now.addingTimeInterval(-86_400 * 400))
     )
     .padding()
