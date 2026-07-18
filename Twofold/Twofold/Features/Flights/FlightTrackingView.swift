@@ -21,6 +21,11 @@ struct FlightTrackingView: View {
     @State private var events: [FlightStatusEvent] = []
     @State private var showAllEvents = false
     @State private var documents: [FlightDocument] = []
+    /// 60-day on-time performance for this flight's designator — nil while loading or on any
+    /// failure (network, or AeroAPI erroring for an account-tier reason); `delayAnalysisCard`
+    /// simply doesn't render in that case, same as every other optional AeroAPI-sourced section
+    /// on this screen.
+    @State private var delayStats: DelayStats?
     @State private var isRefreshing = false
     @State private var eventsChannel: RealtimeChannelV2?
     @State private var flightChannel: RealtimeChannelV2?
@@ -96,9 +101,9 @@ struct FlightTrackingView: View {
                 journeyCard
                 departureCard
                 arrivalCard
+                delayAnalysisCard
                 updatesCard
                 goodToKnowCard
-                delayAnalysisCard
                 flightInfoCard
                 documentsSection
                 if linkedTrip != nil, isTraveler {
@@ -436,8 +441,8 @@ struct FlightTrackingView: View {
             Text("All times shown in local time").font(.caption2).foregroundStyle(Theme.subtleInk)
             detailRow(label: "Scheduled", value: Self.timeOrNA(flight.scheduledOut, timeZone: flight.origin.timeZone))
             detailRow(label: flight.actualOut != nil ? "Actual" : "Estimated", value: Self.timeOrNA(flight.actualOut ?? flight.estimatedOut, timeZone: flight.origin.timeZone))
-            if let delaySeconds = flight.departureDelaySeconds, delaySeconds > 300 {
-                detailRow(label: "Status", value: "Delayed \(delaySeconds / 60) min", tint: Theme.heartRed)
+            if let delta = Self.delayDelta(scheduled: flight.scheduledOut, actualOrEstimated: flight.actualOut ?? flight.estimatedOut) {
+                delayDeltaCaption(delta)
             }
             detailRow(label: "Terminal", value: flight.terminalOrigin ?? "Not available")
             detailRow(label: "Gate", value: flight.gateOrigin ?? "Not available")
@@ -450,8 +455,8 @@ struct FlightTrackingView: View {
             Text("All times shown in local time").font(.caption2).foregroundStyle(Theme.subtleInk)
             detailRow(label: "Scheduled", value: Self.timeOrNA(flight.scheduledIn, timeZone: flight.destination.timeZone))
             detailRow(label: flight.actualIn != nil ? "Actual" : "Estimated", value: Self.timeOrNA(flight.actualIn ?? flight.estimatedIn, timeZone: flight.destination.timeZone))
-            if let delaySeconds = flight.arrivalDelaySeconds, delaySeconds > 300 {
-                detailRow(label: "Status", value: "Delayed \(delaySeconds / 60) min", tint: Theme.heartRed)
+            if let delta = Self.delayDelta(scheduled: flight.scheduledIn, actualOrEstimated: flight.actualIn ?? flight.estimatedIn) {
+                delayDeltaCaption(delta)
             }
             detailRow(label: "Terminal", value: flight.terminalDestination ?? "Not available")
             detailRow(label: "Gate", value: flight.gateDestination ?? "Not available")
@@ -467,6 +472,29 @@ struct FlightTrackingView: View {
             Text(value)
                 .font(.subheadline.weight(isUnavailable ? .regular : .medium))
                 .foregroundStyle(isUnavailable ? Theme.subtleInk.opacity(0.6) : tint)
+        }
+    }
+
+    private struct DelayDelta {
+        let text: String
+        let color: Color
+    }
+
+    /// "On time" covers the same 0–14 minute window as `delayAnalysisCard`'s "On time" bucket
+    /// (the standard on-time-performance definition — within 15 minutes of schedule), so this
+    /// caption and the historical stats above never disagree about what counts as on time.
+    private static func delayDelta(scheduled: Date?, actualOrEstimated: Date?) -> DelayDelta? {
+        guard let scheduled, let actualOrEstimated else { return nil }
+        let minutes = Int((actualOrEstimated.timeIntervalSince(scheduled) / 60).rounded())
+        if minutes <= -1 { return DelayDelta(text: "\(abs(minutes)) min early", color: Theme.leafGreen) }
+        if minutes < 15 { return DelayDelta(text: "On time", color: Theme.leafGreen) }
+        return DelayDelta(text: "+\(minutes) min", color: Theme.heartRed)
+    }
+
+    private func delayDeltaCaption(_ delta: DelayDelta) -> some View {
+        HStack {
+            Spacer()
+            Text(delta.text).font(.caption2.weight(.semibold)).foregroundStyle(delta.color)
         }
     }
 
@@ -634,34 +662,73 @@ struct FlightTrackingView: View {
 
     // MARK: - Delay analysis
 
-    /// Scoped strictly to this flight's own current departure/arrival delay — no historical or
-    /// predictive claim, since AeroAPI doesn't supply route-level delay statistics. Same 5-minute
-    /// "counts as delayed" threshold used everywhere else on this screen.
+    /// This flight designator's on-time performance over the last 60 days (not this specific
+    /// tracked instance's own delay) — server-computed/cached, see `AeroFlightService.
+    /// fetchDelayStats`. Renders nothing while loading or on any failure (network, or the AeroAPI
+    /// account not being on a tier with historical data access), same as every other
+    /// optional-data section on this screen — never a spinner or an error message here.
     @ViewBuilder
     private var delayAnalysisCard: some View {
-        if flight.departureDelaySeconds != nil || flight.arrivalDelaySeconds != nil {
+        if let delayStats {
             SectionCard {
-                Text("Delay analysis").font(.subheadline.weight(.semibold))
-                delayRow(label: "Departure", delaySeconds: flight.departureDelaySeconds)
-                delayRow(label: "Arrival", delaySeconds: flight.arrivalDelaySeconds)
+                Text("\(flight.displayNumber) · Past 60 days")
+                    .font(.subheadline.weight(.semibold))
+
+                HStack {
+                    delayHeadlineStat(
+                        value: "\(Int((delayStats.earlyPercent + delayStats.onTimePercent).rounded()))%",
+                        label: "Punctual"
+                    )
+                    Spacer()
+                    delayHeadlineStat(value: "\(Int(delayStats.averageLateMinutes.rounded()))m", label: "Average Delay (minutes)")
+                    Spacer()
+                    delayHeadlineStat(value: "\(delayStats.observedCount)", label: "Observed Flights (Number)")
+                }
+
+                VStack(spacing: Theme.Spacing.xs) {
+                    delayBucketRow(label: "Early", percent: delayStats.earlyPercent, color: Theme.leafGreen)
+                    delayBucketRow(label: "On time", percent: delayStats.onTimePercent, color: Theme.leafGreen)
+                    delayBucketRow(label: "15m late", percent: delayStats.late15Percent, color: .orange)
+                    delayBucketRow(label: "30m late", percent: delayStats.late30Percent, color: .orange)
+                    delayBucketRow(label: "45m+ late", percent: delayStats.late45Percent, color: Theme.heartRed)
+                    delayBucketRow(label: "Cancelled", percent: delayStats.cancelledPercent, color: Theme.heartRed)
+                    delayBucketRow(label: "Diverted", percent: delayStats.divertedPercent, color: Theme.heartRed)
+                }
             }
         }
     }
 
-    private func delayRow(label: String, delaySeconds: Int?) -> some View {
-        let isDelayed = (delaySeconds ?? 0) > 300
-        let minutes = (delaySeconds ?? 0) / 60
-        let tint: Color = delaySeconds == nil ? Theme.subtleInk.opacity(0.6) : (isDelayed ? Theme.heartRed : Theme.leafGreen)
-        return HStack {
-            HStack(spacing: Theme.Spacing.xs) {
-                Image(systemName: isDelayed ? "exclamationmark.circle.fill" : "checkmark.circle.fill")
-                    .foregroundStyle(tint)
-                Text(label).font(.subheadline)
+    private func delayHeadlineStat(value: String, label: String) -> some View {
+        VStack(spacing: 2) {
+            Text(value).font(.title3.weight(.bold)).foregroundStyle(Theme.ink)
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(Theme.subtleInk)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func delayBucketRow(label: String, percent: Double, color: Color) -> some View {
+        HStack(spacing: Theme.Spacing.sm) {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(Theme.subtleInk)
+                .frame(width: 72, alignment: .leading)
+
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Theme.subtleInk.opacity(0.08))
+                    Capsule().fill(color).frame(width: geo.size.width * min(max(percent, 0), 100) / 100)
+                }
             }
-            Spacer()
-            Text(delaySeconds == nil ? "Not available" : (isDelayed ? "\(minutes) min late" : "On time"))
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(tint)
+            .frame(height: 8)
+
+            Text("\(Int(percent.rounded()))%")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Theme.ink)
+                .frame(width: 36, alignment: .trailing)
         }
     }
 
@@ -946,6 +1013,9 @@ struct FlightTrackingView: View {
         }
         if let fetched = try? await BackendService.fetchFlightDocuments(flightID: flight.id) {
             documents = fetched
+        }
+        if let stats = try? await AeroFlightService.fetchDelayStats(flightID: flight.id) {
+            delayStats = stats
         }
         if let prefs = try? await BackendService.fetchNotificationPreferences(flightID: flight.id) {
             gateTerminalChanges = prefs.gateTerminalChanges

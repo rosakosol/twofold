@@ -141,6 +141,29 @@ export async function resolveFlightByIdent(
   return json?.flights ?? [];
 }
 
+// Historical instances of a flight designator (e.g. "UAE1"), not a single fa_flight_id instance —
+// the basis for delay-performance stats (see _shared/flight-sync.ts's computeDelayStats). Requires
+// AeroAPI's Standard tier; Personal-tier accounts will get an error response from AeroAPI itself,
+// which aeroRequest() already surfaces via its thrown error rather than silently returning nothing.
+// Paginates through AeroAPI's own `links.next` cursor (a full path+query the API hands back, not
+// something we construct), capped at 10 pages (~150 records) — well over what 60 days of even a
+// daily flight needs, just bounding worst-case cost against a pathological response.
+export async function fetchHistoricalFlights(ident: string, startISO: string, endISO: string): Promise<AeroFlight[]> {
+  const all: AeroFlight[] = [];
+  let path: string | null = `/history/flights/${encodeURIComponent(ident)}`;
+  let params: Record<string, string> | undefined = { start: startISO, end: endISO };
+
+  for (let page = 0; page < 10 && path; page++) {
+    const json = await aeroRequest(path, params);
+    if (!json) break;
+    all.push(...(json.flights ?? []));
+    path = json.links?.next ?? null;
+    params = undefined; // `next` already carries its own query string
+  }
+
+  return all;
+}
+
 export async function fetchFlightByFaId(faFlightId: string): Promise<AeroFlight | null> {
   const json = await aeroRequest(`/flights/${encodeURIComponent(faFlightId)}`, {
     ident_type: "fa_flight_id",

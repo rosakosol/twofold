@@ -389,3 +389,21 @@ struct Flight: Identifiable, Hashable {
         return events
     }
 }
+
+/// 60-day on-time-performance stats for a flight's *designator* (e.g. "UAE1"), not this specific
+/// tracked instance — fetched on demand via `AeroFlightService.fetchDelayStats`, computed and
+/// cached server-side (see `supabase/functions/_shared/delay-stats.ts`). Field names match that
+/// function's JSON response verbatim (camelCase both sides, same convention as every other
+/// edge-function response this app decodes).
+struct DelayStats: Decodable {
+    var observedCount: Int
+    var latePercent: Double
+    var averageLateMinutes: Double
+    var earlyPercent: Double
+    var onTimePercent: Double
+    var late15Percent: Double
+    var late30Percent: Double
+    var late45Percent: Double
+    var cancelledPercent: Double
+    var divertedPercent: Double
+}

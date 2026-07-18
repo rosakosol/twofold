@@ -368,14 +368,19 @@ function diffEvents(existing: FlightRow, mapped: MappedAeroFields): PendingEvent
   }
 
   // AeroAPI re-estimates arrival constantly — a raw inequality check fires on noise as small as
-  // a few seconds of re-estimation drift between 5-minute polls, spamming an event + push
-  // notification every single tick near departure. Only treat it as a real change worth telling
-  // someone about once it's moved by at least a minute, same threshold class as the delay check
-  // below. Also stops entirely once the flight has already landed — a confirmed arrival isn't
-  // going to move again, so any further "estimated arrival" drift AeroAPI reports past that
-  // point is noise, not something worth another push notification for.
+  // a few seconds of re-estimation drift, spamming an event + push notification every single
+  // tick. This used to be a 1-minute threshold, which sounded reasonable but wasn't: near
+  // departure/arrival this app now polls every 1 minute (tightened after this comment was first
+  // written, see 20260826000000_flight_refresh_cron_every_minute.sql), so a routine few-minutes'
+  // ETA wobble between successive polls still cleared 60s and fired a push almost every tick —
+  // exactly the "why does this keep updating" complaint that prompted raising it to 10 minutes.
+  // Only treat it as a real change worth telling someone about once it's moved by at least that
+  // much, same threshold class as the delay check below. Also stops entirely once the flight has
+  // already landed — a confirmed arrival isn't going to move again, so any further "estimated
+  // arrival" drift AeroAPI reports past that point is noise, not something worth another push
+  // notification for.
   const alreadyLanded = existing.status === "landed" || existing.status === "arrived" || existing.actual_in != null;
-  const ARRIVAL_CHANGE_THRESHOLD_MS = 60_000;
+  const ARRIVAL_CHANGE_THRESHOLD_MS = 10 * 60 * 1000;
   if (!alreadyLanded) {
     if (mapped.scheduled_in && hasMeaningfulTimeChange(existing.scheduled_in, mapped.scheduled_in, ARRIVAL_CHANGE_THRESHOLD_MS)) {
       events.push({ type: "arrival_time_change", previous_value: existing.scheduled_in, new_value: mapped.scheduled_in });
@@ -547,13 +552,16 @@ export async function syncFlight(
 // GPS).
 // ---------------------------------------------------------------------------
 
-const LIVE_ACTIVITY_RELEVANT_FIELDS: (keyof FlightRow)[] = [
+// Fields that trigger a Live Activity refresh on *any* change — every one of these is either a
+// one-time/discrete event (status, actual times, cancelled, diverted) or something that only
+// changes when a human actually updates it (gate/terminal/baggage), so a plain inequality check
+// is correct for these. `estimated_out`/`estimated_in` are deliberately NOT in this list — see
+// `isLiveActivityRelevantChange` below, same reasoning as `diffEvents`' ARRIVAL_CHANGE_THRESHOLD_MS.
+const LIVE_ACTIVITY_PLAIN_FIELDS: (keyof FlightRow)[] = [
   "status",
   "scheduled_out",
-  "estimated_out",
   "actual_out",
   "scheduled_in",
-  "estimated_in",
   "actual_in",
   "gate_origin",
   "gate_destination",
@@ -565,6 +573,24 @@ const LIVE_ACTIVITY_RELEVANT_FIELDS: (keyof FlightRow)[] = [
   "cancelled",
   "diverted",
 ];
+
+// Same 10-minute noise floor as diffEvents' arrival_time_change check — `estimated_out`/
+// `estimated_in` used to be in LIVE_ACTIVITY_PLAIN_FIELDS with a raw `!==` check, which meant a
+// few seconds of AeroAPI re-estimation drift (routine, on nearly every poll) pushed a fresh Live
+// Activity content-state update every single tick. `null`/non-null transitions (a first estimate
+// appearing, or one disappearing) always count as relevant regardless of magnitude.
+function estimateDrifted(previous: string | null, next: string | null): boolean {
+  if (previous === next) return false;
+  if (!previous || !next) return true;
+  return hasMeaningfulTimeChange(previous, next, 10 * 60 * 1000);
+}
+
+function isLiveActivityRelevantChange(oldRow: FlightRow, newRow: FlightRow): boolean {
+  if (LIVE_ACTIVITY_PLAIN_FIELDS.some((field) => oldRow[field] !== newRow[field])) return true;
+  if (estimateDrifted(oldRow.estimated_out, newRow.estimated_out)) return true;
+  if (estimateDrifted(oldRow.estimated_in, newRow.estimated_in)) return true;
+  return false;
+}
 
 const TERMINAL_STATUSES: FlightStatus[] = ["landed", "arrived", "cancelled", "diverted"];
 
@@ -652,7 +678,7 @@ function computeLiveActivityContentState(row: FlightRow, isReunion: boolean): Re
 }
 
 async function notifyLiveActivity(serviceClient: SupabaseClient, oldRow: FlightRow, newRow: FlightRow): Promise<void> {
-  const changed = LIVE_ACTIVITY_RELEVANT_FIELDS.some((field) => oldRow[field] !== newRow[field]);
+  const changed = isLiveActivityRelevantChange(oldRow, newRow);
   const becameTerminal = !TERMINAL_STATUSES.includes(oldRow.status) && TERMINAL_STATUSES.includes(newRow.status);
   if (!changed && !becameTerminal) return;
 

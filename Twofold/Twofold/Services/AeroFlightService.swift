@@ -145,6 +145,14 @@ enum AeroFlightService {
         let _: EmptyDecodable = try await call("refresh-flight", body: ["flightId": id.uuidString])
     }
 
+    /// 60-day on-time-performance stats for this flight's designator — server-computed and
+    /// cached (~24h), safe to call on every screen appear the same way `refreshFlight` is.
+    /// Requires the AeroAPI account to be on Standard tier or above; on a Personal-tier account
+    /// this just throws, which callers already treat as "don't show this card."
+    static func fetchDelayStats(flightID: UUID) async throws -> DelayStats {
+        try await call("flight-delay-stats", body: ["flightId": flightID.uuidString])
+    }
+
     /// Registers (upserts) this device's Live Activity push token — called by
     /// `LiveActivityManager` whenever ActivityKit hands over a fresh token via
     /// `Activity.pushTokenUpdates`, which can fire more than once over an Activity's lifetime.
