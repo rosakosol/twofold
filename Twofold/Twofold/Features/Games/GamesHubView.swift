@@ -101,10 +101,12 @@ struct GamesHubView: View {
                 }
                 .buttonStyle(.plain)
                 // Floating badge (hovering over the pill's corner) rather than sitting inline
-                // next to the label — inline was eating into "Their turn"'s share of the equal-width
-                // pill, forcing every label down to a smaller, shrink-to-fit font size.
+                // next to the label — inline was eating into the widest pill's share of the
+                // equal-width row, forcing every label down to a smaller, shrink-to-fit font size.
+                // Only "Your turn" gets a count — that's the one actionable bucket; a number on
+                // "Answered"/"New" doesn't prompt anything, just adds noise next to it.
                 .overlay(alignment: .topTrailing) {
-                    if let count = deckBrowseFilterCounts[filter], count > 0 {
+                    if filter == .yourTurn, let count = deckBrowseFilterCounts[filter], count > 0 {
                         Text("\(count)")
                             .font(.caption2.weight(.bold))
                             .foregroundStyle(.white)
