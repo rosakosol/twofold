@@ -31,6 +31,11 @@ struct FlightMapView: View {
     /// Minimum padding (screen points) reserved around the fitted route on every edge, passed
     /// straight through to `MKMapView.setVisibleMapRect(_:edgePadding:animated:)`.
     var edgePadding: CGFloat = 40
+    /// Incremented by the caller (e.g. a "recenter" button) to explicitly re-run the camera fit
+    /// on demand, independent of whether the underlying route data has changed — see
+    /// `Coordinator.apply`. Default `0` and never changing is a no-op, so existing call sites
+    /// that don't pass this behave exactly as before.
+    var recenterNonce: Int = 0
 
     /// Resolved directly from the flight (set explicitly when adding it) rather than a linked
     /// trip — flights don't require one, so this is the only reliable source now. Can hold both
@@ -65,7 +70,8 @@ struct FlightMapView: View {
                 // and it's non-interactive anyway so a user could never pinch back out of a tight
                 // follow zoom there.
                 followWhenEnRoute: interactive,
-                edgePadding: edgePadding
+                edgePadding: edgePadding,
+                recenterNonce: recenterNonce
             )
         } else {
             fallback
@@ -118,6 +124,7 @@ private struct MapKitRouteView: UIViewRepresentable {
     let interactive: Bool
     let followWhenEnRoute: Bool
     let edgePadding: CGFloat
+    let recenterNonce: Int
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
@@ -147,12 +154,12 @@ private struct MapKitRouteView: UIViewRepresentable {
             guard let mapView, let coordinator else { return }
             coordinator.layoutDidChange(mapView: mapView)
         }
-        context.coordinator.apply(route(), edgePadding: edgePadding, followWhenEnRoute: followWhenEnRoute)
+        context.coordinator.apply(route(), edgePadding: edgePadding, followWhenEnRoute: followWhenEnRoute, recenterNonce: recenterNonce)
         return mapView
     }
 
     func updateUIView(_ mapView: SizeAwareMapView, context: Context) {
-        context.coordinator.apply(route(), edgePadding: edgePadding, followWhenEnRoute: followWhenEnRoute)
+        context.coordinator.apply(route(), edgePadding: edgePadding, followWhenEnRoute: followWhenEnRoute, recenterNonce: recenterNonce)
     }
 
     private func route() -> Coordinator.Route {
@@ -215,6 +222,10 @@ private struct MapKitRouteView: UIViewRepresentable {
         /// before each such call, consumed on the very next delegate callback.
         private var isProgrammaticCameraChange = false
         private var lastAppliedRoute: Route?
+        /// `nil` until the first `apply` call — so the initial call (whatever nonce the caller
+        /// starts at) never spuriously triggers an explicit recenter; only a later *change* in
+        /// the nonce (a deliberate button tap) does. See `apply`.
+        private var lastRecenterNonce: Int?
 
         private var originAnnotation: RouteAnnotation?
         private var destinationAnnotation: RouteAnnotation?
@@ -272,11 +283,26 @@ private struct MapKitRouteView: UIViewRepresentable {
             status == .departed || status == .inAir || status == .landingSoon
         }
 
-        func apply(_ route: Route, edgePadding: CGFloat, followWhenEnRoute: Bool) {
+        func apply(_ route: Route, edgePadding: CGFloat, followWhenEnRoute: Bool, recenterNonce: Int) {
             guard let mapView else { return }
             pendingEdgePadding = edgePadding
             pendingFollowWhenEnRoute = followWhenEnRoute
             startAnimationTimerIfNeeded()
+
+            // An explicit recenter request (nonce changed since last call) — checked before the
+            // `route != lastAppliedRoute` early-return below, since a recenter tap needs to work
+            // even when the route data itself hasn't changed (that's the whole point: the user
+            // just wants the *camera* put back, not a fresh poll). Re-arms follow mode and
+            // re-runs the same fitCamera used for the initial fit — no new fitting math.
+            if let lastRecenterNonce, recenterNonce != lastRecenterNonce,
+               mapView.bounds.width > 1, mapView.bounds.height > 1 {
+                isFollowing = followWhenEnRoute && Self.isFollowEligible(route.status)
+                fitCamera(for: route, edgePadding: edgePadding, followWhenEnRoute: followWhenEnRoute, mapView: mapView, animated: true)
+                hasFittedCamera = true
+                lastFittedBoundsSize = mapView.bounds.size
+                updateAnnotations(route, mapView: mapView)
+            }
+            lastRecenterNonce = recenterNonce
 
             guard route != lastAppliedRoute else { return }
 

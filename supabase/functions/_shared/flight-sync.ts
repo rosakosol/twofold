@@ -479,10 +479,16 @@ export async function syncFlight(
   update.terminal_origin = mapped.terminal_origin ?? flightRow.terminal_origin;
   update.terminal_destination = mapped.terminal_destination ?? flightRow.terminal_destination;
   update.baggage_claim = mapped.baggage_claim ?? flightRow.baggage_claim;
-  // Same coalescing reasoning — atc_ident is the ADS-B mirror lookup key (see
-  // syncLivePositionForFaFlightId below), a poll that happens to omit it must not clobber a
-  // previously-known value back to null.
+  // Same coalescing reasoning — atc_ident and flight_number_icao are both candidate ADS-B mirror
+  // lookup keys (see syncLivePositionForFaFlightId below); a poll that happens to omit either
+  // must not clobber a previously-known value back to null. Missing this for flight_number_icao
+  // specifically was a real bug: AeroAPI doesn't reliably include ident_icao on every poll, and
+  // atc_ident is frequently null for many carriers even once airborne — if a poll nulled out
+  // flight_number_icao while atc_ident was already null, both candidates went empty and live
+  // position silently stopped updating for that flight until the AeroAPI fallback kicked in
+  // after 5 consecutive misses.
   update.atc_ident = mapped.atc_ident ?? flightRow.atc_ident;
+  update.flight_number_icao = mapped.flight_number_icao ?? flightRow.flight_number_icao;
 
   const coordinatePatch = await backfillAirportCoordinates(flightRow, mapped);
   Object.assign(update, coordinatePatch);

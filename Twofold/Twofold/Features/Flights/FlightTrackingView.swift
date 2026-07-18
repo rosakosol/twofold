@@ -24,6 +24,9 @@ struct FlightTrackingView: View {
     @State private var isRefreshing = false
     @State private var eventsChannel: RealtimeChannelV2?
     @State private var flightChannel: RealtimeChannelV2?
+    /// Incremented to explicitly re-trigger the map's camera fit/follow — see
+    /// `FlightMapView.recenterNonce`/`Coordinator.apply`.
+    @State private var mapRecenterNonce = 0
 
     // Notification preferences — individually-bound so the toggles feel instant; saved as one
     // upsert on change.
@@ -94,6 +97,8 @@ struct FlightTrackingView: View {
                 departureCard
                 arrivalCard
                 updatesCard
+                goodToKnowCard
+                delayAnalysisCard
                 flightInfoCard
                 documentsSection
                 if linkedTrip != nil, isTraveler {
@@ -254,37 +259,27 @@ struct FlightTrackingView: View {
         // crossing midnight is easy to misjudge against "today" without an explicit day/month
         // to anchor it, which read as the countdown itself being wrong when it wasn't.
         let dateTimeString = date.formatted(Date.FormatStyle(timeZone: timeZone).hour().minute().day().month(.abbreviated))
-        guard let cityName = appModel.currentUser.homeCity?.city else { return "\(dateTimeString) your time" }
-        return "\(dateTimeString) (\(cityName) time)"
+        let offset = TimeMath.utcOffsetLabel(for: timeZone, at: date)
+        guard let cityName = appModel.currentUser.homeCity?.city else { return "\(dateTimeString) your time (\(offset))" }
+        return "\(dateTimeString) (\(cityName), \(offset))"
     }
 
     // MARK: - Map
 
     private var mapSection: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-            FlightMapView(flight: flight)
-                .frame(height: 260)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-                .overlay(alignment: .bottomTrailing) {
-                    if flight.hasLivePosition {
-                        liveStatsOverlay
-                    }
-                }
-
-            if flight.hasLivePosition {
-                HStack(spacing: Theme.Spacing.sm) {
-                    if let altitude = flight.positionAltitude {
-                        StatTile(icon: "arrow.up.to.line", value: "\(Int(altitude))ft", label: "Altitude", tint: Theme.skyBlue)
-                    }
-                    if let speed = flight.positionGroundspeed {
-                        StatTile(icon: "speedometer", value: "\(Int(speed))kn", label: "Speed", tint: Theme.skyBlue)
-                    }
-                    if let heading = flight.positionHeading {
-                        StatTile(icon: "safari", value: "\(Int(heading))°", label: "Heading", tint: Theme.skyBlue)
-                    }
+        FlightMapView(flight: flight, recenterNonce: mapRecenterNonce)
+            .frame(height: 260)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+            .overlay(alignment: .bottomTrailing) {
+                if flight.hasLivePosition {
+                    liveStatsOverlay
                 }
             }
-        }
+            .overlay(alignment: .topTrailing) {
+                if flight.origin.coordinate != nil, flight.destination.coordinate != nil {
+                    recenterButton
+                }
+            }
     }
 
     /// Speed/altitude readout directly on the map itself, bottom-right — alongside (not instead
@@ -310,13 +305,45 @@ struct FlightTrackingView: View {
         .padding(Theme.Spacing.sm)
     }
 
+    /// Pinch/zoom/pan already work on this map — this button just puts the camera back to its
+    /// sensible default (re-centers on the live position while en route, or refits the whole
+    /// route otherwise) after a user has panned away from it. Same dark-translucent treatment as
+    /// `liveStatsOverlay` so both read as one visual language on top of the map.
+    private var recenterButton: some View {
+        Button {
+            mapRecenterNonce += 1
+        } label: {
+            Image(systemName: "location.fill")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white)
+                .padding(10)
+                .background(.black.opacity(0.55), in: Circle())
+        }
+        .padding(Theme.Spacing.sm)
+    }
+
     // MARK: - Journey summary
+
+    /// Unlike the departure/arrival cards below (which deliberately stay in each airport's own
+    /// local time — the useful frame while actually there), this quick-glance summary card shows
+    /// both legs in the user's own home-city time, so a glance at the phone answers "when do I
+    /// need to be ready" without a timezone conversion.
+    private var homeTimeZone: TimeZone { appModel.currentUser.homeCity?.timeZone ?? .current }
 
     private var journeyCard: some View {
         SectionCard {
+            if flight.airlineName != nil || !flight.flightNumberIATA.isEmpty {
+                HStack(spacing: Theme.Spacing.xs) {
+                    AirlineLogoView(url: flight.displayLogoURL, size: 24)
+                    Text([flight.airlineName, flight.displayNumber].compactMap { $0 }.joined(separator: " · "))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Theme.ink)
+                }
+            }
+
             journeyRow(
                 code: flight.origin.displayCode, city: flight.origin.displayName,
-                time: flight.bestDeparture, timeZone: flight.origin.timeZone,
+                time: flight.bestDeparture, timeZone: homeTimeZone,
                 terminal: flight.terminalOrigin, gate: flight.gateOrigin,
                 statusLine: departureStatusLine
             )
@@ -328,7 +355,7 @@ struct FlightTrackingView: View {
 
             journeyRow(
                 code: flight.destination.displayCode, city: flight.destination.displayName,
-                time: flight.bestArrival, timeZone: flight.destination.timeZone,
+                time: flight.bestArrival, timeZone: homeTimeZone,
                 terminal: flight.terminalDestination, gate: flight.gateDestination,
                 statusLine: arrivalStatusLine
             )
@@ -358,7 +385,7 @@ struct FlightTrackingView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(code) · \(city)").font(.headline)
                 if let time {
-                    Text(time, format: Date.FormatStyle(timeZone: timeZone ?? .current).hour().minute())
+                    Text(time, format: Date.FormatStyle(timeZone: timeZone ?? .current).day().month(.abbreviated).hour().minute())
                         .font(.subheadline.weight(.semibold))
                 } else {
                     Text("Time not available").font(.subheadline).foregroundStyle(Theme.subtleInk)
@@ -385,11 +412,28 @@ struct FlightTrackingView: View {
 
     // MARK: - Departure / Arrival cards
 
+    /// Port/city used to live buried in an "Airport" detail row below; pulled up here, inline
+    /// with the card's own title and a departing/arriving plane glyph, so it reads at a glance
+    /// instead of requiring a scan down the row list.
+    private func portCardHeader(icon: String, title: String, code: String, city: String) -> some View {
+        HStack(spacing: Theme.Spacing.sm) {
+            ZStack {
+                Circle().fill(Theme.skyBlue.opacity(0.15))
+                Image(systemName: icon).font(.subheadline).foregroundStyle(Theme.skyBlue)
+            }
+            .frame(width: 32, height: 32)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.subheadline.weight(.semibold))
+                Text("\(code) · \(city)").font(.caption).foregroundStyle(Theme.subtleInk)
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
     private var departureCard: some View {
         SectionCard {
-            Text("Departure").font(.subheadline.weight(.semibold))
+            portCardHeader(icon: "airplane.departure", title: "Departure", code: flight.origin.displayCode, city: flight.origin.displayName)
             Text("All times shown in local time").font(.caption2).foregroundStyle(Theme.subtleInk)
-            detailRow(label: "Airport", value: "\(flight.origin.displayCode) · \(flight.origin.displayName)")
             detailRow(label: "Scheduled", value: Self.timeOrNA(flight.scheduledOut, timeZone: flight.origin.timeZone))
             detailRow(label: flight.actualOut != nil ? "Actual" : "Estimated", value: Self.timeOrNA(flight.actualOut ?? flight.estimatedOut, timeZone: flight.origin.timeZone))
             if let delaySeconds = flight.departureDelaySeconds, delaySeconds > 300 {
@@ -397,15 +441,13 @@ struct FlightTrackingView: View {
             }
             detailRow(label: "Terminal", value: flight.terminalOrigin ?? "Not available")
             detailRow(label: "Gate", value: flight.gateOrigin ?? "Not available")
-            weatherRow(flight.weatherOrigin)
         }
     }
 
     private var arrivalCard: some View {
         SectionCard {
-            Text("Arrival").font(.subheadline.weight(.semibold))
+            portCardHeader(icon: "airplane.arrival", title: "Arrival", code: flight.destination.displayCode, city: flight.destination.displayName)
             Text("All times shown in local time").font(.caption2).foregroundStyle(Theme.subtleInk)
-            detailRow(label: "Airport", value: "\(flight.destination.displayCode) · \(flight.destination.displayName)")
             detailRow(label: "Scheduled", value: Self.timeOrNA(flight.scheduledIn, timeZone: flight.destination.timeZone))
             detailRow(label: flight.actualIn != nil ? "Actual" : "Estimated", value: Self.timeOrNA(flight.actualIn ?? flight.estimatedIn, timeZone: flight.destination.timeZone))
             if let delaySeconds = flight.arrivalDelaySeconds, delaySeconds > 300 {
@@ -414,7 +456,6 @@ struct FlightTrackingView: View {
             detailRow(label: "Terminal", value: flight.terminalDestination ?? "Not available")
             detailRow(label: "Gate", value: flight.gateDestination ?? "Not available")
             detailRow(label: "Baggage claim", value: flight.baggageClaim ?? "Not available")
-            weatherRow(flight.weatherDestination)
         }
     }
 
@@ -429,18 +470,108 @@ struct FlightTrackingView: View {
         }
     }
 
-    @ViewBuilder
-    private func weatherRow(_ weather: FlightWeather?) -> some View {
-        if let weather, !weather.isEmpty {
-            detailRow(label: "Weather", value: [weather.conditions, weather.temperatureC.map { "\(Int($0))°C" }, weather.windSummary].compactMap { $0 }.joined(separator: " · "))
-        } else {
-            detailRow(label: "Weather", value: "Not available")
-        }
-    }
-
     private static func timeOrNA(_ date: Date?, timeZone: TimeZone?) -> String {
         guard let date else { return "Not available" }
         return date.formatted(Date.FormatStyle(timeZone: timeZone ?? .current).hour().minute().day().month(.abbreviated))
+    }
+
+    // MARK: - Good to know
+
+    /// Weather (moved here from the departure/arrival cards) and the time difference between
+    /// the two airports, in one place — never rendered empty.
+    private var hasAnyWeather: Bool {
+        flight.weatherOrigin?.isEmpty == false || flight.weatherDestination?.isEmpty == false
+    }
+
+    @ViewBuilder
+    private var goodToKnowCard: some View {
+        if hasAnyWeather || (flight.origin.timeZone != nil && flight.destination.timeZone != nil) {
+            SectionCard {
+                HStack(spacing: Theme.Spacing.xs) {
+                    Image(systemName: "sparkles").foregroundStyle(Theme.skyBlue)
+                    Text("Good to know").font(.subheadline.weight(.semibold))
+                }
+
+                if hasAnyWeather {
+                    HStack(spacing: Theme.Spacing.sm) {
+                        weatherPanel(code: flight.origin.displayCode, weather: flight.weatherOrigin)
+                        weatherPanel(code: flight.destination.displayCode, weather: flight.weatherDestination)
+                    }
+                }
+
+                timeDifferenceSection
+            }
+        }
+    }
+
+    private func weatherPanel(code: String, weather: FlightWeather?) -> some View {
+        VStack(spacing: Theme.Spacing.xs) {
+            Text(code).font(.caption.weight(.semibold)).foregroundStyle(.white.opacity(0.85))
+            Image(systemName: Self.weatherIcon(for: weather?.conditions))
+                .font(.title2)
+                .foregroundStyle(.white)
+            Text(weather?.temperatureC.map { "\(Int($0))°C" } ?? "—")
+                .font(.title3.weight(.bold))
+                .foregroundStyle(.white)
+            Text(weather?.windSummary ?? " ")
+                .font(.caption2)
+                .foregroundStyle(.white.opacity(0.85))
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.vertical, Theme.Spacing.sm)
+        .background(
+            LinearGradient(colors: [Theme.skyBlue, Theme.skyBlue.opacity(0.65)], startPoint: .top, endPoint: .bottom),
+            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+        )
+    }
+
+    private static func weatherIcon(for conditions: String?) -> String {
+        guard let c = conditions?.lowercased() else { return "cloud.fill" }
+        if c.contains("storm") || c.contains("thunder") { return "cloud.bolt.rain.fill" }
+        if c.contains("snow") { return "cloud.snow.fill" }
+        if c.contains("rain") || c.contains("shower") { return "cloud.rain.fill" }
+        if c.contains("fog") || c.contains("mist") || c.contains("haze") { return "cloud.fog.fill" }
+        if c.contains("cloud") || c.contains("overcast") { return "cloud.fill" }
+        if c.contains("clear") || c.contains("sun") { return "sun.max.fill" }
+        return "cloud.fill"
+    }
+
+    /// Reuses the same day/night gradient idiom as the Home screen's `TimeZoneCard` (see
+    /// `TimeMath.hourFraction`/`daylightFactor` + `Theme.DayNight`) rather than inventing a
+    /// third visual language for "what time is it there."
+    @ViewBuilder
+    private var timeDifferenceSection: some View {
+        if let originTZ = flight.origin.timeZone, let destTZ = flight.destination.timeZone {
+            TimelineView(.periodic(from: .now, by: 60)) { context in
+                let hoursApart = Int((Double(destTZ.secondsFromGMT(for: context.date) - originTZ.secondsFromGMT(for: context.date)) / 3600).rounded())
+                HStack(spacing: Theme.Spacing.sm) {
+                    timeZoneChip(code: flight.origin.displayCode, timeZone: originTZ, date: context.date)
+                    VStack(spacing: 2) {
+                        Image(systemName: "arrow.left.and.right").font(.caption2)
+                        Text(hoursApart == 0 ? "Same time" : "\(hoursApart > 0 ? "+" : "")\(hoursApart)h")
+                            .font(.caption2.weight(.bold))
+                    }
+                    .foregroundStyle(Theme.subtleInk)
+                    .frame(width: 56)
+                    timeZoneChip(code: flight.destination.displayCode, timeZone: destTZ, date: context.date)
+                }
+            }
+        }
+    }
+
+    private func timeZoneChip(code: String, timeZone: TimeZone, date: Date) -> some View {
+        let hour = TimeMath.hourFraction(in: timeZone, at: date)
+        let isDaytime = hour >= 6 && hour < 18
+        return VStack(spacing: 4) {
+            Image(systemName: isDaytime ? "sun.max.fill" : "moon.stars.fill")
+                .font(.caption)
+                .foregroundStyle(isDaytime ? Theme.skyBlue : Theme.subtleInk)
+            Text(code).font(.caption2.weight(.semibold)).foregroundStyle(Theme.subtleInk)
+            Text(TimeMath.timeString(in: timeZone, at: date)).font(.subheadline.weight(.bold)).foregroundStyle(Theme.ink)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.vertical, Theme.Spacing.sm)
+        .background(Theme.subtleInk.opacity(0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     // MARK: - Updates timeline
@@ -498,6 +629,39 @@ struct FlightTrackingView: View {
                 detailRow(label: "Aircraft", value: flight.aircraftType ?? "Not available")
                 detailRow(label: "Registration", value: flight.registration ?? "Not available")
             }
+        }
+    }
+
+    // MARK: - Delay analysis
+
+    /// Scoped strictly to this flight's own current departure/arrival delay — no historical or
+    /// predictive claim, since AeroAPI doesn't supply route-level delay statistics. Same 5-minute
+    /// "counts as delayed" threshold used everywhere else on this screen.
+    @ViewBuilder
+    private var delayAnalysisCard: some View {
+        if flight.departureDelaySeconds != nil || flight.arrivalDelaySeconds != nil {
+            SectionCard {
+                Text("Delay analysis").font(.subheadline.weight(.semibold))
+                delayRow(label: "Departure", delaySeconds: flight.departureDelaySeconds)
+                delayRow(label: "Arrival", delaySeconds: flight.arrivalDelaySeconds)
+            }
+        }
+    }
+
+    private func delayRow(label: String, delaySeconds: Int?) -> some View {
+        let isDelayed = (delaySeconds ?? 0) > 300
+        let minutes = (delaySeconds ?? 0) / 60
+        let tint: Color = delaySeconds == nil ? Theme.subtleInk.opacity(0.6) : (isDelayed ? Theme.heartRed : Theme.leafGreen)
+        return HStack {
+            HStack(spacing: Theme.Spacing.xs) {
+                Image(systemName: isDelayed ? "exclamationmark.circle.fill" : "checkmark.circle.fill")
+                    .foregroundStyle(tint)
+                Text(label).font(.subheadline)
+            }
+            Spacer()
+            Text(delaySeconds == nil ? "Not available" : (isDelayed ? "\(minutes) min late" : "On time"))
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(tint)
         }
     }
 

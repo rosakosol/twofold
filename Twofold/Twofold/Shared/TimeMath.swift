@@ -56,6 +56,17 @@ enum TimeMath {
         date.formatted(Date.FormatStyle(timeZone: timeZone).hour().minute())
     }
 
+    /// "UTC+10", "UTC-8", "UTC+5:30" — half/quarter-hour zones (Adelaide, India, ...) render
+    /// their minutes rather than silently rounding to the nearest hour. `date` matters since a
+    /// timezone's offset can differ across a DST boundary.
+    static func utcOffsetLabel(for timeZone: TimeZone, at date: Date = .now) -> String {
+        let totalMinutes = timeZone.secondsFromGMT(for: date) / 60
+        let sign = totalMinutes >= 0 ? "+" : "-"
+        let hours = abs(totalMinutes) / 60
+        let minutes = abs(totalMinutes) % 60
+        return minutes == 0 ? "UTC\(sign)\(hours)" : "UTC\(sign)\(hours):\(String(format: "%02d", minutes))"
+    }
+
     /// Same hex values as Theme.DayNight — duplicated here (not imported from Theme.swift,
     /// which stays main-app-only) since these four colors are all a widget needs from it.
     enum DayNight {
