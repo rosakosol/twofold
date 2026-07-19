@@ -26,7 +26,7 @@ struct MemoriesSellView: View {
 
     var body: some View {
         OnboardingScaffold(
-            title: "Every memory, saved forever 💛",
+            title: "Save your memories forever 💛",
             subtitle: "Keep photos and moments from your time together, whenever they happen.",
             content: {
                 VStack(spacing: Theme.Spacing.md) {

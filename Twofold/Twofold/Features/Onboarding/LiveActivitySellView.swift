@@ -21,42 +21,22 @@ struct LiveActivitySellView: View {
     // later onboarding screen runs, this is always the real name — no fallback needed.
     private var partnerName: String { onboarding.partnerName }
 
-    // CoupleLocationsView requires both cities before you can advance, so these are always
-    // real by the time this screen runs — the illustrative flight runs partner's city →
-    // user's city, matching the "reunion" framing used throughout onboarding.
-    // `illustrativeOriginCity` swaps in a random other city if the couple lives in the same
-    // place (same cached value the notifications sell screen reads, so the two stay
-    // consistent) — otherwise this example flight would depart and arrive in the same city.
-    private var originCity: Place? { onboarding.illustrativeOriginCity }
-    private var destinationCity: Place? { onboarding.homeCity }
+    // Illustrative only (no real flight is booked during onboarding) — fixed to a real
+    // long-haul route (Qantas' actual nonstop London–Perth service, matching the QF10 flight
+    // number below) rather than derived from the couple's own cities, so this mock always shows
+    // the same curated, deliberately impressive "16h 50m, halfway around the world" flight
+    // regardless of where either partner actually lives.
+    private let originCode = "LHR"
+    private let destinationCode = "PER"
+    private let airportCodeFontSize: CGFloat = 22
 
-    private var originCode: String {
-        originCity?.iataCode?.uppercased() ?? originCity?.city.uppercased() ?? "———"
-    }
-
-    private var destinationCode: String {
-        destinationCity?.iataCode?.uppercased() ?? destinationCity?.city.uppercased() ?? "———"
-    }
-
-    /// One shared size for both airport codes, picked from whichever of the two strings is
-    /// longer — a real IATA code (3 letters) always gets the full 22pt, but if either city
-    /// falls back to its full name (no IATA code on file), *both* columns step down together
-    /// instead of just the long one shrinking on its own and reading as mismatched.
-    private var airportCodeFontSize: CGFloat {
-        switch max(originCode.count, destinationCode.count) {
-        case ...4: 22
-        case 5...6: 18
-        case 7...9: 15
-        default: 12
-        }
-    }
-
-    /// Illustrative only (no real flight is booked during onboarding) — a departure ~40 minutes
-    /// ago and an arrival ~2h14m from now, matching the illustrative countdown below. Still run
-    /// through `Text(date, style: .time)`, the same real, localized time formatting
-    /// `JourneyLockScreenView` uses, rather than a hardcoded time string.
-    private var illustrativeDeparture: Date { Date.now.addingTimeInterval(-40 * 60) }
-    private var illustrativeArrival: Date { Date.now.addingTimeInterval((2 * 60 + 14) * 60) }
+    /// Real (not device-timezone-relative) London/Perth local departure/arrival wall-clock
+    /// times for this route — not run through `Text(date, style: .time)` like the real widget
+    /// does, since that formats in the *device's* current timezone, which would show neither of
+    /// these fixed clock times unless the device itself happened to be in that airport's zone.
+    /// A literal display string is what actually renders "11:55 AM"/"11:45 AM" on every device.
+    private let illustrativeDepartureLabel = "11:55 AM"
+    private let illustrativeArrivalLabel = "11:45 AM"
 
     var body: some View {
         OnboardingScaffold(
@@ -131,7 +111,9 @@ struct LiveActivitySellView: View {
             }
 
             VStack(alignment: .center, spacing: 2) {
-                Text("2h 14m left")
+                // Consistent with the progress rail below (0.55 elapsed of the 16h 50m total —
+                // see its doc comment): 45% of 16h 50m remaining ≈ 7h 35m.
+                Text("7h 35m left")
                     .font(.system(size: 24, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
                     .lineLimit(1)
@@ -141,9 +123,9 @@ struct LiveActivitySellView: View {
             .frame(maxWidth: .infinity, alignment: .center)
 
             HStack(alignment: .center, spacing: 10) {
-                airportColumn(code: originCode, time: illustrativeDeparture, alignment: .leading)
+                airportColumn(code: originCode, time: illustrativeDepartureLabel, alignment: .leading)
                 progressRail
-                airportColumn(code: destinationCode, time: illustrativeArrival, alignment: .trailing)
+                airportColumn(code: destinationCode, time: illustrativeArrivalLabel, alignment: .trailing)
             }
         }
         .padding(.horizontal, 18)
@@ -158,13 +140,13 @@ struct LiveActivitySellView: View {
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 
-    private func airportColumn(code: String, time: Date, alignment: HorizontalAlignment) -> some View {
+    private func airportColumn(code: String, time: String, alignment: HorizontalAlignment) -> some View {
         VStack(alignment: alignment, spacing: 2) {
             Text(code)
                 .font(.system(size: airportCodeFontSize, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
                 .lineLimit(1)
-            Text(time, style: .time)
+            Text(time)
                 .font(.subheadline)
                 .foregroundStyle(.white.opacity(0.7))
         }
@@ -175,9 +157,13 @@ struct LiveActivitySellView: View {
     /// remainder, a plain icon-in-circle riding the progress point. No pulse/scale animation:
     /// WidgetKit's Live Activity views are effectively static (system-driven state updates only),
     /// so a continuously-animating badge here would show something the real one never does.
+    ///
+    /// 0.55 — comfortably past the midpoint of the 16h 50m illustrative flight, matching the
+    /// "7h 35m left" headline above — rather than derived from any real elapsed time, since the
+    /// departure/arrival labels are now fixed display strings, not real `Date`s to measure from.
     private var progressRail: some View {
         GeometryReader { geo in
-            let progressX = geo.size.width * 0.4
+            let progressX = geo.size.width * 0.55
             let midY = geo.size.height / 2
 
             ZStack {
