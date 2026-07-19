@@ -6,8 +6,8 @@
 //  structured input (airline+digits, or two Airports) instead of raw text fields. "Flight
 //  missing? Add Manually" from the reference design is deliberately omitted here: the live
 //  app's add-flight function only accepts a real AeroAPI faFlightId, so there's nothing for a
-//  manual entry to persist to in that context. Onboarding's own self-reported fallback lives in
-//  AddFirstFlightView instead, scoped to that call site only.
+//  manual entry to persist to in that context — flights are never self-reported anywhere in
+//  the app, onboarding included.
 //
 
 import SwiftUI

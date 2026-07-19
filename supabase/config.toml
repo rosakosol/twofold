@@ -460,3 +460,12 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/aeroapi-webhook/deno.json"
 entrypoint = "./functions/aeroapi-webhook/index.ts"
+
+# Hit directly by AsyncImage as a plain image URL (no Authorization header attached) — same
+# public trust level as the logo CDN it caches used to have, so platform-level JWT verification
+# is off.
+[functions.airline-logo]
+enabled = true
+verify_jwt = false
+import_map = "./functions/airline-logo/deno.json"
+entrypoint = "./functions/airline-logo/index.ts"

@@ -102,7 +102,7 @@ struct MapSellView: View {
     /// drop shadow, red count badge when more than one memory shares the spot.
     private func memoryPin(_ pin: MockPin) -> some View {
         ZStack(alignment: .topTrailing) {
-            MemoryPhotoView(memory: pin.memory, cornerRadius: 999)
+            OnboardingMemoryImage(seed: pin.memory.photoSeed, cornerRadius: 999)
                 .frame(width: 44, height: 44)
                 .clipShape(Circle())
                 .overlay(Circle().strokeBorder(.white, lineWidth: 2))

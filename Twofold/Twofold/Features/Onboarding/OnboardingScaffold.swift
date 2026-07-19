@@ -21,6 +21,10 @@ struct OnboardingScaffold<Content: View>: View {
     /// Overrides just the subtitle's font — defaults to `.body`, the size every existing
     /// onboarding screen already renders it at.
     var subtitleFont: Font = .body
+    /// Overrides the title block's top padding — defaults to `Theme.Spacing.lg`, matching every
+    /// existing onboarding screen. Ignored when `centered`/`centersTitleAndSubtitle` already zero
+    /// it out. The paywall uses a smaller value to fit more content above the fold.
+    var titleTopPadding: CGFloat = Theme.Spacing.lg
     /// Centers the title/subtitle and vertically centers the whole title+content block in
     /// the screen, instead of the default top-anchored, leading-aligned layout — used by the
     /// handful of screens that want a calmer, single-focus feel (name entry, city entry, the
@@ -92,7 +96,12 @@ struct OnboardingScaffold<Content: View>: View {
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: titleAlignment == .center ? .center : .leading)
-                    .padding(.top, (centered || centersTitleAndSubtitle) ? 0 : Theme.Spacing.lg)
+                    // `centered` (not `centersTitleAndSubtitle`) zeroes this — those screens
+                    // vertically center the whole title+content block, so a fixed top inset
+                    // would just eat into that centering. `centersTitleAndSubtitle` only affects
+                    // horizontal alignment and is paywall-only, so it stays independently
+                    // controlled by `titleTopPadding`.
+                    .padding(.top, centered ? 0 : titleTopPadding)
 
                     content
                 }

@@ -24,13 +24,25 @@ struct AnniversaryDateView: View {
         return mine.city == theirs.city && mine.country == theirs.country
     }
 
+    /// End of today, not the live `Date.now` instant — `date`'s time-of-day component is
+    /// whatever it was initialized with (here, "now" minus a year), which can sit *later* in
+    /// the day than the actual current clock time. Bounding the wheel at the exact live instant
+    /// meant picking today's calendar day could still silently produce a `Date` past that
+    /// instant (today at an inherited later time-of-day > today right now), which the picker
+    /// then clamped/rejected — the anniversary-is-today path could never actually be reached.
+    /// Bounding at end-of-day instead makes every time-of-day on today's date valid.
+    private var latestSelectableDate: Date {
+        let startOfToday = Calendar.current.startOfDay(for: .now)
+        return Calendar.current.date(byAdding: DateComponents(day: 1, second: -1), to: startOfToday) ?? .now
+    }
+
     var body: some View {
         OnboardingScaffold(
             title: "When did your story begin? 💕",
             subtitle: "We'll use this for your anniversary countdown and widgets.",
             centered: true,
             content: {
-                DatePicker("Together since", selection: $date, in: ...Date.now, displayedComponents: .date)
+                DatePicker("Together since", selection: $date, in: ...latestSelectableDate, displayedComponents: .date)
                     .datePickerStyle(.wheel)
                     .labelsHidden()
                     .frame(maxWidth: .infinity)
@@ -40,7 +52,11 @@ struct AnniversaryDateView: View {
             primaryTitle: "Continue",
             primaryAction: {
                 onboarding.anniversaryDate = date
-                onboarding.path.append(sameCity ? .notificationsSell : .personalizedInsight)
+                if Calendar.current.isDateInToday(date) {
+                    onboarding.path.append(.happyAnniversary)
+                } else {
+                    onboarding.path.append(sameCity ? .notificationsSell : .personalizedInsight)
+                }
             }
         )
         .onAppear {

@@ -49,6 +49,15 @@ struct OnboardingCoordinatorView: View {
             CoupleLocationsView()
         case .anniversaryDate:
             AnniversaryDateView()
+        case .happyAnniversary:
+            HappyAnniversaryView {
+                // Same sameCity check AnniversaryDateView itself uses to pick between these two.
+                let sameCity: Bool = {
+                    guard let mine = onboarding.homeCity, let theirs = onboarding.partnerCity else { return false }
+                    return mine.city == theirs.city && mine.country == theirs.country
+                }()
+                onboarding.path.append(sameCity ? .notificationsSell : .personalizedInsight)
+            }
         case .personalizedInsight:
             PersonalizedInsightView()
         case .notificationsSell:
@@ -63,8 +72,16 @@ struct OnboardingCoordinatorView: View {
             WidgetSellView()
         case .invitePartner:
             InvitePartnerView()
-        case .addFirstFlight:
-            AddFirstFlightView()
+        case .addFirstTrip:
+            AddTripDetailsView(
+                mode: .onboarding,
+                partnerName: onboarding.partnerName,
+                onSave: { trip in
+                    onboarding.draftedTrip = trip
+                    onboarding.path.append(.firstMemory)
+                },
+                onSkip: { onboarding.path.append(.firstMemory) }
+            )
         case .firstMemory:
             FirstMemoryView()
         case .twofoldPreview:

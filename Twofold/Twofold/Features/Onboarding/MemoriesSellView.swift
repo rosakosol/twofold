@@ -3,10 +3,10 @@
 //  Twofold
 //
 //  Feature-education screen, same idea as LiveActivitySellView/WidgetSellView — mock `Memory`
-//  values rendered through the real `MemoryPhotoView` + row layout from `MemoriesListView`, so
-//  this actually matches what the feature looks like today (no-emoji gradient+photo.fill
-//  placeholder, since these mocks have no real photos) rather than a hand-drawn parallel visual.
-//  Comes right before MapSellView, which pitches the same feature's map view.
+//  values rendered through the real row layout from `MemoriesListView`, using real bundled
+//  photos (`OnboardingMemoryImage`, keyed by the same `photoSeed` `MapSellView`'s pins use)
+//  instead of a placeholder, so the row actually looks like a populated memory rather than an
+//  empty one. Comes right before MapSellView, which pitches the same feature's map view.
 //
 
 import SwiftUI
@@ -47,13 +47,14 @@ struct MemoriesSellView: View {
             primaryTitle: "Continue",
             primaryAction: { onboarding.path.append(.mapSell) }
         )
+        .sensoryFeedback(.impact(weight: .light), trigger: entriesVisible)
     }
 
     /// Same structure as `MemoriesListView.memoryRow` — kept in lockstep with the real feature.
     private func memoryRow(_ memory: Memory) -> some View {
         SectionCard {
             HStack(alignment: .center, spacing: Theme.Spacing.md) {
-                MemoryPhotoView(memory: memory, cornerRadius: 14)
+                OnboardingMemoryImage(seed: memory.photoSeed, cornerRadius: 14)
                     .frame(width: 72, height: 72)
 
                 VStack(alignment: .leading, spacing: 4) {

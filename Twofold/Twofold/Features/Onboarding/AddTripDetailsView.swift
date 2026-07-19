@@ -28,6 +28,10 @@ struct AddTripDetailsView: View {
     var mode: Mode
     var partnerName: String = "Partner"
     var onSave: (Trip) -> Void = { _ in }
+    /// Onboarding-only "skip for now" affordance — `nil` (the default) renders no secondary
+    /// button, so the two non-onboarding call sites (home screen checklist, flight-email review
+    /// flow) are unaffected.
+    var onSkip: (() -> Void)?
 
     @Environment(AppModel.self) private var appModel
     @State private var origin: Place?
@@ -49,10 +53,11 @@ struct AddTripDetailsView: View {
         Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: date) ?? date
     }
 
-    init(mode: Mode, partnerName: String = "Partner", prefill: Prefill? = nil, onSave: @escaping (Trip) -> Void = { _ in }) {
+    init(mode: Mode, partnerName: String = "Partner", prefill: Prefill? = nil, onSave: @escaping (Trip) -> Void = { _ in }, onSkip: (() -> Void)? = nil) {
         self.mode = mode
         self.partnerName = partnerName
         self.onSave = onSave
+        self.onSkip = onSkip
         _origin = State(initialValue: prefill?.origin)
         _destination = State(initialValue: prefill?.destination)
         _departureDate = State(initialValue: prefill?.departureDate ?? Self.nineAM(on: Date().addingTimeInterval(86_400 * 30)))
@@ -104,7 +109,9 @@ struct AddTripDetailsView: View {
             },
             primaryTitle: "Save trip",
             primaryAction: save,
-            primaryDisabled: origin == nil || destination == nil || isSaving
+            primaryDisabled: origin == nil || destination == nil || isSaving,
+            secondaryTitle: onSkip != nil ? "Skip for now" : nil,
+            secondaryAction: onSkip
         )
         .sheet(isPresented: $showingAddFlightFlow) {
             AddFlightFlowView(

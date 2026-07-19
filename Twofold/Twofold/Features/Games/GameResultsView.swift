@@ -130,7 +130,12 @@ struct GameResultsView: View {
         }
         .onAppear {
             animateReveal()
-            appModel.noteReviewMilestone(.firstGameResults)
+            // Reaching game results already implies a connected partner (all game content is
+            // gated behind `partnerConnected`) — `hasCouple` guard added for symmetry with
+            // `AppModel.checkReviewMilestones()`, not because this is actually reachable earlier.
+            if appModel.hasCouple {
+                appModel.noteReviewMilestone(.firstGameResults)
+            }
             // `AppModel.gameDecks`/`deckProgress` are cached for the whole app session and only
             // ever refreshed explicitly (see `loadGameDecksIfNeeded()`'s doc comment) — without
             // this, the deck list's "Completed" checkmark stayed stale (from whenever it was

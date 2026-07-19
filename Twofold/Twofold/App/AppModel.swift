@@ -188,6 +188,7 @@ final class AppModel {
     /// leaving a solo (unpaired) user to fall back into onboarding just because
     /// `fetchCoupleState` found nothing.
     func loadSignedInState() async {
+        await retryPendingPushTokenRegistrationIfNeeded()
         await identifyWithRevenueCat()
         identifyWithPostHog()
         restorePendingMemoriesFromDisk()
@@ -457,22 +458,18 @@ final class AppModel {
         return components.url ?? url
     }
 
-    /// Re-checks the state-derived review milestones (partner connected, first flight/trip/
-    /// memory) and surfaces `pendingReviewMilestone` for the first newly-crossed one still
-    /// eligible. Safe to call as often as needed — a no-op once a given milestone's already
-    /// shown once, or the user's already said yes to any of them. "First game results" isn't
+    /// Fires once — the first time a couple both (a) has a connected partner and (b) has already
+    /// done something with the app (a trip, memory, or tracked flight). Deliberately not keyed to
+    /// any one of those in isolation — the couple isn't "connected" yet during onboarding
+    /// (`hasCouple` only flips true at the very end), so this can never fire mid-onboarding, and
+    /// asking right after a still-solo first action reads as premature. "First game results" isn't
     /// state AppModel tracks directly, so that one's raised via `noteReviewMilestone(_:)` from
     /// `GameResultsView` instead.
     func checkReviewMilestones() {
-        guard pendingReviewMilestone == nil else { return }
-        if partnerConnected, ReviewPromptService.markShownIfEligible(.partnerConnected) {
+        guard hasCouple, partnerConnected, pendingReviewMilestone == nil else { return }
+        guard !trips.isEmpty || !memories.isEmpty || !flights.isEmpty else { return }
+        if ReviewPromptService.markShownIfEligible(.partnerConnected) {
             pendingReviewMilestone = .partnerConnected
-        } else if !flights.isEmpty, ReviewPromptService.markShownIfEligible(.firstFlight) {
-            pendingReviewMilestone = .firstFlight
-        } else if !trips.isEmpty, ReviewPromptService.markShownIfEligible(.firstTrip) {
-            pendingReviewMilestone = .firstTrip
-        } else if !memories.isEmpty, ReviewPromptService.markShownIfEligible(.firstMemory) {
-            pendingReviewMilestone = .firstMemory
         }
     }
 
@@ -726,7 +723,7 @@ final class AppModel {
     /// `AeroFlightService.addFlight`/`LiveActivityManager`); callers that have a real,
     /// AeroAPI-resolved `AeroFlightCandidate` in hand should follow up with
     /// `AeroFlightService.addFlight(faFlightId:tripID:notifyMe:)` once this trip exists,
-    /// exactly as `AddFirstFlightView`/`AddTripDetailsView` already do.
+    /// exactly as `AddTripDetailsView` already does.
     @discardableResult
     func addTrip(origin: Place, destination: Place, departureDate: Date, arrivalDate: Date, traveler: TripTraveler, isReunionTrip: Bool) async -> Trip {
         let travelerID = traveler == .partner ? partner.id : currentUser.id
@@ -891,14 +888,39 @@ final class AppModel {
     /// Registers this device's APNs token against the signed-in profile so
     /// `send-flight-notification` (server-side) has somewhere to deliver to. Safe to call
     /// repeatedly — the backend upserts on the token itself.
+    /// Cached raw APNs token bytes, kept around until a registration attempt actually succeeds.
+    /// `didRegisterForRemoteNotificationsWithDeviceToken` can fire before `restoreSession()`'s
+    /// async `supabase.auth.session` restore has finished — `BackendService.registerDeviceToken`
+    /// requires `currentUserID`, so a registration attempt that loses that race throws
+    /// `.notAuthenticated` and (since the call site swallows it with `try?`) silently drops the
+    /// token for the rest of that launch, with nothing anywhere to indicate it happened. Real
+    /// symptom this caused: a signed-in couple with notifications genuinely enabled on-device,
+    /// backend sends reporting success, and zero pushes ever arriving — the row in
+    /// `device_push_tokens` was simply stale or missing. `loadSignedInState()` retries this once
+    /// a session is confirmed, closing the race regardless of which order the two async events
+    /// actually finish in.
+    private var pendingPushTokenData: Data?
+
     func registerPushToken(_ tokenData: Data) async {
+        pendingPushTokenData = tokenData
+        await retryPendingPushTokenRegistrationIfNeeded()
+    }
+
+    private func retryPendingPushTokenRegistrationIfNeeded() async {
+        guard let tokenData = pendingPushTokenData else { return }
         let token = tokenData.map { String(format: "%02x", $0) }.joined()
         #if DEBUG
         let environment = "sandbox"
         #else
         let environment = "production"
         #endif
-        try? await BackendService.registerDeviceToken(token, environment: environment)
+        do {
+            try await BackendService.registerDeviceToken(token, environment: environment)
+            pendingPushTokenData = nil
+        } catch {
+            // Most likely still not authenticated yet — leave it cached so the next
+            // `loadSignedInState()` (or another `registerPushToken` call) can retry.
+        }
     }
 
     @discardableResult
@@ -930,7 +952,11 @@ final class AppModel {
             if let index = memories.firstIndex(where: { $0.id == memory.id }) {
                 memories[index].photos = photos
             }
-            Task { await BackendService.notifyPartner(event: .memoryAdded, detail: title) }
+            // .selfDevice, not .partner — a deliberately controllable way to exercise the real
+            // end-to-end push pipeline (device registration → APNs → delivery) from an ordinary
+            // in-app action, without notifying the partner's device at all. Revert to .partner
+            // (or drop the argument, its default) once push delivery is confirmed working.
+            Task { await BackendService.notifyPartner(event: .memoryAdded, detail: title, target: .selfDevice) }
             Task { await WidgetSnapshotWriter.refresh(appModel: self) }
         } catch {
             pendingMemoryIDs.insert(memory.id)

@@ -16,13 +16,14 @@ enum OnboardingStep: Hashable {
     case gender
     case coupleLocations
     case anniversaryDate
+    case happyAnniversary
     case personalizedInsight
     case notificationsSell
     case liveActivitySell
     case memoriesSell
     case mapSell
     case widgetSell
-    case addFirstFlight
+    case addFirstTrip
     case firstMemory
     case twofoldPreview
     case saveAccount
@@ -57,13 +58,14 @@ enum OnboardingStep: Hashable {
         case .gender: "Onboarding: Gender"
         case .coupleLocations: "Onboarding: Couple Locations"
         case .anniversaryDate: "Onboarding: Anniversary Date"
+        case .happyAnniversary: "Onboarding: Happy Anniversary"
         case .personalizedInsight: "Onboarding: Personalized Insight"
         case .notificationsSell: "Onboarding: Notifications Sell"
         case .liveActivitySell: "Onboarding: Live Activity Sell"
         case .memoriesSell: "Onboarding: Memories Sell"
         case .mapSell: "Onboarding: Map Sell"
         case .widgetSell: "Onboarding: Widget Sell"
-        case .addFirstFlight: "Onboarding: Add First Flight"
+        case .addFirstTrip: "Onboarding: Add First Trip"
         case .firstMemory: "Onboarding: First Memory"
         case .twofoldPreview: "Onboarding: Twofold Preview"
         case .saveAccount: "Onboarding: Save Account"

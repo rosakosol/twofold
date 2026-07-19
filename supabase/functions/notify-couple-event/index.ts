@@ -19,6 +19,14 @@ interface Input {
   /// deep-link straight into that session instead of just opening the app.
   sessionId?: string;
   gameType?: string;
+  /// "partner" (default) notifies the caller's partner about the caller's activity, same as
+  /// always. "self" notifies the caller's *own* devices instead — added as a deliberately
+  /// controllable way to exercise the real end-to-end push pipeline (device registration →
+  /// APNs → delivery) from an ordinary in-app action, without touching the partner's device at
+  /// all. No preference-column gate applies to "self" — those columns govern whether *the
+  /// partner* wants to hear about the caller's activity, which doesn't apply when the caller is
+  /// the recipient.
+  target?: "self" | "partner";
 }
 
 const VALID_EVENT_TYPES: EventType[] = [
@@ -62,6 +70,27 @@ function buildMessage(eventType: EventType, actorName: string, detail?: string):
   }
 }
 
+// Second-person copy for `target: "self"` — the recipient is the actor themselves, not their
+// partner, so this deliberately doesn't reuse buildMessage's "{actorName} did X" phrasing.
+function buildSelfMessage(eventType: EventType, detail?: string): { title: string; body: string } {
+  switch (eventType) {
+    case "drawing_saved":
+      return { title: "Doodle saved", body: "Your new drawing was saved." };
+    case "trip_added":
+      return { title: "Trip saved", body: detail ? `Your trip "${detail}" was saved.` : "Your new trip was saved." };
+    case "memory_added":
+      return { title: "Memory saved", body: detail ? `Your memory "${detail}" was saved.` : "Your new memory was saved." };
+    case "game_started":
+      return { title: "Game started", body: detail ? `You started "${detail}".` : "You started a new game." };
+    case "game_results_ready":
+      return { title: "Results are ready!", body: "See how you and your partner matched." };
+    case "game_partner_finished":
+      return { title: "Your turn!", body: "It's your turn to play." };
+    case "game_reminder":
+      return { title: "Reminder", body: "Complete your game." };
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method !== "POST") {
     return Response.json({ error: "Method not allowed" }, { status: 405 });
@@ -97,6 +126,23 @@ Deno.serve(async (req) => {
   // Best-effort from here on — a failure to notify should never surface as an error to the
   // client for what's fundamentally a side effect of an already-successful action.
   try {
+    if (input.target === "self") {
+      const { data: tokens } = await serviceClient
+        .from("device_push_tokens")
+        .select("apns_token, environment")
+        .eq("profile_id", user.id);
+      if (!tokens || tokens.length === 0) return Response.json({ ok: true });
+
+      const { title, body } = buildSelfMessage(input.eventType, input.detail);
+      const data = input.sessionId
+        ? { sessionId: input.sessionId, gameType: input.gameType, eventType: input.eventType }
+        : undefined;
+      for (const token of tokens) {
+        await sendAPNs(token.apns_token, token.environment, title, body, data);
+      }
+      return Response.json({ ok: true });
+    }
+
     const { data: couple } = await serviceClient
       .from("couples")
       .select("partner_a_id, partner_b_id")

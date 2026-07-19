@@ -2453,13 +2453,20 @@ enum BackendService {
     /// `sessionID`/`gameType` are only meaningful for `.gameReminder`/`.gameResultsReady`/
     /// `.gamePartnerFinished` — they ride along in the push payload so tapping the delivered
     /// notification can deep-link straight into that session (see `PushNotificationDelegate`)
-    /// instead of just opening the app.
-    static func notifyPartner(event: CoupleNotificationEvent, detail: String? = nil, sessionID: UUID? = nil, gameType: GameType? = nil) async {
+    /// instead of just opening the app. `target: .self` redirects the push to the caller's own
+    /// devices instead of the partner's — see the call site in `AppModel.addMemory` for why.
+    enum NotifyTarget: String {
+        case partner
+        case selfDevice = "self"
+    }
+
+    static func notifyPartner(event: CoupleNotificationEvent, detail: String? = nil, sessionID: UUID? = nil, gameType: GameType? = nil, target: NotifyTarget = .partner) async {
         guard let accessToken = currentAccessToken else { return }
         var body: [String: Any] = ["eventType": event.rawValue]
         if let detail { body["detail"] = detail }
         if let sessionID { body["sessionId"] = sessionID.uuidString }
         if let gameType { body["gameType"] = gameType.rawValue }
+        if target != .partner { body["target"] = target.rawValue }
 
         var request = URLRequest(url: SupabaseConfig.projectURL.appendingPathComponent("functions/v1/notify-couple-event"))
         request.httpMethod = "POST"

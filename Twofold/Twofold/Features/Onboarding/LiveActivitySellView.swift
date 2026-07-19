@@ -2,11 +2,11 @@
 //  LiveActivitySellView.swift
 //  Twofold
 //
-//  Feature-education screen only — Twofold has no working Live Activity implementation
-//  yet (that needs a separate Widget Extension target and real ActivityKit code), so the
-//  CTA here just advances onboarding rather than calling any real API. The moment-by-moment
-//  journey timeline that used to live on this mockup now belongs to the real flight-tracking
-//  screen instead (`FlightTrackingView`'s timeline + self-reported updates), not onboarding.
+//  Feature-education screen only — this doesn't call any real ActivityKit API itself (the CTA
+//  just advances onboarding), but the mockup below is deliberately built to mirror the REAL
+//  Live Activity's actual layout — `Twofold/LiveActivities/JourneyLockScreenView.swift` — so
+//  what someone sees here is what they'll actually see on their Lock Screen once they track a
+//  real flight, not a hand-drawn approximation of it.
 //
 
 import SwiftUI
@@ -14,8 +14,8 @@ import UIKit
 
 struct LiveActivitySellView: View {
     @Environment(OnboardingModel.self) private var onboarding
-    @State private var pulsePhase: CGFloat = 1
     @State private var cardVisible = false
+    @State private var now = Date()
 
     // PartnerNameView requires a non-empty name before you can advance, so by the time any
     // later onboarding screen runs, this is always the real name — no fallback needed.
@@ -38,132 +38,150 @@ struct LiveActivitySellView: View {
         destinationCity?.iataCode?.uppercased() ?? destinationCity?.city.uppercased() ?? "———"
     }
 
-    /// Real math against the real cities picked earlier in onboarding, not an invented number.
-    private var distanceKm: Double? {
-        guard let originCity, let destinationCity else { return nil }
-        return Geo.distanceKm(originCity.coordinate, destinationCity.coordinate)
+    /// One shared size for both airport codes, picked from whichever of the two strings is
+    /// longer — a real IATA code (3 letters) always gets the full 22pt, but if either city
+    /// falls back to its full name (no IATA code on file), *both* columns step down together
+    /// instead of just the long one shrinking on its own and reading as mismatched.
+    private var airportCodeFontSize: CGFloat {
+        switch max(originCode.count, destinationCode.count) {
+        case ...4: 22
+        case 5...6: 18
+        case 7...9: 15
+        default: 12
+        }
     }
 
-    private var partnerImage: Image? {
-        onboarding.partnerPhotoData.flatMap(UIImage.init(data:)).map(Image.init(uiImage:))
-    }
+    /// Illustrative only (no real flight is booked during onboarding) — a departure ~40 minutes
+    /// ago and an arrival ~2h14m from now, matching the illustrative countdown below. Still run
+    /// through `Text(date, style: .time)`, the same real, localized time formatting
+    /// `JourneyLockScreenView` uses, rather than a hardcoded time string.
+    private var illustrativeDeparture: Date { Date.now.addingTimeInterval(-40 * 60) }
+    private var illustrativeArrival: Date { Date.now.addingTimeInterval((2 * 60 + 14) * 60) }
 
     var body: some View {
         OnboardingScaffold(
             title: "Keep \(partnerName.prefix(1).uppercased() + partnerName.dropFirst())'s journey close",
             subtitle: "Follow \(partnerName)'s flight from your Lock Screen with Live Activities.",
             content: {
-                VStack(spacing: Theme.Spacing.sm) {
-                    lockScreenMock
-                        .frame(maxWidth: 360)
-                        .frame(maxWidth: .infinity)
-                        .scaleEffect(cardVisible ? 1 : 0.85)
-                        .opacity(cardVisible ? 1 : 0)
-                        .offset(y: cardVisible ? 0 : 16)
-                }
-                .onAppear {
-                    withAnimation(.spring(response: 0.55, dampingFraction: 0.75)) {
-                        cardVisible = true
+                phoneMock
+                    .onAppear {
+                        withAnimation(.spring(response: 0.55, dampingFraction: 0.75).delay(0.15)) {
+                            cardVisible = true
+                        }
                     }
-                }
             },
             primaryTitle: "Continue",
             primaryAction: { onboarding.path.append(.memoriesSell) }
         )
     }
 
-    /// Modeled on a real Live Activity's compact-info layout — flight number up top, a big
-    /// centered time-remaining readout with distance, then big airport codes either side of
-    /// the route. No arrival terminal/gate/bag claim row, since Twofold has none of that
-    /// data to show.
-    private var lockScreenMock: some View {
-        VStack(spacing: Theme.Spacing.md) {
-            HStack {
-                Text("QF9")
-                    .font(.headline.weight(.bold))
-                    .foregroundStyle(.white)
-                Spacer()
-                HStack(spacing: 4) {
-                    Image(systemName: "airplane")
-                        .font(.caption2)
-                    Text("On time")
-                        .font(.caption.weight(.semibold))
-                }
-                .foregroundStyle(.white)
+    // MARK: - Phone Mock
+
+    /// Same oversized Lock Screen chassis `NotificationsSellView` uses, so the two Lock-Screen
+    /// sell screens read as one consistent visual language rather than each inventing its own
+    /// phone frame. The Live Activity card floats over it — wider than the chassis itself and
+    /// carrying a real drop shadow, so it reads as "popping out" toward the viewer the way a
+    /// real Live Activity visually sits above the rest of the Lock Screen content.
+    private var phoneMock: some View {
+        LockScreenPhoneMock(now: now) {
+            lockScreenMock
                 .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(.white.opacity(0.15), in: Capsule())
-            }
-
-            VStack(spacing: 2) {
-                Text("2h 14m")
-                    .font(.system(size: 40, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-                if let distanceKm {
-                    Text("to go · \(MeasurementPreference.distanceLabel(km: distanceKm))")
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.6))
-                }
-            }
-
-            HStack(alignment: .center, spacing: Theme.Spacing.sm) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(originCode)
-                        .font(.system(size: 26, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
-                    Text("6:30 PM")
-                        .font(.subheadline)
-                        .foregroundStyle(.white.opacity(0.6))
-                }
-
-                flightPath
-                    .frame(maxWidth: .infinity)
-
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text(destinationCode)
-                        .font(.system(size: 26, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
-                    Text("2:30 AM")
-                        .font(.subheadline)
-                        .foregroundStyle(.white.opacity(0.6))
-                }
-            }
-
-            Text("Updated just now")
-                .font(.caption2)
-                .foregroundStyle(.white.opacity(0.5))
-                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.top, 270)
+                .shadow(color: .black.opacity(0.45), radius: 28, x: 0, y: 16)
+                .scaleEffect(cardVisible ? 1 : 0.85)
+                .opacity(cardVisible ? 1 : 0)
+                .offset(y: cardVisible ? 0 : 16)
         }
-        .padding(Theme.Spacing.lg)
+    }
+
+    /// Line-for-line copy of `JourneyLockScreenView`'s real body — same spacing (12/18/8/2/10),
+    /// same font sizes/weights, same `WidgetBrandMark` (plain 16×16 image, no badge — an earlier
+    /// version of this mock wrapped it in a rounded-rect badge that the real one never had), same
+    /// static (non-pulsing) progress-rail badge, so what someone sees here really is what they'll
+    /// see on their Lock Screen once they track a real flight. The "Updated Xm ago" text the real
+    /// widget shows is left out here — during onboarding there's no real update to report yet,
+    /// and a fixed "just now" read as decorative rather than informative. The system itself
+    /// supplies the blurred dark backdrop and rounded-corner clip for a real Live Activity —
+    /// `.regularMaterial` forced to dark here approximates that, since a plain onboarding screen
+    /// has no ActivityKit presentation context to inherit it from.
+    private var lockScreenMock: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 8) {
+                // The real Qantas tailfin logo (QF9 is a real Qantas-operated route) — same
+                // `AirlineLogoView` the live app uses everywhere else, rather than a generic
+                // airplane glyph standing in for "some airline."
+                AirlineLogoView(url: AirlineLogo.url(forIATACode: "QF"), size: 28)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("QF9")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(.white)
+                    Text("Qantas")
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.6))
+                }
+                Spacer()
+                // Plain 16×16 image at 0.9 opacity, no badge/background — matches
+                // `LiveActivities/WidgetBrandMark.swift` exactly (that target can't be imported
+                // from the main app, so this is a literal copy of its three modifiers).
+                Image("GlobeHeart")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 16, height: 16)
+                    .opacity(0.9)
+            }
+
+            VStack(alignment: .center, spacing: 2) {
+                Text("2h 14m left")
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .frame(maxWidth: .infinity, alignment: .center)
+
+                Text("\(partnerName) is on the way to you ❤️")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.6))
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+
+            HStack(alignment: .center, spacing: 10) {
+                airportColumn(code: originCode, time: illustrativeDeparture, alignment: .leading)
+                progressRail
+                airportColumn(code: destinationCode, time: illustrativeArrival, alignment: .trailing)
+            }
+        }
+        .padding(.horizontal, 18)
+        .padding(.top, 18)
+        .padding(.bottom, 18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background { skyBackground }
+        .background {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(.regularMaterial)
+                .environment(\.colorScheme, .dark)
+        }
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 
-    /// Dusk sky gradient with a faint airplane silhouette, standing in for the aircraft photo
-    /// a real Live Activity background would use — a dark overlay keeps the existing white
-    /// text readable on top of it, same contrast the plain black background had.
-    private var skyBackground: some View {
-        ZStack {
-            LinearGradient(
-                colors: [Color(hex: "1B2A4A"), Color(hex: "3E5C8A"), Color(hex: "C97B5A")],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            Image(systemName: "airplane")
-                .font(.system(size: 130))
-                .foregroundStyle(.white.opacity(0.08))
-                .rotationEffect(.degrees(-45))
-                .offset(x: 60, y: -30)
-            Color.black.opacity(0.28)
+    private func airportColumn(code: String, time: Date, alignment: HorizontalAlignment) -> some View {
+        VStack(alignment: alignment, spacing: 2) {
+            Text(code)
+                .font(.system(size: airportCodeFontSize, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+            Text(time, style: .time)
+                .font(.subheadline)
+                .foregroundStyle(.white.opacity(0.7))
         }
+        .frame(minWidth: 60, alignment: alignment == .leading ? .leading : .trailing)
     }
 
-    /// Solid line for distance already flown, dashed for what's left, with a hollow ring at
-    /// the destination — same visual language real flight-tracking Live Activities use. The
-    /// badge marking the current position shows the partner's own photo when one was picked
-    /// earlier in onboarding, falling back to a plane icon otherwise.
-    private var flightPath: some View {
+    /// Identical to the real Live Activity's progress rail — solid tint up to progress, dashed
+    /// remainder, a plain icon-in-circle riding the progress point. No pulse/scale animation:
+    /// WidgetKit's Live Activity views are effectively static (system-driven state updates only),
+    /// so a continuously-animating badge here would show something the real one never does.
+    private var progressRail: some View {
         GeometryReader { geo in
             let progressX = geo.size.width * 0.4
             let midY = geo.size.height / 2
@@ -179,36 +197,18 @@ struct LiveActivitySellView: View {
                     path.move(to: CGPoint(x: progressX, y: midY))
                     path.addLine(to: CGPoint(x: geo.size.width, y: midY))
                 }
-                .stroke(.white.opacity(0.3), style: StrokeStyle(lineWidth: 2, dash: [3, 4]))
+                .stroke(.white.opacity(0.25), style: StrokeStyle(lineWidth: 2, dash: [3, 4]))
 
-                Circle()
-                    .stroke(.white.opacity(0.4), lineWidth: 2)
-                    .frame(width: 8, height: 8)
-                    .position(x: geo.size.width, y: midY)
-
-                ZStack {
-                    if let partnerImage {
-                        partnerImage.resizable().scaledToFill()
-                    } else {
-                        Circle().fill(Theme.skyBlue)
-                        Image(systemName: "airplane")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(.white)
-                    }
-                }
-                .frame(width: 26, height: 26)
-                .clipShape(Circle())
-                .overlay(Circle().stroke(.white, lineWidth: 2))
-                .scaleEffect(pulsePhase)
-                .position(x: progressX, y: midY)
+                Image(systemName: "airplane")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.white)
+                    .padding(4)
+                    .background(Theme.skyBlue, in: Circle())
+                    .position(x: progressX, y: midY)
             }
         }
-        .frame(height: 26)
-        .onAppear {
-            withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
-                pulsePhase = 1.12
-            }
-        }
+        .frame(height: 20)
+        .frame(maxWidth: .infinity)
     }
 }
 

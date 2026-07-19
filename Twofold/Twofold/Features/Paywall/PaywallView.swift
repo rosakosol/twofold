@@ -173,10 +173,10 @@ struct PaywallView: View {
     private var loadedContent: some View {
         OnboardingScaffold(
             title: "Stay close, no matter the distance",
-            titleAccessoryImageName: "GlobeHeart",
-            titleFont: .system(.title2, design: .rounded, weight: .bold),
+            titleFont: .system(.title, design: .rounded, weight: .bold),
             subtitle: "One subscription covers you and your partner",
             subtitleFont: .footnote,
+            titleTopPadding: Theme.Spacing.sm,
             centersTitleAndSubtitle: true,
             content: {
                 VStack(spacing: Theme.Spacing.md) {

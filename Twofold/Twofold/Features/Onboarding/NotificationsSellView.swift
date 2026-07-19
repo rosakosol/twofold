@@ -32,12 +32,6 @@ struct NotificationsSellView: View {
         .publish(every: 30, on: .main, in: .common)
         .autoconnect()
 
-    private static let clockFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "h:mm"
-        return formatter
-    }()
-
     private var partnerName: String {
         onboarding.partnerName
     }
@@ -123,192 +117,125 @@ struct NotificationsSellView: View {
     // MARK: - Phone Mock
 
     private var phoneMock: some View {
-        GeometryReader { geometry in
-            let safeWidth = geometry.size.width.isFinite
-                ? geometry.size.width
-                : 340
-
-            let phoneWidth = min(
-                max(safeWidth - 60, 280),
-                390
-            )
-
-            ZStack(alignment: .top) {
-
-                // MARK: Phone chassis
-
-                RoundedRectangle(
-                    cornerRadius: 62,
-                    style: .continuous
-                )
-                .fill(Color.black)
-                .overlay {
-                    RoundedRectangle(
-                        cornerRadius: 62,
-                        style: .continuous
-                    )
-                    .strokeBorder(
-                        Color.white.opacity(0.17),
-                        lineWidth: 12
-                    )
+        LockScreenPhoneMock(now: now) {
+            // -72 (was -58) — pulls the stack tighter, so each card steps down by a smaller
+            // visible amount from the one before it.
+            VStack(spacing: -72) {
+                ForEach(Array(previews.enumerated()), id: \.offset) { index, preview in
+                    notificationBanner(preview)
+                        .zIndex(Double(index))
+                        .scaleEffect(shownCards.contains(index) ? 1 : 0.88, anchor: .top)
+                        .opacity(shownCards.contains(index) ? 1 : 0)
+                        .offset(y: shownCards.contains(index) ? 0 : -30)
                 }
-                .frame(
-                    width: phoneWidth,
-                    height: 760
-                )
-                .zIndex(0)
-
-                // MARK: Lock Screen UI
-
-                VStack(spacing: 0) {
-
-                    // Dynamic Island
-                    Capsule()
-                        .fill(Color.white.opacity(0.16))
-                        .frame(
-                            width: 82,
-                            height: 24
-                        )
-                        .padding(.top, 32)
-
-                    // Lock Screen clock
-                    Text(
-                        Self.clockFormatter.string(from: now)
-                    )
-                    .font(
-                        .system(
-                            size: 86,
-                            weight: .medium,
-                            design: .rounded
-                        )
-                    )
-                    .monospacedDigit()
-                    .foregroundStyle(.white)
-                    .padding(.top, 50)
-
-                    Spacer(minLength: 0)
-                }
-                .frame(
-                    width: phoneWidth,
-                    height: 760
-                )
-                .zIndex(1)
-
-                // MARK: Floating notification stack
-
-                VStack(spacing: -58) {
-                    ForEach(
-                        Array(previews.enumerated()),
-                        id: \.offset
-                    ) { index, preview in
-
-                        notificationBanner(preview)
-                            .zIndex(Double(index))
-                            .scaleEffect(
-                                shownCards.contains(index)
-                                    ? 1
-                                    : 0.88,
-                                anchor: .top
-                            )
-                            .opacity(
-                                shownCards.contains(index)
-                                    ? 1
-                                    : 0
-                            )
-                            .offset(
-                                y: shownCards.contains(index)
-                                    ? 0
-                                    : -30
-                            )
-                    }
-                }
-                .frame(width: geometry.size.width)
-                .padding(.top, 245)
-                .zIndex(10)
             }
-            .frame(
-                maxWidth: .infinity,
-                alignment: .top
-            )
+            .padding(.top, 245)
         }
-        .frame(height: 500)
-        .clipped()
     }
 
     // MARK: - Notification Banner
 
+    /// Matches the real iOS "communication notification" shape (large contact avatar + small
+    /// app-icon badge overlaid at its corner, app name + relative timestamp in a small caption
+    /// row above the title/body) — closer to what a real Twofold push actually looks like on a
+    /// Lock Screen than the earlier oversized, badge-less card was.
     private func notificationBanner(
         _ preview: NotificationPreview
     ) -> some View {
-        HStack(spacing: 14) {
+        HStack(alignment: .top, spacing: 14) {
 
-            // MARK: Partner avatar
+            // MARK: Partner avatar + app-icon badge
 
-            ZStack {
-                if let partnerImage {
-                    partnerImage
-                        .resizable()
-                        .scaledToFill()
-                } else {
-                    Circle()
-                        .fill(
-                            Theme.skyBlue.opacity(0.20)
-                        )
+            ZStack(alignment: .bottomTrailing) {
+                ZStack {
+                    if let partnerImage {
+                        partnerImage
+                            .resizable()
+                            .scaledToFill()
+                    } else {
+                        Circle()
+                            .fill(
+                                Theme.skyBlue.opacity(0.20)
+                            )
 
-                    Text(preview.emoji)
-                        .font(.system(size: 23))
+                        Text(preview.emoji)
+                            .font(.system(size: 23))
+                    }
                 }
+                .frame(width: 48, height: 48)
+                .clipShape(Circle())
+
+                ZStack {
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(Theme.primaryButtonGradient)
+                    Image("GlobeHeart")
+                        .resizable()
+                        .scaledToFit()
+                        .padding(3.5)
+                }
+                .frame(width: 20, height: 20)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .strokeBorder(.white, lineWidth: 1.5)
+                }
+                .offset(x: 4, y: 4)
             }
-            .frame(
-                width: 48,
-                height: 48
-            )
-            .clipShape(Circle())
 
             // MARK: Notification copy
 
             VStack(
                 alignment: .leading,
-                spacing: 2
+                spacing: 3
             ) {
+                HStack(spacing: 4) {
+                    Text("TWOFOLD")
+                        .font(.system(size: 12, weight: .semibold))
+                        .tracking(0.5)
+                    Text("·")
+                    Text("now")
+                }
+                .font(.system(size: 12))
+                .foregroundStyle(Color.black.opacity(0.45))
+
                 Text(preview.title)
                     .font(
                         .system(
-                            size: 17,
+                            size: 15,
                             weight: .semibold
                         )
                     )
                     .foregroundStyle(
-                        Color.black.opacity(0.82)
+                        Color.black.opacity(0.85)
                     )
                     .lineLimit(1)
 
                 Text(preview.body)
                     .font(
                         .system(
-                            size: 16,
+                            size: 15,
                             weight: .regular
                         )
                     )
                     .foregroundStyle(
-                        Color.black.opacity(0.52)
+                        Color.black.opacity(0.55)
                     )
-                    .lineLimit(1)
+                    .lineLimit(2)
             }
 
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 18)
-        .frame(height: 88)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .frame(minHeight: 88, alignment: .top)
         .background {
             RoundedRectangle(
-                cornerRadius: 28,
+                cornerRadius: 16,
                 style: .continuous
             )
             .fill(Color.white.opacity(0.98))
             .overlay {
                 RoundedRectangle(
-                    cornerRadius: 28,
+                    cornerRadius: 16,
                     style: .continuous
                 )
                 .strokeBorder(
@@ -317,13 +244,15 @@ struct NotificationsSellView: View {
                 )
             }
             .shadow(
-                color: Color.black.opacity(0.18),
-                radius: 10,
+                color: Color.black.opacity(0.28),
+                radius: 18,
                 x: 0,
-                y: 6
+                y: 10
             )
         }
-        .padding(.horizontal, 28)
+        // 10 (was 28) — same "pop out" margin the Live Activity card uses, so the banner
+        // stretches wider than the phone chassis instead of sitting flush inside it.
+        .padding(.horizontal, 10)
     }
 
     // MARK: - Animation

@@ -80,7 +80,7 @@ struct WidgetSellView: View {
                 }
             },
             primaryTitle: "Continue",
-            primaryAction: { onboarding.path.append(.addFirstFlight) }
+            primaryAction: { onboarding.path.append(.addFirstTrip) }
         )
     }
 
