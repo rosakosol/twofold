@@ -4,7 +4,7 @@
 //
 //  Real bundled photos for the mock `Memory` values `MemoriesSellView`/`MapSellView` build —
 //  `sunset`/`trip`/`where-we-met` in Assets.xcassets, matching those mocks' own titles ("That
-//  sunset", "First trip together", "Where we met") and `photoSeed` ordering 1:1. Standing in for
+//  sunset", "Park", "Where we met") and `photoSeed` ordering 1:1. Standing in for
 //  `MemoryPhotoView`'s real-photo-loaded look (same `GeometryReader`+`.clipped()`+corner-radius
 //  clip shape) rather than its gradient+`photo.fill` placeholder, since these mocks have no real
 //  uploaded photo to load.

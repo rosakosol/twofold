@@ -13,8 +13,20 @@
 import SwiftUI
 
 struct HappyAnniversaryView: View {
+    /// Full years since the anniversary date, as computed by the caller (each already has the
+    /// real `Date` in hand at the moment it decides to show this screen) — 0 for the literal
+    /// "we started dating today" case, which gets its own copy below rather than "0 years."
+    var years: Int
     var onContinue: () -> Void
     @State private var contentVisible = false
+
+    private var subtitle: String {
+        switch years {
+        case ..<1: "Today's the day it all began. Here's to many more."
+        case 1: "Here's to a year of love, and many more."
+        default: "Here's to \(years) years of love, and many more."
+        }
+    }
 
     var body: some View {
         ZStack {
@@ -36,7 +48,7 @@ struct HappyAnniversaryView: View {
                         .font(.system(.largeTitle, design: .rounded, weight: .bold))
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.center)
-                    Text("Today's the day it all began. Here's to many more.")
+                    Text(subtitle)
                         .font(.body)
                         .foregroundStyle(.white.opacity(0.85))
                         .multilineTextAlignment(.center)
@@ -69,6 +81,6 @@ struct HappyAnniversaryView: View {
 
 #Preview {
     NavigationStack {
-        HappyAnniversaryView(onContinue: {})
+        HappyAnniversaryView(years: 3, onContinue: {})
     }
 }

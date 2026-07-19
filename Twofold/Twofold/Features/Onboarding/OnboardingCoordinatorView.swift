@@ -50,7 +50,11 @@ struct OnboardingCoordinatorView: View {
         case .anniversaryDate:
             AnniversaryDateView()
         case .happyAnniversary:
-            HappyAnniversaryView {
+            let years: Int = {
+                guard let anniversaryDate = onboarding.anniversaryDate else { return 0 }
+                return max(0, Calendar.current.dateComponents([.year], from: anniversaryDate, to: .now).year ?? 0)
+            }()
+            HappyAnniversaryView(years: years) {
                 // Same sameCity check AnniversaryDateView itself uses to pick between these two.
                 let sameCity: Bool = {
                     guard let mine = onboarding.homeCity, let theirs = onboarding.partnerCity else { return false }

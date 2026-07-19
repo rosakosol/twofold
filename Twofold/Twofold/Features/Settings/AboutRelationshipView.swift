@@ -70,7 +70,10 @@ struct AboutRelationshipView: View {
         }
         .postHogScreenView("Settings: About Relationship")
         .fullScreenCover(isPresented: $showingHappyAnniversary, onDismiss: dismiss.callAsFunction) {
-            HappyAnniversaryView(onContinue: { showingHappyAnniversary = false })
+            HappyAnniversaryView(
+                years: max(0, Calendar.current.dateComponents([.year], from: anniversaryDate, to: .now).year ?? 0),
+                onContinue: { showingHappyAnniversary = false }
+            )
         }
     }
 
