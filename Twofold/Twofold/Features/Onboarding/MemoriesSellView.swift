@@ -18,8 +18,8 @@ struct MemoriesSellView: View {
     private var mockMemories: [Memory] {
         let calendar = Calendar.current
         return [
-            Memory(title: "That sunset", place: onboarding.homeCity, date: calendar.date(byAdding: .day, value: -23, to: .now) ?? .now, note: "Save the moments that make the distance worth it.", photoSeed: 0),
-            Memory(title: "First trip together", place: onboarding.partnerCity, date: calendar.date(byAdding: .month, value: -2, to: .now) ?? .now, note: "Every reunion, kept somewhere safe.", photoSeed: 1),
+            Memory(title: "Watching the sunset", place: onboarding.homeCity, date: calendar.date(byAdding: .day, value: -23, to: .now) ?? .now, note: "Save the moments that make the distance worth it.", photoSeed: 0),
+            Memory(title: "Our first kiss", place: onboarding.partnerCity, date: calendar.date(byAdding: .month, value: -2, to: .now) ?? .now, note: "Every reunion, kept somewhere safe.", photoSeed: 1),
             Memory(title: "Where we met", place: onboarding.homeCity, date: calendar.date(byAdding: .month, value: -4, to: .now) ?? .now, note: "The place it all started.", photoSeed: 2),
         ]
     }
@@ -70,12 +70,6 @@ struct MemoriesSellView: View {
                     Text(memory.date, format: .dateTime.day().month(.abbreviated).year())
                         .font(.caption)
                         .foregroundStyle(Theme.subtleInk)
-                    if !memory.note.isEmpty {
-                        Text(memory.note)
-                            .font(.caption)
-                            .foregroundStyle(Theme.subtleInk)
-                            .lineLimit(2)
-                    }
                 }
                 Spacer(minLength: 0)
             }

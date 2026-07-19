@@ -14,7 +14,7 @@ import SwiftUI
 
 enum OnboardingMemoryAssets {
     /// Indexed by `Memory.photoSeed` (0, 1, 2) — the same seed both sell screens already use.
-    static let imageNames = ["sunset", "trip", "where-we-met"]
+    static let imageNames = ["sunset", "park", "where-we-met"]
 
     static func imageName(forSeed seed: Int) -> String {
         imageNames[seed % imageNames.count]

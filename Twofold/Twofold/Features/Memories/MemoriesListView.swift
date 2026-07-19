@@ -197,10 +197,11 @@ struct MemoriesListView: View {
 
     private func memoryRow(_ memory: Memory) -> some View {
         SectionCard {
-            // `.center`, not `.top` — the text column's height varies with the note/city/date
-            // it's showing, and whenever that pushes the row taller than the 72pt photo, a
-            // top-aligned photo sits pinned to the row's top edge with visible empty space below
-            // it. Centering keeps the photo aligned with the text regardless of how tall it is.
+            // `.center`, not `.top` — a memory with no `place` shows two lines of text instead of
+            // three, and centering keeps the photo aligned with that shorter text column instead
+            // of pinned to the row's top edge with visible empty space below it. Deliberately
+            // excludes the note/description (title, location, date only) so every row's height
+            // stays consistent regardless of how long a memory's note is.
             HStack(alignment: .center, spacing: Theme.Spacing.md) {
                 MemoryPhotoView(memory: memory, cornerRadius: 14)
                     .frame(width: 72, height: 72)
@@ -218,12 +219,6 @@ struct MemoriesListView: View {
                     Text(memory.date, format: .dateTime.day().month(.abbreviated).year())
                         .font(.caption)
                         .foregroundStyle(Theme.subtleInk)
-                    if !memory.note.isEmpty {
-                        Text(memory.note)
-                            .font(.caption)
-                            .foregroundStyle(Theme.subtleInk)
-                            .lineLimit(2)
-                    }
                 }
                 Spacer(minLength: 0)
             }
