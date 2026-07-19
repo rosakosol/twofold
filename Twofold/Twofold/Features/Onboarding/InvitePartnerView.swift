@@ -9,11 +9,12 @@
 //  (the direct-to-connect sheet for locked cards elsewhere) use, so there's exactly one
 //  implementation of "connect with your partner" in the app, not a separate onboarding-only one.
 //
-//  If the user redeems a partner's code here (rather than sending their own), a real couple
-//  now exists — `applyOnboardingAccount` picks that up and flips `hasCouple`, which `RootView`
-//  uses to jump straight into `MainTabView`, skipping the remaining onboarding screens. That's
-//  correct: they've just joined an already-set-up couple, whose subscription already covers
-//  them (Twofold subscriptions are shared), so there's nothing left for them to set up.
+//  Redeeming a partner's code here only ever creates a pending request now (see
+//  RedeemPartnerCodeView, which already shows "request sent" before onRedeemSuccess fires) — the
+//  inviter still has to accept it before a real couple exists, so this can't jump straight into
+//  MainTabView the way it used to. Onboarding just continues normally; `RootView`'s own
+//  background refresh picks up the couple once accepted, same as any other post-onboarding
+//  connection.
 //
 
 import SwiftUI
@@ -30,12 +31,12 @@ struct InvitePartnerView: View {
             subtitle: "Send them your code, or enter theirs to connect right now.",
             content: {
                 PartnerConnectCard(
-                    firstName: onboarding.firstName,
                     inviteCode: $onboarding.inviteCode,
                     onRedeemSuccess: {
                         Task {
-                            // Picks up the couple that redeeming just created — if found, this
-                            // sets `appModel.hasCouple = true`, and `RootView` takes it from here.
+                            // Covers the rare case a couple already exists by the time we get
+                            // here (e.g. it was somehow already accepted) — otherwise this is a
+                            // no-op and onboarding just continues.
                             await appModel.applyOnboardingAccount(onboarding)
                             if !appModel.hasCouple {
                                 onboarding.path.append(.trialTrust)

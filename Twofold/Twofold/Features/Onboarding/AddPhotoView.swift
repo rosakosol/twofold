@@ -105,7 +105,7 @@ struct AddPhotoView: View {
     private func advance() {
         // This screen only lives on the preserved deep-link/manual-invite path now (the
         // default "Get started" flow has its own photo-free path), which is always invitee.
-        onboarding.path.append(.connectedReveal)
+        onboarding.path.append(.connectionRequestSent)
     }
 }
 

@@ -14,10 +14,10 @@ struct EnterPartnerCodeView: View {
     var body: some View {
         OnboardingScaffold(
             title: "Enter your partner's code",
-            subtitle: "It looks like NAME-1234.",
+            subtitle: "It looks like XXXX-XXXX.",
             content: {
                 VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-                    TextField("e.g. ROSA-4821", text: $code)
+                    TextField("e.g. ABCD-EFGH", text: $code)
                         .textInputAutocapitalization(.characters)
                         .autocorrectionDisabled()
                         .padding()
@@ -38,7 +38,6 @@ struct EnterPartnerCodeView: View {
     private func continueTapped() {
         let trimmed = code.trimmingCharacters(in: .whitespaces).uppercased()
         onboarding.inviteCode = trimmed
-        onboarding.inviterName = InviteCode.inviterName(from: trimmed)
 
         if onboarding.hasAccount {
             // Already mid-way through the inviter flow ("I have a partner code") — account
@@ -47,9 +46,12 @@ struct EnterPartnerCodeView: View {
             errorMessage = nil
             Task {
                 do {
+                    // Looked up before redeeming — the code has to still be genuinely pending
+                    // for this to resolve, which it no longer is the instant redeem succeeds.
+                    let name = try? await BackendService.inviterName(forCode: trimmed)
                     try await BackendService.redeemInviteCode(trimmed)
-                    onboarding.isPartnerConnected = true
-                    onboarding.path.append(.connectedReveal)
+                    onboarding.inviterName = name
+                    onboarding.path.append(.connectionRequestSent)
                 } catch {
                     errorMessage = error.localizedDescription
                 }

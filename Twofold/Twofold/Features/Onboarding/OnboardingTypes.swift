@@ -22,8 +22,7 @@ enum OnboardingStep: Hashable {
     case liveActivitySell
     case memoriesSell
     case mapSell
-    case widgetSell
-    case addFirstTrip
+    case firstMemoryIntro
     case firstMemory
     case twofoldPreview
     case saveAccount
@@ -40,7 +39,7 @@ enum OnboardingStep: Hashable {
     case shareInvite
     case enterPartnerCode
     case joinInvite
-    case connectedReveal
+    case connectionRequestSent
     case nextTrip
     case addTripDetails
     case reveal
@@ -64,8 +63,7 @@ enum OnboardingStep: Hashable {
         case .liveActivitySell: "Onboarding: Live Activity Sell"
         case .memoriesSell: "Onboarding: Memories Sell"
         case .mapSell: "Onboarding: Map Sell"
-        case .widgetSell: "Onboarding: Widget Sell"
-        case .addFirstTrip: "Onboarding: Add First Trip"
+        case .firstMemoryIntro: "Onboarding: First Memory Intro"
         case .firstMemory: "Onboarding: First Memory"
         case .twofoldPreview: "Onboarding: Twofold Preview"
         case .saveAccount: "Onboarding: Save Account"
@@ -80,7 +78,7 @@ enum OnboardingStep: Hashable {
         case .shareInvite: "Onboarding: Share Invite"
         case .enterPartnerCode: "Onboarding: Enter Partner Code"
         case .joinInvite: "Onboarding: Join Invite"
-        case .connectedReveal: "Onboarding: Connected Reveal"
+        case .connectionRequestSent: "Onboarding: Connection Request Sent"
         case .nextTrip: "Onboarding: Next Trip"
         case .addTripDetails: "Onboarding: Add Trip Details"
         case .reveal: "Onboarding: Reveal"

@@ -6,12 +6,17 @@
 import SwiftUI
 import PhotosUI
 import PostHog
+import MapKit
 
 struct AddMemoryView: View {
     @Environment(AppModel.self) private var appModel
     @Environment(\.dismiss) private var dismiss
 
     private let existingMemory: Memory?
+    /// `false` for onboarding's mandatory first-memory step (see `FirstMemoryView`) — hides the
+    /// Cancel button and disables swipe-to-dismiss, so saving a memory is the only way off this
+    /// screen. Every other call site (the real Memories tab) leaves this at the default.
+    var isDismissable: Bool = true
 
     @State private var title: String
     @State private var place: Place?
@@ -29,6 +34,8 @@ struct AddMemoryView: View {
     @State private var showingDatePicker = false
     @State private var showingTimePicker = false
     @State private var showingLocationSearch = false
+    @State private var locationService = HomeLocationService()
+    @State private var mapCameraPosition: MapCameraPosition
 
     private struct PendingPhoto: Identifiable {
         let id = UUID()
@@ -36,13 +43,17 @@ struct AddMemoryView: View {
         var data: Data
     }
 
-    init(existingMemory: Memory? = nil) {
+    init(existingMemory: Memory? = nil, isDismissable: Bool = true) {
         self.existingMemory = existingMemory
+        self.isDismissable = isDismissable
         _title = State(initialValue: existingMemory?.title ?? "")
         _place = State(initialValue: existingMemory?.place)
         _date = State(initialValue: existingMemory?.date ?? .now)
         _note = State(initialValue: existingMemory?.note ?? "")
         _existingPhotos = State(initialValue: existingMemory?.photos ?? [])
+        _mapCameraPosition = State(initialValue: existingMemory?.place.map {
+            .region(MKCoordinateRegion(center: $0.coordinate, latitudinalMeters: 4000, longitudinalMeters: 4000))
+        } ?? .automatic)
     }
 
     private var isEditing: Bool { existingMemory != nil }
@@ -53,42 +64,65 @@ struct AddMemoryView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: Theme.Spacing.md) {
-                        titleRow
-                        dateLocationSummary
-                        noteField
+            GeometryReader { geo in
+                VStack(spacing: 0) {
+                    locationMap
+                        .frame(height: geo.size.height / 2)
 
-                        if !existingPhotos.isEmpty || !pendingPhotos.isEmpty {
-                            photoStrip
-                        }
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+                            titleRow
+                            dateLocationSummary
+                            noteField
 
-                        if let errorMessage {
-                            Text(errorMessage)
-                                .font(.caption)
-                                .foregroundStyle(Theme.heartRed)
+                            if !existingPhotos.isEmpty || !pendingPhotos.isEmpty {
+                                photoStrip
+                            }
+
+                            if let errorMessage {
+                                Text(errorMessage)
+                                    .font(.caption)
+                                    .foregroundStyle(Theme.heartRed)
+                            }
                         }
+                        .padding(Theme.Spacing.lg)
+                        .padding(.bottom, 72)
                     }
-                    .padding(Theme.Spacing.lg)
-                    .padding(.bottom, 72)
+                    bottomBar
                 }
-                bottomBar
             }
             .background(Theme.backgroundGradient.ignoresSafeArea())
             .navigationTitle(isEditing ? "Edit memory" : "Add a memory")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") { dismiss() }
+                if isDismissable {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("Cancel") { dismiss() }
+                    }
                 }
             }
+            .interactiveDismissDisabled(!isDismissable)
             .onAppear {
-                // New memories default to the user's own home city — location is required to
+                // New memories default to the device's actual current location (falling back to
+                // the user's own home city until/unless that resolves) — location is required to
                 // save, so this means most people never have to think about it, while still
                 // leaving it changeable for a memory made somewhere else.
                 if !isEditing, place == nil {
                     place = appModel.currentUser.homeCity
+                    locationService.requestCurrentLocation()
+                }
+            }
+            .onChange(of: locationService.state) { _, newState in
+                guard case .resolved(let resolved) = newState else { return }
+                // Only replace the home-city fallback set above — never a location the user has
+                // since picked manually (from the search sheet) while this was still resolving.
+                guard place == appModel.currentUser.homeCity else { return }
+                place = resolved
+            }
+            .onChange(of: place) { _, newPlace in
+                guard let newPlace else { return }
+                withAnimation {
+                    mapCameraPosition = .region(MKCoordinateRegion(center: newPlace.coordinate, latitudinalMeters: 4000, longitudinalMeters: 4000))
                 }
             }
             .onChange(of: selectedItems) { _, newItems in
@@ -101,6 +135,21 @@ struct AddMemoryView: View {
             .sheet(isPresented: $showingTimePicker) { timePickerSheet }
         }
         .postHogScreenView("Memories: Add/Edit Memory")
+    }
+
+    /// Fills the top half of the screen (see `body`) — a live preview of the memory's location,
+    /// centered on the device's current location by default (same value `place` itself defaults
+    /// to) and recentering whenever `place` changes. Tapping it opens the same location search
+    /// sheet the mappin toolbar icon does, so it doubles as a large, obvious tap target for
+    /// changing the location rather than just a static preview.
+    private var locationMap: some View {
+        Map(position: $mapCameraPosition) {
+            if let place {
+                Marker(place.displayCity, coordinate: place.coordinate)
+                    .tint(Theme.heartRed)
+            }
+        }
+        .onTapGesture { showingLocationSearch = true }
     }
 
     private var titleRow: some View {

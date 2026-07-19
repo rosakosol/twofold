@@ -66,7 +66,10 @@ struct LiveActivitySellView: View {
         LockScreenPhoneMock(now: now) {
             lockScreenMock
                 .padding(.horizontal, 10)
-                .padding(.top, 270)
+                // Matches `NotificationsSellView`'s own top offset against the same 500pt-tall
+                // chassis — was 270, which put the card's bottom edge too close to the pinned
+                // Continue button below. Also gives more breathing room above the card itself.
+                .padding(.top, 240)
                 .shadow(color: .black.opacity(0.45), radius: 28, x: 0, y: 16)
                 .scaleEffect(cardVisible ? 1 : 0.85)
                 .opacity(cardVisible ? 1 : 0)

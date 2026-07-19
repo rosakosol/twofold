@@ -6,16 +6,18 @@
 //  identically everywhere a user can start pairing: onboarding's InvitePartnerView,
 //  post-onboarding's PartnerSetupView, and PartnerRequiredGateView (the direct-to-connect sheet
 //  shown when tapping any partner-required-locked card elsewhere in the app). Extracted out of
-//  PartnerSetupView, which used to have its own copy of this — parameterized by `firstName`/
-//  `inviteCode` binding rather than reaching into AppModel directly, since onboarding's own
-//  invite code lives on OnboardingModel, not AppModel, until account creation completes.
+//  PartnerSetupView, which used to have its own copy of this — parameterized by an `inviteCode`
+//  binding rather than reaching into AppModel directly, since onboarding's own invite code lives
+//  on OnboardingModel, not AppModel, until account creation completes.
+//
+//  Redeeming a code no longer connects instantly — it sends a request the inviter has to accept
+//  (see `RedeemPartnerCodeView`), so `onRedeemSuccess` here really means "request sent."
 //
 
 import PostHog
 import SwiftUI
 
 struct PartnerConnectCard: View {
-    let firstName: String
     @Binding var inviteCode: String?
     var onRedeemSuccess: () -> Void = {}
 
@@ -33,7 +35,7 @@ struct PartnerConnectCard: View {
                 Task {
                     isCreatingInvite = true
                     if inviteCode == nil {
-                        inviteCode = try? await BackendService.createInviteCode(firstName: firstName)
+                        inviteCode = try? await BackendService.createInviteCode()
                     }
                     isCreatingInvite = false
                     if inviteCode != nil { showingShareInvite = true }
@@ -82,7 +84,7 @@ struct PartnerConnectCard: View {
 }
 
 #Preview {
-    PartnerConnectCard(firstName: "Rosa", inviteCode: .constant(nil))
+    PartnerConnectCard(inviteCode: .constant(nil))
         .padding()
         .environment(AppModel())
 }

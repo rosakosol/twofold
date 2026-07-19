@@ -72,6 +72,9 @@ final class AppModel {
     /// backend (an active `couples` row exists), not assumed the moment a code is shared.
     var partnerConnected: Bool = false
     var inviteCode: String?
+    /// Incoming "someone wants to connect" requests awaiting my decision (I'm the inviter on
+    /// each of these) — see `refreshPendingConnectionRequests()`/`respondToConnectionRequest(_:accept:)`.
+    var pendingConnectionRequests: [BackendService.PendingConnectionRequest] = []
 
     /// Set whenever a newly-crossed, not-yet-shown review milestone is detected — RootView
     /// presents `ReviewPromptView` as a sheet whenever this is non-nil. See
@@ -428,6 +431,31 @@ final class AppModel {
             try? await BackendService.updateAnniversaryDate(date)
         }
         couple.startedDatingOn = date
+    }
+
+    /// Incoming connection requests (double verification — see the migration's own header
+    /// comment) — safe to call any time, including while already connected (just returns
+    /// empty), so call sites don't need to guard on `partnerConnected` themselves.
+    func refreshPendingConnectionRequests() async {
+        pendingConnectionRequests = (try? await BackendService.fetchPendingConnectionRequests()) ?? []
+    }
+
+    /// Accepts or declines an incoming request. On accept, re-checks couple state immediately
+    /// rather than waiting for the next foreground/background refresh — the whole point of
+    /// accepting right now is to connect right now. Returns an error message on failure, nil on
+    /// success (same shape as `removePartner()`).
+    @discardableResult
+    func respondToConnectionRequest(_ request: BackendService.PendingConnectionRequest, accept: Bool) async -> String? {
+        do {
+            let coupleID = try await BackendService.respondToConnectionRequest(id: request.id, accept: accept)
+            pendingConnectionRequests.removeAll { $0.id == request.id }
+            if coupleID != nil {
+                await refreshCoupleStateIfNeeded()
+            }
+            return nil
+        } catch {
+            return error.localizedDescription
+        }
     }
 
     /// Ends the current partnership. The couple row is dissolved, not deleted — every trip,

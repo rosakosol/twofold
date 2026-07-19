@@ -2,7 +2,7 @@
 //  MapSellView.swift
 //  Twofold
 //
-//  Feature-education screen, same idea as LiveActivitySellView/WidgetSellView — a small
+//  Feature-education screen, same idea as LiveActivitySellView/MemoriesSellView — a small
 //  illustrative map pinned near the couple's real home city, if picked earlier in onboarding.
 //  Comes right after MemoriesSellView's journal-style pitch, so this one is purely "and it's
 //  all mapped to where it happened." Markers reuse the exact visual from the real
@@ -69,7 +69,7 @@ struct MapSellView: View {
                 }
             },
             primaryTitle: "Continue",
-            primaryAction: { onboarding.path.append(.widgetSell) }
+            primaryAction: { onboarding.path.append(.firstMemoryIntro) }
         )
         .sensoryFeedback(.impact(weight: .light), trigger: shownPins)
     }

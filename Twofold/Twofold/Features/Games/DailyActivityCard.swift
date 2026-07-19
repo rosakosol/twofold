@@ -50,7 +50,7 @@ struct DailyActivityCard: View {
                 }
 
                 TimelineView(.periodic(from: .now, by: 1)) { context in
-                    Text(Self.countdownLabel(from: context.date))
+                    Text(countdownLabel(from: context.date))
                         .font(.caption2.weight(.medium))
                         .foregroundStyle(Theme.subtleInk)
                         .monospacedDigit()
@@ -132,20 +132,19 @@ struct DailyActivityCard: View {
             }
     }
 
-    /// The real "today" boundary the streak/daily-question logic resets on is UTC midnight —
-    /// `current_date` in `advance_game_session`'s Postgres trigger (Supabase's default session
-    /// timezone), not either partner's local day. Counting down to `Calendar.current`'s local
-    /// midnight here would promise a rollover time that has nothing to do with the actual one —
-    /// especially misleading for this app's whole premise of two partners in different
-    /// timezones, where a device-local countdown could show a completely different time to each
-    /// of them for the same real deadline.
-    private static func countdownLabel(from now: Date) -> String {
-        var utcCalendar = Calendar(identifier: .gregorian)
-        utcCalendar.timeZone = TimeZone(identifier: "UTC") ?? .current
-        guard let midnight = utcCalendar.nextDate(after: now, matching: DateComponents(hour: 0, minute: 0, second: 0), matchingPolicy: .nextTime) else {
-            return ""
-        }
-        let remaining = max(0, Int(midnight.timeIntervalSince(now)))
+    /// The real "today" boundary the streak/daily-question logic resets on is relative to this
+    /// couple's own `connectedAt` (see `Couple.connectedAt`'s doc comment and
+    /// `advance_game_session`'s Postgres trigger), not a shared UTC midnight — a couple that
+    /// connected mid-day would otherwise get an arbitrary partial first "day" before their very
+    /// first daily question could even reset. Mirrors the trigger's own
+    /// `floor((now - connectedAt) / 86400)` day-index math exactly, so the client's countdown
+    /// always lands on the same instant the backend actually resets at.
+    private func countdownLabel(from now: Date) -> String {
+        guard let connectedAt = appModel.couple.connectedAt else { return "" }
+        let dayLength: TimeInterval = 86400
+        let elapsedDays = (now.timeIntervalSince(connectedAt) / dayLength).rounded(.down)
+        let nextBoundary = connectedAt.addingTimeInterval((elapsedDays + 1) * dayLength)
+        let remaining = max(0, Int(nextBoundary.timeIntervalSince(now)))
         let hours = remaining / 3600
         let minutes = (remaining % 3600) / 60
         let seconds = remaining % 60

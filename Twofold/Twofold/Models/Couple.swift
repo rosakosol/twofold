@@ -10,12 +10,19 @@ struct Couple: Identifiable, Hashable {
     var partnerA: Person
     var partnerB: Person
     var startedDatingOn: Date
+    /// The real moment `redeem_invite_code` paired these two — nil only for the placeholder
+    /// couple a not-yet-connected solo user starts with. Drives the daily-question/streak reset
+    /// boundary (see `DailyActivityCard`), which is relative to this rather than a shared UTC
+    /// midnight — not to be confused with `startedDatingOn`, the couple's own real-world
+    /// anniversary date.
+    var connectedAt: Date?
 
-    init(id: UUID = UUID(), partnerA: Person, partnerB: Person, startedDatingOn: Date) {
+    init(id: UUID = UUID(), partnerA: Person, partnerB: Person, startedDatingOn: Date, connectedAt: Date? = nil) {
         self.id = id
         self.partnerA = partnerA
         self.partnerB = partnerB
         self.startedDatingOn = startedDatingOn
+        self.connectedAt = connectedAt
     }
 
     /// Whether both partners share the same home city — used to soften copy that would

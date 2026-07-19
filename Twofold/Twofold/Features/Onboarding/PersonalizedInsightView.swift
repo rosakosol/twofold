@@ -72,6 +72,14 @@ struct PersonalizedInsightView: View {
     private func distanceReveal(distanceKm: Double, myCity: Place, partnerCity: Place) -> some View {
         ScrollView {
             VStack(spacing: Theme.Spacing.lg) {
+                // Always visible (not staged like the reveal below it) — sets the emotional tone
+                // before the map/count-up animate in, the same way every other onboarding screen's
+                // title is already on screen before its own staged content plays.
+                Text("The distance is real!")
+                    .font(.system(.title, design: .rounded, weight: .bold))
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+
                 mapCard(myCity: myCity, partnerCity: partnerCity)
                     .opacity(stage >= 1 ? 1 : 0)
                     .scaleEffect(stage >= 1 ? 1 : 0.92)

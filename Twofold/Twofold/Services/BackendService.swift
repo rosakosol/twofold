@@ -723,6 +723,7 @@ enum BackendService {
         var partnerBId: UUID
         var status: String
         var dissolvedAt: Date?
+        var createdAt: Date
         /// `started_dating_on` is a bare Postgres `date` column ("2025-02-08", no time/zone) —
         /// decoding it straight to `Date` throws under the client's timestamp-with-time-zone
         /// strategy, the same reason `ProfileRow.anniversaryDate` is `String?` too. That throw
@@ -738,6 +739,7 @@ enum BackendService {
             case partnerBId = "partner_b_id"
             case dissolvedAt = "dissolved_at"
             case startedDatingOnRaw = "started_dating_on"
+            case createdAt = "created_at"
         }
 
         var startedDatingOn: Date? {
@@ -749,32 +751,151 @@ enum BackendService {
         var code: String
     }
 
-    static func createInviteCode(firstName: String) async throws -> String {
-        struct Params: Encodable {
-            var pFirstName: String
-            enum CodingKeys: String, CodingKey { case pFirstName = "p_first_name" }
-        }
+    /// Fully random (no name baked in — see the migration's own header comment for why),
+    /// generated server-side.
+    static func createInviteCode() async throws -> String {
         let row: InviteCodeRow = try await supabase
-            .rpc("create_invite_code", params: Params(pFirstName: firstName))
+            .rpc("create_invite_code")
             .single()
             .execute()
             .value
         return row.code
     }
 
+    /// The invite code's real inviter name, looked up server-side rather than guessed from the
+    /// code's own text (codes carry no name information at all now). Nil if the code doesn't
+    /// resolve to a still-pending, unexpired invite.
+    static func inviterName(forCode code: String) async throws -> String? {
+        struct Params: Encodable {
+            var pCode: String
+            enum CodingKeys: String, CodingKey { case pCode = "p_code" }
+        }
+        let name: String? = try await supabase
+            .rpc("get_invite_code_inviter_name", params: Params(pCode: code))
+            .execute()
+            .value
+        return name
+    }
+
+    private struct RedeemInviteCodeResult: Decodable {
+        var id: UUID
+        var inviterId: UUID
+
+        enum CodingKeys: String, CodingKey {
+            case id
+            case inviterId = "inviter_id"
+        }
+    }
+
+    /// Redeeming a code no longer immediately creates a couple — it creates a pending
+    /// connection request only the inviter can accept (`respondToConnectionRequest`), so a
+    /// brute-forced or mistyped-by-someone-else code can't silently pair an attacker as the
+    /// partner. Returns the request's id. Notifies the inviter directly (baked in here, not left
+    /// to each of the several call sites, so it can't be forgotten from one of them) — there's
+    /// no couple yet to resolve a recipient through, unlike `notifyPartner`.
     @discardableResult
     static func redeemInviteCode(_ code: String) async throws -> UUID {
         struct Params: Encodable {
             var pCode: String
             enum CodingKeys: String, CodingKey { case pCode = "p_code" }
         }
-        let row: CoupleRow = try await supabase
+        let row: RedeemInviteCodeResult = try await supabase
             .rpc("redeem_invite_code", params: Params(pCode: code))
             .single()
             .execute()
             .value
         Analytics.capture(Analytics.Event.inviteRedeem)
+        Task { await notifyConnectionRequest(eventType: "connection_requested", targetProfileId: row.inviterId) }
         return row.id
+    }
+
+    struct OutgoingConnectionRequest: Decodable {
+        var id: UUID
+        var status: String
+        var createdAt: Date
+
+        enum CodingKeys: String, CodingKey {
+            case id, status
+            case createdAt = "created_at"
+        }
+    }
+
+    /// My own outgoing request, if I have one still pending — lets the "waiting for them to
+    /// accept" UI survive a relaunch instead of only being known right after redeeming.
+    static func fetchMyOutgoingConnectionRequest() async throws -> OutgoingConnectionRequest? {
+        guard let userID = currentUserID else { return nil }
+        let rows: [OutgoingConnectionRequest] = try await supabase
+            .from("connection_requests")
+            .select("id, status, created_at")
+            .eq("requester_id", value: userID)
+            .eq("status", value: "pending")
+            .limit(1)
+            .execute()
+            .value
+        return rows.first
+    }
+
+    struct PendingConnectionRequest: Identifiable, Decodable {
+        var id: UUID
+        var requesterId: UUID
+        var requesterFirstName: String
+        var requesterAvatarPath: String?
+        var createdAt: Date
+
+        enum CodingKeys: String, CodingKey {
+            case id
+            case requesterId = "requester_id"
+            case requesterFirstName = "requester_first_name"
+            case requesterAvatarPath = "requester_avatar_path"
+            case createdAt = "created_at"
+        }
+    }
+
+    /// Incoming requests awaiting my decision (I'm the inviter on each of these).
+    static func fetchPendingConnectionRequests() async throws -> [PendingConnectionRequest] {
+        try await supabase.rpc("fetch_pending_connection_requests").execute().value
+    }
+
+    /// Accepts or declines an incoming request — only callable by the request's own inviter.
+    /// Returns the newly created couple's id on accept, nil on decline. Notifies the original
+    /// requester directly on accept (baked in here for the same reason `redeemInviteCode` bakes
+    /// in its own notify call) — `row.partnerBId` is the requester, per the insert order
+    /// `respond_to_connection_request` itself uses.
+    @discardableResult
+    static func respondToConnectionRequest(id: UUID, accept: Bool) async throws -> UUID? {
+        struct Params: Encodable {
+            var pRequestId: UUID
+            var pAccept: Bool
+            enum CodingKeys: String, CodingKey {
+                case pRequestId = "p_request_id"
+                case pAccept = "p_accept"
+            }
+        }
+        let row: CoupleRow? = try await supabase
+            .rpc("respond_to_connection_request", params: Params(pRequestId: id, pAccept: accept))
+            .execute()
+            .value
+        if let row {
+            Task { await notifyConnectionRequest(eventType: "connection_accepted", targetProfileId: row.partnerBId) }
+        }
+        return row?.id
+    }
+
+    /// Shared by `redeemInviteCode`/`respondToConnectionRequest` — unlike `notifyPartner`,
+    /// there's no couple to resolve a recipient through (that's the whole point pre-acceptance),
+    /// so the target profile is passed explicitly.
+    private static func notifyConnectionRequest(eventType: String, targetProfileId: UUID) async {
+        guard let accessToken = currentAccessToken else { return }
+        let body: [String: Any] = ["eventType": eventType, "targetProfileId": targetProfileId.uuidString]
+
+        var request = URLRequest(url: SupabaseConfig.projectURL.appendingPathComponent("functions/v1/notify-connection-request"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(SupabaseConfig.publishableKey, forHTTPHeaderField: "apiKey")
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        _ = try? await URLSession.shared.data(for: request)
     }
 
     // MARK: - Remove partner / archived data
@@ -981,7 +1102,8 @@ enum BackendService {
             // Couple-level once paired (`redeem_invite_code` seeds it from whichever partner set
             // one during onboarding) — `.now` is only a last-resort fallback for the rare case
             // neither partner ever set one.
-            startedDatingOn: coupleRow.startedDatingOn ?? .now
+            startedDatingOn: coupleRow.startedDatingOn ?? .now,
+            connectedAt: coupleRow.createdAt
         )
 
         let flights = flightRows.map { Self.makeFlight(from: $0) }

@@ -88,7 +88,8 @@ struct PartnerSetupView: View {
                     }
 
                     if !appModel.partnerConnected {
-                        PartnerConnectCard(firstName: appModel.currentUser.name, inviteCode: $appModel.inviteCode)
+                        PendingConnectionRequestsCard()
+                        PartnerConnectCard(inviteCode: $appModel.inviteCode)
                     }
                 }
                 .padding(Theme.Spacing.md)
@@ -117,6 +118,9 @@ struct PartnerSetupView: View {
                 partnerName = appModel.partner.name == "Partner" ? "" : appModel.partner.name
                 partnerCity = appModel.partner.homeCity
                 anniversaryDate = appModel.couple.startedDatingOn
+            }
+            .task {
+                await appModel.refreshPendingConnectionRequests()
             }
         }
         .postHogScreenView("Settings: Partner Setup")

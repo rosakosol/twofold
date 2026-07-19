@@ -8,6 +8,10 @@
 //  onboarding's NavigationStack (pushing a view that owns its own stack crashes with
 //  AnyNavigationPath.Error.comparisonTypeMismatch).
 //
+//  `isDismissable: false` — adding a first memory is mandatory here, not optional like every
+//  other `AddMemoryView` call site. `onDismiss` below only fires once `save()` itself calls
+//  `dismiss()`, so advancing onboarding here really does mean a memory was saved.
+//
 
 import SwiftUI
 
@@ -22,7 +26,7 @@ struct FirstMemoryView: View {
             .sheet(isPresented: $showingForm, onDismiss: {
                 onboarding.path.append(.twofoldPreview)
             }) {
-                AddMemoryView()
+                AddMemoryView(isDismissable: false)
             }
     }
 }

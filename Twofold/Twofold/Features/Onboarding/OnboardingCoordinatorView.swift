@@ -72,20 +72,10 @@ struct OnboardingCoordinatorView: View {
             MemoriesSellView()
         case .mapSell:
             MapSellView()
-        case .widgetSell:
-            WidgetSellView()
         case .invitePartner:
             InvitePartnerView()
-        case .addFirstTrip:
-            AddTripDetailsView(
-                mode: .onboarding,
-                partnerName: onboarding.partnerName,
-                onSave: { trip in
-                    onboarding.draftedTrip = trip
-                    onboarding.path.append(.firstMemory)
-                },
-                onSkip: { onboarding.path.append(.firstMemory) }
-            )
+        case .firstMemoryIntro:
+            FirstMemoryIntroView()
         case .firstMemory:
             FirstMemoryView()
         case .twofoldPreview:
@@ -117,8 +107,10 @@ struct OnboardingCoordinatorView: View {
             EnterPartnerCodeView()
         case .joinInvite:
             JoinInviteView()
-        case .connectedReveal:
-            ConnectedRevealView()
+        case .connectionRequestSent:
+            ConnectionRequestSentView(inviterName: onboarding.inviterName ?? "your partner") {
+                onboarding.path.append(.nextTrip)
+            }
         case .nextTrip:
             NextTripView()
         case .addTripDetails:

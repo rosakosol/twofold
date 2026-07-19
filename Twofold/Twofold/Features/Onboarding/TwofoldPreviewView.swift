@@ -120,6 +120,30 @@ struct TwofoldPreviewView: View {
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
+
+                    // The memory just saved on the mandatory `FirstMemoryView` step right before
+                    // this screen — `.last` since onboarding only ever adds that one memory, so
+                    // `appModel.memories` is otherwise still empty at this point.
+                    if let memory = appModel.memories.last {
+                        SectionCard {
+                            HStack(spacing: Theme.Spacing.md) {
+                                MemoryPhotoView(memory: memory, cornerRadius: 12)
+                                    .frame(width: 56, height: 56)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(memory.title)
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(Theme.ink)
+                                    if let place = memory.place {
+                                        Text(place.city)
+                                            .font(.caption)
+                                            .foregroundStyle(Theme.subtleInk)
+                                    }
+                                }
+                                Spacer(minLength: 0)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 }
             },
             primaryTitle: "Continue",

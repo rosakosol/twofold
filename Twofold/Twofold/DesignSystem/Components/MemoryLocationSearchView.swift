@@ -26,6 +26,22 @@ struct MemoryLocationSearchView: View {
     @State private var isResolving = false
     @State private var errorMessage: String?
 
+    private var resolvedCurrentPlace: Place? {
+        if case .resolved(let place) = locationService.state { return place }
+        return nil
+    }
+
+    /// The bundled common-cities list, nearest-first to wherever the device actually is right
+    /// now — empty until that resolves, rather than showing an arbitrary unsorted list that
+    /// wouldn't really be "nearby" anything.
+    private var nearbyCitySuggestions: [Place] {
+        guard let current = resolvedCurrentPlace else { return [] }
+        return Place.commonCities
+            .sorted { Geo.distanceKm($0.coordinate, current.coordinate) < Geo.distanceKm($1.coordinate, current.coordinate) }
+            .prefix(5)
+            .map { $0 }
+    }
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
@@ -49,6 +65,35 @@ struct MemoryLocationSearchView: View {
                 .frame(height: 220)
 
                 List {
+                    // Only before typing anything — once there's a query, live search results
+                    // below are more relevant than these, same convention `CitySearchView` uses.
+                    if completer.queryFragment.trimmingCharacters(in: .whitespaces).isEmpty {
+                        if let resolvedCurrentPlace {
+                            Button {
+                                onSelect(resolvedCurrentPlace)
+                                dismiss()
+                            } label: {
+                                HStack {
+                                    Image(systemName: "location.fill").foregroundStyle(Theme.skyBlue)
+                                    locationRow(title: "Current location", subtitle: "\(resolvedCurrentPlace.displayCity), \(resolvedCurrentPlace.country)")
+                                }
+                            }
+                        }
+
+                        if !nearbyCitySuggestions.isEmpty {
+                            Section("Nearby") {
+                                ForEach(nearbyCitySuggestions) { place in
+                                    Button {
+                                        onSelect(place)
+                                        dismiss()
+                                    } label: {
+                                        locationRow(title: place.city, subtitle: place.country)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     if let droppedPin {
                         Button {
                             useDroppedPin(droppedPin)

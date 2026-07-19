@@ -3,8 +3,10 @@
 //  Twofold
 //
 //  Sharing/parsing helpers for partner invite links. The actual code is always issued by the
-//  backend (`create_invite_code` RPC) and validated on redeem (`redeem_invite_code` RPC) — this
-//  type only builds/parses the URL around it.
+//  backend (`create_invite_code` RPC, fully random letters — carries no name information) and
+//  validated on redeem (`redeem_invite_code` RPC) — this type only builds/parses the URL around
+//  it. The inviter's display name is a real backend lookup now (`BackendService.inviterName
+//  (forCode:)`), not something guessable from the code's own text.
 //
 //  Shared as a Universal Link (`https://www.twofoldapp.com.au/invite/CODE`) so it also works for
 //  someone who doesn't have Twofold installed yet — tapping it opens the app directly if
@@ -20,13 +22,6 @@ import Foundation
 
 enum InviteCode {
     static let universalLinkHost = "www.twofoldapp.com.au"
-
-    /// A locally-guessed display name from the code's prefix, shown before the real inviter's
-    /// name is known (the backend doesn't return one on redeem) — e.g. "ROSA-4821" → "Rosa".
-    static func inviterName(from code: String) -> String {
-        let prefix = code.split(separator: "-").first.map(String.init) ?? "your partner"
-        return prefix.capitalized
-    }
 
     static func shareURL(for code: String) -> URL {
         URL(string: "https://\(universalLinkHost)/invite/\(code)")!

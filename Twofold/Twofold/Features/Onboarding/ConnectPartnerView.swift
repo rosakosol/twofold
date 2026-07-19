@@ -35,7 +35,7 @@ struct ConnectPartnerView: View {
                     errorMessage = nil
                     Task {
                         do {
-                            onboarding.inviteCode = try await BackendService.createInviteCode(firstName: onboarding.firstName)
+                            onboarding.inviteCode = try await BackendService.createInviteCode()
                             onboarding.path.append(.shareInvite)
                         } catch {
                             errorMessage = error.localizedDescription

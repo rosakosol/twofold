@@ -49,7 +49,10 @@ struct PartnerRequiredGateView: View {
                         .padding(.horizontal, Theme.Spacing.lg)
                 }
 
-                PartnerConnectCard(firstName: appModel.currentUser.name, inviteCode: $appModel.inviteCode)
+                PendingConnectionRequestsCard()
+                    .padding(.horizontal, Theme.Spacing.lg)
+
+                PartnerConnectCard(inviteCode: $appModel.inviteCode)
                     .padding(.horizontal, Theme.Spacing.lg)
 
                 Spacer()
@@ -59,6 +62,9 @@ struct PartnerRequiredGateView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Close") { dismiss() }
                 }
+            }
+            .task {
+                await appModel.refreshPendingConnectionRequests()
             }
         }
         .postHogScreenView("Partner Required Gate")
