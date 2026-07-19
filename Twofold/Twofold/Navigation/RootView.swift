@@ -101,8 +101,14 @@ struct RootView: View {
         // Tapping a delivered game-reminder/results-ready push notification lands here —
         // `PushNotificationDelegate` parses the payload and posts this rather than reaching into
         // AppModel directly (same reasoning as `.didRegisterForRemoteNotifications`).
+        //
+        // Also requires `isSubscriptionActive`: this fullScreenCover is chained onto the whole
+        // Group below, so it can present on top of the non-dismissable lapsed-subscription
+        // PaywallView just as easily as on top of MainTabView — an old notification sitting in
+        // Notification Center from before a lapse must not become a paywall bypass into live
+        // (including premium) gameplay.
         .onReceive(NotificationCenter.default.publisher(for: .didTapGameNotification)) { notification in
-            guard appModel.hasCouple, let link = notification.object as? GameNotificationDeepLink else { return }
+            guard appModel.hasCouple, appModel.isSubscriptionActive, let link = notification.object as? GameNotificationDeepLink else { return }
             gameDeepLink = SessionRoute(id: link.sessionID, gameType: link.gameType)
         }
         .fullScreenCover(item: $gameDeepLink) { route in
@@ -202,12 +208,19 @@ struct RootView: View {
     /// across both partners — see `BackendService.updateSubscriptionStatus`/
     /// `fetchSubscriptionActive`. No-ops before onboarding is done (`hasCouple == false`),
     /// since there's nothing to gate yet.
+    ///
+    /// Also refreshes `appModel.subscriptionTier`, which is otherwise only ever set at
+    /// couple-adoption time — without this, a mid-session upgrade/downgrade left every
+    /// `isPremiumLocked`/`isDeckLocked` check reading a stale tier until the next full relaunch.
     private func checkSubscription() async {
         guard appModel.hasCouple else { return }
         await subscriptionStore.refreshEntitlementsOnly()
         try? await BackendService.updateSubscriptionStatus(active: subscriptionStore.isSubscribed, tier: subscriptionStore.subscribedTier?.dbValue)
         if let active = try? await BackendService.fetchSubscriptionActive() {
             appModel.isSubscriptionActive = active
+        }
+        if let tier = try? await BackendService.fetchCoupleSubscriptionTier() {
+            appModel.subscriptionTier = tier
         }
     }
 

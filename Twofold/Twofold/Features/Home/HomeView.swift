@@ -554,6 +554,15 @@ struct HomeView: View {
         }
     }
 
+    /// Joins the resolvable names for a trip's travelers ("Alex" / "Alex & You") — falls back to
+    /// `appModel.partner.name` for the (common) case of a single unresolvable/placeholder id,
+    /// same fallback the old single-`travelerID` code used.
+    private func travelerNames(_ ids: [Person.ID]) -> String {
+        let names = ids.compactMap { appModel.couple.partner($0)?.name }
+        guard !names.isEmpty else { return appModel.partner.name }
+        return names.joined(separator: " & ")
+    }
+
     private func nextReunionCard(trip: Trip) -> some View {
         let daysToGo = max(0, Calendar.current.dateComponents([.day], from: .now, to: trip.departureDate).day ?? 0)
         return SectionCard {
@@ -575,7 +584,7 @@ struct HomeView: View {
 
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("\(appModel.couple.partner(trip.travelerID)?.name ?? appModel.partner.name) flies to you")
+                    Text("\(travelerNames(trip.travelerIDs)) flies to you")
                         .font(.subheadline)
                         .foregroundStyle(Theme.subtleInk)
                     HStack(spacing: Theme.Spacing.xs) {

@@ -50,7 +50,7 @@ enum MockData {
     }()
 
     static let reunionTrip = Trip(
-        travelerID: dara.id,
+        travelerIDs: [dara.id],
         origin: singapore,
         destination: melbourne,
         departureDate: activeFlight.scheduledDeparture,
@@ -76,7 +76,7 @@ enum MockData {
     }()
 
     static let pastTrip = Trip(
-        travelerID: rosa.id,
+        travelerIDs: [rosa.id],
         origin: melbourne,
         destination: singapore,
         departureDate: pastLandedFlight.scheduledDeparture,
@@ -88,7 +88,7 @@ enum MockData {
     )
 
     static let togetherTrip = Trip(
-        travelerID: dara.id,
+        travelerIDs: [dara.id, rosa.id],
         origin: singapore,
         destination: bangkok,
         departureDate: DateComponents(calendar: .current, year: 2024, month: 3, day: 2).date ?? .now,
@@ -99,7 +99,7 @@ enum MockData {
     )
 
     static let personalTrip = Trip(
-        travelerID: dara.id,
+        travelerIDs: [dara.id],
         origin: singapore,
         destination: tokyo,
         departureDate: Calendar.current.date(byAdding: .day, value: -160, to: .now) ?? .now,

@@ -996,7 +996,7 @@ enum BackendService {
 
             var trip = Trip(
                 id: row.id,
-                travelerID: row.travelerId,
+                travelerIDs: row.travelerIds,
                 origin: origin,
                 destination: destination,
                 departureDate: row.departureAt,
@@ -1069,7 +1069,7 @@ enum BackendService {
 
     private struct TripRow: Decodable {
         var id: UUID
-        var travelerId: UUID
+        var travelerIds: [UUID]
         var originId: UUID
         var destinationId: UUID
         var departureAt: Date
@@ -1080,7 +1080,7 @@ enum BackendService {
 
         enum CodingKeys: String, CodingKey {
             case id, category, notes
-            case travelerId = "traveler_id"
+            case travelerIds = "traveler_ids"
             case originId = "origin_id"
             case destinationId = "destination_id"
             case departureAt = "departure_at"
@@ -1092,7 +1092,7 @@ enum BackendService {
     private struct TripInsert: Encodable {
         var id: UUID
         var coupleId: UUID
-        var travelerId: UUID
+        var travelerIds: [UUID]
         var originId: UUID
         var destinationId: UUID
         var departureAt: Date
@@ -1103,7 +1103,7 @@ enum BackendService {
         enum CodingKeys: String, CodingKey {
             case id, category
             case coupleId = "couple_id"
-            case travelerId = "traveler_id"
+            case travelerIds = "traveler_ids"
             case originId = "origin_id"
             case destinationId = "destination_id"
             case departureAt = "departure_at"
@@ -1630,7 +1630,7 @@ enum BackendService {
                 TripInsert(
                     id: trip.id,
                     coupleId: coupleID,
-                    travelerId: trip.travelerID,
+                    travelerIds: trip.travelerIDs,
                     originId: originID,
                     destinationId: destinationID,
                     departureAt: trip.departureDate,
@@ -1643,7 +1643,7 @@ enum BackendService {
     }
 
     private struct TripUpdate: Encodable {
-        var travelerId: UUID
+        var travelerIds: [UUID]
         var originId: UUID
         var destinationId: UUID
         var departureAt: Date
@@ -1654,7 +1654,7 @@ enum BackendService {
 
         enum CodingKeys: String, CodingKey {
             case category, notes
-            case travelerId = "traveler_id"
+            case travelerIds = "traveler_ids"
             case originId = "origin_id"
             case destinationId = "destination_id"
             case departureAt = "departure_at"
@@ -1673,7 +1673,7 @@ enum BackendService {
             .from("trips")
             .update(
                 TripUpdate(
-                    travelerId: trip.travelerID,
+                    travelerIds: trip.travelerIDs,
                     originId: originID,
                     destinationId: destinationID,
                     departureAt: trip.departureDate,

@@ -96,14 +96,23 @@ struct JourneyLockScreenView: View {
         }
     }
 
-    private func airportColumn(code: String, city: String?, time: Date, alignment: HorizontalAlignment) -> some View {
+    /// `time` is nil when the provider hasn't supplied any schedule data for this leg yet —
+    /// renders "—" rather than a fabricated live "now" (see `JourneyActivityAttributes
+    /// .ContentState`'s doc comment).
+    private func airportColumn(code: String, city: String?, time: Date?, alignment: HorizontalAlignment) -> some View {
         VStack(alignment: alignment, spacing: 2) {
             Text(code)
                 .font(.system(size: 22, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
-            Text(time, style: .time)
-                .font(.subheadline)
-                .foregroundStyle(.white.opacity(0.7))
+            Group {
+                if let time {
+                    Text(time, style: .time)
+                } else {
+                    Text("—")
+                }
+            }
+            .font(.subheadline)
+            .foregroundStyle(.white.opacity(0.7))
         }
         .frame(minWidth: 60, alignment: alignment == .leading ? .leading : .trailing)
     }

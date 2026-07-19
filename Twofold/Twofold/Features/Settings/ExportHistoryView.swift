@@ -22,6 +22,15 @@ struct ExportHistoryView: View {
 
     @State private var tripDescriptions: [UUID: String] = [:]
     @State private var memoryDescriptions: [UUID: String] = [:]
+    /// Snapshots of `tripDescriptions`/`memoryDescriptions` as seeded, so `persistEditedDescriptions()`
+    /// can tell "the user actually typed something here" apart from "the live `trip.notes`/
+    /// `memory.note` changed underneath this screen" (e.g. the partner edited it elsewhere while
+    /// this screen was open and a background refresh replaced `appModel.trips`/`memories`).
+    /// Comparing the edit buffer against the live model value instead of this snapshot would
+    /// treat that drift as a user edit and write the screen's stale cached text back over the
+    /// partner's real change.
+    @State private var originalTripDescriptions: [UUID: String] = [:]
+    @State private var originalMemoryDescriptions: [UUID: String] = [:]
 
     @State private var flightAttachments: [UUID: [FlightDocument]] = [:]
     @State private var includeAttachments: [UUID: Bool] = [:]
@@ -337,8 +346,14 @@ struct ExportHistoryView: View {
         selectedTripIDs = Set(trips.map(\.id))
         selectedMemoryIDs = Set(memories.map(\.id))
         selectedFlightIDs = Set(standaloneFlights.map(\.id))
-        for trip in trips { tripDescriptions[trip.id] = trip.notes ?? "" }
-        for memory in memories { memoryDescriptions[memory.id] = memory.note }
+        for trip in trips {
+            tripDescriptions[trip.id] = trip.notes ?? ""
+            originalTripDescriptions[trip.id] = trip.notes ?? ""
+        }
+        for memory in memories {
+            memoryDescriptions[memory.id] = memory.note
+            originalMemoryDescriptions[memory.id] = memory.note
+        }
         for flight in standaloneFlights where selectedFlightIDs.contains(flight.id) {
             loadAttachmentsIfNeeded(flight)
         }
@@ -390,19 +405,22 @@ struct ExportHistoryView: View {
         }
     }
 
-    /// Only writes back the trip/memory records whose description text actually changed —
-    /// avoids a redundant network write for every unedited item on every export.
+    /// Only writes back the trip/memory records the user actually edited on this screen —
+    /// checked against the seed-time snapshot (`originalTripDescriptions`/
+    /// `originalMemoryDescriptions`), not the live `trip.notes`/`memory.note`, so a background
+    /// refresh that changed the live value while this screen was open (e.g. the partner edited
+    /// it elsewhere) is never mistaken for a local edit and overwritten.
     private func persistEditedDescriptions() async {
         for trip in trips where selectedTripIDs.contains(trip.id) {
             let edited = tripDescriptions[trip.id] ?? ""
-            guard edited != (trip.notes ?? "") else { continue }
+            guard edited != (originalTripDescriptions[trip.id] ?? "") else { continue }
             var updated = trip
             updated.notes = edited
             await appModel.updateTripNotes(updated)
         }
         for memory in memories where selectedMemoryIDs.contains(memory.id) {
             let edited = memoryDescriptions[memory.id] ?? ""
-            guard edited != memory.note else { continue }
+            guard edited != (originalMemoryDescriptions[memory.id] ?? "") else { continue }
             var updated = memory
             updated.note = edited
             await appModel.updateMemory(updated)

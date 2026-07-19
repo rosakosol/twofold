@@ -652,16 +652,17 @@ function computeTimeRemainingLabel(row: FlightRow): string {
 // Codable camelCase, no CodingKeys) — every Date field goes through toCocoaTimestamp, since
 // that's what Swift's default JSONDecoder expects, NOT Unix epoch.
 function computeLiveActivityContentState(row: FlightRow, isReunion: boolean): Record<string, unknown> {
-  const scheduledDeparture = row.scheduled_out ?? new Date().toISOString();
-  const scheduledArrival = row.scheduled_in ?? scheduledDeparture;
-
   return {
     status: row.status,
     progress: computeProgress(row),
     timeRemainingLabel: computeTimeRemainingLabel(row),
     isReunion,
-    scheduledDeparture: toCocoaTimestamp(new Date(scheduledDeparture)),
-    scheduledArrival: toCocoaTimestamp(new Date(scheduledArrival)),
+    // null (not a fabricated `new Date()`) when the provider hasn't supplied any schedule data
+    // yet — matches every other optional time field below, and lets the client render "not
+    // available" instead of a fake live "now" (see JourneyActivityAttributes.ContentState's doc
+    // comment, Swift side).
+    scheduledDeparture: row.scheduled_out ? toCocoaTimestamp(new Date(row.scheduled_out)) : null,
+    scheduledArrival: row.scheduled_in ? toCocoaTimestamp(new Date(row.scheduled_in)) : null,
     estimatedDeparture: row.estimated_out ? toCocoaTimestamp(new Date(row.estimated_out)) : null,
     estimatedArrival: row.estimated_in ? toCocoaTimestamp(new Date(row.estimated_in)) : null,
     actualDeparture: row.actual_out ? toCocoaTimestamp(new Date(row.actual_out)) : null,

@@ -273,10 +273,11 @@ final class GameSessionStore {
 
     /// Drains the local offline queue for this session, in the order the answers were recorded —
     /// called once on `load(sessionID:)` (if already online) and again whenever `NetworkMonitor`
-    /// reports a reconnect (see each typed game view's `.onChange(of:)`). A failed submit here is
-    /// swallowed and the entry dropped rather than retried indefinitely — `submitGameResponse` is
-    /// an upsert, so a repeat failure isn't a duplicate-key rejection to worry about losing, just
-    /// a genuine transient issue not worth blocking the rest of the queue over.
+    /// reports a reconnect (see each typed game view's `.onChange(of:)`). A failed submit here
+    /// stays queued for the next sync attempt rather than being dropped — `submitGameResponse` is
+    /// an upsert, so retrying a call that actually did succeed is safe, and dequeuing on failure
+    /// would silently and permanently lose the answer instead of just retrying a genuine
+    /// transient issue.
     func syncPendingResponses() async {
         guard let session, !isSyncingPendingResponses else { return }
         let pending = PendingGameResponseStore.forSession(session.id)
@@ -287,11 +288,21 @@ final class GameSessionStore {
         let myID = BackendService.currentUserID
         let wasAllMineAnsweredBefore = myID.map { hasAnsweredAllRounds(myID: $0) } ?? false
         for item in pending {
-            try? await BackendService.submitGameResponse(sessionID: item.sessionID, roundNumber: item.roundNumber, answerValue: item.answerValue, isCorrect: item.isCorrect)
-            PendingGameResponseStore.remove(id: item.id)
+            do {
+                try await BackendService.submitGameResponse(sessionID: item.sessionID, roundNumber: item.roundNumber, answerValue: item.answerValue, isCorrect: item.isCorrect)
+                PendingGameResponseStore.remove(id: item.id)
+            } catch {
+                // Left in the queue — retried on the next sync rather than lost.
+            }
         }
         pendingSyncCount = PendingGameResponseStore.forSession(session.id).count
         await refresh()
+        // Anything still queued after `refresh()` would otherwise vanish from `responses` —
+        // overwritten by the server's still-missing state — even though it's safely queued for
+        // a future retry, making a preserved answer look lost on screen.
+        for item in PendingGameResponseStore.forSession(session.id) {
+            applyOptimistic(item)
+        }
         if !wasRevealed, isRevealed {
             await BackendService.notifyPartner(event: .gameResultsReady, sessionID: session.id, gameType: session.gameType)
         } else if !wasAllMineAnsweredBefore, !isRevealed, let myID, hasAnsweredAllRounds(myID: myID) {

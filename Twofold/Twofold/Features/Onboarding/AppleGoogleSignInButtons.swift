@@ -28,10 +28,14 @@ struct AppleGoogleSignInButtons: View {
                 .signInWithAppleButtonStyle(.black)
                 .frame(height: 50)
                 .clipShape(Capsule())
+                .disabled(isSubmitting)
+                .opacity(isSubmitting ? 0.6 : 1)
 
             Button(action: continueWithGoogle) {
                 HStack(spacing: 10) {
-                    if let googleLogo {
+                    if isSubmitting {
+                        ProgressView().tint(Color(red: 0x1F / 255, green: 0x1F / 255, blue: 0x1F / 255))
+                    } else if let googleLogo {
                         googleLogo
                             .resizable()
                             .frame(width: 18, height: 18)
@@ -50,6 +54,8 @@ struct AppleGoogleSignInButtons: View {
                         Capsule().strokeBorder(Color(red: 0x74 / 255, green: 0x77 / 255, blue: 0x75 / 255), lineWidth: 1)
                     )
             )
+            .disabled(isSubmitting)
+            .opacity(isSubmitting ? 0.6 : 1)
         }
     }
 
@@ -63,6 +69,7 @@ struct AppleGoogleSignInButtons: View {
     }
 
     private func handleAppleCompletion(_ result: Result<ASAuthorization, Error>) {
+        guard !isSubmitting else { return }
         isSubmitting = true
         Task {
             do {
@@ -98,6 +105,7 @@ struct AppleGoogleSignInButtons: View {
     // MARK: - Google sign-in
 
     private func continueWithGoogle() {
+        guard !isSubmitting else { return }
         isSubmitting = true
         Task {
             do {

@@ -79,7 +79,7 @@ struct FlightTrackingView: View {
     /// flights don't require a linked trip; the trip's traveler is a fallback for older/
     /// trip-linked flights that predate that field.
     private var travelerIDs: [Person.ID] {
-        flight.travelerIDs.isEmpty ? linkedTrip.map { [$0.travelerID] } ?? [] : flight.travelerIDs
+        flight.travelerIDs.isEmpty ? linkedTrip.map { $0.travelerIDs } ?? [] : flight.travelerIDs
     }
 
     private var isTraveler: Bool {

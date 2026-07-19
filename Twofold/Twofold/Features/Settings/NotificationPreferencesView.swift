@@ -21,10 +21,18 @@ struct NotificationPreferencesView: View {
     @State private var dailyStreakReminder = true
     @State private var partnerInviteReminder = true
     @State private var isLoaded = false
+    @State private var loadFailed = false
 
     var body: some View {
         ScrollView {
             VStack(spacing: Theme.Spacing.md) {
+                if loadFailed {
+                    SectionCard {
+                        Text("Couldn't load your notification settings.").font(.subheadline)
+                        Button("Retry") { Task { await load() } }
+                    }
+                }
+
                 // Only meaningful pre-pairing — once `appModel.partner` is real, there's nothing
                 // left to be reminded to invite.
                 if !appModel.partnerConnected {
@@ -90,6 +98,7 @@ struct NotificationPreferencesView: View {
     }
 
     private func load() async {
+        loadFailed = false
         if let prefs = try? await BackendService.fetchCoupleNotificationPreferences() {
             partnerDrawingSaved = prefs.partnerDrawingSaved
             partnerTripAdded = prefs.partnerTripAdded
@@ -99,8 +108,14 @@ struct NotificationPreferencesView: View {
             partnerGamePartnerFinished = prefs.partnerGamePartnerFinished
             dailyStreakReminder = prefs.dailyStreakReminder
             partnerInviteReminder = prefs.partnerInviteReminder
+            // Only set once real preferences are actually in hand — otherwise the next single
+            // toggle flip's `saveIfLoaded()` would upsert all 8 fields at their hardcoded `true`
+            // defaults, silently reverting any previously-saved `false` preference on the
+            // backend.
+            isLoaded = true
+        } else {
+            loadFailed = true
         }
-        isLoaded = true
     }
 
     /// Individually-bound toggles saved as one upsert on change, same pattern as

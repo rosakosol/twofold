@@ -5,8 +5,9 @@
 //  Pure mapping from a Flight to the shared JourneyActivityAttributes/ContentState shape —
 //  used by LiveActivityManager to start/update Activities, and mirrored server-side (in TS) by
 //  supabase/functions/_shared/flight-sync.ts's notifyLiveActivity for push updates. Reuses
-//  Flight's own progress/countdownSummary/scheduledDeparture/scheduledArrival computed
-//  properties rather than recomputing them.
+//  Flight's own progress/countdownSummary computed properties rather than recomputing them, but
+//  deliberately reads `scheduledOut`/`scheduledIn` directly (not the `scheduledDeparture`/
+//  `scheduledArrival` computed properties, which fall back to `.now` when unknown).
 //
 
 import Foundation
@@ -32,8 +33,11 @@ extension Flight {
             progress: progress,
             timeRemainingLabel: countdownSummary,
             isReunion: isReunion,
-            scheduledDeparture: scheduledDeparture,
-            scheduledArrival: scheduledArrival,
+            // Raw optionals, not the fabricating `scheduledDeparture`/`scheduledArrival`
+            // computed properties (those fall back to `.now` when unknown) — see
+            // `JourneyActivityAttributes.ContentState`'s doc comment.
+            scheduledDeparture: scheduledOut,
+            scheduledArrival: scheduledIn,
             estimatedDeparture: estimatedOut,
             estimatedArrival: estimatedIn,
             actualDeparture: actualOut,

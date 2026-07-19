@@ -19,8 +19,9 @@ struct TripsListView: View {
         case flights = "Flights"
     }
 
-    private func traveler(for trip: Trip) -> Person {
-        appModel.couple.partner(trip.travelerID) ?? appModel.currentUser
+    private func travelers(for trip: Trip) -> [Person] {
+        let people = trip.travelerIDs.compactMap { appModel.couple.partner($0) }
+        return people.isEmpty ? [appModel.currentUser] : people
     }
 
     var body: some View {
@@ -108,7 +109,7 @@ struct TripsListView: View {
                     NavigationLink {
                         TripDetailsView(trip: trip)
                     } label: {
-                        TripRowView(trip: trip, traveler: traveler(for: trip))
+                        TripRowView(trip: trip, travelers: travelers(for: trip))
                     }
                 }
             }
@@ -121,7 +122,7 @@ struct TripsListView: View {
                     NavigationLink {
                         TripDetailsView(trip: trip)
                     } label: {
-                        TripRowView(trip: trip, traveler: traveler(for: trip))
+                        TripRowView(trip: trip, travelers: travelers(for: trip))
                     }
                 }
             }

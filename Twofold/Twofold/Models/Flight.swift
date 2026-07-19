@@ -261,6 +261,18 @@ struct Flight: Identifiable, Hashable {
     var bestDeparture: Date? { actualOut ?? estimatedOut ?? scheduledOut }
     var bestArrival: Date? { actualIn ?? estimatedIn ?? scheduledIn }
 
+    /// True while actively in progress, or within a 15-minute grace window after actual/
+    /// estimated/scheduled arrival — long enough that a flight doesn't vanish out of "active/
+    /// upcoming" (Home's carousel, `AppModel.activeOrUpcomingFlights`, `Trip.isActive`) the
+    /// instant its status flips to arrived/landed, giving a moment to still see "Landed"/baggage
+    /// info before it's archived into past flights. One shared definition so every "is this
+    /// still current" call site agrees, rather than each hand-rolling its own cutoff.
+    var isCurrentlyRelevant: Bool {
+        if status.isActivelyTracked { return true }
+        guard let arrival = bestArrival else { return false }
+        return arrival.addingTimeInterval(15 * 60) > .now
+    }
+
     /// The freshest of the two independent refresh cadences this flight has: schedule/status
     /// (from AeroAPI, re-checked every ~2 min while airborne) and live position (from free ADS-B
     /// mirrors, re-checked every ~1 min while airborne — see `syncLivePositionForFaFlightId` in

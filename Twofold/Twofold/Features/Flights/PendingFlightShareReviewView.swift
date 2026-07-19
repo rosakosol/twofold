@@ -74,11 +74,14 @@ struct PendingFlightShareReviewView: View {
     }
 
     private func prefill(from extracted: ExtractedFlightDetails) -> AddTripDetailsView.Prefill {
+        // `extracted.arrivalDate` is this same flight's own landing time (a few hours after
+        // departure), not a real return-trip date — passing it as `returnDate` would prefill
+        // "Returning" to the same day as "Departing". Leaving it nil instead lets
+        // `AddTripDetailsView`'s own init fall back to departure + 14 days, same as manual entry.
         AddTripDetailsView.Prefill(
             origin: extracted.matchedOrigin,
             destination: extracted.matchedDestination,
             departureDate: extracted.departureDate,
-            returnDate: extracted.arrivalDate,
             flightNumber: extracted.flightNumber
         )
     }

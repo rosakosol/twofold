@@ -22,7 +22,7 @@ struct EditTripView: View {
     @State private var departureDate: Date
     @State private var arrivalDate: Date
     @State private var isReunionTrip: Bool
-    @State private var isPartnerTraveling: Bool
+    @State private var traveler: TripTraveler
     @State private var notes: String
     @State private var isSaving = false
 
@@ -34,7 +34,7 @@ struct EditTripView: View {
         _arrivalDate = State(initialValue: trip.arrivalDate)
         _isReunionTrip = State(initialValue: trip.isReunionTrip)
         _notes = State(initialValue: trip.notes ?? "")
-        _isPartnerTraveling = State(initialValue: false)
+        _traveler = State(initialValue: .you)
     }
 
     private var canSave: Bool {
@@ -51,13 +51,21 @@ struct EditTripView: View {
             Section {
                 DatePicker("Departing", selection: $departureDate, displayedComponents: [.date, .hourAndMinute])
                 DatePicker("Returning", selection: $arrivalDate, in: departureDate..., displayedComponents: [.date, .hourAndMinute])
+                    // See AddTripDetailsView's identical `.onChange` — the `in:` bound alone
+                    // doesn't retroactively re-clamp `arrivalDate` when `departureDate` moves
+                    // past it.
+                    .onChange(of: departureDate) { _, newValue in
+                        if arrivalDate < newValue { arrivalDate = newValue }
+                    }
             }
 
             Section {
-                Picker("Who's travelling?", selection: $isPartnerTraveling) {
-                    Text(appModel.currentUser.name).tag(false)
-                    Text(appModel.partner.name).tag(true)
+                Picker("Who's travelling?", selection: $traveler) {
+                    Text(appModel.currentUser.name).tag(TripTraveler.you)
+                    Text(appModel.partner.name).tag(TripTraveler.partner)
+                    Text("Both").tag(TripTraveler.both)
                 }
+                .pickerStyle(.segmented)
                 Toggle("Is this a reunion trip?", isOn: $isReunionTrip)
             }
 
@@ -84,7 +92,14 @@ struct EditTripView: View {
             }
         }
         .onAppear {
-            isPartnerTraveling = trip.travelerID == appModel.partner.id
+            let ids = Set(trip.travelerIDs)
+            if ids == Set([appModel.currentUser.id, appModel.partner.id]) {
+                traveler = .both
+            } else if ids.contains(appModel.partner.id) {
+                traveler = .partner
+            } else {
+                traveler = .you
+            }
         }
         .postHogScreenView("Travel: Edit Trip")
     }
@@ -98,7 +113,13 @@ struct EditTripView: View {
         updated.departureDate = departureDate
         updated.arrivalDate = arrivalDate
         updated.isReunionTrip = isReunionTrip
-        updated.travelerID = isPartnerTraveling ? appModel.partner.id : appModel.currentUser.id
+        updated.travelerIDs = {
+            switch traveler {
+            case .you: return [appModel.currentUser.id]
+            case .partner: return [appModel.partner.id]
+            case .both: return [appModel.currentUser.id, appModel.partner.id]
+            }
+        }()
         let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
         updated.notes = trimmedNotes.isEmpty ? nil : trimmedNotes
 

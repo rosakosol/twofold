@@ -7,7 +7,11 @@ import SwiftUI
 
 struct TripRowView: View {
     let trip: Trip
-    let traveler: Person
+    let travelers: [Person]
+
+    private var travelerNames: String {
+        travelers.map(\.name).joined(separator: " & ")
+    }
 
     private var statusBadge: (text: String, tint: Color)? {
         guard let flight = trip.flight else { return nil }
@@ -25,10 +29,19 @@ struct TripRowView: View {
 
     var body: some View {
         HStack(spacing: Theme.Spacing.md) {
-            AvatarView(person: traveler, size: 44)
+            if travelers.count > 1 {
+                HStack(spacing: -12) {
+                    ForEach(travelers) { person in
+                        AvatarView(person: person, size: 36)
+                            .overlay(Circle().stroke(Theme.cardBackground, lineWidth: 2))
+                    }
+                }
+            } else {
+                AvatarView(person: travelers[0], size: 44)
+            }
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(trip.notes ?? "\(traveler.name) flies to \(trip.destination.city)")
+                Text(trip.notes ?? "\(travelerNames) flies to \(trip.destination.city)")
                     .font(.subheadline)
                     .foregroundStyle(Theme.subtleInk)
                 HStack(spacing: Theme.Spacing.xs) {

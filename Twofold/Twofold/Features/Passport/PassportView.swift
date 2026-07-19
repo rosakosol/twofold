@@ -242,8 +242,8 @@ private struct FullStatsView: View {
     private var scopedTrips: [Trip] {
         switch scope {
         case .all: appModel.trips
-        case .user: appModel.trips.filter { $0.travelerID == appModel.currentUser.id }
-        case .partner: appModel.trips.filter { $0.travelerID == appModel.partner.id }
+        case .user: appModel.trips.filter { $0.travelerIDs.contains(appModel.currentUser.id) }
+        case .partner: appModel.trips.filter { $0.travelerIDs.contains(appModel.partner.id) }
         }
     }
 
@@ -535,8 +535,8 @@ struct FlightStats {
         let flightTrips = trips.filter { $0.flight != nil }
 
         flightCount = flightTrips.count
-        userFlightCount = flightTrips.count { $0.travelerID == couple.partnerA.id }
-        partnerFlightCount = flightTrips.count { $0.travelerID == couple.partnerB.id }
+        userFlightCount = flightTrips.count { $0.travelerIDs.contains(couple.partnerA.id) }
+        partnerFlightCount = flightTrips.count { $0.travelerIDs.contains(couple.partnerB.id) }
         domesticCount = flightTrips.count { $0.origin.country == $0.destination.country }
         internationalCount = flightTrips.count { $0.origin.country != $0.destination.country }
         longHaulCount = flightTrips.count { $0.distanceKm > Self.longHaulKm }

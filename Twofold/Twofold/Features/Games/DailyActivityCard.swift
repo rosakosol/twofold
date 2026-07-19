@@ -132,9 +132,17 @@ struct DailyActivityCard: View {
             }
     }
 
+    /// The real "today" boundary the streak/daily-question logic resets on is UTC midnight —
+    /// `current_date` in `advance_game_session`'s Postgres trigger (Supabase's default session
+    /// timezone), not either partner's local day. Counting down to `Calendar.current`'s local
+    /// midnight here would promise a rollover time that has nothing to do with the actual one —
+    /// especially misleading for this app's whole premise of two partners in different
+    /// timezones, where a device-local countdown could show a completely different time to each
+    /// of them for the same real deadline.
     private static func countdownLabel(from now: Date) -> String {
-        let calendar = Calendar.current
-        guard let midnight = calendar.nextDate(after: now, matching: DateComponents(hour: 0, minute: 0, second: 0), matchingPolicy: .nextTime) else {
+        var utcCalendar = Calendar(identifier: .gregorian)
+        utcCalendar.timeZone = TimeZone(identifier: "UTC") ?? .current
+        guard let midnight = utcCalendar.nextDate(after: now, matching: DateComponents(hour: 0, minute: 0, second: 0), matchingPolicy: .nextTime) else {
             return ""
         }
         let remaining = max(0, Int(midnight.timeIntervalSince(now)))

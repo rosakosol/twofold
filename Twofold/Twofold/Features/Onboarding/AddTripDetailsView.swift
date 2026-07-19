@@ -80,6 +80,14 @@ struct AddTripDetailsView: View {
                         Text("When?").font(.caption).foregroundStyle(Theme.subtleInk)
                         DatePicker("Departing", selection: $departureDate, displayedComponents: [.date, .hourAndMinute])
                         DatePicker("Returning", selection: $returnDate, in: departureDate..., displayedComponents: [.date, .hourAndMinute])
+                            // The `in: departureDate...` bound above only constrains what this
+                            // picker itself can scroll to — SwiftUI doesn't retroactively
+                            // re-clamp `returnDate` when `departureDate` changes later, so a
+                            // Departing pushed past an already-chosen Returning would otherwise
+                            // save with the return date before the departure date.
+                            .onChange(of: departureDate) { _, newValue in
+                                if returnDate < newValue { returnDate = newValue }
+                            }
                     }
                     .padding(Theme.Spacing.md)
                     .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
@@ -186,20 +194,19 @@ struct AddTripDetailsView: View {
         guard let origin, let destination else { return }
         isSaving = true
         Task {
+            // Real AeroAPI-tracked flight only — no self-reported fallback. `addTrip` handles
+            // attaching it, including the case where there's no couple yet (e.g. onboarding,
+            // before pairing) — it queues the candidate and attaches it once the trip is
+            // actually inserted server-side, rather than silently dropping it.
             let trip = await appModel.addTrip(
                 origin: origin,
                 destination: destination,
                 departureDate: departureDate,
                 arrivalDate: returnDate,
                 traveler: traveler,
-                isReunionTrip: isReunionTrip
+                isReunionTrip: isReunionTrip,
+                flightCandidate: selectedFlightCandidate
             )
-            if let selectedFlightCandidate {
-                // Real AeroAPI-tracked flight only — no self-reported fallback. Can fail if
-                // there's no active couple yet; the trip is still saved either way.
-                _ = try? await AeroFlightService.addFlight(faFlightId: selectedFlightCandidate.faFlightId, tripID: trip.id, travelerIDs: [trip.travelerID], notifyMe: true)
-                await appModel.refreshFlights()
-            }
             isSaving = false
             onSave(trip)
         }

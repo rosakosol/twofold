@@ -79,6 +79,14 @@ struct MemoryPhotoView: View {
             .clipped()
         }
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        // `loadedImage` otherwise outlives a change in which photo is actually primary — e.g.
+        // this row's memory has its first photo removed, leaving a different one as
+        // `photos.first` — since this view's own identity (keyed by the stable `memory.id` in
+        // list/map rows) doesn't change and `resolvedImage` prefers the stale cached
+        // `loadedImage` over re-deriving from the new `cacheKey`. Clearing it here lets
+        // `resolvedImage` fall through to a fresh cache lookup (instant if already cached) or
+        // the placeholder+load path (if not) for the photo that's actually primary now.
+        .onChange(of: cacheKey) { loadedImage = nil }
     }
 
     private var placeholder: some View {

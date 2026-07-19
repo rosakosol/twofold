@@ -7,7 +7,10 @@ import Foundation
 
 struct Trip: Identifiable, Hashable {
     let id: UUID
-    var travelerID: Person.ID
+    /// 0, 1, or 2 of the couple's members — mirrors `Flight.travelerIDs`. Almost always 1, but
+    /// both partners travelling together (e.g. a joint trip back home) is a real case the old
+    /// scalar `travelerID` couldn't represent at all.
+    var travelerIDs: [Person.ID]
     var origin: Place
     var destination: Place
     var departureDate: Date
@@ -23,7 +26,7 @@ struct Trip: Identifiable, Hashable {
 
     init(
         id: UUID = UUID(),
-        travelerID: Person.ID,
+        travelerIDs: [Person.ID],
         origin: Place,
         destination: Place,
         departureDate: Date,
@@ -34,7 +37,7 @@ struct Trip: Identifiable, Hashable {
         notes: String? = nil
     ) {
         self.id = id
-        self.travelerID = travelerID
+        self.travelerIDs = travelerIDs
         self.origin = origin
         self.destination = destination
         self.departureDate = departureDate
@@ -51,6 +54,6 @@ struct Trip: Identifiable, Hashable {
 
     var isActive: Bool {
         guard let flight else { return false }
-        return flight.status.isActivelyTracked
+        return flight.isCurrentlyRelevant
     }
 }
