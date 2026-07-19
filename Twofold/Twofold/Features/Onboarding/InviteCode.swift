@@ -5,8 +5,8 @@
 //  Sharing/parsing helpers for partner invite links. The actual code is always issued by the
 //  backend (`create_invite_code` RPC, fully random letters — carries no name information) and
 //  validated on redeem (`redeem_invite_code` RPC) — this type only builds/parses the URL around
-//  it. The inviter's display name is a real backend lookup now (`BackendService.inviterName
-//  (forCode:)`), not something guessable from the code's own text.
+//  it. The inviter's display name/avatar is a real backend lookup now
+//  (`BackendService.inviterInfo(forCode:)`), not something guessable from the code's own text.
 //
 //  Shared as a Universal Link (`https://www.twofoldapp.com.au/invite/CODE`) so it also works for
 //  someone who doesn't have Twofold installed yet — tapping it opens the app directly if
@@ -45,5 +45,18 @@ enum InviteCode {
             return code.uppercased()
         }
         return nil
+    }
+
+    /// Live-formats manual code entry to match the real `XXXX-XXXX` shape as you type — strips
+    /// anything that isn't a letter (so pasting a code with its dash already in place, or in
+    /// lowercase, still works), uppercases, and inserts the dash once there are more than 4
+    /// characters. Capped at 8 letters, the real code length.
+    static func autoFormat(_ input: String) -> String {
+        let letters = input.uppercased().filter { $0.isLetter }
+        let limited = String(letters.prefix(8))
+        guard limited.count > 4 else { return limited }
+        let firstFour = limited.prefix(4)
+        let rest = limited.dropFirst(4)
+        return "\(firstFour)-\(rest)"
     }
 }

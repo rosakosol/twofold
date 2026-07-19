@@ -22,6 +22,10 @@ struct EnterPartnerCodeView: View {
                         .autocorrectionDisabled()
                         .padding()
                         .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                        .onChange(of: code) { _, newValue in
+                            let formatted = InviteCode.autoFormat(newValue)
+                            if formatted != code { code = formatted }
+                        }
                     if let errorMessage {
                         Text(errorMessage)
                             .font(.caption)
@@ -48,9 +52,10 @@ struct EnterPartnerCodeView: View {
                 do {
                     // Looked up before redeeming — the code has to still be genuinely pending
                     // for this to resolve, which it no longer is the instant redeem succeeds.
-                    let name = try? await BackendService.inviterName(forCode: trimmed)
+                    let info = try? await BackendService.inviterInfo(forCode: trimmed)
                     try await BackendService.redeemInviteCode(trimmed)
-                    onboarding.inviterName = name
+                    onboarding.inviterName = info?.name
+                    onboarding.inviterAvatarURL = info?.avatarURL
                     onboarding.path.append(.connectionRequestSent)
                 } catch {
                     errorMessage = error.localizedDescription

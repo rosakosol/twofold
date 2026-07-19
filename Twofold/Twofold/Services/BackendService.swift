@@ -762,19 +762,38 @@ enum BackendService {
         return row.code
     }
 
-    /// The invite code's real inviter name, looked up server-side rather than guessed from the
-    /// code's own text (codes carry no name information at all now). Nil if the code doesn't
-    /// resolve to a still-pending, unexpired invite.
-    static func inviterName(forCode code: String) async throws -> String? {
+    struct InviterInfo {
+        var name: String
+        var avatarURL: URL?
+    }
+
+    private struct InviterInfoRow: Decodable {
+        var firstName: String
+        var avatarPath: String?
+
+        enum CodingKeys: String, CodingKey {
+            case firstName = "first_name"
+            case avatarPath = "avatar_path"
+        }
+    }
+
+    /// The invite code's real inviter name + avatar, looked up server-side rather than guessed
+    /// from the code's own text (codes carry no name information at all now). Deliberately
+    /// callable without an authenticated session — this is the one place it matters most
+    /// (JoinInviteView, reached from a cold deep-link tap before any account exists) — see the
+    /// migration's own header comment for the resulting per-code (not per-caller) rate limit.
+    /// Nil if the code doesn't resolve to a still-pending, unexpired invite.
+    static func inviterInfo(forCode code: String) async throws -> InviterInfo? {
         struct Params: Encodable {
             var pCode: String
             enum CodingKeys: String, CodingKey { case pCode = "p_code" }
         }
-        let name: String? = try await supabase
-            .rpc("get_invite_code_inviter_name", params: Params(pCode: code))
+        let rows: [InviterInfoRow] = try await supabase
+            .rpc("get_invite_code_inviter_info", params: Params(pCode: code))
             .execute()
             .value
-        return name
+        guard let row = rows.first else { return nil }
+        return InviterInfo(name: row.firstName, avatarURL: row.avatarPath.flatMap { avatarPublicURL(path: $0) })
     }
 
     private struct RedeemInviteCodeResult: Decodable {

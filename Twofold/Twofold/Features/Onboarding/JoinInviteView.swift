@@ -10,11 +10,17 @@ struct JoinInviteView: View {
 
     private var inviterName: String { onboarding.inviterName ?? "your partner" }
 
+    private var inviterPerson: Person {
+        Person(name: inviterName, accentColor: Person.palette[0], avatarURL: onboarding.inviterAvatarURL)
+    }
+
     var body: some View {
         VStack(spacing: Theme.Spacing.xl) {
             Spacer()
 
             VStack(spacing: Theme.Spacing.md) {
+                AvatarView(person: inviterPerson, size: 88, showsRing: true)
+
                 Text("\(inviterName) invited you\nto Twofold")
                     .font(.system(.title, design: .rounded, weight: .bold))
                     .multilineTextAlignment(.center)

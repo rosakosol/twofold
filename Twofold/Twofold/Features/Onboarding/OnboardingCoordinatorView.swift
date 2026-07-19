@@ -108,7 +108,7 @@ struct OnboardingCoordinatorView: View {
         case .joinInvite:
             JoinInviteView()
         case .connectionRequestSent:
-            ConnectionRequestSentView(inviterName: onboarding.inviterName ?? "your partner") {
+            ConnectionRequestSentView(inviterName: onboarding.inviterName ?? "your partner", inviterAvatarURL: onboarding.inviterAvatarURL) {
                 onboarding.path.append(.nextTrip)
             }
         case .nextTrip:

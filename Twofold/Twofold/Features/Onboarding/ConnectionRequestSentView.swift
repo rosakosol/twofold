@@ -18,14 +18,18 @@ import SwiftUI
 
 struct ConnectionRequestSentView: View {
     var inviterName: String
+    var inviterAvatarURL: URL? = nil
     var onContinue: () -> Void
+
+    private var inviterPerson: Person {
+        Person(name: inviterName, accentColor: Person.palette[0], avatarURL: inviterAvatarURL)
+    }
 
     var body: some View {
         VStack(spacing: Theme.Spacing.xl) {
             Spacer()
 
-            Text("💌")
-                .font(.system(size: 64))
+            AvatarView(person: inviterPerson, size: 72, showsRing: true)
 
             VStack(spacing: Theme.Spacing.sm) {
                 Text("Request sent")

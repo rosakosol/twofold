@@ -25,6 +25,7 @@ final class OnboardingModel {
     // Partner connection
     var inviteCode: String?
     var inviterName: String?
+    var inviterAvatarURL: URL?
     /// True once account creation has happened — lets `EnterPartnerCodeView` decide
     /// whether it still needs to route through account creation or can connect directly.
     var hasAccount: Bool = false
@@ -95,14 +96,18 @@ final class OnboardingModel {
         return cachedIllustrativeOriginCity
     }
 
-    /// `inviterName` deliberately isn't set here — resolving the real name requires an
-    /// authenticated call (`BackendService.inviterName(forCode:)`), and this fires from a cold
-    /// deep-link tap before any session exists. `JoinInviteView` falls back to generic copy
-    /// until it's resolved later, once there's a session to resolve it with (see
-    /// `EnterPartnerCodeView`/`HomeCityView`, wherever this flow actually redeems the code).
     func resetForNewInvite(code: String) {
         role = .invitee
         inviteCode = code
         path = [.joinInvite]
+        // `get_invite_code_inviter_info` deliberately works without an authenticated session
+        // (see its migration's own comment) specifically so this — a cold deep-link tap, before
+        // any account exists — can show the real inviter on JoinInviteView. Fired async rather
+        // than blocking the navigation above; JoinInviteView just updates once this resolves.
+        Task {
+            let info = try? await BackendService.inviterInfo(forCode: code)
+            inviterName = info?.name
+            inviterAvatarURL = info?.avatarURL
+        }
     }
 }
