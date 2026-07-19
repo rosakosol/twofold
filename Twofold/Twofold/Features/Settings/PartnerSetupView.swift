@@ -24,11 +24,10 @@ struct PartnerSetupView: View {
     @State private var anniversaryDate: Date = .now
     @State private var partnerAvatarError: String?
     @State private var isSaving = false
-    @State private var showingShareInvite = false
-    @State private var showingRedeemCode = false
-    @State private var isCreatingInvite = false
 
     var body: some View {
+        @Bindable var appModel = appModel
+
         NavigationStack {
             ScrollView {
                 VStack(spacing: Theme.Spacing.md) {
@@ -89,7 +88,7 @@ struct PartnerSetupView: View {
                     }
 
                     if !appModel.partnerConnected {
-                        connectCard
+                        PartnerConnectCard(firstName: appModel.currentUser.name, inviteCode: $appModel.inviteCode)
                     }
                 }
                 .padding(Theme.Spacing.md)
@@ -119,65 +118,8 @@ struct PartnerSetupView: View {
                 partnerCity = appModel.partner.homeCity
                 anniversaryDate = appModel.couple.startedDatingOn
             }
-            .sheet(isPresented: $showingShareInvite) {
-                NavigationStack {
-                    ShareInviteView(code: appModel.inviteCode ?? "") {
-                        showingShareInvite = false
-                    }
-                }
-                .postHogScreenView("Settings: Share Invite")
-            }
-            .sheet(isPresented: $showingRedeemCode) {
-                RedeemPartnerCodeView()
-            }
         }
         .postHogScreenView("Settings: Partner Setup")
-    }
-
-    private var connectCard: some View {
-        SectionCard {
-            Text("Connect with your partner")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Theme.subtleInk)
-
-            Button {
-                Task {
-                    isCreatingInvite = true
-                    if appModel.inviteCode == nil {
-                        appModel.inviteCode = try? await BackendService.createInviteCode(firstName: appModel.currentUser.name)
-                    }
-                    isCreatingInvite = false
-                    if appModel.inviteCode != nil { showingShareInvite = true }
-                }
-            } label: {
-                HStack {
-                    if isCreatingInvite {
-                        ProgressView()
-                    } else {
-                        Label("Share my invite code", systemImage: "square.and.arrow.up")
-                            .foregroundStyle(Theme.ink)
-                    }
-                    Spacer()
-                    Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .disabled(isCreatingInvite)
-
-            Button {
-                showingRedeemCode = true
-            } label: {
-                HStack {
-                    Label("Enter their code", systemImage: "person.fill.checkmark")
-                        .foregroundStyle(Theme.ink)
-                    Spacer()
-                    Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-        }
     }
 
     private func save() {

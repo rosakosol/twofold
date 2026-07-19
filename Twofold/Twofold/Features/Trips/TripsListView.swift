@@ -10,6 +10,9 @@ struct TripsListView: View {
     @State private var tab: TripsTab = .trips
     @State private var showingAddTrip = false
     @State private var showingAddFlight = false
+    /// Tapping the solo-state empty hints below opens this rather than the add-trip/add-flight
+    /// sheet — there's a real partner-required blocker before either of those would even work.
+    @State private var showingPartnerGate = false
 
     enum TripsTab: String, CaseIterable {
         case trips = "Trips"
@@ -90,6 +93,9 @@ struct TripsListView: View {
             .sheet(isPresented: $showingAddFlight) {
                 AddFlightView()
             }
+            .sheet(isPresented: $showingPartnerGate) {
+                PartnerRequiredGateView()
+            }
         }
     }
 
@@ -161,54 +167,65 @@ struct TripsListView: View {
         }
     }
 
+    @ViewBuilder
     private var emptyTripsHint: some View {
-        Button {
-            showingAddTrip = true
-        } label: {
-            SectionCard {
-                HStack(spacing: Theme.Spacing.md) {
-                    ZStack {
-                        Circle().fill(Theme.skyBlue.opacity(0.15))
-                        Image(systemName: "airplane.circle.fill").foregroundStyle(Theme.skyBlue)
-                    }
-                    .frame(width: 40, height: 40)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Add your first trip").font(.headline).foregroundStyle(Theme.ink)
-                        Text("Tap to plan a reunion or a trip of your own.")
-                            .font(.caption)
-                            .foregroundStyle(Theme.subtleInk)
-                    }
-                    Spacer(minLength: 0)
-                }
+        if appModel.partnerConnected {
+            Button {
+                showingAddTrip = true
+            } label: {
+                emptyHintCard(icon: "airplane.circle.fill", title: "Add your first trip", subtitle: "Tap to plan a reunion or a trip of your own.")
             }
+            .buttonStyle(.plain)
+            .padding(.top, Theme.Spacing.xs)
+        } else {
+            Button {
+                showingPartnerGate = true
+            } label: {
+                emptyHintCard(icon: "person.2.fill", title: "Invite your partner to add your first trip together", subtitle: "Trips are better planned together.")
+            }
+            .buttonStyle(.plain)
+            .padding(.top, Theme.Spacing.xs)
         }
-        .buttonStyle(.plain)
-        .padding(.top, Theme.Spacing.xs)
     }
 
+    @ViewBuilder
     private var emptyFlightsHint: some View {
-        Button {
-            showingAddFlight = true
-        } label: {
-            SectionCard {
-                HStack(spacing: Theme.Spacing.md) {
-                    ZStack {
-                        Circle().fill(Theme.skyBlue.opacity(0.15))
-                        Image(systemName: "airplane.circle.fill").foregroundStyle(Theme.skyBlue)
-                    }
-                    .frame(width: 40, height: 40)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Add your first flight").font(.headline).foregroundStyle(Theme.ink)
-                        Text("Track a flight to see it here.")
-                            .font(.caption)
-                            .foregroundStyle(Theme.subtleInk)
-                    }
-                    Spacer(minLength: 0)
+        if appModel.partnerConnected {
+            Button {
+                showingAddFlight = true
+            } label: {
+                emptyHintCard(icon: "airplane.circle.fill", title: "Add your first flight", subtitle: "Track a flight to see it here.")
+            }
+            .buttonStyle(.plain)
+            .padding(.top, Theme.Spacing.xs)
+        } else {
+            Button {
+                showingPartnerGate = true
+            } label: {
+                emptyHintCard(icon: "person.2.fill", title: "Invite your partner to share your first tracked flight", subtitle: "Track flights together once you're connected.")
+            }
+            .buttonStyle(.plain)
+            .padding(.top, Theme.Spacing.xs)
+        }
+    }
+
+    private func emptyHintCard(icon: String, title: String, subtitle: String) -> some View {
+        SectionCard {
+            HStack(spacing: Theme.Spacing.md) {
+                ZStack {
+                    Circle().fill(Theme.skyBlue.opacity(0.15))
+                    Image(systemName: icon).foregroundStyle(Theme.skyBlue)
                 }
+                .frame(width: 40, height: 40)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.headline).foregroundStyle(Theme.ink)
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(Theme.subtleInk)
+                }
+                Spacer(minLength: 0)
             }
         }
-        .buttonStyle(.plain)
-        .padding(.top, Theme.Spacing.xs)
     }
 }
 

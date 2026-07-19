@@ -31,6 +31,11 @@ struct DeckCardRow: View {
 
     @Environment(AppModel.self) private var appModel
     @State private var showingPremiumGate = false
+    /// Tapping a locked (partner-required) card opens this rather than doing nothing — a lock
+    /// badge with no tap action just teaches people the card is broken. Premium-lock keeps
+    /// taking precedence when a deck is both Premium-tier and partner-required — one blocker
+    /// shown at a time.
+    @State private var showingPartnerGate = false
 
     private var isLocked: Bool { appModel.isDeckLocked(deck) }
     private var bothCompleted: Bool { progress?.bothCompleted ?? false }
@@ -41,7 +46,8 @@ struct DeckCardRow: View {
                 Button { showingPremiumGate = true } label: { content }
                     .buttonStyle(.plain)
             } else if !appModel.partnerConnected {
-                content
+                Button { showingPartnerGate = true } label: { content }
+                    .buttonStyle(.plain)
             } else if bothCompleted, let progress {
                 NavigationLink {
                     gameDestinationView(gameType: deck.gameType, sessionID: progress.sessionID, title: deck.title, topic: deck.topic)
@@ -54,6 +60,9 @@ struct DeckCardRow: View {
         }
         .sheet(isPresented: $showingPremiumGate) {
             DeckPremiumGateView(deck: deck)
+        }
+        .sheet(isPresented: $showingPartnerGate) {
+            PartnerRequiredGateView()
         }
     }
 
@@ -117,7 +126,7 @@ struct DeckCardRow: View {
                 .frame(width: 56, height: 32, alignment: .leading)
 
                 Spacer(minLength: 0)
-                if !isLocked {
+                if !isLocked && appModel.partnerConnected {
                     Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
                 }
             }
@@ -132,7 +141,35 @@ struct DeckCardRow: View {
             RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
                 .strokeBorder(bothCompleted ? Theme.leafGreen.opacity(0.5) : Theme.subtleInk.opacity(0.12), lineWidth: bothCompleted ? 1.5 : 1)
         }
-        .opacity(isLocked || !appModel.partnerConnected ? 0.75 : 1)
+        // Same scrim + corner lock badge + "Partner required" capsule `GameCard` already uses
+        // for its own locked state — one visual vocabulary for "needs a partner" everywhere in
+        // Games, not a second, different-looking lock idiom just for deck cards.
+        .overlay {
+            if !isLocked && !appModel.partnerConnected {
+                RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+                    .fill(.black.opacity(0.4))
+                    .overlay(alignment: .topTrailing) {
+                        ZStack {
+                            Circle().fill(.white)
+                            Image(systemName: "lock.fill")
+                                .font(.caption)
+                                .foregroundStyle(Theme.ink)
+                        }
+                        .frame(width: 26, height: 26)
+                        .padding(Theme.Spacing.sm)
+                    }
+                    .overlay(alignment: .bottom) {
+                        Text("Partner required")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, Theme.Spacing.sm)
+                            .padding(.vertical, 6)
+                            .background(.black.opacity(0.3), in: Capsule())
+                            .padding(.bottom, Theme.Spacing.sm)
+                    }
+            }
+        }
+        .opacity(isLocked ? 0.75 : 1)
         .contentShape(Rectangle())
     }
 

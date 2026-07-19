@@ -152,7 +152,12 @@ struct HomeView: View {
 
     @ViewBuilder
     private var setupChecklistCard: some View {
-        if !appModel.setupChecklistDismissed && (appModel.needsFirstTrip || appModel.needsFirstFlight || appModel.needsHomeCities) {
+        // Trip/flight rows need a connected partner to make sense — the dedicated
+        // `invitePartnerCard` above already owns that prompt, so this checklist only ever shows
+        // those two rows once a partner exists. "Turn on location access" is independent of
+        // partner status and still shows regardless.
+        let showsTripOrFlightRow = appModel.partnerConnected && (appModel.needsFirstTrip || appModel.needsFirstFlight)
+        if !appModel.setupChecklistDismissed && (showsTripOrFlightRow || appModel.needsHomeCities) {
             SectionCard {
                 HStack {
                     Text("Finish setting up Twofold")
@@ -167,10 +172,10 @@ struct HomeView: View {
                     .buttonStyle(.plain)
                 }
 
-                if appModel.needsFirstTrip {
+                if appModel.partnerConnected, appModel.needsFirstTrip {
                     checklistRow(icon: .system("airplane.departure"), title: "Add your next trip") { showingAddTrip = true }
                 }
-                if appModel.needsFirstFlight {
+                if appModel.partnerConnected, appModel.needsFirstFlight {
                     checklistRow(icon: .asset("boarding-pass"), title: "Add your first flight") { showingAddFlight = true }
                 }
                 if appModel.needsHomeCities {
@@ -277,34 +282,59 @@ struct HomeView: View {
         .buttonStyle(.plain)
     }
 
+    /// "500+"/"2000+" — matches `SubscriptionTier.features`' own "N+ questions and games"
+    /// copy convention (`Features/Paywall/SubscriptionStore.swift`), so this card promises
+    /// exactly what the paywall itself already promises for the couple's current tier.
+    private var partnerValuePropGameCount: String {
+        appModel.subscriptionTier == "premium" ? "2000+" : "500+"
+    }
+
     /// The prominent, primary prompt whenever there's no connected partner — pulled out of
     /// `setupChecklistCard` into its own full-weight card (rather than a small checklist row)
     /// since setting up a partner is a much bigger, more central action than the other
     /// checklist items, and opens a single focused screen covering name/photo/city/anniversary
     /// plus the actual connect step, instead of splitting that across two separate rows.
+    ///
+    /// Deliberately its own bold blue-gradient design (not another pale `SectionCard`) — this is
+    /// the single highest-value action a solo user can take, so it gets real visual weight and
+    /// copy that actually sells why, instead of reading as just another checklist item.
     private var invitePartnerCard: some View {
         Button {
             showingPartnerSetup = true
         } label: {
-            SectionCard {
+            VStack(alignment: .leading, spacing: Theme.Spacing.md) {
                 HStack(spacing: Theme.Spacing.md) {
                     ZStack {
-                        Circle().fill(Theme.skyBlue.opacity(0.15))
-                        Image(systemName: "person.2.fill").foregroundStyle(Theme.skyBlue)
+                        Circle().fill(.white.opacity(0.2))
+                        Image(systemName: "person.2.fill")
+                            .font(.title2)
+                            .foregroundStyle(.white)
                     }
-                    .frame(width: 44, height: 44)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Set up your partner")
-                            .font(.headline)
-                            .foregroundStyle(Theme.ink)
-                        Text("Add their name and photo, then connect with an invite code.")
-                            .font(.caption)
-                            .foregroundStyle(Theme.subtleInk)
-                    }
+                    .frame(width: 56, height: 56)
+
+                    Text("Set up your partner")
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(.white)
+
                     Spacer(minLength: 0)
-                    Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
                 }
+
+                Text("Twofold is built for couples. Connect with your partner to unlock \(partnerValuePropGameCount) questions and games, track each other's flights, and add shared trips and memories.")
+                    .font(.subheadline)
+                    .foregroundStyle(.white.opacity(0.9))
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 4) {
+                    Text("Get started")
+                        .font(.subheadline.weight(.semibold))
+                    Image(systemName: "chevron.right").font(.caption)
+                }
+                .foregroundStyle(.white)
             }
+            .padding(Theme.Spacing.lg)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Theme.primaryButtonGradient, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         }
         .buttonStyle(.plain)
     }

@@ -23,8 +23,10 @@ struct RecommendedGamesSection: View {
     /// nested/doubled navigation chrome.
     @State private var showingHub = false
     /// Tapping a locked (partner-required) card opens this rather than doing nothing — a lock
-    /// badge with no tap action just teaches people the card is broken.
-    @State private var showingPartnerSetup = false
+    /// badge with no tap action just teaches people the card is broken. Goes straight to
+    /// `PartnerRequiredGateView`'s share/redeem code UI, not the full `PartnerSetupView` profile
+    /// editor — the user's already told us they want to unlock something, not edit a profile.
+    @State private var showingPartnerGate = false
 
     var body: some View {
         SectionCard {
@@ -53,7 +55,7 @@ struct RecommendedGamesSection: View {
                             .buttonStyle(.plain)
                         } else {
                             Button {
-                                showingPartnerSetup = true
+                                showingPartnerGate = true
                             } label: {
                                 GameCard(gameType: gameType, width: 220, isLocked: true)
                             }
@@ -68,8 +70,8 @@ struct RecommendedGamesSection: View {
             GamesHubView()
                 .postHogScreenView("Games: Hub (From Home)")
         }
-        .sheet(isPresented: $showingPartnerSetup) {
-            PartnerSetupView()
+        .sheet(isPresented: $showingPartnerGate) {
+            PartnerRequiredGateView()
         }
     }
 }
