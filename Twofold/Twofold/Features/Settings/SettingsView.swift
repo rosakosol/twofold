@@ -24,6 +24,8 @@ struct SettingsView: View {
     @State private var showingCustomerCenter = false
     @State private var showingSignOutConfirm = false
     @State private var isSigningOut = false
+    @State private var showingExportHistory = false
+    @State private var showingExportPremiumGate = false
 
     var body: some View {
         NavigationStack {
@@ -65,6 +67,19 @@ struct SettingsView: View {
                         } else {
                             showingPaywall = true
                         }
+                    }
+
+                    SectionCard {
+                        Button {
+                            if appModel.isPremiumLocked {
+                                showingExportPremiumGate = true
+                            } else {
+                                showingExportHistory = true
+                            }
+                        } label: {
+                            SettingsRow(title: "Export your story", systemImage: "square.and.arrow.up.on.square")
+                        }
+                        .buttonStyle(.plain)
                     }
 
                     SectionCard {
@@ -158,6 +173,16 @@ struct SettingsView: View {
             .sheet(isPresented: $showingCustomerCenter) {
                 CustomerCenterView()
                     .postHogScreenView("Settings: Manage Subscription")
+            }
+            .navigationDestination(isPresented: $showingExportHistory) {
+                ExportHistoryView()
+            }
+            .sheet(isPresented: $showingExportPremiumGate) {
+                FlightPremiumGateView(
+                    icon: "square.and.arrow.up.on.square",
+                    title: "Export Your Story",
+                    description: "Turn your trips, memories, and flights into a beautiful, formatted keepsake PDF. Upgrade to Premium to export your story."
+                )
             }
             .confirmationDialog("Sign out of Twofold?", isPresented: $showingSignOutConfirm, titleVisibility: .visible) {
                 Button("Sign Out", role: .destructive) {
