@@ -60,8 +60,8 @@ struct LiveActivitySellView: View {
 
     var body: some View {
         OnboardingScaffold(
-            title: "Keep \(partnerName.prefix(1).uppercased() + partnerName.dropFirst())'s journey close",
-            subtitle: "Follow \(partnerName)'s flight from your Lock Screen with Live Activities.",
+            title: "Track each other's flights in real time",
+            subtitle: "Follow your partner's flight from your Lock Screen with Live Activities.",
             content: {
                 phoneMock
                     .onAppear {
@@ -112,7 +112,7 @@ struct LiveActivitySellView: View {
                 // airplane glyph standing in for "some airline."
                 AirlineLogoView(url: AirlineLogo.url(forIATACode: "QF"), size: 28)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("QF9")
+                    Text("QF10")
                         .font(.headline.weight(.bold))
                         .foregroundStyle(.white)
                     Text("Qantas")
@@ -137,12 +137,6 @@ struct LiveActivitySellView: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                     .frame(maxWidth: .infinity, alignment: .center)
-
-                Text("\(partnerName) is on the way to you ❤️")
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.6))
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity)
             }
             .frame(maxWidth: .infinity, alignment: .center)
 

@@ -29,6 +29,16 @@ struct AboutRelationshipView: View {
         return Calendar.current.date(byAdding: DateComponents(day: 1, second: -1), to: startOfToday) ?? .now
     }
 
+    /// See `AnniversaryDateView.isAnniversaryToday` — month+day match against today, not
+    /// `Calendar.isDateInToday` (which also requires the year to match, essentially never true
+    /// for a real multi-year anniversary).
+    private var isAnniversaryToday: Bool {
+        let calendar = Calendar.current
+        let picked = calendar.dateComponents([.month, .day], from: anniversaryDate)
+        let today = calendar.dateComponents([.month, .day], from: .now)
+        return picked.month == today.month && picked.day == today.day
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: Theme.Spacing.md) {
@@ -69,7 +79,7 @@ struct AboutRelationshipView: View {
         Task {
             await appModel.updateAnniversaryDate(anniversaryDate)
             isSaving = false
-            if Calendar.current.isDateInToday(anniversaryDate) {
+            if isAnniversaryToday {
                 showingHappyAnniversary = true
             } else {
                 dismiss()

@@ -36,6 +36,18 @@ struct AnniversaryDateView: View {
         return Calendar.current.date(byAdding: DateComponents(day: 1, second: -1), to: startOfToday) ?? .now
     }
 
+    /// Whether `date`'s month+day matches today's — i.e. today really is the anniversary,
+    /// regardless of which year `date` itself falls in. `Calendar.isDateInToday` requires the
+    /// *year* to match too, which is essentially never true for a real multi-year relationship's
+    /// anniversary (the picker defaults to a year in the past) — that check only ever fired for
+    /// the rare "we started dating today" case, silently missing every real annual anniversary.
+    private var isAnniversaryToday: Bool {
+        let calendar = Calendar.current
+        let picked = calendar.dateComponents([.month, .day], from: date)
+        let today = calendar.dateComponents([.month, .day], from: .now)
+        return picked.month == today.month && picked.day == today.day
+    }
+
     var body: some View {
         OnboardingScaffold(
             title: "When did your story begin? 💕",
@@ -52,7 +64,7 @@ struct AnniversaryDateView: View {
             primaryTitle: "Continue",
             primaryAction: {
                 onboarding.anniversaryDate = date
-                if Calendar.current.isDateInToday(date) {
+                if isAnniversaryToday {
                     onboarding.path.append(.happyAnniversary)
                 } else {
                     onboarding.path.append(sameCity ? .notificationsSell : .personalizedInsight)
