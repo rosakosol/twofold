@@ -22,8 +22,8 @@ struct EnterPartnerCodeView: View {
                         .autocorrectionDisabled()
                         .padding()
                         .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-                        .onChange(of: code) { _, newValue in
-                            let formatted = InviteCode.autoFormat(newValue)
+                        .onChange(of: code) { oldValue, newValue in
+                            let formatted = InviteCode.autoFormat(newValue, isDeleting: newValue.count < oldValue.count)
                             if formatted != code { code = formatted }
                         }
                     if let errorMessage {

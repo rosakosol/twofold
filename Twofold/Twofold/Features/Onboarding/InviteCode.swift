@@ -49,14 +49,20 @@ enum InviteCode {
 
     /// Live-formats manual code entry to match the real `XXXX-XXXX` shape as you type — strips
     /// anything that isn't a letter (so pasting a code with its dash already in place, or in
-    /// lowercase, still works), uppercases, and inserts the dash once there are more than 4
-    /// characters. Capped at 8 letters, the real code length.
-    static func autoFormat(_ input: String) -> String {
+    /// lowercase, still works), uppercases, and inserts the dash as soon as the 4th letter is
+    /// typed (not retroactively once a 5th arrives). Capped at 8 letters, the real code length.
+    ///
+    /// `isDeleting` (pass whether `input` is shorter than whatever was there a moment ago)
+    /// suppresses that same auto-insert on backspace — without it, deleting the dash right after
+    /// "ABCD-" would immediately snap back to "ABCD-", since 4 letters alone would otherwise
+    /// always trigger it again, making the dash impossible to backspace past.
+    static func autoFormat(_ input: String, isDeleting: Bool) -> String {
         let letters = input.uppercased().filter { $0.isLetter }
         let limited = String(letters.prefix(8))
-        guard limited.count > 4 else { return limited }
+        let threshold = isDeleting ? 5 : 4
+        guard limited.count >= threshold else { return limited }
         let firstFour = limited.prefix(4)
         let rest = limited.dropFirst(4)
-        return "\(firstFour)-\(rest)"
+        return rest.isEmpty ? "\(firstFour)-" : "\(firstFour)-\(rest)"
     }
 }

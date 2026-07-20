@@ -82,8 +82,8 @@ struct RedeemPartnerCodeView: View {
                 .padding()
                 .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                 .padding(.horizontal, Theme.Spacing.lg)
-                .onChange(of: code) { _, newValue in
-                    let formatted = InviteCode.autoFormat(newValue)
+                .onChange(of: code) { oldValue, newValue in
+                    let formatted = InviteCode.autoFormat(newValue, isDeleting: newValue.count < oldValue.count)
                     if formatted != code { code = formatted }
                 }
 
