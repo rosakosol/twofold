@@ -35,6 +35,15 @@ struct RootView: View {
             } else if appModel.hasCouple {
                 if appModel.isSubscriptionActive {
                     MainTabView(selection: $selectedTab)
+                } else if let outgoingRequest = appModel.pendingOutgoingConnectionRequest {
+                    // Not really solo — redeemed a code and is waiting on the inviter's
+                    // decision, with no subscription of their own to be asked for (Twofold
+                    // subscriptions are shared; they'll inherit the couple's plan once
+                    // accepted). The forced paywall below would otherwise be a dead end.
+                    NavigationStack {
+                        PendingConnectionApprovalView(request: outgoingRequest)
+                    }
+                    .postHogScreenView("Pending Connection Approval")
                 } else {
                     NavigationStack {
                         PaywallView(isDismissable: false)
@@ -48,11 +57,18 @@ struct RootView: View {
         .task {
             await appModel.restoreSession()
             await checkSubscription()
+            await refreshPendingOutgoingConnectionRequestIfNeeded()
             refreshCurrentCityIfNeeded()
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
                 Task { await checkSubscription() }
+                // Previously only HomeView (inside MainTabView) ever re-checked couple state on
+                // foreground — meaning someone stuck on `PendingConnectionApprovalView` (below;
+                // never mounts MainTabView) had no way to discover their request being accepted
+                // short of force-quitting. This covers that, and is harmless/no-op otherwise.
+                Task { await appModel.refreshCoupleStateIfNeeded() }
+                Task { await refreshPendingOutgoingConnectionRequestIfNeeded() }
                 Task { await WidgetSnapshotWriter.refresh(appModel: appModel) }
                 refreshCurrentCityIfNeeded()
             }
@@ -222,6 +238,13 @@ struct RootView: View {
         if let tier = try? await BackendService.fetchCoupleSubscriptionTier() {
             appModel.subscriptionTier = tier
         }
+    }
+
+    /// Only meaningful in exactly the gap `PendingConnectionApprovalView` covers — no point
+    /// fetching once there's real couple/subscription access, or before onboarding is done.
+    private func refreshPendingOutgoingConnectionRequestIfNeeded() async {
+        guard appModel.hasCouple, !appModel.isSubscriptionActive else { return }
+        await appModel.refreshPendingOutgoingConnectionRequest()
     }
 
     /// Foreground-triggered re-derivation of the signed-in user's current city — replaces the

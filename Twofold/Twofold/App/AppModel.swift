@@ -75,6 +75,11 @@ final class AppModel {
     /// Incoming "someone wants to connect" requests awaiting my decision (I'm the inviter on
     /// each of these) — see `refreshPendingConnectionRequests()`/`respondToConnectionRequest(_:accept:)`.
     var pendingConnectionRequests: [BackendService.PendingConnectionRequest] = []
+    /// My own outgoing request, if I redeemed a code and I'm still waiting on the inviter's
+    /// decision — see `refreshPendingOutgoingConnectionRequest()`. `RootView` checks this to
+    /// show a "waiting" screen instead of the forced re-subscribe paywall for someone who isn't
+    /// really solo, just not accepted yet.
+    var pendingOutgoingConnectionRequest: BackendService.OutgoingConnectionRequest?
 
     /// Set whenever a newly-crossed, not-yet-shown review milestone is detected — RootView
     /// presents `ReviewPromptView` as a sheet whenever this is non-nil. See
@@ -438,6 +443,13 @@ final class AppModel {
     /// empty), so call sites don't need to guard on `partnerConnected` themselves.
     func refreshPendingConnectionRequests() async {
         pendingConnectionRequests = (try? await BackendService.fetchPendingConnectionRequests()) ?? []
+    }
+
+    /// My own outgoing request (see `pendingOutgoingConnectionRequest`'s doc comment) — safe to
+    /// call any time, including while already connected (just returns nil, since it only ever
+    /// matches a still-`pending` row).
+    func refreshPendingOutgoingConnectionRequest() async {
+        pendingOutgoingConnectionRequest = try? await BackendService.fetchMyOutgoingConnectionRequest()
     }
 
     /// Accepts or declines an incoming request. On accept, re-checks couple state immediately
@@ -916,6 +928,17 @@ final class AppModel {
         }
     }
 
+    /// Re-pulls the full memory list from the backend — same purpose as `refreshFlights()`
+    /// above. Without this, a partner's newly-added memory only ever appeared after a full
+    /// couple-state reload (effectively just app relaunch), since `memories` was otherwise only
+    /// ever bulk-populated once at adopt time and mutated locally by this device's own edits.
+    func refreshMemories() async {
+        guard let backendCoupleID else { return }
+        if let fresh = try? await BackendService.fetchMemories(coupleID: backendCoupleID) {
+            memories = fresh
+        }
+    }
+
     /// Stops tracking a flight entirely (swipe-to-remove on the Trips tab). Re-runs
     /// `refreshFlights()` afterward rather than just filtering `flights` locally so the Live
     /// Activity sync/reconcile logic there — which already ends an Activity for any flight that
@@ -1088,11 +1111,7 @@ final class AppModel {
             if let index = memories.firstIndex(where: { $0.id == memory.id }) {
                 memories[index].photos = photos
             }
-            // .selfDevice, not .partner — a deliberately controllable way to exercise the real
-            // end-to-end push pipeline (device registration → APNs → delivery) from an ordinary
-            // in-app action, without notifying the partner's device at all. Revert to .partner
-            // (or drop the argument, its default) once push delivery is confirmed working.
-            Task { await BackendService.notifyPartner(event: .memoryAdded, detail: title, target: .selfDevice) }
+            Task { await BackendService.notifyPartner(event: .memoryAdded, detail: title) }
             Task { await WidgetSnapshotWriter.refresh(appModel: self) }
         } catch {
             pendingMemoryIDs.insert(memory.id)

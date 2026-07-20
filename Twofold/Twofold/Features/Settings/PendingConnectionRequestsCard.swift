@@ -45,7 +45,7 @@ struct PendingConnectionRequestsCard: View {
         )
         return HStack(spacing: Theme.Spacing.sm) {
             AvatarView(person: person, size: 40)
-            Text(request.requesterFirstName)
+            Text("\(request.requesterFirstName) wants to connect")
                 .foregroundStyle(Theme.ink)
             Spacer(minLength: 0)
 

@@ -830,25 +830,32 @@ enum BackendService {
 
     struct OutgoingConnectionRequest: Decodable {
         var id: UUID
-        var status: String
+        var inviterId: UUID
+        var inviterFirstName: String
+        var inviterAvatarPath: String?
         var createdAt: Date
 
         enum CodingKeys: String, CodingKey {
-            case id, status
+            case id
+            case inviterId = "inviter_id"
+            case inviterFirstName = "inviter_first_name"
+            case inviterAvatarPath = "inviter_avatar_path"
             case createdAt = "created_at"
         }
+
+        var inviterAvatarURL: URL? { inviterAvatarPath.flatMap { avatarPublicURL(path: $0) } }
     }
 
-    /// My own outgoing request, if I have one still pending — lets the "waiting for them to
-    /// accept" UI survive a relaunch instead of only being known right after redeeming.
+    /// My own outgoing request, if I have one still pending — lets `RootView` show "{inviter}
+    /// needs to accept" instead of the forced re-subscribe paywall while it's still pending (a
+    /// pending invitee has no subscription of their own yet, and forcing them to pay while
+    /// waiting on someone else's decision makes no sense), and survives a relaunch rather than
+    /// only being known right after redeeming. A direct `connection_requests` select can't get
+    /// the inviter's name/avatar here (no RLS visibility into their profile pre-connection), so
+    /// this goes through `fetch_my_outgoing_connection_request` instead — see its own comment.
     static func fetchMyOutgoingConnectionRequest() async throws -> OutgoingConnectionRequest? {
-        guard let userID = currentUserID else { return nil }
         let rows: [OutgoingConnectionRequest] = try await supabase
-            .from("connection_requests")
-            .select("id, status, created_at")
-            .eq("requester_id", value: userID)
-            .eq("status", value: "pending")
-            .limit(1)
+            .rpc("fetch_my_outgoing_connection_request")
             .execute()
             .value
         return rows.first
@@ -2050,6 +2057,65 @@ enum BackendService {
             }
         }
         return nil
+    }
+
+    /// Couple-scoped re-fetch (mirrors `fetchFlights(coupleID:)`) — unlike flights, memories
+    /// were previously only ever loaded once via `fetchCoupleState()`'s bulk adopt, so a
+    /// partner's newly-added memory never appeared until the next full couple-state reload
+    /// (typically only on relaunch). This lets `AppModel.refreshMemories()` pull just the
+    /// memories table on foreground, same cadence as flights.
+    static func fetchMemories(coupleID: UUID) async throws -> [Memory] {
+        let memoryRows: [MemoryRow] = try await supabase
+            .from("memories")
+            .select()
+            .eq("couple_id", value: coupleID)
+            .execute()
+            .value
+
+        let memoryPhotoRows: [MemoryPhotoRow]
+        if memoryRows.isEmpty {
+            memoryPhotoRows = []
+        } else {
+            memoryPhotoRows = try await supabase
+                .from("memory_photos")
+                .select()
+                .in("memory_id", values: memoryRows.map(\.id))
+                .order("position")
+                .execute()
+                .value
+        }
+
+        let placeIDs = Array(Set(memoryRows.compactMap(\.placeId)))
+        let places = try await fetchPlaces(ids: placeIDs)
+
+        let photoRowsByMemory = Dictionary(grouping: memoryPhotoRows, by: \.memoryId)
+        var signedURLsByPhotoID: [UUID: URL] = [:]
+        await withTaskGroup(of: (UUID, URL?).self) { group in
+            for photoRow in memoryPhotoRows {
+                group.addTask { (photoRow.id, await memoryPhotoSignedURLWithRetry(path: photoRow.photoPath)) }
+            }
+            for await (photoID, url) in group {
+                if let url { signedURLsByPhotoID[photoID] = url }
+            }
+        }
+
+        return memoryRows.map { row in
+            let place = row.placeId.flatMap { places[$0] }
+            let photoRows = (photoRowsByMemory[row.id] ?? []).sorted { $0.position < $1.position }
+            let photos = photoRows.compactMap { photoRow -> MemoryPhoto? in
+                guard let url = signedURLsByPhotoID[photoRow.id] else { return nil }
+                return MemoryPhoto(id: photoRow.id, path: photoRow.photoPath, url: url)
+            }
+            return Memory(
+                id: row.id,
+                title: row.title,
+                place: place,
+                date: row.occurredAt,
+                note: row.note,
+                photos: photos,
+                tripID: row.tripId
+            )
+        }
     }
 
     /// Path includes a fresh photo id per upload (unlike the old single-photo `{coupleID}/{memoryID}.jpg`

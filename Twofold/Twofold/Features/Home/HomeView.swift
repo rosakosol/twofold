@@ -21,6 +21,7 @@ struct HomeView: View {
     @State private var distanceShareContext: DistanceShareContext?
     @State private var showingSettings = false
     @State private var showingPartnerSetup = false
+    @State private var reviewingConnectionRequest: BackendService.PendingConnectionRequest?
     @State private var showingAddTrip = false
     @State private var showingAddFlight = false
     @State private var showingLocationPermission = false
@@ -50,7 +51,9 @@ struct HomeView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: Theme.Spacing.md) {
-                    if appModel.needsPartnerInvite {
+                    if let incomingRequest = appModel.pendingConnectionRequests.first {
+                        pendingConnectionRequestCard(incomingRequest)
+                    } else if appModel.needsPartnerInvite {
                         invitePartnerCard
                     }
                     setupChecklistCard
@@ -115,7 +118,11 @@ struct HomeView: View {
                 refreshPendingShares()
                 Task { await appModel.refreshCoupleStateIfNeeded() }
                 Task { await appModel.refreshFlights() }
+                Task { await appModel.refreshMemories() }
                 Task { await refreshWeatherIfNeeded() }
+                if appModel.needsPartnerInvite {
+                    Task { await appModel.refreshPendingConnectionRequests() }
+                }
             }
             .onChange(of: scenePhase) { _, newPhase in
                 if newPhase == .active {
@@ -123,6 +130,9 @@ struct HomeView: View {
                     Task { await appModel.refreshCoupleStateIfNeeded() }
                     Task { await appModel.refreshFlights() }
                     Task { await refreshWeatherIfNeeded() }
+                    if appModel.needsPartnerInvite {
+                        Task { await appModel.refreshPendingConnectionRequests() }
+                    }
                 }
             }
             .sheet(isPresented: $showingSnapshot) { SnapshotShareView() }
@@ -134,6 +144,9 @@ struct HomeView: View {
             .sheet(isPresented: $showingAddFlight) { AddFlightView() }
             .sheet(isPresented: $showingPartnerSetup) {
                 PartnerSetupView()
+            }
+            .sheet(item: $reviewingConnectionRequest) { request in
+                ConnectionRequestReviewView(request: request)
             }
             .sheet(isPresented: $showingAddTrip) {
                 NavigationStack {
@@ -287,6 +300,56 @@ struct HomeView: View {
     /// exactly what the paywall itself already promises for the couple's current tier.
     private var partnerValuePropGameCount: String {
         appModel.subscriptionTier == "premium" ? "2000+" : "500+"
+    }
+
+    /// Someone has already redeemed this user's invite code and is waiting on a decision —
+    /// takes over `invitePartnerCard`'s slot entirely rather than showing alongside it ("connect
+    /// with your partner" and "someone wants to connect" at once would just be confusing), since
+    /// responding to an already-arrived request is strictly more actionable than being pitched
+    /// the feature again. Opens the focused `ConnectionRequestReviewView` (just this one
+    /// request's avatar/name + Accept/Decline), not the full `PartnerSetupView` profile editor.
+    private func pendingConnectionRequestCard(_ request: BackendService.PendingConnectionRequest) -> some View {
+        Button {
+            reviewingConnectionRequest = request
+        } label: {
+            VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+                HStack(spacing: Theme.Spacing.md) {
+                    AvatarView(
+                        person: Person(
+                            id: request.requesterId,
+                            name: request.requesterFirstName,
+                            accentColor: Person.palette[0],
+                            avatarURL: request.requesterAvatarPath.flatMap { BackendService.avatarPublicURL(path: $0) }
+                        ),
+                        size: 56,
+                        showsRing: true
+                    )
+
+                    Text("\(request.requesterFirstName) wants to connect")
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(.white)
+
+                    Spacer(minLength: 0)
+                }
+
+                Text("Accept to start sharing trips, flights, and memories together.")
+                    .font(.subheadline)
+                    .foregroundStyle(.white.opacity(0.9))
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 4) {
+                    Text("Review request")
+                        .font(.subheadline.weight(.semibold))
+                    Image(systemName: "chevron.right").font(.caption)
+                }
+                .foregroundStyle(.white)
+            }
+            .padding(Theme.Spacing.lg)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Theme.primaryButtonGradient, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 
     /// The prominent, primary prompt whenever there's no connected partner — pulled out of

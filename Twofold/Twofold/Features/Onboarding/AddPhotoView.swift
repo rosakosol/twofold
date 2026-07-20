@@ -21,12 +21,12 @@ struct AddPhotoView: View {
 
     private var subtitle: String {
         let partnerName = onboarding.role == .invitee ? (onboarding.inviterName ?? "your partner") : "your partner"
-        return "So \(partnerName) knows it's you."
+        return "You and \(partnerName) will have separate photos in Twofold. You can change them later in Settings."
     }
 
     var body: some View {
         OnboardingScaffold(
-            title: "Add your photo",
+            title: "Customise your photo",
             subtitle: subtitle,
             content: {
                 VStack(spacing: Theme.Spacing.xl) {
@@ -55,7 +55,7 @@ struct AddPhotoView: View {
                                     ProgressView().tint(.white)
                                 }
                             }
-                            Text("Your photo of \(inviterName) (optional)")
+                            Text("Your photo of \(inviterName)")
                                 .font(.caption)
                                 .foregroundStyle(Theme.subtleInk)
                         }
