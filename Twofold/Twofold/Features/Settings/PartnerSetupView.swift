@@ -59,7 +59,7 @@ struct PartnerSetupView: View {
                         // A nickname is always personal — your partner has their own
                         // independent name for you, and neither side ever overwrites the
                         // other's.
-                        Text("Just for you — they won't see this name.")
+                        Text("Just for you - they won't see this name or photo.")
                             .font(.caption2)
                             .foregroundStyle(Theme.subtleInk)
                     }
