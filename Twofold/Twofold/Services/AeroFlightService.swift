@@ -101,6 +101,12 @@ enum AeroFlightService {
             "mode": "number",
             "flightNumber": flightNumber,
             "date": Self.dateOnly(date),
+            // "Departing today" is meant relative to wherever the caller actually is, not
+            // wherever the flight happens to originate — a flight leaving Los Angeles at 11pm
+            // reads as "tomorrow" there while still being "today, in a couple of hours" to a
+            // caller in Melbourne. The server prefers this over the flight's own origin timezone
+            // when deciding whether a result counts as a same-day match.
+            "deviceTimeZone": TimeZone.current.identifier,
         ]
         if let originIata, !originIata.isEmpty { body["originIata"] = originIata }
         let response: CandidatesResponse = try await call("resolve-flight", body: body)
@@ -113,6 +119,7 @@ enum AeroFlightService {
             "originIata": originIata,
             "destinationIata": destinationIata,
             "date": Self.dateOnly(date),
+            "deviceTimeZone": TimeZone.current.identifier,
         ])
         return response.candidates
     }
@@ -136,6 +143,14 @@ enum AeroFlightService {
     /// partners opening the screen at once), so this is safe to call on every screen appear.
     static func refreshFlight(id: UUID) async throws {
         let _: EmptyDecodable = try await call("refresh-flight", body: ["flightId": id.uuidString])
+    }
+
+    /// 60-day on-time-performance stats for this flight's designator — server-computed and
+    /// cached (~24h), safe to call on every screen appear the same way `refreshFlight` is.
+    /// Requires the AeroAPI account to be on Standard tier or above; on a Personal-tier account
+    /// this just throws, which callers already treat as "don't show this card."
+    static func fetchDelayStats(flightID: UUID) async throws -> DelayStats {
+        try await call("flight-delay-stats", body: ["flightId": flightID.uuidString])
     }
 
     /// Registers (upserts) this device's Live Activity push token — called by

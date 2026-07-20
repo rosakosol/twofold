@@ -5,12 +5,13 @@
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import {
   type AeroFlight,
-  type AeroPosition,
   fetchAirportCoordinates,
   fetchAirportWeather,
   fetchFlightByFaId,
   fetchPosition,
 } from "./aeroapi.ts";
+import { fetchLivePosition } from "./adsb.ts";
+import { fetchRouteFallback } from "./adsbdb.ts";
 import { lookupAirlineName } from "./airlines.ts";
 import { deriveFlightStatus, type FlightStatus } from "./flight-status.ts";
 import { notifyForEvent } from "./notify.ts";
@@ -25,6 +26,7 @@ export interface FlightRow {
   fa_flight_id: string | null;
   flight_number_iata: string | null;
   flight_number_icao: string | null;
+  atc_ident: string | null;
   airline_name: string | null;
   airline_code: string | null;
   airline_logo_url: string | null;
@@ -89,6 +91,7 @@ export type MappedAeroFields = Pick<
   | "fa_flight_id"
   | "flight_number_iata"
   | "flight_number_icao"
+  | "atc_ident"
   | "airline_name"
   | "airline_code"
   | "airline_logo_url"
@@ -133,11 +136,44 @@ export type MappedAeroFields = Pick<
   | "status"
 >;
 
-export function mapAeroFlightToRow(aeroFlight: AeroFlight): MappedAeroFields {
-  return {
+// AeroAPI's `city` field on an airport is sometimes the airport's literal municipality rather
+// than the metro area travelers actually know it by — Haneda (HND) comes back as "Ota" (the ward
+// Haneda sits in) instead of "Tokyo", which read as a bug ("NH160 HND → JFK" showing "Ota → New
+// York"). Our own `airports` table (seeded from a proper reference dataset, not AeroAPI) already
+// has the traveler-recognizable city for HND and airports like it, so it's preferred here whenever
+// a match exists; AeroAPI's own value is only a fallback for airports outside that table.
+async function resolveAirportCity(
+  client: SupabaseClient,
+  iata: string | null | undefined,
+  icao: string | null | undefined,
+  fallback: string | null,
+): Promise<string | null> {
+  const code = iata || icao;
+  if (!code) return fallback;
+  try {
+    const { data } = await client
+      .from("airports")
+      .select("city")
+      .or(`iata.eq.${code},icao.eq.${code}`)
+      .limit(1)
+      .maybeSingle();
+    return data?.city ?? fallback;
+  } catch (err) {
+    console.error("[flight-sync] airport city lookup threw:", (err as Error).message);
+    return fallback;
+  }
+}
+
+export async function mapAeroFlightToRow(client: SupabaseClient, aeroFlight: AeroFlight): Promise<MappedAeroFields> {
+  const [originCity, destinationCity] = await Promise.all([
+    resolveAirportCity(client, aeroFlight.origin?.code_iata, aeroFlight.origin?.code_icao, aeroFlight.origin?.city ?? null),
+    resolveAirportCity(client, aeroFlight.destination?.code_iata, aeroFlight.destination?.code_icao, aeroFlight.destination?.city ?? null),
+  ]);
+  const mapped: MappedAeroFields = {
     fa_flight_id: aeroFlight.fa_flight_id ?? null,
     flight_number_iata: aeroFlight.ident_iata ?? aeroFlight.ident ?? null,
     flight_number_icao: aeroFlight.ident_icao ?? null,
+    atc_ident: aeroFlight.atc_ident ?? null,
     // AeroAPI's /flights response only exposes an operator *code* (ICAO/IATA), never a display
     // name (confirmed absent from the documented field list, and AeroAPI has no name/logo
     // lookup endpoint at all per FlightAware's own support forum) — resolved against a curated
@@ -149,7 +185,7 @@ export function mapAeroFlightToRow(aeroFlight: AeroFlight): MappedAeroFields {
     origin_iata: aeroFlight.origin?.code_iata ?? null,
     origin_icao: aeroFlight.origin?.code_icao ?? null,
     origin_name: aeroFlight.origin?.name ?? null,
-    origin_city: aeroFlight.origin?.city ?? null,
+    origin_city: originCity,
     origin_timezone: aeroFlight.origin?.timezone ?? null,
     // Not present on the /flights response fields confirmed from the docs (only the dedicated
     // /airports/{id} endpoint documents lat/long) — mapped opportunistically if the payload
@@ -160,7 +196,7 @@ export function mapAeroFlightToRow(aeroFlight: AeroFlight): MappedAeroFields {
     destination_iata: aeroFlight.destination?.code_iata ?? null,
     destination_icao: aeroFlight.destination?.code_icao ?? null,
     destination_name: aeroFlight.destination?.name ?? null,
-    destination_city: aeroFlight.destination?.city ?? null,
+    destination_city: destinationCity,
     destination_timezone: aeroFlight.destination?.timezone ?? null,
     destination_latitude: aeroFlight.destination?.latitude ?? null,
     destination_longitude: aeroFlight.destination?.longitude ?? null,
@@ -191,6 +227,48 @@ export function mapAeroFlightToRow(aeroFlight: AeroFlight): MappedAeroFields {
     diverted: Boolean(aeroFlight.diverted),
     status: deriveFlightStatus(aeroFlight),
   };
+
+  // adsbdb.com route fallback — only when AeroAPI's own response came back with genuinely no
+  // route at all on either side (rare). AeroAPI stays the primary/authoritative schedule source;
+  // this never overrides a value AeroAPI did provide, and is never called on a normal poll.
+  const hasNoOriginCode = !mapped.origin_iata && !mapped.origin_icao;
+  const hasNoDestinationCode = !mapped.destination_iata && !mapped.destination_icao;
+  if (hasNoOriginCode && hasNoDestinationCode) {
+    const callsign = aeroFlight.atc_ident ?? aeroFlight.ident_icao ?? aeroFlight.ident;
+    if (callsign) {
+      try {
+        const route = await fetchRouteFallback(callsign);
+        if (route) {
+          if (!mapped.airline_name) mapped.airline_name = route.airlineName;
+          if (route.origin) {
+            mapped.origin_iata = route.origin.iata;
+            mapped.origin_icao = route.origin.icao;
+            mapped.origin_name = route.origin.name;
+            mapped.origin_city = await resolveAirportCity(client, route.origin.iata, route.origin.icao, route.origin.city);
+            mapped.origin_latitude = route.origin.latitude;
+            mapped.origin_longitude = route.origin.longitude;
+          }
+          if (route.destination) {
+            mapped.destination_iata = route.destination.iata;
+            mapped.destination_icao = route.destination.icao;
+            mapped.destination_name = route.destination.name;
+            mapped.destination_city = await resolveAirportCity(
+              client,
+              route.destination.iata,
+              route.destination.icao,
+              route.destination.city,
+            );
+            mapped.destination_latitude = route.destination.latitude;
+            mapped.destination_longitude = route.destination.longitude;
+          }
+        }
+      } catch (err) {
+        console.error(`[adsbdb] route fallback threw for ${callsign}:`, (err as Error).message);
+      }
+    }
+  }
+
+  return mapped;
 }
 
 // Airport coordinates never change once known, so this only ever looks them up when the
@@ -290,14 +368,19 @@ function diffEvents(existing: FlightRow, mapped: MappedAeroFields): PendingEvent
   }
 
   // AeroAPI re-estimates arrival constantly — a raw inequality check fires on noise as small as
-  // a few seconds of re-estimation drift between 5-minute polls, spamming an event + push
-  // notification every single tick near departure. Only treat it as a real change worth telling
-  // someone about once it's moved by at least a minute, same threshold class as the delay check
-  // below. Also stops entirely once the flight has already landed — a confirmed arrival isn't
-  // going to move again, so any further "estimated arrival" drift AeroAPI reports past that
-  // point is noise, not something worth another push notification for.
+  // a few seconds of re-estimation drift, spamming an event + push notification every single
+  // tick. This used to be a 1-minute threshold, which sounded reasonable but wasn't: near
+  // departure/arrival this app now polls every 1 minute (tightened after this comment was first
+  // written, see 20260826000000_flight_refresh_cron_every_minute.sql), so a routine few-minutes'
+  // ETA wobble between successive polls still cleared 60s and fired a push almost every tick —
+  // exactly the "why does this keep updating" complaint that prompted raising it to 10 minutes.
+  // Only treat it as a real change worth telling someone about once it's moved by at least that
+  // much, same threshold class as the delay check below. Also stops entirely once the flight has
+  // already landed — a confirmed arrival isn't going to move again, so any further "estimated
+  // arrival" drift AeroAPI reports past that point is noise, not something worth another push
+  // notification for.
   const alreadyLanded = existing.status === "landed" || existing.status === "arrived" || existing.actual_in != null;
-  const ARRIVAL_CHANGE_THRESHOLD_MS = 60_000;
+  const ARRIVAL_CHANGE_THRESHOLD_MS = 10 * 60 * 1000;
   if (!alreadyLanded) {
     if (mapped.scheduled_in && hasMeaningfulTimeChange(existing.scheduled_in, mapped.scheduled_in, ARRIVAL_CHANGE_THRESHOLD_MS)) {
       events.push({ type: "arrival_time_change", previous_value: existing.scheduled_in, new_value: mapped.scheduled_in });
@@ -372,7 +455,7 @@ export async function syncFlight(
   aeroFlight: AeroFlight,
   source: "poll" | "webhook",
 ): Promise<void> {
-  const mapped = mapAeroFlightToRow(aeroFlight);
+  const mapped = await mapAeroFlightToRow(serviceClient, aeroFlight);
   const events = diffEvents(flightRow, mapped);
 
   const update: Record<string, unknown> = { ...mapped, last_refreshed_at: new Date().toISOString() };
@@ -401,6 +484,16 @@ export async function syncFlight(
   update.terminal_origin = mapped.terminal_origin ?? flightRow.terminal_origin;
   update.terminal_destination = mapped.terminal_destination ?? flightRow.terminal_destination;
   update.baggage_claim = mapped.baggage_claim ?? flightRow.baggage_claim;
+  // Same coalescing reasoning — atc_ident and flight_number_icao are both candidate ADS-B mirror
+  // lookup keys (see syncLivePositionForFaFlightId below); a poll that happens to omit either
+  // must not clobber a previously-known value back to null. Missing this for flight_number_icao
+  // specifically was a real bug: AeroAPI doesn't reliably include ident_icao on every poll, and
+  // atc_ident is frequently null for many carriers even once airborne — if a poll nulled out
+  // flight_number_icao while atc_ident was already null, both candidates went empty and live
+  // position silently stopped updating for that flight until the AeroAPI fallback kicked in
+  // after 5 consecutive misses.
+  update.atc_ident = mapped.atc_ident ?? flightRow.atc_ident;
+  update.flight_number_icao = mapped.flight_number_icao ?? flightRow.flight_number_icao;
 
   const coordinatePatch = await backfillAirportCoordinates(flightRow, mapped);
   Object.assign(update, coordinatePatch);
@@ -454,17 +547,21 @@ export async function syncFlight(
 // Live Activity content-state pushes — a full-snapshot push per sync (not per diffed event,
 // since a Live Activity's ContentState is a whole-state replace, not an incremental event).
 // Skips sending when nothing Live-Activity-relevant changed, so a no-op poll doesn't spam a
-// push. Only called from syncFlight, not applyPosition — live-position pings don't affect
-// content-state (progress is time-based off scheduled/estimated/actual times, not GPS).
+// push. Only called from syncFlight, not syncLivePositionForFaFlightId — live-position pings
+// don't affect content-state (progress is time-based off scheduled/estimated/actual times, not
+// GPS).
 // ---------------------------------------------------------------------------
 
-const LIVE_ACTIVITY_RELEVANT_FIELDS: (keyof FlightRow)[] = [
+// Fields that trigger a Live Activity refresh on *any* change — every one of these is either a
+// one-time/discrete event (status, actual times, cancelled, diverted) or something that only
+// changes when a human actually updates it (gate/terminal/baggage), so a plain inequality check
+// is correct for these. `estimated_out`/`estimated_in` are deliberately NOT in this list — see
+// `isLiveActivityRelevantChange` below, same reasoning as `diffEvents`' ARRIVAL_CHANGE_THRESHOLD_MS.
+const LIVE_ACTIVITY_PLAIN_FIELDS: (keyof FlightRow)[] = [
   "status",
   "scheduled_out",
-  "estimated_out",
   "actual_out",
   "scheduled_in",
-  "estimated_in",
   "actual_in",
   "gate_origin",
   "gate_destination",
@@ -476,6 +573,24 @@ const LIVE_ACTIVITY_RELEVANT_FIELDS: (keyof FlightRow)[] = [
   "cancelled",
   "diverted",
 ];
+
+// Same 10-minute noise floor as diffEvents' arrival_time_change check — `estimated_out`/
+// `estimated_in` used to be in LIVE_ACTIVITY_PLAIN_FIELDS with a raw `!==` check, which meant a
+// few seconds of AeroAPI re-estimation drift (routine, on nearly every poll) pushed a fresh Live
+// Activity content-state update every single tick. `null`/non-null transitions (a first estimate
+// appearing, or one disappearing) always count as relevant regardless of magnitude.
+function estimateDrifted(previous: string | null, next: string | null): boolean {
+  if (previous === next) return false;
+  if (!previous || !next) return true;
+  return hasMeaningfulTimeChange(previous, next, 10 * 60 * 1000);
+}
+
+function isLiveActivityRelevantChange(oldRow: FlightRow, newRow: FlightRow): boolean {
+  if (LIVE_ACTIVITY_PLAIN_FIELDS.some((field) => oldRow[field] !== newRow[field])) return true;
+  if (estimateDrifted(oldRow.estimated_out, newRow.estimated_out)) return true;
+  if (estimateDrifted(oldRow.estimated_in, newRow.estimated_in)) return true;
+  return false;
+}
 
 const TERMINAL_STATUSES: FlightStatus[] = ["landed", "arrived", "cancelled", "diverted"];
 
@@ -537,16 +652,17 @@ function computeTimeRemainingLabel(row: FlightRow): string {
 // Codable camelCase, no CodingKeys) — every Date field goes through toCocoaTimestamp, since
 // that's what Swift's default JSONDecoder expects, NOT Unix epoch.
 function computeLiveActivityContentState(row: FlightRow, isReunion: boolean): Record<string, unknown> {
-  const scheduledDeparture = row.scheduled_out ?? new Date().toISOString();
-  const scheduledArrival = row.scheduled_in ?? scheduledDeparture;
-
   return {
     status: row.status,
     progress: computeProgress(row),
     timeRemainingLabel: computeTimeRemainingLabel(row),
     isReunion,
-    scheduledDeparture: toCocoaTimestamp(new Date(scheduledDeparture)),
-    scheduledArrival: toCocoaTimestamp(new Date(scheduledArrival)),
+    // null (not a fabricated `new Date()`) when the provider hasn't supplied any schedule data
+    // yet — matches every other optional time field below, and lets the client render "not
+    // available" instead of a fake live "now" (see JourneyActivityAttributes.ContentState's doc
+    // comment, Swift side).
+    scheduledDeparture: row.scheduled_out ? toCocoaTimestamp(new Date(row.scheduled_out)) : null,
+    scheduledArrival: row.scheduled_in ? toCocoaTimestamp(new Date(row.scheduled_in)) : null,
     estimatedDeparture: row.estimated_out ? toCocoaTimestamp(new Date(row.estimated_out)) : null,
     estimatedArrival: row.estimated_in ? toCocoaTimestamp(new Date(row.estimated_in)) : null,
     actualDeparture: row.actual_out ? toCocoaTimestamp(new Date(row.actual_out)) : null,
@@ -563,7 +679,7 @@ function computeLiveActivityContentState(row: FlightRow, isReunion: boolean): Re
 }
 
 async function notifyLiveActivity(serviceClient: SupabaseClient, oldRow: FlightRow, newRow: FlightRow): Promise<void> {
-  const changed = LIVE_ACTIVITY_RELEVANT_FIELDS.some((field) => oldRow[field] !== newRow[field]);
+  const changed = isLiveActivityRelevantChange(oldRow, newRow);
   const becameTerminal = !TERMINAL_STATUSES.includes(oldRow.status) && TERMINAL_STATUSES.includes(newRow.status);
   if (!changed && !becameTerminal) return;
 
@@ -594,23 +710,208 @@ async function notifyLiveActivity(serviceClient: SupabaseClient, oldRow: FlightR
   }
 }
 
-// Statuses where a live position is worth fetching — airborne-ish states.
-const AIRBORNE_STATUSES: FlightStatus[] = ["departed", "in_air", "landing_soon"];
+// Statuses where a live position is worth fetching — airborne-ish states. Exported so
+// refresh-flight can gate its own immediate, user-triggered syncLivePositionForFaFlightId call
+// the same way syncLivePositions does.
+export const AIRBORNE_STATUSES: FlightStatus[] = ["departed", "in_air", "landing_soon"];
 
-async function applyPosition(serviceClient: SupabaseClient, flightId: string, position: AeroPosition): Promise<void> {
+// ---------------------------------------------------------------------------
+// Deduped, ADS-B-sourced live position. One `flight_live_positions` cache row per real-world
+// flight (keyed by fa_flight_id, AeroAPI's own canonical per-instance id — shared across every
+// couple independently tracking the same flight), so N couples watching the same flight produce
+// exactly one mirror fetch per cache window instead of N. See
+// supabase/migrations/20260829000000_flight_live_positions.sql.
+// ---------------------------------------------------------------------------
+
+const LIVE_POSITION_CACHE_TTL_MS = 55_000; // just under the 1-minute cron cadence
+const ADSB_FAILURE_FALLBACK_THRESHOLD = 5; // consecutive misses before trying the paid AeroAPI fallback
+const AEROAPI_FALLBACK_TTL_MS = 2 * 60 * 1000; // don't hammer the paid endpoint even as a fallback
+
+interface FlightLivePositionRow {
+  fa_flight_id: string;
+  atc_ident: string | null;
+  hex: string | null;
+  query_key: string | null;
+  source: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  altitude: number | null;
+  groundspeed: number | null;
+  heading: number | null;
+  consecutive_failures: number;
+  fetched_at: string | null;
+  updated_at: string;
+}
+
+// Deduped by fa_flight_id, not by couple/flight-row id — this is the actual dedup payoff. Never
+// throws: an ADS-B (or even AeroAPI-fallback) failure here must never block the caller's own
+// AeroAPI schedule/status refresh, which is what notifications/Live Activity actually depend on.
+export async function syncLivePositionForFaFlightId(
+  serviceClient: SupabaseClient,
+  faFlightId: string,
+  candidates: string[],
+): Promise<void> {
+  const { data: cached } = await serviceClient
+    .from("flight_live_positions")
+    .select("*")
+    .eq("fa_flight_id", faFlightId)
+    .maybeSingle();
+
+  const cachedRow = cached as FlightLivePositionRow | null;
+  const isFresh = Boolean(
+    cachedRow?.fetched_at && Date.now() - new Date(cachedRow.fetched_at).getTime() < LIVE_POSITION_CACHE_TTL_MS,
+  );
+
+  let row = cachedRow;
+
+  if (!isFresh) {
+    const hit = candidates.length > 0 ? await fetchLivePosition(candidates) : null;
+
+    if (hit) {
+      const { data: upserted, error } = await serviceClient
+        .from("flight_live_positions")
+        .upsert(
+          {
+            fa_flight_id: faFlightId,
+            atc_ident: candidates[0] ?? null,
+            hex: hit.position.hex,
+            query_key: hit.candidateIndex === 0 ? "atc_ident" : "icao_fallback",
+            source: hit.source,
+            latitude: hit.position.latitude,
+            longitude: hit.position.longitude,
+            altitude: hit.position.altitude,
+            groundspeed: hit.position.groundspeed,
+            heading: hit.position.heading,
+            consecutive_failures: 0,
+            fetched_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "fa_flight_id" },
+        )
+        .select()
+        .single();
+      if (error) {
+        console.error(`[adsb] failed to upsert flight_live_positions for ${faFlightId}:`, error.message);
+      } else {
+        row = upserted as FlightLivePositionRow;
+      }
+    } else {
+      // Every mirror/candidate missed this cycle. Track consecutive misses so a flight that's
+      // genuinely gone dark (e.g. an oceanic leg outside terrestrial ADS-B receiver coverage) can
+      // fall back to AeroAPI's paid position endpoint — rate-limited, and still funneled through
+      // this same fa_flight_id-deduped cache, so it stays a strict improvement over the old
+      // zero-dedup baseline even in the fallback case.
+      const failures = (cachedRow?.consecutive_failures ?? 0) + 1;
+      const aeroApiFallbackStale = !cachedRow?.fetched_at || cachedRow.source !== "aeroapi_fallback" ||
+        Date.now() - new Date(cachedRow.fetched_at).getTime() >= AEROAPI_FALLBACK_TTL_MS;
+
+      let fallbackRow: FlightLivePositionRow | null = null;
+      if (failures >= ADSB_FAILURE_FALLBACK_THRESHOLD && aeroApiFallbackStale) {
+        try {
+          const position = await fetchPosition(faFlightId);
+          if (position) {
+            const { data: upserted, error } = await serviceClient
+              .from("flight_live_positions")
+              .upsert(
+                {
+                  fa_flight_id: faFlightId,
+                  hex: null,
+                  query_key: "aeroapi_fallback",
+                  source: "aeroapi_fallback",
+                  latitude: position.latitude,
+                  longitude: position.longitude,
+                  altitude: position.altitude ?? null,
+                  groundspeed: position.groundspeed ?? null,
+                  heading: position.heading ?? null,
+                  consecutive_failures: 0,
+                  fetched_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                },
+                { onConflict: "fa_flight_id" },
+              )
+              .select()
+              .single();
+            if (error) {
+              console.error(`[adsb] failed to upsert AeroAPI fallback position for ${faFlightId}:`, error.message);
+            } else {
+              fallbackRow = upserted as FlightLivePositionRow;
+            }
+          }
+        } catch (err) {
+          console.error(`[adsb] AeroAPI position fallback threw for ${faFlightId}:`, (err as Error).message);
+        }
+      }
+
+      if (fallbackRow) {
+        row = fallbackRow;
+      } else {
+        // Record the miss so consecutive_failures accumulates toward the fallback threshold,
+        // without touching the last-known position — still the best data available to show.
+        await serviceClient
+          .from("flight_live_positions")
+          .upsert(
+            { fa_flight_id: faFlightId, consecutive_failures: failures, updated_at: new Date().toISOString() },
+            { onConflict: "fa_flight_id" },
+          );
+      }
+    }
+  }
+
+  if (!row || row.latitude == null || row.longitude == null) return; // never had a fix yet
+
+  // The dedup payoff: one update, filtered by fa_flight_id (not a single row id), broadcasts to
+  // every couple's flights row tracking this same real-world flight.
   const { error } = await serviceClient
     .from("flights")
     .update({
-      position_latitude: position.latitude,
-      position_longitude: position.longitude,
-      position_altitude: position.altitude ?? null,
-      position_groundspeed: position.groundspeed ?? null,
-      position_heading: position.heading ?? null,
-      position_updated_at: position.timestamp ?? new Date().toISOString(),
+      position_latitude: row.latitude,
+      position_longitude: row.longitude,
+      position_altitude: row.altitude,
+      position_groundspeed: row.groundspeed,
+      position_heading: row.heading,
+      position_updated_at: row.fetched_at ?? new Date().toISOString(),
     })
-    .eq("id", flightId);
+    .eq("fa_flight_id", faFlightId)
+    .eq("tracking_enabled", true);
   if (error) {
-    console.error(`[flight-sync] failed to apply position for ${flightId}:`, error.message);
+    console.error(`[adsb] failed to broadcast position onto flights for ${faFlightId}:`, error.message);
+  }
+}
+
+// Called once per refresh-due-flights cron tick (every minute), independent of isDue()'s
+// AeroAPI-staleness tiering — that tiering exists to space out paid AeroAPI schedule calls, but
+// live position from free mirrors has no such cost pressure and refreshes flat, every tick, for
+// every currently-airborne flight. Deduped by fa_flight_id: two couples tracking the same
+// real-world flight collapse into a single syncLivePositionForFaFlightId call.
+export async function syncLivePositions(serviceClient: SupabaseClient, activeCoupleIds: string[]): Promise<void> {
+  if (activeCoupleIds.length === 0) return;
+
+  const { data: flights, error } = await serviceClient
+    .from("flights")
+    .select("fa_flight_id, atc_ident, flight_number_icao")
+    .eq("tracking_enabled", true)
+    .in("couple_id", activeCoupleIds)
+    .in("status", AIRBORNE_STATUSES)
+    .not("fa_flight_id", "is", null);
+
+  if (error) {
+    console.error("[adsb] failed to load airborne flights for live-position sync:", error.message);
+    return;
+  }
+
+  type Candidate = { fa_flight_id: string; atc_ident: string | null; flight_number_icao: string | null };
+  const byFaFlightId = new Map<string, Candidate>();
+  for (const flight of (flights ?? []) as Candidate[]) {
+    if (!byFaFlightId.has(flight.fa_flight_id)) byFaFlightId.set(flight.fa_flight_id, flight);
+  }
+
+  for (const [faFlightId, flight] of byFaFlightId) {
+    const candidates = [flight.atc_ident, flight.flight_number_icao].filter((v): v is string => Boolean(v));
+    try {
+      await syncLivePositionForFaFlightId(serviceClient, faFlightId, candidates);
+    } catch (err) {
+      console.error(`[adsb] syncLivePositionForFaFlightId threw for ${faFlightId}:`, (err as Error).message);
+    }
   }
 }
 
@@ -631,15 +932,12 @@ export async function refreshOneFlight(serviceClient: SupabaseClient, flightRow:
 
   await syncFlight(serviceClient, flightRow, aeroFlight, "poll");
 
-  const status = deriveFlightStatus(aeroFlight);
-  if (AIRBORNE_STATUSES.includes(status)) {
-    try {
-      const position = await fetchPosition(flightRow.fa_flight_id);
-      if (position) await applyPosition(serviceClient, flightRow.id, position);
-    } catch (err) {
-      console.error(`[flight-sync] fetchPosition threw for ${flightRow.id}:`, (err as Error).message);
-    }
-  }
+  // Live position is deliberately NOT synced inline here anymore — it now runs as its own pass,
+  // deduped by fa_flight_id across every couple tracking the same real-world flight, flat every
+  // cron tick regardless of this row's own AeroAPI schedule-tier staleness. See
+  // syncLivePositions() (called from refresh-due-flights after its main loop) and
+  // syncLivePositionForFaFlightId() (called directly by refresh-flight for an immediate,
+  // user-triggered refresh).
 
   const { data: updated } = await serviceClient.from("flights").select("*").eq("id", flightRow.id).single();
   return (updated as FlightRow) ?? flightRow;

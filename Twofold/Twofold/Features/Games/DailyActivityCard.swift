@@ -5,7 +5,7 @@
 //  Shown at the top of the Games hub — a shared, couple-wide streak (increments the moment
 //  either partner answers, see the migration comment on advance_game_session) plus a themed
 //  teaser leading into today's question. The destination is an ordinary
-//  DiscussBeforeTravellingGameView driven by `is_daily` session id — that view already handles
+//  DeepConversationsGameView driven by `is_daily` session id — that view already handles
 //  every session state (fresh/in-progress/waiting-on-partner/revealed) via GameSessionStore, so
 //  this card's only job is getting the user to the right session id, not re-deriving that state.
 //
@@ -41,8 +41,16 @@ struct DailyActivityCard: View {
 
                 Spacer()
 
+                if appModel.partnerConnected {
+                    HStack(spacing: -8) {
+                        completionAvatar(person: appModel.currentUser, answered: appModel.todaysMyAnswered)
+                            .zIndex(1)
+                        completionAvatar(person: appModel.partner, answered: appModel.todaysPartnerAnswered)
+                    }
+                }
+
                 TimelineView(.periodic(from: .now, by: 1)) { context in
-                    Text(Self.countdownLabel(from: context.date))
+                    Text(countdownLabel(from: context.date))
                         .font(.caption2.weight(.medium))
                         .foregroundStyle(Theme.subtleInk)
                         .monospacedDigit()
@@ -97,7 +105,15 @@ struct DailyActivityCard: View {
     @ViewBuilder
     private var dailyDestination: some View {
         if let sessionID = appModel.todaysDailySessionID {
-            DiscussBeforeTravellingGameView(sessionID: sessionID)
+            DeepConversationsGameView(sessionID: sessionID)
+        } else if let error = appModel.dailyQuestionError {
+            VStack(spacing: Theme.Spacing.md) {
+                GameErrorState(message: error)
+                Button("Try again") {
+                    Task { await appModel.startOrResumeDailyQuestion() }
+                }
+                .buttonStyle(.borderedProminent)
+            }
         } else {
             ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -105,12 +121,38 @@ struct DailyActivityCard: View {
         }
     }
 
-    private static func countdownLabel(from now: Date) -> String {
-        let calendar = Calendar.current
-        guard let midnight = calendar.nextDate(after: now, matching: DateComponents(hour: 0, minute: 0, second: 0), matchingPolicy: .nextTime) else {
-            return ""
-        }
-        let remaining = max(0, Int(midnight.timeIntervalSince(now)))
+    /// A small avatar with a green checkmark badge once that person has answered today's
+    /// question — the two overlap slightly (see the `-8` spacing above) so they read as one
+    /// "who's done" glance rather than two separate, unrelated icons.
+    private func completionAvatar(person: Person, answered: Bool) -> some View {
+        AvatarView(person: person, size: 26, showsRing: true)
+            .overlay(alignment: .bottomTrailing) {
+                if answered {
+                    ZStack {
+                        Circle().fill(Theme.leafGreen)
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundStyle(.white)
+                    }
+                    .frame(width: 13, height: 13)
+                    .overlay(Circle().strokeBorder(.white, lineWidth: 1.5))
+                }
+            }
+    }
+
+    /// The real "today" boundary the streak/daily-question logic resets on is relative to this
+    /// couple's own `connectedAt` (see `Couple.connectedAt`'s doc comment and
+    /// `advance_game_session`'s Postgres trigger), not a shared UTC midnight — a couple that
+    /// connected mid-day would otherwise get an arbitrary partial first "day" before their very
+    /// first daily question could even reset. Mirrors the trigger's own
+    /// `floor((now - connectedAt) / 86400)` day-index math exactly, so the client's countdown
+    /// always lands on the same instant the backend actually resets at.
+    private func countdownLabel(from now: Date) -> String {
+        guard let connectedAt = appModel.couple.connectedAt else { return "" }
+        let dayLength: TimeInterval = 86400
+        let elapsedDays = (now.timeIntervalSince(connectedAt) / dayLength).rounded(.down)
+        let nextBoundary = connectedAt.addingTimeInterval((elapsedDays + 1) * dayLength)
+        let remaining = max(0, Int(nextBoundary.timeIntervalSince(now)))
         let hours = remaining / 3600
         let minutes = (remaining % 3600) / 60
         let seconds = remaining % 60

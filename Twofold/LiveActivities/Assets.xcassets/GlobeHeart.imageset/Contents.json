@@ -1,15 +1,17 @@
 {
   "images" : [
     {
-      "filename" : "GlobeHeart.png",
+      "filename" : "GlobeHeart@1x.png",
       "idiom" : "universal",
       "scale" : "1x"
     },
     {
+      "filename" : "GlobeHeart@2x.png",
       "idiom" : "universal",
       "scale" : "2x"
     },
     {
+      "filename" : "GlobeHeart@3x.png",
       "idiom" : "universal",
       "scale" : "3x"
     }

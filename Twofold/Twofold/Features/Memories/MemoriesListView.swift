@@ -7,6 +7,7 @@
 //  with a right-edge year index that scrolls on tap and highlights as you scroll.
 //
 
+import PostHog
 import SwiftUI
 
 struct MemoriesListView: View {
@@ -105,6 +106,7 @@ struct MemoriesListView: View {
                 }
             }
         }
+        .postHogScreenView("Memories: List")
     }
 
     // MARK: - Filters
@@ -195,7 +197,12 @@ struct MemoriesListView: View {
 
     private func memoryRow(_ memory: Memory) -> some View {
         SectionCard {
-            HStack(alignment: .top, spacing: Theme.Spacing.md) {
+            // `.center`, not `.top` — a memory with no `place` shows two lines of text instead of
+            // three, and centering keeps the photo aligned with that shorter text column instead
+            // of pinned to the row's top edge with visible empty space below it. Deliberately
+            // excludes the note/description (title, location, date only) so every row's height
+            // stays consistent regardless of how long a memory's note is.
+            HStack(alignment: .center, spacing: Theme.Spacing.md) {
                 MemoryPhotoView(memory: memory, cornerRadius: 14)
                     .frame(width: 72, height: 72)
 
@@ -212,12 +219,6 @@ struct MemoriesListView: View {
                     Text(memory.date, format: .dateTime.day().month(.abbreviated).year())
                         .font(.caption)
                         .foregroundStyle(Theme.subtleInk)
-                    if !memory.note.isEmpty {
-                        Text(memory.note)
-                            .font(.caption)
-                            .foregroundStyle(Theme.subtleInk)
-                            .lineLimit(2)
-                    }
                 }
                 Spacer(minLength: 0)
             }

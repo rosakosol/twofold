@@ -1,15 +1,26 @@
 // Starts tracking a flight the caller has already confirmed via resolve-flight. Re-fetches the
 // flight fresh from AeroAPI by fa_flight_id (never trusts client-supplied flight fields), inserts
 // the `flights` row and its baseline "scheduled" event using the service role key (flights/
-// flight_status_events have no client write policy by design — see the migration), creates
-// default notification preference rows for both partners, and best-effort registers an AeroAPI
-// alert so future changes arrive over the webhook in addition to polling.
+// flight_status_events have no client write policy by design — see the migration), and creates
+// default notification preference rows for both partners.
+//
+// Deliberately does NOT register an AeroAPI alert (used to, via createAlert() — removed as a
+// cost optimization). Alerts had no dedup across couples (two couples tracking the same
+// real-world flight registered two separate alerts, billed separately per delivery), were never
+// cleaned up after a flight finished tracking, and each delivery triggered an *additional*
+// billable AeroAPI query in aeroapi-webhook/index.ts on top of the delivery fee itself. Polling
+// (refresh-due-flights, every 1 min near departure/arrival, every 2 min while airborne — see
+// isDue() there) already independently detects every event alerts would have — see diffEvents()
+// in _shared/flight-sync.ts — so alerts were a pure latency shave (near-instant vs. up to ~1-2
+// min) at real dollar cost, not an added capability. aeroapi-webhook/index.ts is left in place
+// (it still hosts the unrelated APNs config diagnostic) but is now effectively dormant, since
+// nothing registers an alert for it to receive.
 //
 // Requires an `Authorization: Bearer <user access token>` header (the caller's Supabase auth
 // session) so we can resolve which couple this flight belongs to.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { createAlert, fetchAirportCoordinates, fetchFlightByFaId } from "../_shared/aeroapi.ts";
+import { fetchAirportCoordinates, fetchFlightByFaId } from "../_shared/aeroapi.ts";
 import { deriveFlightStatus } from "../_shared/flight-status.ts";
 import { mapAeroFlightToRow } from "../_shared/flight-sync.ts";
 
@@ -88,7 +99,7 @@ Deno.serve(async (req) => {
     return Response.json({ error: "Flight not found" }, { status: 404 });
   }
 
-  const mapped = mapAeroFlightToRow(aeroFlight);
+  const mapped = await mapAeroFlightToRow(serviceClient, aeroFlight);
 
   // Airport coordinates aren't on the /flights response — a one-time /airports/{id} lookup per
   // side. Best-effort: a failed lookup just leaves the columns null, which the map screen
@@ -189,15 +200,6 @@ Deno.serve(async (req) => {
   const { error: prefErr } = await serviceClient.from("flight_notification_preferences").insert(prefRows);
   if (prefErr) {
     console.error("[add-flight] failed to insert notification preferences:", prefErr.message);
-  }
-
-  // Best-effort — swallow failures internally, never blocks adding the flight. Requires the
-  // account-wide AeroAPI alert webhook endpoint to already be configured (see
-  // aeroapi-webhook/index.ts's header comment for the one-time `PUT /alerts/endpoint` step).
-  const originCode = mapped.origin_icao ?? mapped.origin_iata;
-  const destCode = mapped.destination_icao ?? mapped.destination_iata;
-  if (originCode && destCode) {
-    await createAlert(aeroFlight.ident, originCode, destCode);
   }
 
   return Response.json({ flightId });

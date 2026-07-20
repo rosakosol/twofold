@@ -50,12 +50,12 @@ enum MockData {
     }()
 
     static let reunionTrip = Trip(
-        travelerID: dara.id,
+        travelerIDs: [dara.id],
         origin: singapore,
         destination: melbourne,
         departureDate: activeFlight.scheduledDeparture,
         arrivalDate: activeFlight.scheduledArrival,
-        category: .seeingEachOther,
+        isReunionTrip: true,
         distanceKm: 6060,
         flight: activeFlight
     )
@@ -76,35 +76,35 @@ enum MockData {
     }()
 
     static let pastTrip = Trip(
-        travelerID: rosa.id,
+        travelerIDs: [rosa.id],
         origin: melbourne,
         destination: singapore,
         departureDate: pastLandedFlight.scheduledDeparture,
         arrivalDate: pastLandedFlight.scheduledArrival,
-        category: .seeingEachOther,
+        isReunionTrip: true,
         distanceKm: 6060,
         flight: pastLandedFlight,
         notes: "You flew to Dara"
     )
 
     static let togetherTrip = Trip(
-        travelerID: dara.id,
+        travelerIDs: [dara.id, rosa.id],
         origin: singapore,
         destination: bangkok,
         departureDate: DateComponents(calendar: .current, year: 2024, month: 3, day: 2).date ?? .now,
         arrivalDate: DateComponents(calendar: .current, year: 2024, month: 3, day: 6).date ?? .now,
-        category: .together,
+        isReunionTrip: false,
         distanceKm: 1435,
         notes: "Weekend together"
     )
 
     static let personalTrip = Trip(
-        travelerID: dara.id,
+        travelerIDs: [dara.id],
         origin: singapore,
         destination: tokyo,
         departureDate: Calendar.current.date(byAdding: .day, value: -160, to: .now) ?? .now,
         arrivalDate: Calendar.current.date(byAdding: .day, value: -158, to: .now) ?? .now,
-        category: .personal,
+        isReunionTrip: false,
         distanceKm: 5300,
         notes: "Business trip"
     )

@@ -6,6 +6,7 @@
 //  only way a memory ever gets linked to one, offering memories not already linked elsewhere.
 //
 
+import PostHog
 import SwiftUI
 
 struct LinkMemoryPickerView: View {
@@ -62,6 +63,7 @@ struct LinkMemoryPickerView: View {
                 }
             }
         }
+        .postHogScreenView("Travel: Link Memory")
     }
 }
 

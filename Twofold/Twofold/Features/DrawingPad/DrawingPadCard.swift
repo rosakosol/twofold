@@ -8,10 +8,11 @@ import SwiftUI
 struct DrawingPadCard: View {
     @Environment(AppModel.self) private var appModel
     @State private var showingEditor = false
+    @State private var showingPartnerFullScreen = false
 
     var body: some View {
         SectionCard {
-            Text("Doodle pad")
+            Text("Drawing pad")
                 .font(.headline)
             HStack(spacing: Theme.Spacing.md) {
                 padPreview(title: "You", url: appModel.myDrawingURL, isMine: true)
@@ -21,14 +22,20 @@ struct DrawingPadCard: View {
         .sheet(isPresented: $showingEditor) {
             DrawingPadEditorView()
         }
+        .fullScreenCover(isPresented: $showingPartnerFullScreen) {
+            DrawingPadFullScreenView(title: appModel.partner.name, url: appModel.partnerDrawingURL)
+        }
         .onAppear { appModel.loadDrawingPads() }
     }
 
     private func padPreview(title: String, url: URL?, isMine: Bool) -> some View {
         VStack(spacing: Theme.Spacing.xs) {
             Button {
-                guard isMine else { return }
-                showingEditor = true
+                if isMine {
+                    showingEditor = true
+                } else {
+                    showingPartnerFullScreen = true
+                }
             } label: {
                 ZStack {
                     RoundedRectangle(cornerRadius: 12, style: .continuous).fill(.white)
@@ -51,8 +58,12 @@ struct DrawingPadCard: View {
                         .strokeBorder(Theme.subtleInk.opacity(0.15))
                 )
             }
+            // No `.disabled(!isMine)` here anymore — that was the actual cause of the partner's
+            // pad looking "transparent/muted": SwiftUI dims a disabled Button's label by default,
+            // which reads exactly like a rendering/opacity bug even though nothing about the
+            // image itself was ever altered. Both previews are tappable now, just to different
+            // destinations (edit vs. view full screen).
             .buttonStyle(.plain)
-            .disabled(!isMine)
 
             Text(title)
                 .font(.caption)

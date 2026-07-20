@@ -12,6 +12,7 @@
 //  immediately without needing manual refresh plumbing.
 //
 
+import PostHog
 import SwiftUI
 
 struct TripDetailsView: View {
@@ -34,9 +35,10 @@ struct TripDetailsView: View {
         appModel.trips.first { $0.id == tripID }
     }
 
-    private var traveler: Person {
-        guard let trip else { return appModel.currentUser }
-        return appModel.couple.partner(trip.travelerID) ?? appModel.currentUser
+    private var travelers: [Person] {
+        guard let trip else { return [appModel.currentUser] }
+        let people = trip.travelerIDs.compactMap { appModel.couple.partner($0) }
+        return people.isEmpty ? [appModel.currentUser] : people
     }
 
     private var linkedMemories: [Memory] {
@@ -102,6 +104,7 @@ struct TripDetailsView: View {
         } message: {
             Text("This can't be undone. Any linked flight or memories stay saved - they'll just no longer be linked to this trip.")
         }
+        .postHogScreenView("Travel: Trip Details")
     }
 
     @ViewBuilder
@@ -121,9 +124,18 @@ struct TripDetailsView: View {
     private func header(_ trip: Trip) -> some View {
         SectionCard {
             HStack(spacing: Theme.Spacing.md) {
-                AvatarView(person: traveler, size: 52)
+                if travelers.count > 1 {
+                    HStack(spacing: -14) {
+                        ForEach(travelers) { person in
+                            AvatarView(person: person, size: 44)
+                                .overlay(Circle().stroke(Theme.cardBackground, lineWidth: 2))
+                        }
+                    }
+                } else {
+                    AvatarView(person: travelers[0], size: 52)
+                }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(traveler.name).font(.subheadline).foregroundStyle(Theme.subtleInk)
+                    Text(travelers.map(\.name).joined(separator: " & ")).font(.subheadline).foregroundStyle(Theme.subtleInk)
                     HStack(spacing: Theme.Spacing.xs) {
                         Text(trip.origin.city)
                         Image(systemName: "arrow.right")
@@ -134,7 +146,7 @@ struct TripDetailsView: View {
                     .minimumScaleFactor(0.7)
                 }
                 Spacer(minLength: 0)
-                PillBadge(text: trip.category.shortLabel, tint: Theme.skyBlue)
+                PillBadge(text: trip.isReunionTrip ? "Reunion" : "Trip", tint: Theme.skyBlue)
             }
 
             Divider()

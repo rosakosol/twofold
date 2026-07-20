@@ -3,26 +3,37 @@
 //  Twofold
 //
 //  Search + status-filter browsing across every deck, every topic, every game type — reached
-//  from GamesHubView's search bar / "Your turn" / "New" / "Answered" pills. Distinct from
+//  from GamesHubView's search bar / "Your turn" / "Answered" / "New" pills. Distinct from
 //  TopicDetailView/GameTypeDecksView's narrower Unanswered/Answered split: this is the one place
 //  status is 3-way (New vs. Your turn vs. Answered), matching what the top-level pills promise.
 //
 
+import PostHog
 import SwiftUI
 
 enum DeckBrowseFilter: String, CaseIterable, Identifiable {
     case yourTurn = "Your turn"
+    case theirTurn = "Answered"
     case new = "New"
-    case answered = "Answered"
 
     var id: String { rawValue }
 
     var icon: String {
         switch self {
         case .yourTurn: "clock.fill"
+        case .theirTurn: "checkmark.circle.fill"
         case .new: "sparkles"
-        case .answered: "checkmark.circle.fill"
         }
+    }
+
+    /// New = never started by either partner. Your turn = started, but I haven't finished my
+    /// side yet. Answered (`.theirTurn`) = I've finished my side (regardless of whether my
+    /// partner has) — mutually exclusive and exhaustive over every deck. Shared by
+    /// `AllDecksBrowseView`'s own filtering and `GamesHubView`'s pill count badges, so the two
+    /// never drift apart.
+    static func bucket(for deck: GameDeck, progress: [UUID: DeckProgress]?) -> DeckBrowseFilter {
+        guard let progress = progress?[deck.id] else { return .new }
+        return progress.myCompleted ? .theirTurn : .yourTurn
     }
 }
 
@@ -35,26 +46,28 @@ struct AllDecksBrowseView: View {
         _selectedFilter = State(initialValue: initialFilter)
     }
 
-    /// New = never started by either partner. Your turn = started, but I haven't finished my
-    /// side yet. Answered = I've finished my side (regardless of whether my partner has) —
-    /// mutually exclusive and exhaustive over every deck.
-    private func bucket(for deck: GameDeck) -> DeckBrowseFilter {
-        guard let progress = appModel.deckProgress?[deck.id] else { return .new }
-        return progress.myCompleted ? .answered : .yourTurn
-    }
-
     private var filteredDecks: [GameDeck] {
         var decks = appModel.gameDecks ?? []
         if let selectedFilter {
-            decks = decks.filter { bucket(for: $0) == selectedFilter }
+            decks = decks.filter { DeckBrowseFilter.bucket(for: $0, progress: appModel.deckProgress) == selectedFilter }
         }
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if !query.isEmpty {
             decks = decks.filter { $0.title.lowercased().contains(query) || $0.topic.lowercased().contains(query) }
         }
         return decks.sorted { lhs, rhs in
-            let lhsStarted = appModel.deckProgress?[lhs.id] != nil
-            let rhsStarted = appModel.deckProgress?[rhs.id] != nil
+            let lhsProgress = appModel.deckProgress?[lhs.id]
+            let rhsProgress = appModel.deckProgress?[rhs.id]
+
+            // Fully finished (both partners answered) sinks to the bottom regardless of the
+            // active filter — there's nothing left to do on these, so they shouldn't compete
+            // with games that still need someone's attention for the top of the list.
+            let lhsDone = lhsProgress?.bothCompleted ?? false
+            let rhsDone = rhsProgress?.bothCompleted ?? false
+            if lhsDone != rhsDone { return !lhsDone }
+
+            let lhsStarted = lhsProgress != nil
+            let rhsStarted = rhsProgress != nil
             if lhsStarted != rhsStarted { return lhsStarted }
             return lhs.sortOrder < rhs.sortOrder
         }
@@ -100,6 +113,7 @@ struct AllDecksBrowseView: View {
         .navigationTitle("All Games")
         .navigationBarTitleDisplayMode(.inline)
         .task { await appModel.loadGameDecksIfNeeded() }
+        .postHogScreenView("Games: All Decks")
     }
 
     private func filterPill(_ filter: DeckBrowseFilter?, label: String) -> some View {

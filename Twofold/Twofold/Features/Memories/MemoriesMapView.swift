@@ -5,6 +5,7 @@
 
 import SwiftUI
 import MapKit
+import PostHog
 
 struct MemoriesMapView: View {
     var onTapAddMemory: () -> Void = {}
@@ -14,6 +15,9 @@ struct MemoriesMapView: View {
     /// Starts small (peek height) so the map's still visible/pannable underneath — swiping the
     /// sheet up, or tapping anywhere in the peek content, expands it to full height.
     @State private var sheetDetent: PresentationDetent = Self.peekDetent
+    /// Drives the staggered pin entrance below — same pattern onboarding's `MapSellView` mock
+    /// already uses, just against the real `citiesWithMemories` list instead of mock data.
+    @State private var shownCityIDs: Set<UUID> = []
 
     private static let peekDetent: PresentationDetent = .height(220)
 
@@ -43,6 +47,8 @@ struct MemoriesMapView: View {
                             selectedCity = city
                         } label: {
                             memoryPin(for: city)
+                                .scaleEffect(shownCityIDs.contains(city.id) ? 1 : 0.4)
+                                .opacity(shownCityIDs.contains(city.id) ? 1 : 0)
                         }
                         .buttonStyle(.plain)
                     }
@@ -57,6 +63,8 @@ struct MemoriesMapView: View {
             .onTapGesture {
                 selectedCity = nil
             }
+            .onAppear { animatePins() }
+            .sensoryFeedback(.impact(weight: .light), trigger: shownCityIDs)
 
             if appModel.citiesWithMemories.isEmpty {
                 emptyStateHint
@@ -77,6 +85,7 @@ struct MemoriesMapView: View {
             .presentationDragIndicator(.visible)
             .presentationBackgroundInteraction(.enabled(upThrough: Self.peekDetent))
         }
+        .postHogScreenView("Memories: Map")
     }
 
     /// Most recent memory's own photo, so the pin shows something real about that place
@@ -106,6 +115,17 @@ struct MemoriesMapView: View {
                     .padding(4)
                     .background(Theme.heartRed, in: Circle())
                     .offset(x: 6, y: -6)
+            }
+        }
+    }
+
+    /// Same staggered-reveal timing `MapSellView`'s onboarding mock uses — each pin scales/fades
+    /// in a beat after the last, rather than the whole set popping onto the map at once.
+    private func animatePins() {
+        shownCityIDs.removeAll()
+        for (index, city) in appModel.citiesWithMemories.enumerated() {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.65).delay(0.15 + Double(index) * 0.12)) {
+                _ = shownCityIDs.insert(city.id)
             }
         }
     }

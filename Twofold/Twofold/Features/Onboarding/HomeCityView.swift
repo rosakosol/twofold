@@ -78,9 +78,17 @@ struct HomeCityView: View {
                     try await BackendService.updateHomeCity(selected)
                     appModel.couple.partnerA.homeCity = selected
                 }
-                if onboarding.role == .invitee {
-                    try await BackendService.redeemInviteCode(onboarding.inviteCode ?? "")
-                    onboarding.isPartnerConnected = true
+                if onboarding.role == .invitee, let code = onboarding.inviteCode {
+                    // Looked up before redeeming — the code has to still be genuinely pending
+                    // for this to resolve, which it no longer is the instant redeem succeeds.
+                    // Populates `onboarding.inviterName`/`inviterAvatarURL` for
+                    // AddPhotoView/ConnectionRequestSentView just ahead — real values, not a
+                    // guess, since codes carry no name/avatar information at all now.
+                    if let info = try? await BackendService.inviterInfo(forCode: code) {
+                        onboarding.inviterName = info.name
+                        onboarding.inviterAvatarURL = info.avatarURL
+                    }
+                    try await BackendService.redeemInviteCode(code)
                 }
                 onboarding.path.append(.addPhoto)
             } catch {

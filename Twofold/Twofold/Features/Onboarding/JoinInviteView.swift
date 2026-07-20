@@ -8,7 +8,7 @@ import SwiftUI
 struct JoinInviteView: View {
     @Environment(OnboardingModel.self) private var onboarding
 
-    private var inviterName: String { onboarding.inviterName ?? "your partner" }
+    private var inviterName: String { onboarding.inviterName ?? "Your partner" }
 
     var body: some View {
         VStack(spacing: Theme.Spacing.xl) {

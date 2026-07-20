@@ -12,6 +12,7 @@
 //  everything else here.
 //
 
+import PostHog
 import SwiftUI
 
 struct PartnerSetupView: View {
@@ -23,14 +24,10 @@ struct PartnerSetupView: View {
     @State private var anniversaryDate: Date = .now
     @State private var partnerAvatarError: String?
     @State private var isSaving = false
-    @State private var showingShareInvite = false
-    @State private var showingRedeemCode = false
-    @State private var isCreatingInvite = false
-    @State private var showingRemovePartnerConfirm = false
-    @State private var isRemovingPartner = false
-    @State private var removePartnerError: String?
 
     var body: some View {
+        @Bindable var appModel = appModel
+
         NavigationStack {
             ScrollView {
                 VStack(spacing: Theme.Spacing.md) {
@@ -62,7 +59,7 @@ struct PartnerSetupView: View {
                         // A nickname is always personal — your partner has their own
                         // independent name for you, and neither side ever overwrites the
                         // other's.
-                        Text("Just for you — they won't see this name.")
+                        Text("Just for you - they won't see this name or photo.")
                             .font(.caption2)
                             .foregroundStyle(Theme.subtleInk)
                     }
@@ -72,7 +69,7 @@ struct PartnerSetupView: View {
                             HStack {
                                 Text("City").foregroundStyle(Theme.subtleInk)
                                 Spacer()
-                                Text(appModel.partner.homeCity?.city ?? "—").foregroundStyle(Theme.ink)
+                                Text(appModel.partner.homeCity?.displayCity ?? "—").foregroundStyle(Theme.ink)
                             }
                         }
                     } else {
@@ -91,39 +88,8 @@ struct PartnerSetupView: View {
                     }
 
                     if !appModel.partnerConnected {
-                        connectCard
-                    } else {
-                        SectionCard {
-                            NavigationLink {
-                                ArchivedDataView()
-                            } label: {
-                                SettingsRow(title: "Archived Data", systemImage: "archivebox")
-                            }
-                            .buttonStyle(.plain)
-                        }
-
-                        SectionCard {
-                            Button(role: .destructive) {
-                                showingRemovePartnerConfirm = true
-                            } label: {
-                                HStack {
-                                    if isRemovingPartner {
-                                        ProgressView().frame(maxWidth: .infinity)
-                                    } else {
-                                        Text("Remove Partner").frame(maxWidth: .infinity)
-                                    }
-                                }
-                            }
-                            .disabled(isRemovingPartner)
-                            Text("Archives everything you've shared, and lets you connect with someone new.")
-                                .font(.caption2)
-                                .foregroundStyle(Theme.subtleInk)
-                            if let removePartnerError {
-                                Text(removePartnerError)
-                                    .font(.caption)
-                                    .foregroundStyle(Theme.heartRed)
-                            }
-                        }
+                        PendingConnectionRequestsCard()
+                        PartnerConnectCard(inviteCode: $appModel.inviteCode)
                     }
                 }
                 .padding(Theme.Spacing.md)
@@ -153,81 +119,11 @@ struct PartnerSetupView: View {
                 partnerCity = appModel.partner.homeCity
                 anniversaryDate = appModel.couple.startedDatingOn
             }
-            .sheet(isPresented: $showingShareInvite) {
-                NavigationStack {
-                    ShareInviteView(code: appModel.inviteCode ?? "") {
-                        showingShareInvite = false
-                    }
-                }
-            }
-            .sheet(isPresented: $showingRedeemCode) {
-                RedeemPartnerCodeView()
-            }
-            .alert("Remove \(appModel.partner.name)?", isPresented: $showingRemovePartnerConfirm) {
-                Button("Remove Partner", role: .destructive) {
-                    Task {
-                        isRemovingPartner = true
-                        removePartnerError = nil
-                        let failureReason = await appModel.removePartner()
-                        isRemovingPartner = false
-                        if let failureReason {
-                            removePartnerError = failureReason
-                        } else {
-                            dismiss()
-                        }
-                    }
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("This will archive all your shared trips, memories, flights, game sessions, stats, and doodles with \(appModel.partner.name) — they'll only be visible afterward in Settings' Archived Data. You'll be able to connect with someone new right away.")
+            .task {
+                await appModel.refreshPendingConnectionRequests()
             }
         }
-    }
-
-    private var connectCard: some View {
-        SectionCard {
-            Text("Connect with your partner")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Theme.subtleInk)
-
-            Button {
-                Task {
-                    isCreatingInvite = true
-                    if appModel.inviteCode == nil {
-                        appModel.inviteCode = try? await BackendService.createInviteCode(firstName: appModel.currentUser.name)
-                    }
-                    isCreatingInvite = false
-                    if appModel.inviteCode != nil { showingShareInvite = true }
-                }
-            } label: {
-                HStack {
-                    if isCreatingInvite {
-                        ProgressView()
-                    } else {
-                        Label("Share my invite code", systemImage: "square.and.arrow.up")
-                            .foregroundStyle(Theme.ink)
-                    }
-                    Spacer()
-                    Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .disabled(isCreatingInvite)
-
-            Button {
-                showingRedeemCode = true
-            } label: {
-                HStack {
-                    Label("Enter their code", systemImage: "person.fill.checkmark")
-                        .foregroundStyle(Theme.ink)
-                    Spacer()
-                    Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-        }
+        .postHogScreenView("Settings: Partner Setup")
     }
 
     private func save() {

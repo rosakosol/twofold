@@ -5,12 +5,23 @@
 
 import SwiftUI
 
+/// `.sheet(item:)` needs `Identifiable` — a plain tuple can't back it, so the distance card's
+/// share button hands off through this instead.
+private struct DistanceShareContext: Identifiable {
+    let id = UUID()
+    let myCity: Place
+    let partnerCity: Place
+    let distanceKm: Double
+}
+
 struct HomeView: View {
     @Environment(AppModel.self) private var appModel
     @Environment(\.scenePhase) private var scenePhase
     @State private var showingSnapshot = false
+    @State private var distanceShareContext: DistanceShareContext?
     @State private var showingSettings = false
     @State private var showingPartnerSetup = false
+    @State private var reviewingConnectionRequest: BackendService.PendingConnectionRequest?
     @State private var showingAddTrip = false
     @State private var showingAddFlight = false
     @State private var showingLocationPermission = false
@@ -21,7 +32,6 @@ struct HomeView: View {
     @State private var myWeatherReading: CurrentWeatherReading?
     @State private var myWeatherFetchedForCityID: UUID?
     @State private var flightCarouselPage: Flight.ID?
-    @AppStorage("setupChecklistDismissed") private var setupChecklistDismissed = false
 
     private var distanceKm: Double? {
         guard let mine = appModel.currentUser.homeCity?.coordinate, let theirs = appModel.partner.homeCity?.coordinate else { return nil }
@@ -41,7 +51,9 @@ struct HomeView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: Theme.Spacing.md) {
-                    if appModel.needsPartnerInvite {
+                    if let incomingRequest = appModel.pendingConnectionRequests.first {
+                        pendingConnectionRequestCard(incomingRequest)
+                    } else if appModel.needsPartnerInvite {
                         invitePartnerCard
                     }
                     setupChecklistCard
@@ -52,7 +64,7 @@ struct HomeView: View {
                             timeZone: partnerTimeZone,
                             comparisonTimeZone: appModel.currentUser.homeCity?.timeZone,
                             sameCity: sameCity,
-                            cityName: appModel.partner.homeCity?.city,
+                            cityName: appModel.partner.homeCity?.displayCity,
                             weather: weatherReading,
                             myWeather: myWeatherReading
                         )
@@ -105,8 +117,13 @@ struct HomeView: View {
             .onAppear {
                 refreshPendingShares()
                 Task { await appModel.refreshCoupleStateIfNeeded() }
+                Task { await appModel.refreshTrips() }
                 Task { await appModel.refreshFlights() }
+                Task { await appModel.refreshMemories() }
                 Task { await refreshWeatherIfNeeded() }
+                if appModel.needsPartnerInvite {
+                    Task { await appModel.refreshPendingConnectionRequests() }
+                }
             }
             .onChange(of: scenePhase) { _, newPhase in
                 if newPhase == .active {
@@ -114,14 +131,23 @@ struct HomeView: View {
                     Task { await appModel.refreshCoupleStateIfNeeded() }
                     Task { await appModel.refreshFlights() }
                     Task { await refreshWeatherIfNeeded() }
+                    if appModel.needsPartnerInvite {
+                        Task { await appModel.refreshPendingConnectionRequests() }
+                    }
                 }
             }
             .sheet(isPresented: $showingSnapshot) { SnapshotShareView() }
+            .sheet(item: $distanceShareContext) { context in
+                DistanceShareView(couple: appModel.couple, myCity: context.myCity, partnerCity: context.partnerCity, distanceKm: context.distanceKm)
+            }
             .sheet(isPresented: $showingSettings) { SettingsView() }
             .sheet(isPresented: $showingLocationPermission) { NavigationStack { LocationPermissionView() } }
             .sheet(isPresented: $showingAddFlight) { AddFlightView() }
             .sheet(isPresented: $showingPartnerSetup) {
                 PartnerSetupView()
+            }
+            .sheet(item: $reviewingConnectionRequest) { request in
+                ConnectionRequestReviewView(request: request)
             }
             .sheet(isPresented: $showingAddTrip) {
                 NavigationStack {
@@ -140,14 +166,19 @@ struct HomeView: View {
 
     @ViewBuilder
     private var setupChecklistCard: some View {
-        if !setupChecklistDismissed && (appModel.needsFirstTrip || appModel.needsFirstFlight || appModel.needsHomeCities) {
+        // Trip/flight rows need a connected partner to make sense — the dedicated
+        // `invitePartnerCard` above already owns that prompt, so this checklist only ever shows
+        // those two rows once a partner exists. "Turn on location access" is independent of
+        // partner status and still shows regardless.
+        let showsTripOrFlightRow = appModel.partnerConnected && (appModel.needsFirstTrip || appModel.needsFirstFlight)
+        if !appModel.setupChecklistDismissed && (showsTripOrFlightRow || appModel.needsHomeCities) {
             SectionCard {
                 HStack {
                     Text("Finish setting up Twofold")
                         .font(.headline)
                     Spacer()
                     Button {
-                        setupChecklistDismissed = true
+                        appModel.dismissSetupChecklist()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundStyle(Theme.subtleInk.opacity(0.5))
@@ -155,10 +186,10 @@ struct HomeView: View {
                     .buttonStyle(.plain)
                 }
 
-                if appModel.needsFirstTrip {
+                if appModel.partnerConnected, appModel.needsFirstTrip {
                     checklistRow(icon: .system("airplane.departure"), title: "Add your next trip") { showingAddTrip = true }
                 }
-                if appModel.needsFirstFlight {
+                if appModel.partnerConnected, appModel.needsFirstFlight {
                     checklistRow(icon: .asset("boarding-pass"), title: "Add your first flight") { showingAddFlight = true }
                 }
                 if appModel.needsHomeCities {
@@ -265,34 +296,109 @@ struct HomeView: View {
         .buttonStyle(.plain)
     }
 
+    /// "500+"/"2000+" — matches `SubscriptionTier.features`' own "N+ questions and games"
+    /// copy convention (`Features/Paywall/SubscriptionStore.swift`), so this card promises
+    /// exactly what the paywall itself already promises for the couple's current tier.
+    private var partnerValuePropGameCount: String {
+        appModel.subscriptionTier == "premium" ? "2000+" : "500+"
+    }
+
+    /// Someone has already redeemed this user's invite code and is waiting on a decision —
+    /// takes over `invitePartnerCard`'s slot entirely rather than showing alongside it ("connect
+    /// with your partner" and "someone wants to connect" at once would just be confusing), since
+    /// responding to an already-arrived request is strictly more actionable than being pitched
+    /// the feature again. Opens the focused `ConnectionRequestReviewView` (just this one
+    /// request's avatar/name + Accept/Decline), not the full `PartnerSetupView` profile editor.
+    private func pendingConnectionRequestCard(_ request: BackendService.PendingConnectionRequest) -> some View {
+        Button {
+            reviewingConnectionRequest = request
+        } label: {
+            VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+                HStack(spacing: Theme.Spacing.md) {
+                    AvatarView(
+                        person: Person(
+                            id: request.requesterId,
+                            name: request.requesterFirstName,
+                            accentColor: Person.palette[0],
+                            avatarURL: request.requesterAvatarPath.flatMap { BackendService.avatarPublicURL(path: $0) }
+                        ),
+                        size: 56,
+                        showsRing: true
+                    )
+
+                    Text("\(request.requesterFirstName) wants to connect")
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(.white)
+
+                    Spacer(minLength: 0)
+                }
+
+                Text("Accept to start sharing trips, flights, and memories together.")
+                    .font(.subheadline)
+                    .foregroundStyle(.white.opacity(0.9))
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 4) {
+                    Text("Review request")
+                        .font(.subheadline.weight(.semibold))
+                    Image(systemName: "chevron.right").font(.caption)
+                }
+                .foregroundStyle(.white)
+            }
+            .padding(Theme.Spacing.lg)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Theme.primaryButtonGradient, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
     /// The prominent, primary prompt whenever there's no connected partner — pulled out of
     /// `setupChecklistCard` into its own full-weight card (rather than a small checklist row)
     /// since setting up a partner is a much bigger, more central action than the other
     /// checklist items, and opens a single focused screen covering name/photo/city/anniversary
     /// plus the actual connect step, instead of splitting that across two separate rows.
+    ///
+    /// Deliberately its own bold blue-gradient design (not another pale `SectionCard`) — this is
+    /// the single highest-value action a solo user can take, so it gets real visual weight and
+    /// copy that actually sells why, instead of reading as just another checklist item.
     private var invitePartnerCard: some View {
         Button {
             showingPartnerSetup = true
         } label: {
-            SectionCard {
+            VStack(alignment: .leading, spacing: Theme.Spacing.md) {
                 HStack(spacing: Theme.Spacing.md) {
                     ZStack {
-                        Circle().fill(Theme.skyBlue.opacity(0.15))
-                        Image(systemName: "person.2.fill").foregroundStyle(Theme.skyBlue)
+                        Circle().fill(.white.opacity(0.2))
+                        Image(systemName: "person.2.fill")
+                            .font(.title2)
+                            .foregroundStyle(.white)
                     }
-                    .frame(width: 44, height: 44)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Set up your partner")
-                            .font(.headline)
-                            .foregroundStyle(Theme.ink)
-                        Text("Add their name and photo, then connect with an invite code.")
-                            .font(.caption)
-                            .foregroundStyle(Theme.subtleInk)
-                    }
+                    .frame(width: 56, height: 56)
+
+                    Text("Set up your partner")
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(.white)
+
                     Spacer(minLength: 0)
-                    Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
                 }
+
+                Text("Twofold is built for couples. Connect with your partner to unlock \(partnerValuePropGameCount) questions and games, track each other's flights, and add shared trips and memories.")
+                    .font(.subheadline)
+                    .foregroundStyle(.white.opacity(0.9))
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 4) {
+                    Text("Get started")
+                        .font(.subheadline.weight(.semibold))
+                    Image(systemName: "chevron.right").font(.caption)
+                }
+                .foregroundStyle(.white)
             }
+            .padding(Theme.Spacing.lg)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Theme.primaryButtonGradient, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         }
         .buttonStyle(.plain)
     }
@@ -325,7 +431,7 @@ struct HomeView: View {
                     Text("SAME CITY")
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(Theme.subtleInk)
-                    Text("You're both in \(city.city)")
+                    Text("You're both in \(city.displayCity)")
                         .font(.title3.weight(.bold))
                 }
                 Spacer()
@@ -351,7 +457,7 @@ struct HomeView: View {
                 }
                 Spacer()
                 Button {
-                    showingSnapshot = true
+                    distanceShareContext = DistanceShareContext(myCity: myCity, partnerCity: partnerCity, distanceKm: distanceKm)
                 } label: {
                     Image(systemName: "square.and.arrow.up.circle.fill")
                         .font(.largeTitle)
@@ -439,58 +545,86 @@ struct HomeView: View {
                 PillBadge(text: flight.status.displayLabel, tint: flight.status.semanticColor)
             }
 
-            HStack(spacing: Theme.Spacing.xs) {
-                Text(flight.origin.displayCode)
-                Image(systemName: "arrow.right")
-                Text(flight.destination.displayCode)
+            // No minimumScaleFactor here — cities stay a fixed size regardless of name length;
+            // a long pair truncates with an ellipsis instead of shrinking the whole row.
+            HStack(alignment: .firstTextBaseline) {
+                HStack(spacing: Theme.Spacing.xs) {
+                    Text(flight.origin.displayName)
+                    Image(systemName: "arrow.right")
+                    Text(flight.destination.displayName)
+                }
+                .font(.title3.weight(.bold))
+                .lineLimit(1)
+
+                Spacer(minLength: Theme.Spacing.sm)
+
+                if let totalDurationSummary = flight.totalDurationSummary {
+                    Text(totalDurationSummary)
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(Theme.subtleInk)
+                        .lineLimit(1)
+                        .layoutPriority(1)
+                }
             }
-            .font(.title3.weight(.bold))
 
-            Text(flight.countdownSummary)
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(Theme.skyBlue)
+            HStack(alignment: .firstTextBaseline) {
+                Text(flight.countdownSummary)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(Theme.skyBlue)
 
-            GeometryReader { proxy in
-                let iconSize: CGFloat = 30
-                let progressWidth = proxy.size.width * flight.progress
-                // Keeps the icon's center on the track even at the very start/end, where it
-                // would otherwise hang half off the edge of the bar.
-                let iconCenterX = min(max(progressWidth, iconSize / 2), proxy.size.width - iconSize / 2)
+                Spacer(minLength: Theme.Spacing.sm)
 
-                Capsule().fill(Theme.skyBlue.opacity(0.15)).frame(height: 5)
-                    .overlay(alignment: .leading) {
-                        Capsule().fill(flight.status.semanticColor).frame(width: progressWidth, height: 5)
-                    }
-                    .overlay(alignment: .leading) {
-                        ZStack {
-                            Circle().fill(.white)
-                            // SF Symbols' "airplane" glyph already points due right (east) at
-                            // rotation 0 — no rotation needed to lie flat along the track.
-                            Image(systemName: "airplane")
-                                .font(.system(size: 15, weight: .bold))
-                                .foregroundStyle(flight.status.semanticColor)
-                        }
-                        .frame(width: iconSize, height: iconSize)
-                        .shadow(color: .black.opacity(0.18), radius: 2, y: 1)
-                        .offset(x: iconCenterX - iconSize / 2)
-                    }
+                // Port + local time for each end, side by side — departure in the origin's
+                // timezone, arrival in the destination's, same convention FlightTrackingView's
+                // journey rows use. A small departure/arrival glyph ahead of each so the two
+                // reads unambiguously even out of context (not just "two airport codes").
+                HStack(spacing: Theme.Spacing.sm) {
+                    portTimeRow(icon: "airplane.departure", code: flight.origin.displayCode, time: flight.bestDeparture, timeZone: flight.origin.timeZone)
+                    portTimeRow(icon: "airplane.arrival", code: flight.destination.displayCode, time: flight.bestArrival, timeZone: flight.destination.timeZone)
+                }
             }
-            .frame(height: 30)
 
+            // No separate linear progress bar here anymore — with the route drawn on the map
+            // right below, a second progress indicator heading a different direction (straight
+            // left-to-right vs. whichever way the actual route runs) read as confusing rather
+            // than reinforcing. The map's own gradient line + plane/avatar marker already show
+            // progress along the real path.
+            //
             // Unconditional, not gated behind isActivelyTracked — FlightTrackingView already
             // shows this map for any flight regardless of status (FlightMapView has its own
             // graceful fallback for missing coordinates), so a merely-.scheduled flight on Home
             // was the one place showing no map at all, reading as a bug rather than by-design.
-            // A much shorter frame than the detail screen's map (140pt vs 260pt) — the same
-            // 28pt padding used there left the route looking tiny and over-zoomed-out here,
-            // since `setVisibleCoordinates` reserves that margin on every edge regardless of
-            // how little vertical space is left to fit the route in. A tighter margin lets the
-            // route fill more of the card, closer to how it reads on the detail screen.
+            // Shorter than the detail screen's map (200pt vs 260pt) — the same 40pt padding used
+            // there left the route looking tiny and over-zoomed-out here, since the camera fit
+            // reserves that margin on every edge regardless of how little vertical space is left
+            // to fit the route in. A tighter margin lets the route fill more of the card, closer
+            // to how it reads on the detail screen.
             FlightMapView(flight: flight, interactive: false, edgePadding: 12)
-                .frame(height: 140)
+                .frame(height: 200)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                 .allowsHitTesting(false)
         }
+    }
+
+    /// A departure/arrival glyph + airport code + its local time — "—" when the time isn't
+    /// known yet rather than omitting the row, so the pair always lines up evenly.
+    private func portTimeRow(icon: String, code: String, time: Date?, timeZone: TimeZone?) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: icon).font(.caption2).foregroundStyle(Theme.subtleInk)
+            Text(code).font(.caption.weight(.semibold))
+            Text(time.map { $0.formatted(Date.FormatStyle(timeZone: timeZone ?? .current).hour().minute()) } ?? "—")
+                .font(.caption)
+                .foregroundStyle(Theme.subtleInk)
+        }
+    }
+
+    /// Joins the resolvable names for a trip's travelers ("Alex" / "Alex & You") — falls back to
+    /// `appModel.partner.name` for the (common) case of a single unresolvable/placeholder id,
+    /// same fallback the old single-`travelerID` code used.
+    private func travelerNames(_ ids: [Person.ID]) -> String {
+        let names = ids.compactMap { appModel.couple.partner($0)?.name }
+        guard !names.isEmpty else { return appModel.partner.name }
+        return names.joined(separator: " & ")
     }
 
     private func nextReunionCard(trip: Trip) -> some View {
@@ -514,7 +648,7 @@ struct HomeView: View {
 
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("\(appModel.couple.partner(trip.travelerID)?.name ?? appModel.partner.name) flies to you")
+                    Text(trip.isReunionTrip ? "Your trip together" : "\(travelerNames(trip.travelerIDs)) \(trip.travelerIDs.count > 1 ? "fly" : "flies") to you")
                         .font(.subheadline)
                         .foregroundStyle(Theme.subtleInk)
                     HStack(spacing: Theme.Spacing.xs) {

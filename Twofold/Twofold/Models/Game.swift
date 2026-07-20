@@ -65,19 +65,19 @@ enum GameTopic: String, CaseIterable, Hashable, Identifiable {
 }
 
 enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
-    case travelTrivia = "travel_trivia"
+    case triviaBattle = "trivia_battle"
     case moreLikely = "more_likely"
     case thisOrThat = "this_or_that"
-    case discussBeforeTravelling = "discuss_before_travelling"
+    case deepConversations = "deep_conversations"
 
     var id: String { rawValue }
 
     var displayName: String {
         switch self {
-        case .travelTrivia: "Trivia Battle"
+        case .triviaBattle: "Trivia Battle"
         case .moreLikely: "Who's More Likely To"
         case .thisOrThat: "This or That"
-        case .discussBeforeTravelling: "Deep Conversation"
+        case .deepConversations: "Deep Conversation"
         }
     }
 
@@ -85,68 +85,61 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
     /// naturally as a game-type title, but is too long for a small pill.
     var shortLabel: String {
         switch self {
-        case .travelTrivia: "TRIVIA"
+        case .triviaBattle: "TRIVIA"
         case .moreLikely: "MORE LIKELY"
         case .thisOrThat: "THIS OR THAT"
-        case .discussBeforeTravelling: "DEEP CONVERSATION"
+        case .deepConversations: "DEEP CONVERSATION"
         }
     }
 
     var tagline: String {
         switch self {
-        case .travelTrivia: "Put your knowledge to the test."
+        case .triviaBattle: "Put your knowledge to the test."
         case .moreLikely: "Who knows your relationship best?"
         case .thisOrThat: "Choose, reveal, and see where you match."
-        case .discussBeforeTravelling: "Talk through the things that matter, together."
+        case .deepConversations: "Talk through the things that matter, together."
         }
     }
 
     var category: GameCategory {
         switch self {
-        case .travelTrivia, .moreLikely: .compete
-        case .thisOrThat, .discussBeforeTravelling: .connect
+        case .triviaBattle, .moreLikely: .compete
+        case .thisOrThat, .deepConversations: .connect
         }
     }
 
     var durationMinutes: Int {
         switch self {
-        case .travelTrivia: 12
+        case .triviaBattle: 12
         case .moreLikely: 8
         case .thisOrThat: 6
-        case .discussBeforeTravelling: 15
+        case .deepConversations: 15
         }
     }
 
     var durationLabel: String { "\(durationMinutes) min" }
 
-    /// Matches `start_game_session`'s round count for this game type — used client-side only as
-    /// the *display* default before a session exists yet (`GameEntryView`'s brand-new-game
-    /// case); the RPC itself is the actual source of truth once a session is created.
-    var defaultRoundCount: Int {
-        self == .discussBeforeTravelling ? 8 : 12
-    }
-
     var icon: String {
         switch self {
-        case .travelTrivia: "questionmark.circle.fill"
+        case .triviaBattle: "questionmark.circle.fill"
         case .moreLikely: "person.2.wave.2.fill"
         case .thisOrThat: "arrow.left.arrow.right.circle.fill"
-        case .discussBeforeTravelling: "bubble.left.and.bubble.right.fill"
+        case .deepConversations: "bubble.left.and.bubble.right.fill"
         }
     }
 
     var iconGradient: [Color] {
         switch self {
-        case .travelTrivia: [Theme.skyBlue, Theme.leafGreen]
+        case .triviaBattle: [Theme.skyBlue, Theme.leafGreen]
         case .moreLikely: [Theme.heartRed, .orange]
         case .thisOrThat: [.purple, Theme.skyBlue]
-        case .discussBeforeTravelling: [Theme.leafGreen, Theme.skyBlue]
+        case .deepConversations: [Theme.leafGreen, Theme.skyBlue]
         }
     }
 
     var ctaTitle: String {
         switch self {
-        case .discussBeforeTravelling: "Start conversation"
+        case .deepConversations: "Start conversation"
         default: "Play now"
         }
     }
@@ -166,7 +159,7 @@ struct GameSession: Identifiable, Hashable {
     var status: GameSessionStatus
     var totalRounds: Int
     /// True for the couple's single daily Daily-Activity session (an ordinary 1-round
-    /// `discuss_before_travelling` session under the hood — see `get_daily_question_session`).
+    /// `deep_conversations` session under the hood — see `get_daily_question_session`).
     var isDaily: Bool
     /// Set when this session was started from a curated deck (`start_deck_session`) rather than
     /// the shared pool (`start_game_session`) — nil for every other session.
@@ -282,7 +275,7 @@ struct ThisOrThatPrompt: Identifiable, Hashable {
     var tier: String
 }
 
-struct DiscussionTopic: Identifiable, Hashable {
+struct DeepConversationTopic: Identifiable, Hashable {
     let id: UUID
     var topic: String
     var active: Bool
@@ -297,7 +290,7 @@ enum GameRoundContent: Hashable {
     case trivia(TriviaQuestion)
     case moreLikely(MoreLikelyPrompt)
     case thisOrThat(ThisOrThatPrompt)
-    case discuss(DiscussionTopic)
+    case deepConversation(DeepConversationTopic)
 }
 
 // MARK: - Answer value conventions

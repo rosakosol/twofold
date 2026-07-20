@@ -3,16 +3,19 @@
 //  Twofold
 //
 //  Globe homepage section. Game metadata (title/tagline/duration/icon) is static local content
-//  (see `GameType`), not a network fetch, so there's no loading/error state to handle here —
-//  only actual game sessions are server-driven, and those live behind `GameEntryView`.
+//  (see `GameType`), not a network fetch, so there's no loading/error state to handle here.
+//  Tapping a card opens that game type's deck list (`GameTypeDecksView`), same destination as
+//  the Games hub's own cards — every game is played from a specific curated deck now, there's no
+//  "start a random session across every topic" entry point left anywhere in the app.
 //
 
+import PostHog
 import SwiftUI
 
 struct RecommendedGamesSection: View {
     @Environment(AppModel.self) private var appModel
 
-    static let recommended: [GameType] = [.travelTrivia, .moreLikely, .thisOrThat, .discussBeforeTravelling]
+    static let recommended: [GameType] = [.triviaBattle, .moreLikely, .thisOrThat, .deepConversations]
 
     /// `GamesHubView` wraps itself in its own `NavigationStack` (it doubles as the Games tab's
     /// root), so it's presented as a sheet here rather than pushed — pushing a
@@ -20,8 +23,10 @@ struct RecommendedGamesSection: View {
     /// nested/doubled navigation chrome.
     @State private var showingHub = false
     /// Tapping a locked (partner-required) card opens this rather than doing nothing — a lock
-    /// badge with no tap action just teaches people the card is broken.
-    @State private var showingPartnerSetup = false
+    /// badge with no tap action just teaches people the card is broken. Goes straight to
+    /// `PartnerRequiredGateView`'s share/redeem code UI, not the full `PartnerSetupView` profile
+    /// editor — the user's already told us they want to unlock something, not edit a profile.
+    @State private var showingPartnerGate = false
 
     var body: some View {
         SectionCard {
@@ -43,14 +48,14 @@ struct RecommendedGamesSection: View {
                     ForEach(Self.recommended) { gameType in
                         if appModel.partnerConnected {
                             NavigationLink {
-                                GameEntryView(gameType: gameType)
+                                GameTypeDecksView(gameType: gameType)
                             } label: {
                                 GameCard(gameType: gameType, width: 220)
                             }
                             .buttonStyle(.plain)
                         } else {
                             Button {
-                                showingPartnerSetup = true
+                                showingPartnerGate = true
                             } label: {
                                 GameCard(gameType: gameType, width: 220, isLocked: true)
                             }
@@ -63,9 +68,10 @@ struct RecommendedGamesSection: View {
         }
         .sheet(isPresented: $showingHub) {
             GamesHubView()
+                .postHogScreenView("Games: Hub (From Home)")
         }
-        .sheet(isPresented: $showingPartnerSetup) {
-            PartnerSetupView()
+        .sheet(isPresented: $showingPartnerGate) {
+            PartnerRequiredGateView()
         }
     }
 }

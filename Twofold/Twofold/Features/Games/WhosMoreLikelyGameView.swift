@@ -6,6 +6,7 @@
 //  partner answers all their own rounds independently; results reveal once both are done.
 //
 
+import PostHog
 import SwiftUI
 
 struct WhosMoreLikelyGameView: View {
@@ -19,15 +20,24 @@ struct WhosMoreLikelyGameView: View {
     @State private var store = GameSessionStore()
     @State private var isSubmitting = false
     @State private var isSendingReminder = false
-    @State private var isEditingAnswers = false
     @State private var hapticTrigger = false
     @State private var showingNoMailAppAlert = false
     @State private var showingLeaveConfirm = false
 
     private var myID: UUID { appModel.currentUser.id }
     private var partnerID: UUID { appModel.partner.id }
+    /// Also true while revisiting a round via "Edit My Answers" even though I've already
+    /// answered every round — see `TriviaBattleGameView`'s identical property for the full
+    /// reasoning.
     private var isActivelyPlaying: Bool {
-        !store.isLoading && store.errorMessage == nil && store.session?.status != .abandoned && !store.isRevealed
+        !store.isLoading && store.errorMessage == nil && store.session?.status != .abandoned
+            && (!store.hasAnsweredAllRounds(myID: myID) || store.viewingRoundNumber != nil)
+    }
+    /// Covers both "I'm done, waiting on my partner" and "we're both done" — see
+    /// `TriviaBattleGameView`'s identical property for the full reasoning.
+    private var isDoneWithMyRounds: Bool {
+        !store.isLoading && store.errorMessage == nil && store.session?.status != .abandoned
+            && store.hasAnsweredAllRounds(myID: myID) && store.viewingRoundNumber == nil
     }
 
     var body: some View {
@@ -38,11 +48,11 @@ struct WhosMoreLikelyGameView: View {
                 GameErrorState(message: errorMessage)
             } else if let session = store.session, session.status == .abandoned {
                 GameAbandonedState()
-            } else if store.isRevealed {
+            } else if store.isRevealed && store.viewingRoundNumber == nil {
                 GameResultsView(
                     gameType: .moreLikely, store: store, myID: myID, partnerID: partnerID,
                     myName: appModel.currentUser.name, partnerName: appModel.partner.name,
-                    onPlayAnother: { dismiss() }
+                    onPlayAnother: { dismiss() }, title: title
                 )
             } else if let round = store.displayedRound(myID: myID), case let .moreLikely(prompt)? = store.content(for: round) {
                 roundView(round: round, prompt: prompt)
@@ -56,8 +66,7 @@ struct WhosMoreLikelyGameView: View {
                     isSendingReminder: isSendingReminder,
                     onSendReminder: { Task { await sendReminder() } },
                     onPlayAnother: { dismiss() },
-                    isEditingAnswers: isEditingAnswers,
-                    onEditAnswers: { Task { await editAnswers() } },
+                    onEditAnswers: { store.beginEditingAnswers() },
                     pendingSyncCount: store.pendingSyncCount
                 )
             }
@@ -78,6 +87,10 @@ struct WhosMoreLikelyGameView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     GameBackButton(action: handleBack)
                 }
+            } else if isDoneWithMyRounds {
+                ToolbarItem(placement: .topBarLeading) {
+                    GameBackButton(action: { dismiss() })
+                }
             }
             // Not offered once results are showing — GameResultsView has its own toolbar
             // (Edit My Answers / Reset Game / support menu) for the post-completion case.
@@ -91,8 +104,8 @@ struct WhosMoreLikelyGameView: View {
                 }
             }
         }
-        .navigationBarBackButtonHidden(isActivelyPlaying)
-        .interactivePopGestureDisabled(isActivelyPlaying)
+        .navigationBarBackButtonHidden(isActivelyPlaying || isDoneWithMyRounds)
+        .interactivePopGestureDisabled(isActivelyPlaying || isDoneWithMyRounds)
         .noMailAppAlert(isPresented: $showingNoMailAppAlert)
         .gameLeaveConfirmation(isPresented: $showingLeaveConfirm) { Task { await leaveGame() } }
         .task { await store.load(sessionID: sessionID) }
@@ -102,6 +115,7 @@ struct WhosMoreLikelyGameView: View {
             if isConnected, !wasConnected { Task { await store.syncPendingResponses() } }
         }
         .sensoryFeedback(.selection, trigger: hapticTrigger)
+        .postHogScreenView("Games: Who's More Likely To")
     }
 
     private func roundView(round: GameSessionRound, prompt: MoreLikelyPrompt) -> some View {
@@ -113,7 +127,6 @@ struct WhosMoreLikelyGameView: View {
                             leftLabel: "🙋 \(appModel.currentUser.name.uppercased())",
                             rightLabel: "👉 \(appModel.partner.name.uppercased())",
                             isDisabled: isSubmitting,
-                            previousAnswerLabel: previousAnswerLabel(for: round),
                             content: {
                                 VStack(spacing: Theme.Spacing.lg) {
                                     Text("\(round.roundNumber) / \(store.rounds.count)")
@@ -131,6 +144,19 @@ struct WhosMoreLikelyGameView: View {
                                         .foregroundStyle(.white)
                                         .multilineTextAlignment(.center)
                                         .frame(maxWidth: .infinity)
+
+                                    // Revisiting an already-answered round via the back button —
+                                    // sits right under the question, rather than the previous
+                                    // top-of-card pill placement, so it's clearly tied to what it
+                                    // describes.
+                                    if let previousAnswerLabel = previousAnswerLabel(for: round) {
+                                        Text("You chose: \(previousAnswerLabel)")
+                                            .font(.caption.weight(.bold))
+                                            .foregroundStyle(.white)
+                                            .padding(.horizontal, Theme.Spacing.sm)
+                                            .padding(.vertical, 6)
+                                            .background(.white.opacity(0.22), in: Capsule())
+                                    }
 
                                     Spacer(minLength: Theme.Spacing.sm)
 
@@ -212,15 +238,15 @@ struct WhosMoreLikelyGameView: View {
         isSendingReminder = false
     }
 
-    private func editAnswers() async {
-        isEditingAnswers = true
-        await store.editMyAnswers()
-        isEditingAnswers = false
-    }
-
     private func handleBack() {
         if store.canGoBack(myID: myID) {
             store.goBack(myID: myID)
+        } else if store.viewingRoundNumber != nil, store.hasAnsweredAllRounds(myID: myID) {
+            // Editing — only reachable once every round is already answered, which is what
+            // distinguishes this from genuinely live-playing and having stepped back to round 1
+            // (viewingRoundNumber is non-nil in both cases). Exits editing back to whichever
+            // "I'm done" screen prompted it, rather than the leave-confirmation below.
+            store.viewingRoundNumber = nil
         } else if store.hasAnsweredAnyRounds(myID: myID) {
             showingLeaveConfirm = true
         } else {

@@ -12,7 +12,16 @@ import SwiftUI
 
 struct ConfettiBurstView: View {
     let trigger: Bool
-    @State private var animate = false
+    // Starts `true` (i.e. "already at rest, post-burst": offset out, opacity 0) rather than
+    // `false` — with `false` as the initial value, every particle sat at opacity 1 stacked
+    // exactly on top of each other at the center (offset 0,0) until the first real trigger, which
+    // for any result screen that never actually bursts confetti (every Trivia result, or a
+    // match-game result under the 80% threshold) meant a small stray dot — the last-drawn
+    // particle's color (orange) showing through the stack — sat permanently in the middle of the
+    // screen. `onChange(of: trigger)` already snaps back to the center before animating back out
+    // on every real trigger, so this only changes what shows up before the first (or with no)
+    // trigger.
+    @State private var animate = true
 
     private struct Particle {
         let dx: CGFloat

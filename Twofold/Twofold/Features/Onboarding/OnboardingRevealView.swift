@@ -61,7 +61,10 @@ struct OnboardingRevealView: View {
                 VStack(spacing: Theme.Spacing.md) {
                     Text("You're all set 💛")
                         .font(.system(.title, design: .rounded, weight: .bold))
-                    Text("Your shared space with \(onboarding.inviterName ?? "your partner") is ready.")
+                    // Deliberately doesn't claim a connection already exists — reachable by both
+                    // the sharer (who's only sent an invite, not yet redeemed by anyone) and a
+                    // pending invitee (whose request still needs the inviter's acceptance).
+                    Text("We'll let you know the moment you're connected.")
                         .font(.body)
                         .foregroundStyle(Theme.subtleInk)
                         .multilineTextAlignment(.center)

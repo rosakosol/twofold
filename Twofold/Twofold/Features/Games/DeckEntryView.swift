@@ -2,15 +2,15 @@
 //  DeckEntryView.swift
 //  Twofold
 //
-//  The deck-scoped equivalent of GameEntryView — same three-phase choke point (intro / resume /
-//  play), but resumption is matched on `deckID` rather than `gameType`, since a couple can have
-//  independent sessions for several decks that share the same underlying mechanic (e.g. two
-//  different "This or That" decks in different topics are unrelated sessions). Reuses the exact
-//  same 4 game views as regular sessions — a deck session is an ordinary GameSession under the
-//  hood (see `start_deck_session`), just pre-populated from a curated content subset instead of a
-//  random sample of the shared pool.
+//  The deck-scoped entry choke point — resolves whether there's already a resumable session for
+//  this deck (matched on `deckID`, since a couple can have independent sessions for several
+//  decks that share the same underlying mechanic) and goes straight to it, starting a fresh one
+//  otherwise. Reuses the exact same 4 game views as regular sessions — a deck session is an
+//  ordinary GameSession under the hood (see `start_deck_session`), just pre-populated from a
+//  curated content subset instead of a random sample of the shared pool.
 //
 
+import PostHog
 import SwiftUI
 
 struct DeckEntryView: View {
@@ -19,11 +19,9 @@ struct DeckEntryView: View {
     @Environment(AppModel.self) private var appModel
     @State private var errorMessage: String?
     @State private var phase: Phase = .loading
-    @State private var isStarting = false
 
     private enum Phase {
         case loading
-        case intro(sessionID: UUID?, partnerAlreadyFinished: Bool, totalRounds: Int)
         case playing(sessionID: UUID)
     }
 
@@ -35,16 +33,6 @@ struct DeckEntryView: View {
                 switch phase {
                 case .loading:
                     ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
-                case .intro(let sessionID, let partnerAlreadyFinished, let totalRounds):
-                    GameIntroView(
-                        gameType: deck.gameType,
-                        totalRounds: totalRounds,
-                        topic: GameTopic(rawValue: deck.topic),
-                        partnerAlreadyFinished: partnerAlreadyFinished,
-                        partnerName: appModel.partner.name,
-                        isStarting: isStarting,
-                        onStart: { Task { await start(existingSessionID: sessionID) } }
-                    )
                 case .playing(let sessionID):
                     gameDestination(sessionID: sessionID)
                 }
@@ -54,6 +42,7 @@ struct DeckEntryView: View {
         .navigationTitle(deck.title)
         .navigationBarTitleDisplayMode(.inline)
         .task { await determinePhase() }
+        .postHogScreenView("Games: Deck Entry")
     }
 
     private func errorState(_ message: String) -> some View {
@@ -83,36 +72,14 @@ struct DeckEntryView: View {
         errorMessage = nil
         do {
             let existing = try await BackendService.fetchGameSessions()
-            let introKey = deck.id.uuidString
-            guard let resumable = existing.first(where: { $0.deckID == deck.id && ($0.status == .active || $0.status == .waitingForPartner) }) else {
-                if GameIntroSeenStore.hasSeen(introKey) {
-                    await start(existingSessionID: nil)
-                } else {
-                    GameIntroSeenStore.markSeen(introKey)
-                    phase = .intro(sessionID: nil, partnerAlreadyFinished: false, totalRounds: deck.questionCount)
-                }
-                return
-            }
-            let detail = try await BackendService.fetchGameSession(id: resumable.id)
-            let myAnswered = GameLogic.answeredRoundNumbers(responses: detail.responses, responderID: appModel.currentUser.id)
-            if myAnswered.isEmpty {
-                if GameIntroSeenStore.hasSeen(introKey) {
-                    await start(existingSessionID: resumable.id)
-                } else {
-                    GameIntroSeenStore.markSeen(introKey)
-                    let partnerFinished = GameLogic.partnerProgress(responses: detail.responses, partnerID: appModel.partner.id, totalRounds: detail.session.totalRounds) == .finished
-                    phase = .intro(sessionID: resumable.id, partnerAlreadyFinished: partnerFinished, totalRounds: detail.session.totalRounds)
-                }
-            } else {
-                phase = .playing(sessionID: resumable.id)
-            }
+            let resumable = existing.first { $0.deckID == deck.id && ($0.status == .active || $0.status == .waitingForPartner) }
+            await start(existingSessionID: resumable?.id)
         } catch {
             errorMessage = error.localizedDescription
         }
     }
 
     private func start(existingSessionID: UUID?) async {
-        isStarting = true
         do {
             if let existingSessionID {
                 phase = .playing(sessionID: existingSessionID)
@@ -125,6 +92,5 @@ struct DeckEntryView: View {
         } catch {
             errorMessage = error.localizedDescription
         }
-        isStarting = false
     }
 }

@@ -43,6 +43,9 @@ enum Analytics {
 
         // Partner
         static let partnerRemove = "partner:partner_remove"
+
+        // Settings
+        static let exportHistoryGenerated = "settings:export_history_generated"
     }
 
     static func capture(_ event: String, properties: [String: Any]? = nil) {

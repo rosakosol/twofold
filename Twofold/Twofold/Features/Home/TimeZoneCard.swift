@@ -73,17 +73,17 @@ struct TimeZoneCard: View {
                     Theme.DayNight.nightTop.interpolated(to: Theme.DayNight.dayTop, amount: daylight),
                     Theme.DayNight.nightBottom.interpolated(to: Theme.DayNight.dayBottom, amount: daylight),
                 ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
+                startPoint: .topTrailing,
+                endPoint: .bottomLeading
             ),
             in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
         )
-        .overlay(alignment: .topTrailing) {
+        .overlay(alignment: .topLeading) {
             Image(systemName: isDaytime ? "sun.max.fill" : "moon.stars.fill")
                 .font(.system(size: 72))
                 .opacity(0.16)
                 .foregroundStyle(.white)
-                .offset(x: 12, y: -12)
+                .offset(x: -12, y: -12)
         }
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
     }

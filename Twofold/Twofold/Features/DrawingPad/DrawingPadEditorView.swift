@@ -3,6 +3,7 @@
 //  Twofold
 //
 
+import PostHog
 import SwiftUI
 
 struct DrawingPadEditorView: View {
@@ -79,6 +80,7 @@ struct DrawingPadEditorView: View {
                 await loadExistingDrawing()
             }
         }
+        .postHogScreenView("Drawing Pad: Editor")
     }
 
     /// Loads whatever's already saved to the pad so re-opening it continues the drawing instead

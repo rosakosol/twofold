@@ -14,7 +14,7 @@ struct JourneyExpandedOriginView: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(context.attributes.originCode)
                 .font(.title3.weight(.bold))
-            if let departure = context.state.actualDeparture ?? context.state.estimatedDeparture ?? Optional(context.state.scheduledDeparture) {
+            if let departure = context.state.actualDeparture ?? context.state.estimatedDeparture ?? context.state.scheduledDeparture {
                 Text(departure, style: .time)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -25,5 +25,6 @@ struct JourneyExpandedOriginView: View {
                     .foregroundStyle(.secondary)
             }
         }
+        .padding(.leading, 16)
     }
 }

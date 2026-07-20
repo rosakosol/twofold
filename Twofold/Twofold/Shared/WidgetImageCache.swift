@@ -17,7 +17,7 @@ import Foundation
 enum WidgetImageCache {
     private static let suiteName = "group.com.orangefinch.Twofold"
     private static let latestMemoryFilename = "latest-memory.jpg"
-    private static let doodlePadFilename = "doodle-pad-last-good.png"
+    private static let drawingPadFilename = "drawing-pad-last-good.png"
 
     private static var containerURL: URL? {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: suiteName)
@@ -43,64 +43,46 @@ enum WidgetImageCache {
         try? FileManager.default.removeItem(at: url)
     }
 
-    /// DoodlePadWidget's own last-good fetch — written by the widget extension itself (the one
+    /// DrawingPadWidget's own last-good fetch — written by the widget extension itself (the one
     /// widget allowed a network call, since the source bucket is public), so a stale/offline
     /// network still shows the last thing that loaded rather than a blank widget.
-    static var doodlePadImageURL: URL? {
-        containerURL?.appendingPathComponent(doodlePadFilename)
+    static var drawingPadImageURL: URL? {
+        containerURL?.appendingPathComponent(drawingPadFilename)
     }
 
-    static func writeDoodlePadImage(_ data: Data) {
-        guard let url = doodlePadImageURL else { return }
+    static func writeDrawingPadImage(_ data: Data) {
+        guard let url = drawingPadImageURL else { return }
         try? data.write(to: url, options: .atomic)
     }
 
-    static func readDoodlePadImage() -> Data? {
-        guard let url = doodlePadImageURL else { return nil }
+    static func readDrawingPadImage() -> Data? {
+        guard let url = drawingPadImageURL else { return nil }
         return try? Data(contentsOf: url)
     }
 
-    /// GlobeWidget's pre-rendered MKMapSnapshotter image — written by the main app only (see
-    /// WidgetSnapshotWriter's globe refresh, gated to ~once/24h since the snapshotter call is
-    /// expensive and the content barely changes day to day). The widget itself just reads.
-    private static let globeFilename = "globe-snapshot.jpg"
+    /// My own drawing pad's last-good fetch — mirrors drawingPadImageURL (partner's), needed by
+    /// DrawingPadWidget's Medium side-by-side layout, which shows both at once. Same "the widget
+    /// fetches it live from the public bucket, this is just the offline/stale-network fallback"
+    /// reasoning.
+    private static let myDrawingFilename = "my-drawing-pad-last-good.png"
 
-    static var globeImageURL: URL? {
-        containerURL?.appendingPathComponent(globeFilename)
+    static var myDrawingImageURL: URL? {
+        containerURL?.appendingPathComponent(myDrawingFilename)
     }
 
-    static func writeGlobeImage(_ data: Data) {
-        guard let url = globeImageURL else { return }
+    static func writeMyDrawingImage(_ data: Data) {
+        guard let url = myDrawingImageURL else { return }
         try? data.write(to: url, options: .atomic)
     }
 
-    static func readGlobeImage() -> Data? {
-        guard let url = globeImageURL else { return nil }
-        return try? Data(contentsOf: url)
-    }
-
-    /// My own doodle-pad's last-good fetch — mirrors doodlePadImageURL (partner's), needed by
-    /// DoodleSideBySideWidget which shows both at once. Same "the widget fetches it live from
-    /// the public bucket, this is just the offline/stale-network fallback" reasoning.
-    private static let myDoodleFilename = "my-doodle-pad-last-good.png"
-
-    static var myDoodleImageURL: URL? {
-        containerURL?.appendingPathComponent(myDoodleFilename)
-    }
-
-    static func writeMyDoodleImage(_ data: Data) {
-        guard let url = myDoodleImageURL else { return }
-        try? data.write(to: url, options: .atomic)
-    }
-
-    static func readMyDoodleImage() -> Data? {
-        guard let url = myDoodleImageURL else { return nil }
+    static func readMyDrawingImage() -> Data? {
+        guard let url = myDrawingImageURL else { return nil }
         return try? Data(contentsOf: url)
     }
 
     /// Profile photos — public URLs (see Person.avatarURL's doc comment), downloaded and cached
     /// by the main app the same way the latest memory photo is, so avatar-bearing widgets
-    /// (Days Together, Partner's Time, flight tracking, etc.) never need their own network call.
+    /// (Days Together, Partner's Time, Flight Countdown, etc.) never need their own network call.
     private static let myAvatarFilename = "my-avatar.jpg"
     private static let partnerAvatarFilename = "partner-avatar.jpg"
 
@@ -136,26 +118,5 @@ enum WidgetImageCache {
     static func readAirlineLogoImage() -> Data? {
         guard let url = containerURL?.appendingPathComponent(airlineLogoFilename) else { return nil }
         return try? Data(contentsOf: url)
-    }
-
-    /// FlightTrackingWidget's large map — a single flattened image (basemap + route line +
-    /// endpoint dots + traveler marker, all baked in with Core Graphics by
-    /// WidgetSnapshotWriter). Baking the markers in at write time avoids the widget needing to
-    /// replicate MKMapSnapshotter's exact region/projection math to re-derive pixel positions.
-    private static let flightMapFilename = "flight-map.jpg"
-
-    static func writeFlightMapImage(_ data: Data) {
-        guard let url = containerURL?.appendingPathComponent(flightMapFilename) else { return }
-        try? data.write(to: url, options: .atomic)
-    }
-
-    static func readFlightMapImage() -> Data? {
-        guard let url = containerURL?.appendingPathComponent(flightMapFilename) else { return nil }
-        return try? Data(contentsOf: url)
-    }
-
-    static func clearFlightMapImage() {
-        guard let url = containerURL?.appendingPathComponent(flightMapFilename) else { return }
-        try? FileManager.default.removeItem(at: url)
     }
 }

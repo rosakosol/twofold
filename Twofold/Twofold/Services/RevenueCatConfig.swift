@@ -8,18 +8,18 @@
 //  already run. Kept separate from `SubscriptionStore` since this only ever runs once per
 //  process, unlike everything else in that file.
 //
-//  ⚠️ `apiKey` below is the RevenueCat **Test Store** public API key (`test_...`), meant for
-//  development — it drives RevenueCat's sandboxed test store rather than real App Store/
-//  StoreKit transactions. Swap it for the real "Apple App Store" public API key from the
-//  RevenueCat dashboard (Project settings → API keys) before shipping; the SDK key format is
-//  the only thing that changes, no code here needs to.
-//
+
 
 import Foundation
 import RevenueCat
 
 enum RevenueCatConfig {
-    static let apiKey = "test_BfcxVYQJiTBVYOktDZKPnRUZxRw"
+    /// The real "Apple App Store" public API key from the RevenueCat dashboard (Project
+    /// settings → API keys) — a `test_...` Test Store key was used here during development,
+    /// but RevenueCat's SDK deliberately fatal-crashes if it detects one running inside a
+    /// Release-configured build (which every TestFlight archive is), as a guardrail against
+    /// shipping a sandbox key by accident.
+    static let apiKey = "appl_DoPckVWWpcnAifAJxyqVrIgqGna"
 
     /// The two entitlements configured in the RevenueCat dashboard, one per subscription tier —
     /// mirrors `SubscriptionTier`, see that enum for the couple-facing display/DB-value side of
@@ -30,16 +30,18 @@ enum RevenueCatConfig {
     }
 
     /// The 4 App Store Connect / RevenueCat product identifiers this app expects to exist.
-    /// Referenced here for documentation only — the RevenueCatUI paywall (`PaywallView`)
-    /// resolves packages entirely from whichever Offering is marked "current" in the RevenueCat
-    /// dashboard, so nothing in this app's Swift code looks these strings up directly. This is
-    /// the source of truth for what to create in App Store Connect and attach to an Offering +
-    /// one of the two `Entitlement`s above in the RevenueCat dashboard.
+    /// `SubscriptionStore.mapToPricedPackages` switches on these exact strings (matched against
+    /// each package's `StoreProduct.productIdentifier`) to resolve which `SubscriptionTier` a
+    /// package belongs to — RevenueCat's own `Package.packageType` can't tell Plus from Premium,
+    /// since both have a monthly and an annual variant. These must match both the App Store
+    /// Connect product IDs *and* whatever's attached to the current Offering in the RevenueCat
+    /// dashboard exactly — a mismatch silently drops that package from the paywall rather than
+    /// erroring, since an unrecognized identifier is treated as "not one of ours," not a crash.
     enum ProductIdentifier {
-        static let monthlyPlus = "subscription_monthly_plus"
-        static let yearlyPlus = "subscription_yearly_plus"
-        static let monthlyPremium = "subscription_monthly_premium"
-        static let yearlyPremium = "subscription_yearly_premium"
+        static let monthlyPlus = "com.orangefinch.Twofold.plus.monthly"
+        static let yearlyPlus = "com.orangefinch.Twofold.plus.yearly"
+        static let monthlyPremium = "com.orangefinch.Twofold.premium.monthly"
+        static let yearlyPremium = "com.orangefinch.Twofold.premium.yearly"
     }
 
     static func configure() {

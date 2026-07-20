@@ -8,6 +8,7 @@
 //
 
 import SwiftUI
+import PostHog
 
 struct PendingFlightShareReviewView: View {
     let share: PendingFlightShare
@@ -44,6 +45,7 @@ struct PendingFlightShareReviewView: View {
             }
         }
         .task { await load() }
+        .postHogScreenView("Flights: Shared Flight Review")
     }
 
     private var failureView: some View {
@@ -72,11 +74,14 @@ struct PendingFlightShareReviewView: View {
     }
 
     private func prefill(from extracted: ExtractedFlightDetails) -> AddTripDetailsView.Prefill {
+        // `extracted.arrivalDate` is this same flight's own landing time (a few hours after
+        // departure), not a real return-trip date — passing it as `returnDate` would prefill
+        // "Returning" to the same day as "Departing". Leaving it nil instead lets
+        // `AddTripDetailsView`'s own init fall back to departure + 14 days, same as manual entry.
         AddTripDetailsView.Prefill(
             origin: extracted.matchedOrigin,
             destination: extracted.matchedDestination,
             departureDate: extracted.departureDate,
-            returnDate: extracted.arrivalDate,
             flightNumber: extracted.flightNumber
         )
     }

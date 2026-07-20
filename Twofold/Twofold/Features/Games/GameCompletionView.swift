@@ -4,11 +4,12 @@
 //
 //  Shown once I've answered every round but the session isn't fully completed yet (my partner
 //  hasn't finished theirs). Shared across all 4 game types — nothing here is game-type-specific,
-//  except `myAnswersRecap` (only Discuss Before Travelling passes one — my own responses are
+//  except `myAnswersRecap` (only Deep Conversations passes one — my own responses are
 //  always visible to me regardless of session completion, unlike the match/trivia games where
 //  showing anything pre-reveal would spoil the point).
 //
 
+import PostHog
 import SwiftUI
 
 struct GameCompletionAnswerRecap: Identifiable {
@@ -24,13 +25,13 @@ struct GameCompletionView: View {
     let onSendReminder: () -> Void
     let onPlayAnother: () -> Void
     var myAnswersRecap: [GameCompletionAnswerRecap] = []
-    var isEditingAnswers = false
     var onEditAnswers: (() -> Void)? = nil
     /// Answers still sitting in `GameSessionStore`'s offline queue for this session — shown as
     /// its own reassurance card since "waiting for partner" alone would be misleading here (my
     /// own answers haven't even reached the server yet, regardless of what my partner's doing).
     var pendingSyncCount = 0
 
+    @Environment(AppModel.self) private var appModel
     @State private var showingReminderSentConfirmation = false
 
     private var progressStage: Int {
@@ -112,16 +113,11 @@ struct GameCompletionView: View {
                 if let onEditAnswers {
                     Button(action: onEditAnswers) {
                         HStack(spacing: 4) {
-                            if isEditingAnswers {
-                                ProgressView()
-                            } else {
-                                Image(systemName: "pencil")
-                                Text("Edit My Answers")
-                            }
+                            Image(systemName: "pencil")
+                            Text("Edit My Answers")
                         }
                         .font(.subheadline.weight(.medium))
                     }
-                    .disabled(isEditingAnswers)
                     .padding(.top, Theme.Spacing.xs)
                 }
             }
@@ -130,6 +126,13 @@ struct GameCompletionView: View {
             .padding(.bottom, Theme.Spacing.xl)
         }
         .background(Theme.backgroundGradient.ignoresSafeArea())
+        .onAppear {
+            // `AppModel.gameDecks`/`deckProgress` are cached for the whole app session and only
+            // ever refreshed explicitly — without this, the deck list's "you're done" checkmark
+            // for my own side stayed stale until the app relaunched, even though I've just
+            // finished every round of the session backing this exact screen.
+            Task { await appModel.refreshGameDecks() }
+        }
         // `isSendingReminder` is owned by the caller (each typed game view runs its own
         // fire-and-forget `notifyPartner` call) — watching its true → false transition here
         // means every call site gets this confirmation for free, no changes needed there.
@@ -143,6 +146,7 @@ struct GameCompletionView: View {
         } message: {
             Text("Notification sent to \(partnerName).")
         }
+        .postHogScreenView("Games: Completion")
     }
 
     private var offlineSyncCard: some View {
@@ -200,10 +204,12 @@ struct GameCompletionView: View {
 
 #Preview {
     GameCompletionView(partnerName: "Erin", partnerProgress: .inProgress(answered: 2, total: 5), onSendReminder: {}, onPlayAnother: {})
+        .environment(AppModel())
 }
 
 #Preview("Offline") {
     GameCompletionView(partnerName: "Erin", partnerProgress: .notStarted, onSendReminder: {}, onPlayAnother: {}, pendingSyncCount: 3)
+        .environment(AppModel())
 }
 
 #Preview("With recap") {
@@ -215,4 +221,5 @@ struct GameCompletionView: View {
         ],
         onEditAnswers: {}
     )
+    .environment(AppModel())
 }

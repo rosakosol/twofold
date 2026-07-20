@@ -75,19 +75,19 @@ struct FlightTrackingTests {
 
     @Test func tripIsActiveWhenFlightIsActivelyTracked() {
         let flight = makeFlight(status: .inAir)
-        var trip = Trip(travelerID: UUID(), origin: Place(city: "Singapore", country: "Singapore", latitude: 1.35, longitude: 103.8), destination: Place(city: "Melbourne", country: "Australia", latitude: -37.8, longitude: 144.9), departureDate: .now.addingTimeInterval(-3600), arrivalDate: .now.addingTimeInterval(3600), category: .seeingEachOther, distanceKm: 6000)
+        var trip = Trip(travelerIDs: [UUID()], origin: Place(city: "Singapore", country: "Singapore", latitude: 1.35, longitude: 103.8), destination: Place(city: "Melbourne", country: "Australia", latitude: -37.8, longitude: 144.9), departureDate: .now.addingTimeInterval(-3600), arrivalDate: .now.addingTimeInterval(3600), isReunionTrip: true, distanceKm: 6000)
         trip.flight = flight
         #expect(trip.isActive)
     }
 
     @Test func tripIsNotActiveWhenFlightIsOnlyScheduled() {
-        var trip = Trip(travelerID: UUID(), origin: Place(city: "Singapore", country: "Singapore", latitude: 1.35, longitude: 103.8), destination: Place(city: "Melbourne", country: "Australia", latitude: -37.8, longitude: 144.9), departureDate: .now.addingTimeInterval(86_400), arrivalDate: .now.addingTimeInterval(90_000), category: .seeingEachOther, distanceKm: 6000)
+        var trip = Trip(travelerIDs: [UUID()], origin: Place(city: "Singapore", country: "Singapore", latitude: 1.35, longitude: 103.8), destination: Place(city: "Melbourne", country: "Australia", latitude: -37.8, longitude: 144.9), departureDate: .now.addingTimeInterval(86_400), arrivalDate: .now.addingTimeInterval(90_000), isReunionTrip: true, distanceKm: 6000)
         trip.flight = makeFlight(status: .scheduled, scheduledOut: .now.addingTimeInterval(86_400))
         #expect(!trip.isActive)
     }
 
     @Test func tripWithNoFlightIsNeverActive() {
-        let trip = Trip(travelerID: UUID(), origin: Place(city: "Singapore", country: "Singapore", latitude: 1.35, longitude: 103.8), destination: Place(city: "Melbourne", country: "Australia", latitude: -37.8, longitude: 144.9), departureDate: .now.addingTimeInterval(-3600), arrivalDate: .now.addingTimeInterval(3600), category: .seeingEachOther, distanceKm: 6000)
+        let trip = Trip(travelerIDs: [UUID()], origin: Place(city: "Singapore", country: "Singapore", latitude: 1.35, longitude: 103.8), destination: Place(city: "Melbourne", country: "Australia", latitude: -37.8, longitude: 144.9), departureDate: .now.addingTimeInterval(-3600), arrivalDate: .now.addingTimeInterval(3600), isReunionTrip: true, distanceKm: 6000)
         #expect(!trip.isActive)
     }
 

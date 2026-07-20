@@ -26,6 +26,10 @@ export interface AeroFlight {
   ident: string;
   ident_icao?: string | null;
   ident_iata?: string | null;
+  // The aircraft's actual broadcast ATC callsign — often differs from `ident`/`ident_icao` (the
+  // marketing flight designator). Free metadata on the same /flights/{ident} response; captured
+  // specifically as the primary ADS-B mirror lookup key, see _shared/adsb.ts.
+  atc_ident?: string | null;
   fa_flight_id: string;
   operator?: string | null;
   operator_icao?: string | null;
@@ -137,6 +141,71 @@ export async function resolveFlightByIdent(
   return json?.flights ?? [];
 }
 
+// Historical instances of a flight designator (e.g. "UAE1"), not a single fa_flight_id instance —
+// the basis for delay-performance stats (see _shared/flight-sync.ts's computeDelayStats). Requires
+// AeroAPI's Standard tier; Personal-tier accounts will get an error response from AeroAPI itself,
+// which aeroRequest() already surfaces via its thrown error rather than silently returning nothing.
+//
+// AeroAPI rejects any single /history/flights/{ident} call whose start/end span exceeds 7 days
+// (confirmed live: "start and end date cannot span more than than 7 days", HTTP 400) — not
+// documented on their public pricing page, only discovered once a real 60-day request failed.
+// So a 60-day lookback is chunked into <=6-day windows (6, not 7, as a small safety margin
+// against boundary rounding) and each window is queried — and paginated within itself via
+// AeroAPI's own `links.next` cursor — separately.
+const HISTORY_WINDOW_DAYS = 6;
+const HISTORY_MAX_PAGES_PER_WINDOW = 10; // ~150 records/window, well over what one window needs
+
+// Confirmed live: a full ISO-8601 timestamp with milliseconds (`.toISOString()`'s default output,
+// e.g. "2026-05-19T07:52:17.177Z") gets past AeroAPI's own span-length validation (that check
+// fires a clean 400) but then triggers a 500 "Appfault"/backend-processing-error downstream on
+// /history/flights/{ident} specifically — a different, separate backend from /flights/{ident},
+// which tolerates the same millisecond-bearing format fine (see resolveFlightByIdent, unaffected,
+// left as-is). Stripping to whole-second precision is the one plausible, low-risk fix available
+// without access to AeroAPI's own docs/support to confirm the real cause.
+function toWholeSecondISOString(date: Date): string {
+  return date.toISOString().replace(/\.\d{3}Z$/, "Z");
+}
+
+export async function fetchHistoricalFlights(ident: string, startISO: string, endISO: string): Promise<AeroFlight[]> {
+  const all: AeroFlight[] = [];
+  const rangeStart = new Date(startISO);
+  const rangeEnd = new Date(endISO);
+  const windowMs = HISTORY_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+
+  let windowStart = rangeStart;
+  while (windowStart < rangeEnd) {
+    const windowEnd = new Date(Math.min(windowStart.getTime() + windowMs, rangeEnd.getTime()));
+    // One window failing (confirmed live: a 500 "Appfault"/backend processing error from AeroAPI
+    // itself on an otherwise-valid request) must not abort the whole 60-day computation — stats
+    // based on 9 good windows and 1 skipped one are far more useful than no stats at all. Logged,
+    // not re-thrown.
+    try {
+      all.push(...(await fetchHistoricalFlightsWindow(ident, toWholeSecondISOString(windowStart), toWholeSecondISOString(windowEnd))));
+    } catch (err) {
+      console.error(`[aeroapi] history window ${windowStart.toISOString()}..${windowEnd.toISOString()} for ${ident} failed:`, (err as Error).message);
+    }
+    windowStart = windowEnd;
+  }
+
+  return all;
+}
+
+async function fetchHistoricalFlightsWindow(ident: string, startISO: string, endISO: string): Promise<AeroFlight[]> {
+  const all: AeroFlight[] = [];
+  let path: string | null = `/history/flights/${encodeURIComponent(ident)}`;
+  let params: Record<string, string> | undefined = { start: startISO, end: endISO };
+
+  for (let page = 0; page < HISTORY_MAX_PAGES_PER_WINDOW && path; page++) {
+    const json = await aeroRequest(path, params);
+    if (!json) break;
+    all.push(...(json.flights ?? []));
+    path = json.links?.next ?? null;
+    params = undefined; // `next` already carries its own query string
+  }
+
+  return all;
+}
+
 export async function fetchFlightByFaId(faFlightId: string): Promise<AeroFlight | null> {
   const json = await aeroRequest(`/flights/${encodeURIComponent(faFlightId)}`, {
     ident_type: "fa_flight_id",
@@ -246,27 +315,3 @@ export async function registerWebhookEndpoint(url: string, token: string): Promi
   }
 }
 
-// Best-effort, per-flight alert registration. Requires the account-wide webhook endpoint to
-// already be configured via `PUT /alerts/endpoint` (a one-time manual step — see
-// aeroapi-webhook/index.ts's header comment). Never throws — a failed alert registration should
-// not block adding a flight; polling still covers it.
-export async function createAlert(ident: string, origin: string, destination: string): Promise<void> {
-  try {
-    const key = apiKey();
-    const res = await fetch(`${AEROAPI_BASE}/alerts`, {
-      method: "POST",
-      headers: { "x-apikey": key, "content-type": "application/json" },
-      body: JSON.stringify({
-        ident,
-        origin,
-        destination,
-        events: { departure: true, arrival: true, cancelled: true, diverted: true },
-      }),
-    });
-    if (!res.ok) {
-      console.error(`[aeroapi] createAlert for ${ident} failed with status ${res.status}`);
-    }
-  } catch (err) {
-    console.error(`[aeroapi] createAlert for ${ident} threw:`, (err as Error).message);
-  }
-}

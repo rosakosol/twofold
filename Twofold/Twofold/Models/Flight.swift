@@ -261,6 +261,33 @@ struct Flight: Identifiable, Hashable {
     var bestDeparture: Date? { actualOut ?? estimatedOut ?? scheduledOut }
     var bestArrival: Date? { actualIn ?? estimatedIn ?? scheduledIn }
 
+    /// True while actively in progress, or within a 15-minute grace window after actual/
+    /// estimated/scheduled arrival — long enough that a flight doesn't vanish out of "active/
+    /// upcoming" (Home's carousel, `AppModel.activeOrUpcomingFlights`, `Trip.isActive`) the
+    /// instant its status flips to arrived/landed, giving a moment to still see "Landed"/baggage
+    /// info before it's archived into past flights. One shared definition so every "is this
+    /// still current" call site agrees, rather than each hand-rolling its own cutoff.
+    var isCurrentlyRelevant: Bool {
+        if status.isActivelyTracked { return true }
+        guard let arrival = bestArrival else { return false }
+        return arrival.addingTimeInterval(15 * 60) > .now
+    }
+
+    /// The freshest of the two independent refresh cadences this flight has: schedule/status
+    /// (from AeroAPI, re-checked every ~2 min while airborne) and live position (from free ADS-B
+    /// mirrors, re-checked every ~1 min while airborne — see `syncLivePositionForFaFlightId` in
+    /// `supabase/functions/_shared/flight-sync.ts`). Showing only `lastRefreshedAt` made the
+    /// tracking screen's "Updated X ago" plateau at ~2 minutes even though position data is
+    /// genuinely newer — this reflects whichever backend actually has the most current data.
+    var mostRecentUpdateAt: Date? {
+        switch (lastRefreshedAt, positionUpdatedAt) {
+        case let (.some(refreshed), .some(position)): max(refreshed, position)
+        case let (.some(refreshed), nil): refreshed
+        case let (nil, .some(position)): position
+        case (nil, nil): nil
+        }
+    }
+
     /// Legacy convenience for call sites that only ever dealt in a single scheduled window.
     var scheduledDeparture: Date { scheduledOut ?? .now }
     var scheduledArrival: Date { scheduledIn ?? scheduledOut?.addingTimeInterval(3600 * 4) ?? .now }
@@ -281,6 +308,22 @@ struct Flight: Identifiable, Hashable {
 
     var timeRemaining: TimeInterval {
         max(0, (bestArrival ?? .now).timeIntervalSinceNow)
+    }
+
+    /// Gate-to-gate duration, using the same best-known-time fallback chain as `progress` (actual
+    /// times once flown, estimated/scheduled beforehand) — nil rather than a bogus value when
+    /// either end isn't known yet.
+    var totalDuration: TimeInterval? {
+        guard let departure = bestDeparture, let arrival = bestArrival, arrival > departure else { return nil }
+        return arrival.timeIntervalSince(departure)
+    }
+
+    /// "8h 1m" — the compact, unlabeled form used alongside the city→city route text, where the
+    /// route itself already makes clear this is a flight duration.
+    var totalDurationSummary: String? {
+        guard let totalDuration else { return nil }
+        let totalMinutes = Int(totalDuration / 60)
+        return "\(totalMinutes / 60)h \(totalMinutes % 60)m"
     }
 
     var hasLivePosition: Bool { positionLatitude != nil && positionLongitude != nil }
@@ -357,4 +400,22 @@ struct Flight: Identifiable, Hashable {
 
         return events
     }
+}
+
+/// 60-day on-time-performance stats for a flight's *designator* (e.g. "UAE1"), not this specific
+/// tracked instance — fetched on demand via `AeroFlightService.fetchDelayStats`, computed and
+/// cached server-side (see `supabase/functions/_shared/delay-stats.ts`). Field names match that
+/// function's JSON response verbatim (camelCase both sides, same convention as every other
+/// edge-function response this app decodes).
+struct DelayStats: Decodable {
+    var observedCount: Int
+    var latePercent: Double
+    var averageLateMinutes: Double
+    var earlyPercent: Double
+    var onTimePercent: Double
+    var late15Percent: Double
+    var late30Percent: Double
+    var late45Percent: Double
+    var cancelledPercent: Double
+    var divertedPercent: Double
 }

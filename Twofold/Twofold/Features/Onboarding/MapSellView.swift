@@ -2,7 +2,7 @@
 //  MapSellView.swift
 //  Twofold
 //
-//  Feature-education screen, same idea as LiveActivitySellView/WidgetSellView — a small
+//  Feature-education screen, same idea as LiveActivitySellView/MemoriesSellView — a small
 //  illustrative map pinned near the couple's real home city, if picked earlier in onboarding.
 //  Comes right after MemoriesSellView's journal-style pitch, so this one is purely "and it's
 //  all mapped to where it happened." Markers reuse the exact visual from the real
@@ -37,12 +37,12 @@ struct MapSellView: View {
                 count: 3
             ),
             MockPin(
-                memory: Memory(title: "That sunset", place: homeCity, date: calendar.date(byAdding: .day, value: -23, to: .now) ?? .now, note: "", photoSeed: 0),
+                memory: Memory(title: "Watching the sunset", place: homeCity, date: calendar.date(byAdding: .day, value: -23, to: .now) ?? .now, note: "", photoSeed: 0),
                 coordinate: CLLocationCoordinate2D(latitude: homeCity.coordinate.latitude + 0.06, longitude: homeCity.coordinate.longitude + 0.08),
                 count: 1
             ),
             MockPin(
-                memory: Memory(title: "First trip together", place: homeCity, date: calendar.date(byAdding: .month, value: -2, to: .now) ?? .now, note: "", photoSeed: 1),
+                memory: Memory(title: "Our first kiss", place: homeCity, date: calendar.date(byAdding: .month, value: -2, to: .now) ?? .now, note: "", photoSeed: 1),
                 coordinate: CLLocationCoordinate2D(latitude: homeCity.coordinate.latitude - 0.05, longitude: homeCity.coordinate.longitude - 0.05),
                 count: 1
             ),
@@ -69,7 +69,7 @@ struct MapSellView: View {
                 }
             },
             primaryTitle: "Continue",
-            primaryAction: { onboarding.path.append(.widgetSell) }
+            primaryAction: { onboarding.path.append(.firstMemoryIntro) }
         )
         .sensoryFeedback(.impact(weight: .light), trigger: shownPins)
     }
@@ -102,7 +102,7 @@ struct MapSellView: View {
     /// drop shadow, red count badge when more than one memory shares the spot.
     private func memoryPin(_ pin: MockPin) -> some View {
         ZStack(alignment: .topTrailing) {
-            MemoryPhotoView(memory: pin.memory, cornerRadius: 999)
+            OnboardingMemoryImage(seed: pin.memory.photoSeed, cornerRadius: 999)
                 .frame(width: 44, height: 44)
                 .clipShape(Circle())
                 .overlay(Circle().strokeBorder(.white, lineWidth: 2))

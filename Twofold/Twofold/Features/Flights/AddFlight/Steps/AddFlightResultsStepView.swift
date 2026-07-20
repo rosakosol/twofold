@@ -6,11 +6,12 @@
 //  structured input (airline+digits, or two Airports) instead of raw text fields. "Flight
 //  missing? Add Manually" from the reference design is deliberately omitted here: the live
 //  app's add-flight function only accepts a real AeroAPI faFlightId, so there's nothing for a
-//  manual entry to persist to in that context. Onboarding's own self-reported fallback lives in
-//  AddFirstFlightView instead, scoped to that call site only.
+//  manual entry to persist to in that context — flights are never self-reported anywhere in
+//  the app, onboarding included.
 //
 
 import SwiftUI
+import PostHog
 
 struct AddFlightResultsStepView: View {
     let completion: AddFlightFlowView.Completion
@@ -20,8 +21,13 @@ struct AddFlightResultsStepView: View {
     @State private var hideCodeshares = false
     @State private var airlineFilter: String?
 
+    /// Flight-number mode is never filtered — the caller already told us exactly which flight
+    /// they're after, so hiding a codeshare-linked or differently-operated result there could
+    /// hide the very match they searched for. Filtering only makes sense in route mode, where a
+    /// single route can turn up many unrelated flights across several airlines/times.
     private var filteredCandidates: [AeroFlightCandidate] {
-        model.candidates.filter { candidate in
+        guard model.mode == .route else { return model.candidates }
+        return model.candidates.filter { candidate in
             if hideCodeshares, candidate.isCodeshare == true { return false }
             if let airlineFilter, candidate.operatorName != airlineFilter { return false }
             return true
@@ -37,7 +43,7 @@ struct AddFlightResultsStepView: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.md) {
                 routeChips
 
-                if model.candidates.count > 1 || model.candidates.contains(where: { $0.isCodeshare == true }) {
+                if model.mode == .route && (model.candidates.count > 1 || model.candidates.contains(where: { $0.isCodeshare == true })) {
                     filterRow
                 }
 
@@ -62,6 +68,7 @@ struct AddFlightResultsStepView: View {
                 FlightConfirmationView(candidate: candidate, onDone: onDone)
             }
         }
+        .postHogScreenView("Flights: Add Flight — Results")
     }
 
     // MARK: - Chips / filters
@@ -173,6 +180,7 @@ struct AddFlightResultsStepView: View {
         }
         .buttonStyle(.plain)
     }
+
 
     private func timeChip(code: String, date: Date, timeZone: String?, systemImage: String) -> some View {
         let tz: TimeZone = timeZone.flatMap(TimeZone.init(identifier:)) ?? .current

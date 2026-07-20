@@ -8,6 +8,7 @@
 //  discuss" for the match games, or an interactive talked-about/come-back-later list for Discuss.
 //
 
+import PostHog
 import SwiftUI
 
 struct GameResultsView: View {
@@ -18,18 +19,19 @@ struct GameResultsView: View {
     let myName: String
     let partnerName: String
     let onPlayAnother: () -> Void
+    var title: String? = nil
 
     @Environment(AppModel.self) private var appModel
     @State private var revealedCount = 0
     @State private var isMarkingDiscussion = false
     @State private var confettiTrigger = false
-    @State private var isEditingAnswers = false
     @State private var isResettingDeck = false
     @State private var resetRoute: SessionRoute?
     /// Set alongside `resetRoute` in `resetDeck(deckID:)` — `SessionRoute` itself only carries
     /// id/gameType, so this rides separately to the `.navigationDestination` closure below.
     @State private var resetTopic: String?
     @State private var showingNoMailAppAlert = false
+    @State private var showingShare = false
 
     private var isFullyRevealed: Bool { revealedCount >= store.rounds.count }
 
@@ -82,18 +84,27 @@ struct GameResultsView: View {
         // observed interpolating its own size alongside those, briefly rendering narrower than
         // the screen before settling.
         .background(Theme.backgroundGradient.ignoresSafeArea().transaction { $0.animation = nil })
-        .navigationTitle(gameType.displayName)
+        .navigationTitle(title ?? gameType.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            if isFullyRevealed {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Share", systemImage: "square.and.arrow.up") {
+                        showingShare = true
+                    }
+                    .labelStyle(.iconOnly)
+                }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button {
-                        Task { await editMyAnswers() }
+                        store.beginEditingAnswers()
                     } label: {
                         Label("Edit My Answers", systemImage: "pencil")
                     }
-                    // Only deck-originated sessions know what to restart — a regular
-                    // shared-pool session (GameEntryView) has no single "this exact game" to
+                    // Only deck-originated sessions know what to restart — every session is
+                    // deck-originated now, but older rows from before the shared-pool flow was
+                    // removed can still have a nil deckID with no single "this exact game" to
                     // reset back to.
                     if let deckID = store.session?.deckID {
                         Button(role: .destructive) {
@@ -107,18 +118,33 @@ struct GameResultsView: View {
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
-                .disabled(isEditingAnswers || isResettingDeck)
+                .disabled(isResettingDeck)
             }
         }
         .noMailAppAlert(isPresented: $showingNoMailAppAlert)
+        .sheet(isPresented: $showingShare) {
+            GameResultsShareView(data: shareData)
+        }
         .navigationDestination(item: $resetRoute) { route in
             gameDestinationView(gameType: route.gameType, sessionID: route.id, topic: resetTopic)
         }
         .onAppear {
             animateReveal()
-            appModel.noteReviewMilestone(.firstGameResults)
+            // Reaching game results already implies a connected partner (all game content is
+            // gated behind `partnerConnected`) — `hasCouple` guard added for symmetry with
+            // `AppModel.checkReviewMilestones()`, not because this is actually reachable earlier.
+            if appModel.hasCouple {
+                appModel.noteReviewMilestone(.firstGameResults)
+            }
+            // `AppModel.gameDecks`/`deckProgress` are cached for the whole app session and only
+            // ever refreshed explicitly (see `loadGameDecksIfNeeded()`'s doc comment) — without
+            // this, the deck list's "Completed" checkmark stayed stale (from whenever it was
+            // first loaded) until the app relaunched, even though the session backing this exact
+            // screen just completed.
+            Task { await appModel.refreshGameDecks() }
         }
         .sensoryFeedback(.success, trigger: confettiTrigger)
+        .postHogScreenView("Games: Results")
     }
 
     // MARK: - Header
@@ -126,7 +152,7 @@ struct GameResultsView: View {
     @ViewBuilder
     private var header: some View {
         switch gameType {
-        case .travelTrivia:
+        case .triviaBattle:
             let myScore = GameLogic.triviaScore(responses: store.responses, responderID: myID)
             let partnerScore = GameLogic.triviaScore(responses: store.responses, responderID: partnerID)
             VStack(spacing: Theme.Spacing.xs) {
@@ -148,7 +174,7 @@ struct GameResultsView: View {
                     .font(.title3.weight(.bold))
                     .multilineTextAlignment(.center)
             }
-        case .discussBeforeTravelling:
+        case .deepConversations:
             VStack(spacing: Theme.Spacing.xs) {
                 Image(systemName: "bubble.left.and.bubble.right.fill").font(.system(size: 40)).foregroundStyle(Theme.leafGreen)
                 Text("You both shared your thoughts")
@@ -179,14 +205,55 @@ struct GameResultsView: View {
         }
     }
 
+    // MARK: - Share
+
+    private var shareData: GameResultShareData {
+        let singleRound = store.rounds.count == 1 ? store.rounds[0] : nil
+        let deepConversationSummary: String? = {
+            guard gameType == .deepConversations, store.session?.isDaily != true else { return nil }
+            let talkedAbout = store.rounds.filter { $0.discussionStatus == .talkedAbout }.count
+            return "Talked about \(talkedAbout) of \(store.rounds.count) topics"
+        }()
+
+        return GameResultShareData(
+            gameType: gameType,
+            title: title ?? gameType.displayName,
+            isDaily: store.session?.isDaily ?? false,
+            me: appModel.currentUser,
+            partner: appModel.partner,
+            matchPercent: matchPercent,
+            triviaMyScore: gameType == .triviaBattle ? GameLogic.triviaScore(responses: store.responses, responderID: myID) : nil,
+            triviaPartnerScore: gameType == .triviaBattle ? GameLogic.triviaScore(responses: store.responses, responderID: partnerID) : nil,
+            triviaTotalRounds: gameType == .triviaBattle ? store.rounds.count : nil,
+            deepConversationSummary: deepConversationSummary,
+            singleRoundQuestion: singleRound.map { questionText(for: $0) },
+            myAnswer: singleRound.map { answerText(store.myResponse(for: $0, myID: myID)?.answerValue, for: $0) },
+            partnerAnswer: singleRound.map { answerText(store.partnerResponse(for: $0, partnerID: partnerID)?.answerValue, for: $0) },
+            dailyStreak: appModel.dailyStreak
+        )
+    }
+
     // MARK: - Per-round reveal row
 
     @ViewBuilder
     private func roundRow(_ round: GameSessionRound) -> some View {
         let mine = store.myResponse(for: round, myID: myID)
         let partner = store.partnerResponse(for: round, partnerID: partnerID)
-        let matched = gameType != .discussBeforeTravelling && gameType != .travelTrivia
-            && mine?.answerValue == partner?.answerValue && mine?.answerValue.isEmpty == false
+        // "Success" state for this round's card — driving the green border/tint, the checkmark
+        // badge, and the answer-chip colors below. For the match games (This or That, More
+        // Likely) that means both partners picked the same answer; for Trivia it means both
+        // partners got the question right, since there's no "same answer" concept to match on
+        // there. Discuss has neither notion — its rows never turn green.
+        let matched: Bool = {
+            switch gameType {
+            case .thisOrThat, .moreLikely:
+                return mine?.answerValue == partner?.answerValue && mine?.answerValue.isEmpty == false
+            case .triviaBattle:
+                return mine?.isCorrect == true && partner?.isCorrect == true
+            case .deepConversations:
+                return false
+            }
+        }()
 
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             Text(questionText(for: round))
@@ -197,18 +264,18 @@ struct GameResultsView: View {
                 // right under the badge instead of next to it.
                 .padding(.trailing, matched ? 36 : 0)
 
-            if gameType == .discussBeforeTravelling {
+            if gameType == .deepConversations {
                 responseBlock(name: "You", text: mine?.answerValue)
                 responseBlock(name: partnerName, text: partner?.answerValue)
                 discussionMarkers(round)
             } else {
                 HStack {
-                    answerChip(name: "You", text: answerText(mine?.answerValue, for: round), tint: Theme.skyBlue)
+                    answerChip(name: "You", text: answerText(mine?.answerValue, for: round), tint: matched ? Theme.leafGreen : Theme.ink)
                     Spacer(minLength: Theme.Spacing.sm)
-                    answerChip(name: partnerName, text: answerText(partner?.answerValue, for: round), tint: Theme.heartRed)
+                    answerChip(name: partnerName, text: answerText(partner?.answerValue, for: round), tint: matched ? Theme.leafGreen : Theme.ink)
                 }
 
-                if gameType == .travelTrivia, case let .trivia(question)? = store.content(for: round) {
+                if gameType == .triviaBattle, case let .trivia(question)? = store.content(for: round) {
                     HStack(spacing: 4) {
                         correctnessBadge(label: "You", isCorrect: mine?.isCorrect)
                         correctnessBadge(label: partnerName, isCorrect: partner?.isCorrect)
@@ -299,7 +366,7 @@ struct GameResultsView: View {
     @ViewBuilder
     private var summarySection: some View {
         switch gameType {
-        case .travelTrivia:
+        case .triviaBattle:
             EmptyView()
         case .moreLikely, .thisOrThat:
             let mismatched = GameLogic.mismatchedRounds(rounds: store.rounds, responses: store.responses, partnerAID: myID, partnerBID: partnerID)
@@ -315,7 +382,7 @@ struct GameResultsView: View {
                     }
                 }
             }
-        case .discussBeforeTravelling:
+        case .deepConversations:
             let talkedAbout = store.rounds.filter { $0.discussionStatus == .talkedAbout }.count
             let comeBackLater = store.rounds.filter { $0.discussionStatus == .comeBackLater }.count
             if talkedAbout + comeBackLater < store.rounds.count {
@@ -352,7 +419,7 @@ struct GameResultsView: View {
         case .trivia(let question): question.question
         case .moreLikely(let prompt): prompt.prompt
         case .thisOrThat(let prompt): "\(prompt.optionA) or \(prompt.optionB)"
-        case .discuss(let topic): topic.topic
+        case .deepConversation(let topic): topic.topic
         case .none: ""
         }
     }
@@ -377,7 +444,7 @@ struct GameResultsView: View {
             case ThisOrThatChoice.optionB.rawValue: return prompt.optionB
             default: return "—"
             }
-        case .discuss, .none:
+        case .deepConversation, .none:
             return value
         }
     }
@@ -390,15 +457,6 @@ struct GameResultsView: View {
             await store.markDiscussionRound(round, status: status)
             isMarkingDiscussion = false
         }
-    }
-
-    /// Deletes my own responses and drops the session back to `active` — the partner's answers
-    /// are untouched, so the couple's shared game view naturally shows my unanswered rounds
-    /// again (GameSessionStore.isRevealed flips false) without any extra reveal bookkeeping here.
-    private func editMyAnswers() async {
-        isEditingAnswers = true
-        await store.editMyAnswers()
-        isEditingAnswers = false
     }
 
     /// Only ever offered when this session came from a deck (see the toolbar Menu) — abandons

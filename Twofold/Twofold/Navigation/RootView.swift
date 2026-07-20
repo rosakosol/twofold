@@ -3,6 +3,7 @@
 //  Twofold
 //
 
+import PostHog
 import SwiftUI
 
 struct RootView: View {
@@ -34,10 +35,20 @@ struct RootView: View {
             } else if appModel.hasCouple {
                 if appModel.isSubscriptionActive {
                     MainTabView(selection: $selectedTab)
+                } else if let outgoingRequest = appModel.pendingOutgoingConnectionRequest {
+                    // Not really solo — redeemed a code and is waiting on the inviter's
+                    // decision, with no subscription of their own to be asked for (Twofold
+                    // subscriptions are shared; they'll inherit the couple's plan once
+                    // accepted). The forced paywall below would otherwise be a dead end.
+                    NavigationStack {
+                        PendingConnectionApprovalView(request: outgoingRequest)
+                    }
+                    .postHogScreenView("Pending Connection Approval")
                 } else {
                     NavigationStack {
                         PaywallView(isDismissable: false)
                     }
+                    .postHogScreenView("Paywall: Lapsed Subscription")
                 }
             } else {
                 OnboardingCoordinatorView()
@@ -46,11 +57,18 @@ struct RootView: View {
         .task {
             await appModel.restoreSession()
             await checkSubscription()
+            await refreshPendingOutgoingConnectionRequestIfNeeded()
             refreshCurrentCityIfNeeded()
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
                 Task { await checkSubscription() }
+                // Previously only HomeView (inside MainTabView) ever re-checked couple state on
+                // foreground — meaning someone stuck on `PendingConnectionApprovalView` (below;
+                // never mounts MainTabView) had no way to discover their request being accepted
+                // short of force-quitting. This covers that, and is harmless/no-op otherwise.
+                Task { await appModel.refreshCoupleStateIfNeeded() }
+                Task { await refreshPendingOutgoingConnectionRequestIfNeeded() }
                 Task { await WidgetSnapshotWriter.refresh(appModel: appModel) }
                 refreshCurrentCityIfNeeded()
             }
@@ -91,6 +109,7 @@ struct RootView: View {
         }
         .sheet(isPresented: $showingPaywallFromWidget) {
             NavigationStack { PaywallView() }
+                .postHogScreenView("Paywall: Widget")
         }
         .fullScreenCover(item: $recordDeepLink) { destination in
             NavigationStack { recordDeepLinkDestination(destination) }
@@ -98,11 +117,21 @@ struct RootView: View {
         // Tapping a delivered game-reminder/results-ready push notification lands here —
         // `PushNotificationDelegate` parses the payload and posts this rather than reaching into
         // AppModel directly (same reasoning as `.didRegisterForRemoteNotifications`).
+        //
+        // Also requires `isSubscriptionActive`: this fullScreenCover is chained onto the whole
+        // Group below, so it can present on top of the non-dismissable lapsed-subscription
+        // PaywallView just as easily as on top of MainTabView — an old notification sitting in
+        // Notification Center from before a lapse must not become a paywall bypass into live
+        // (including premium) gameplay.
         .onReceive(NotificationCenter.default.publisher(for: .didTapGameNotification)) { notification in
-            guard appModel.hasCouple, let link = notification.object as? GameNotificationDeepLink else { return }
+            guard appModel.hasCouple, appModel.isSubscriptionActive, let link = notification.object as? GameNotificationDeepLink else { return }
             gameDeepLink = SessionRoute(id: link.sessionID, gameType: link.gameType)
         }
         .fullScreenCover(item: $gameDeepLink) { route in
+            // The typed game view's own back button (during active play or once results show)
+            // now just calls `dismiss()` — from here, the root of a fresh `NavigationStack`
+            // inside this `fullScreenCover`, that correctly closes the whole cover instead of
+            // being a no-op. No separate Close button needed on top of that one.
             NavigationStack { gameDestinationView(gameType: route.gameType, sessionID: route.id) }
         }
         // Fires for every post-onboarding path that can newly connect a partner — redeeming a
@@ -114,16 +143,17 @@ struct RootView: View {
         // `partnerConnected` also flips false → true on every cold launch of an already-paired
         // couple (it starts `false` by default and only becomes `true` once `restoreSession()`
         // finishes loading), which looks identical to a genuine new-pairing transition — so a
-        // per-couple persisted flag is the actual gate here, not just the transition itself.
+        // server-persisted flag is the actual gate here, not just the transition itself (see
+        // AppModel.partnerConnectedCelebrationShown — survives a reinstall, unlike UserDefaults).
         .onChange(of: appModel.partnerConnected) { wasConnected, isConnected in
             guard !wasConnected, isConnected else { return }
-            let key = "partnerConnectedCelebrationShown_\(appModel.couple.id.uuidString)"
-            guard !UserDefaults.standard.bool(forKey: key) else { return }
-            UserDefaults.standard.set(true, forKey: key)
+            guard !appModel.partnerConnectedCelebrationShown else { return }
+            appModel.markPartnerConnectedCelebrationShown()
             showingPartnerConnectedCelebration = true
         }
         .fullScreenCover(isPresented: $showingPartnerConnectedCelebration) {
             PartnerConnectedView()
+                .postHogScreenView("Partner Connected Celebration")
         }
         // Suppressed (not just delayed) while the partner-connected celebration is up — two
         // modal presentations competing from the same view hierarchy at once is asking for
@@ -132,25 +162,49 @@ struct RootView: View {
         // re-trigger needed.
         .sheet(item: reviewPromptBinding) { milestone in
             ReviewPromptView(milestone: milestone)
+                .postHogScreenView("Review Prompt")
         }
     }
 
     /// Only ever called for the three cases actually assigned to `recordDeepLink`
     /// (.flight/.memory/.drawingPad) — the tab/paywall cases route elsewhere in `.onOpenURL`.
+    ///
+    /// `.flight`/`.memory` get an explicit Close button here; `.drawingPad` doesn't need one
+    /// since `DrawingPadEditorView` already has its own. Both `FlightTrackingView` and
+    /// `MemoryDetailView` are normally reached by pushing onto an existing `NavigationStack`
+    /// (Home's flight card, the Memories list), where the system supplies a back chevron
+    /// automatically — but here they're the *root* of a brand-new `NavigationStack` inside a
+    /// `fullScreenCover` (no push to go back from, and `fullScreenCover` — unlike `sheet` —
+    /// has no swipe-to-dismiss either), so without this a widget tap left no way off the screen
+    /// at all.
     @ViewBuilder
     private func recordDeepLinkDestination(_ destination: WidgetDeepLink.Destination) -> some View {
         switch destination {
         case .flight(let id):
-            if let flight = appModel.flights.first(where: { $0.id == id }) {
-                FlightTrackingView(flight: flight)
-            } else {
-                GameErrorState(message: "This flight isn't available anymore.")
+            Group {
+                if let flight = appModel.flights.first(where: { $0.id == id }) {
+                    FlightTrackingView(flight: flight)
+                } else {
+                    GameErrorState(message: "This flight isn't available anymore.")
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Close") { recordDeepLink = nil }
+                }
             }
         case .memory(let id):
-            if let memory = appModel.memories.first(where: { $0.id == id }) {
-                MemoryDetailView(memory: memory)
-            } else {
-                GameErrorState(message: "This memory isn't available anymore.")
+            Group {
+                if let memory = appModel.memories.first(where: { $0.id == id }) {
+                    MemoryDetailView(memory: memory)
+                } else {
+                    GameErrorState(message: "This memory isn't available anymore.")
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Close") { recordDeepLink = nil }
+                }
             }
         case .drawingPad:
             DrawingPadEditorView()
@@ -170,6 +224,10 @@ struct RootView: View {
     /// across both partners — see `BackendService.updateSubscriptionStatus`/
     /// `fetchSubscriptionActive`. No-ops before onboarding is done (`hasCouple == false`),
     /// since there's nothing to gate yet.
+    ///
+    /// Also refreshes `appModel.subscriptionTier`, which is otherwise only ever set at
+    /// couple-adoption time — without this, a mid-session upgrade/downgrade left every
+    /// `isPremiumLocked`/`isDeckLocked` check reading a stale tier until the next full relaunch.
     private func checkSubscription() async {
         guard appModel.hasCouple else { return }
         await subscriptionStore.refreshEntitlementsOnly()
@@ -177,6 +235,16 @@ struct RootView: View {
         if let active = try? await BackendService.fetchSubscriptionActive() {
             appModel.isSubscriptionActive = active
         }
+        if let tier = try? await BackendService.fetchCoupleSubscriptionTier() {
+            appModel.subscriptionTier = tier
+        }
+    }
+
+    /// Only meaningful in exactly the gap `PendingConnectionApprovalView` covers — no point
+    /// fetching once there's real couple/subscription access, or before onboarding is done.
+    private func refreshPendingOutgoingConnectionRequestIfNeeded() async {
+        guard appModel.hasCouple, !appModel.isSubscriptionActive else { return }
+        await appModel.refreshPendingOutgoingConnectionRequest()
     }
 
     /// Foreground-triggered re-derivation of the signed-in user's current city — replaces the

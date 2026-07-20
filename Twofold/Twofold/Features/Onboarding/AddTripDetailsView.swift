@@ -28,6 +28,10 @@ struct AddTripDetailsView: View {
     var mode: Mode
     var partnerName: String = "Partner"
     var onSave: (Trip) -> Void = { _ in }
+    /// Onboarding-only "skip for now" affordance — `nil` (the default) renders no secondary
+    /// button, so the two non-onboarding call sites (home screen checklist, flight-email review
+    /// flow) are unaffected.
+    var onSkip: (() -> Void)?
 
     @Environment(AppModel.self) private var appModel
     @State private var origin: Place?
@@ -35,29 +39,40 @@ struct AddTripDetailsView: View {
     @State private var departureDate: Date
     @State private var returnDate: Date
     @State private var traveler: TripTraveler = .you
-    @State private var category: TripCategory = .seeingEachOther
+    @State private var isReunionTrip: Bool = true
     @State private var flightNumberHint: String
     @State private var selectedFlightCandidate: AeroFlightCandidate?
     @State private var showingAddFlightFlow = false
     @State private var isSaving = false
 
-    init(mode: Mode, partnerName: String = "Partner", prefill: Prefill? = nil, onSave: @escaping (Trip) -> Void = { _ in }) {
+    /// Manual-entry fallback dates only (30/44 days out) get their time-of-day pinned to 9am —
+    /// a deliberate, predictable default rather than whatever moment this screen happened to be
+    /// opened at. Prefilled dates (from the flight-email review flow) keep their real parsed
+    /// time untouched, since those already reflect an actual flight's actual schedule.
+    private static func nineAM(on date: Date) -> Date {
+        Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: date) ?? date
+    }
+
+    init(mode: Mode, partnerName: String = "Partner", prefill: Prefill? = nil, onSave: @escaping (Trip) -> Void = { _ in }, onSkip: (() -> Void)? = nil) {
         self.mode = mode
         self.partnerName = partnerName
         self.onSave = onSave
+        self.onSkip = onSkip
         _origin = State(initialValue: prefill?.origin)
         _destination = State(initialValue: prefill?.destination)
-        _departureDate = State(initialValue: prefill?.departureDate ?? Date().addingTimeInterval(86_400 * 30))
-        _returnDate = State(initialValue: prefill?.returnDate ?? prefill?.departureDate?.addingTimeInterval(86_400 * 14) ?? Date().addingTimeInterval(86_400 * 44))
+        _departureDate = State(initialValue: prefill?.departureDate ?? Self.nineAM(on: Date().addingTimeInterval(86_400 * 30)))
+        _returnDate = State(initialValue: prefill?.returnDate ?? prefill?.departureDate?.addingTimeInterval(86_400 * 14) ?? Self.nineAM(on: Date().addingTimeInterval(86_400 * 44)))
         _flightNumberHint = State(initialValue: prefill?.flightNumber ?? "")
     }
 
     var body: some View {
         OnboardingScaffold(
-            title: "Where are you going?",
+            title: "Add a trip",
             subtitle: mode == .onboarding ? "This is a natural first step — you can always add more trips later." : nil,
             content: {
                 VStack(spacing: Theme.Spacing.md) {
+                    addFlightRow
+
                     CityMenuPicker(label: "From", selection: $origin)
                     CityMenuPicker(label: "To", selection: $destination)
 
@@ -65,6 +80,14 @@ struct AddTripDetailsView: View {
                         Text("When?").font(.caption).foregroundStyle(Theme.subtleInk)
                         DatePicker("Departing", selection: $departureDate, displayedComponents: [.date, .hourAndMinute])
                         DatePicker("Returning", selection: $returnDate, in: departureDate..., displayedComponents: [.date, .hourAndMinute])
+                            // The `in: departureDate...` bound above only constrains what this
+                            // picker itself can scroll to — SwiftUI doesn't retroactively
+                            // re-clamp `returnDate` when `departureDate` changes later, so a
+                            // Departing pushed past an already-chosen Returning would otherwise
+                            // save with the return date before the departure date.
+                            .onChange(of: departureDate) { _, newValue in
+                                if returnDate < newValue { returnDate = newValue }
+                            }
                     }
                     .padding(Theme.Spacing.md)
                     .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
@@ -87,22 +110,16 @@ struct AddTripDetailsView: View {
                         .pickerStyle(.segmented)
                     }
 
-                    VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                        Text("Reason for travel").font(.caption).foregroundStyle(Theme.subtleInk)
-                        Picker("Reason for travel", selection: $category) {
-                            ForEach(TripCategory.allCases, id: \.self) { option in
-                                Text(option.shortLabel).tag(option)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                    }
-
-                    addFlightRow
+                    Toggle("Is this a reunion trip?", isOn: $isReunionTrip)
+                        .padding(Theme.Spacing.md)
+                        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                 }
             },
             primaryTitle: "Save trip",
             primaryAction: save,
-            primaryDisabled: origin == nil || destination == nil || isSaving
+            primaryDisabled: origin == nil || destination == nil || isSaving,
+            secondaryTitle: onSkip != nil ? "Skip for now" : nil,
+            secondaryAction: onSkip
         )
         .sheet(isPresented: $showingAddFlightFlow) {
             AddFlightFlowView(
@@ -177,20 +194,19 @@ struct AddTripDetailsView: View {
         guard let origin, let destination else { return }
         isSaving = true
         Task {
+            // Real AeroAPI-tracked flight only — no self-reported fallback. `addTrip` handles
+            // attaching it, including the case where there's no couple yet (e.g. onboarding,
+            // before pairing) — it queues the candidate and attaches it once the trip is
+            // actually inserted server-side, rather than silently dropping it.
             let trip = await appModel.addTrip(
                 origin: origin,
                 destination: destination,
                 departureDate: departureDate,
                 arrivalDate: returnDate,
                 traveler: traveler,
-                category: category
+                isReunionTrip: isReunionTrip,
+                flightCandidate: selectedFlightCandidate
             )
-            if let selectedFlightCandidate {
-                // Real AeroAPI-tracked flight only — no self-reported fallback. Can fail if
-                // there's no active couple yet; the trip is still saved either way.
-                _ = try? await AeroFlightService.addFlight(faFlightId: selectedFlightCandidate.faFlightId, tripID: trip.id, travelerIDs: [trip.travelerID], notifyMe: true)
-                await appModel.refreshFlights()
-            }
             isSaving = false
             onSave(trip)
         }

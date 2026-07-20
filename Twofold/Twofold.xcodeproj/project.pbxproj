@@ -10,7 +10,6 @@
 		1C9E320F0AD4B9800DF63AF0 /* RevenueCatUI in Frameworks */ = {isa = PBXBuildFile; productRef = 9206C26209471945B4BC1692 /* RevenueCatUI */; };
 		28A7BE205066EA09EE406FF9 /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = A3948E5A3E10682179798BA9 /* RevenueCat */; };
 		93ADC225038D415FDA0BD3F7 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = F901F2814B160B3766805AB5 /* PostHog */; };
-		BC85C70A80C3C391278A3AEC /* MapLibre in Frameworks */ = {isa = PBXBuildFile; productRef = F803247FC27B01248A733EF4 /* MapLibre */; };
 		DB8C96D32FFE69E800E0E71E /* TwofoldShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = DB8C96C92FFE69E700E0E71E /* TwofoldShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		DB8C96DF2FFE743400E0E71E /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = DB8C96DE2FFE743400E0E71E /* Supabase */; };
 		DB8C96E82FFEF0B400E0E71E /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = DB8C96E72FFEF0B400E0E71E /* GoogleSignIn */; };
@@ -170,7 +169,6 @@
 				DB8C96EA2FFEF0B400E0E71E /* GoogleSignInSwift in Frameworks */,
 				DB8C96DF2FFE743400E0E71E /* Supabase in Frameworks */,
 				DB8C96E82FFEF0B400E0E71E /* GoogleSignIn in Frameworks */,
-				BC85C70A80C3C391278A3AEC /* MapLibre in Frameworks */,
 				28A7BE205066EA09EE406FF9 /* RevenueCat in Frameworks */,
 				1C9E320F0AD4B9800DF63AF0 /* RevenueCatUI in Frameworks */,
 				93ADC225038D415FDA0BD3F7 /* PostHog in Frameworks */,
@@ -257,7 +255,6 @@
 				DB8C94FE2FFC501C00E0E71E /* Frameworks */,
 				DB8C94FF2FFC501C00E0E71E /* Resources */,
 				DB8C96D82FFE69E900E0E71E /* Embed Foundation Extensions */,
-				2FBE84533AA686605F5AA477 /* Inject MapLibre dSYM */,
 			);
 			buildRules = (
 			);
@@ -273,7 +270,6 @@
 				DB8C96DE2FFE743400E0E71E /* Supabase */,
 				DB8C96E72FFEF0B400E0E71E /* GoogleSignIn */,
 				DB8C96E92FFEF0B400E0E71E /* GoogleSignInSwift */,
-				F803247FC27B01248A733EF4 /* MapLibre */,
 				A3948E5A3E10682179798BA9 /* RevenueCat */,
 				9206C26209471945B4BC1692 /* RevenueCatUI */,
 				F901F2814B160B3766805AB5 /* PostHog */,
@@ -413,7 +409,6 @@
 			packageReferences = (
 				DB8C96DD2FFE743400E0E71E /* XCRemoteSwiftPackageReference "supabase-swift" */,
 				DB8C96E62FFEF0B400E0E71E /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
-				97F700637180FDF6A851A73E /* XCRemoteSwiftPackageReference "maplibre-gl-native-distribution" */,
 				6093DA4122154A4832D53F0A /* XCRemoteSwiftPackageReference "purchases-ios-spm" */,
 				C7B88F4314ECCD565C1468AF /* XCRemoteSwiftPackageReference "posthog-ios" */,
 			);
@@ -468,24 +463,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
-
-/* Begin PBXShellScriptBuildPhase section */
-		2FBE84533AA686605F5AA477 /* Inject MapLibre dSYM */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-			);
-			name = "Inject MapLibre dSYM";
-			outputPaths = (
-				"$(DWARF_DSYM_FOLDER_PATH)/MapLibre_ios_device.framework.dSYM",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "# MapLibre's xcframework distribution doesn't bundle a dSYM (upstream issue:\n# https://github.com/maplibre/maplibre-native/issues/3155), so App Store Connect rejects\n# uploads for a missing MapLibre.framework dSYM. Downloads the dSYM published separately\n# for the pinned MapLibre version (6.27.0) straight from GitHub at archive time, rather than\n# vendoring the 50MB file in the repo — a local copy under this project's iCloud-synced\n# Desktop path was silently evicted to a zero-byte placeholder between sessions, which is\n# worse than a network fetch. Only meaningful during an Archive build, where\n# DWARF_DSYM_FOLDER_PATH is set to a real path; a no-op otherwise.\nif [ -n \"${DWARF_DSYM_FOLDER_PATH}\" ]; then\n  mkdir -p \"${DWARF_DSYM_FOLDER_PATH}\"\n  DSYM_ZIP=\"${TMPDIR}MapLibre_ios_device.framework.dSYM.zip\"\n  if curl -fsSL -o \"${DSYM_ZIP}\" \"https://github.com/maplibre/maplibre-native/releases/download/ios-v6.27.0/MapLibre_ios_device.framework.dSYM.zip\"; then\n    unzip -o -q \"${DSYM_ZIP}\" -d \"${DWARF_DSYM_FOLDER_PATH}\"\n    rm -f \"${DSYM_ZIP}\"\n  else\n    echo \"warning: Failed to download the MapLibre dSYM — App Store Connect may reject this archive for a missing MapLibre.framework dSYM.\"\n  fi\nfi\n";
-		};
-/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		DB8C94FD2FFC501C00E0E71E /* Sources */ = {
@@ -1022,14 +999,6 @@
 				minimumVersion = 5.80.3;
 			};
 		};
-		97F700637180FDF6A851A73E /* XCRemoteSwiftPackageReference "maplibre-gl-native-distribution" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/maplibre/maplibre-gl-native-distribution";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 6.27.0;
-			};
-		};
 		C7B88F4314ECCD565C1468AF /* XCRemoteSwiftPackageReference "posthog-ios" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/PostHog/posthog-ios.git";
@@ -1081,11 +1050,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = DB8C96E62FFEF0B400E0E71E /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
 			productName = GoogleSignInSwift;
-		};
-		F803247FC27B01248A733EF4 /* MapLibre */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 97F700637180FDF6A851A73E /* XCRemoteSwiftPackageReference "maplibre-gl-native-distribution" */;
-			productName = MapLibre;
 		};
 		F901F2814B160B3766805AB5 /* PostHog */ = {
 			isa = XCSwiftPackageProductDependency;

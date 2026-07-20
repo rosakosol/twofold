@@ -3,8 +3,10 @@
 //  Twofold
 //
 //  Sharing/parsing helpers for partner invite links. The actual code is always issued by the
-//  backend (`create_invite_code` RPC) and validated on redeem (`redeem_invite_code` RPC) — this
-//  type only builds/parses the URL around it.
+//  backend (`create_invite_code` RPC, fully random letters — carries no name information) and
+//  validated on redeem (`redeem_invite_code` RPC) — this type only builds/parses the URL around
+//  it. The inviter's display name/avatar is a real backend lookup now
+//  (`BackendService.inviterInfo(forCode:)`), not something guessable from the code's own text.
 //
 //  Shared as a Universal Link (`https://www.twofoldapp.com.au/invite/CODE`) so it also works for
 //  someone who doesn't have Twofold installed yet — tapping it opens the app directly if
@@ -20,13 +22,6 @@ import Foundation
 
 enum InviteCode {
     static let universalLinkHost = "www.twofoldapp.com.au"
-
-    /// A locally-guessed display name from the code's prefix, shown before the real inviter's
-    /// name is known (the backend doesn't return one on redeem) — e.g. "ROSA-4821" → "Rosa".
-    static func inviterName(from code: String) -> String {
-        let prefix = code.split(separator: "-").first.map(String.init) ?? "your partner"
-        return prefix.capitalized
-    }
 
     static func shareURL(for code: String) -> URL {
         URL(string: "https://\(universalLinkHost)/invite/\(code)")!
@@ -50,5 +45,24 @@ enum InviteCode {
             return code.uppercased()
         }
         return nil
+    }
+
+    /// Live-formats manual code entry to match the real `XXXX-XXXX` shape as you type — strips
+    /// anything that isn't a letter (so pasting a code with its dash already in place, or in
+    /// lowercase, still works), uppercases, and inserts the dash as soon as the 4th letter is
+    /// typed (not retroactively once a 5th arrives). Capped at 8 letters, the real code length.
+    ///
+    /// `isDeleting` (pass whether `input` is shorter than whatever was there a moment ago)
+    /// suppresses that same auto-insert on backspace — without it, deleting the dash right after
+    /// "ABCD-" would immediately snap back to "ABCD-", since 4 letters alone would otherwise
+    /// always trigger it again, making the dash impossible to backspace past.
+    static func autoFormat(_ input: String, isDeleting: Bool) -> String {
+        let letters = input.uppercased().filter { $0.isLetter }
+        let limited = String(letters.prefix(8))
+        let threshold = isDeleting ? 5 : 4
+        guard limited.count >= threshold else { return limited }
+        let firstFour = limited.prefix(4)
+        let rest = limited.dropFirst(4)
+        return rest.isEmpty ? "\(firstFour)-" : "\(firstFour)-\(rest)"
     }
 }

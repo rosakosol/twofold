@@ -7,6 +7,7 @@
 //  them lands here instead of vanishing outright.
 //
 
+import PostHog
 import SwiftUI
 
 struct ArchivedDataView: View {
@@ -42,6 +43,7 @@ struct ArchivedDataView: View {
         .navigationTitle("Archived Data")
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
+        .postHogScreenView("Settings: Archived Data")
     }
 
     private var emptyState: some View {
@@ -143,6 +145,7 @@ struct ArchivedCoupleDetailView: View {
         } message: {
             Text("This can't be undone. All trips, memories, flights, and game sessions with \(couple.partnerName) will be permanently deleted.")
         }
+        .postHogScreenView("Settings: Archived Couple Detail")
     }
 
     private func summaryRow(_ label: String, _ count: Int) -> some View {

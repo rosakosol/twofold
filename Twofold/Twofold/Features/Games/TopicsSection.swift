@@ -8,6 +8,7 @@
 //  AppModel from the couple's own play history (no dedicated RPC).
 //
 
+import PostHog
 import SwiftUI
 
 struct TopicsSection: View {
@@ -126,6 +127,7 @@ struct TopicDetailView: View {
                 }
             }
         }
+        .postHogScreenView("Games: Topic Detail")
     }
 
     @ViewBuilder

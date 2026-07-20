@@ -33,7 +33,7 @@ struct CreateAccountView: View {
 
     var body: some View {
         OnboardingScaffold(
-            title: isInvitee ? "Join \(onboarding.inviterName ?? "your partner")" : "Create your account",
+            title: isInvitee ? "Create your Twofold account" : "Create your account",
             content: {
                 VStack(spacing: Theme.Spacing.md) {
                     TextField("First name", text: $firstName)

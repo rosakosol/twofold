@@ -59,7 +59,7 @@ struct PersonalizedInsightView: View {
     /// there's no distance to dramatize, so no count-up, map, or comparison.
     private var sameCityFallback: some View {
         OnboardingScaffold(
-            title: sameCity ? "Home is \(onboarding.homeCity?.city ?? "the same city") ❤️" : "You're apart right now ❤️",
+            title: sameCity ? "Home is \(onboarding.homeCity?.displayCity ?? "the same city") ❤️" : "You're apart right now ❤️",
             subtitle: "When \(partnerName) is away, Twofold helps you keep up with \(onboarding.partnerPossessive) journey home.",
             content: { EmptyView() },
             primaryTitle: "Continue",
@@ -72,6 +72,14 @@ struct PersonalizedInsightView: View {
     private func distanceReveal(distanceKm: Double, myCity: Place, partnerCity: Place) -> some View {
         ScrollView {
             VStack(spacing: Theme.Spacing.lg) {
+                // Always visible (not staged like the reveal below it) — sets the emotional tone
+                // before the map/count-up animate in, the same way every other onboarding screen's
+                // title is already on screen before its own staged content plays.
+                Text("The distance is real!")
+                    .font(.system(.title, design: .rounded, weight: .bold))
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+
                 mapCard(myCity: myCity, partnerCity: partnerCity)
                     .opacity(stage >= 1 ? 1 : 0)
                     .scaleEffect(stage >= 1 ? 1 : 0.92)
@@ -86,7 +94,7 @@ struct PersonalizedInsightView: View {
                 .frame(maxWidth: .infinity)
                 .opacity(stage >= 2 ? 1 : 0)
 
-                Text(Self.comparison(for: distanceKm))
+                Text(DistanceSnapshotCard.comparison(for: distanceKm))
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(Theme.ink)
                     .lineLimit(1)
@@ -158,15 +166,18 @@ struct PersonalizedInsightView: View {
     // MARK: - Map
 
     private func mapCard(myCity: Place, partnerCity: Place) -> some View {
-        Map(initialPosition: .region(Self.region(containing: myCity.coordinate, partnerCity.coordinate)), interactionModes: []) {
-            Annotation(myCity.city, coordinate: myCity.coordinate) {
+        Map(
+            initialPosition: .camera(Self.camera(containing: myCity.coordinate, partnerCity.coordinate)),
+            interactionModes: []
+        ) {
+            Annotation(myCity.displayCity, coordinate: myCity.coordinate) {
                 avatarMarker(onboarding.selfPhotoData, tint: Theme.skyBlue)
             }
-            Annotation(partnerCity.city, coordinate: partnerCity.coordinate) {
+            Annotation(partnerCity.displayCity, coordinate: partnerCity.coordinate) {
                 avatarMarker(onboarding.partnerPhotoData, tint: Theme.heartRed)
             }
             MapPolyline(coordinates: [myCity.coordinate, partnerCity.coordinate], contourStyle: .geodesic)
-                .stroke(Theme.skyBlue, style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [6, 6]))
+                .stroke(Theme.skyBlue, style: StrokeStyle(lineWidth: 3, lineCap: .round))
         }
         .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
         .allowsHitTesting(false)
@@ -191,54 +202,41 @@ struct PersonalizedInsightView: View {
         .shadow(color: .black.opacity(0.2), radius: 4, y: 2)
     }
 
-    /// A region framing both cities with breathing room, computed via `MKMapPoint`/`MKMapRect`
-    /// (Mercator projection space) rather than naive lat/lon degree arithmetic. The old
-    /// approach produced spans of 150–340+ degrees for genuinely distant pairs (e.g.
-    /// Melbourne–London) — MapKit doesn't reliably render annotations/polylines for a region
-    /// that wide, so the map looked static and empty for exactly the couples this screen is
-    /// most dramatic for. `MKMapRect` handles arbitrary distances (including near-antipodal
-    /// pairs) correctly since it's the same projection math MapKit uses internally.
-    private static func region(containing a: CLLocationCoordinate2D, _ b: CLLocationCoordinate2D) -> MKCoordinateRegion {
-        let pointA = MKMapPoint(a)
-        let pointB = MKMapPoint(b)
-        // A minimum size in map points (~ a couple hundred km) so two very close (but not
-        // identical-city) coordinates don't produce a near-zero rect that zooms in absurdly.
-        let minSize = 2_000_000.0
-        let rect = MKMapRect(
-            x: min(pointA.x, pointB.x),
-            y: min(pointA.y, pointB.y),
-            width: max(abs(pointA.x - pointB.x), minSize),
-            height: max(abs(pointA.y - pointB.y), minSize)
-        )
-        // 40% padding on each side so the markers sit inside the frame, not glued to its edges.
-        let padded = rect.insetBy(dx: -rect.width * 0.4, dy: -rect.height * 0.4)
-        return MKCoordinateRegion(padded)
-    }
+    /// A camera framing both cities with breathing room — set by *altitude* (`MapCamera.distance`),
+    /// not by coordinate span (`MKCoordinateRegion`), which is the same fix `FlightMapView` already
+    /// uses for its route-fitting and for the identical reason: `MKCoordinateRegion`-based fitting
+    /// (tried first here too, several ways — see git history) silently caps how wide a region's
+    /// span in *degrees* can be at a given center latitude, well short of what a genuinely distant
+    /// pair can need. Oslo (60°N) and Cape Town (34°S) are ~94° of raw latitude apart; every
+    /// region-based attempt topped out somewhere around 70–80° regardless of how much span or
+    /// padding was requested beyond that, silently rendering a smaller, off-center crop instead
+    /// that left one or both avatar markers off-screen. `MapCamera(distance:)` isn't subject to
+    /// that ceiling, so it correctly zooms out for arbitrarily distant pairs, up to near-antipodal.
+    private static func camera(containing a: CLLocationCoordinate2D, _ b: CLLocationCoordinate2D) -> MapCamera {
+        // Antimeridian-safe center: shift `b`'s longitude by a full turn whenever that shortens
+        // the delta, so two cities straddling the 180th meridian (e.g. Auckland +174.8°, Los
+        // Angeles −118.2°) resolve to the true ~67° apart the short way, not ~293° the long way.
+        var bLongitude = b.longitude
+        let deltaLongitude = bLongitude - a.longitude
+        if deltaLongitude > 180 {
+            bLongitude -= 360
+        } else if deltaLongitude < -180 {
+            bLongitude += 360
+        }
+        var centerLongitude = (a.longitude + bLongitude) / 2
+        while centerLongitude > 180 { centerLongitude -= 360 }
+        while centerLongitude < -180 { centerLongitude += 360 }
+        let center = CLLocationCoordinate2D(latitude: (a.latitude + b.latitude) / 2, longitude: centerLongitude)
 
-    // MARK: - Comparison copy
-
-    /// Well-known country lengths/widths (approximate, in km) to make the number tangible.
-    /// Picked by closest ratio so e.g. 6,054 km reads as "about the width of Canada".
-    private static let distanceComparisons: [(km: Double, label: String)] = [
-        (250, "the length of Wales"),
-        (550, "the length of England"),
-        (1_000, "the length of France"),
-        (1_600, "the length of Sweden"),
-        (2_900, "the width of India"),
-        (4_000, "the width of Australia"),
-        (4_300, "the width of the USA"),
-        (5_500, "the width of Canada"),
-        (9_000, "the width of Russia"),
-        (10_000, "a quarter of the way around the Earth"),
-        (20_000, "halfway around the Earth"),
-    ]
-
-    private static func comparison(for km: Double) -> String {
-        guard km >= 150 else { return "Closer than you think ❤️" }
-        let nearest = distanceComparisons.min {
-            abs(log($0.km / km)) < abs(log($1.km / km))
-        }!
-        return "That's about \(nearest.label) 🌏"
+        // A generous multiple of the real point-to-point distance, floored so two very close (but
+        // not identical-city) coordinates don't produce a near-zero distance that zooms in
+        // absurdly. `FlightMapView` iteratively refines its own initial guess against the live
+        // `MKMapView`'s actual projected pixels (`mapView.convert`) — not available from plain
+        // SwiftUI `Map`, so this uses a single, more generous fixed multiplier instead of
+        // iterating: comfortably enough headroom for two point markers (no route curve or label
+        // capsules to clear, unlike `FlightMapView`'s case) without needing per-frame refinement.
+        let distanceMeters = max(Geo.distanceKm(a, b) * 1000, 200_000)
+        return MapCamera(centerCoordinate: center, distance: distanceMeters * 3.0, heading: 0, pitch: 0)
     }
 
     // MARK: - Bottom bar + snapshot
@@ -289,7 +287,7 @@ struct PersonalizedInsightView: View {
         let renderer = ImageRenderer(
             content: DistanceSnapshotCard(
                 distanceKm: distanceKm,
-                comparison: Self.comparison(for: distanceKm),
+                comparison: DistanceSnapshotCard.comparison(for: distanceKm),
                 myCity: myCity,
                 partnerCity: partnerCity,
                 selfPhoto: onboarding.selfPhotoData.flatMap(UIImage.init(data:)),
@@ -301,90 +299,6 @@ struct PersonalizedInsightView: View {
             return Image(uiImage: uiImage)
         }
         return Image(systemName: "photo")
-    }
-}
-
-// MARK: - Snapshot card
-
-/// Pure-SwiftUI rendering of the distance moment for sharing — ImageRenderer can't
-/// rasterize MapKit views, so this re-draws the reveal (avatars joined by a dashed path
-/// with a heart) instead of embedding the live map.
-private struct DistanceSnapshotCard: View {
-    let distanceKm: Double
-    let comparison: String
-    let myCity: Place
-    let partnerCity: Place
-    let selfPhoto: UIImage?
-    let partnerPhoto: UIImage?
-
-    var body: some View {
-        VStack(spacing: Theme.Spacing.lg) {
-            HStack(spacing: Theme.Spacing.sm) {
-                avatar(selfPhoto, tint: Theme.skyBlue)
-
-                Line()
-                    .stroke(.white.opacity(0.7), style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: [5, 5]))
-                    .frame(height: 2)
-                    .overlay {
-                        Text("❤️")
-                            .font(.title3)
-                    }
-
-                avatar(partnerPhoto, tint: Theme.heartRed)
-            }
-
-            VStack(spacing: Theme.Spacing.xs) {
-                Text("\(MeasurementPreference.distanceLabel(km: distanceKm)) apart")
-                    .font(.system(size: 34, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-                Text(comparison)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.white.opacity(0.85))
-                Text("\(myCity.city) ↔ \(partnerCity.city)")
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.7))
-            }
-            .multilineTextAlignment(.center)
-
-            Text("twofold")
-                .font(.system(size: 18, weight: .regular, design: .serif))
-                .foregroundStyle(.white.opacity(0.8))
-        }
-        .padding(Theme.Spacing.xl)
-        .frame(width: 340)
-        .background(
-            LinearGradient(
-                colors: [Color(hex: "1E3A5F"), Color(hex: "3E7CA6"), Color(hex: "6FBF8B")],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-    }
-
-    private func avatar(_ photo: UIImage?, tint: Color) -> some View {
-        ZStack {
-            if let photo {
-                Image(uiImage: photo).resizable().scaledToFill()
-            } else {
-                Circle().fill(tint)
-                Image(systemName: "person.fill")
-                    .font(.title3)
-                    .foregroundStyle(.white)
-            }
-        }
-        .frame(width: 64, height: 64)
-        .clipShape(Circle())
-        .overlay(Circle().strokeBorder(.white, lineWidth: 2))
-    }
-
-    private struct Line: Shape {
-        func path(in rect: CGRect) -> Path {
-            var path = Path()
-            path.move(to: CGPoint(x: rect.minX, y: rect.midY))
-            path.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
-            return path
-        }
     }
 }
 

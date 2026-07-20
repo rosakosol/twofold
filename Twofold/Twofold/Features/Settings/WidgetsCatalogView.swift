@@ -8,6 +8,7 @@
 //  widgets are built; this is the navigable placeholder for that.
 //
 
+import PostHog
 import SwiftUI
 
 private struct WidgetCatalogEntry: Identifiable {
@@ -23,18 +24,13 @@ struct WidgetsCatalogView: View {
     @Environment(AppModel.self) private var appModel
 
     private let entries: [WidgetCatalogEntry] = [
-        WidgetCatalogEntry(name: "Reunion & Flight Countdown", subtitle: "Time until you're together, or until takeoff", systemImage: "airplane.departure", tier: WidgetTier.plus),
-        WidgetCatalogEntry(name: "Flight Status", subtitle: "Live status of your next flight", systemImage: "airplane.circle.fill", tier: WidgetTier.plus),
+        WidgetCatalogEntry(name: "Reunion & Trip Countdown", subtitle: "Time until you're together, or until takeoff", systemImage: "airplane.departure", tier: WidgetTier.plus),
+        WidgetCatalogEntry(name: "Flight Status", subtitle: "Live status, route, and estimated time, for your next flight", systemImage: "airplane.circle.fill", tier: WidgetTier.plus),
         WidgetCatalogEntry(name: "Anniversary", subtitle: "Your running days-together total", systemImage: "heart.fill", tier: WidgetTier.plus),
-        WidgetCatalogEntry(name: "Relationship Stats", subtitle: "Days together, memories, trips", systemImage: "chart.bar.fill", tier: WidgetTier.plus),
-        WidgetCatalogEntry(name: "Memories", subtitle: "Your most recent memory photo", systemImage: "photo.fill", tier: WidgetTier.plus),
         WidgetCatalogEntry(name: "Partner's Time", subtitle: "Their local time, at a glance", systemImage: "clock.fill", tier: WidgetTier.plus),
         WidgetCatalogEntry(name: "Time & Weather", subtitle: "Their time and forecast, side by side", systemImage: "cloud.sun.fill", tier: WidgetTier.plus),
-        WidgetCatalogEntry(name: "Doodle Pad", subtitle: "Whatever's currently drawn, with a nudge button", systemImage: "pencil.tip", tier: WidgetTier.plus),
+        WidgetCatalogEntry(name: "Drawing Pad", subtitle: "Whatever's currently drawn, with a nudge button", systemImage: "pencil.tip", tier: WidgetTier.plus),
         WidgetCatalogEntry(name: "Smart Rotating", subtitle: "Cycles through your other widgets automatically", systemImage: "arrow.triangle.2.circlepath", tier: WidgetTier.premium),
-        WidgetCatalogEntry(name: "Globe", subtitle: "A live snapshot of the world between you", systemImage: "globe.americas.fill", tier: WidgetTier.premium),
-        WidgetCatalogEntry(name: "Relationship Dashboard", subtitle: "Every relationship stat, one glance", systemImage: "square.grid.2x2.fill", tier: WidgetTier.premium),
-        WidgetCatalogEntry(name: "Travel Dashboard", subtitle: "Flights, distance, and countries at a glance", systemImage: "map.fill", tier: WidgetTier.premium),
     ]
 
     var body: some View {
@@ -76,6 +72,7 @@ struct WidgetsCatalogView: View {
         .background(Theme.backgroundGradient.ignoresSafeArea())
         .navigationTitle("Widgets")
         .navigationBarTitleDisplayMode(.inline)
+        .postHogScreenView("Settings: Widgets Catalog")
     }
 
     @ViewBuilder

@@ -10,25 +10,55 @@ import SwiftUI
 
 struct OnboardingScaffold<Content: View>: View {
     let title: String
+    /// An optional small animated image shown next to the title — e.g. the paywall's brand mark.
+    /// `nil` (the default) renders nothing extra, so every existing onboarding screen using this
+    /// scaffold is unaffected.
+    var titleAccessoryImageName: String?
+    /// Overrides just the title's font — defaults to the large rounded-bold title every existing
+    /// onboarding screen already renders it at.
+    var titleFont: Font = .system(.title, design: .rounded, weight: .bold)
     var subtitle: String?
+    /// Overrides just the subtitle's font — defaults to `.body`, the size every existing
+    /// onboarding screen already renders it at.
+    var subtitleFont: Font = .body
+    /// Overrides the title block's top padding — defaults to `Theme.Spacing.lg`, matching every
+    /// existing onboarding screen. Ignored when `centered`/`centersTitleAndSubtitle` already zero
+    /// it out. The paywall uses a smaller value to fit more content above the fold.
+    var titleTopPadding: CGFloat = Theme.Spacing.lg
     /// Centers the title/subtitle and vertically centers the whole title+content block in
     /// the screen, instead of the default top-anchored, leading-aligned layout — used by the
     /// handful of screens that want a calmer, single-focus feel (name entry, city entry, the
     /// anniversary date picker) rather than the list-like screens most of onboarding uses.
     var centered: Bool = false
+    /// Horizontally centers just the title/subtitle text block, independent of `centered` above
+    /// — `centered` also vertically centers the entire title+content block within the screen,
+    /// which isn't always wanted just to get a centered headline.
+    var centersTitleAndSubtitle: Bool = false
     @ViewBuilder var content: Content
     var primaryTitle: String?
     var primaryAction: (() -> Void)?
     var primaryDisabled: Bool = false
     var primaryLoading: Bool = false
+    /// Small disclosure text under the primary button — e.g. a paywall spelling out what happens
+    /// after a free trial ends. `nil` (the default) renders nothing extra, so every existing
+    /// onboarding screen using this scaffold is unaffected.
+    var primaryCaption: String?
     var secondaryTitle: String?
     var secondaryAction: (() -> Void)?
+    /// Extra content rendered at the very bottom of the pinned bar, below the primary/secondary
+    /// buttons — e.g. the paywall's Restore Purchases + legal links row. `nil` (the default)
+    /// renders nothing extra.
+    var footer: AnyView?
+
+    private var titleAlignment: HorizontalAlignment {
+        (centered || centersTitleAndSubtitle) ? .center : .leading
+    }
 
     /// Screens like `SaveAccountView` skip the shared primary/secondary button entirely (they
     /// have their own inline buttons instead) — `.safeAreaInset` would otherwise still reserve
     /// an empty padded strip at the bottom for nothing, needlessly pushing their content up.
     private var hasBottomBar: Bool {
-        (primaryTitle != nil && primaryAction != nil) || (secondaryTitle != nil && secondaryAction != nil)
+        (primaryTitle != nil && primaryAction != nil) || (secondaryTitle != nil && secondaryAction != nil) || footer != nil
     }
 
     var body: some View {
@@ -48,19 +78,30 @@ struct OnboardingScaffold<Content: View>: View {
         GeometryReader { geo in
             ScrollView {
                 VStack(alignment: centered ? .center : .leading, spacing: Theme.Spacing.lg) {
-                    VStack(alignment: centered ? .center : .leading, spacing: Theme.Spacing.sm) {
-                        Text(title)
-                            .font(.system(.title, design: .rounded, weight: .bold))
-                            .multilineTextAlignment(centered ? .center : .leading)
+                    VStack(alignment: titleAlignment, spacing: Theme.Spacing.sm) {
+                        VStack(spacing: Theme.Spacing.xs) {
+                            if let titleAccessoryImageName {
+                                PulsingTitleAccessory(imageName: titleAccessoryImageName)
+                            }
+                            Text(title)
+                                .font(titleFont)
+                                .multilineTextAlignment(titleAlignment == .center ? .center : .leading)
+                        }
+                        .frame(maxWidth: .infinity, alignment: titleAlignment == .center ? .center : .leading)
                         if let subtitle {
                             Text(subtitle)
-                                .font(.body)
+                                .font(subtitleFont)
                                 .foregroundStyle(Theme.subtleInk)
-                                .multilineTextAlignment(centered ? .center : .leading)
+                                .multilineTextAlignment(titleAlignment == .center ? .center : .leading)
                         }
                     }
-                    .frame(maxWidth: .infinity, alignment: centered ? .center : .leading)
-                    .padding(.top, centered ? 0 : Theme.Spacing.lg)
+                    .frame(maxWidth: .infinity, alignment: titleAlignment == .center ? .center : .leading)
+                    // `centered` (not `centersTitleAndSubtitle`) zeroes this — those screens
+                    // vertically center the whole title+content block, so a fixed top inset
+                    // would just eat into that centering. `centersTitleAndSubtitle` only affects
+                    // horizontal alignment and is paywall-only, so it stays independently
+                    // controlled by `titleTopPadding`.
+                    .padding(.top, centered ? 0 : titleTopPadding)
 
                     content
                 }
@@ -98,11 +139,19 @@ struct OnboardingScaffold<Content: View>: View {
                 )
                 .foregroundStyle(.white)
                 .disabled(primaryDisabled)
+                if let primaryCaption {
+                    Text(primaryCaption)
+                        .font(.caption)
+                        .foregroundStyle(Theme.subtleInk)
+                }
             }
             if let secondaryTitle, let secondaryAction {
                 Button(secondaryTitle, action: secondaryAction)
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(Theme.subtleInk)
+            }
+            if let footer {
+                footer
             }
         }
         .padding(Theme.Spacing.lg)
@@ -121,6 +170,28 @@ struct OnboardingScaffold<Content: View>: View {
             )
             .ignoresSafeArea()
         )
+    }
+}
+
+/// A small image next to a title with a gentle continuous "breathing" pulse — used for the
+/// brand mark next to a screen's headline (the paywall's globe/heart, for instance). Owns its
+/// own animation state rather than relying on the caller to start one, so `titleAccessoryImageName`
+/// stays a plain image-name string on `OnboardingScaffold`.
+private struct PulsingTitleAccessory: View {
+    let imageName: String
+    @State private var isPulsing = false
+
+    var body: some View {
+        Image(imageName)
+            .resizable()
+            .scaledToFit()
+            .frame(width: 28, height: 28)
+            .scaleEffect(isPulsing ? 1.12 : 0.94)
+            .onAppear {
+                withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) {
+                    isPulsing = true
+                }
+            }
     }
 }
 

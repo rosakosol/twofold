@@ -95,8 +95,15 @@ final class GameSessionStore {
     /// answer feels like the same forward motion as answering it the first time. Naturally
     /// resumes the live "next unanswered" edge once it steps past the last previously-answered
     /// round.
+    ///
+    /// Must only advance if the cursor still points at the round this submit actually belongs
+    /// to — a swipe's answer doesn't reach here until its fly-off animation (and then the
+    /// network round trip) finishes, and `goBack(myID:)` can run in that gap if the player taps
+    /// back before this fires. Advancing unconditionally on `!= nil` used to blindly overwrite
+    /// wherever that back tap had just rewound the cursor to, making back-during-a-swipe look
+    /// like it silently did nothing.
     private func advanceViewingCursorIfNeeded(afterSubmittingRound roundNumber: Int) {
-        guard viewingRoundNumber != nil else { return }
+        guard viewingRoundNumber == roundNumber else { return }
         let next = roundNumber + 1
         viewingRoundNumber = rounds.contains(where: { $0.roundNumber == next }) ? next : nil
     }
@@ -190,6 +197,11 @@ final class GameSessionStore {
 
     private func performSubmit(roundNumber: Int, answerValue: String, isCorrect: Bool?) async -> Bool {
         guard let session else { return false }
+        let myID = BackendService.currentUserID
+        // Captured before the optimistic update below touches `responses` — this is "did I have
+        // any rounds left before this submit", used after the round-trip to detect the one
+        // moment *I* become the one who's finished (see the `.gamePartnerFinished` branch).
+        let wasAllMineAnsweredBefore = myID.map { hasAnsweredAllRounds(myID: $0) } ?? false
         guard NetworkMonitor.shared.isConnected else {
             queueOffline(sessionID: session.id, roundNumber: roundNumber, answerValue: answerValue, isCorrect: isCorrect)
             return true
@@ -200,7 +212,7 @@ final class GameSessionStore {
         // card's fly-off animation was completing well before the network calls did, leaving a
         // visible stall between the old card leaving and the next one appearing. `refresh()`
         // still runs afterward and reconciles with the server's actual state.
-        if let myID = BackendService.currentUserID {
+        if let myID {
             applyOptimistic(PendingGameResponse(sessionID: session.id, roundNumber: roundNumber, responderID: myID, answerValue: answerValue, isCorrect: isCorrect))
         }
 
@@ -215,6 +227,13 @@ final class GameSessionStore {
             if !wasRevealed, isRevealed {
                 Analytics.capture(Analytics.Event.sessionComplete, properties: ["game_type": session.gameType.rawValue])
                 await BackendService.notifyPartner(event: .gameResultsReady, sessionID: session.id, gameType: session.gameType)
+            } else if !wasAllMineAnsweredBefore, !isRevealed, let myID, hasAnsweredAllRounds(myID: myID) {
+                // I just answered my own last round, but the session isn't fully complete (my
+                // partner hasn't finished theirs yet) — let them know it's their turn, distinct
+                // from `.gameResultsReady` above which only fires once *both* sides are done.
+                // Never fires while re-editing an already-completed session: in that case
+                // `wasAllMineAnsweredBefore` is already true going in, since nothing was deleted.
+                await BackendService.notifyPartner(event: .gamePartnerFinished, sessionID: session.id, gameType: session.gameType)
             }
             return true
         } catch {
@@ -254,10 +273,11 @@ final class GameSessionStore {
 
     /// Drains the local offline queue for this session, in the order the answers were recorded —
     /// called once on `load(sessionID:)` (if already online) and again whenever `NetworkMonitor`
-    /// reports a reconnect (see each typed game view's `.onChange(of:)`). A failed submit here is
-    /// swallowed and the entry dropped rather than retried indefinitely — `submitGameResponse` is
-    /// an upsert, so a repeat failure isn't a duplicate-key rejection to worry about losing, just
-    /// a genuine transient issue not worth blocking the rest of the queue over.
+    /// reports a reconnect (see each typed game view's `.onChange(of:)`). A failed submit here
+    /// stays queued for the next sync attempt rather than being dropped — `submitGameResponse` is
+    /// an upsert, so retrying a call that actually did succeed is safe, and dequeuing on failure
+    /// would silently and permanently lose the answer instead of just retrying a genuine
+    /// transient issue.
     func syncPendingResponses() async {
         guard let session, !isSyncingPendingResponses else { return }
         let pending = PendingGameResponseStore.forSession(session.id)
@@ -265,14 +285,30 @@ final class GameSessionStore {
         isSyncingPendingResponses = true
         defer { isSyncingPendingResponses = false }
         let wasRevealed = isRevealed
+        let myID = BackendService.currentUserID
+        let wasAllMineAnsweredBefore = myID.map { hasAnsweredAllRounds(myID: $0) } ?? false
         for item in pending {
-            try? await BackendService.submitGameResponse(sessionID: item.sessionID, roundNumber: item.roundNumber, answerValue: item.answerValue, isCorrect: item.isCorrect)
-            PendingGameResponseStore.remove(id: item.id)
+            do {
+                try await BackendService.submitGameResponse(sessionID: item.sessionID, roundNumber: item.roundNumber, answerValue: item.answerValue, isCorrect: item.isCorrect)
+                PendingGameResponseStore.remove(id: item.id)
+            } catch {
+                // Left in the queue — retried on the next sync rather than lost.
+            }
         }
         pendingSyncCount = PendingGameResponseStore.forSession(session.id).count
         await refresh()
+        // Anything still queued after `refresh()` would otherwise vanish from `responses` —
+        // overwritten by the server's still-missing state — even though it's safely queued for
+        // a future retry, making a preserved answer look lost on screen.
+        for item in PendingGameResponseStore.forSession(session.id) {
+            applyOptimistic(item)
+        }
         if !wasRevealed, isRevealed {
             await BackendService.notifyPartner(event: .gameResultsReady, sessionID: session.id, gameType: session.gameType)
+        } else if !wasAllMineAnsweredBefore, !isRevealed, let myID, hasAnsweredAllRounds(myID: myID) {
+            // Mirrors the same detection in `performSubmit` — the offline queue just finished
+            // flushing my last unanswered round.
+            await BackendService.notifyPartner(event: .gamePartnerFinished, sessionID: session.id, gameType: session.gameType)
         }
     }
 
@@ -281,13 +317,16 @@ final class GameSessionStore {
         await refresh()
     }
 
-    /// Deletes only my own responses and drops the session back to `active` if it had already
-    /// completed — the partner's answers are untouched. Works both pre-reveal (GameCompletionView,
-    /// session already `active` since the partner isn't done) and post-reveal (GameResultsView,
-    /// session `completed`); see `edit_my_game_responses`.
-    func editMyAnswers() async {
-        guard let session else { return }
-        try? await BackendService.editMyGameResponses(sessionID: session.id)
-        await refresh()
+    /// Re-enters round 1 without touching any saved data — every round's existing answer is
+    /// still intact (`submitGameResponse` is an upsert), so revisiting a round shows exactly
+    /// what was previously picked (see each typed game view's `previousAnswer`-style UI) and
+    /// resubmitting it simply overwrites it in place via the same `viewingRoundNumber`/
+    /// `goBack`/`advanceViewingCursorIfNeeded` machinery already used to revisit a round
+    /// mid-game. Works whether the session is already fully `completed` (GameResultsView) or
+    /// still waiting on the partner (GameCompletionView) — either way this just walks the
+    /// cursor back to the first round; `displayedRound(myID:)` and each typed view's own
+    /// branching take care of showing the right screen from there.
+    func beginEditingAnswers() {
+        viewingRoundNumber = rounds.map(\.roundNumber).min()
     }
 }

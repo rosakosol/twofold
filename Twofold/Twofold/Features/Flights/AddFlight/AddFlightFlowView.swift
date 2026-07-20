@@ -3,10 +3,10 @@
 //  Twofold
 //
 //  Multi-step "Add Flight" wizard shared by the live app's AddFlightView and onboarding's
-//  AddFirstFlightView. Owns its own internal NavigationStack (nested inside whichever
-//  presentation context the caller uses — the live app's sheet, or onboarding's outer
-//  OnboardingStep stack) so its per-step titles/subtitles don't have to fit
-//  OnboardingScaffold's single title+pinned-CTA chrome.
+//  AddTripDetailsView (sheeted from its "attach a flight" row). Owns its own internal
+//  NavigationStack (nested inside whichever presentation context the caller uses) so its
+//  per-step titles/subtitles don't have to fit OnboardingScaffold's single title+pinned-CTA
+//  chrome.
 //
 
 import CoreLocation

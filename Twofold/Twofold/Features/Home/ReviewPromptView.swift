@@ -15,7 +15,7 @@ import SwiftUI
 private extension ReviewMilestone {
     var celebratoryLine: String {
         switch self {
-        case .partnerConnected: "You're officially connected with your partner!"
+        case .partnerConnected: "You're all set up together!"
         case .firstFlight: "You just added your first flight!"
         case .firstTrip: "You just added your first trip!"
         case .firstMemory: "You just saved your first memory!"

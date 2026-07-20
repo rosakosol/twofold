@@ -16,6 +16,7 @@ interface NumberModeInput {
   flightNumber: string;
   date: string; // YYYY-MM-DD
   originIata?: string;
+  deviceTimeZone?: string; // IANA identifier, e.g. "Australia/Melbourne"
 }
 
 interface RouteModeInput {
@@ -23,6 +24,7 @@ interface RouteModeInput {
   originIata: string;
   destinationIata: string;
   date: string; // YYYY-MM-DD
+  deviceTimeZone?: string;
 }
 
 type Input = NumberModeInput | RouteModeInput;
@@ -74,12 +76,12 @@ function toAeroTimestamp(date: Date): string {
   return date.toISOString().replace(/\.\d{3}Z$/, "Z");
 }
 
-// `iso` is a UTC instant from AeroAPI; `date` is the calendar date the caller searched for,
-// meant as "departure date at the origin airport" — comparing UTC-sliced date strings directly
-// against that is wrong for roughly half of all flights (any origin west of UTC with a morning
-// departure, or east of UTC with a late-evening one, lands on the *other* UTC day). Converts the
-// instant into the origin airport's own IANA timezone before comparing, so "today" means today
-// at the airport the flight actually leaves from.
+// `iso` is a UTC instant from AeroAPI; `date` is the calendar date the caller searched for.
+// Comparing UTC-sliced date strings directly against that is wrong for roughly half of all
+// flights (any departure whose local time zone puts it on the *other* UTC day). Converts the
+// instant into `timeZone` before comparing — callers pass whichever zone actually matches what
+// the caller meant by "today" (the device's own zone when known, falling back to the flight's
+// origin airport otherwise; see `filterPreferringSameDay`'s call sites).
 function isSameLocalDay(iso: string | null | undefined, date: string, timeZone: string | null | undefined): boolean {
   if (!iso) return false;
   const zone = timeZone || "UTC";
@@ -102,26 +104,32 @@ function isSameLocalDay(iso: string | null | undefined, date: string, timeZone: 
   }
 }
 
-// `date` is meant as "departure date at the origin airport," but the client can't reliably
-// supply that in flight-number mode — no airport is known yet until results come back, so
-// "today"/"tomorrow" get computed in the *device's* timezone instead (see
-// AddFlightDateStepView.swift). For a device far from the origin's timezone, that mismatch used
-// to make `isSameLocalDay` EXCLUDE the flight the caller actually wanted from the result set
-// entirely (not just rank it lower) — the app would show only the adjacent day's occurrence,
-// silently wrong by ~24h, with no way for the caller to even see the one they meant. Sorting
-// same-day-at-origin matches first (instead of filtering everything else out) keeps every
-// nearby occurrence visible and pickable — the client already renders each candidate with a
-// clearly origin/destination-timezoned time chip, so the caller can disambiguate visually
-// rather than the server silently guessing wrong.
-function sortPreferringSameDay<T extends { scheduled_out?: string | null }>(
+// `date` is computed as "today"/"tomorrow" in the *device's* own timezone (see
+// AddFlightDateStepView.swift) — meaning "departing today" is meant, and should be checked, in
+// the sense the caller actually means it: today where *they* are, not today at whatever airport
+// the flight happens to leave from. This used to compare against each flight's *origin airport*
+// timezone instead, which is wrong whenever the two disagree — confirmed live: a caller in
+// Melbourne searching "today" for a Los Angeles departure got a same-day match that (correctly,
+// from LAX's perspective) fell on the *previous* LA calendar day, silently excluding the flight
+// departing in the next couple of hours that the caller actually meant. `deviceTimeZone`, when the
+// client sends it, is the caller's actual reference frame and is what should be used here instead;
+// falls back to each flight's own origin timezone for older clients that don't send it yet (see
+// each call site).
+//
+// Still filters-with-fallback rather than filtering unconditionally: an earlier version dropped
+// the filter altogether for every request (sort-only, no exclusion) to dodge a related edge
+// case, but that meant a completely ordinary "today" search surfaced tomorrow's (and yesterday's)
+// occurrences of the same flight/route right alongside today's, with nothing in the UI
+// distinguishing them by day. Filtering-with-fallback fixes the common case without
+// reintroducing that silent-exclusion problem in the rare case nothing matches at all.
+function filterPreferringSameDay<T extends { scheduled_out?: string | null }>(
   results: T[],
   date: string,
   timeZone: (f: T) => string | null | undefined,
 ): T[] {
-  return [...results].sort((a, b) => {
-    const aSameDay = isSameLocalDay(a.scheduled_out, date, timeZone(a)) ? 0 : 1;
-    const bSameDay = isSameLocalDay(b.scheduled_out, date, timeZone(b)) ? 0 : 1;
-    if (aSameDay !== bSameDay) return aSameDay - bSameDay;
+  const sameDay = results.filter((f) => isSameLocalDay(f.scheduled_out, date, timeZone(f)));
+  const chosen = sameDay.length > 0 ? sameDay : results;
+  return [...chosen].sort((a, b) => {
     const aTime = a.scheduled_out ? new Date(a.scheduled_out).getTime() : Number.MAX_SAFE_INTEGER;
     const bTime = b.scheduled_out ? new Date(b.scheduled_out).getTime() : Number.MAX_SAFE_INTEGER;
     return aTime - bTime;
@@ -216,17 +224,29 @@ Deno.serve(async (req) => {
     if (input.mode === "number") {
       const { startISO, endISO } = dateWindow(input.date);
       const results = await resolveFlightByIdent(input.flightNumber, { startISO, endISO, identType: "designator" });
-      flights = sortPreferringSameDay(results, input.date, (f) => f.origin?.timezone);
+      flights = filterPreferringSameDay(results, input.date, (f: AeroFlight) => input.deviceTimeZone ?? f.origin?.timezone);
       if (input.originIata) {
         flights = flights.filter((f) => f.origin?.code_iata === input.originIata || f.origin?.code === input.originIata);
       }
-      console.log(`[resolve-flight] number ${input.flightNumber} on ${input.date}: aeroapi returned ${results.length} total, ${flights.length} after origin filter`);
+      // Dumps every ident/scheduled_out AeroAPI actually returned (not just the count) — with no
+      // way to hit AeroAPI directly outside a running deployment, this is what makes a "flight X
+      // doesn't show up" report diagnosable from the Supabase dashboard's function logs alone,
+      // rather than needing to guess blind at date-window/filter math.
+      console.log(
+        `[resolve-flight] number ${input.flightNumber} on ${input.date}: window=[${startISO},${endISO}] ` +
+          `aeroapi returned ${results.length} total, ${flights.length} after same-day filter/origin filter. ` +
+          `raw=${JSON.stringify(results.map((f) => ({ ident: f.ident_iata ?? f.ident_icao ?? f.ident, out: f.scheduled_out, originTz: f.origin?.timezone })))}`,
+      );
     } else {
       const results = await searchRoute(input.originIata, input.destinationIata);
       // AeroAPI's route search has no date param of its own — the date filter is applied here,
-      // client-side, same sort-not-exclude treatment as number mode above.
-      flights = sortPreferringSameDay(results, input.date, (f) => f.origin?.timezone);
-      console.log(`[resolve-flight] route ${input.originIata}->${input.destinationIata} on ${input.date}: aeroapi returned ${results.length} total`);
+      // client-side.
+      flights = filterPreferringSameDay(results, input.date, (f: AeroFlight) => input.deviceTimeZone ?? f.origin?.timezone);
+      console.log(
+        `[resolve-flight] route ${input.originIata}->${input.destinationIata} on ${input.date}: ` +
+          `aeroapi returned ${results.length} total, ${flights.length} after same-day filter. ` +
+          `raw=${JSON.stringify(results.map((f) => ({ ident: f.ident_iata ?? f.ident_icao ?? f.ident, out: f.scheduled_out, originTz: f.origin?.timezone })))}`,
+      );
     }
 
     return Response.json({ candidates: flights.map(toCandidate) });

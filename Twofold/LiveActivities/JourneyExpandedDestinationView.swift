@@ -14,7 +14,7 @@ struct JourneyExpandedDestinationView: View {
         VStack(alignment: .trailing, spacing: 2) {
             Text(context.attributes.destinationCode)
                 .font(.title3.weight(.bold))
-            if let arrival = context.state.actualArrival ?? context.state.estimatedArrival ?? Optional(context.state.scheduledArrival) {
+            if let arrival = context.state.actualArrival ?? context.state.estimatedArrival ?? context.state.scheduledArrival {
                 Text(arrival, style: .time)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -29,5 +29,6 @@ struct JourneyExpandedDestinationView: View {
                     .foregroundStyle(.secondary)
             }
         }
+        .padding(.trailing, 16)
     }
 }

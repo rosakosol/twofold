@@ -20,10 +20,18 @@ struct SettingsView: View {
     @State private var showingPaywall = false
     /// RevenueCat's self-service subscription management screen — offered instead of the
     /// paywall once someone's already subscribed, since re-showing "buy Plus/Premium" to a
-    /// paying member makes no sense; see the "Manage subscription" row below.
+    /// paying member makes no sense; see the "Manage subscription" row below. Only shown when
+    /// this device's own RevenueCat entitlement is actually what's backing the couple's access
+    /// — `CustomerCenterView` only knows about *this device's* purchase history, so for whichever
+    /// partner didn't personally buy it, it'd otherwise show a bare "no subscription" screen even
+    /// though the couple is genuinely covered. See `subscriptionStore`/`PartnerManagesSubscriptionView`.
     @State private var showingCustomerCenter = false
+    @State private var showingPartnerManagesSubscription = false
+    @State private var subscriptionStore = SubscriptionStore()
     @State private var showingSignOutConfirm = false
     @State private var isSigningOut = false
+    @State private var showingExportHistory = false
+    @State private var showingExportPremiumGate = false
 
     var body: some View {
         NavigationStack {
@@ -61,22 +69,30 @@ struct SettingsView: View {
 
                     SubscriptionBanner(isSubscribed: appModel.isSubscriptionActive) {
                         if appModel.isSubscriptionActive {
-                            showingCustomerCenter = true
+                            if subscriptionStore.isSubscribed {
+                                showingCustomerCenter = true
+                            } else {
+                                showingPartnerManagesSubscription = true
+                            }
                         } else {
                             showingPaywall = true
                         }
                     }
 
                     SectionCard {
-                        NavigationLink {
-                            WidgetsCatalogView()
+                        Button {
+                            if appModel.isPremiumLocked {
+                                showingExportPremiumGate = true
+                            } else {
+                                showingExportHistory = true
+                            }
                         } label: {
-                            SettingsRow(title: "Widgets", systemImage: "square.grid.2x2.fill")
+                            SettingsRow(title: "Export your story", systemImage: "square.and.arrow.up.on.square")
                         }
                         .buttonStyle(.plain)
+                    }
 
-                        Divider()
-
+                    SectionCard {
                         NavigationLink {
                             MeasurementsSettingsView()
                         } label: {
@@ -101,10 +117,6 @@ struct SettingsView: View {
                             SettingsRow(title: "Notifications", systemImage: "bell.fill")
                         }
                         .buttonStyle(.plain)
-
-                        Divider()
-
-                        SettingsRow(title: "Language", systemImage: "globe", showsChevron: false, unavailableBadge: "Not available yet")
                     }
 
                     SectionCard {
@@ -133,7 +145,12 @@ struct SettingsView: View {
 
                         Divider()
 
-                        SettingsRow(title: "Help", systemImage: "questionmark.circle.fill", showsChevron: false, unavailableBadge: "Not available yet")
+                        NavigationLink {
+                            HelpView()
+                        } label: {
+                            SettingsRow(title: "Help", systemImage: "questionmark.circle.fill")
+                        }
+                        .buttonStyle(.plain)
                     }
 
                     SectionCard {
@@ -159,11 +176,32 @@ struct SettingsView: View {
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .postHogScreenView("Settings")
+            .task {
+                await subscriptionStore.refreshEntitlementsOnly()
+            }
             .sheet(isPresented: $showingPaywall) {
                 NavigationStack { PaywallView() }
+                    .postHogScreenView("Paywall: Settings")
             }
             .sheet(isPresented: $showingCustomerCenter) {
                 CustomerCenterView()
+                    .postHogScreenView("Settings: Manage Subscription")
+            }
+            .sheet(isPresented: $showingPartnerManagesSubscription) {
+                PartnerManagesSubscriptionView(partnerName: appModel.partner.name) {
+                    showingPartnerManagesSubscription = false
+                }
+                .postHogScreenView("Settings: Partner Manages Subscription")
+            }
+            .navigationDestination(isPresented: $showingExportHistory) {
+                ExportHistoryView()
+            }
+            .sheet(isPresented: $showingExportPremiumGate) {
+                FlightPremiumGateView(
+                    icon: "square.and.arrow.up.on.square",
+                    title: "Export Your Story",
+                    description: "Turn your trips, memories, and flights into a beautiful, formatted keepsake PDF. Upgrade to Premium to export your story."
+                )
             }
             .confirmationDialog("Sign out of Twofold?", isPresented: $showingSignOutConfirm, titleVisibility: .visible) {
                 Button("Sign Out", role: .destructive) {
@@ -177,6 +215,11 @@ struct SettingsView: View {
         }
     }
 
+    /// `AppStore.requestReview` is an opportunistic, OS-throttled prompt (a handful of times per
+    /// year per device, no completion callback) — Apple doesn't guarantee it shows anything, so
+    /// this row can appear to do nothing even when wired correctly. Once Twofold has a real App
+    /// Store listing, switch this to a direct `.../id<APP_ID>?action=write-review` link instead —
+    /// reliable every tap, appropriate for an explicit "Rate us" CTA (vs. an automatic nudge).
     private func requestReview() {
         guard let scene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene else { return }
         AppStore.requestReview(in: scene)

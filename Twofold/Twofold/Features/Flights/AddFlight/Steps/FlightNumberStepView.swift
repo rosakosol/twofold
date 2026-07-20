@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import PostHog
 
 struct FlightNumberStepView: View {
     @Environment(AddFlightFlowModel.self) private var model
@@ -68,5 +69,6 @@ struct FlightNumberStepView: View {
                 }
             }
         }
+        .postHogScreenView("Flights: Add Flight — Flight Number")
     }
 }

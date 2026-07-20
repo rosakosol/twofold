@@ -14,16 +14,51 @@ struct CitySearchView: View {
     var onSelect: (Place) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(AppModel.self) private var appModel
     @State private var completer = CitySearchCompleter()
     @State private var isResolving = false
     @State private var errorMessage: String?
+
+    /// Your own and (once connected) your partner's home city — the two places someone adding
+    /// a trip is overwhelmingly likely to actually pick, so they lead the suggestions ahead of
+    /// the generic curated list rather than requiring a search.
+    private var homeCitySuggestions: [(label: String, place: Place)] {
+        var suggestions: [(label: String, place: Place)] = []
+        if let city = appModel.currentUser.homeCity {
+            suggestions.append(("Your city", city))
+        }
+        if appModel.partnerConnected, let city = appModel.partner.homeCity, city.displayCity != suggestions.first?.place.displayCity {
+            suggestions.append(("\(appModel.partner.name)'s city", city))
+        }
+        return suggestions
+    }
+
+    /// The curated list minus anything already surfaced above — without this, a home city that
+    /// happens to also be one of the curated common cities (e.g. Melbourne) showed up twice.
+    private var suggestedCities: [Place] {
+        let shown = Set(homeCitySuggestions.map(\.place.displayCity))
+        return Place.commonCities.filter { !shown.contains($0.displayCity) }
+    }
 
     var body: some View {
         NavigationStack {
             List {
                 if completer.queryFragment.isEmpty {
+                    if !homeCitySuggestions.isEmpty {
+                        Section("Your Cities") {
+                            ForEach(homeCitySuggestions, id: \.place.id) { suggestion in
+                                Button {
+                                    onSelect(suggestion.place)
+                                    dismiss()
+                                } label: {
+                                    cityRow(title: suggestion.place.displayCity, subtitle: suggestion.label)
+                                }
+                            }
+                        }
+                    }
+
                     Section("Suggested") {
-                        ForEach(Place.commonCities) { place in
+                        ForEach(suggestedCities) { place in
                             Button {
                                 onSelect(place)
                                 dismiss()
@@ -91,4 +126,5 @@ struct CitySearchView: View {
 
 #Preview {
     CitySearchView(onSelect: { _ in })
+        .environment(AppModel())
 }

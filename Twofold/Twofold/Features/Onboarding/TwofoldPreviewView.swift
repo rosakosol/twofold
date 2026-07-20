@@ -27,16 +27,6 @@ struct TwofoldPreviewView: View {
         return max(0, days)
     }
 
-    private var sameCity: Bool {
-        guard let mine = onboarding.homeCity, let theirs = onboarding.partnerCity else { return false }
-        return mine.city == theirs.city && mine.country == theirs.country
-    }
-
-    private var distanceKm: Double? {
-        guard !sameCity, let mine = onboarding.homeCity?.coordinate, let theirs = onboarding.partnerCity?.coordinate else { return nil }
-        return Geo.distanceKm(mine, theirs)
-    }
-
     private var daysTogether: Int? {
         guard let anniversaryDate = onboarding.anniversaryDate else { return nil }
         return max(0, Calendar.current.dateComponents([.day], from: anniversaryDate, to: .now).day ?? 0)
@@ -70,28 +60,26 @@ struct TwofoldPreviewView: View {
                             didCelebrate = true
                         }
 
-                    SectionCard {
-                        HStack {
-                            VStack(spacing: 6) {
-                                avatarCircle(selfImage)
-                                Text(onboarding.firstName.isEmpty ? "You" : onboarding.firstName).font(.headline)
-                                if let city = onboarding.homeCity?.city {
-                                    Text(city).font(.caption).foregroundStyle(Theme.subtleInk)
-                                }
-                            }
-                            Spacer()
-                            Image(systemName: "heart.fill").foregroundStyle(Theme.heartRed)
-                            Spacer()
-                            VStack(spacing: 6) {
-                                avatarCircle(partnerImage)
-                                Text(onboarding.partnerName.isEmpty ? "Partner" : onboarding.partnerName).font(.headline)
-                                if let city = onboarding.partnerCity?.city {
-                                    Text(city).font(.caption).foregroundStyle(Theme.subtleInk)
-                                }
-                            }
+                    // Same avatar-pair design ConnectedRevealView's "You're connected" moment
+                    // uses (64pt ring'd circles either side of a "+"), reused here rather than
+                    // this screen inventing its own card-wrapped, heart-divided layout — self on
+                    // the left, partner on the right (this screen's own convention; unlike
+                    // ConnectedRevealView's partner-then-self order).
+                    HStack(spacing: Theme.Spacing.lg) {
+                        VStack(spacing: Theme.Spacing.xs) {
+                            avatarCircle(selfImage, size: 64)
+                            Text(onboarding.firstName.isEmpty ? "You" : onboarding.firstName)
+                                .font(.subheadline)
+                        }
+                        Image(systemName: "plus")
+                            .foregroundStyle(Theme.subtleInk)
+                        VStack(spacing: Theme.Spacing.xs) {
+                            avatarCircle(partnerImage, size: 64)
+                            Text(onboarding.partnerName.isEmpty ? "Partner" : onboarding.partnerName)
+                                .font(.subheadline)
                         }
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(maxWidth: .infinity)
 
                     if let trip, let daysToGo {
                         SectionCard {
@@ -112,21 +100,9 @@ struct TwofoldPreviewView: View {
                             }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    } else if daysTogether != nil || distanceKm != nil {
+                    } else if let daysTogether {
                         SectionCard {
-                            HStack(spacing: Theme.Spacing.lg) {
-                                if let daysTogether {
-                                    StatTile(icon: "heart.fill", value: "\(daysTogether)", label: "Days together", tint: Theme.heartRed)
-                                }
-                                if let distanceKm {
-                                    StatTile(
-                                        icon: "globe",
-                                        value: MeasurementPreference.distanceLabel(km: distanceKm),
-                                        label: "Apart",
-                                        tint: Theme.skyBlue
-                                    )
-                                }
-                            }
+                            StatTile(icon: "heart.fill", value: "\(daysTogether)", label: "Days together", tint: Theme.heartRed)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     } else {
@@ -144,6 +120,30 @@ struct TwofoldPreviewView: View {
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
+
+                    // The memory just saved on the mandatory `FirstMemoryView` step right before
+                    // this screen — `.last` since onboarding only ever adds that one memory, so
+                    // `appModel.memories` is otherwise still empty at this point.
+                    if let memory = appModel.memories.last {
+                        SectionCard {
+                            HStack(spacing: Theme.Spacing.md) {
+                                MemoryPhotoView(memory: memory, cornerRadius: 12)
+                                    .frame(width: 56, height: 56)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(memory.title)
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(Theme.ink)
+                                    if let place = memory.place {
+                                        Text(place.city)
+                                            .font(.caption)
+                                            .foregroundStyle(Theme.subtleInk)
+                                    }
+                                }
+                                Spacer(minLength: 0)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 }
             },
             primaryTitle: "Continue",
@@ -152,7 +152,7 @@ struct TwofoldPreviewView: View {
         .sensoryFeedback(.success, trigger: didCelebrate)
     }
 
-    private func avatarCircle(_ image: Image?) -> some View {
+    private func avatarCircle(_ image: Image?, size: CGFloat = 56) -> some View {
         ZStack {
             if let image {
                 image.resizable().scaledToFill()
@@ -161,8 +161,10 @@ struct TwofoldPreviewView: View {
                 Image(systemName: "person.fill").foregroundStyle(Theme.subtleInk)
             }
         }
-        .frame(width: 56, height: 56)
+        .frame(width: size, height: size)
         .clipShape(Circle())
+        .overlay(Circle().strokeBorder(.white, lineWidth: 2))
+        .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
     }
 }
 

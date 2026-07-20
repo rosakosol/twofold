@@ -187,6 +187,8 @@ enum BackendService {
         var anniversaryDate: Date?
         var subscriptionActive: Bool
         var subscriptionTier: String?
+        var partnerConnectedCelebrationShown: Bool
+        var setupChecklistDismissed: Bool
     }
 
     /// The signed-in user's own profile — used when they're authenticated but not (yet)
@@ -223,7 +225,9 @@ enum BackendService {
             partnerAvatarURL: profile.partnerAvatarPath.flatMap { avatarPublicURL(path: $0) },
             anniversaryDate: profile.anniversaryDate.flatMap { Self.dateOnlyFormatter.date(from: $0) },
             subscriptionActive: profile.subscriptionActive,
-            subscriptionTier: profile.subscriptionTier
+            subscriptionTier: profile.subscriptionTier,
+            partnerConnectedCelebrationShown: profile.partnerConnectedCelebrationShown,
+            setupChecklistDismissed: profile.setupChecklistDismissed
         )
     }
 
@@ -326,6 +330,8 @@ enum BackendService {
         var anniversaryDate: String?
         var subscriptionActive: Bool
         var subscriptionTier: String?
+        var partnerConnectedCelebrationShown: Bool
+        var setupChecklistDismissed: Bool
 
         enum CodingKeys: String, CodingKey {
             case id
@@ -338,6 +344,8 @@ enum BackendService {
             case anniversaryDate = "anniversary_date"
             case subscriptionActive = "subscription_active"
             case subscriptionTier = "subscription_tier"
+            case partnerConnectedCelebrationShown = "partner_connected_celebration_shown"
+            case setupChecklistDismissed = "setup_checklist_dismissed"
         }
     }
 
@@ -354,6 +362,59 @@ enum BackendService {
         try await supabase
             .from("profiles")
             .update(HomeCityUpdate(homePlaceId: placeID))
+            .eq("id", value: userID)
+            .execute()
+    }
+
+    private struct PartnerConnectedCelebrationUpdate: Encodable {
+        var partnerConnectedCelebrationShown = true
+        enum CodingKeys: String, CodingKey { case partnerConnectedCelebrationShown = "partner_connected_celebration_shown" }
+    }
+
+    /// Marks the "you and your partner are connected" reveal as shown, server-side — a plain
+    /// UserDefaults flag here would reset every time someone reinstalls the app, showing the
+    /// celebration again even though nothing about their account changed. Best-effort: worst
+    /// case on failure is the celebration shows once more next launch, not worth surfacing an
+    /// error for.
+    static func markPartnerConnectedCelebrationShown() async {
+        guard let userID = currentUserID else { return }
+        try? await supabase
+            .from("profiles")
+            .update(PartnerConnectedCelebrationUpdate())
+            .eq("id", value: userID)
+            .execute()
+    }
+
+    private struct SetupChecklistDismissedUpdate: Encodable {
+        var setupChecklistDismissed = true
+        enum CodingKeys: String, CodingKey { case setupChecklistDismissed = "setup_checklist_dismissed" }
+    }
+
+    /// Same reasoning as `markPartnerConnectedCelebrationShown` — the Home screen's "Finish
+    /// setting up Twofold" card dismissal needs to survive a reinstall, not just live in
+    /// UserDefaults.
+    static func markSetupChecklistDismissed() async {
+        guard let userID = currentUserID else { return }
+        try? await supabase
+            .from("profiles")
+            .update(SetupChecklistDismissedUpdate())
+            .eq("id", value: userID)
+            .execute()
+    }
+
+    private struct SetupChecklistResetUpdate: Encodable {
+        var setupChecklistDismissed = false
+        enum CodingKeys: String, CodingKey { case setupChecklistDismissed = "setup_checklist_dismissed" }
+    }
+
+    /// Re-shows the setup checklist after someone removes their partner — they're genuinely
+    /// back in the same unpaired state a brand-new user starts in, and need that same nudge
+    /// again even if they'd already dismissed it once during their original onboarding.
+    static func resetSetupChecklistDismissed() async {
+        guard let userID = currentUserID else { return }
+        try? await supabase
+            .from("profiles")
+            .update(SetupChecklistResetUpdate())
             .eq("id", value: userID)
             .execute()
     }
@@ -409,6 +470,23 @@ enum BackendService {
             .from("profiles")
             .update(AnniversaryDateUpdate(anniversaryDate: Self.dateOnlyFormatter.string(from: date)))
             .eq("id", value: userID)
+            .execute()
+    }
+
+    /// Once paired, `couples.started_dating_on` (not `profiles.anniversary_date`) is the value
+    /// `fetchCoupleState()` actually reads back — RLS blocks direct client writes to `couples`,
+    /// so this goes through the same RPC pattern as `redeem_invite_code`/`leave_couple`.
+    static func updateCoupleAnniversaryDate(coupleID: UUID, date: Date) async throws {
+        struct Params: Encodable {
+            var pCoupleId: UUID
+            var pDate: String
+            enum CodingKeys: String, CodingKey {
+                case pCoupleId = "p_couple_id"
+                case pDate = "p_date"
+            }
+        }
+        try await supabase
+            .rpc("update_couple_anniversary_date", params: Params(pCoupleId: coupleID, pDate: Self.dateOnlyFormatter.string(from: date)))
             .execute()
     }
 
@@ -475,6 +553,58 @@ enum BackendService {
             .value
 
         return rows.contains { $0.subscriptionActive }
+    }
+
+    private struct SubscriptionTierRow: Decodable {
+        var subscriptionActive: Bool
+        var subscriptionTier: String?
+        enum CodingKeys: String, CodingKey {
+            case subscriptionActive = "subscription_active"
+            case subscriptionTier = "subscription_tier"
+        }
+    }
+
+    /// Same couple-wide lookup as `fetchSubscriptionActive()`, but resolves which tier is
+    /// actually active *right now* across both partners (Premium wins if each partner
+    /// independently ended up on a different tier). Deliberately a fresh network fetch rather
+    /// than reading `AppModel.subscriptionTier` — that field is only set at couple-adoption time
+    /// and never refreshed on foreground the way `isSubscriptionActive` is, so it can miss a
+    /// partner's subscription that started after this device last loaded couple state. `PaywallView`
+    /// calls this right before allowing a purchase for exactly that reason: App Store Connect's
+    /// subscription-group exclusivity is per Apple ID, not per couple, so nothing on Apple's side
+    /// stops each partner from independently subscribing to a different tier — only this app-side
+    /// check can catch it before it turns into a second, real charge.
+    static func fetchCoupleSubscriptionTier() async throws -> String? {
+        guard let userID = currentUserID else { throw BackendError.notAuthenticated }
+
+        let coupleRows: [CoupleRow] = try await supabase
+            .from("couples")
+            .select()
+            .or("partner_a_id.eq.\(userID),partner_b_id.eq.\(userID)")
+            .eq("status", value: "active")
+            .limit(1)
+            .execute()
+            .value
+
+        let profileIDs: [UUID]
+        if let couple = coupleRows.first {
+            profileIDs = [couple.partnerAId, couple.partnerBId]
+        } else {
+            profileIDs = [userID]
+        }
+
+        let rows: [SubscriptionTierRow] = try await supabase
+            .from("profiles")
+            .select("subscription_active, subscription_tier")
+            .in("id", values: profileIDs)
+            .execute()
+            .value
+
+        // Only a still-active row's tier counts — a lapsed partner's `subscription_tier` column
+        // is left stale (never nulled out, see `updateSubscriptionStatus`'s doc comment), so an
+        // inactive row's tier must never block a fresh purchase.
+        let activeTiers = rows.compactMap { $0.subscriptionActive ? $0.subscriptionTier : nil }
+        return activeTiers.contains("premium") ? "premium" : activeTiers.first
     }
 
     // MARK: - Avatar
@@ -557,7 +687,7 @@ enum BackendService {
 
     // MARK: - Drawing pads
 
-    /// Each person's home-screen doodle lives at one fixed path, so a re-save overwrites
+    /// Each person's home-screen drawing lives at one fixed path, so a re-save overwrites
     /// rather than accumulates — no separate DB row needed, the path is fully deterministic.
     private static func drawingPadPath(coupleID: UUID, personID: UUID) -> String {
         "\(coupleID)/\(personID)/pad.png"
@@ -593,14 +723,27 @@ enum BackendService {
         var partnerBId: UUID
         var status: String
         var dissolvedAt: Date?
-        var startedDatingOn: Date?
+        var createdAt: Date
+        /// `started_dating_on` is a bare Postgres `date` column ("2025-02-08", no time/zone) —
+        /// decoding it straight to `Date` throws under the client's timestamp-with-time-zone
+        /// strategy, the same reason `ProfileRow.anniversaryDate` is `String?` too. That throw
+        /// previously went unnoticed since every couple's `started_dating_on` was null until the
+        /// reconciliation migration started backfilling real values — a decode failure here
+        /// fails `fetchCoupleState()` entirely, which `loadSignedInState()` silently swallows and
+        /// falls back to the solo-profile path, making a fully paired couple look disconnected.
+        var startedDatingOnRaw: String?
 
         enum CodingKeys: String, CodingKey {
             case id, status
             case partnerAId = "partner_a_id"
             case partnerBId = "partner_b_id"
             case dissolvedAt = "dissolved_at"
-            case startedDatingOn = "started_dating_on"
+            case startedDatingOnRaw = "started_dating_on"
+            case createdAt = "created_at"
+        }
+
+        var startedDatingOn: Date? {
+            startedDatingOnRaw.flatMap { BackendService.dateOnlyFormatter.date(from: $0) }
         }
     }
 
@@ -608,32 +751,177 @@ enum BackendService {
         var code: String
     }
 
-    static func createInviteCode(firstName: String) async throws -> String {
-        struct Params: Encodable {
-            var pFirstName: String
-            enum CodingKeys: String, CodingKey { case pFirstName = "p_first_name" }
-        }
+    /// Fully random (no name baked in — see the migration's own header comment for why),
+    /// generated server-side.
+    static func createInviteCode() async throws -> String {
         let row: InviteCodeRow = try await supabase
-            .rpc("create_invite_code", params: Params(pFirstName: firstName))
+            .rpc("create_invite_code")
             .single()
             .execute()
             .value
         return row.code
     }
 
+    struct InviterInfo {
+        var name: String
+        var avatarURL: URL?
+    }
+
+    private struct InviterInfoRow: Decodable {
+        var firstName: String
+        var avatarPath: String?
+
+        enum CodingKeys: String, CodingKey {
+            case firstName = "first_name"
+            case avatarPath = "avatar_path"
+        }
+    }
+
+    /// The invite code's real inviter name + avatar, looked up server-side rather than guessed
+    /// from the code's own text (codes carry no name information at all now). Deliberately
+    /// callable without an authenticated session — this is the one place it matters most
+    /// (JoinInviteView, reached from a cold deep-link tap before any account exists) — see the
+    /// migration's own header comment for the resulting per-code (not per-caller) rate limit.
+    /// Nil if the code doesn't resolve to a still-pending, unexpired invite.
+    static func inviterInfo(forCode code: String) async throws -> InviterInfo? {
+        struct Params: Encodable {
+            var pCode: String
+            enum CodingKeys: String, CodingKey { case pCode = "p_code" }
+        }
+        let rows: [InviterInfoRow] = try await supabase
+            .rpc("get_invite_code_inviter_info", params: Params(pCode: code))
+            .execute()
+            .value
+        guard let row = rows.first else { return nil }
+        return InviterInfo(name: row.firstName, avatarURL: row.avatarPath.flatMap { avatarPublicURL(path: $0) })
+    }
+
+    private struct RedeemInviteCodeResult: Decodable {
+        var id: UUID
+        var inviterId: UUID
+
+        enum CodingKeys: String, CodingKey {
+            case id
+            case inviterId = "inviter_id"
+        }
+    }
+
+    /// Redeeming a code no longer immediately creates a couple — it creates a pending
+    /// connection request only the inviter can accept (`respondToConnectionRequest`), so a
+    /// brute-forced or mistyped-by-someone-else code can't silently pair an attacker as the
+    /// partner. Returns the request's id. Notifies the inviter directly (baked in here, not left
+    /// to each of the several call sites, so it can't be forgotten from one of them) — there's
+    /// no couple yet to resolve a recipient through, unlike `notifyPartner`.
     @discardableResult
     static func redeemInviteCode(_ code: String) async throws -> UUID {
         struct Params: Encodable {
             var pCode: String
             enum CodingKeys: String, CodingKey { case pCode = "p_code" }
         }
-        let row: CoupleRow = try await supabase
+        let row: RedeemInviteCodeResult = try await supabase
             .rpc("redeem_invite_code", params: Params(pCode: code))
             .single()
             .execute()
             .value
         Analytics.capture(Analytics.Event.inviteRedeem)
+        Task { await notifyConnectionRequest(eventType: "connection_requested", targetProfileId: row.inviterId) }
         return row.id
+    }
+
+    struct OutgoingConnectionRequest: Decodable {
+        var id: UUID
+        var inviterId: UUID
+        var inviterFirstName: String
+        var inviterAvatarPath: String?
+        var createdAt: Date
+
+        enum CodingKeys: String, CodingKey {
+            case id
+            case inviterId = "inviter_id"
+            case inviterFirstName = "inviter_first_name"
+            case inviterAvatarPath = "inviter_avatar_path"
+            case createdAt = "created_at"
+        }
+
+        var inviterAvatarURL: URL? { inviterAvatarPath.flatMap { avatarPublicURL(path: $0) } }
+    }
+
+    /// My own outgoing request, if I have one still pending — lets `RootView` show "{inviter}
+    /// needs to accept" instead of the forced re-subscribe paywall while it's still pending (a
+    /// pending invitee has no subscription of their own yet, and forcing them to pay while
+    /// waiting on someone else's decision makes no sense), and survives a relaunch rather than
+    /// only being known right after redeeming. A direct `connection_requests` select can't get
+    /// the inviter's name/avatar here (no RLS visibility into their profile pre-connection), so
+    /// this goes through `fetch_my_outgoing_connection_request` instead — see its own comment.
+    static func fetchMyOutgoingConnectionRequest() async throws -> OutgoingConnectionRequest? {
+        let rows: [OutgoingConnectionRequest] = try await supabase
+            .rpc("fetch_my_outgoing_connection_request")
+            .execute()
+            .value
+        return rows.first
+    }
+
+    struct PendingConnectionRequest: Identifiable, Decodable {
+        var id: UUID
+        var requesterId: UUID
+        var requesterFirstName: String
+        var requesterAvatarPath: String?
+        var createdAt: Date
+
+        enum CodingKeys: String, CodingKey {
+            case id
+            case requesterId = "requester_id"
+            case requesterFirstName = "requester_first_name"
+            case requesterAvatarPath = "requester_avatar_path"
+            case createdAt = "created_at"
+        }
+    }
+
+    /// Incoming requests awaiting my decision (I'm the inviter on each of these).
+    static func fetchPendingConnectionRequests() async throws -> [PendingConnectionRequest] {
+        try await supabase.rpc("fetch_pending_connection_requests").execute().value
+    }
+
+    /// Accepts or declines an incoming request — only callable by the request's own inviter.
+    /// Returns the newly created couple's id on accept, nil on decline. Notifies the original
+    /// requester directly on accept (baked in here for the same reason `redeemInviteCode` bakes
+    /// in its own notify call) — `row.partnerBId` is the requester, per the insert order
+    /// `respond_to_connection_request` itself uses.
+    @discardableResult
+    static func respondToConnectionRequest(id: UUID, accept: Bool) async throws -> UUID? {
+        struct Params: Encodable {
+            var pRequestId: UUID
+            var pAccept: Bool
+            enum CodingKeys: String, CodingKey {
+                case pRequestId = "p_request_id"
+                case pAccept = "p_accept"
+            }
+        }
+        let row: CoupleRow? = try await supabase
+            .rpc("respond_to_connection_request", params: Params(pRequestId: id, pAccept: accept))
+            .execute()
+            .value
+        if let row {
+            Task { await notifyConnectionRequest(eventType: "connection_accepted", targetProfileId: row.partnerBId) }
+        }
+        return row?.id
+    }
+
+    /// Shared by `redeemInviteCode`/`respondToConnectionRequest` — unlike `notifyPartner`,
+    /// there's no couple to resolve a recipient through (that's the whole point pre-acceptance),
+    /// so the target profile is passed explicitly.
+    private static func notifyConnectionRequest(eventType: String, targetProfileId: UUID) async {
+        guard let accessToken = currentAccessToken else { return }
+        let body: [String: Any] = ["eventType": eventType, "targetProfileId": targetProfileId.uuidString]
+
+        var request = URLRequest(url: SupabaseConfig.projectURL.appendingPathComponent("functions/v1/notify-connection-request"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(SupabaseConfig.publishableKey, forHTTPHeaderField: "apiKey")
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        _ = try? await URLSession.shared.data(for: request)
     }
 
     // MARK: - Remove partner / archived data
@@ -736,6 +1024,10 @@ enum BackendService {
         /// The higher of the two partners' tiers ("premium" beats "plus") — nil only if neither
         /// has ever purchased since this column was added (pre-existing subscribers).
         var subscriptionTier: String?
+        /// Both of these are the *caller's own* flags (from `meProfile`, never the partner's) —
+        /// each side dismisses their own copy of these one-time prompts independently.
+        var partnerConnectedCelebrationShown: Bool
+        var setupChecklistDismissed: Bool
     }
 
     static func fetchCoupleState() async throws -> CoupleState? {
@@ -833,7 +1125,11 @@ enum BackendService {
             // the avatar — my own custom photo of them if I've set one, otherwise their own.
             // Home city is never overridden — that one's always shared/real once paired.
             partnerB: person(for: partnerProfile, nameOverride: meProfile.partnerName, avatarOverridePath: meProfile.partnerAvatarPath, paletteIndex: 0),
-            startedDatingOn: .now
+            // Couple-level once paired (`redeem_invite_code` seeds it from whichever partner set
+            // one during onboarding) — `.now` is only a last-resort fallback for the rare case
+            // neither partner ever set one.
+            startedDatingOn: coupleRow.startedDatingOn ?? .now,
+            connectedAt: coupleRow.createdAt
         )
 
         let flights = flightRows.map { Self.makeFlight(from: $0) }
@@ -844,17 +1140,16 @@ enum BackendService {
 
         let trips: [Trip] = tripRows.compactMap { row in
             guard let origin = places[row.originId],
-                  let destination = places[row.destinationId],
-                  let category = TripCategory(dbValue: row.category) else { return nil }
+                  let destination = places[row.destinationId] else { return nil }
 
             var trip = Trip(
                 id: row.id,
-                travelerID: row.travelerId,
+                travelerIDs: row.travelerIds,
                 origin: origin,
                 destination: destination,
                 departureDate: row.departureAt,
                 arrivalDate: row.arrivalAt,
-                category: category,
+                isReunionTrip: isReunionCategory(row.category),
                 distanceKm: row.distanceKm,
                 notes: row.notes
             )
@@ -864,15 +1159,28 @@ enum BackendService {
 
         let photoRowsByMemory = Dictionary(grouping: memoryPhotoRows, by: \.memoryId)
 
+        // Every photo across every memory is signed concurrently — this used to be one
+        // sequential signed-URL round-trip per photo (each with its own retry/backoff on
+        // failure), so the whole couple-state load scaled linearly with total photo count. A
+        // TaskGroup fetches all of them in parallel, so N photos cost roughly as long as the
+        // slowest single fetch rather than the sum of all of them.
+        var signedURLsByPhotoID: [UUID: URL] = [:]
+        await withTaskGroup(of: (UUID, URL?).self) { group in
+            for photoRow in memoryPhotoRows {
+                group.addTask { (photoRow.id, await memoryPhotoSignedURLWithRetry(path: photoRow.photoPath)) }
+            }
+            for await (photoID, url) in group {
+                if let url { signedURLsByPhotoID[photoID] = url }
+            }
+        }
+
         var memories: [Memory] = []
         for row in memoryRows {
             let place = row.placeId.flatMap { places[$0] }
             let photoRows = (photoRowsByMemory[row.id] ?? []).sorted { $0.position < $1.position }
-            var photos: [MemoryPhoto] = []
-            for photoRow in photoRows {
-                if let url = await memoryPhotoSignedURLWithRetry(path: photoRow.photoPath) {
-                    photos.append(MemoryPhoto(id: photoRow.id, path: photoRow.photoPath, url: url))
-                }
+            let photos = photoRows.compactMap { photoRow -> MemoryPhoto? in
+                guard let url = signedURLsByPhotoID[photoRow.id] else { return nil }
+                return MemoryPhoto(id: photoRow.id, path: photoRow.photoPath, url: url)
             }
             memories.append(
                 Memory(
@@ -887,9 +1195,11 @@ enum BackendService {
             )
         }
 
-        let effectiveTier: String? = [meProfile.subscriptionTier, partnerProfile.subscriptionTier].contains("premium")
-            ? "premium"
-            : ([meProfile.subscriptionTier, partnerProfile.subscriptionTier].compactMap { $0 }.first)
+        // Only a still-active profile's tier counts — `subscription_tier` is left stale (never
+        // nulled out) once a subscription lapses, see `updateSubscriptionStatus`'s doc comment,
+        // so an inactive row's leftover tier must never be reported as the couple's active plan.
+        let activeTiers = [meProfile, partnerProfile].compactMap { $0.subscriptionActive ? $0.subscriptionTier : nil }
+        let effectiveTier: String? = activeTiers.contains("premium") ? "premium" : activeTiers.first
 
         return CoupleState(
             couple: couple,
@@ -897,7 +1207,9 @@ enum BackendService {
             memories: memories,
             flights: flights,
             subscriptionActive: meProfile.subscriptionActive || partnerProfile.subscriptionActive,
-            subscriptionTier: effectiveTier
+            subscriptionTier: effectiveTier,
+            partnerConnectedCelebrationShown: meProfile.partnerConnectedCelebrationShown,
+            setupChecklistDismissed: meProfile.setupChecklistDismissed
         )
     }
 
@@ -905,7 +1217,7 @@ enum BackendService {
 
     private struct TripRow: Decodable {
         var id: UUID
-        var travelerId: UUID
+        var travelerIds: [UUID]
         var originId: UUID
         var destinationId: UUID
         var departureAt: Date
@@ -916,7 +1228,7 @@ enum BackendService {
 
         enum CodingKeys: String, CodingKey {
             case id, category, notes
-            case travelerId = "traveler_id"
+            case travelerIds = "traveler_ids"
             case originId = "origin_id"
             case destinationId = "destination_id"
             case departureAt = "departure_at"
@@ -928,7 +1240,7 @@ enum BackendService {
     private struct TripInsert: Encodable {
         var id: UUID
         var coupleId: UUID
-        var travelerId: UUID
+        var travelerIds: [UUID]
         var originId: UUID
         var destinationId: UUID
         var departureAt: Date
@@ -939,7 +1251,7 @@ enum BackendService {
         enum CodingKeys: String, CodingKey {
             case id, category
             case coupleId = "couple_id"
-            case travelerId = "traveler_id"
+            case travelerIds = "traveler_ids"
             case originId = "origin_id"
             case destinationId = "destination_id"
             case departureAt = "departure_at"
@@ -1135,6 +1447,40 @@ enum BackendService {
         return rows.map(Self.makeFlight)
     }
 
+    /// Couple-scoped re-fetch (mirrors `fetchFlights(coupleID:)`/`fetchMemories(coupleID:)`) —
+    /// trips had the same gap memories did: only ever bulk-populated once via
+    /// `fetchCoupleState()`'s adopt, so a partner's newly-added trip never appeared short of a
+    /// full relaunch. Flight linkage isn't resolved here — `AppModel.refreshTrips()` links each
+    /// trip to `self.flights` itself (and `refreshFlights()`, called alongside it, re-links
+    /// authoritatively from the fetched flight rows either way).
+    static func fetchTrips(coupleID: UUID) async throws -> [Trip] {
+        let tripRows: [TripRow] = try await supabase
+            .from("trips")
+            .select()
+            .eq("couple_id", value: coupleID)
+            .execute()
+            .value
+
+        var placeIDs = Set<UUID>()
+        for row in tripRows { placeIDs.insert(row.originId); placeIDs.insert(row.destinationId) }
+        let places = try await fetchPlaces(ids: Array(placeIDs))
+
+        return tripRows.compactMap { row in
+            guard let origin = places[row.originId], let destination = places[row.destinationId] else { return nil }
+            return Trip(
+                id: row.id,
+                travelerIDs: row.travelerIds,
+                origin: origin,
+                destination: destination,
+                departureDate: row.departureAt,
+                arrivalDate: row.arrivalAt,
+                isReunionTrip: isReunionCategory(row.category),
+                distanceKm: row.distanceKm,
+                notes: row.notes
+            )
+        }
+    }
+
     static func fetchFlight(id: UUID) async throws -> Flight? {
         let rows: [FlightRow] = try await supabase
             .from("flights")
@@ -1226,6 +1572,30 @@ enum BackendService {
         Task {
             try? await channel.subscribeWithError()
             for await _ in updates { continuation.yield(()) }
+            continuation.finish()
+        }
+        return (channel, stream)
+    }
+
+    /// App-wide counterpart to `subscribeToFlightRefresh` — that one only covers a single flight
+    /// while its detail screen happens to be open, which is exactly why a flight the server
+    /// already archived (landed hours ago, `tracking_enabled` flipped false by
+    /// `refresh-due-flights`'s cron) kept showing in Home/Trips until the user happened to open
+    /// its detail screen: `AppModel.flights` had no way to learn about *any* server-side change
+    /// while just sitting on a list screen. Scoped to the whole couple (every insert/update, not
+    /// filtered to one row) and kept alive for as long as a couple is loaded, not just one view.
+    static func subscribeToCoupleFlights(coupleID: UUID) -> (channel: RealtimeChannelV2, stream: AsyncStream<Void>) {
+        let channel = supabase.channel("couple_flights_\(coupleID.uuidString)")
+        let inserts = channel.postgresChange(InsertAction.self, table: "flights", filter: .eq("couple_id", value: coupleID.uuidString))
+        let updates = channel.postgresChange(UpdateAction.self, table: "flights", filter: .eq("couple_id", value: coupleID.uuidString))
+
+        let (stream, continuation) = AsyncStream<Void>.makeStream()
+        Task {
+            try? await channel.subscribeWithError()
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask { for await _ in inserts { continuation.yield(()) } }
+                group.addTask { for await _ in updates { continuation.yield(()) } }
+            }
             continuation.finish()
         }
         return (channel, stream)
@@ -1442,12 +1812,12 @@ enum BackendService {
                 TripInsert(
                     id: trip.id,
                     coupleId: coupleID,
-                    travelerId: trip.travelerID,
+                    travelerIds: trip.travelerIDs,
                     originId: originID,
                     destinationId: destinationID,
                     departureAt: trip.departureDate,
                     arrivalAt: trip.arrivalDate,
-                    category: trip.category.dbValue,
+                    category: categoryDBValue(isReunion: trip.isReunionTrip),
                     distanceKm: trip.distanceKm
                 )
             )
@@ -1455,7 +1825,7 @@ enum BackendService {
     }
 
     private struct TripUpdate: Encodable {
-        var travelerId: UUID
+        var travelerIds: [UUID]
         var originId: UUID
         var destinationId: UUID
         var departureAt: Date
@@ -1466,7 +1836,7 @@ enum BackendService {
 
         enum CodingKeys: String, CodingKey {
             case category, notes
-            case travelerId = "traveler_id"
+            case travelerIds = "traveler_ids"
             case originId = "origin_id"
             case destinationId = "destination_id"
             case departureAt = "departure_at"
@@ -1485,12 +1855,12 @@ enum BackendService {
             .from("trips")
             .update(
                 TripUpdate(
-                    travelerId: trip.travelerID,
+                    travelerIds: trip.travelerIDs,
                     originId: originID,
                     destinationId: destinationID,
                     departureAt: trip.departureDate,
                     arrivalAt: trip.arrivalDate,
-                    category: trip.category.dbValue,
+                    category: categoryDBValue(isReunion: trip.isReunionTrip),
                     distanceKm: trip.distanceKm,
                     notes: trip.notes
                 )
@@ -1723,6 +2093,65 @@ enum BackendService {
         return nil
     }
 
+    /// Couple-scoped re-fetch (mirrors `fetchFlights(coupleID:)`) — unlike flights, memories
+    /// were previously only ever loaded once via `fetchCoupleState()`'s bulk adopt, so a
+    /// partner's newly-added memory never appeared until the next full couple-state reload
+    /// (typically only on relaunch). This lets `AppModel.refreshMemories()` pull just the
+    /// memories table on foreground, same cadence as flights.
+    static func fetchMemories(coupleID: UUID) async throws -> [Memory] {
+        let memoryRows: [MemoryRow] = try await supabase
+            .from("memories")
+            .select()
+            .eq("couple_id", value: coupleID)
+            .execute()
+            .value
+
+        let memoryPhotoRows: [MemoryPhotoRow]
+        if memoryRows.isEmpty {
+            memoryPhotoRows = []
+        } else {
+            memoryPhotoRows = try await supabase
+                .from("memory_photos")
+                .select()
+                .in("memory_id", values: memoryRows.map(\.id))
+                .order("position")
+                .execute()
+                .value
+        }
+
+        let placeIDs = Array(Set(memoryRows.compactMap(\.placeId)))
+        let places = try await fetchPlaces(ids: placeIDs)
+
+        let photoRowsByMemory = Dictionary(grouping: memoryPhotoRows, by: \.memoryId)
+        var signedURLsByPhotoID: [UUID: URL] = [:]
+        await withTaskGroup(of: (UUID, URL?).self) { group in
+            for photoRow in memoryPhotoRows {
+                group.addTask { (photoRow.id, await memoryPhotoSignedURLWithRetry(path: photoRow.photoPath)) }
+            }
+            for await (photoID, url) in group {
+                if let url { signedURLsByPhotoID[photoID] = url }
+            }
+        }
+
+        return memoryRows.map { row in
+            let place = row.placeId.flatMap { places[$0] }
+            let photoRows = (photoRowsByMemory[row.id] ?? []).sorted { $0.position < $1.position }
+            let photos = photoRows.compactMap { photoRow -> MemoryPhoto? in
+                guard let url = signedURLsByPhotoID[photoRow.id] else { return nil }
+                return MemoryPhoto(id: photoRow.id, path: photoRow.photoPath, url: url)
+            }
+            return Memory(
+                id: row.id,
+                title: row.title,
+                place: place,
+                date: row.occurredAt,
+                note: row.note,
+                photos: photos,
+                tripID: row.tripId
+            )
+        }
+    }
+
     /// Path includes a fresh photo id per upload (unlike the old single-photo `{coupleID}/{memoryID}.jpg`
     /// scheme) so a memory can hold more than one photo — the couple id stays the leading path
     /// segment since that's what the storage RLS policies key off.
@@ -1793,13 +2222,18 @@ enum BackendService {
             .execute()
             .value
 
-        var photos: [MemoryPhoto] = []
-        for row in rows.sorted(by: { $0.position < $1.position }) {
-            if let url = await memoryPhotoSignedURLWithRetry(path: row.photoPath) {
-                photos.append(MemoryPhoto(id: row.id, path: row.photoPath, url: url))
+        var signedURLsByPhotoID: [UUID: URL] = [:]
+        await withTaskGroup(of: (UUID, URL?).self) { group in
+            for row in rows {
+                group.addTask { (row.id, await memoryPhotoSignedURLWithRetry(path: row.photoPath)) }
+            }
+            for await (photoID, url) in group {
+                if let url { signedURLsByPhotoID[photoID] = url }
             }
         }
-        return photos
+        return rows.sorted(by: { $0.position < $1.position }).compactMap { row in
+            signedURLsByPhotoID[row.id].map { MemoryPhoto(id: row.id, path: row.photoPath, url: $0) }
+        }
     }
 
     static func deleteMemoryPhoto(id: UUID, path: String) async throws {
@@ -1963,14 +2397,14 @@ enum BackendService {
         func toModel() -> ThisOrThatPrompt { ThisOrThatPrompt(id: id, optionA: optionA, optionB: optionB, active: active, category: category, tier: tier) }
     }
 
-    private struct DiscussionTopicRow: Decodable {
+    private struct DeepConversationTopicRow: Decodable {
         var id: UUID
         var topic: String
         var active: Bool
         var category: String
         var tier: String
 
-        func toModel() -> DiscussionTopic { DiscussionTopic(id: id, topic: topic, active: active, category: category, tier: tier) }
+        func toModel() -> DeepConversationTopic { DeepConversationTopic(id: id, topic: topic, active: active, category: category, tier: tier) }
     }
 
     struct GameSessionDetail {
@@ -1983,19 +2417,6 @@ enum BackendService {
         /// partner's only once both have answered the same round (enforced by RLS, not by
         /// this client filtering anything out).
         var responses: [GameResponse]
-    }
-
-    static func startGameSession(gameType: GameType) async throws -> UUID {
-        struct Params: Encodable {
-            var pGameType: String
-            enum CodingKeys: String, CodingKey { case pGameType = "p_game_type" }
-        }
-        let id: UUID = try await supabase
-            .rpc("start_game_session", params: Params(pGameType: gameType.rawValue))
-            .execute()
-            .value
-        Analytics.capture(Analytics.Event.sessionStart, properties: ["game_type": gameType.rawValue, "is_deck": false])
-        return id
     }
 
     private struct GameDeckRow: Decodable {
@@ -2054,18 +2475,6 @@ enum BackendService {
         try await supabase.rpc("abandon_game_session", params: Params(pSessionId: id)).execute()
     }
 
-    /// Deletes only the caller's own responses for a completed session and resets it back to
-    /// `active` — see `edit_my_game_responses` (the partner's own answers are left untouched;
-    /// `advance_game_session` naturally re-completes the session once the caller finishes
-    /// resubmitting all rounds).
-    static func editMyGameResponses(sessionID: UUID) async throws {
-        struct Params: Encodable {
-            var pSessionId: UUID
-            enum CodingKeys: String, CodingKey { case pSessionId = "p_session_id" }
-        }
-        try await supabase.rpc("edit_my_game_responses", params: Params(pSessionId: sessionID)).execute()
-    }
-
     static func markDiscussionRound(roundID: UUID, status: DiscussionRoundStatus) async throws {
         struct Params: Encodable {
             var pRoundId: UUID
@@ -2079,7 +2488,7 @@ enum BackendService {
     }
 
     /// Returns today's Daily Activity session id, creating it server-side on first call each day
-    /// — see `get_daily_question_session` (an ordinary 1-round `discuss_before_travelling`
+    /// — see `get_daily_question_session` (an ordinary 1-round `deep_conversations`
     /// session flagged `is_daily`, so it plays through the exact same `GameSessionStore` flow as
     /// any other game).
     static func getDailyQuestionSession() async throws -> UUID {
@@ -2105,6 +2514,24 @@ enum BackendService {
         let rows: [DailyStreakRow] = try await supabase.from("daily_streaks").select().limit(1).execute().value
         guard let row = rows.first else { return (0, 0) }
         return (row.currentStreak, row.longestStreak)
+    }
+
+    private struct DailyQuestionStatusRow: Decodable {
+        var myAnswered: Bool
+        var partnerAnswered: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case myAnswered = "my_answered"
+            case partnerAnswered = "partner_answered"
+        }
+    }
+
+    /// No row yet means today's session hasn't even been created (neither partner has opened
+    /// it), which reads the same as "nobody's answered" — see `get_daily_question_status`.
+    static func fetchDailyQuestionStatus() async throws -> (mine: Bool, partner: Bool) {
+        let rows: [DailyQuestionStatusRow] = try await supabase.rpc("get_daily_question_status").execute().value
+        guard let row = rows.first else { return (false, false) }
+        return (row.myAnswered, row.partnerAnswered)
     }
 
     private struct DeckProgressRow: Decodable {
@@ -2187,7 +2614,7 @@ enum BackendService {
         let unique = Array(Set(contentIDs))
         guard !unique.isEmpty else { return [:] }
         switch gameType {
-        case .travelTrivia:
+        case .triviaBattle:
             let rows: [TriviaQuestionRow] = try await supabase.from("trivia_questions").select().in("id", values: unique).execute().value
             return Dictionary(uniqueKeysWithValues: rows.map { ($0.id, GameRoundContent.trivia($0.toModel())) })
         case .moreLikely:
@@ -2196,9 +2623,9 @@ enum BackendService {
         case .thisOrThat:
             let rows: [ThisOrThatPromptRow] = try await supabase.from("this_or_that_prompts").select().in("id", values: unique).execute().value
             return Dictionary(uniqueKeysWithValues: rows.map { ($0.id, GameRoundContent.thisOrThat($0.toModel())) })
-        case .discussBeforeTravelling:
-            let rows: [DiscussionTopicRow] = try await supabase.from("discussion_topics").select().in("id", values: unique).execute().value
-            return Dictionary(uniqueKeysWithValues: rows.map { ($0.id, GameRoundContent.discuss($0.toModel())) })
+        case .deepConversations:
+            let rows: [DeepConversationTopicRow] = try await supabase.from("deep_conversation_topics").select().in("id", values: unique).execute().value
+            return Dictionary(uniqueKeysWithValues: rows.map { ($0.id, GameRoundContent.deepConversation($0.toModel())) })
         }
     }
 
@@ -2256,6 +2683,7 @@ enum BackendService {
         case memoryAdded = "memory_added"
         case gameStarted = "game_started"
         case gameResultsReady = "game_results_ready"
+        case gamePartnerFinished = "game_partner_finished"
         case gameReminder = "game_reminder"
     }
 
@@ -2263,15 +2691,23 @@ enum BackendService {
     /// never throws. Called right after a real, synced write succeeds (never for a
     /// pending/local-only trip or memory added before pairing), since notifying about
     /// something that doesn't exist in the partner's own view yet would be misleading.
-    /// `sessionID`/`gameType` are only meaningful for `.gameReminder`/`.gameResultsReady` — they
-    /// ride along in the push payload so tapping the delivered notification can deep-link
-    /// straight into that session (see `PushNotificationDelegate`) instead of just opening the app.
-    static func notifyPartner(event: CoupleNotificationEvent, detail: String? = nil, sessionID: UUID? = nil, gameType: GameType? = nil) async {
+    /// `sessionID`/`gameType` are only meaningful for `.gameReminder`/`.gameResultsReady`/
+    /// `.gamePartnerFinished` — they ride along in the push payload so tapping the delivered
+    /// notification can deep-link straight into that session (see `PushNotificationDelegate`)
+    /// instead of just opening the app. `target: .self` redirects the push to the caller's own
+    /// devices instead of the partner's — see the call site in `AppModel.addMemory` for why.
+    enum NotifyTarget: String {
+        case partner
+        case selfDevice = "self"
+    }
+
+    static func notifyPartner(event: CoupleNotificationEvent, detail: String? = nil, sessionID: UUID? = nil, gameType: GameType? = nil, target: NotifyTarget = .partner) async {
         guard let accessToken = currentAccessToken else { return }
         var body: [String: Any] = ["eventType": event.rawValue]
         if let detail { body["detail"] = detail }
         if let sessionID { body["sessionId"] = sessionID.uuidString }
         if let gameType { body["gameType"] = gameType.rawValue }
+        if target != .partner { body["target"] = target.rawValue }
 
         var request = URLRequest(url: SupabaseConfig.projectURL.appendingPathComponent("functions/v1/notify-couple-event"))
         request.httpMethod = "POST"
@@ -2289,13 +2725,14 @@ enum BackendService {
         var partnerMemoryAdded: Bool
         var partnerGameStarted: Bool
         var partnerGameResultsReady: Bool
+        var partnerGamePartnerFinished: Bool
         var dailyStreakReminder: Bool
         var partnerInviteReminder: Bool
 
         static let allEnabled = CoupleNotificationPreferences(
             partnerDrawingSaved: true, partnerTripAdded: true, partnerMemoryAdded: true,
-            partnerGameStarted: true, partnerGameResultsReady: true, dailyStreakReminder: true,
-            partnerInviteReminder: true
+            partnerGameStarted: true, partnerGameResultsReady: true, partnerGamePartnerFinished: true,
+            dailyStreakReminder: true, partnerInviteReminder: true
         )
     }
 
@@ -2306,6 +2743,7 @@ enum BackendService {
         var partnerMemoryAdded: Bool
         var partnerGameStarted: Bool
         var partnerGameResultsReady: Bool
+        var partnerGamePartnerFinished: Bool
         var dailyStreakReminder: Bool
         var partnerInviteReminder: Bool
 
@@ -2316,6 +2754,7 @@ enum BackendService {
             case partnerMemoryAdded = "partner_memory_added"
             case partnerGameStarted = "partner_game_started"
             case partnerGameResultsReady = "partner_game_results_ready"
+            case partnerGamePartnerFinished = "partner_game_partner_finished"
             case dailyStreakReminder = "daily_streak_reminder"
             case partnerInviteReminder = "partner_invite_reminder"
         }
@@ -2339,6 +2778,7 @@ enum BackendService {
             partnerMemoryAdded: row.partnerMemoryAdded,
             partnerGameStarted: row.partnerGameStarted,
             partnerGameResultsReady: row.partnerGameResultsReady,
+            partnerGamePartnerFinished: row.partnerGamePartnerFinished,
             dailyStreakReminder: row.dailyStreakReminder,
             partnerInviteReminder: row.partnerInviteReminder
         )
@@ -2353,6 +2793,7 @@ enum BackendService {
             partnerMemoryAdded: prefs.partnerMemoryAdded,
             partnerGameStarted: prefs.partnerGameStarted,
             partnerGameResultsReady: prefs.partnerGameResultsReady,
+            partnerGamePartnerFinished: prefs.partnerGamePartnerFinished,
             dailyStreakReminder: prefs.dailyStreakReminder,
             partnerInviteReminder: prefs.partnerInviteReminder
         )
@@ -2363,21 +2804,15 @@ enum BackendService {
     }
 }
 
-private extension TripCategory {
-    var dbValue: String {
-        switch self {
-        case .seeingEachOther: "seeing_each_other"
-        case .together: "together"
-        case .personal: "personal"
-        }
-    }
+/// `trips.category` is still the underlying TEXT column from when trips had a three-way
+/// "reason for travel" (Reunion/Together/Personal) — kept as-is rather than migrating the
+/// schema for what's now just a yes/no distinction, since it's a free-text column with no
+/// database-level enum constraint to fight. Any row written before this simplification (holding
+/// "together" or "personal") reads back as `false`, same as a fresh non-reunion trip would.
+private func isReunionCategory(_ raw: String) -> Bool {
+    raw == "seeing_each_other"
+}
 
-    init?(dbValue: String) {
-        switch dbValue {
-        case "seeing_each_other": self = .seeingEachOther
-        case "together": self = .together
-        case "personal": self = .personal
-        default: return nil
-        }
-    }
+private func categoryDBValue(isReunion: Bool) -> String {
+    isReunion ? "seeing_each_other" : "personal"
 }

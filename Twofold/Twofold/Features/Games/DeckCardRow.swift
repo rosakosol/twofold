@@ -16,6 +16,12 @@
 import SwiftUI
 
 struct DeckCardRow: View {
+    /// Fixed total card height (padding included) — sized for a 2-line title, the longest
+    /// `Text(deck.title)` is now allowed to grow to. Every card uses this same constant so decks
+    /// with short one-line titles don't render visibly shorter than ones that wrap to two lines,
+    /// both side-by-side in the Travel carousel and stacked in the full-width browse lists.
+    private static let cardHeight: CGFloat = 150
+
     let deck: GameDeck
     let progress: DeckProgress?
     /// Shows the deck's topic instead of its game type — used by cross-topic lists (one game
@@ -25,6 +31,11 @@ struct DeckCardRow: View {
 
     @Environment(AppModel.self) private var appModel
     @State private var showingPremiumGate = false
+    /// Tapping a locked (partner-required) card opens this rather than doing nothing — a lock
+    /// badge with no tap action just teaches people the card is broken. Premium-lock keeps
+    /// taking precedence when a deck is both Premium-tier and partner-required — one blocker
+    /// shown at a time.
+    @State private var showingPartnerGate = false
 
     private var isLocked: Bool { appModel.isDeckLocked(deck) }
     private var bothCompleted: Bool { progress?.bothCompleted ?? false }
@@ -35,7 +46,8 @@ struct DeckCardRow: View {
                 Button { showingPremiumGate = true } label: { content }
                     .buttonStyle(.plain)
             } else if !appModel.partnerConnected {
-                content
+                Button { showingPartnerGate = true } label: { content }
+                    .buttonStyle(.plain)
             } else if bothCompleted, let progress {
                 NavigationLink {
                     gameDestinationView(gameType: deck.gameType, sessionID: progress.sessionID, title: deck.title, topic: deck.topic)
@@ -48,6 +60,9 @@ struct DeckCardRow: View {
         }
         .sheet(isPresented: $showingPremiumGate) {
             DeckPremiumGateView(deck: deck)
+        }
+        .sheet(isPresented: $showingPartnerGate) {
+            PartnerRequiredGateView()
         }
     }
 
@@ -64,6 +79,12 @@ struct DeckCardRow: View {
                         .font(.subheadline.weight(.bold))
                         .foregroundStyle(Theme.ink)
                         .multilineTextAlignment(.leading)
+                        // Capped and given a stable intrinsic height so every card in the same
+                        // row/list ends up the same total height regardless of title length —
+                        // paired with `.frame(height: cardHeight)` below and the vertical
+                        // `Spacer` that pins the avatar row to the bottom.
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                     if bothCompleted {
                         Label("Completed", systemImage: "checkmark.seal.fill")
                             .font(.caption2.weight(.semibold))
@@ -88,6 +109,11 @@ struct DeckCardRow: View {
                 }
             }
 
+            // Absorbs whatever vertical slack a short (1-line) title leaves inside the fixed
+            // card height, so the avatar row below always sits at the same distance from the
+            // card's bottom edge instead of drifting up when there's less title above it.
+            Spacer(minLength: 0)
+
             HStack(spacing: 0) {
                 // ZStack (not HStack's negative spacing) so draw order can put "me" on top
                 // regardless of left-to-right position — otherwise partner's avatar, added
@@ -100,12 +126,13 @@ struct DeckCardRow: View {
                 .frame(width: 56, height: 32, alignment: .leading)
 
                 Spacer(minLength: 0)
-                if !isLocked {
+                if !isLocked && appModel.partnerConnected {
                     Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
                 }
             }
         }
         .padding(Theme.Spacing.sm)
+        .frame(height: Self.cardHeight, alignment: .top)
         .background(bothCompleted ? Theme.leafGreen.opacity(0.1) : Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         .overlay {
             // A completed deck's pale green fill barely reads as different from the page
@@ -114,7 +141,35 @@ struct DeckCardRow: View {
             RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
                 .strokeBorder(bothCompleted ? Theme.leafGreen.opacity(0.5) : Theme.subtleInk.opacity(0.12), lineWidth: bothCompleted ? 1.5 : 1)
         }
-        .opacity(isLocked || !appModel.partnerConnected ? 0.75 : 1)
+        // Same scrim + corner lock badge + "Partner required" capsule `GameCard` already uses
+        // for its own locked state — one visual vocabulary for "needs a partner" everywhere in
+        // Games, not a second, different-looking lock idiom just for deck cards.
+        .overlay {
+            if !isLocked && !appModel.partnerConnected {
+                RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+                    .fill(.black.opacity(0.4))
+                    .overlay(alignment: .topTrailing) {
+                        ZStack {
+                            Circle().fill(.white)
+                            Image(systemName: "lock.fill")
+                                .font(.caption)
+                                .foregroundStyle(Theme.ink)
+                        }
+                        .frame(width: 26, height: 26)
+                        .padding(Theme.Spacing.sm)
+                    }
+                    .overlay(alignment: .bottom) {
+                        Text("Partner required")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, Theme.Spacing.sm)
+                            .padding(.vertical, 6)
+                            .background(.black.opacity(0.3), in: Capsule())
+                            .padding(.bottom, Theme.Spacing.sm)
+                    }
+            }
+        }
+        .opacity(isLocked ? 0.75 : 1)
         .contentShape(Rectangle())
     }
 

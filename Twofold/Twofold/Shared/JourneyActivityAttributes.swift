@@ -26,8 +26,12 @@ struct JourneyActivityAttributes: ActivityAttributes {
         var timeRemainingLabel: String
         var isReunion: Bool
 
-        var scheduledDeparture: Date
-        var scheduledArrival: Date
+        // Optional, not fabricated to `.now()` when unknown — a flight the provider hasn't
+        // supplied any schedule data for yet must render as "not available" on the Lock Screen,
+        // same as `FlightTrackingView` already does for the same nil case, rather than showing a
+        // live, ticking "now" as if it were a real departure/arrival time.
+        var scheduledDeparture: Date?
+        var scheduledArrival: Date?
         var estimatedDeparture: Date?
         var estimatedArrival: Date?
         var actualDeparture: Date?

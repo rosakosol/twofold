@@ -26,9 +26,9 @@ struct MainTabView: View {
                 HomeView()
                     .postHogScreenView("Home")
             }
-            Tab("Trips", systemImage: "airplane", value: .trips) {
+            Tab("Travel", systemImage: "airplane", value: .trips) {
                 TripsListView()
-                    .postHogScreenView("Trips")
+                    .postHogScreenView("Travel")
             }
             Tab("Memories", systemImage: "photo.on.rectangle.angled", value: .memories) {
                 MemoriesView()
@@ -38,7 +38,7 @@ struct MainTabView: View {
                 GamesHubView()
                     .postHogScreenView("Games")
             }
-            Tab("Passport", image: "passport", value: .passport) {
+            Tab("Stats", systemImage: "chart.bar.fill", value: .passport) {
                 PassportView()
                     .postHogScreenView("Passport")
             }

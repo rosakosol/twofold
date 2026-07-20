@@ -2,15 +2,18 @@
 //  PassportView.swift
 //  Twofold
 //
-//  The "Passport" tab. The main page shows the couple's passport card — hero distance
-//  line, both partners joined by a flight path, and the headline flight stats — styled
-//  to match the All Flight Stats page. "All Flight Stats" drills into the full breakdown
-//  (scoped All / user / partner via a segmented control): per-partner flights, domestic/
-//  international/long-haul, distance as Earth/Moon/Sun multiples with progress bars,
-//  flight time, top airports/airlines/routes, and countries — every card individually
-//  shareable as an image. All computed from real trips, never fabricated.
+//  The "Stats" tab (still `MainTab.passport` internally, and the flight-specific card below
+//  keeps the "Passport" name — only the tab itself was renamed, to reflect that relationship
+//  stats, not just flight stats, are now the primary content). `RelationshipStatsCard` leads —
+//  days together, trips, memories, and deeper milestones (reunions, longest/shortest trip,
+//  longest separation, next reunion countdown). The passport card (flight-specific: routes,
+//  airlines, airports) sits underneath as its own clearly-labeled secondary section. "All Flight
+//  Stats" drills into the full flight breakdown (scoped All / user / partner via a segmented
+//  control) — every card there individually shareable as an image. All computed from real trips,
+//  never fabricated.
 //
 
+import PostHog
 import SwiftUI
 
 struct PassportView: View {
@@ -21,11 +24,21 @@ struct PassportView: View {
         FlightStats(trips: appModel.trips, couple: appModel.couple)
     }
 
+    private var relationshipStats: RelationshipMilestoneStats {
+        RelationshipMilestoneStats(trips: appModel.trips, memories: appModel.memories, startedDatingOn: appModel.couple.startedDatingOn)
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: Theme.Spacing.lg) {
-                    passportCard
+                    VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                        Text("RELATIONSHIP STATS")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(Theme.subtleInk)
+                            .padding(.leading, Theme.Spacing.xs)
+                        RelationshipStatsCard(couple: appModel.couple, stats: relationshipStats)
+                    }
 
                     Button {
                         showingSnapshot = true
@@ -37,41 +50,62 @@ struct PassportView: View {
                             .background(Theme.skyBlue, in: Capsule())
                             .foregroundStyle(.white)
                     }
+
+                    VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                        Text("PASSPORT")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(Theme.subtleInk)
+                            .padding(.leading, Theme.Spacing.xs)
+                        passportCard
+                    }
                 }
                 .padding(Theme.Spacing.md)
             }
             .background(Theme.backgroundGradient.ignoresSafeArea())
-            .navigationTitle("Passport")
+            .navigationTitle("Stats")
             .sheet(isPresented: $showingSnapshot) {
-                SnapshotShareView()
+                RelationshipStatsShareView(couple: appModel.couple, trips: appModel.trips, memories: appModel.memories, stats: relationshipStats)
             }
         }
     }
 
     // MARK: - Passport card
 
-    private var passportCard: some View {
-        SectionCard {
-            TwofoldBrandMark(color: Theme.ink, size: 32, textStyle: .title3)
-                .frame(maxWidth: .infinity, alignment: .center)
+    /// Deliberately its own dark "cover" look, not `SectionCard` — every other card on this tab
+    /// reads as an app screen; this one is styled to read as the actual travel document its
+    /// name promises (navy cover, gold foil, engraved serif type, a bordered visa-page grid),
+    /// while every number in it stays exactly as real as the rest of the app.
+    private enum PassportInk {
+        static let coverTop = Color(hex: "1B2A4A")
+        static let coverBottom = Color(hex: "0B111F")
+        static let gold = Color(hex: "D8B463")
+        static let cream = Color(hex: "F3ECD9")
+    }
 
-            // Hero — same voice and type treatment as the All Flight Stats page.
+    private var passportCard: some View {
+        VStack(spacing: Theme.Spacing.lg) {
+            passportHeader
+
+            // Hero — same voice and type treatment as the All Flight Stats page, engraved
+            // instead of the app's usual rounded/sky-blue treatment.
             VStack(spacing: Theme.Spacing.xs) {
                 Text(appModel.couple.sharesHomeCity ? "Together, you've travelled" : "You've travelled")
-                    .font(.headline)
-                    .foregroundStyle(Theme.subtleInk)
+                    .font(.system(.subheadline, design: .serif))
+                    .foregroundStyle(.white)
 
-                Text("\(Text(MeasurementPreference.convertedValue(km: appModel.stats.totalDistanceKm), format: .number.precision(.fractionLength(0))).font(.system(size: 44, weight: .bold, design: .rounded)).foregroundStyle(Theme.skyBlue))\(Text(" \(MeasurementPreference.unitSuffix())").font(.title.weight(.bold)).foregroundStyle(Theme.leafGreen))")
+                Text("\(Text(MeasurementPreference.convertedValue(km: appModel.stats.totalDistanceKm), format: .number.precision(.fractionLength(0))).font(.system(size: 44, weight: .bold, design: .rounded)).foregroundStyle(PassportInk.gold))\(Text(" \(MeasurementPreference.unitSuffix())").font(.title.weight(.bold)).foregroundStyle(PassportInk.cream.opacity(0.85)))")
 
                 if !appModel.couple.sharesHomeCity {
                     Text("for each other")
-                        .font(.headline)
-                        .foregroundStyle(Theme.subtleInk)
+                        .font(.system(.subheadline, design: .serif))
+                        .foregroundStyle(.white)
                 }
             }
             .frame(maxWidth: .infinity)
 
             coupleFlightPath
+
+            passportDivider
 
             HStack(alignment: .top, spacing: Theme.Spacing.sm) {
                 passportStat(label: "Flights", value: "\(flightStats.flightCount)")
@@ -91,43 +125,75 @@ struct PassportView: View {
                     Image(systemName: "chevron.right")
                         .font(.caption.weight(.bold))
                 }
-                .foregroundStyle(Theme.skyBlue)
+                .foregroundStyle(PassportInk.gold)
                 .padding(.horizontal, Theme.Spacing.md)
                 .padding(.vertical, 12)
-                .background(Theme.skyBlue.opacity(0.1), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .background(PassportInk.gold.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(PassportInk.gold.opacity(0.4), lineWidth: 1)
+                }
             }
         }
+        .padding(Theme.Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            ZStack {
+                LinearGradient(colors: [PassportInk.coverTop, PassportInk.coverBottom], startPoint: .top, endPoint: .bottom)
+                RadialGradient(colors: [.white.opacity(0.06), .clear], center: .top, startRadius: 10, endRadius: 320)
+            }
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .overlay {
+            // Cover border, plus a slightly inset second line — the embossed double-rule
+            // classic passport covers use around their emblem/title.
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .strokeBorder(PassportInk.gold.opacity(0.55), lineWidth: 1.5)
+            RoundedRectangle(cornerRadius: 21, style: .continuous)
+                .strokeBorder(PassportInk.gold.opacity(0.25), lineWidth: 1)
+                .padding(7)
+        }
+    }
+
+    /// The cover's title block — an emblem standing in for a national seal, "PASSPORT" in
+    /// letter-spaced engraved serif.
+    private var passportHeader: some View {
+        VStack(spacing: 6) {
+            Image(systemName: "seal.fill")
+                .font(.system(size: 26))
+                .foregroundStyle(PassportInk.gold)
+            Text("PASSPORT")
+                .font(.system(.title3, design: .serif).weight(.bold))
+                .tracking(6)
+                .foregroundStyle(PassportInk.cream)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var passportDivider: some View {
+        Rectangle()
+            .fill(PassportInk.gold.opacity(0.3))
+            .frame(height: 1)
     }
 
     /// Both partners joined by a dashed flight path with a plane at its midpoint.
     private var coupleFlightPath: some View {
         HStack(spacing: Theme.Spacing.sm) {
-            VStack(spacing: Theme.Spacing.xs) {
-                AvatarView(person: appModel.currentUser, size: 56, showsRing: true)
-                Text(appModel.currentUser.name)
-                    .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
-            }
+            AvatarView(person: appModel.currentUser, size: 56, showsRing: true)
 
             HorizontalDashedLine()
-                .stroke(Theme.skyBlue.opacity(0.6), style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: [5, 5]))
+                .stroke(PassportInk.gold.opacity(0.6), style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: [5, 5]))
                 .frame(height: 2)
                 .overlay {
                     Image(systemName: "airplane")
                         .font(.subheadline)
-                        .foregroundStyle(Theme.skyBlue)
+                        .foregroundStyle(PassportInk.gold)
                         .padding(6)
-                        .background(Theme.cardBackground, in: Circle())
+                        .background(PassportInk.coverBottom, in: Circle())
+                        .overlay { Circle().strokeBorder(PassportInk.gold.opacity(0.5), lineWidth: 1) }
                 }
-                .padding(.bottom, Theme.Spacing.md)
 
-            VStack(spacing: Theme.Spacing.xs) {
-                AvatarView(person: appModel.partner, size: 56, showsRing: true)
-                Text(appModel.partner.name)
-                    .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
-            }
+            AvatarView(person: appModel.partner, size: 56, showsRing: true)
         }
         .frame(maxWidth: .infinity)
         .padding(.horizontal, Theme.Spacing.lg)
@@ -137,12 +203,12 @@ struct PassportView: View {
         VStack(spacing: 2) {
             Text(label.uppercased())
                 .font(.caption2.weight(.semibold))
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(PassportInk.gold.opacity(0.75))
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
             Text(value)
                 .font(.system(size: 22, weight: .bold, design: .rounded))
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(PassportInk.cream)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
         }
@@ -176,8 +242,8 @@ private struct FullStatsView: View {
     private var scopedTrips: [Trip] {
         switch scope {
         case .all: appModel.trips
-        case .user: appModel.trips.filter { $0.travelerID == appModel.currentUser.id }
-        case .partner: appModel.trips.filter { $0.travelerID == appModel.partner.id }
+        case .user: appModel.trips.filter { $0.travelerIDs.contains(appModel.currentUser.id) }
+        case .partner: appModel.trips.filter { $0.travelerIDs.contains(appModel.partner.id) }
         }
     }
 
@@ -229,6 +295,7 @@ private struct FullStatsView: View {
         .background(Theme.backgroundGradient.ignoresSafeArea())
         .navigationTitle("Flight Stats")
         .navigationBarTitleDisplayMode(.inline)
+        .postHogScreenView("Passport: Full Stats")
     }
 
     private var heroName: String {
@@ -468,8 +535,8 @@ struct FlightStats {
         let flightTrips = trips.filter { $0.flight != nil }
 
         flightCount = flightTrips.count
-        userFlightCount = flightTrips.count { $0.travelerID == couple.partnerA.id }
-        partnerFlightCount = flightTrips.count { $0.travelerID == couple.partnerB.id }
+        userFlightCount = flightTrips.count { $0.travelerIDs.contains(couple.partnerA.id) }
+        partnerFlightCount = flightTrips.count { $0.travelerIDs.contains(couple.partnerB.id) }
         domesticCount = flightTrips.count { $0.origin.country == $0.destination.country }
         internationalCount = flightTrips.count { $0.origin.country != $0.destination.country }
         longHaulCount = flightTrips.count { $0.distanceKm > Self.longHaulKm }

@@ -5,7 +5,7 @@
 //  Everything a Home Screen widget needs to render, written by the main app (which is the only
 //  thing that talks to Supabase/WeatherKit) into the shared App Group container, then read
 //  synchronously and locally by each widget's TimelineProvider — no network/auth inside the
-//  extension except DoodlePadWidget (public bucket, see PublicStorageURL.swift). Key is
+//  extension except DrawingPadWidget (public bucket, see PublicStorageURL.swift). Key is
 //  versioned so a future shape change can't crash an old cached read.
 //
 //  Shared with LiveActivitiesExtension (see the "Twofold" folder's membership exception for
@@ -13,13 +13,6 @@
 //
 
 import Foundation
-
-/// `CLLocationCoordinate2D` itself isn't `Codable` — this is just its two doubles, boxed for
-/// JSON storage in the snapshot.
-struct WidgetCoordinate: Codable {
-    var latitude: Double
-    var longitude: Double
-}
 
 struct WidgetSnapshot: Codable {
     struct FlightInfo: Codable {
@@ -29,26 +22,23 @@ struct WidgetSnapshot: Codable {
         var status: FlightStatus
         var originCity: String
         var destinationCity: String
+        /// IATA/ICAO airport code (e.g. "MEL") — FlightAirport.displayCode's same fallback
+        /// chain, shown alongside the city name rather than instead of it.
+        var originCode: String
+        var destinationCode: String
         var bestDeparture: Date?
         var bestArrival: Date?
-        /// Whichever leg is currently relevant (departure delay pre-takeoff, arrival delay
-        /// once airborne) — used by FlightTrackingWidget/FlightCountdownWidget, nil when on
-        /// time/unknown.
+        /// Whichever leg is currently relevant (departure delay pre-takeoff, arrival delay once
+        /// airborne) — used by FlightTrackingWidget's delay badge, nil when on time/unknown.
         var delaySeconds: Int?
         var flightNumber: String
-        var airlineName: String?
-        var originCoordinate: WidgetCoordinate?
-        var destinationCoordinate: WidgetCoordinate?
-        /// Live in-flight position if the provider has one; nil pre-departure/post-arrival, in
-        /// which case FlightTrackingWidget parks the marker at the origin/destination instead
-        /// (mirrors FlightMapView's own pre-departure "avatar parked at origin" behavior).
-        var positionCoordinate: WidgetCoordinate?
         /// 0...1, same as Flight.progress — reused directly rather than recomputed in the
         /// extension, since bestDeparture/bestArrival alone don't capture the provider's actual
-        /// live-position-based progress for an in-flight leg.
+        /// live-position-based progress for an in-flight leg. Drives FlightTrackingWidget's
+        /// progress rail.
         var progress: Double
         /// nil = no traveler set on this flight. true = the current user is travelling; false =
-        /// the partner is. Drives which cached avatar (if either) rides the progress rail.
+        /// the partner is. Drives which cached avatar (if either) shows next to the countdown.
         var travelerIsMe: Bool?
     }
 
@@ -74,18 +64,8 @@ struct WidgetSnapshot: Codable {
         var tripCount: Int
     }
 
-    /// Sourced from FlightStats(trips:couple:) (PassportView.swift) — pure/sync/cheap, computed
-    /// in WidgetSnapshotWriter rather than duplicating that aggregation logic here.
-    struct TravelStats: Codable {
-        var flightCount: Int
-        var countryCount: Int
-        var totalDistanceKm: Double
-        var nextTripDestination: String?
-        var nextTripDate: Date?
-    }
-
-    /// Needed alongside coupleID/partnerID for DoodleSideBySideWidget to build *my* public
-    /// drawing-pad URL, the same way DoodlePadWidget already builds the partner's.
+    /// Needed alongside coupleID/partnerID for DrawingPadWidget's Medium side-by-side layout to
+    /// build *my* public drawing-pad URL, the same way it already builds the partner's.
     var myID: UUID?
     var myName: String
     var partnerName: String
@@ -101,16 +81,11 @@ struct WidgetSnapshot: Codable {
     var latestMemory: MemoryInfo?
     var partnerWeather: WeatherInfo?
     var relationshipStats: RelationshipStats?
-    var travelStats: TravelStats?
-    /// Needed by DoodlePadWidget to build the partner's public drawing-pad URL itself
+    /// Needed by DrawingPadWidget to build the partner's public drawing-pad URL itself
     /// (PublicStorageURL.swift) — the one widget allowed its own network call.
     var coupleID: UUID?
     var partnerID: UUID?
     var writtenAt: Date
-    /// When GlobeWidget's cached image was last (re)rendered — carried forward across ordinary
-    /// snapshot writes so WidgetSnapshotWriter can gate the expensive MKMapSnapshotter call to
-    /// roughly once/24h instead of running it on every refresh.
-    var globeImageWrittenAt: Date?
 
     private static let suiteName = "group.com.orangefinch.Twofold"
     /// Bumped from v1 when isSubscriptionActive was replaced by subscriptionTier — the key is

@@ -32,7 +32,9 @@ struct WidgetBrandCorner: ViewModifier {
     func body(content: Content) -> some View {
         content.overlay(alignment: alignment) {
             WidgetBrandMark()
-                .padding(10)
+                // 14pt, not 10 — at 10 the mark sat close enough to the true corner that a
+                // widget's continuous rounded-corner mask could visibly eat into it.
+                .padding(14)
         }
     }
 }

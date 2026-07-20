@@ -10,6 +10,7 @@ import Foundation
 import Observation
 import PostHog
 import RevenueCat
+import Supabase
 
 @Observable
 final class AppModel {
@@ -21,7 +22,7 @@ final class AppModel {
     /// Every flight for the couple, independent of trip linkage — the authoritative list.
     /// See `Trip.flight` for the trip-scoped mirror kept for backward-compat UI.
     var flights: [Flight] = []
-    /// Home-screen doodle pads — only meaningful once paired, since there's no partner pad to
+    /// Home-screen drawing pads — only meaningful once paired, since there's no partner pad to
     /// compare against (and nowhere real to save to) before then.
     var myDrawingURL: URL?
     var partnerDrawingURL: URL?
@@ -35,6 +36,13 @@ final class AppModel {
     /// as "plus" server-side, so this being nil never actually locks anyone out of content).
     var subscriptionTier: String?
 
+    /// Server-persisted "seen it" flags — deliberately not UserDefaults/@AppStorage, since those
+    /// live in the app's local sandbox and get wiped on every uninstall/reinstall, showing these
+    /// one-time prompts again even though nothing about the account changed. See
+    /// `markPartnerConnectedCelebrationShown()`/`dismissSetupChecklist()`.
+    var partnerConnectedCelebrationShown = false
+    var setupChecklistDismissed = false
+
     /// Daily Activity streak — see `startOrResumeDailyQuestion()`/`refreshDailyStreak()`. Nil
     /// until the first fetch resolves (not defaulted to 0) so `DailyActivityCard` can show a
     /// placeholder instead of visibly flashing "Start a streak" before the real value loads.
@@ -46,6 +54,15 @@ final class AppModel {
     /// The actual discussion topic text for today's session — shown on `DailyActivityCard`
     /// instead of a generic teaser line. Nil while loading or if the fetch fails.
     var todaysDailyQuestionText: String?
+    /// Per-partner completion for today's question — drives the checkmark on each avatar in
+    /// `DailyActivityCard`. See `get_daily_question_status` for why this needs its own
+    /// RLS-bypassing RPC rather than reading `game_responses` directly.
+    var todaysMyAnswered = false
+    var todaysPartnerAnswered = false
+    /// Set when `startOrResumeDailyQuestion()` fails to obtain a session id — lets
+    /// `DailyActivityCard` show a real error state instead of spinning forever on a
+    /// `ProgressView` that's silently waiting on data that will never arrive.
+    var dailyQuestionError: String?
 
     /// All active decks + which ones this couple has started, cached after first load
     /// (`loadGameDecksIfNeeded()`) — powers the Games hub's topic list and progress bars. Not
@@ -59,6 +76,14 @@ final class AppModel {
     /// backend (an active `couples` row exists), not assumed the moment a code is shared.
     var partnerConnected: Bool = false
     var inviteCode: String?
+    /// Incoming "someone wants to connect" requests awaiting my decision (I'm the inviter on
+    /// each of these) — see `refreshPendingConnectionRequests()`/`respondToConnectionRequest(_:accept:)`.
+    var pendingConnectionRequests: [BackendService.PendingConnectionRequest] = []
+    /// My own outgoing request, if I redeemed a code and I'm still waiting on the inviter's
+    /// decision — see `refreshPendingOutgoingConnectionRequest()`. `RootView` checks this to
+    /// show a "waiting" screen instead of the forced re-subscribe paywall for someone who isn't
+    /// really solo, just not accepted yet.
+    var pendingOutgoingConnectionRequest: BackendService.OutgoingConnectionRequest?
 
     /// Set whenever a newly-crossed, not-yet-shown review milestone is detected — RootView
     /// presents `ReviewPromptView` as a sheet whenever this is non-nil. See
@@ -67,13 +92,40 @@ final class AppModel {
 
     /// Set once a real `couples` row exists for this user.
     private var backendCoupleID: UUID?
+    /// Kept alive for as long as a couple is loaded (started in `adopt`, torn down whenever
+    /// `backendCoupleID` is cleared) — without this, `flights` only ever learned about a
+    /// server-side change (a landed flight the cron just archived, a new flight the partner
+    /// added) when some specific view happened to call `refreshFlights()` itself. A flight the
+    /// server had already correctly marked done kept showing as "tracked" on Home/Trips
+    /// indefinitely if the app just sat open, only catching up once the user happened to open
+    /// that flight's own detail screen (which has its own, single-flight realtime subscription).
+    private var flightsRealtimeChannel: RealtimeChannelV2?
+    private var flightsRealtimeTask: Task<Void, Never>?
+    /// Which couple the current `flightsRealtimeChannel` (if any) belongs to — lets
+    /// `startFlightsRealtimeSubscription` skip re-subscribing when nothing actually changed
+    /// (see its own doc comment for why that matters, not just as an optimization).
+    private var flightsRealtimeCoupleID: UUID?
     /// Trips/memories added locally before pairing completed (no couple to attach them to
     /// yet). Flushed to the backend the moment a real couple shows up.
     private var pendingTripIDs: Set<Trip.ID> = []
     private var pendingMemoryIDs: Set<Memory.ID> = []
+    /// A real AeroAPI-resolved flight picked while adding a trip pre-pairing — `addTrip`'s
+    /// caller can't attach it via `AeroFlightService.addFlight` yet, since the trip it belongs
+    /// to doesn't exist server-side until pairing completes. Kept here (not just as local
+    /// `@State` on the view) so it survives past that screen and gets attempted once the trip
+    /// is actually inserted, in `performAdopt(_:)` — previously this was silently dropped.
+    private var pendingFlightCandidates: [Trip.ID: (faFlightId: String, travelerIDs: [Person.ID])] = [:]
     /// A pending memory's photos can't be uploaded until there's a real couple to namespace the
     /// storage path under — held here so they aren't silently dropped, and uploaded once paired.
     private var pendingMemoryPhotoData: [Memory.ID: [Data]] = [:]
+    /// Serializes `adopt(_:)` — it can legitimately be entered from three places (launch's
+    /// `loadSignedInState`, onboarding's `applyOnboardingAccount`, and Home's
+    /// `refreshCoupleStateIfNeeded`, itself fired from both `.onAppear` and
+    /// `.onChange(of: scenePhase)`), and `hasCouple` flips true partway through the function body
+    /// — so a second call can start while the first is still mid-flight. Without this, two
+    /// interleaved calls can both capture the same pending trip/memory before either writes back,
+    /// double-inserting it server-side and leaving a duplicate local copy.
+    private var inFlightAdopt: Task<Void, Never>?
 
     var currentUser: Person { couple.partnerA }
     var partner: Person { couple.partnerB }
@@ -88,10 +140,11 @@ final class AppModel {
     }
 
     /// The couple's relevant tracked flights for the Home carousel — whichever are currently in
-    /// progress or haven't departed yet, soonest departure first. Cancelled flights are excluded
+    /// progress, haven't departed yet, or landed within the last 15 minutes (see
+    /// `Flight.isCurrentlyRelevant`), soonest departure first. Cancelled flights are excluded
     /// (nothing useful to show live for those).
     var activeOrUpcomingFlights: [Flight] {
-        let relevant = flights.filter { !$0.cancelled && ($0.status.isActivelyTracked || ($0.bestArrival ?? .distantPast) > .now) }
+        let relevant = flights.filter { !$0.cancelled && $0.isCurrentlyRelevant }
         return relevant.sorted { ($0.bestDeparture ?? .distantFuture) < ($1.bestDeparture ?? .distantFuture) }
     }
 
@@ -104,6 +157,15 @@ final class AppModel {
 
     var pastTrips: [Trip] {
         trips.filter { !$0.isUpcoming && !$0.isActive }.sorted { $0.departureDate > $1.departureDate }
+    }
+
+    /// Every flight *not* in `activeOrUpcomingFlights` — trip-linked or not, for the Trips
+    /// screen's "Flights" tab, which surfaces every flight that's ever been added rather than
+    /// just untethered ones. Most recent first.
+    var completedFlights: [Flight] {
+        let activeIDs = Set(activeOrUpcomingFlights.map(\.id))
+        return flights.filter { !activeIDs.contains($0.id) }
+            .sorted { ($0.bestArrival ?? $0.scheduledArrival) > ($1.bestArrival ?? $1.scheduledArrival) }
     }
 
     var stats: MockData.RelationshipStats {
@@ -157,9 +219,11 @@ final class AppModel {
     /// leaving a solo (unpaired) user to fall back into onboarding just because
     /// `fetchCoupleState` found nothing.
     func loadSignedInState() async {
+        await retryPendingPushTokenRegistrationIfNeeded()
         await identifyWithRevenueCat()
         identifyWithPostHog()
         restorePendingMemoriesFromDisk()
+        restorePendingTripsFromDisk()
         if let state = try? await BackendService.fetchCoupleState() {
             await adopt(state)
         } else if let profile = try? await BackendService.fetchOwnProfile() {
@@ -185,22 +249,42 @@ final class AppModel {
         }
     }
 
+    /// Restores trips that were added before pairing (or otherwise never synced) from local
+    /// disk — see `PendingTripStore`. Same placement/reasoning as
+    /// `restorePendingMemoriesFromDisk()` just above.
+    private func restorePendingTripsFromDisk() {
+        for trip in PendingTripStore.loadAll() {
+            guard !trips.contains(where: { $0.id == trip.id }) else { continue }
+            trips.append(trip)
+            pendingTripIDs.insert(trip.id)
+        }
+    }
+
     /// Resets to the solo (unpaired) state and repopulates from the caller's own profile —
     /// shared by `loadSignedInState()` (launch/sign-in) and `refreshCoupleStateIfNeeded()`
     /// (an already-connected device discovering the couple was dissolved elsewhere). Reset
     /// first: at launch these are already at their zero-value defaults so it's a no-op, but
     /// reused mid-session this clears the *old* partner's data (partnerConnected,
     /// backendCoupleID, trips/memories/flights, drawing pad URLs) that would otherwise survive
-    /// and make a just-dissolved couple still look "connected" in the UI. Memories still in
-    /// `pendingMemoryIDs` are the exception — they were never tied to any couple in the first
-    /// place (added before ever pairing, still only durable via `PendingMemoryStore`), so they
-    /// survive this reset rather than being discarded along with the dissolved couple's data.
+    /// and make a just-dissolved couple still look "connected" in the UI. Trips/memories still in
+    /// `pendingTripIDs`/`pendingMemoryIDs` are the exception — they were never tied to any
+    /// couple in the first place (added before ever pairing, still only durable via
+    /// `PendingTripStore`/`PendingMemoryStore`), so they survive this reset rather than being
+    /// discarded along with the dissolved couple's data.
     private func adoptSoloProfile(_ profile: BackendService.OwnProfileState) async {
+        await stopFlightsRealtimeSubscription()
         partnerConnected = false
         backendCoupleID = nil
-        trips = []
+        trips = trips.filter { pendingTripIDs.contains($0.id) }
         memories = memories.filter { pendingMemoryIDs.contains($0.id) }
         flights = []
+        // Unlike every other path that clears `flights`, this one can't just call
+        // `refreshFlights()` afterward to reconcile Live Activities — it guards on
+        // `backendCoupleID`, which is already nil above. Ending against an empty list directly
+        // instead, so a flight-tracking Live Activity doesn't keep showing (now stale, since the
+        // couple that authorized it no longer exists) until the app happens to background/
+        // foreground or relaunch.
+        await LiveActivityManager.shared.syncActivities(for: [], travelerName: { _ in "" }, isReunion: { _ in false })
         myDrawingURL = nil
         partnerDrawingURL = nil
         couple = Self.placeholderCouple
@@ -220,6 +304,8 @@ final class AppModel {
         }
         isSubscriptionActive = profile.subscriptionActive
         subscriptionTier = profile.subscriptionTier
+        partnerConnectedCelebrationShown = profile.partnerConnectedCelebrationShown
+        setupChecklistDismissed = profile.setupChecklistDismissed
     }
 
     /// A device's own successful purchase/restore, applied instantly and locally (no network
@@ -229,6 +315,22 @@ final class AppModel {
     /// this local flag is what `RootView` actually reads).
     func markSubscriptionActive() {
         isSubscriptionActive = true
+    }
+
+    /// Flips instantly (so the caller's UI never shows the celebration twice in one session)
+    /// and persists server-side in the background — see `BackendService.markPartnerConnectedCelebrationShown`.
+    func markPartnerConnectedCelebrationShown() {
+        guard !partnerConnectedCelebrationShown else { return }
+        partnerConnectedCelebrationShown = true
+        Task { await BackendService.markPartnerConnectedCelebrationShown() }
+    }
+
+    /// Same pattern as `markPartnerConnectedCelebrationShown()` — instant local flip, persisted
+    /// server-side in the background.
+    func dismissSetupChecklist() {
+        guard !setupChecklistDismissed else { return }
+        setupChecklistDismissed = true
+        Task { await BackendService.markSetupChecklistDismissed() }
     }
 
     /// Tells RevenueCat who this device's user actually is, so its entitlement/purchase history
@@ -256,6 +358,7 @@ final class AppModel {
     /// Signs out and resets all local state back to the pre-auth placeholder — `RootView`
     /// picks this up via `hasCouple` and routes back to `WelcomeView`.
     func signOut() async {
+        await stopFlightsRealtimeSubscription()
         try? await BackendService.signOut()
         _ = try? await Purchases.shared.logOut()
         PostHogSDK.shared.reset()
@@ -267,10 +370,16 @@ final class AppModel {
         pendingTripIDs = []
         pendingMemoryIDs = []
         pendingMemoryPhotoData = [:]
+        pendingFlightCandidates = [:]
         trips = []
         memories = []
         flights = []
         couple = Self.placeholderCouple
+        // Otherwise `loadGameDecksIfNeeded()`'s nil-guard treats this account's Games hub as
+        // already loaded and shows the previous account's deck progress until something else
+        // happens to call `refreshGameDecks()` unconditionally.
+        gameDecks = nil
+        deckProgress = nil
     }
 
     private static var placeholderCouple: Couple {
@@ -324,10 +433,49 @@ final class AppModel {
         couple.partnerB.avatarURL = url
     }
 
+    /// Once paired, `couples.started_dating_on` is the value re-fetches actually read back
+    /// (`profiles.anniversary_date` only matters pre-pairing), so this must target whichever one
+    /// is actually authoritative right now or the edit silently reverts on the next refresh.
     func updateAnniversaryDate(_ date: Date) async {
         guard date != couple.startedDatingOn else { return }
-        try? await BackendService.updateAnniversaryDate(date)
+        if let coupleID = backendCoupleID {
+            try? await BackendService.updateCoupleAnniversaryDate(coupleID: coupleID, date: date)
+        } else {
+            try? await BackendService.updateAnniversaryDate(date)
+        }
         couple.startedDatingOn = date
+    }
+
+    /// Incoming connection requests (double verification — see the migration's own header
+    /// comment) — safe to call any time, including while already connected (just returns
+    /// empty), so call sites don't need to guard on `partnerConnected` themselves.
+    func refreshPendingConnectionRequests() async {
+        pendingConnectionRequests = (try? await BackendService.fetchPendingConnectionRequests()) ?? []
+    }
+
+    /// My own outgoing request (see `pendingOutgoingConnectionRequest`'s doc comment) — safe to
+    /// call any time, including while already connected (just returns nil, since it only ever
+    /// matches a still-`pending` row).
+    func refreshPendingOutgoingConnectionRequest() async {
+        pendingOutgoingConnectionRequest = try? await BackendService.fetchMyOutgoingConnectionRequest()
+    }
+
+    /// Accepts or declines an incoming request. On accept, re-checks couple state immediately
+    /// rather than waiting for the next foreground/background refresh — the whole point of
+    /// accepting right now is to connect right now. Returns an error message on failure, nil on
+    /// success (same shape as `removePartner()`).
+    @discardableResult
+    func respondToConnectionRequest(_ request: BackendService.PendingConnectionRequest, accept: Bool) async -> String? {
+        do {
+            let coupleID = try await BackendService.respondToConnectionRequest(id: request.id, accept: accept)
+            pendingConnectionRequests.removeAll { $0.id == request.id }
+            if coupleID != nil {
+                await refreshCoupleStateIfNeeded()
+            }
+            return nil
+        } catch {
+            return error.localizedDescription
+        }
     }
 
     /// Ends the current partnership. The couple row is dissolved, not deleted — every trip,
@@ -348,13 +496,19 @@ final class AppModel {
             return error.localizedDescription
         }
         Analytics.capture(Analytics.Event.partnerRemove)
+        // The old code is now permanently invalid server-side (`redeem_invite_code` rejects a
+        // non-"pending" code) — without clearing it, `PartnerConnectCard`'s `if inviteCode ==
+        // nil` guard would reshare this same dead code to whoever the user invites next, and
+        // their redemption attempt would fail with no obvious reason why.
+        inviteCode = nil
         await loadSignedInState()
         // HomeView's setup checklist card (the "invite your partner" hint) remembers a past
-        // dismissal forever via this UserDefaults key — without clearing it, someone who'd
-        // already dismissed it once (e.g. during their original onboarding) would see no hint
-        // at all here, even though they're now genuinely back in the same unpaired state a
-        // brand-new user starts in and need that same nudge again.
-        UserDefaults.standard.set(false, forKey: "setupChecklistDismissed")
+        // dismissal forever, server-side — without resetting it, someone who'd already
+        // dismissed it once (e.g. during their original onboarding) would see no hint at all
+        // here, even though they're now genuinely back in the same unpaired state a brand-new
+        // user starts in and need that same nudge again.
+        setupChecklistDismissed = false
+        Task { await BackendService.resetSetupChecklistDismissed() }
         return nil
     }
 
@@ -398,22 +552,18 @@ final class AppModel {
         return components.url ?? url
     }
 
-    /// Re-checks the state-derived review milestones (partner connected, first flight/trip/
-    /// memory) and surfaces `pendingReviewMilestone` for the first newly-crossed one still
-    /// eligible. Safe to call as often as needed — a no-op once a given milestone's already
-    /// shown once, or the user's already said yes to any of them. "First game results" isn't
+    /// Fires once — the first time a couple both (a) has a connected partner and (b) has already
+    /// done something with the app (a trip, memory, or tracked flight). Deliberately not keyed to
+    /// any one of those in isolation — the couple isn't "connected" yet during onboarding
+    /// (`hasCouple` only flips true at the very end), so this can never fire mid-onboarding, and
+    /// asking right after a still-solo first action reads as premature. "First game results" isn't
     /// state AppModel tracks directly, so that one's raised via `noteReviewMilestone(_:)` from
     /// `GameResultsView` instead.
     func checkReviewMilestones() {
-        guard pendingReviewMilestone == nil else { return }
-        if partnerConnected, ReviewPromptService.markShownIfEligible(.partnerConnected) {
+        guard hasCouple, partnerConnected, pendingReviewMilestone == nil else { return }
+        guard !trips.isEmpty || !memories.isEmpty || !flights.isEmpty else { return }
+        if ReviewPromptService.markShownIfEligible(.partnerConnected) {
             pendingReviewMilestone = .partnerConnected
-        } else if !flights.isEmpty, ReviewPromptService.markShownIfEligible(.firstFlight) {
-            pendingReviewMilestone = .firstFlight
-        } else if !trips.isEmpty, ReviewPromptService.markShownIfEligible(.firstTrip) {
-            pendingReviewMilestone = .firstTrip
-        } else if !memories.isEmpty, ReviewPromptService.markShownIfEligible(.firstMemory) {
-            pendingReviewMilestone = .firstMemory
         }
     }
 
@@ -428,12 +578,20 @@ final class AppModel {
     /// Fetches (or creates, server-side) today's Daily Activity session and refreshes the
     /// streak — called when the Games hub appears, not at launch, since it's Games-specific.
     func startOrResumeDailyQuestion() async {
-        if let sessionID = try? await BackendService.getDailyQuestionSession() {
+        dailyQuestionError = nil
+        do {
+            let sessionID = try await BackendService.getDailyQuestionSession()
             todaysDailySessionID = sessionID
             if let detail = try? await BackendService.fetchGameSession(id: sessionID),
-               let round = detail.rounds.first, case let .discuss(topic)? = detail.content[round.contentID] {
+               let round = detail.rounds.first, case let .deepConversation(topic)? = detail.content[round.contentID] {
                 todaysDailyQuestionText = topic.topic
             }
+        } catch {
+            dailyQuestionError = "Couldn't load today's question. Check your connection and try again."
+        }
+        if let status = try? await BackendService.fetchDailyQuestionStatus() {
+            todaysMyAnswered = status.mine
+            todaysPartnerAnswered = status.partner
         }
         await refreshDailyStreak()
     }
@@ -476,6 +634,13 @@ final class AppModel {
         deck.tier == "premium" && subscriptionTier != "premium"
     }
 
+    /// Same "Plus can see it exists, Premium unlocks it" shape as `isDeckLocked`, for
+    /// non-deck features (e.g. the Flight Details screen's delay analysis/good-to-know/flight
+    /// information cards) that are Premium-only but not backed by a `GameDeck` row.
+    var isPremiumLocked: Bool {
+        subscriptionTier != "premium"
+    }
+
     /// Every deck of this game type, across every topic — powers "tap a game type card, see all
     /// its decks" browsing, as opposed to `decks(for topic:)`'s single-topic scoping.
     func decks(ofType gameType: GameType) -> [GameDeck] {
@@ -506,10 +671,24 @@ final class AppModel {
         }
     }
 
+    /// Serializing entry point — see `inFlightAdopt`'s doc comment for why this can't just be
+    /// the function body directly. Waits for any adopt already running, then runs its own.
+    private func adopt(_ state: BackendService.CoupleState) async {
+        while let inFlight = inFlightAdopt {
+            await inFlight.value
+        }
+        let task = Task { [weak self] () -> Void in
+            await self?.performAdopt(state)
+        }
+        inFlightAdopt = task
+        await task.value
+        inFlightAdopt = nil
+    }
+
     /// Adopts real couple/trip/memory rows from the backend, flushing anything that was added
     /// locally before pairing completed (drafted during onboarding, or via the home screen's
     /// "add a trip"/"add a memory" cards while still solo).
-    private func adopt(_ state: BackendService.CoupleState) async {
+    private func performAdopt(_ state: BackendService.CoupleState) async {
         let localOnlyTrips = trips.filter { pendingTripIDs.contains($0.id) }
         let localOnlyMemories = memories.filter { pendingMemoryIDs.contains($0.id) }
 
@@ -522,24 +701,48 @@ final class AppModel {
         hasCouple = true
         isSubscriptionActive = state.subscriptionActive
         subscriptionTier = state.subscriptionTier
+        partnerConnectedCelebrationShown = state.partnerConnectedCelebrationShown
+        setupChecklistDismissed = state.setupChecklistDismissed
 
         var stillPendingTrips = Set<Trip.ID>()
         for trip in localOnlyTrips {
             // Trips drafted before pairing (e.g. onboarding's "add first flight") were built
             // against a placeholder partner id that never existed as a real profile — remap
-            // to the now-real partner so the FK on `trips.traveler_id` doesn't reject it.
+            // to the now-real partner so the FK on `trips.traveler_ids` doesn't reject it. A
+            // self-tagged id already matches the real partnerA (see `addTrip`) and is left
+            // untouched; only an unmatched (placeholder) id gets remapped, so a "Both" trip's
+            // two ids are each handled independently rather than the whole array being replaced.
             var tripToInsert = trip
-            if tripToInsert.travelerID != state.couple.partnerA.id && tripToInsert.travelerID != state.couple.partnerB.id {
-                tripToInsert.travelerID = state.couple.partnerB.id
+            tripToInsert.travelerIDs = tripToInsert.travelerIDs.map { id in
+                (id == state.couple.partnerA.id || id == state.couple.partnerB.id) ? id : state.couple.partnerB.id
             }
             do {
                 try await BackendService.insertTrip(coupleID: state.couple.id, trip: tripToInsert)
+                // Now durably on the backend — the local disk copy was only ever a stand-in
+                // until this succeeded.
+                PendingTripStore.remove(id: trip.id)
             } catch {
                 stillPendingTrips.insert(trip.id)
             }
             trips.append(tripToInsert)
         }
         pendingTripIDs = stillPendingTrips
+
+        // Attach any flight picked alongside a pre-pairing trip, now that the trip it belongs to
+        // is guaranteed to exist server-side (either just inserted above, or synced in an earlier
+        // `performAdopt` call whose flight-add attempt failed and is retried here). Left queued
+        // on failure so the next `performAdopt` retries it; skipped entirely for a trip that's
+        // still pending, since `AeroFlightService.addFlight`'s trip FK would just reject it.
+        var didAttachPendingFlight = false
+        for (tripID, candidate) in pendingFlightCandidates where !stillPendingTrips.contains(tripID) {
+            if (try? await AeroFlightService.addFlight(faFlightId: candidate.faFlightId, tripID: tripID, travelerIDs: candidate.travelerIDs, notifyMe: true)) != nil {
+                pendingFlightCandidates.removeValue(forKey: tripID)
+                didAttachPendingFlight = true
+            }
+        }
+        if didAttachPendingFlight {
+            await refreshFlights()
+        }
 
         var stillPendingMemories = Set<Memory.ID>()
         for memory in localOnlyMemories {
@@ -561,6 +764,41 @@ final class AppModel {
         }
         pendingMemoryIDs = stillPendingMemories
         Task { await WidgetSnapshotWriter.refresh(appModel: self) }
+        await startFlightsRealtimeSubscription(coupleID: state.couple.id)
+    }
+
+    /// Idempotent — safe to call even if a subscription for this exact couple is already
+    /// running. `performAdopt` runs on every foreground refresh (from both `HomeView` and
+    /// `RootView`'s scenePhase handlers), so this fires far more often than a couple actually
+    /// changes; skipping the no-op case isn't just an optimization. Tearing down and
+    /// resubscribing on every call used to race: `stopFlightsRealtimeSubscription` unsubscribed
+    /// the old channel fire-and-forget (not awaited) while `supabase.channel(_:)` for the new
+    /// one reused the *same* topic string — if the SDK's registry hadn't finished removing the
+    /// old channel yet, `.channel(_:)` handed back that same still-subscribed instance, and
+    /// adding `postgresChange` callbacks to an already-subscribed channel threw "Cannot add
+    /// postgres_changes callbacks... after subscribe()". Awaiting the teardown before creating
+    /// the replacement (for the rare real couple-switch case) closes that race.
+    private func startFlightsRealtimeSubscription(coupleID: UUID) async {
+        guard flightsRealtimeCoupleID != coupleID else { return }
+        await stopFlightsRealtimeSubscription()
+        let (channel, stream) = BackendService.subscribeToCoupleFlights(coupleID: coupleID)
+        flightsRealtimeChannel = channel
+        flightsRealtimeCoupleID = coupleID
+        flightsRealtimeTask = Task { [weak self] in
+            for await _ in stream {
+                await self?.refreshFlights()
+            }
+        }
+    }
+
+    private func stopFlightsRealtimeSubscription() async {
+        flightsRealtimeTask?.cancel()
+        flightsRealtimeTask = nil
+        if let flightsRealtimeChannel {
+            await BackendService.unsubscribe(flightsRealtimeChannel)
+        }
+        flightsRealtimeChannel = nil
+        flightsRealtimeCoupleID = nil
     }
 
     /// Called once account creation succeeds — now happens *before* the paywall/trial screens
@@ -586,6 +824,13 @@ final class AppModel {
 
         if let userID = BackendService.currentUserID {
             adoptSignedInIdentity(id: userID, firstName: onboarding.firstName)
+            // The device's push token typically arrives at launch, well before this signup
+            // completes and `currentUserID` becomes valid — `registerPushToken` would have
+            // silently cached it rather than dropped it (see `pendingPushTokenData`'s own doc
+            // comment), but nothing flushed that cache for a fresh signup completed in one
+            // continuous onboarding session (no relaunch, no `SignInView`). Without this, that
+            // device never gets a `device_push_tokens` row until the next cold launch.
+            await retryPendingPushTokenRegistrationIfNeeded()
         }
 
         if let selfPhotoData = onboarding.selfPhotoData,
@@ -628,37 +873,61 @@ final class AppModel {
 
     /// Creates a trip with no flight attached — flights are never self-reported (see
     /// `AeroFlightService.addFlight`/`LiveActivityManager`); callers that have a real,
-    /// AeroAPI-resolved `AeroFlightCandidate` in hand should follow up with
-    /// `AeroFlightService.addFlight(faFlightId:tripID:notifyMe:)` once this trip exists,
-    /// exactly as `AddFirstFlightView`/`AddTripDetailsView` already do.
+    /// AeroAPI-resolved `AeroFlightCandidate` in hand should pass it as `flightCandidate` rather
+    /// than calling `AeroFlightService.addFlight` themselves — when there's no couple yet (e.g.
+    /// onboarding's "add our next trip" step, before pairing), that call would fail outright
+    /// since the trip doesn't exist server-side yet. Passing it through here instead queues it
+    /// in `pendingFlightCandidates`, so `performAdopt(_:)` can attach it once the trip is
+    /// actually inserted — previously it was just silently dropped.
     @discardableResult
-    func addTrip(origin: Place, destination: Place, departureDate: Date, arrivalDate: Date, traveler: TripTraveler, category: TripCategory) async -> Trip {
-        let travelerID = traveler == .partner ? partner.id : currentUser.id
+    func addTrip(origin: Place, destination: Place, departureDate: Date, arrivalDate: Date, traveler: TripTraveler, isReunionTrip: Bool, flightCandidate: AeroFlightCandidate? = nil) async -> Trip {
+        let travelerIDs: [Person.ID] = {
+            switch traveler {
+            case .you: return [currentUser.id]
+            case .partner: return [partner.id]
+            case .both: return [currentUser.id, partner.id]
+            }
+        }()
         let distance = Geo.distanceKm(origin.coordinate, destination.coordinate)
 
         let trip = Trip(
-            travelerID: travelerID,
+            travelerIDs: travelerIDs,
             origin: origin,
             destination: destination,
             departureDate: departureDate,
             arrivalDate: arrivalDate,
-            category: category,
+            isReunionTrip: isReunionTrip,
             distanceKm: distance
         )
 
         trips.append(trip)
         checkReviewMilestones()
-        Analytics.capture(Analytics.Event.tripCreate, properties: ["trip_category": category.rawValue])
+        Analytics.capture(Analytics.Event.tripCreate, properties: ["trip_category": isReunionTrip ? "reunion" : "personal"])
 
         if let backendCoupleID {
             do {
                 try await BackendService.insertTrip(coupleID: backendCoupleID, trip: trip)
                 Task { await BackendService.notifyPartner(event: .tripAdded, detail: "\(origin.city) to \(destination.city)") }
+                if let flightCandidate {
+                    if (try? await AeroFlightService.addFlight(faFlightId: flightCandidate.faFlightId, tripID: trip.id, travelerIDs: travelerIDs, notifyMe: true)) != nil {
+                        await refreshFlights()
+                    } else {
+                        pendingFlightCandidates[trip.id] = (flightCandidate.faFlightId, travelerIDs)
+                    }
+                }
             } catch {
                 pendingTripIDs.insert(trip.id)
+                PendingTripStore.save(trip)
+                if let flightCandidate {
+                    pendingFlightCandidates[trip.id] = (flightCandidate.faFlightId, travelerIDs)
+                }
             }
         } else {
             pendingTripIDs.insert(trip.id)
+            PendingTripStore.save(trip)
+            if let flightCandidate {
+                pendingFlightCandidates[trip.id] = (flightCandidate.faFlightId, travelerIDs)
+            }
         }
 
         return trip
@@ -686,6 +955,32 @@ final class AppModel {
             )
             Task { await WidgetSnapshotWriter.refresh(appModel: self) }
             checkReviewMilestones()
+        }
+    }
+
+    /// Re-pulls the full memory list from the backend — same purpose as `refreshFlights()`
+    /// above. Without this, a partner's newly-added memory only ever appeared after a full
+    /// couple-state reload (effectively just app relaunch), since `memories` was otherwise only
+    /// ever bulk-populated once at adopt time and mutated locally by this device's own edits.
+    func refreshMemories() async {
+        guard let backendCoupleID else { return }
+        if let fresh = try? await BackendService.fetchMemories(coupleID: backendCoupleID) {
+            memories = fresh
+        }
+    }
+
+    /// Re-pulls the full trip list from the backend — same purpose/gap as `refreshMemories()`
+    /// above. Flight linkage is filled in from whatever's already in `flights` immediately (in
+    /// case `refreshFlights()` isn't also called this cycle), then `refreshFlights()` — called
+    /// alongside this everywhere it matters — re-links authoritatively from the fetched flight
+    /// rows regardless of call order.
+    func refreshTrips() async {
+        guard let backendCoupleID else { return }
+        if var fresh = try? await BackendService.fetchTrips(coupleID: backendCoupleID) {
+            for index in fresh.indices {
+                fresh[index].flight = flights.first { $0.tripID == fresh[index].id }
+            }
+            trips = fresh
         }
     }
 
@@ -732,6 +1027,8 @@ final class AppModel {
     func deleteTrip(_ trip: Trip) async {
         trips.removeAll { $0.id == trip.id }
         pendingTripIDs.remove(trip.id)
+        PendingTripStore.remove(id: trip.id)
+        pendingFlightCandidates.removeValue(forKey: trip.id)
         Analytics.capture(Analytics.Event.tripDelete)
         // `flights.trip_id` has ON DELETE SET NULL server-side — the flight survives
         // untethered, so mirror that locally rather than leaving it pointing at a trip that no
@@ -795,14 +1092,39 @@ final class AppModel {
     /// Registers this device's APNs token against the signed-in profile so
     /// `send-flight-notification` (server-side) has somewhere to deliver to. Safe to call
     /// repeatedly — the backend upserts on the token itself.
+    /// Cached raw APNs token bytes, kept around until a registration attempt actually succeeds.
+    /// `didRegisterForRemoteNotificationsWithDeviceToken` can fire before `restoreSession()`'s
+    /// async `supabase.auth.session` restore has finished — `BackendService.registerDeviceToken`
+    /// requires `currentUserID`, so a registration attempt that loses that race throws
+    /// `.notAuthenticated` and (since the call site swallows it with `try?`) silently drops the
+    /// token for the rest of that launch, with nothing anywhere to indicate it happened. Real
+    /// symptom this caused: a signed-in couple with notifications genuinely enabled on-device,
+    /// backend sends reporting success, and zero pushes ever arriving — the row in
+    /// `device_push_tokens` was simply stale or missing. `loadSignedInState()` retries this once
+    /// a session is confirmed, closing the race regardless of which order the two async events
+    /// actually finish in.
+    private var pendingPushTokenData: Data?
+
     func registerPushToken(_ tokenData: Data) async {
+        pendingPushTokenData = tokenData
+        await retryPendingPushTokenRegistrationIfNeeded()
+    }
+
+    func retryPendingPushTokenRegistrationIfNeeded() async {
+        guard let tokenData = pendingPushTokenData else { return }
         let token = tokenData.map { String(format: "%02x", $0) }.joined()
         #if DEBUG
         let environment = "sandbox"
         #else
         let environment = "production"
         #endif
-        try? await BackendService.registerDeviceToken(token, environment: environment)
+        do {
+            try await BackendService.registerDeviceToken(token, environment: environment)
+            pendingPushTokenData = nil
+        } catch {
+            // Most likely still not authenticated yet — leave it cached so the next
+            // `loadSignedInState()` (or another `registerPushToken` call) can retry.
+        }
     }
 
     @discardableResult
@@ -834,7 +1156,7 @@ final class AppModel {
             if let index = memories.firstIndex(where: { $0.id == memory.id }) {
                 memories[index].photos = photos
             }
-            Task { await BackendService.notifyPartner(event: .memoryAdded, detail: title) }
+            Task { await BackendService.notifyPartner(event: .memoryAdded, detail: title, target: .selfDevice) }
             Task { await WidgetSnapshotWriter.refresh(appModel: self) }
         } catch {
             pendingMemoryIDs.insert(memory.id)

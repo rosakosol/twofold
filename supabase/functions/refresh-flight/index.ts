@@ -10,7 +10,13 @@
 // session).
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { type FlightRow, reconcileOverdueArrival, refreshOneFlight } from "../_shared/flight-sync.ts";
+import {
+  AIRBORNE_STATUSES,
+  type FlightRow,
+  reconcileOverdueArrival,
+  refreshOneFlight,
+  syncLivePositionForFaFlightId,
+} from "../_shared/flight-sync.ts";
 
 const DEDUP_WINDOW_MS = 60 * 1000;
 const TERMINAL_STATUSES = ["arrived", "landed", "cancelled", "diverted"];
@@ -115,6 +121,19 @@ Deno.serve(async (req) => {
         await reconcileOverdueArrival(serviceClient, updated, Date.now());
       } catch (err) {
         console.error("[refresh-flight] reconcileOverdueArrival failed:", (err as Error).message);
+      }
+
+      // Immediate, user-triggered live-position refresh — bypasses the 60s DEDUP_WINDOW_MS above
+      // (that window governs AeroAPI schedule-call cost, not this), since
+      // syncLivePositionForFaFlightId's own ~55s cache TTL already caps real mirror calls even
+      // under both partners pulling to refresh at once.
+      if (updated.fa_flight_id && AIRBORNE_STATUSES.includes(updated.status)) {
+        try {
+          const candidates = [updated.atc_ident, updated.flight_number_icao].filter((v): v is string => Boolean(v));
+          await syncLivePositionForFaFlightId(serviceClient, updated.fa_flight_id, candidates);
+        } catch (err) {
+          console.error("[refresh-flight] syncLivePositionForFaFlightId failed:", (err as Error).message);
+        }
       }
     }
     const { data: finalRow } = await serviceClient.from("flights").select("*").eq("id", input.flightId).single();

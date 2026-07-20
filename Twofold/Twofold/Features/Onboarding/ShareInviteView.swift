@@ -104,6 +104,6 @@ struct ShareInviteView: View {
 
 #Preview {
     NavigationStack {
-        ShareInviteView(code: "ROSA-4821", onContinue: {})
+        ShareInviteView(code: "ABCD-EFGH", onContinue: {})
     }
 }

@@ -14,10 +14,13 @@
 //  `captureScreenViews` is turned OFF (its default is `true`) — PostHog's own SwiftUI guidance:
 //  automatic screen capture works by swizzling `UIViewController.viewDidAppear`, which can't see
 //  through a SwiftUI view hierarchy the way it can UIKit's, so every screen just gets reported
-//  under the same generic name ("Screen") instead of anything meaningful. Screens that matter
-//  are tagged explicitly instead via `.postHogScreenView("Name")` (see `MainTabView`,
-//  `SettingsView`, `PaywallView`) — same idea as `Analytics.Event`, but for screen views rather
-//  than actions.
+//  under the same generic name ("Screen") instead of anything meaningful. Every real screen in
+//  the app is tagged explicitly instead via `.postHogScreenView("Name")` — the tab roots and
+//  Settings shell in `MainTabView`/`SettingsView`, every onboarding step via
+//  `OnboardingCoordinatorView`'s single `.navigationDestination` choke point, and each remaining
+//  Flights/Trips/Games/Memories/Passport/Settings/Snapshot/DrawingPad/Paywall screen tagged
+//  individually at its own `body` or presentation call site — same idea as `Analytics.Event`,
+//  but for screen views rather than actions.
 //
 
 import Foundation

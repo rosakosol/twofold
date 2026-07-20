@@ -7,6 +7,7 @@
 //  gating this one and hands off to the Paywall rather than the deck just silently not opening.
 //
 
+import PostHog
 import SwiftUI
 
 struct DeckPremiumGateView: View {
@@ -73,12 +74,14 @@ struct DeckPremiumGateView: View {
                 }
             }
             .sheet(isPresented: $showingPaywall) {
-                NavigationStack { PaywallView() }
+                NavigationStack { PaywallView(initialTier: .premium) }
+                    .postHogScreenView("Paywall: Premium Deck")
             }
         }
+        .postHogScreenView("Games: Deck Premium Gate")
     }
 }
 
 #Preview {
-    DeckPremiumGateView(deck: GameDeck(id: UUID(), topic: "Travel", gameType: .travelTrivia, title: "Airport Chaos", emoji: "🛫", tier: "premium", sortOrder: 0, questionCount: 10))
+    DeckPremiumGateView(deck: GameDeck(id: UUID(), topic: "Travel", gameType: .triviaBattle, title: "Airport Chaos", emoji: "🛫", tier: "premium", sortOrder: 0, questionCount: 10))
 }
