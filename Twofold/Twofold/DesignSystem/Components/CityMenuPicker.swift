@@ -21,7 +21,7 @@ struct CityMenuPicker: View {
             HStack {
                 Text(label).foregroundStyle(Theme.subtleInk)
                 Spacer()
-                Text(selection.map { $0.city } ?? placeholder)
+                Text(selection.map { $0.displayCity } ?? placeholder)
                     .foregroundStyle(selection == nil ? Theme.subtleInk : Theme.ink)
                 Image(systemName: "chevron.up.chevron.down")
                     .font(.caption)

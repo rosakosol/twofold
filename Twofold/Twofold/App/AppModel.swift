@@ -59,6 +59,10 @@ final class AppModel {
     /// RLS-bypassing RPC rather than reading `game_responses` directly.
     var todaysMyAnswered = false
     var todaysPartnerAnswered = false
+    /// Set when `startOrResumeDailyQuestion()` fails to obtain a session id — lets
+    /// `DailyActivityCard` show a real error state instead of spinning forever on a
+    /// `ProgressView` that's silently waiting on data that will never arrive.
+    var dailyQuestionError: String?
 
     /// All active decks + which ones this couple has started, cached after first load
     /// (`loadGameDecksIfNeeded()`) — powers the Games hub's topic list and progress bars. Not
@@ -570,12 +574,16 @@ final class AppModel {
     /// Fetches (or creates, server-side) today's Daily Activity session and refreshes the
     /// streak — called when the Games hub appears, not at launch, since it's Games-specific.
     func startOrResumeDailyQuestion() async {
-        if let sessionID = try? await BackendService.getDailyQuestionSession() {
+        dailyQuestionError = nil
+        do {
+            let sessionID = try await BackendService.getDailyQuestionSession()
             todaysDailySessionID = sessionID
             if let detail = try? await BackendService.fetchGameSession(id: sessionID),
                let round = detail.rounds.first, case let .deepConversation(topic)? = detail.content[round.contentID] {
                 todaysDailyQuestionText = topic.topic
             }
+        } catch {
+            dailyQuestionError = "Couldn't load today's question. Check your connection and try again."
         }
         if let status = try? await BackendService.fetchDailyQuestionStatus() {
             todaysMyAnswered = status.mine
@@ -801,6 +809,13 @@ final class AppModel {
 
         if let userID = BackendService.currentUserID {
             adoptSignedInIdentity(id: userID, firstName: onboarding.firstName)
+            // The device's push token typically arrives at launch, well before this signup
+            // completes and `currentUserID` becomes valid — `registerPushToken` would have
+            // silently cached it rather than dropped it (see `pendingPushTokenData`'s own doc
+            // comment), but nothing flushed that cache for a fresh signup completed in one
+            // continuous onboarding session (no relaunch, no `SignInView`). Without this, that
+            // device never gets a `device_push_tokens` row until the next cold launch.
+            await retryPendingPushTokenRegistrationIfNeeded()
         }
 
         if let selfPhotoData = onboarding.selfPhotoData,
@@ -939,6 +954,21 @@ final class AppModel {
         }
     }
 
+    /// Re-pulls the full trip list from the backend — same purpose/gap as `refreshMemories()`
+    /// above. Flight linkage is filled in from whatever's already in `flights` immediately (in
+    /// case `refreshFlights()` isn't also called this cycle), then `refreshFlights()` — called
+    /// alongside this everywhere it matters — re-links authoritatively from the fetched flight
+    /// rows regardless of call order.
+    func refreshTrips() async {
+        guard let backendCoupleID else { return }
+        if var fresh = try? await BackendService.fetchTrips(coupleID: backendCoupleID) {
+            for index in fresh.indices {
+                fresh[index].flight = flights.first { $0.tripID == fresh[index].id }
+            }
+            trips = fresh
+        }
+    }
+
     /// Stops tracking a flight entirely (swipe-to-remove on the Trips tab). Re-runs
     /// `refreshFlights()` afterward rather than just filtering `flights` locally so the Live
     /// Activity sync/reconcile logic there — which already ends an Activity for any flight that
@@ -1065,7 +1095,7 @@ final class AppModel {
         await retryPendingPushTokenRegistrationIfNeeded()
     }
 
-    private func retryPendingPushTokenRegistrationIfNeeded() async {
+    func retryPendingPushTokenRegistrationIfNeeded() async {
         guard let tokenData = pendingPushTokenData else { return }
         let token = tokenData.map { String(format: "%02x", $0) }.joined()
         #if DEBUG

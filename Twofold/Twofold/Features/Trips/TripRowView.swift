@@ -9,8 +9,22 @@ struct TripRowView: View {
     let trip: Trip
     let travelers: [Person]
 
+    @Environment(AppModel.self) private var appModel
+
+    /// "You" for the signed-in user rather than their own name — reads naturally as "You and
+    /// Lucas are going to Singapore" instead of the generic "Sarah & Lucas".
     private var travelerNames: String {
-        travelers.map(\.name).joined(separator: " & ")
+        let others = travelers.filter { $0.id != appModel.currentUser.id }.map(\.name)
+        guard travelers.contains(where: { $0.id == appModel.currentUser.id }) else {
+            return others.joined(separator: " and ")
+        }
+        return others.isEmpty ? "You" : "You and \(others.joined(separator: " and "))"
+    }
+
+    private var summaryLine: String {
+        if let notes = trip.notes, !notes.isEmpty { return notes }
+        let verb = travelers.count > 1 || travelers.first?.id == appModel.currentUser.id ? "are" : "is"
+        return "\(travelerNames) \(verb) going to \(trip.destination.city)"
     }
 
     private var statusBadge: (text: String, tint: Color)? {
@@ -41,13 +55,13 @@ struct TripRowView: View {
             }
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(trip.notes ?? "\(travelerNames) flies to \(trip.destination.city)")
+                Text(summaryLine)
                     .font(.subheadline)
                     .foregroundStyle(Theme.subtleInk)
                 HStack(spacing: Theme.Spacing.xs) {
-                    Text(trip.origin.iataCode ?? trip.origin.city)
+                    Text(trip.origin.city)
                     Image(systemName: "arrow.right")
-                    Text(trip.destination.iataCode ?? trip.destination.city)
+                    Text(trip.destination.city)
                 }
                 .font(.headline)
 

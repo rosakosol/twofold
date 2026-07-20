@@ -1447,6 +1447,40 @@ enum BackendService {
         return rows.map(Self.makeFlight)
     }
 
+    /// Couple-scoped re-fetch (mirrors `fetchFlights(coupleID:)`/`fetchMemories(coupleID:)`) —
+    /// trips had the same gap memories did: only ever bulk-populated once via
+    /// `fetchCoupleState()`'s adopt, so a partner's newly-added trip never appeared short of a
+    /// full relaunch. Flight linkage isn't resolved here — `AppModel.refreshTrips()` links each
+    /// trip to `self.flights` itself (and `refreshFlights()`, called alongside it, re-links
+    /// authoritatively from the fetched flight rows either way).
+    static func fetchTrips(coupleID: UUID) async throws -> [Trip] {
+        let tripRows: [TripRow] = try await supabase
+            .from("trips")
+            .select()
+            .eq("couple_id", value: coupleID)
+            .execute()
+            .value
+
+        var placeIDs = Set<UUID>()
+        for row in tripRows { placeIDs.insert(row.originId); placeIDs.insert(row.destinationId) }
+        let places = try await fetchPlaces(ids: Array(placeIDs))
+
+        return tripRows.compactMap { row in
+            guard let origin = places[row.originId], let destination = places[row.destinationId] else { return nil }
+            return Trip(
+                id: row.id,
+                travelerIDs: row.travelerIds,
+                origin: origin,
+                destination: destination,
+                departureDate: row.departureAt,
+                arrivalDate: row.arrivalAt,
+                isReunionTrip: isReunionCategory(row.category),
+                distanceKm: row.distanceKm,
+                notes: row.notes
+            )
+        }
+    }
+
     static func fetchFlight(id: UUID) async throws -> Flight? {
         let rows: [FlightRow] = try await supabase
             .from("flights")

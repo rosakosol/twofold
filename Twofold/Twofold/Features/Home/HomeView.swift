@@ -117,6 +117,7 @@ struct HomeView: View {
             .onAppear {
                 refreshPendingShares()
                 Task { await appModel.refreshCoupleStateIfNeeded() }
+                Task { await appModel.refreshTrips() }
                 Task { await appModel.refreshFlights() }
                 Task { await appModel.refreshMemories() }
                 Task { await refreshWeatherIfNeeded() }
@@ -647,7 +648,7 @@ struct HomeView: View {
 
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("\(travelerNames(trip.travelerIDs)) flies to you")
+                    Text(trip.isReunionTrip ? "Your trip together" : "\(travelerNames(trip.travelerIDs)) \(trip.travelerIDs.count > 1 ? "fly" : "flies") to you")
                         .font(.subheadline)
                         .foregroundStyle(Theme.subtleInk)
                     HStack(spacing: Theme.Spacing.xs) {

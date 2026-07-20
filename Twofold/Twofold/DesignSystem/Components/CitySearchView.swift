@@ -27,10 +27,17 @@ struct CitySearchView: View {
         if let city = appModel.currentUser.homeCity {
             suggestions.append(("Your city", city))
         }
-        if appModel.partnerConnected, let city = appModel.partner.homeCity {
+        if appModel.partnerConnected, let city = appModel.partner.homeCity, city.displayCity != suggestions.first?.place.displayCity {
             suggestions.append(("\(appModel.partner.name)'s city", city))
         }
         return suggestions
+    }
+
+    /// The curated list minus anything already surfaced above — without this, a home city that
+    /// happens to also be one of the curated common cities (e.g. Melbourne) showed up twice.
+    private var suggestedCities: [Place] {
+        let shown = Set(homeCitySuggestions.map(\.place.displayCity))
+        return Place.commonCities.filter { !shown.contains($0.displayCity) }
     }
 
     var body: some View {
@@ -51,7 +58,7 @@ struct CitySearchView: View {
                     }
 
                     Section("Suggested") {
-                        ForEach(Place.commonCities) { place in
+                        ForEach(suggestedCities) { place in
                             Button {
                                 onSelect(place)
                                 dismiss()
