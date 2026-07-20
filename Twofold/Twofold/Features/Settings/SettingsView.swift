@@ -20,8 +20,14 @@ struct SettingsView: View {
     @State private var showingPaywall = false
     /// RevenueCat's self-service subscription management screen — offered instead of the
     /// paywall once someone's already subscribed, since re-showing "buy Plus/Premium" to a
-    /// paying member makes no sense; see the "Manage subscription" row below.
+    /// paying member makes no sense; see the "Manage subscription" row below. Only shown when
+    /// this device's own RevenueCat entitlement is actually what's backing the couple's access
+    /// — `CustomerCenterView` only knows about *this device's* purchase history, so for whichever
+    /// partner didn't personally buy it, it'd otherwise show a bare "no subscription" screen even
+    /// though the couple is genuinely covered. See `subscriptionStore`/`PartnerManagesSubscriptionView`.
     @State private var showingCustomerCenter = false
+    @State private var showingPartnerManagesSubscription = false
+    @State private var subscriptionStore = SubscriptionStore()
     @State private var showingSignOutConfirm = false
     @State private var isSigningOut = false
     @State private var showingExportHistory = false
@@ -63,7 +69,11 @@ struct SettingsView: View {
 
                     SubscriptionBanner(isSubscribed: appModel.isSubscriptionActive) {
                         if appModel.isSubscriptionActive {
-                            showingCustomerCenter = true
+                            if subscriptionStore.isSubscribed {
+                                showingCustomerCenter = true
+                            } else {
+                                showingPartnerManagesSubscription = true
+                            }
                         } else {
                             showingPaywall = true
                         }
@@ -166,6 +176,9 @@ struct SettingsView: View {
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .postHogScreenView("Settings")
+            .task {
+                await subscriptionStore.refreshEntitlementsOnly()
+            }
             .sheet(isPresented: $showingPaywall) {
                 NavigationStack { PaywallView() }
                     .postHogScreenView("Paywall: Settings")
@@ -173,6 +186,12 @@ struct SettingsView: View {
             .sheet(isPresented: $showingCustomerCenter) {
                 CustomerCenterView()
                     .postHogScreenView("Settings: Manage Subscription")
+            }
+            .sheet(isPresented: $showingPartnerManagesSubscription) {
+                PartnerManagesSubscriptionView(partnerName: appModel.partner.name) {
+                    showingPartnerManagesSubscription = false
+                }
+                .postHogScreenView("Settings: Partner Manages Subscription")
             }
             .navigationDestination(isPresented: $showingExportHistory) {
                 ExportHistoryView()

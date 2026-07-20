@@ -41,7 +41,13 @@ struct PaywallView: View {
     @State private var isPurchasing = false
     @State private var isRestoring = false
     @State private var showingSignOutConfirm = false
+    /// Only actually shown when this device's own RevenueCat entitlement is what's backing
+    /// `effectiveActiveTier` — `CustomerCenterView` only knows this device's own purchase
+    /// history, so when the couple's access instead comes from the partner's separate purchase
+    /// (`isSubscribedToADifferentTier`'s own doc comment), it'd show a bare "no subscription"
+    /// screen. `PartnerManagesSubscriptionView` is shown in that case instead.
     @State private var showingCustomerCenter = false
+    @State private var showingPartnerManagesSubscription = false
     @State private var isSigningOut = false
     @State private var errorMessage: String?
     /// Freshly fetched from both partners' profile rows (see `BackendService.fetchCoupleSubscriptionTier`)
@@ -124,6 +130,11 @@ struct PaywallView: View {
         }
         .sheet(isPresented: $showingCustomerCenter) {
             CustomerCenterView()
+        }
+        .sheet(isPresented: $showingPartnerManagesSubscription) {
+            PartnerManagesSubscriptionView(partnerName: appModel.partner.name) {
+                showingPartnerManagesSubscription = false
+            }
         }
         .onAppear {
             Analytics.capture(Analytics.Event.paywallView, properties: ["is_dismissable": isDismissable])
@@ -231,7 +242,11 @@ struct PaywallView: View {
             primaryTitle: primaryButtonTitle,
             primaryAction: {
                 if isSubscribedToADifferentTier {
-                    showingCustomerCenter = true
+                    if store.isSubscribed {
+                        showingCustomerCenter = true
+                    } else {
+                        showingPartnerManagesSubscription = true
+                    }
                 } else {
                     Task { await performPurchase() }
                 }
