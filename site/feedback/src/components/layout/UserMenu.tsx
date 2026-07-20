@@ -62,7 +62,7 @@ export function UserMenu() {
         <DropdownMenuSeparator />
         <DropdownMenuItem
           render={
-            <Link href="/feedback/bookmarks">
+            <Link href="/bookmarks">
               <Bookmark className="h-4 w-4" />
               Your bookmarks
             </Link>

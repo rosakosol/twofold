@@ -1,17 +1,20 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, Newsreader } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/app/providers";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Same two families the marketing site uses (site/styles.css's --font-body/--font-display)
+// — this app is embedded under twofoldapp.com.au/feedback now, so it needs to look like
+// the same site rather than a generic shadcn tool bolted onto it.
+const bodyFont = Inter({
+  variable: "--font-body",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const displayFont = Newsreader({
+  variable: "--font-display",
   subsets: ["latin"],
 });
 
@@ -30,7 +33,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}>
+      <body className={`${bodyFont.variable} ${displayFont.variable} antialiased min-h-screen flex flex-col`}>
         <Providers>
           <SiteHeader />
           <main className="flex-1">{children}</main>

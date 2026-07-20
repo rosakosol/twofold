@@ -106,7 +106,7 @@ export function FeatureSubmitDialog() {
       toast.success("Feature request submitted");
       setOpen(false);
       reset();
-      router.push(`/feedback/${created.slug}`);
+      router.push(`/${created.slug}`);
     } catch {
       toast.error("Something went wrong — try again.");
     }

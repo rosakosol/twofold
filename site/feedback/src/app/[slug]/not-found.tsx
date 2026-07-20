@@ -11,7 +11,7 @@ export default function NotFound() {
         title="Request not found"
         description="It may have been removed, merged into another request, or the link is wrong."
         action={
-          <Button size="sm" render={<Link href="/feedback">Back to feedback</Link>} />
+          <Button size="sm" render={<Link href="/">Back to feedback</Link>} />
         }
       />
     </div>

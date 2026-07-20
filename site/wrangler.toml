@@ -6,6 +6,10 @@ compatibility_date = "2025-07-01"
 [vars]
 FROM_EMAIL = "Twofold <hello@twofoldapp.com.au>"
 NOTIFY_EMAIL = "hello@twofoldapp.com.au"
+# The feedback board's Vercel deployment (site/feedback/) — proxied at /feedback/* by
+# functions/feedback/[[path]].ts. Replace with the real production URL once that
+# project has one (Vercel project settings -> Domains); this placeholder will 404.
+FEEDBACK_ORIGIN = "https://twofold-feedback.vercel.app"
 
 # Created via `wrangler d1 create twofold-waitlist` — replace database_id with the id it prints.
 [[d1_databases]]

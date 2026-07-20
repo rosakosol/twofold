@@ -18,7 +18,7 @@ export function DuplicateSuggestions({ items, onConfirmNotDuplicate }: Duplicate
         {items.map((item) => (
           <li key={item.id}>
             <Link
-              href={`/feedback/${item.slug}`}
+              href={`/${item.slug}`}
               target="_blank"
               className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm hover:border-primary/40 hover:bg-accent/40"
             >

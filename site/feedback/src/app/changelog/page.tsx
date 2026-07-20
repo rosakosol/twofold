@@ -19,7 +19,7 @@ export default function ChangelogPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10">
-      <h1 className="text-2xl font-semibold tracking-tight">Changelog</h1>
+      <h1 className="font-heading text-3xl font-bold tracking-tight">Changelog</h1>
       <p className="mt-1 text-sm text-muted-foreground">Updates from the team, newest first.</p>
 
       <div className="mt-8 space-y-6">
@@ -43,7 +43,7 @@ export default function ChangelogPage() {
 
                 {entry.feature && (
                   <Link
-                    href={`/feedback/${entry.feature.slug}`}
+                    href={`/${entry.feature.slug}`}
                     className="mt-2 flex items-center gap-2 text-sm font-medium hover:text-primary"
                   >
                     {entry.feature.title}

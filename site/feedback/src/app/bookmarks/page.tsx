@@ -17,7 +17,7 @@ export default function BookmarksPage() {
     <div className="mx-auto max-w-3xl px-4 py-10">
       <div className="flex items-center gap-2">
         <Bookmark className="h-5 w-5 text-primary" />
-        <h1 className="text-2xl font-semibold tracking-tight">Your bookmarks</h1>
+        <h1 className="font-heading text-3xl font-bold tracking-tight">Your bookmarks</h1>
       </div>
       <p className="mt-1 text-sm text-muted-foreground">Requests you&apos;ve saved for later.</p>
 
@@ -28,7 +28,7 @@ export default function BookmarksPage() {
           <EmptyState
             title="Sign in to see your bookmarks"
             description="Bookmarks are saved per account."
-            action={<Button render={<Link href="/auth/sign-in?next=/feedback/bookmarks">Sign in</Link>} />}
+            action={<Button render={<Link href="/auth/sign-in?next=/bookmarks">Sign in</Link>} />}
           />
         ) : !features || features.length === 0 ? (
           <EmptyState

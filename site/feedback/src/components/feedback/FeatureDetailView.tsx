@@ -34,7 +34,7 @@ export function FeatureDetailView({ initialFeature }: { initialFeature: FeatureD
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10">
-      <Link href="/feedback" className="text-sm text-muted-foreground hover:text-foreground">
+      <Link href="/" className="text-sm text-muted-foreground hover:text-foreground">
         ← Back to feedback
       </Link>
 
@@ -106,7 +106,7 @@ export function FeatureDetailView({ initialFeature }: { initialFeature: FeatureD
               {related.map((item) => (
                 <li key={item.id}>
                   <Link
-                    href={`/feedback/${item.slug}`}
+                    href={`/${item.slug}`}
                     className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm hover:border-primary/40 hover:bg-accent/40"
                   >
                     <span className="truncate">{item.title}</span>

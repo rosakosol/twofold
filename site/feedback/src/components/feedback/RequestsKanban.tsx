@@ -1,14 +1,28 @@
 import Link from "next/link";
 import { ChevronUp, MessageSquare } from "lucide-react";
 import { CategoryBadge } from "@/components/feedback/CategoryBadge";
-import { STATUS_LABELS, type FeatureCategory, type FeatureStatus } from "@/lib/utils/constants";
+import type { FeatureCategory, FeatureStatus } from "@/lib/utils/constants";
 import type { RoadmapItem } from "@/lib/queries/useRoadmap";
 
-export function RoadmapColumn({ status, items }: { status: FeatureStatus; items: RoadmapItem[] }) {
+interface Bucket {
+  key: string;
+  label: string;
+  statuses: FeatureStatus[];
+}
+
+/** Merges the fuller 6-stage pipeline into 3 quick-glance buckets — the detailed
+ * per-stage breakdown still lives in the Roadmap section below this one. */
+const BUCKETS: Bucket[] = [
+  { key: "requested", label: "Requested", statuses: ["requested", "considering"] },
+  { key: "planned", label: "Planned", statuses: ["planned", "in_progress"] },
+  { key: "shipped", label: "Shipped", statuses: ["released"] },
+];
+
+function SummaryColumn({ label, items }: { label: string; items: RoadmapItem[] }) {
   return (
-    <div className="flex w-72 shrink-0 flex-col gap-3">
+    <div className="flex min-w-0 flex-1 flex-col gap-3">
       <div className="flex items-center gap-2 px-1">
-        <h2 className="text-sm font-semibold">{STATUS_LABELS[status]}</h2>
+        <h3 className="text-sm font-semibold">{label}</h3>
         <span className="text-xs text-muted-foreground">{items.length}</span>
       </div>
 
@@ -42,6 +56,20 @@ export function RoadmapColumn({ status, items }: { status: FeatureStatus; items:
           ))
         )}
       </div>
+    </div>
+  );
+}
+
+export function RequestsKanban({ byStatus }: { byStatus: Map<FeatureStatus, RoadmapItem[]> }) {
+  return (
+    <div className="flex flex-col gap-6 sm:flex-row">
+      {BUCKETS.map((bucket) => (
+        <SummaryColumn
+          key={bucket.key}
+          label={bucket.label}
+          items={bucket.statuses.flatMap((status) => byStatus.get(status) ?? [])}
+        />
+      ))}
     </div>
   );
 }

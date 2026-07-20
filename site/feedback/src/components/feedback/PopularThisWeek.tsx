@@ -10,7 +10,7 @@ export function PopularThisWeek() {
 
   if (isLoading) {
     return (
-      <div className="rounded-xl border bg-card p-4">
+      <div className="rounded-xl bg-card p-4 shadow-sm">
         <Skeleton className="h-4 w-32" />
         <div className="mt-3 space-y-2">
           <Skeleton className="h-8 w-full" />
@@ -24,7 +24,7 @@ export function PopularThisWeek() {
   if (!data || data.length === 0) return null;
 
   return (
-    <div className="rounded-xl border bg-card p-4">
+    <div className="rounded-xl bg-card p-4 shadow-sm">
       <div className="flex items-center gap-1.5 text-sm font-semibold">
         <TrendingUp className="h-4 w-4 text-primary" />
         Popular this week
@@ -33,7 +33,7 @@ export function PopularThisWeek() {
         {data.map((item) => (
           <li key={item.id}>
             <Link
-              href={`/feedback/${item.slug}`}
+              href={`/${item.slug}`}
               className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-accent/40"
             >
               <span className="truncate">{item.title}</span>

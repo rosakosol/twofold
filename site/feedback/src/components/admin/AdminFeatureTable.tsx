@@ -34,7 +34,7 @@ export function AdminFeatureTable({ features }: { features: FeatureDetail[] }) {
           {features.map((feature) => (
             <tr key={feature.id} className={feature.merged_into ? "opacity-50" : undefined}>
               <td className="max-w-64 truncate px-3 py-2">
-                <Link href={`/feedback/${feature.slug}`} className="hover:text-primary hover:underline">
+                <Link href={`/${feature.slug}`} className="hover:text-primary hover:underline">
                   {feature.title}
                 </Link>
                 {feature.merged_into && (

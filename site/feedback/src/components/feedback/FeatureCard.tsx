@@ -17,15 +17,15 @@ export function FeatureCard({ feature }: { feature: FeatureListItem }) {
 
   return (
     <Link
-      href={`/feedback/${feature.slug}`}
-      className="group flex gap-4 rounded-xl border bg-card p-4 transition-colors hover:border-primary/40 hover:bg-accent/40"
+      href={`/${feature.slug}`}
+      className="group flex gap-4 rounded-xl bg-card p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
     >
       <VoteButton featureId={feature.id} upvoteCount={feature.upvote_count} />
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           {feature.is_pinned && <Pin className="h-3.5 w-3.5 shrink-0 text-primary" />}
-          <h3 className="truncate font-medium group-hover:text-primary">{feature.title}</h3>
+          <h3 className="truncate font-bold group-hover:text-primary">{feature.title}</h3>
         </div>
 
         {feature.description && (

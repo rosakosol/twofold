@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
+import { BASE_PATH } from "@/lib/basePath";
 import { Loader2, Mail } from "lucide-react";
 
 export default function SignInPage() {
@@ -19,7 +20,7 @@ export default function SignInPage() {
 
 function SignInForm() {
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") ?? "/feedback";
+  const next = searchParams.get("next") ?? "/";
 
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
@@ -27,8 +28,10 @@ function SignInForm() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   function callbackUrl() {
+    // `basePath` only auto-prefixes Next's own routing helpers (Link, router.push) —
+    // this manually-built URL string needs the /feedback prefix spelled out explicitly.
     const site = process.env.NEXT_PUBLIC_SITE_URL ?? window.location.origin;
-    const url = new URL("/auth/callback", site);
+    const url = new URL(`${BASE_PATH}/auth/callback`, site);
     url.searchParams.set("next", next);
     return url.toString();
   }
