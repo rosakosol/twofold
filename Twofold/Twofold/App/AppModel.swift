@@ -101,6 +101,10 @@ final class AppModel {
     /// that flight's own detail screen (which has its own, single-flight realtime subscription).
     private var flightsRealtimeChannel: RealtimeChannelV2?
     private var flightsRealtimeTask: Task<Void, Never>?
+    /// Which couple the current `flightsRealtimeChannel` (if any) belongs to — lets
+    /// `startFlightsRealtimeSubscription` skip re-subscribing when nothing actually changed
+    /// (see its own doc comment for why that matters, not just as an optimization).
+    private var flightsRealtimeCoupleID: UUID?
     /// Trips/memories added locally before pairing completed (no couple to attach them to
     /// yet). Flushed to the backend the moment a real couple shows up.
     private var pendingTripIDs: Set<Trip.ID> = []
@@ -268,7 +272,7 @@ final class AppModel {
     /// `PendingTripStore`/`PendingMemoryStore`), so they survive this reset rather than being
     /// discarded along with the dissolved couple's data.
     private func adoptSoloProfile(_ profile: BackendService.OwnProfileState) async {
-        stopFlightsRealtimeSubscription()
+        await stopFlightsRealtimeSubscription()
         partnerConnected = false
         backendCoupleID = nil
         trips = trips.filter { pendingTripIDs.contains($0.id) }
@@ -354,7 +358,7 @@ final class AppModel {
     /// Signs out and resets all local state back to the pre-auth placeholder — `RootView`
     /// picks this up via `hasCouple` and routes back to `WelcomeView`.
     func signOut() async {
-        stopFlightsRealtimeSubscription()
+        await stopFlightsRealtimeSubscription()
         try? await BackendService.signOut()
         _ = try? await Purchases.shared.logOut()
         PostHogSDK.shared.reset()
@@ -760,16 +764,26 @@ final class AppModel {
         }
         pendingMemoryIDs = stillPendingMemories
         Task { await WidgetSnapshotWriter.refresh(appModel: self) }
-        startFlightsRealtimeSubscription(coupleID: state.couple.id)
+        await startFlightsRealtimeSubscription(coupleID: state.couple.id)
     }
 
     /// Idempotent — safe to call even if a subscription for this exact couple is already
-    /// running (tears the old one down first) so `adopt` doesn't need to reason about whether
-    /// this is the first pairing or a couple switch.
-    private func startFlightsRealtimeSubscription(coupleID: UUID) {
-        stopFlightsRealtimeSubscription()
+    /// running. `performAdopt` runs on every foreground refresh (from both `HomeView` and
+    /// `RootView`'s scenePhase handlers), so this fires far more often than a couple actually
+    /// changes; skipping the no-op case isn't just an optimization. Tearing down and
+    /// resubscribing on every call used to race: `stopFlightsRealtimeSubscription` unsubscribed
+    /// the old channel fire-and-forget (not awaited) while `supabase.channel(_:)` for the new
+    /// one reused the *same* topic string — if the SDK's registry hadn't finished removing the
+    /// old channel yet, `.channel(_:)` handed back that same still-subscribed instance, and
+    /// adding `postgresChange` callbacks to an already-subscribed channel threw "Cannot add
+    /// postgres_changes callbacks... after subscribe()". Awaiting the teardown before creating
+    /// the replacement (for the rare real couple-switch case) closes that race.
+    private func startFlightsRealtimeSubscription(coupleID: UUID) async {
+        guard flightsRealtimeCoupleID != coupleID else { return }
+        await stopFlightsRealtimeSubscription()
         let (channel, stream) = BackendService.subscribeToCoupleFlights(coupleID: coupleID)
         flightsRealtimeChannel = channel
+        flightsRealtimeCoupleID = coupleID
         flightsRealtimeTask = Task { [weak self] in
             for await _ in stream {
                 await self?.refreshFlights()
@@ -777,13 +791,14 @@ final class AppModel {
         }
     }
 
-    private func stopFlightsRealtimeSubscription() {
+    private func stopFlightsRealtimeSubscription() async {
         flightsRealtimeTask?.cancel()
         flightsRealtimeTask = nil
         if let flightsRealtimeChannel {
-            Task { await BackendService.unsubscribe(flightsRealtimeChannel) }
+            await BackendService.unsubscribe(flightsRealtimeChannel)
         }
         flightsRealtimeChannel = nil
+        flightsRealtimeCoupleID = nil
     }
 
     /// Called once account creation succeeds — now happens *before* the paywall/trial screens
@@ -1141,7 +1156,7 @@ final class AppModel {
             if let index = memories.firstIndex(where: { $0.id == memory.id }) {
                 memories[index].photos = photos
             }
-            Task { await BackendService.notifyPartner(event: .memoryAdded, detail: title) }
+            Task { await BackendService.notifyPartner(event: .memoryAdded, detail: title, target: .selfDevice) }
             Task { await WidgetSnapshotWriter.refresh(appModel: self) }
         } catch {
             pendingMemoryIDs.insert(memory.id)

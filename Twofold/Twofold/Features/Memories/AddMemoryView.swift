@@ -37,6 +37,12 @@ struct AddMemoryView: View {
     @State private var locationService = HomeLocationService()
     @State private var mapCameraPosition: MapCameraPosition
 
+    private enum Field: Hashable { case title, note }
+    /// Drives both the keyboard's "Done" accessory and the map's shrink-while-editing-notes
+    /// behavior below — the map used to stay fixed at half the screen even with the keyboard up,
+    /// leaving barely any room to actually see what you were typing in the notes field.
+    @FocusState private var focusedField: Field?
+
     private struct PendingPhoto: Identifiable {
         let id = UUID()
         var image: Image
@@ -67,7 +73,8 @@ struct AddMemoryView: View {
             GeometryReader { geo in
                 VStack(spacing: 0) {
                     locationMap
-                        .frame(height: geo.size.height / 2)
+                        .frame(height: focusedField == .note ? geo.size.height * 0.15 : geo.size.height / 2)
+                        .animation(.easeInOut(duration: 0.25), value: focusedField)
 
                     ScrollView {
                         VStack(alignment: .leading, spacing: Theme.Spacing.md) {
@@ -99,6 +106,10 @@ struct AddMemoryView: View {
                     ToolbarItem(placement: .topBarLeading) {
                         Button("Cancel") { dismiss() }
                     }
+                }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { focusedField = nil }
                 }
             }
             .interactiveDismissDisabled(!isDismissable)
@@ -155,6 +166,7 @@ struct AddMemoryView: View {
     private var titleRow: some View {
         TextField("Memory title", text: $title)
             .font(.title2.weight(.bold))
+            .focused($focusedField, equals: .title)
     }
 
     private var dateLocationSummary: some View {
@@ -185,6 +197,7 @@ struct AddMemoryView: View {
             .padding(Theme.Spacing.sm)
             .frame(maxWidth: .infinity, alignment: .topLeading)
             .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+            .focused($focusedField, equals: .note)
     }
 
     private var photoStrip: some View {
