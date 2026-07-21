@@ -171,10 +171,25 @@ struct TriviaBattleGameView: View {
         }
     }
 
+    /// Content is authored with `correct_answer` frequently landing first in `options` — rendering
+    /// that raw order would make the first tile the correct pick far more often than chance.
+    /// Order is re-derived from `round.id` (not shuffled inline) so it stays stable across
+    /// re-renders/edits of the same round instead of jumping around as the user interacts with it.
+    private func orderedOptions(round: GameSessionRound, question: TriviaQuestion) -> [String] {
+        let seed = round.id.uuidString
+        return question.options.sorted { a, b in stableHash(seed + a) < stableHash(seed + b) }
+    }
+
+    private func stableHash(_ string: String) -> UInt64 {
+        var hash: UInt64 = 5381
+        for byte in string.utf8 { hash = (hash << 5 &+ hash) &+ UInt64(byte) }
+        return hash
+    }
+
     private func answerOptions(round: GameSessionRound, question: TriviaQuestion) -> some View {
         VStack(spacing: Theme.Spacing.md) {
             LazyVGrid(columns: [GridItem(.flexible(), spacing: Theme.Spacing.sm), GridItem(.flexible())], spacing: Theme.Spacing.sm) {
-                ForEach(Array(question.options.enumerated()), id: \.offset) { index, option in
+                ForEach(Array(orderedOptions(round: round, question: question).enumerated()), id: \.offset) { index, option in
                     let style = Self.optionStyles[index % Self.optionStyles.count]
                     let previousAnswer = store.myResponse(for: round, myID: myID)?.answerValue
                     let wasPreviouslyChosen = previousAnswer == option

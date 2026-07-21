@@ -280,6 +280,14 @@ struct GameResultsView: View {
                         correctnessBadge(label: "You", isCorrect: mine?.isCorrect)
                         correctnessBadge(label: partnerName, isCorrect: partner?.isCorrect)
                     }
+                    // Whenever it's not the case both got it right, at least one of the answer
+                    // chips above isn't showing the correct string — spell it out explicitly
+                    // rather than leaving it to be inferred from whichever chip happened to match.
+                    if !matched {
+                        Text("Correct answer: \(question.correctAnswer)")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Theme.leafGreen)
+                    }
                     if let explanation = question.explanation, !explanation.isEmpty {
                         Text(explanation).font(.caption).foregroundStyle(Theme.subtleInk)
                     }
