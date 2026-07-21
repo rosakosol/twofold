@@ -28,6 +28,8 @@ interface Props {
   editingRow: ContentRow | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Pre-selected deck for new entries — used when creating from within a deck's detail view. */
+  defaultDeckId?: string;
 }
 
 function optionsOf(row: ContentRow | null): string[] {
@@ -37,7 +39,7 @@ function optionsOf(row: ContentRow | null): string[] {
   return ["", ""];
 }
 
-export function ContentForm({ contentType, decks, editingRow, open, onOpenChange }: Props) {
+export function ContentForm({ contentType, decks, editingRow, open, onOpenChange, defaultDeckId }: Props) {
   const isEditing = editingRow !== null;
   const create = useCreateContent(contentType.key);
   const update = useUpdateContent(contentType.key);
@@ -66,7 +68,7 @@ export function ContentForm({ contentType, decks, editingRow, open, onOpenChange
     setTextValues(seeded);
     setCategory(editingRow?.category ?? "");
     setTier((editingRow?.tier as (typeof TIER_VALUES)[number]) ?? "plus");
-    setDeckId(editingRow?.deck_id ?? NO_DECK);
+    setDeckId(editingRow?.deck_id ?? defaultDeckId ?? NO_DECK);
     setActive(editingRow?.active ?? true);
 
     if (contentType.isTrivia) {
@@ -76,7 +78,7 @@ export function ContentForm({ contentType, decks, editingRow, open, onOpenChange
       setExplanation(trivia?.explanation ?? "");
       setDifficulty(trivia?.difficulty ?? "");
     }
-  }, [open, editingRow, contentType]);
+  }, [open, editingRow, contentType, defaultDeckId]);
 
   const nonEmptyOptions = options.map((o) => o.trim()).filter(Boolean);
 

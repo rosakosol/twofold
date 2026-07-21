@@ -83,6 +83,14 @@ export function contentTypeFor(key: ContentTypeKey): ContentTypeConfig {
   return config;
 }
 
+/** Given a deck's game_type, find which content table its questions actually live in —
+ * used by the deck detail view (/admin/games/decks/[id]) to know what to query/render. */
+export function contentTypeForGameType(gameType: GameType): ContentTypeConfig {
+  const config = CONTENT_TYPES.find((c) => c.gameType === gameType);
+  if (!config) throw new Error(`Unknown game type: ${gameType}`);
+  return config;
+}
+
 export const TIER_VALUES = ["plus", "premium"] as const;
 export type Tier = (typeof TIER_VALUES)[number];
 

@@ -16,6 +16,18 @@ export function useGameDecks(gameType?: GameType) {
   });
 }
 
+export function useGameDeck(id: string) {
+  return useQuery({
+    queryKey: ["admin", "game_decks", "one", id],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.from("game_decks").select("*").eq("id", id).single();
+      if (error) throw error;
+      return data as GameDeck;
+    },
+  });
+}
+
 export function useGameContentList(table: ContentTypeKey) {
   return useQuery({
     queryKey: ["admin", table],

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { Pencil, Trash2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -21,7 +22,7 @@ import {
 import { useGameDecks } from "@/lib/queries/useGameContent";
 import { useDeleteDeck, useUpdateDeck } from "@/lib/queries/useGameContentMutations";
 import { DeckForm } from "@/components/admin/games/DeckForm";
-import { CONTENT_TYPES, type GameDeck } from "@/lib/games/contentTypes";
+import { CONTENT_TYPES, type GameDeck, type GameType } from "@/lib/games/contentTypes";
 
 const LABEL_BY_GAME_TYPE = new Map(CONTENT_TYPES.map((c) => [c.gameType, c.label]));
 
@@ -84,8 +85,8 @@ function ActiveToggle({ deck }: { deck: GameDeck }) {
   );
 }
 
-export function DeckTable() {
-  const { data: decks, isLoading } = useGameDecks();
+export function DeckTable({ gameType }: { gameType?: GameType }) {
+  const { data: decks, isLoading } = useGameDecks(gameType);
   const [editingDeck, setEditingDeck] = useState<GameDeck | null>(null);
   const [formOpen, setFormOpen] = useState(false);
 
@@ -114,7 +115,7 @@ export function DeckTable() {
             <thead className="border-b bg-muted/50 text-left text-xs text-muted-foreground">
               <tr>
                 <th className="px-3 py-2 font-medium">Deck</th>
-                <th className="px-3 py-2 font-medium">Game type</th>
+                {!gameType && <th className="px-3 py-2 font-medium">Game type</th>}
                 <th className="px-3 py-2 font-medium">Tier</th>
                 <th className="px-3 py-2 font-medium">Questions</th>
                 <th className="px-3 py-2 font-medium">Sort</th>
@@ -126,10 +127,14 @@ export function DeckTable() {
               {decks.map((deck) => (
                 <tr key={deck.id} className={deck.active ? undefined : "opacity-50"}>
                   <td className="px-3 py-2">
-                    {deck.emoji} {deck.title}
+                    <Link href={`/admin/games/decks/${deck.id}`} className="font-medium hover:underline">
+                      {deck.emoji} {deck.title}
+                    </Link>
                     <span className="ml-1 text-xs text-muted-foreground">({deck.topic})</span>
                   </td>
-                  <td className="px-3 py-2">{LABEL_BY_GAME_TYPE.get(deck.game_type) ?? deck.game_type}</td>
+                  {!gameType && (
+                    <td className="px-3 py-2">{LABEL_BY_GAME_TYPE.get(deck.game_type) ?? deck.game_type}</td>
+                  )}
                   <td className="px-3 py-2">
                     <Badge variant={deck.tier === "premium" ? "default" : "secondary"}>{deck.tier}</Badge>
                   </td>

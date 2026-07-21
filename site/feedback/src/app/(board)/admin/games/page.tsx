@@ -11,13 +11,12 @@ export default function AdminGamesPage() {
       <div>
         <h1 className="font-heading text-3xl font-bold tracking-tight">Games</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Manage decks and the questions/prompts/topics that make up each game.
+          Each tab is a game type. Click into a deck to edit the questions that belong to it.
         </p>
       </div>
 
-      <Tabs defaultValue="decks" className="mt-6">
+      <Tabs defaultValue={CONTENT_TYPES[0].key} className="mt-6">
         <TabsList>
-          <TabsTrigger value="decks">Decks</TabsTrigger>
           {CONTENT_TYPES.map((c) => (
             <TabsTrigger key={c.key} value={c.key}>
               {c.label}
@@ -25,12 +24,16 @@ export default function AdminGamesPage() {
           ))}
         </TabsList>
 
-        <TabsContent value="decks" className="mt-4">
-          <DeckTable />
-        </TabsContent>
         {CONTENT_TYPES.map((c) => (
-          <TabsContent key={c.key} value={c.key} className="mt-4">
-            <ContentTable contentType={c} />
+          <TabsContent key={c.key} value={c.key} className="mt-4 flex flex-col gap-8">
+            <div>
+              <h2 className="mb-3 text-sm font-semibold text-muted-foreground">Decks</h2>
+              <DeckTable gameType={c.gameType} />
+            </div>
+            <div>
+              <h2 className="mb-3 text-sm font-semibold text-muted-foreground">All {c.label} entries</h2>
+              <ContentTable contentType={c} />
+            </div>
           </TabsContent>
         ))}
       </Tabs>

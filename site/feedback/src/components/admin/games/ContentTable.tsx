@@ -84,12 +84,20 @@ function ActiveToggle({ contentType, row }: { contentType: ContentTypeConfig; ro
   );
 }
 
-export function ContentTable({ contentType }: { contentType: ContentTypeConfig }) {
-  const { data: rows, isLoading } = useGameContentList(contentType.key);
+export function ContentTable({
+  contentType,
+  deckFilter,
+}: {
+  contentType: ContentTypeConfig;
+  /** Scope the list to one deck's questions — used by the deck detail view. */
+  deckFilter?: string;
+}) {
+  const { data: allRows, isLoading } = useGameContentList(contentType.key);
   const { data: decks } = useGameDecks(contentType.gameType);
   const [editingRow, setEditingRow] = useState<ContentRow | null>(null);
   const [formOpen, setFormOpen] = useState(false);
 
+  const rows = deckFilter ? (allRows ?? []).filter((r) => r.deck_id === deckFilter) : allRows;
   const deckTitleById = new Map((decks ?? []).map((d) => [d.id, `${d.emoji} ${d.title}`]));
 
   if (isLoading) return <Skeleton className="h-64 w-full rounded-lg" />;
@@ -119,7 +127,7 @@ export function ContentTable({ contentType }: { contentType: ContentTypeConfig }
                 <th className="px-3 py-2 font-medium">{contentType.label}</th>
                 <th className="px-3 py-2 font-medium">Category</th>
                 <th className="px-3 py-2 font-medium">Tier</th>
-                <th className="px-3 py-2 font-medium">Deck</th>
+                {!deckFilter && <th className="px-3 py-2 font-medium">Deck</th>}
                 <th className="px-3 py-2 font-medium">Active</th>
                 <th className="px-3 py-2 font-medium">Actions</th>
               </tr>
@@ -132,9 +140,11 @@ export function ContentTable({ contentType }: { contentType: ContentTypeConfig }
                   <td className="px-3 py-2">
                     <Badge variant={row.tier === "premium" ? "default" : "secondary"}>{row.tier}</Badge>
                   </td>
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    {row.deck_id ? (deckTitleById.get(row.deck_id) ?? "—") : "—"}
-                  </td>
+                  {!deckFilter && (
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      {row.deck_id ? (deckTitleById.get(row.deck_id) ?? "—") : "—"}
+                    </td>
+                  )}
                   <td className="px-3 py-2">
                     <ActiveToggle contentType={contentType} row={row} />
                   </td>
@@ -168,6 +178,7 @@ export function ContentTable({ contentType }: { contentType: ContentTypeConfig }
         editingRow={editingRow}
         open={formOpen}
         onOpenChange={setFormOpen}
+        defaultDeckId={deckFilter}
       />
     </div>
   );
