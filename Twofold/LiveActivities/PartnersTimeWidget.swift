@@ -49,37 +49,9 @@ struct PartnersTimeProvider: TimelineProvider {
 struct PartnersTimeWidgetView: View {
     let entry: PartnersTimeEntry
 
-    @Environment(\.widgetFamily) private var family
-
     var body: some View {
-        Group {
-            if family == .accessoryCircular {
-                accessoryCircular
-            } else {
-                homeScreenBody
-            }
-        }
-        .widgetURL(URL(string: "twofold://home"))
-    }
-
-    @ViewBuilder
-    private var accessoryCircular: some View {
-        ZStack {
-            AccessoryWidgetBackground()
-            if let timeZone = entry.timeZone {
-                VStack(spacing: 0) {
-                    Text(TimeMath.timeString(in: timeZone, at: entry.date))
-                        .font(.system(.body, design: .rounded).bold())
-                        .minimumScaleFactor(0.7)
-                    Text(entry.partnerCity ?? entry.partnerName)
-                        .font(.caption2)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-                }
-            } else {
-                Image(systemName: "person.2.fill")
-            }
-        }
+        homeScreenBody
+            .widgetURL(URL(string: "twofold://home"))
     }
 
     @ViewBuilder
@@ -154,8 +126,8 @@ struct PartnersTimeWidget: Widget {
                 .containerBackground(for: .widget) { Color.clear }
         }
         .configurationDisplayName("Partner's Time")
-        .description("See your partner's local time at a glance, on your Home Screen or Lock Screen.")
-        .supportedFamilies([.systemSmall, .accessoryCircular])
+        .description("See your partner's local time at a glance, on your Home Screen.")
+        .supportedFamilies([.systemSmall])
         .contentMarginsDisabled()
     }
 }

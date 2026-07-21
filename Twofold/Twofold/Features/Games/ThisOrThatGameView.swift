@@ -119,67 +119,71 @@ struct ThisOrThatGameView: View {
     }
 
     private func roundView(round: GameSessionRound, prompt: ThisOrThatPrompt) -> some View {
+        // Plain VStack, not a ScrollView — SwipeChoiceCard's DragGesture tracks the full
+        // translation (not axis-locked to horizontal, since the card visibly follows a diagonal
+        // drag too), so a ScrollView here competed with it over the same touch, exactly the two-
+        // recognizers problem SwipeChoiceCard's own header comment describes having fixed once
+        // already (there, for tap vs. swipe). `minHeight: geometry.size.height` still centers
+        // this content vertically without installing a scroll gesture.
         GeometryReader { geometry in
-            ScrollView {
-                VStack(spacing: Theme.Spacing.lg) {
-                    VStack(spacing: Theme.Spacing.md) {
-                        SwipeChoiceCard(
-                            leftLabel: "🅰️ THIS",
-                            rightLabel: "🅱️ THAT",
-                            isDisabled: isSubmitting,
-                            content: {
-                                VStack(spacing: Theme.Spacing.lg) {
-                                    Text("\(round.roundNumber) / \(store.rounds.count)")
-                                        .font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(.white.opacity(0.7))
-                                        .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(spacing: Theme.Spacing.lg) {
+                VStack(spacing: Theme.Spacing.md) {
+                    SwipeChoiceCard(
+                        leftLabel: "🅰️ THIS",
+                        rightLabel: "🅱️ THAT",
+                        isDisabled: isSubmitting,
+                        content: {
+                            VStack(spacing: Theme.Spacing.lg) {
+                                Text("\(round.roundNumber) / \(store.rounds.count)")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.white.opacity(0.7))
+                                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                                    Spacer(minLength: Theme.Spacing.md)
+                                Spacer(minLength: Theme.Spacing.md)
 
-                                    // One flowing "Answer or Answer" phrase, not separate stacked
-                                    // lines — built as a single AttributedString/Text rather than
-                                    // the `Text + Text` concatenation this replaced, which iOS 26
-                                    // deprecated in favor of exactly this. Constrained to one
-                                    // line — shrinking to fit rather than wrapping keeps the card
-                                    // height consistent regardless of how long either option is.
-                                    optionsPhrase(prompt)
-                                        .font(.title2)
-                                        .lineLimit(1)
-                                        .minimumScaleFactor(0.4)
-                                        .frame(maxWidth: .infinity)
+                                // One flowing "Answer or Answer" phrase, not separate stacked
+                                // lines — built as a single AttributedString/Text rather than
+                                // the `Text + Text` concatenation this replaced, which iOS 26
+                                // deprecated in favor of exactly this. Constrained to one
+                                // line — shrinking to fit rather than wrapping keeps the card
+                                // height consistent regardless of how long either option is.
+                                optionsPhrase(prompt)
+                                    .font(.title2)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.4)
+                                    .frame(maxWidth: .infinity)
 
-                                    // Revisiting an already-answered round via the back button —
-                                    // sits right under the question, rather than the previous
-                                    // top-of-card pill placement, so it's clearly tied to what it
-                                    // describes.
-                                    if let previousAnswerLabel = previousAnswerLabel(for: round, prompt: prompt) {
-                                        Text("You chose: \(previousAnswerLabel)")
-                                            .font(.caption.weight(.bold))
-                                            .foregroundStyle(.white)
-                                            .padding(.horizontal, Theme.Spacing.sm)
-                                            .padding(.vertical, 6)
-                                            .background(.white.opacity(0.22), in: Capsule())
-                                    }
-
-                                    Spacer(minLength: Theme.Spacing.md)
+                                // Revisiting an already-answered round via the back button —
+                                // sits right under the question, rather than the previous
+                                // top-of-card pill placement, so it's clearly tied to what it
+                                // describes.
+                                if let previousAnswerLabel = previousAnswerLabel(for: round, prompt: prompt) {
+                                    Text("You chose: \(previousAnswerLabel)")
+                                        .font(.caption.weight(.bold))
+                                        .foregroundStyle(.white)
+                                        .padding(.horizontal, Theme.Spacing.sm)
+                                        .padding(.vertical, 6)
+                                        .background(.white.opacity(0.22), in: Capsule())
                                 }
-                            },
-                            onChooseLeft: { submit(round: round, value: ThisOrThatChoice.optionA.rawValue) },
-                            onChooseRight: { submit(round: round, value: ThisOrThatChoice.optionB.rawValue) }
-                        )
 
-                        Text("Swipe a side")
-                            .font(.caption)
-                            .foregroundStyle(Theme.subtleInk)
+                                Spacer(minLength: Theme.Spacing.md)
+                            }
+                        },
+                        onChooseLeft: { submit(round: round, value: ThisOrThatChoice.optionA.rawValue) },
+                        onChooseRight: { submit(round: round, value: ThisOrThatChoice.optionB.rawValue) }
+                    )
 
-                        SkipButton(isDisabled: isSubmitting) {
-                            submit(round: round, value: "")
-                        }
+                    Text("Swipe a side")
+                        .font(.caption)
+                        .foregroundStyle(Theme.subtleInk)
+
+                    SkipButton(isDisabled: isSubmitting) {
+                        submit(round: round, value: "")
                     }
                 }
-                .padding(Theme.Spacing.lg)
-                .frame(maxWidth: .infinity, minHeight: geometry.size.height, alignment: .center)
             }
+            .padding(Theme.Spacing.lg)
+            .frame(maxWidth: .infinity, minHeight: geometry.size.height, alignment: .center)
         }
     }
 

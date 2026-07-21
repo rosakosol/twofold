@@ -64,13 +64,31 @@ struct WidgetSnapshot: Codable {
         var tripCount: Int
     }
 
+    /// The soonest upcoming trip (`AppModel.upcomingTrips.first`, same source as Home's
+    /// "next reunion" card and `nextReunionDaysToGo`) — not tied to a tracked flight, since a
+    /// trip's own departure date is what actually marks "when we'll be together", and not every
+    /// trip has (or needs) an AeroAPI-tracked flight attached. `departureDate` stored raw, not a
+    /// precomputed day-count, so NextReunionWidget stays correct without waiting on a fresh
+    /// snapshot write — same reasoning as `anniversaryDate`.
+    struct ReunionInfo: Codable {
+        var departureDate: Date
+        var destinationCity: String
+        var isReunionTrip: Bool
+    }
+
     /// Needed alongside coupleID/partnerID for DrawingPadWidget's Medium side-by-side layout to
     /// build *my* public drawing-pad URL, the same way it already builds the partner's.
     var myID: UUID?
     var myName: String
     var partnerName: String
+    var myCity: String?
     var partnerCity: String?
     var partnerTimeZoneIdentifier: String?
+    /// Pre-formatted per the device's actual measurement-system preference (km/mi) —
+    /// `MeasurementPreference` reads `UserDefaults.standard`, which isn't shared with this
+    /// extension's process, so the label has to be built app-side (WidgetSnapshotWriter) rather
+    /// than recomputed here from a raw distance.
+    var distanceLabel: String?
     var anniversaryDate: Date?
     /// "plus"/"premium"/nil — nil means no active subscription at all (never locked out of
     /// free-tier widgets, same "plus is the safe default" rule as AppModel.subscriptionTier).
@@ -78,6 +96,7 @@ struct WidgetSnapshot: Codable {
     /// content the same way Games does (see WidgetTier.swift).
     var subscriptionTier: String?
     var nextFlight: FlightInfo?
+    var nextReunion: ReunionInfo?
     var latestMemory: MemoryInfo?
     var partnerWeather: WeatherInfo?
     var relationshipStats: RelationshipStats?

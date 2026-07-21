@@ -19,5 +19,7 @@ struct LiveActivitiesBundle: WidgetBundle {
         TimeWeatherWidget()
         DrawingPadWidget()
         SmartRotatingWidget()
+        DistanceWidget()
+        NextReunionWidget()
     }
 }

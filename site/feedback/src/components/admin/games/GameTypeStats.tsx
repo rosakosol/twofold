@@ -6,7 +6,7 @@ import { useGameDecks, useGameContentTiers } from "@/lib/queries/useGameContent"
 import type { ContentTypeConfig } from "@/lib/games/contentTypes";
 import { Skeleton } from "@/components/ui/skeleton";
 
-function StatCard({ label, value }: { label: string; value: string }) {
+export function StatCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border bg-muted/30 px-4 py-3">
       <p className="text-xs text-muted-foreground">{label}</p>

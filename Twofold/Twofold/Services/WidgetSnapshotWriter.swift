@@ -22,11 +22,14 @@ enum WidgetSnapshotWriter {
                     myID: nil,
                     myName: appModel.currentUser.name,
                     partnerName: appModel.partner.name,
+                    myCity: nil,
                     partnerCity: nil,
                     partnerTimeZoneIdentifier: nil,
+                    distanceLabel: nil,
                     anniversaryDate: nil,
                     subscriptionTier: appModel.subscriptionTier,
                     nextFlight: nil,
+                    nextReunion: nil,
                     latestMemory: nil,
                     partnerWeather: nil,
                     relationshipStats: nil,
@@ -39,7 +42,22 @@ enum WidgetSnapshotWriter {
             return
         }
 
+        let myCity = appModel.currentUser.homeCity
         let partnerCity = appModel.partner.homeCity
+
+        var distanceLabel: String?
+        if let mine = myCity?.coordinate, let theirs = partnerCity?.coordinate {
+            distanceLabel = MeasurementPreference.distanceLabel(km: Geo.distanceKm(mine, theirs))
+        }
+
+        var reunionInfo: WidgetSnapshot.ReunionInfo?
+        if let trip = appModel.upcomingTrips.first {
+            reunionInfo = WidgetSnapshot.ReunionInfo(
+                departureDate: trip.departureDate,
+                destinationCity: trip.destination.displayCity,
+                isReunionTrip: trip.isReunionTrip
+            )
+        }
 
         if let avatarURL = appModel.currentUser.avatarURL, let data = try? await URLSession.shared.data(from: avatarURL).0 {
             WidgetImageCache.writeMyAvatarImage(data)
@@ -95,11 +113,14 @@ enum WidgetSnapshotWriter {
                 myID: appModel.currentUser.id,
                 myName: appModel.currentUser.name,
                 partnerName: appModel.partner.name,
+                myCity: myCity?.displayCity,
                 partnerCity: partnerCity?.displayCity,
                 partnerTimeZoneIdentifier: partnerCity?.timeZoneIdentifier,
+                distanceLabel: distanceLabel,
                 anniversaryDate: appModel.couple.startedDatingOn,
                 subscriptionTier: appModel.subscriptionTier,
                 nextFlight: flightInfo,
+                nextReunion: reunionInfo,
                 latestMemory: memoryInfo,
                 partnerWeather: weatherInfo,
                 relationshipStats: relationshipStats,

@@ -87,8 +87,6 @@ struct TripCountdownProvider: TimelineProvider {
 struct TripCountdownWidgetView: View {
     let entry: TripCountdownEntry
 
-    @Environment(\.widgetFamily) private var family
-
     private var isLocked: Bool { WidgetTier.isLocked(required: WidgetTier.plus, current: entry.subscriptionTier) }
 
     private var remainingLabel: String {
@@ -114,29 +112,8 @@ struct TripCountdownWidgetView: View {
     }
 
     var body: some View {
-        Group {
-            if family == .accessoryRectangular {
-                accessoryRectangular
-            } else {
-                homeScreenBody
-            }
-        }
-        .widgetURL(deepLinkURL)
-    }
-
-    @ViewBuilder
-    private var accessoryRectangular: some View {
-        if isLocked {
-            Label("Twofold Plus", systemImage: "lock.fill")
-        } else {
-            VStack(alignment: .leading, spacing: 1) {
-                Label(entry.targetDate != nil ? remainingLabel : "No upcoming trip", systemImage: "airplane.departure")
-                    .font(.headline)
-                if entry.targetDate != nil {
-                    Text(caption).font(.caption2)
-                }
-            }
-        }
+        homeScreenBody
+            .widgetURL(deepLinkURL)
     }
 
     private var homeScreenBody: some View {
@@ -197,8 +174,8 @@ struct TripCountdownWidget: Widget {
                 .containerBackground(for: .widget) { Color.clear }
         }
         .configurationDisplayName("Trip Countdown")
-        .description("Time until your next trip departs or arrives, on your Home Screen or Lock Screen.")
-        .supportedFamilies([.systemSmall, .accessoryRectangular])
+        .description("Time until your next trip departs or arrives, on your Home Screen.")
+        .supportedFamilies([.systemSmall])
         .contentMarginsDisabled()
     }
 }

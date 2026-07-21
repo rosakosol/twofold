@@ -50,8 +50,7 @@ struct DaysTogetherWidgetView: View {
     var body: some View {
         Group {
             switch family {
-            case .accessoryCircular: accessoryCircular
-            case .accessoryInline: accessoryInline
+            case .accessoryRectangular: accessoryRectangular
             default: homeScreenBody
             }
         }
@@ -100,27 +99,17 @@ struct DaysTogetherWidgetView: View {
         .frame(width: 44, height: 26, alignment: .leading)
     }
 
-    /// Lock Screen families: no color/branding chrome (the system auto-tints these to match
+    /// Lock Screen: no color/branding chrome (the system auto-tints accessory widgets to match
     /// the Lock Screen's chosen color), just the number.
-    @ViewBuilder
-    private var accessoryCircular: some View {
-        ZStack {
-            AccessoryWidgetBackground()
-            if let days = entry.days {
-                VStack(spacing: 0) {
-                    Text("\(days)").font(.system(.title3, design: .rounded).bold())
-                    Text("days").font(.caption2)
-                }
-            } else {
-                Image(systemName: "heart.fill")
-            }
-        }
-    }
-
-    private var accessoryInline: some View {
+    private var accessoryRectangular: some View {
         Group {
             if let days = entry.days {
-                Label("\(days) days together", systemImage: "heart.fill")
+                VStack(alignment: .leading, spacing: 1) {
+                    Label("\(days) days", systemImage: "heart.fill")
+                        .font(.headline)
+                    Text("together")
+                        .font(.caption2)
+                }
             } else {
                 Label("Set anniversary date", systemImage: "heart.fill")
             }
@@ -147,7 +136,7 @@ struct DaysTogetherWidget: Widget {
         }
         .configurationDisplayName("Days Together")
         .description("Your running total, right on your Home Screen or Lock Screen.")
-        .supportedFamilies([.systemSmall, .accessoryCircular, .accessoryInline])
+        .supportedFamilies([.systemSmall, .accessoryRectangular])
         .contentMarginsDisabled()
     }
 }

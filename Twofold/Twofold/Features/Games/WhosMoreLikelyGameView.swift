@@ -119,95 +119,99 @@ struct WhosMoreLikelyGameView: View {
     }
 
     private func roundView(round: GameSessionRound, prompt: MoreLikelyPrompt) -> some View {
+        // Plain VStack, not a ScrollView — SwipeChoiceCard's DragGesture tracks the full
+        // translation (not axis-locked to horizontal, since the card visibly follows a diagonal
+        // drag too), so a ScrollView here competed with it over the same touch, exactly the two-
+        // recognizers problem SwipeChoiceCard's own header comment describes having fixed once
+        // already (there, for tap vs. swipe). `minHeight: geometry.size.height` still centers
+        // this content vertically without installing a scroll gesture.
         GeometryReader { geometry in
-            ScrollView {
-                VStack(spacing: Theme.Spacing.lg) {
-                    VStack(spacing: Theme.Spacing.md) {
-                        SwipeChoiceCard(
-                            leftLabel: "🙋 \(appModel.currentUser.name.uppercased())",
-                            rightLabel: "👉 \(appModel.partner.name.uppercased())",
-                            isDisabled: isSubmitting,
-                            content: {
-                                VStack(spacing: Theme.Spacing.lg) {
-                                    Text("\(round.roundNumber) / \(store.rounds.count)")
-                                        .font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(.white.opacity(0.7))
-                                        .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(spacing: Theme.Spacing.lg) {
+                VStack(spacing: Theme.Spacing.md) {
+                    SwipeChoiceCard(
+                        leftLabel: "🙋 \(appModel.currentUser.name.uppercased())",
+                        rightLabel: "👉 \(appModel.partner.name.uppercased())",
+                        isDisabled: isSubmitting,
+                        content: {
+                            VStack(spacing: Theme.Spacing.lg) {
+                                Text("\(round.roundNumber) / \(store.rounds.count)")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.white.opacity(0.7))
+                                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                                    Spacer(minLength: Theme.Spacing.sm)
+                                Spacer(minLength: Theme.Spacing.sm)
 
-                                    // Centered vertically between the progress line and the
-                                    // avatar row via the spacer on each side, rather than sitting
-                                    // right under the progress line.
-                                    Text(prompt.prompt)
-                                        .font(.title3.weight(.bold))
+                                // Centered vertically between the progress line and the
+                                // avatar row via the spacer on each side, rather than sitting
+                                // right under the progress line.
+                                Text(prompt.prompt)
+                                    .font(.title3.weight(.bold))
+                                    .foregroundStyle(.white)
+                                    .multilineTextAlignment(.center)
+                                    .frame(maxWidth: .infinity)
+
+                                // Revisiting an already-answered round via the back button —
+                                // sits right under the question, rather than the previous
+                                // top-of-card pill placement, so it's clearly tied to what it
+                                // describes.
+                                if let previousAnswerLabel = previousAnswerLabel(for: round) {
+                                    Text("You chose: \(previousAnswerLabel)")
+                                        .font(.caption.weight(.bold))
                                         .foregroundStyle(.white)
-                                        .multilineTextAlignment(.center)
-                                        .frame(maxWidth: .infinity)
+                                        .padding(.horizontal, Theme.Spacing.sm)
+                                        .padding(.vertical, 6)
+                                        .background(.white.opacity(0.22), in: Capsule())
+                                }
 
-                                    // Revisiting an already-answered round via the back button —
-                                    // sits right under the question, rather than the previous
-                                    // top-of-card pill placement, so it's clearly tied to what it
-                                    // describes.
-                                    if let previousAnswerLabel = previousAnswerLabel(for: round) {
-                                        Text("You chose: \(previousAnswerLabel)")
-                                            .font(.caption.weight(.bold))
+                                Spacer(minLength: Theme.Spacing.sm)
+
+                                HStack(spacing: Theme.Spacing.xl) {
+                                    VStack(spacing: Theme.Spacing.xs) {
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "chevron.left")
+                                                .font(.caption2.weight(.bold))
+                                                .foregroundStyle(.white.opacity(0.75))
+                                            AvatarView(person: appModel.currentUser, size: 56, showsRing: true)
+                                        }
+                                        Text(appModel.currentUser.name)
+                                            .font(.caption.weight(.semibold))
                                             .foregroundStyle(.white)
-                                            .padding(.horizontal, Theme.Spacing.sm)
-                                            .padding(.vertical, 6)
-                                            .background(.white.opacity(0.22), in: Capsule())
+                                            .lineLimit(1)
+                                            .minimumScaleFactor(0.6)
+                                            .frame(maxWidth: 72)
                                     }
-
-                                    Spacer(minLength: Theme.Spacing.sm)
-
-                                    HStack(spacing: Theme.Spacing.xl) {
-                                        VStack(spacing: Theme.Spacing.xs) {
-                                            HStack(spacing: 4) {
-                                                Image(systemName: "chevron.left")
-                                                    .font(.caption2.weight(.bold))
-                                                    .foregroundStyle(.white.opacity(0.75))
-                                                AvatarView(person: appModel.currentUser, size: 56, showsRing: true)
-                                            }
-                                            Text(appModel.currentUser.name)
-                                                .font(.caption.weight(.semibold))
-                                                .foregroundStyle(.white)
-                                                .lineLimit(1)
-                                                .minimumScaleFactor(0.6)
-                                                .frame(maxWidth: 72)
+                                    VStack(spacing: Theme.Spacing.xs) {
+                                        HStack(spacing: 4) {
+                                            AvatarView(person: appModel.partner, size: 56, showsRing: true)
+                                            Image(systemName: "chevron.right")
+                                                .font(.caption2.weight(.bold))
+                                                .foregroundStyle(.white.opacity(0.75))
                                         }
-                                        VStack(spacing: Theme.Spacing.xs) {
-                                            HStack(spacing: 4) {
-                                                AvatarView(person: appModel.partner, size: 56, showsRing: true)
-                                                Image(systemName: "chevron.right")
-                                                    .font(.caption2.weight(.bold))
-                                                    .foregroundStyle(.white.opacity(0.75))
-                                            }
-                                            Text(appModel.partner.name)
-                                                .font(.caption.weight(.semibold))
-                                                .foregroundStyle(.white)
-                                                .lineLimit(1)
-                                                .minimumScaleFactor(0.6)
-                                                .frame(maxWidth: 72)
-                                        }
+                                        Text(appModel.partner.name)
+                                            .font(.caption.weight(.semibold))
+                                            .foregroundStyle(.white)
+                                            .lineLimit(1)
+                                            .minimumScaleFactor(0.6)
+                                            .frame(maxWidth: 72)
                                     }
                                 }
-                            },
-                            onChooseLeft: { submit(round: round, value: myID.uuidString) },
-                            onChooseRight: { submit(round: round, value: partnerID.uuidString) }
-                        )
+                            }
+                        },
+                        onChooseLeft: { submit(round: round, value: myID.uuidString) },
+                        onChooseRight: { submit(round: round, value: partnerID.uuidString) }
+                    )
 
-                        Text("Swipe a side")
-                            .font(.caption)
-                            .foregroundStyle(Theme.subtleInk)
+                    Text("Swipe a side")
+                        .font(.caption)
+                        .foregroundStyle(Theme.subtleInk)
 
-                        SkipButton(isDisabled: isSubmitting) {
-                            submit(round: round, value: "")
-                        }
+                    SkipButton(isDisabled: isSubmitting) {
+                        submit(round: round, value: "")
                     }
                 }
-                .padding(Theme.Spacing.lg)
-                .frame(maxWidth: .infinity, minHeight: geometry.size.height, alignment: .center)
             }
+            .padding(Theme.Spacing.lg)
+            .frame(maxWidth: .infinity, minHeight: geometry.size.height, alignment: .center)
         }
     }
 

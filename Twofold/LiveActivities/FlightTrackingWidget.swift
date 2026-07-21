@@ -79,8 +79,6 @@ struct FlightTrackingProvider: TimelineProvider {
 struct FlightTrackingWidgetView: View {
     let entry: FlightTrackingEntry
 
-    @Environment(\.widgetFamily) private var family
-
     private var isLocked: Bool { WidgetTier.isLocked(required: WidgetTier.plus, current: entry.subscriptionTier) }
 
     private var delayLabel: String? {
@@ -120,31 +118,8 @@ struct FlightTrackingWidgetView: View {
     }
 
     var body: some View {
-        Group {
-            switch family {
-            case .accessoryRectangular: accessoryRectangular
-            default: homeScreenBody
-            }
-        }
-        .widgetURL(deepLinkURL)
-    }
-
-    // MARK: - Lock Screen
-
-    @ViewBuilder
-    private var accessoryRectangular: some View {
-        if isLocked {
-            Label("Twofold Plus", systemImage: "lock.fill")
-        } else if let status = entry.status {
-            VStack(alignment: .leading, spacing: 1) {
-                Label(status.displayLabel, systemImage: status.icon).font(.headline)
-                if let originCity = entry.originCity, let destinationCity = entry.destinationCity {
-                    Text("\(originCity) → \(destinationCity)").font(.caption2)
-                }
-            }
-        } else {
-            Label("No upcoming flight", systemImage: "airplane.circle")
-        }
+        homeScreenBody
+            .widgetURL(deepLinkURL)
     }
 
     // MARK: - Small / Medium
@@ -288,8 +263,8 @@ struct FlightTrackingWidget: Widget {
                 .containerBackground(for: .widget) { Color.clear }
         }
         .configurationDisplayName("Flight Tracking")
-        .description("Live status and route, on your Home Screen or Lock Screen.")
-        .supportedFamilies([.systemSmall, .systemMedium, .accessoryRectangular])
+        .description("Live status and route, on your Home Screen.")
+        .supportedFamilies([.systemSmall, .systemMedium])
         .contentMarginsDisabled()
     }
 }
