@@ -63,7 +63,11 @@
   /* Retinted to match the marketing site's real palette (site/styles.css) — sky-blue
      accent, ink text, softer/rounder radius — everything else (secondary/muted/chart)
      stays the stock neutral scale, only the tokens that actually read as "brand" moved. */
-  --background: oklch(1 0 0);
+  /* Flat, soft-neutral canvas for the feedback board — the marketing site keeps its own
+     blue-to-green wash (marketing.css's own `body` rule overrides this one there), but
+     the board reads better dense and quiet, like Notion/Linear, with white cards sitting
+     on a faint grey page instead of colored panels sitting on a gradient. */
+  --background: oklch(0.985 0 0);
   --foreground: #1c2a38; /* --ink */
   --card: oklch(1 0 0);
   --card-foreground: #1c2a38;
@@ -87,13 +91,10 @@
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
   --radius: 1.25rem;
-  --bg-top: #d9eef9;
-  --bg-bottom: #e4f4e6;
   --ink: #1c2a38;
   --subtle-ink: #5b6b7a;
   --faint-ink: #8695a3;
   --border-soft: rgba(28, 42, 56, 0.09);
-  --nav-bg: rgba(217, 238, 249, 0.72);
   --button-top: #6ec1f0;
   --button-bottom: #3d8fc9;
   --sidebar: oklch(0.985 0 0);
@@ -111,7 +112,6 @@
   --subtle-ink: oklch(0.708 0 0);
   --faint-ink: oklch(0.556 0 0);
   --border-soft: oklch(1 0 0 / 10%);
-  --nav-bg: oklch(0.145 0 0 / 0.85);
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
@@ -150,15 +150,22 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply text-foreground;
-    /* Same soft blue-to-green wash as the marketing site's body background
-       (site/styles.css --bg-top/--bg-bottom) instead of flat white. */
-    background: linear-gradient(180deg, var(--bg-top) 0%, var(--bg-bottom) 100%) fixed;
-  }
-  .dark body {
-    background: var(--background);
+    @apply text-foreground bg-background;
   }
   html {
     @apply font-sans;
   }
+}
+
+/* Scoped to the (board) route group's root wrapper — see (board)/layout.tsx. Sans-serif
+   everywhere (no Newsreader), a tighter base spacing scale, and a smaller/denser type
+   size, aiming for a Notion/Linear-like compact, legible feel instead of the marketing
+   site's more spacious editorial one. `--spacing` drives every Tailwind spacing utility
+   (p-*, gap-*, m-*, size-* etc.) app-wide via calc(), so tightening it here densifies
+   every board table/card/form at once rather than needing per-component edits. */
+.board-shell {
+  --font-heading: var(--font-body);
+  --spacing: 0.225rem;
+  font-size: 0.9375rem;
+  line-height: 1.55;
 }

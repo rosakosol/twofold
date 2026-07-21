@@ -1,3 +1,4 @@
+import "@/styles/site-nav.css";
 import "./marketing.css";
 import { MarketingHeader } from "@/components/marketing/MarketingHeader";
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";

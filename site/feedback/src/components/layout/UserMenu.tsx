@@ -27,7 +27,14 @@ export function UserMenu() {
   if (isLoading) return <Skeleton className="h-9 w-9 rounded-full" />;
 
   if (!user) {
-    return <Button size="sm" render={<Link href="/auth/sign-in">Sign in</Link>} />;
+    // Styled as the same pill CTA as the marketing navbar's "Get the App" button
+    // (`.site-nav-cta`, from src/styles/site-nav.css) rather than the shadcn Button,
+    // so the two navbars' right-side action matches exactly, not just approximately.
+    return (
+      <Link href="/auth/sign-in" className="site-nav-cta">
+        Sign in
+      </Link>
+    );
   }
 
   const email = user.email ?? "";

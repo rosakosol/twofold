@@ -36,15 +36,15 @@ export function MarketingHeader() {
   }, [pathname]);
 
   return (
-    <header className={`nav${isScrolled ? " is-scrolled" : ""}${isOpen ? " is-open" : ""}`}>
-      <div className="wrap nav-inner">
-        <Link className="brand" href="/">
+    <header className={`site-nav${isScrolled ? " is-scrolled" : ""}${isOpen ? " is-open" : ""}`}>
+      <div className="site-nav-inner">
+        <Link className="site-nav-brand" href="/">
           {/* eslint-disable-next-line @next/next/no-img-element -- fixed-size brand mark, matches the ported static markup as-is */}
           <img src="/assets/globe-heart.png" alt="" width={28} height={28} />
           <span>twofold</span>
         </Link>
         <nav>
-          <ul className="nav-links">
+          <ul className="site-nav-links">
             {NAV_LINKS.map((link) => (
               <li key={link.href}>
                 <Link href={link.href} className={pathname === link.href ? "is-active" : undefined}>
@@ -59,13 +59,13 @@ export function MarketingHeader() {
             </li>
           </ul>
         </nav>
-        <div className="nav-actions">
-          <a className="nav-cta nav-cta-desktop" data-appstore-link href={APP_STORE_URL}>
+        <div className="site-nav-actions">
+          <a className="site-nav-cta site-nav-cta-desktop" data-appstore-link href={APP_STORE_URL}>
             Get the App
           </a>
           <button
             type="button"
-            className="nav-toggle"
+            className="site-nav-toggle"
             aria-label="Toggle menu"
             aria-expanded={isOpen}
             onClick={() => setIsOpen((v) => !v)}
