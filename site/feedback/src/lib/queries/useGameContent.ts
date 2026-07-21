@@ -39,3 +39,17 @@ export function useGameContentList(table: ContentTypeKey) {
     },
   });
 }
+
+/** Just `tier` — used to compute the games-hub summary stats without pulling every entry's
+ * full text/options/etc. across all game types on one page load. */
+export function useGameContentTiers(table: ContentTypeKey) {
+  return useQuery({
+    queryKey: ["admin", table, "tiers"],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.from(table).select("tier");
+      if (error) throw error;
+      return data as { tier: string }[];
+    },
+  });
+}
