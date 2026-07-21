@@ -29,7 +29,7 @@ export default function GameTypeEntriesPage() {
         <p className="mt-4 text-sm text-muted-foreground">Unknown game type.</p>
       ) : (
         <>
-          <h1 className="mt-4 font-heading text-3xl font-bold tracking-tight">All {contentType.label} entries</h1>
+          <h1 className="mt-4 font-heading text-xl font-semibold tracking-tight">All {contentType.label} entries</h1>
           <div className="mt-6">
             <ContentTable contentType={contentType} />
           </div>

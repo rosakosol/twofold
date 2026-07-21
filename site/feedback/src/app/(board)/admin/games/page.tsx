@@ -8,7 +8,7 @@ export default function AdminGamesPage() {
   return (
     <div>
       <div>
-        <h1 className="font-heading text-3xl font-bold tracking-tight">Games</h1>
+        <h1 className="font-heading text-xl font-semibold tracking-tight">Games</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Each tab is a game type. Pick Decks or Entries to manage that content.
         </p>

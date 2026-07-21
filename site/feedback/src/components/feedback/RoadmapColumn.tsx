@@ -1,14 +1,13 @@
-import Link from "next/link";
 import { ChevronUp, MessageSquare } from "lucide-react";
 import { CategoryBadge } from "@/components/feedback/CategoryBadge";
-import { STATUS_LABELS, type FeatureCategory, type FeatureStatus } from "@/lib/utils/constants";
+import type { FeatureCategory } from "@/lib/utils/constants";
 import type { RoadmapItem } from "@/lib/queries/useRoadmap";
 
-export function RoadmapColumn({ status, items }: { status: FeatureStatus; items: RoadmapItem[] }) {
+export function RoadmapColumn({ label, items }: { label: string; items: RoadmapItem[] }) {
   return (
-    <div className="flex w-72 shrink-0 flex-col gap-3">
+    <div className="flex min-w-0 flex-col gap-3">
       <div className="flex items-center gap-2 px-1">
-        <h2 className="text-sm font-semibold">{STATUS_LABELS[status]}</h2>
+        <h2 className="text-sm font-semibold">{label}</h2>
         <span className="text-xs text-muted-foreground">{items.length}</span>
       </div>
 
@@ -19,12 +18,8 @@ export function RoadmapColumn({ status, items }: { status: FeatureStatus; items:
           </p>
         ) : (
           items.map((item) => (
-            <Link
-              key={item.id}
-              href={`/feedback/${item.slug}`}
-              className="rounded-lg bg-card p-3 text-sm shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
-            >
-              <p className="line-clamp-2 font-bold">{item.title}</p>
+            <div key={item.id} className="rounded-lg bg-card p-3 text-sm shadow-sm">
+              <p className="line-clamp-2 font-semibold">{item.title}</p>
               <div className="mt-2 flex items-center justify-between gap-2">
                 <CategoryBadge category={item.category as FeatureCategory} />
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -38,7 +33,7 @@ export function RoadmapColumn({ status, items }: { status: FeatureStatus; items:
                   </span>
                 </div>
               </div>
-            </Link>
+            </div>
           ))
         )}
       </div>

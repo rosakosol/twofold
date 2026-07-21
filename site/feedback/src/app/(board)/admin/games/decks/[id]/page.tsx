@@ -32,7 +32,7 @@ export default function DeckDetailPage() {
         <>
           <div className="mt-4 flex items-start justify-between">
             <div>
-              <h1 className="font-heading text-3xl font-bold tracking-tight">
+              <h1 className="font-heading text-xl font-semibold tracking-tight">
                 {deck.emoji} {deck.title}
               </h1>
               <p className="mt-1 text-sm text-muted-foreground">{deck.topic}</p>

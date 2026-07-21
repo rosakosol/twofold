@@ -18,11 +18,11 @@ function isVotable(value: unknown): value is WithVotable {
 }
 
 /** Bumps upvote_count for `featureId` wherever it appears in a cached "features" query,
- * whatever shape that query happens to be: a single detail object (feature(slug)), a
- * flat array (useRelatedFeatures), or the {pages: [{items,...}]} shape useInfiniteQuery
- * wraps list pages in (useInfiniteFeatureList). Recursing structurally means every
- * current and future "features" query shape gets optimistic updates for free, without
- * listing cache shapes out by hand here. */
+ * whatever shape that query happens to be: a flat array (useRoadmap's per-status
+ * buckets), or the {pages: [{items,...}]} shape useInfiniteQuery wraps list pages in
+ * (useInfiniteFeatureList). Recursing structurally means every current and future
+ * "features" query shape gets optimistic updates for free, without listing cache
+ * shapes out by hand here. */
 function bumpVoteCount(data: unknown, featureId: string, delta: number): unknown {
   if (!data) return data;
 
@@ -32,6 +32,17 @@ function bumpVoteCount(data: unknown, featureId: string, delta: number): unknown
 
   if (Array.isArray(data)) {
     return data.map((item) => bumpVoteCount(item, featureId, delta));
+  }
+
+  // useRoadmap caches its data as a Map<status, items[]> rather than a plain array/
+  // object — Map entries aren't enumerable object properties, so the generic object
+  // branch below would silently skip them without this explicit case.
+  if (data instanceof Map) {
+    const next = new Map(data);
+    for (const [key, value] of next) {
+      next.set(key, bumpVoteCount(value, featureId, delta));
+    }
+    return next;
   }
 
   if (typeof data === "object") {

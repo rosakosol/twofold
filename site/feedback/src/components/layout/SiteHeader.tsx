@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserMenu } from "@/components/layout/UserMenu";
+import { useIsAdmin } from "@/lib/auth/useIsAdmin";
 
 // Same link set as MarketingHeader's NAV_LINKS, plus the board-only Changelog link —
 // deliberately not just "Board"/"Changelog" alone, so the whole site is reachable from
@@ -16,11 +17,18 @@ const NAV_LINKS = [
   { href: "/feedback", label: "Feedback" },
 ];
 
+const ADMIN_LINKS = [
+  { href: "/admin", label: "Admin" },
+  { href: "/admin/games", label: "Games" },
+  { href: "/studio", label: "Studio" },
+];
+
 /** Board/admin/changelog/auth equivalent of MarketingHeader — same `.site-nav` markup
  * and CSS (src/styles/site-nav.css) so the two navbars are pixel-identical, just with
  * UserMenu (sign-in/avatar) in place of the marketing "Get the App" CTA. */
 export function SiteHeader() {
   const pathname = usePathname();
+  const isAdmin = useIsAdmin();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
 
@@ -60,6 +68,18 @@ export function SiteHeader() {
                 Changelog
               </Link>
             </li>
+            {isAdmin && (
+              <>
+                <li className="site-nav-divider" aria-hidden />
+                {ADMIN_LINKS.map((link) => (
+                  <li key={link.href}>
+                    <Link href={link.href} className={pathname === link.href ? "is-active" : undefined}>
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </>
+            )}
           </ul>
         </nav>
         <div className="site-nav-actions">

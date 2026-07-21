@@ -150,10 +150,14 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply text-foreground bg-background;
-  }
-  html {
-    @apply font-sans;
+    /* `font-sans` resolves to var(--font-body), which next/font only ever sets as a CSS
+       variable on <body> itself (via its className in layout.tsx) — putting this rule on
+       <html> instead (as it was) left var(--font-body) unresolved there, since custom
+       properties only cascade down to descendants, not up. That silently fell back to
+       the browser's default serif font for the entire board (marketing pages happened to
+       be unaffected only because marketing.css sets its own literal `body { font-family }`
+       that wins regardless). */
+    @apply text-foreground bg-background font-sans;
   }
 }
 

@@ -65,7 +65,7 @@ export default function AdminEditFeaturePage({ params }: { params: Promise<{ id:
         ← Back to admin
       </Link>
 
-      <h1 className="mt-4 font-heading text-2xl font-bold tracking-tight">Edit request</h1>
+      <h1 className="mt-4 font-heading text-lg font-semibold tracking-tight">Edit request</h1>
 
       <div className="mt-6 max-w-lg space-y-4">
         <div className="space-y-1.5">

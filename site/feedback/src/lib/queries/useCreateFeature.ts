@@ -34,7 +34,11 @@ export function useCreateFeature() {
       throw new Error("Couldn't generate a unique slug after several attempts.");
     },
     onSuccess: () => {
+      // "list" (the old infinite-scroll query) and "roadmap" (what the board's flat
+      // list + roadmap sections actually render from) both need invalidating so a new
+      // request shows up immediately without a manual refresh.
       queryClient.invalidateQueries({ queryKey: ["features", "list"] });
+      queryClient.invalidateQueries({ queryKey: ["features", "roadmap"] });
     },
   });
 }

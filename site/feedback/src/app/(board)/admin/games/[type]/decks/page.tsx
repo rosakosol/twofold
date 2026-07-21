@@ -29,7 +29,7 @@ export default function GameTypeDecksPage() {
         <p className="mt-4 text-sm text-muted-foreground">Unknown game type.</p>
       ) : (
         <>
-          <h1 className="mt-4 font-heading text-3xl font-bold tracking-tight">{contentType.label} Decks</h1>
+          <h1 className="mt-4 font-heading text-xl font-semibold tracking-tight">{contentType.label} Decks</h1>
           <div className="mt-6">
             <DeckTable gameType={contentType.gameType} />
           </div>

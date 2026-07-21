@@ -102,11 +102,10 @@ export function FeatureSubmitDialog() {
     setErrors({});
 
     try {
-      const created = await createFeature.mutateAsync({ input: result.data, userId: user.id });
+      await createFeature.mutateAsync({ input: result.data, userId: user.id });
       toast.success("Feature request submitted");
       setOpen(false);
       reset();
-      router.push(`/feedback/${created.slug}`);
     } catch {
       toast.error("Something went wrong — try again.");
     }

@@ -7,7 +7,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!isAdmin) redirect("/feedback");
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10">
+    <div className="mx-auto max-w-6xl px-4 py-6">
       <AdminNav />
       {children}
     </div>

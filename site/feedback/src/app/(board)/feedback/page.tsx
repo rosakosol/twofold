@@ -10,12 +10,23 @@ import { FeatureSubmitDialog } from "@/components/feedback/FeatureSubmitDialog";
 import { SearchBar } from "@/components/feedback/SearchBar";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { PopularThisWeek } from "@/components/feedback/PopularThisWeek";
-import { RequestsKanban } from "@/components/feedback/RequestsKanban";
+import { RequestsList } from "@/components/feedback/RequestsList";
 import { RoadmapColumn } from "@/components/feedback/RoadmapColumn";
 import { useRoadmap, type RoadmapItem } from "@/lib/queries/useRoadmap";
-import { CATEGORY_LABELS, CATEGORY_VALUES, ROADMAP_STATUSES, type FeatureCategory, type FeatureStatus } from "@/lib/utils/constants";
+import { CATEGORY_LABELS, CATEGORY_VALUES, type FeatureCategory, type FeatureStatus } from "@/lib/utils/constants";
 
 const ALL = "__all__";
+
+// Roadmap simplified to 4 quick-glance stages instead of the full 6-value status enum —
+// "considering" folds into Requested (both mean "not committed to yet"), and "closed" is
+// excluded entirely (not a forward-looking state). Fixed 4-column grid instead of the old
+// horizontally-scrolling row, so it always fits the viewport width.
+const ROADMAP_BUCKETS: { key: string; label: string; statuses: FeatureStatus[] }[] = [
+  { key: "requested", label: "Requested", statuses: ["requested", "considering"] },
+  { key: "planned", label: "Planned", statuses: ["planned"] },
+  { key: "in_progress", label: "In Progress", statuses: ["in_progress"] },
+  { key: "shipped", label: "Shipped", statuses: ["released"] },
+];
 
 export default function HomePage() {
   return (
@@ -56,10 +67,10 @@ function Board() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10">
+    <div className="mx-auto max-w-5xl px-4 py-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="font-heading text-3xl font-bold tracking-tight">Feedback</h1>
+          <h1 className="font-heading text-xl font-semibold tracking-tight">Feedback</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Vote on ideas, or tell us what would make Twofold better.
           </p>
@@ -67,7 +78,7 @@ function Board() {
         <FeatureSubmitDialog />
       </div>
 
-      <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[1fr_260px]">
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_260px]">
         <div className="min-w-0">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="sm:max-w-xs sm:flex-1">
@@ -101,13 +112,13 @@ function Board() {
                 }
               />
             ) : isLoading || !filtered ? (
-              <div className="flex gap-6">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <Skeleton key={i} className="h-64 flex-1 rounded-lg" />
+              <div className="flex flex-col gap-2">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Skeleton key={i} className="h-12 w-full rounded-lg" />
                 ))}
               </div>
             ) : (
-              <RequestsKanban byStatus={filtered} />
+              <RequestsList byStatus={filtered} />
             )}
           </div>
         </div>
@@ -117,22 +128,26 @@ function Board() {
         </aside>
       </div>
 
-      <div className="mt-16 border-t pt-10">
-        <h2 className="font-heading text-2xl font-bold tracking-tight">Roadmap</h2>
+      <div className="mt-10 border-t pt-6">
+        <h2 className="font-heading text-lg font-semibold tracking-tight">Roadmap</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           The fuller picture, stage by stage.
         </p>
-        <div className="mt-6 flex gap-4 overflow-x-auto pb-4">
+        <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
           {isError ? null : isLoading || !filtered
-            ? ROADMAP_STATUSES.map((status) => (
-                <div key={status} className="flex w-72 shrink-0 flex-col gap-2">
+            ? ROADMAP_BUCKETS.map((bucket) => (
+                <div key={bucket.key} className="flex min-w-0 flex-col gap-2">
                   <Skeleton className="h-4 w-24" />
                   <Skeleton className="h-20 w-full rounded-lg" />
                   <Skeleton className="h-20 w-full rounded-lg" />
                 </div>
               ))
-            : ROADMAP_STATUSES.map((status) => (
-                <RoadmapColumn key={status} status={status} items={filtered.get(status) ?? []} />
+            : ROADMAP_BUCKETS.map((bucket) => (
+                <RoadmapColumn
+                  key={bucket.key}
+                  label={bucket.label}
+                  items={bucket.statuses.flatMap((status) => filtered.get(status) ?? [])}
+                />
               ))}
         </div>
       </div>
