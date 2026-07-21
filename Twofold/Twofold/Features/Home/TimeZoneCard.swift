@@ -43,6 +43,7 @@ struct TimeZoneCard: View {
                     ? "It's \(TimeMath.timeString(in: timeZone, at: date)) right now\(cityName.map { " in \($0)" } ?? "")"
                     : "It's \(TimeMath.timeString(in: timeZone, at: date)) for \(person.name) right now\(cityName.map { " in \($0)" } ?? "")")
                     .font(.headline)
+                    .lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
 
                 if let weather {

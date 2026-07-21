@@ -135,7 +135,11 @@ struct TripDetailsView: View {
                     AvatarView(person: travelers[0], size: 52)
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(travelers.map(\.name).joined(separator: " & ")).font(.subheadline).foregroundStyle(Theme.subtleInk)
+                    Text(travelers.map(\.name).joined(separator: " & "))
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.subtleInk)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
                     HStack(spacing: Theme.Spacing.xs) {
                         Text(trip.origin.city)
                         Image(systemName: "arrow.right")

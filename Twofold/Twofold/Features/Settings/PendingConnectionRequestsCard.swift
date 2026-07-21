@@ -47,6 +47,8 @@ struct PendingConnectionRequestsCard: View {
             AvatarView(person: person, size: 40)
             Text("\(request.requesterFirstName) wants to connect")
                 .foregroundStyle(Theme.ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
             Spacer(minLength: 0)
 
             if respondingID == request.id {

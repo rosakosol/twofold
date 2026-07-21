@@ -44,9 +44,12 @@ struct TripRowView: View {
     var body: some View {
         HStack(spacing: Theme.Spacing.md) {
             if travelers.count > 1 {
-                HStack(spacing: -12) {
+                // Smaller + tighter overlap than the solo avatar — two full-size (36pt) avatars
+                // left too little width for the origin → destination row, which wrapped onto a
+                // second line for longer city names.
+                HStack(spacing: -14) {
                     ForEach(travelers) { person in
-                        AvatarView(person: person, size: 36)
+                        AvatarView(person: person, size: 28)
                             .overlay(Circle().stroke(Theme.cardBackground, lineWidth: 2))
                     }
                 }
@@ -58,12 +61,20 @@ struct TripRowView: View {
                 Text(summaryLine)
                     .font(.subheadline)
                     .foregroundStyle(Theme.subtleInk)
+                    // `summaryLine` falls back to `trip.notes` verbatim when set — that's
+                    // free-form, unbounded user text, so this needs its own cap independent of
+                    // the city row below (a long note shouldn't grow this fixed-style row).
+                    .lineLimit(1)
                 HStack(spacing: Theme.Spacing.xs) {
                     Text(trip.origin.city)
+                        .lineLimit(1)
                     Image(systemName: "arrow.right")
                     Text(trip.destination.city)
+                        .lineLimit(1)
                 }
                 .font(.headline)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
 
                 HStack(spacing: Theme.Spacing.xs) {
                     Text(trip.departureDate, format: .dateTime.day().month(.abbreviated).year())

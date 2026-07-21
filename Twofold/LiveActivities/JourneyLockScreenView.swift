@@ -30,6 +30,7 @@ struct JourneyLockScreenView: View {
                         Text(airlineName)
                             .font(.caption2)
                             .foregroundStyle(.white.opacity(0.6))
+                            .lineLimit(1)
                     }
                 }
                 Spacer()
@@ -53,6 +54,7 @@ struct JourneyLockScreenView: View {
                         .font(.caption)
                         .foregroundStyle(.white.opacity(0.6))
                         .multilineTextAlignment(.center)
+                        .lineLimit(2)
                         .frame(maxWidth: .infinity)
                 }
             }

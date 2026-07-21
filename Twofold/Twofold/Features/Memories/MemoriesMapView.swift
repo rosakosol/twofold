@@ -64,6 +64,15 @@ struct MemoriesMapView: View {
                 selectedCity = nil
             }
             .onAppear { animatePins() }
+            // Adding a memory presents AddMemoryView as a sheet *over* this same view instance —
+            // it never disappears/reappears, so `.onAppear` doesn't fire again on dismiss. Without
+            // this, a newly-added city's pin renders into the Map's content (ForEach is reactive)
+            // but stays permanently scaled-to-0/invisible, since `animatePins()` only ever ran once
+            // and never added the new city's id to `shownCityIDs`. Switching to List and back used
+            // to "fix" it only because that remounts this view, re-triggering `.onAppear`.
+            .onChange(of: appModel.citiesWithMemories.map(\.id)) { _, newIDs in
+                revealNewPins(newIDs)
+            }
             .sensoryFeedback(.impact(weight: .light), trigger: shownCityIDs)
 
             if appModel.citiesWithMemories.isEmpty {
@@ -126,6 +135,19 @@ struct MemoriesMapView: View {
         for (index, city) in appModel.citiesWithMemories.enumerated() {
             withAnimation(.spring(response: 0.4, dampingFraction: 0.65).delay(0.15 + Double(index) * 0.12)) {
                 _ = shownCityIDs.insert(city.id)
+            }
+        }
+    }
+
+    /// Reveals just the cities not already shown — used after the initial `animatePins()` so a
+    /// memory added later (e.g. via the "+" sheet) pops in on its own instead of staying invisible
+    /// until this view happens to remount. See the `.onChange` comment above for why this exists.
+    private func revealNewPins(_ cityIDs: [UUID]) {
+        let newIDs = cityIDs.filter { !shownCityIDs.contains($0) }
+        guard !newIDs.isEmpty else { return }
+        for (index, id) in newIDs.enumerated() {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.65).delay(Double(index) * 0.12)) {
+                _ = shownCityIDs.insert(id)
             }
         }
     }

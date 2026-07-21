@@ -457,6 +457,8 @@ private struct FullStatsView: View {
             Text(label)
                 .font(.subheadline)
                 .foregroundStyle(Theme.subtleInk)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
             Spacer()
             Text(value)
                 .font(.subheadline.weight(.semibold))

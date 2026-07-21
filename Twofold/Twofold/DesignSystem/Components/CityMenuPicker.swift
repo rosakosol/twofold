@@ -23,6 +23,8 @@ struct CityMenuPicker: View {
                 Spacer()
                 Text(selection.map { $0.displayCity } ?? placeholder)
                     .foregroundStyle(selection == nil ? Theme.subtleInk : Theme.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                 Image(systemName: "chevron.up.chevron.down")
                     .font(.caption)
                     .foregroundStyle(Theme.subtleInk)

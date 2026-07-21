@@ -116,6 +116,8 @@ struct GameHistoryView: View {
                         Text("\(appModel.currentUser.name) \(score.mine) · \(appModel.partner.name) \(score.partner)")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(Theme.skyBlue)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
                     }
                 }
                 Spacer()

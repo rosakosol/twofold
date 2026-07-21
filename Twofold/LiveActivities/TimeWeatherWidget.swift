@@ -98,6 +98,8 @@ struct TimeWeatherWidgetView: View {
                         Text(entry.partnerCity ?? "")
                             .font(.caption2)
                             .opacity(0.85)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
                     }
                     .padding()
                     .frame(maxWidth: .infinity, alignment: .leading)

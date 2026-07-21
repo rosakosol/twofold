@@ -210,6 +210,7 @@ struct MemoriesListView: View {
                     Text(memory.title)
                         .font(.headline)
                         .foregroundStyle(Theme.ink)
+                        .lineLimit(1)
                     if let place = memory.place {
                         Text(place.city)
                             .font(.subheadline)

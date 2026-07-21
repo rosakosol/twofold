@@ -156,6 +156,7 @@ struct AddTripDetailsView: View {
                             Text("\(originCity) to \(destinationCity)")
                                 .font(.caption)
                                 .foregroundStyle(Theme.subtleInk)
+                                .lineLimit(1)
                         }
                     }
                     Spacer(minLength: 0)

@@ -46,6 +46,7 @@ struct DistanceSnapshotCard: View {
                 Text("\(myCity.displayCity) ↔ \(partnerCity.displayCity)")
                     .font(.caption)
                     .foregroundStyle(.white.opacity(0.7))
+                    .lineLimit(2)
             }
             .multilineTextAlignment(.center)
 

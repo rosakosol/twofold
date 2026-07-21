@@ -81,6 +81,8 @@ struct GameResultsShareCard: View {
                 .font(.caption2.weight(.semibold))
                 .tracking(0.5)
                 .foregroundStyle(.white.opacity(0.75))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
         }
     }
 

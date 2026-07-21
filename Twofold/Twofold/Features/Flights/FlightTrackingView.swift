@@ -248,12 +248,19 @@ struct FlightTrackingView: View {
                     Text([flight.airlineName, flight.displayNumber].compactMap { $0 }.joined(separator: " · "))
                         .font(.subheadline)
                         .foregroundStyle(Theme.subtleInk)
+                        .lineLimit(1)
                 }
             }
 
+            // This header sits outside the ScrollView (see body's comment) — permanently on
+            // screen, so a wrap here permanently eats vertical space rather than just scrolling
+            // past. Capped rather than forced to 1 line since a long route pair is still meant
+            // to wrap gracefully at 2 lines, just not unbounded.
             Text("\(flight.origin.displayName) → \(flight.destination.displayName)")
                 .font(.title3.weight(.bold))
                 .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.8)
 
             HStack(spacing: Theme.Spacing.sm) {
                 PillBadge(text: flight.status.displayLabel, tint: flight.status.semanticColor)
@@ -418,6 +425,7 @@ struct FlightTrackingView: View {
                     Text([flight.airlineName, flight.displayNumber].compactMap { $0 }.joined(separator: " · "))
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Theme.ink)
+                        .lineLimit(1)
                 }
             }
 
@@ -463,7 +471,7 @@ struct FlightTrackingView: View {
             .frame(width: 32, height: 32)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("\(code) · \(city)").font(.headline)
+                Text("\(code) · \(city)").font(.headline).lineLimit(1).minimumScaleFactor(0.85)
                 if let time {
                     Text(time, format: Date.FormatStyle(timeZone: timeZone ?? .current).day().month(.abbreviated).hour().minute())
                         .font(.subheadline.weight(.semibold))
@@ -504,7 +512,7 @@ struct FlightTrackingView: View {
             .frame(width: 32, height: 32)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.subheadline.weight(.semibold))
-                Text("\(code) · \(city)").font(.caption).foregroundStyle(Theme.subtleInk)
+                Text("\(code) · \(city)").font(.caption).foregroundStyle(Theme.subtleInk).lineLimit(1)
             }
             Spacer(minLength: 0)
         }

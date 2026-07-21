@@ -106,6 +106,8 @@ struct PartnersTimeWidgetView: View {
                 Text(entry.partnerCity ?? entry.partnerName)
                     .font(.caption)
                     .opacity(0.85)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
             .foregroundStyle(.white)
             .padding()

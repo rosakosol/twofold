@@ -329,6 +329,7 @@ struct HomeView: View {
                     Text("\(request.requesterFirstName) wants to connect")
                         .font(.title3.weight(.bold))
                         .foregroundStyle(.white)
+                        .lineLimit(2)
 
                     Spacer(minLength: 0)
                 }
@@ -539,6 +540,7 @@ struct HomeView: View {
                         AirlineLogoView(url: flight.displayLogoURL, size: 24)
                         Text([flight.airlineName, flight.displayNumber].compactMap { $0 }.joined(separator: " · "))
                             .font(.subheadline.weight(.semibold))
+                            .lineLimit(1)
                     }
                 }
                 Spacer()
@@ -651,12 +653,16 @@ struct HomeView: View {
                     Text(trip.isReunionTrip ? "Your trip together" : "\(travelerNames(trip.travelerIDs)) \(trip.travelerIDs.count > 1 ? "fly" : "flies") to you")
                         .font(.subheadline)
                         .foregroundStyle(Theme.subtleInk)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.9)
                     HStack(spacing: Theme.Spacing.xs) {
                         Text(trip.origin.iataCode ?? trip.origin.city)
                         Image(systemName: "arrow.right")
                         Text(trip.destination.iataCode ?? trip.destination.city)
                     }
                     .font(.headline)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
 
                     if let flight = trip.flight {
                         Text("\(trip.departureDate, format: .dateTime.day().month(.abbreviated)) · \(flight.flightNumber)")

@@ -64,18 +64,30 @@ export function GameTypeStats({ contentType }: { contentType: ContentTypeConfig 
 
   const totalDecks = decks?.length ?? 0;
   const totalQuestions = rows?.length ?? 0;
-  const avgPerDeck = totalDecks > 0 ? (totalQuestions / totalDecks).toFixed(1) : "0";
-  const plusDecks = decks?.filter((d) => d.tier === "plus").length ?? 0;
-  const premiumDecks = decks?.filter((d) => d.tier === "premium").length ?? 0;
+  const plusDeckList = decks?.filter((d) => d.tier === "plus") ?? [];
+  const premiumDeckList = decks?.filter((d) => d.tier === "premium") ?? [];
+  const plusDecks = plusDeckList.length;
+  const premiumDecks = premiumDeckList.length;
   const plusQuestions = rows?.filter((r) => r.tier === "plus").length ?? 0;
   const premiumQuestions = rows?.filter((r) => r.tier === "premium").length ?? 0;
+  // Derived from game_decks.question_count (trigger-maintained) rather than the content
+  // table's tier counts, since content rows can have a null deck_id and skew a tier-count-based average.
+  const avgPerPlusDeck =
+    plusDecks > 0 ? (plusDeckList.reduce((sum, d) => sum + d.question_count, 0) / plusDecks).toFixed(1) : "0";
+  const avgPerPremiumDeck =
+    premiumDecks > 0
+      ? (premiumDeckList.reduce((sum, d) => sum + d.question_count, 0) / premiumDecks).toFixed(1)
+      : "0";
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard label="Decks" value={String(totalDecks)} />
         <StatCard label="Questions" value={String(totalQuestions)} />
-        <StatCard label="Avg / deck" value={avgPerDeck} />
+        <StatCard label="Plus decks" value={String(plusDecks)} />
+        <StatCard label="Premium decks" value={String(premiumDecks)} />
+        <StatCard label="Avg / plus deck" value={avgPerPlusDeck} />
+        <StatCard label="Avg / premium deck" value={avgPerPremiumDeck} />
         <StatCard label="Plus : Premium decks" value={formatRatio(plusDecks, premiumDecks)} />
         <StatCard label="Plus : Premium questions" value={formatRatio(plusQuestions, premiumQuestions)} />
       </div>
