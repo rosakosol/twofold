@@ -2,24 +2,21 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_LINKS = [
   { href: "/admin", label: "Requests" },
   { href: "/admin/games", label: "Games" },
+  { href: "/studio", label: "Site content" },
 ];
 
 /**
- * The admin section's own nav — separate from `SiteHeader`'s public nav (Feedback /
- * Roadmap / Changelog), since these are internal-only tools. Also the "one space" entry
- * point out to Sanity Studio (marketing site content) so admins don't need to remember a
- * separate URL — hidden rather than linking to a 404 until the Studio is actually
- * deployed (see `.env.local.example`).
+ * The admin section's own nav — separate from `SiteHeader`'s public nav, since these
+ * are internal-only tools. "Site content" now links to /studio, the embedded Sanity
+ * Studio (src/sanity/) — same app, same deployment, not a separate URL to remember.
  */
 export function AdminNav() {
   const pathname = usePathname();
-  const studioUrl = process.env.NEXT_PUBLIC_SANITY_STUDIO_URL;
 
   return (
     <div className="mb-6 flex items-center justify-between border-b pb-3">
@@ -40,16 +37,6 @@ export function AdminNav() {
           );
         })}
       </nav>
-      {studioUrl && (
-        <a
-          href={studioUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          Site content (Sanity) <ExternalLink className="h-3.5 w-3.5" />
-        </a>
-      )}
     </div>
   );
 }

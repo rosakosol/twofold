@@ -2,12 +2,10 @@ import type { Metadata } from "next";
 import { Inter, Newsreader } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/app/providers";
-import { SiteHeader } from "@/components/layout/SiteHeader";
-import { SiteFooter } from "@/components/layout/SiteFooter";
 
 // Same two families the marketing site uses (site/styles.css's --font-body/--font-display)
-// — this app is embedded under twofoldapp.com.au/feedback now, so it needs to look like
-// the same site rather than a generic shadcn tool bolted onto it.
+// — loaded once here since both the marketing route group and the (board) group
+// (feedback/admin/changelog/auth) share them, just applied via different stylesheets.
 const bodyFont = Inter({
   variable: "--font-body",
   subsets: ["latin"],
@@ -20,25 +18,24 @@ const displayFont = Newsreader({
 
 export const metadata: Metadata = {
   title: {
-    default: "Twofold Feedback",
-    template: "%s | Twofold Feedback",
+    default: "Twofold",
+    template: "%s | Twofold",
   },
-  description: "Request features, vote, and follow what's next for Twofold.",
+  description: "The living map for long-distance couples.",
 };
 
+// Deliberately minimal — no header/footer here. (marketing) and (board) each render
+// their own (different visual systems, see their own layout.tsx), so this only owns
+// what's genuinely global: fonts and app-wide providers (TanStack Query, toasts).
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className="no-js" suppressHydrationWarning>
       <body className={`${bodyFont.variable} ${displayFont.variable} antialiased min-h-screen flex flex-col`}>
-        <Providers>
-          <SiteHeader />
-          <main className="flex-1">{children}</main>
-          <SiteFooter />
-        </Providers>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

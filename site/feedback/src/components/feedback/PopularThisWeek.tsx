@@ -33,7 +33,7 @@ export function PopularThisWeek() {
         {data.map((item) => (
           <li key={item.id}>
             <Link
-              href={`/${item.slug}`}
+              href={`/feedback/${item.slug}`}
               className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-accent/40"
             >
               <span className="truncate">{item.title}</span>

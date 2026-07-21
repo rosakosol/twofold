@@ -17,7 +17,7 @@ export function FeatureCard({ feature }: { feature: FeatureListItem }) {
 
   return (
     <Link
-      href={`/${feature.slug}`}
+      href={`/feedback/${feature.slug}`}
       className="group flex gap-4 rounded-xl bg-card p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
     >
       <VoteButton featureId={feature.id} upvoteCount={feature.upvote_count} />

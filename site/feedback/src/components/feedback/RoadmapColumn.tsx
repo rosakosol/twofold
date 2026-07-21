@@ -21,7 +21,7 @@ export function RoadmapColumn({ status, items }: { status: FeatureStatus; items:
           items.map((item) => (
             <Link
               key={item.id}
-              href={`/${item.slug}`}
+              href={`/feedback/${item.slug}`}
               className="rounded-lg bg-card p-3 text-sm shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
             >
               <p className="line-clamp-2 font-bold">{item.title}</p>
