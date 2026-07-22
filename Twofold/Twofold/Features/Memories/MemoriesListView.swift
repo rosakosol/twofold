@@ -6,6 +6,13 @@
 //  marker is tapped (pre-filtered to that location). Groups memories by month, newest first,
 //  with a right-edge year index that scrolls on tap and highlights as you scroll.
 //
+//  A real `List` (not a plain ScrollView), specifically so single-item swipe-to-delete
+//  (`.swipeActions`, UIKit-backed) disambiguates correctly against the list's own vertical
+//  scroll — a hand-rolled horizontal DragGesture here would fight the ScrollView's pan
+//  recognizer the same way SwipeChoiceCard's did before that got an axis-aware fix. Styled to
+//  look identical to the old ScrollView+LazyVStack version via listRowInsets/listRowBackground/
+//  listRowSeparator rather than the system List chrome.
+//
 
 import PostHog
 import SwiftUI
@@ -20,6 +27,14 @@ struct MemoriesListView: View {
     @State private var locationFilter: Place?
     @State private var yearFilter: Int?
     @State private var currentVisibleYear: Int?
+
+    /// Long-press any row to enter this — every row grows a selection circle, tapping toggles
+    /// membership instead of navigating, and a toolbar offers bulk delete. Swipe-to-delete
+    /// (single memory, no mode change) only applies while this is false.
+    @State private var isSelecting = false
+    @State private var selectedIDs: Set<Memory.ID> = []
+    @State private var showingBulkDeleteConfirm = false
+    @State private var hapticTrigger = false
 
     init(initialLocationFilter: Place? = nil, onTapAddMemory: @escaping () -> Void = {}) {
         self.initialLocationFilter = initialLocationFilter
@@ -59,6 +74,12 @@ struct MemoriesListView: View {
         Array(Set(appModel.memories.map { Calendar.current.component(.year, from: $0.date) })).sorted(by: >)
     }
 
+    /// Extra trailing inset reserved so row content (and the swipe-action reveal) never sits
+    /// under the year scrubber overlay.
+    private var trailingRowInset: CGFloat {
+        availableYears.count > 1 ? 32 : Theme.Spacing.md
+    }
+
     @ViewBuilder
     var body: some View {
         if let initialLocationFilter {
@@ -78,21 +99,33 @@ struct MemoriesListView: View {
                 VStack(spacing: 0) {
                     filterBar
                     ScrollViewReader { proxy in
-                        ScrollView {
-                            LazyVStack(alignment: .leading, spacing: Theme.Spacing.lg) {
-                                if monthGroups.isEmpty {
-                                    noMatchState
-                                } else {
-                                    ForEach(monthGroups) { group in
-                                        monthSection(group).id(group.id)
+                        List {
+                            if monthGroups.isEmpty {
+                                noMatchState
+                                    .listRowBackground(Color.clear)
+                                    .listRowSeparator(.hidden)
+                            } else {
+                                ForEach(monthGroups) { group in
+                                    Section {
+                                        ForEach(group.memories) { memory in
+                                            row(memory)
+                                        }
+                                    } header: {
+                                        Text(group.title)
+                                            .font(.subheadline.weight(.bold))
+                                            .foregroundStyle(Theme.subtleInk)
+                                            .textCase(nil)
+                                            .listRowInsets(EdgeInsets(top: Theme.Spacing.sm, leading: Theme.Spacing.md, bottom: Theme.Spacing.xs, trailing: 0))
+                                            .onAppear { currentVisibleYear = group.year }
                                     }
+                                    .id(group.id)
                                 }
                             }
-                            .padding(.leading, Theme.Spacing.md)
-                            .padding(.trailing, availableYears.count > 1 ? 32 : Theme.Spacing.md)
-                            .padding(.top, Theme.Spacing.sm)
-                            .padding(.bottom, 64)
                         }
+                        .listStyle(.plain)
+                        .scrollContentBackground(.hidden)
+                        .environment(\.defaultMinListRowHeight, 0)
+                        .safeAreaPadding(.bottom, 64)
                         .overlay(alignment: .trailing) {
                             if availableYears.count > 1 {
                                 yearScrubber { year in
@@ -105,6 +138,36 @@ struct MemoriesListView: View {
                     }
                 }
             }
+        }
+        .sensoryFeedback(.selection, trigger: hapticTrigger)
+        .toolbar {
+            if isSelecting {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") {
+                        withAnimation(.snappy) {
+                            isSelecting = false
+                            selectedIDs.removeAll()
+                        }
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(role: .destructive) {
+                        showingBulkDeleteConfirm = true
+                    } label: {
+                        Text("Delete (\(selectedIDs.count))")
+                    }
+                    .disabled(selectedIDs.isEmpty)
+                }
+            }
+        }
+        .alert(
+            selectedIDs.count == 1 ? "Delete this memory?" : "Delete \(selectedIDs.count) memories?",
+            isPresented: $showingBulkDeleteConfirm
+        ) {
+            Button("Delete", role: .destructive) { deleteSelection() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This can't be undone.")
         }
         .postHogScreenView("Memories: List")
     }
@@ -168,30 +231,74 @@ struct MemoriesListView: View {
         .padding(.horizontal, 4)
     }
 
-    // MARK: - Sections / rows
+    // MARK: - Rows
 
-    private func monthSection(_ group: MonthGroup) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-            Text(group.title)
-                .font(.subheadline.weight(.bold))
-                .foregroundStyle(Theme.subtleInk)
-                .onAppear { currentVisibleYear = group.year }
-
-            ForEach(group.memories) { memory in
+    /// Swaps between a plain toggle-selection `Button` (selecting mode) and the regular
+    /// `NavigationLink` + swipe-to-delete (normal mode) — same `memoryRow` content either way.
+    /// Long-pressing while *not* selecting enters selection mode with that row pre-selected,
+    /// the same "long-press to start a multi-select" convention Photos/Files use.
+    @ViewBuilder
+    private func row(_ memory: Memory) -> some View {
+        Group {
+            if isSelecting {
+                Button {
+                    toggleSelection(memory)
+                } label: {
+                    HStack(spacing: Theme.Spacing.sm) {
+                        selectionIndicator(isSelected: selectedIDs.contains(memory.id))
+                        memoryRow(memory)
+                    }
+                }
+                .buttonStyle(.plain)
+            } else {
                 NavigationLink {
                     MemoryDetailView(memory: memory)
                 } label: {
                     memoryRow(memory)
                 }
                 .buttonStyle(.plain)
-                .contextMenu {
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                     Button(role: .destructive) {
                         Task { await appModel.deleteMemory(memory) }
                     } label: {
                         Label("Delete", systemImage: "trash")
                     }
                 }
+                .onLongPressGesture {
+                    hapticTrigger.toggle()
+                    withAnimation(.snappy) {
+                        isSelecting = true
+                        selectedIDs = [memory.id]
+                    }
+                }
             }
+        }
+        .listRowInsets(EdgeInsets(top: 0, leading: Theme.Spacing.md, bottom: Theme.Spacing.sm, trailing: trailingRowInset))
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+    }
+
+    private func selectionIndicator(isSelected: Bool) -> some View {
+        Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+            .font(.title3)
+            .foregroundStyle(isSelected ? Theme.skyBlue : Theme.subtleInk.opacity(0.35))
+    }
+
+    private func toggleSelection(_ memory: Memory) {
+        hapticTrigger.toggle()
+        if selectedIDs.contains(memory.id) {
+            selectedIDs.remove(memory.id)
+        } else {
+            selectedIDs.insert(memory.id)
+        }
+    }
+
+    private func deleteSelection() {
+        let toDelete = appModel.memories.filter { selectedIDs.contains($0.id) }
+        Task {
+            await appModel.deleteMemories(toDelete)
+            isSelecting = false
+            selectedIDs.removeAll()
         }
     }
 
@@ -224,7 +331,6 @@ struct MemoriesListView: View {
                 Spacer(minLength: 0)
             }
         }
-        .padding(.trailing, Theme.Spacing.md)
     }
 
     // MARK: - Empty states

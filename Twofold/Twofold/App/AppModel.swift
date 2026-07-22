@@ -1242,6 +1242,16 @@ final class AppModel {
         try? await BackendService.deleteMemory(id: memory.id, photoPaths: memory.photos.map(\.path))
     }
 
+    /// Bulk-delete entry point for Memories' multi-select mode — sequential, not concurrent:
+    /// `deleteMemory` mutates `memories` in place and `AppModel` isn't actor-isolated, so running
+    /// many deletes at once would race on that array. A handful of sequential deletes is fast
+    /// enough that this isn't a real latency concern.
+    func deleteMemories(_ memoriesToDelete: [Memory]) async {
+        for memory in memoriesToDelete {
+            await deleteMemory(memory)
+        }
+    }
+
     /// Only ever writes the signed-in user's own city — RLS blocks updating a partner's
     /// profile row, so there's no "set it on their behalf" path anymore.
     func setHomeCity(for personID: Person.ID, city: Place) async {
