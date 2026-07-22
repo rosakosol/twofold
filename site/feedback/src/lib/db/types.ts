@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       airlines: {
@@ -1271,6 +1246,48 @@ export type Database = {
           },
         ]
       }
+      game_content_duplicate_dismissals: {
+        Row: {
+          content_type: string
+          created_at: string
+          dismissed_by: string | null
+          id: string
+          row_a_id: string
+          row_b_id: string
+        }
+        Insert: {
+          content_type: string
+          created_at?: string
+          dismissed_by?: string | null
+          id?: string
+          row_a_id: string
+          row_b_id: string
+        }
+        Update: {
+          content_type?: string
+          created_at?: string
+          dismissed_by?: string | null
+          id?: string
+          row_a_id?: string
+          row_b_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_content_duplicate_dismissals_dismissed_by_fkey"
+            columns: ["dismissed_by"]
+            isOneToOne: false
+            referencedRelation: "feedback_public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "game_content_duplicate_dismissals_dismissed_by_fkey"
+            columns: ["dismissed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       game_decks: {
         Row: {
           active: boolean
@@ -2438,9 +2455,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       couple_status: ["active", "dissolved"],
