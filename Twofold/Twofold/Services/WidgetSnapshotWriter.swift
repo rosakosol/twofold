@@ -98,9 +98,23 @@ enum WidgetSnapshotWriter {
             WidgetImageCache.clearLatestMemoryImage()
         }
 
+        // Cached against the previously-written snapshot rather than re-fetched every time —
+        // this whole function reruns on every realtime `flights` row change, which can fire
+        // every 1-2 minutes for hours while a flight is actively tracked (see
+        // refresh-due-flights' polling cadence), fanning out into a WeatherKit call per tick per
+        // partner device for a number that hasn't meaningfully changed. Same ~hourly cadence
+        // HomeView's own city-gated weather refresh already uses, just keyed off the snapshot's
+        // own `writtenAt` instead of in-memory `@State` (this is a stateless enum, not a view).
         var weatherInfo: WidgetSnapshot.WeatherInfo?
-        if let partnerCity, let reading = await TwofoldWeatherService.currentWeather(for: partnerCity) {
-            weatherInfo = WidgetSnapshot.WeatherInfo(symbolName: reading.symbolName, temperatureC: reading.temperatureC)
+        if let partnerCity {
+            let previous = WidgetSnapshot.read()
+            let cityUnchanged = previous?.partnerCity == partnerCity.displayCity
+            let stillFresh = previous.map { Date.now.timeIntervalSince($0.writtenAt) < 3600 } ?? false
+            if cityUnchanged, stillFresh, let cached = previous?.partnerWeather {
+                weatherInfo = cached
+            } else if let reading = await TwofoldWeatherService.currentWeather(for: partnerCity) {
+                weatherInfo = WidgetSnapshot.WeatherInfo(symbolName: reading.symbolName, temperatureC: reading.temperatureC)
+            }
         }
 
         let relationshipStats = WidgetSnapshot.RelationshipStats(

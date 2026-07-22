@@ -2,8 +2,10 @@
 //  FlightEmailParsingService.swift
 //  Twofold
 //
-//  Calls the parse-flight-email Edge Function. Stateless and anon-key-only, so this
-//  works even though the rest of the app isn't wired to Supabase persistence yet.
+//  Calls the parse-flight-email Edge Function — requires a real signed-in session (the
+//  function rejects anon-key-only calls, see its own header comment for why), which is
+//  always true here since this only ever runs from PendingFlightShareReviewView, deep in
+//  the signed-in app.
 //
 
 import Foundation
@@ -64,6 +66,7 @@ struct ExtractedFlightDetails: Decodable {
 enum FlightEmailParsingError: Error {
     case invalidResponse
     case missingContent
+    case notAuthenticated
 }
 
 enum FlightEmailParsingService {
@@ -76,11 +79,13 @@ enum FlightEmailParsingService {
         if let body, !body.isEmpty { payload["body"] = body }
         if let pdfText, !pdfText.isEmpty { payload["pdfText"] = pdfText }
         guard !payload.isEmpty else { throw FlightEmailParsingError.missingContent }
+        guard let accessToken = BackendService.currentAccessToken else { throw FlightEmailParsingError.notAuthenticated }
 
         var request = URLRequest(url: SupabaseConfig.projectURL.appendingPathComponent("functions/v1/parse-flight-email"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(SupabaseConfig.publishableKey, forHTTPHeaderField: "apiKey")
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         request.httpBody = try JSONEncoder().encode(payload)
 
         let (data, response) = try await URLSession.shared.data(for: request)
