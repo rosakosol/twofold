@@ -27,6 +27,21 @@ struct TripsListView: View {
     var body: some View {
         NavigationStack {
             List {
+                if tab == .trips {
+                    Section {
+                        TripsGlobeView(
+                            trips: appModel.upcomingTrips,
+                            travelers: travelers(for:),
+                            fallbackCenter: appModel.currentUser.homeCity?.coordinate
+                        )
+                        .containerRelativeFrame(.vertical) { height, _ in height * 0.6 }
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                    }
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                }
+
                 Section {
                     Picker("Section", selection: $tab) {
                         ForEach(TripsTab.allCases, id: \.self) { option in

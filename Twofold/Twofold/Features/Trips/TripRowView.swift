@@ -11,20 +11,12 @@ struct TripRowView: View {
 
     @Environment(AppModel.self) private var appModel
 
-    /// "You" for the signed-in user rather than their own name — reads naturally as "You and
-    /// Lucas are going to Singapore" instead of the generic "Sarah & Lucas".
-    private var travelerNames: String {
-        let others = travelers.filter { $0.id != appModel.currentUser.id }.map(\.name)
-        guard travelers.contains(where: { $0.id == appModel.currentUser.id }) else {
-            return others.joined(separator: " and ")
+    private var dateRangeText: String {
+        let format = Date.FormatStyle().day().month(.abbreviated)
+        if Calendar.current.isDate(trip.departureDate, inSameDayAs: trip.arrivalDate) {
+            return trip.departureDate.formatted(format)
         }
-        return others.isEmpty ? "You" : "You and \(others.joined(separator: " and "))"
-    }
-
-    private var summaryLine: String {
-        if let notes = trip.notes, !notes.isEmpty { return notes }
-        let verb = travelers.count > 1 || travelers.first?.id == appModel.currentUser.id ? "are" : "is"
-        return "\(travelerNames) \(verb) going to \(trip.destination.city)"
+        return "\(trip.departureDate.formatted(format)) – \(trip.arrivalDate.formatted(format))"
     }
 
     private var statusBadge: (text: String, tint: Color)? {
@@ -42,56 +34,84 @@ struct TripRowView: View {
     }
 
     var body: some View {
-        HStack(spacing: Theme.Spacing.md) {
-            if travelers.count > 1 {
-                // Smaller + tighter overlap than the solo avatar — two full-size (36pt) avatars
-                // left too little width for the origin → destination row, which wrapped onto a
-                // second line for longer city names.
-                HStack(spacing: -14) {
-                    ForEach(travelers) { person in
-                        AvatarView(person: person, size: 28)
-                            .overlay(Circle().stroke(Theme.cardBackground, lineWidth: 2))
-                    }
-                }
-            } else {
-                AvatarView(person: travelers[0], size: 44)
-            }
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+            HStack(spacing: Theme.Spacing.md) {
+                countdownBadge
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(summaryLine)
-                    .font(.subheadline)
-                    .foregroundStyle(Theme.subtleInk)
-                    // `summaryLine` falls back to `trip.notes` verbatim when set — that's
-                    // free-form, unbounded user text, so this needs its own cap independent of
-                    // the city row below (a long note shouldn't grow this fixed-style row).
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: Theme.Spacing.xs) {
+                        Text(trip.origin.city)
+                            .lineLimit(1)
+                        Image(systemName: "arrow.right")
+                        Text(trip.destination.city)
+                            .lineLimit(1)
+                    }
+                    .font(.headline)
                     .lineLimit(1)
-                HStack(spacing: Theme.Spacing.xs) {
-                    Text(trip.origin.city)
-                        .lineLimit(1)
-                    Image(systemName: "arrow.right")
-                    Text(trip.destination.city)
-                        .lineLimit(1)
-                }
-                .font(.headline)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
+                    .minimumScaleFactor(0.8)
 
-                HStack(spacing: Theme.Spacing.xs) {
-                    Text(trip.departureDate, format: .dateTime.day().month(.abbreviated).year())
-                    if let flight = trip.mostRelevantFlight {
-                        Text(trip.flights.count > 1 ? "· \(flight.flightNumber) +\(trip.flights.count - 1)" : "· \(flight.flightNumber)")
+                    HStack(spacing: Theme.Spacing.xs) {
+                        Text(dateRangeText)
+                        if let flight = trip.mostRelevantFlight {
+                            Text(trip.flights.count > 1 ? "· \(flight.flightNumber) +\(trip.flights.count - 1)" : "· \(flight.flightNumber)")
+                        }
+                    }
+                    .font(.caption)
+                    .foregroundStyle(Theme.subtleInk)
+                }
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(RelationshipMilestoneStats.tripDuration(trip))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Theme.ink)
+                    if let statusBadge {
+                        PillBadge(text: statusBadge.text, tint: statusBadge.tint)
                     }
                 }
-                .font(.caption)
-                .foregroundStyle(Theme.subtleInk)
             }
 
-            Spacer()
-
-            if let statusBadge {
-                PillBadge(text: statusBadge.text, tint: statusBadge.tint)
+            HStack(spacing: -8) {
+                ForEach(travelers) { person in
+                    AvatarView(person: person, size: 22)
+                        .overlay(Circle().stroke(Theme.cardBackground, lineWidth: 1.5))
+                }
             }
         }
         .padding(Theme.Spacing.sm)
+    }
+
+    /// Replaces the old solo/paired avatar in this spot — days-to-go while the trip is still
+    /// ahead, a "travelling now" state while it's actually underway (`trip.isActive`), and a
+    /// simple done marker once it's over. A countdown wouldn't mean anything for the last two
+    /// cases, so this isn't just "days-to-go, clamped to zero" for the whole row lifetime.
+    @ViewBuilder
+    private var countdownBadge: some View {
+        VStack(spacing: 0) {
+            if trip.departureDate > .now {
+                let days = max(0, Calendar.current.dateComponents([.day], from: .now, to: trip.departureDate).day ?? 0)
+                Text(days == 0 ? "🎉" : "\(days)")
+                    .font(.system(size: days == 0 ? 20 : 20, weight: .bold, design: .rounded))
+                Text(days == 0 ? "Today" : (days == 1 ? "day" : "days"))
+                    .font(.caption2)
+                    .foregroundStyle(Theme.subtleInk)
+            } else if trip.isActive {
+                Image(systemName: "airplane")
+                    .font(.title3)
+                    .foregroundStyle(Theme.skyBlue)
+                Text("Now")
+                    .font(.caption2)
+                    .foregroundStyle(Theme.subtleInk)
+            } else {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.title3)
+                    .foregroundStyle(Theme.leafGreen)
+                Text("Done")
+                    .font(.caption2)
+                    .foregroundStyle(Theme.subtleInk)
+            }
+        }
+        .frame(width: 44)
     }
 }
