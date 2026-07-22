@@ -8,11 +8,15 @@
 // cheapest; `pdfText` is only used as a fallback when nothing usable comes from them,
 // since PDF text (barcodes, boilerplate) is noisier and less reliable to extract from.
 //
-// Stateless — no DB read/write — so it's callable with just the Supabase publishable
-// (anon) key. Requires the OPENAI_API_KEY secret: `supabase secrets set OPENAI_API_KEY=...`
+// Requires a real signed-in user (`Authorization: Bearer <user access token>`), not just the
+// publishable/anon key — that key ships inside the app binary and is trivially extractable, and
+// this function has no DB read/write to otherwise scope/rate-limit who can trigger a paid OpenAI
+// call. Anyone with the anon key alone could previously spam this endpoint and run up real
+// billing with zero legitimate app usage behind it. `PendingFlightShareReviewView` (this
+// function's only caller) only ever runs signed in, so this costs nothing functionally.
+// Requires the OPENAI_API_KEY secret: `supabase secrets set OPENAI_API_KEY=...`
 
-import "@supabase/functions-js/edge-runtime.d.ts";
-import { withSupabase } from "@supabase/server";
+import { createClient } from "jsr:@supabase/supabase-js@2";
 import OpenAI from "openai";
 
 const openai = new OpenAI({ apiKey: Deno.env.get("OPENAI_API_KEY") });
@@ -91,31 +95,43 @@ function hasContent(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-export default {
-  fetch: withSupabase({ auth: ["publishable"] }, async (req, _ctx) => {
-    const { subject, body, pdfText } = await req.json();
+Deno.serve(async (req) => {
+  if (req.method !== "POST") {
+    return Response.json({ error: "Method not allowed" }, { status: 405 });
+  }
 
-    const primarySections = [
-      hasContent(subject) ? `Subject: ${subject.trim()}` : null,
-      hasContent(body) ? `Body:\n${body.trim()}` : null,
-    ].filter((section): section is string => section !== null);
-    const primaryText = primarySections.join("\n\n");
+  const userClient = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_ANON_KEY")!,
+    { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } },
+  );
+  const { data: { user } } = await userClient.auth.getUser();
+  if (!user) {
+    return Response.json({ error: "Not authenticated" }, { status: 401 });
+  }
 
-    if (primaryText.length === 0 && !hasContent(pdfText)) {
-      return Response.json({ error: "Missing 'subject'/'body'/'pdfText'" }, { status: 400 });
-    }
+  const { subject, body, pdfText } = await req.json();
 
-    let parsed = primaryText.length > 0 ? await extractFlight(primaryText) : null;
+  const primarySections = [
+    hasContent(subject) ? `Subject: ${subject.trim()}` : null,
+    hasContent(body) ? `Body:\n${body.trim()}` : null,
+  ].filter((section): section is string => section !== null);
+  const primaryText = primarySections.join("\n\n");
 
-    // Subject/body didn't yield a usable flight — fall back to text extracted from a PDF
-    // attachment (boarding pass, e-ticket), if one was provided.
-    if ((!parsed || !parsed.flightNumber) && hasContent(pdfText)) {
-      parsed = await extractFlight(pdfText.trim());
-    }
+  if (primaryText.length === 0 && !hasContent(pdfText)) {
+    return Response.json({ error: "Missing 'subject'/'body'/'pdfText'" }, { status: 400 });
+  }
 
-    return Response.json(parsed ?? {});
-  }),
-};
+  let parsed = primaryText.length > 0 ? await extractFlight(primaryText) : null;
+
+  // Subject/body didn't yield a usable flight — fall back to text extracted from a PDF
+  // attachment (boarding pass, e-ticket), if one was provided.
+  if ((!parsed || !parsed.flightNumber) && hasContent(pdfText)) {
+    parsed = await extractFlight(pdfText.trim());
+  }
+
+  return Response.json(parsed ?? {});
+});
 
 /* To invoke locally:
 
@@ -124,6 +140,7 @@ export default {
 
   curl -i --location --request POST 'http://127.0.0.1:54321/functions/v1/parse-flight-email' \
     --header 'apiKey: sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH' \
+    --header 'Authorization: Bearer <user-access-token>' \
     --header 'Content-Type: application/json' \
     --data '{"subject":"Your Jetstar itinerary","body":"Flight QF35 departs Singapore (SIN) on 14 Sep 2026 at 10:20..."}'
 

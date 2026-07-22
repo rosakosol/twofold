@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 """
-Batch-tests the parse-flight-email edge function against a folder of .eml files.
+Batch-tests the parse-flight-email edge function against a folder of .eml and
+standalone .pdf files.
 
-Mirrors what the iOS Share Extension captures: the email subject, the body text
-(prefer text/plain, else strip tags from text/html), and -- only used server-side
-as a fallback when subject/body don't yield a flight -- text extracted from any
-PDF attachment (boarding pass, e-ticket).
+For .eml files, mirrors what the iOS Share Extension captures: the email subject,
+the body text (prefer text/plain, else strip tags from text/html), and -- only used
+server-side as a fallback when subject/body don't yield a flight -- text extracted
+from any PDF attachment (boarding pass, e-ticket). Standalone .pdf files (not
+attached to an .eml) are sent as pdfText only, with no subject/body, to exercise
+the PDF-only fallback path on its own.
 
-Requires the `pdftotext` CLI (poppler) on PATH to test the PDF fallback path;
-`brew install poppler` if it's missing. Without it, PDF attachments are skipped
-and only the subject/body path is tested.
+Requires the `pdftotext` CLI (poppler) on PATH to test any PDF content -- either
+attached or standalone; `brew install poppler` if it's missing. Without it, PDFs
+are skipped entirely.
 
 Usage:
   python3 test-batch.py [directory] [--url URL] [--api-key KEY]
@@ -76,6 +79,23 @@ def extract_body(msg) -> str | None:
     return None
 
 
+def pdf_bytes_to_text(data: bytes) -> str | None:
+    if PDFTOTEXT is None or not data:
+        return None
+
+    with tempfile.NamedTemporaryFile(suffix=".pdf") as tmp:
+        tmp.write(data)
+        tmp.flush()
+        result = subprocess.run(
+            [PDFTOTEXT, "-layout", tmp.name, "-"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        text = result.stdout.strip()
+        return text or None
+
+
 def extract_pdf_text(msg) -> str | None:
     if PDFTOTEXT is None:
         return None
@@ -90,21 +110,12 @@ def extract_pdf_text(msg) -> str | None:
             data = part.get_content()
         except Exception:
             continue
-        if not isinstance(data, bytes) or not data:
+        if not isinstance(data, bytes):
             continue
 
-        with tempfile.NamedTemporaryFile(suffix=".pdf") as tmp:
-            tmp.write(data)
-            tmp.flush()
-            result = subprocess.run(
-                [PDFTOTEXT, "-layout", tmp.name, "-"],
-                capture_output=True,
-                text=True,
-                timeout=15,
-            )
-            text = result.stdout.strip()
-            if text:
-                return text
+        text = pdf_bytes_to_text(data)
+        if text:
+            return text
 
     return None
 
@@ -134,48 +145,51 @@ def call_edge_function(url: str, api_key: str, subject: str | None, body: str | 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("directory", nargs="?", default="itineraries", help="Folder of .eml files")
+    parser.add_argument("directory", nargs="?", default="itineraries", help="Folder of .eml/.pdf files")
     parser.add_argument("--url", default=LOCAL_URL, help="Edge function URL")
     parser.add_argument("--api-key", default=LOCAL_PUBLISHABLE_KEY, help="Supabase publishable/anon key")
     args = parser.parse_args()
 
     if PDFTOTEXT is None:
-        print("note: `pdftotext` not found on PATH -- PDF-attachment fallback will be skipped for all files\n", file=sys.stderr)
+        print("note: `pdftotext` not found on PATH -- all PDF content will be skipped\n", file=sys.stderr)
 
     directory = Path(args.directory)
     eml_files = sorted(directory.glob("*.eml"))
-    if not eml_files:
-        print(f"No .eml files found in {directory}", file=sys.stderr)
+    pdf_files = sorted(directory.glob("*.pdf"))
+    if not eml_files and not pdf_files:
+        print(f"No .eml or .pdf files found in {directory}", file=sys.stderr)
         return 1
 
-    for eml_path in eml_files:
-        print(f"\n=== {eml_path.name} ===")
-        with open(eml_path, "rb") as f:
-            msg = BytesParser(policy=policy.default).parse(f)
-
-        subject = extract_subject(msg)
-        body = extract_body(msg)
-        pdf_text = extract_pdf_text(msg)
-
+    def run(name: str, subject: str | None, body: str | None, pdf_text: str | None) -> None:
+        print(f"\n=== {name} ===")
         print(f"  subject: {subject!r}")
         print(f"  body: {'present, %d chars' % len(body) if body else None}")
         print(f"  pdfText: {'present, %d chars' % len(pdf_text) if pdf_text else None}")
 
         if not subject and not body and not pdf_text:
             print("  (nothing extracted -- would fall back to 'Add manually' in-app)")
-            continue
+            return
 
         try:
             result = call_edge_function(args.url, args.api_key, subject, body, pdf_text)
         except urllib.error.HTTPError as e:
             print(f"  HTTP {e.code}: {e.read().decode('utf-8', errors='replace')}")
-            continue
+            return
         except urllib.error.URLError as e:
             print(f"  Request failed: {e.reason}")
             print("  (is `supabase start` / `supabase functions serve` running?)")
-            continue
+            return
 
         print("  result:", json.dumps(result, indent=2))
+
+    for eml_path in eml_files:
+        with open(eml_path, "rb") as f:
+            msg = BytesParser(policy=policy.default).parse(f)
+        run(eml_path.name, extract_subject(msg), extract_body(msg), extract_pdf_text(msg))
+
+    for pdf_path in pdf_files:
+        pdf_text = pdf_bytes_to_text(pdf_path.read_bytes())
+        run(f"{pdf_path.name} (standalone PDF)", None, None, pdf_text)
 
     return 0
 

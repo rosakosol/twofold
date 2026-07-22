@@ -1,5 +1,10 @@
 -- Grows all 20 More Likely Premium decks up to 15 items each (from 7-12), continuing the
 -- volume-expansion pass. All new prompts checked against existing table content for duplicates.
+--
+-- "Who's More Likely to Make History?" and "Who's More Likely to Push Boundaries?" are looked
+-- up by title rather than their original hardcoded ids — see the note in
+-- 20260812000000_grow_this_or_that_premium_decks.sql for why (decks inserted without an
+-- explicit id, so a fresh local migration replay assigns them a different one).
 
 -- Who's More Likely to Ask the Fun Questions? (8 -> 15)
 insert into more_likely_prompts (prompt, active, category, tier, deck_id) values ('Who is more likely to ask what their partner''s dream day would look like?', true, 'Relationship', 'premium', '0a98f2fd-c710-4cb1-8adf-f9e1ad80d2ad');
@@ -103,10 +108,10 @@ insert into more_likely_prompts (prompt, active, category, tier, deck_id) values
 update game_decks set question_count = 15 where id = 'e81ed1f9-fbd4-48bb-a70e-1ab35e967d80';
 
 -- Who's More Likely to Make History? (12 -> 15)
-insert into more_likely_prompts (prompt, active, category, tier, deck_id) values ('Who is more likely to have crossed an ocean on a wooden ship?', true, 'History', 'premium', '352bce96-c8ea-4401-a53d-750e88ec005d');
-insert into more_likely_prompts (prompt, active, category, tier, deck_id) values ('Who is more likely to have painted a masterpiece in secret?', true, 'History', 'premium', '352bce96-c8ea-4401-a53d-750e88ec005d');
-insert into more_likely_prompts (prompt, active, category, tier, deck_id) values ('Who is more likely to have organized a rebellion?', true, 'History', 'premium', '352bce96-c8ea-4401-a53d-750e88ec005d');
-update game_decks set question_count = 15 where id = '352bce96-c8ea-4401-a53d-750e88ec005d';
+insert into more_likely_prompts (prompt, active, category, tier, deck_id) values ('Who is more likely to have crossed an ocean on a wooden ship?', true, 'History', 'premium', (select id from game_decks where title = 'Who''s More Likely to Make History?'));
+insert into more_likely_prompts (prompt, active, category, tier, deck_id) values ('Who is more likely to have painted a masterpiece in secret?', true, 'History', 'premium', (select id from game_decks where title = 'Who''s More Likely to Make History?'));
+insert into more_likely_prompts (prompt, active, category, tier, deck_id) values ('Who is more likely to have organized a rebellion?', true, 'History', 'premium', (select id from game_decks where title = 'Who''s More Likely to Make History?'));
+update game_decks set question_count = 15 where id = (select id from game_decks where title = 'Who''s More Likely to Make History?');
 
 -- Who's More Likely to Not Care What People Think? (8 -> 15)
 insert into more_likely_prompts (prompt, active, category, tier, deck_id) values ('Who is more likely to sing loudly in public?', true, 'Starters', 'premium', '9583e848-3e88-487d-9a83-6a7f8484542d');
@@ -149,10 +154,10 @@ insert into more_likely_prompts (prompt, active, category, tier, deck_id) values
 update game_decks set question_count = 15 where id = 'e763bf0e-7f5b-49df-b732-23ac2e08ab88';
 
 -- Who's More Likely to Push Boundaries? (12 -> 15)
-insert into more_likely_prompts (prompt, active, category, tier, deck_id) values ('Who is more likely to bring up an unpopular opinion just to spark debate?', true, 'Edgy Questions', 'premium', '07cc7467-a357-469b-8534-6574a78df601');
-insert into more_likely_prompts (prompt, active, category, tier, deck_id) values ('Who is more likely to ask a question most people would consider too personal?', true, 'Edgy Questions', 'premium', '07cc7467-a357-469b-8534-6574a78df601');
-insert into more_likely_prompts (prompt, active, category, tier, deck_id) values ('Who is more likely to push back on a group decision everyone else agreed to?', true, 'Edgy Questions', 'premium', '07cc7467-a357-469b-8534-6574a78df601');
-update game_decks set question_count = 15 where id = '07cc7467-a357-469b-8534-6574a78df601';
+insert into more_likely_prompts (prompt, active, category, tier, deck_id) values ('Who is more likely to bring up an unpopular opinion just to spark debate?', true, 'Edgy Questions', 'premium', (select id from game_decks where title = 'Who''s More Likely to Push Boundaries?'));
+insert into more_likely_prompts (prompt, active, category, tier, deck_id) values ('Who is more likely to ask a question most people would consider too personal?', true, 'Edgy Questions', 'premium', (select id from game_decks where title = 'Who''s More Likely to Push Boundaries?'));
+insert into more_likely_prompts (prompt, active, category, tier, deck_id) values ('Who is more likely to push back on a group decision everyone else agreed to?', true, 'Edgy Questions', 'premium', (select id from game_decks where title = 'Who''s More Likely to Push Boundaries?'));
+update game_decks set question_count = 15 where id = (select id from game_decks where title = 'Who''s More Likely to Push Boundaries?');
 
 -- Who's More Likely to Stand Up for Others? (8 -> 15)
 insert into more_likely_prompts (prompt, active, category, tier, deck_id) values ('Who is more likely to speak up when a friend is being talked about unfairly?', true, 'Moral Values', 'premium', 'e7e43de6-b7e4-4523-be70-52ca5d52fea3');

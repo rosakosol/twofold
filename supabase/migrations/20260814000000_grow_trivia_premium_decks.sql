@@ -1,6 +1,11 @@
 -- Grows all 20 Trivia Battle Premium decks up to 15 items each (from 7-12), completing the
 -- deck-growth pass across all 3 game types. All new questions checked for factual accuracy,
 -- correct_answer always present in options, and no duplicate question text in the table.
+--
+-- "Taboo History & Facts" and "World History Vol. 2" are looked up by title rather than their
+-- original hardcoded ids — see the note in 20260812000000_grow_this_or_that_premium_decks.sql
+-- for why (decks inserted without an explicit id, so a fresh local migration replay assigns
+-- them a different one).
 
 -- Can You Guess the Cuisine? (8 -> 15)
 insert into trivia_questions (question, options, correct_answer, difficulty, active, category, tier, deck_id) values ('Baklava, a sweet pastry made with layers of filo and nuts, is popular across which region''s cuisine?', '["Middle East", "East Asia", "Scandinavia", "South America"]'::jsonb, 'Middle East', 'easy', true, 'Food & Culture', 'premium', '406708cf-3c2b-40b8-af7e-267bdf2c49a5');
@@ -164,10 +169,10 @@ insert into trivia_questions (question, options, correct_answer, difficulty, act
 update game_decks set question_count = 15 where id = '9f8129a7-7c4d-4a74-a013-627dbc9b26ec';
 
 -- Taboo History & Facts (12 -> 15)
-insert into trivia_questions (question, options, correct_answer, difficulty, active, category, tier, deck_id) values ('Which country was the first to abolish slavery throughout its empire, in 1833?', '["United Kingdom", "United States", "France", "Portugal"]'::jsonb, 'United Kingdom', 'medium', true, 'Edgy Questions', 'premium', 'b16c34c6-5151-4245-881b-e8d5f6425e22');
-insert into trivia_questions (question, options, correct_answer, difficulty, active, category, tier, deck_id) values ('The Kinsey Reports, controversial studies on human sexuality, were published in which decade?', '["1940s-50s", "1920s", "1960s", "1980s"]'::jsonb, '1940s-50s', 'medium', true, 'Edgy Questions', 'premium', 'b16c34c6-5151-4245-881b-e8d5f6425e22');
-insert into trivia_questions (question, options, correct_answer, difficulty, active, category, tier, deck_id) values ('Which country legalized physician-assisted dying nationwide first, in 2002?', '["Netherlands", "Belgium", "Switzerland", "Canada"]'::jsonb, 'Netherlands', 'hard', true, 'Edgy Questions', 'premium', 'b16c34c6-5151-4245-881b-e8d5f6425e22');
-update game_decks set question_count = 15 where id = 'b16c34c6-5151-4245-881b-e8d5f6425e22';
+insert into trivia_questions (question, options, correct_answer, difficulty, active, category, tier, deck_id) values ('Which country was the first to abolish slavery throughout its empire, in 1833?', '["United Kingdom", "United States", "France", "Portugal"]'::jsonb, 'United Kingdom', 'medium', true, 'Edgy Questions', 'premium', (select id from game_decks where title = 'Taboo History & Facts'));
+insert into trivia_questions (question, options, correct_answer, difficulty, active, category, tier, deck_id) values ('The Kinsey Reports, controversial studies on human sexuality, were published in which decade?', '["1940s-50s", "1920s", "1960s", "1980s"]'::jsonb, '1940s-50s', 'medium', true, 'Edgy Questions', 'premium', (select id from game_decks where title = 'Taboo History & Facts'));
+insert into trivia_questions (question, options, correct_answer, difficulty, active, category, tier, deck_id) values ('Which country legalized physician-assisted dying nationwide first, in 2002?', '["Netherlands", "Belgium", "Switzerland", "Canada"]'::jsonb, 'Netherlands', 'hard', true, 'Edgy Questions', 'premium', (select id from game_decks where title = 'Taboo History & Facts'));
+update game_decks set question_count = 15 where id = (select id from game_decks where title = 'Taboo History & Facts');
 
 -- Travel Trivia: The Essentials (8 -> 15)
 insert into trivia_questions (question, options, correct_answer, difficulty, active, category, tier, deck_id) values ('What does the travel term "visa on arrival" mean?', '["A visa issued at the destination''s border", "A visa applied for online before departure", "A visa that never expires", "A visa required only for connecting flights"]'::jsonb, 'A visa issued at the destination''s border', 'easy', true, 'Travel', 'premium', '5f1cdf1a-5d87-4c89-9852-5661801bbb16');
@@ -190,7 +195,7 @@ insert into trivia_questions (question, options, correct_answer, difficulty, act
 update game_decks set question_count = 15 where id = '9e1464cc-0306-4b80-84aa-0271fdb31a15';
 
 -- World History Vol. 2 (12 -> 15)
-insert into trivia_questions (question, options, correct_answer, difficulty, active, category, tier, deck_id) values ('The Renaissance period began in which country?', '["Italy", "France", "England", "Spain"]'::jsonb, 'Italy', 'easy', true, 'History', 'premium', 'e818249a-80ed-4b26-8d8f-a882a9f5f625');
-insert into trivia_questions (question, options, correct_answer, difficulty, active, category, tier, deck_id) values ('Which ancient wonder of the world was a giant statue that stood in the harbor of Rhodes?', '["The Colossus of Rhodes", "The Great Pyramid", "The Hanging Gardens", "The Lighthouse of Alexandria"]'::jsonb, 'The Colossus of Rhodes', 'medium', true, 'History', 'premium', 'e818249a-80ed-4b26-8d8f-a882a9f5f625');
-insert into trivia_questions (question, options, correct_answer, difficulty, active, category, tier, deck_id) values ('The Treaty of Versailles, signed in 1919, officially ended which war?', '["World War I", "World War II", "The Napoleonic Wars", "The Franco-Prussian War"]'::jsonb, 'World War I', 'easy', true, 'History', 'premium', 'e818249a-80ed-4b26-8d8f-a882a9f5f625');
-update game_decks set question_count = 15 where id = 'e818249a-80ed-4b26-8d8f-a882a9f5f625';
+insert into trivia_questions (question, options, correct_answer, difficulty, active, category, tier, deck_id) values ('The Renaissance period began in which country?', '["Italy", "France", "England", "Spain"]'::jsonb, 'Italy', 'easy', true, 'History', 'premium', (select id from game_decks where title = 'World History Vol. 2'));
+insert into trivia_questions (question, options, correct_answer, difficulty, active, category, tier, deck_id) values ('Which ancient wonder of the world was a giant statue that stood in the harbor of Rhodes?', '["The Colossus of Rhodes", "The Great Pyramid", "The Hanging Gardens", "The Lighthouse of Alexandria"]'::jsonb, 'The Colossus of Rhodes', 'medium', true, 'History', 'premium', (select id from game_decks where title = 'World History Vol. 2'));
+insert into trivia_questions (question, options, correct_answer, difficulty, active, category, tier, deck_id) values ('The Treaty of Versailles, signed in 1919, officially ended which war?', '["World War I", "World War II", "The Napoleonic Wars", "The Franco-Prussian War"]'::jsonb, 'World War I', 'easy', true, 'History', 'premium', (select id from game_decks where title = 'World History Vol. 2'));
+update game_decks set question_count = 15 where id = (select id from game_decks where title = 'World History Vol. 2');

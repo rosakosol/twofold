@@ -1,12 +1,18 @@
 -- Grows all 20 This or That Premium decks up to 15 items each (from 7-12), as part of closing
 -- the volume gap toward the 2000+ Premium content target. All new pairs checked against the
 -- 20-char/<35-combined display rule and against existing table content for duplicates.
+--
+-- "Ancient World or Modern Age?" and "Would You Rather... Vol. 2" are looked up by title rather
+-- than by their original hardcoded ids — both decks were inserted without an explicit id in
+-- 20260811000000_new_premium_decks_edgy_history.sql (default gen_random_uuid()), so the literal
+-- ids captured from the hosted project don't match what a fresh local migration replay
+-- generates. Title lookup works in both.
 
 -- Ancient World or Modern Age? (12 -> 15)
-insert into this_or_that_prompts (option_a, option_b, active, category, tier, deck_id) values ('Marble statues', 'Digital art', true, 'History', 'premium', '334488ed-cbe8-435b-b7ee-ed22ff3f9fbd');
-insert into this_or_that_prompts (option_a, option_b, active, category, tier, deck_id) values ('Ancient ruins', 'City skyline', true, 'History', 'premium', '334488ed-cbe8-435b-b7ee-ed22ff3f9fbd');
-insert into this_or_that_prompts (option_a, option_b, active, category, tier, deck_id) values ('Old maps', 'GPS navigation', true, 'History', 'premium', '334488ed-cbe8-435b-b7ee-ed22ff3f9fbd');
-update game_decks set question_count = 15 where id = '334488ed-cbe8-435b-b7ee-ed22ff3f9fbd';
+insert into this_or_that_prompts (option_a, option_b, active, category, tier, deck_id) values ('Marble statues', 'Digital art', true, 'History', 'premium', (select id from game_decks where title = 'Ancient World or Modern Age?'));
+insert into this_or_that_prompts (option_a, option_b, active, category, tier, deck_id) values ('Ancient ruins', 'City skyline', true, 'History', 'premium', (select id from game_decks where title = 'Ancient World or Modern Age?'));
+insert into this_or_that_prompts (option_a, option_b, active, category, tier, deck_id) values ('Old maps', 'GPS navigation', true, 'History', 'premium', (select id from game_decks where title = 'Ancient World or Modern Age?'));
+update game_decks set question_count = 15 where id = (select id from game_decks where title = 'Ancient World or Modern Age?');
 
 -- Close-Knit or Give Each Other Space? (8 -> 15)
 insert into this_or_that_prompts (option_a, option_b, active, category, tier, deck_id) values ('Big family chats', 'One-on-one time', true, 'Family', 'premium', 'a59f3ed4-cd60-4d3e-977e-a14e9ac62d39');
@@ -192,7 +198,7 @@ insert into this_or_that_prompts (option_a, option_b, active, category, tier, de
 update game_decks set question_count = 15 where id = 'f8e8fa17-3713-4d9d-b20d-0c5abb3677ef';
 
 -- Would You Rather... Vol. 2 (12 -> 15)
-insert into this_or_that_prompts (option_a, option_b, active, category, tier, deck_id) values ('No music ever', 'No movies ever', true, 'Edgy Questions', 'premium', '796e7957-a319-4cf4-b18e-8c4f443a6d3b');
-insert into this_or_that_prompts (option_a, option_b, active, category, tier, deck_id) values ('Only whisper', 'Only shout', true, 'Edgy Questions', 'premium', '796e7957-a319-4cf4-b18e-8c4f443a6d3b');
-insert into this_or_that_prompts (option_a, option_b, active, category, tier, deck_id) values ('No breakfast ever', 'No dinner ever', true, 'Edgy Questions', 'premium', '796e7957-a319-4cf4-b18e-8c4f443a6d3b');
-update game_decks set question_count = 15 where id = '796e7957-a319-4cf4-b18e-8c4f443a6d3b';
+insert into this_or_that_prompts (option_a, option_b, active, category, tier, deck_id) values ('No music ever', 'No movies ever', true, 'Edgy Questions', 'premium', (select id from game_decks where title = 'Would You Rather... Vol. 2'));
+insert into this_or_that_prompts (option_a, option_b, active, category, tier, deck_id) values ('Only whisper', 'Only shout', true, 'Edgy Questions', 'premium', (select id from game_decks where title = 'Would You Rather... Vol. 2'));
+insert into this_or_that_prompts (option_a, option_b, active, category, tier, deck_id) values ('No breakfast ever', 'No dinner ever', true, 'Edgy Questions', 'premium', (select id from game_decks where title = 'Would You Rather... Vol. 2'));
+update game_decks set question_count = 15 where id = (select id from game_decks where title = 'Would You Rather... Vol. 2');
