@@ -56,6 +56,22 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
+  // Confirm a real connection_requests row actually links the caller and the target in the
+  // direction this eventType implies, before pushing anything — without this, any authenticated
+  // user could push an arbitrary "wants to connect"/"accepted your request" notification, with
+  // their own real name attached, to any other profile by UUID.
+  const expectedMatch = input.eventType === "connection_requested"
+    ? { inviter_id: input.targetProfileId, requester_id: user.id, status: "pending" }
+    : { inviter_id: user.id, requester_id: input.targetProfileId, status: "accepted" };
+  const { data: linkingRequest } = await serviceClient
+    .from("connection_requests")
+    .select("id")
+    .match(expectedMatch)
+    .maybeSingle();
+  if (!linkingRequest) {
+    return Response.json({ error: "No matching connection request" }, { status: 403 });
+  }
+
   // Best-effort from here on — a failure to notify should never surface as an error to the
   // client for what's fundamentally a side effect of an already-successful action.
   try {

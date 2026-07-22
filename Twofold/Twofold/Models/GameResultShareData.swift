@@ -48,6 +48,7 @@ struct GameResultShareData {
         }
         if singleRoundQuestion != nil {
             layouts.append(.namesAndAnswer)
+            layouts.append(.speechBubble)
         }
         return layouts
     }

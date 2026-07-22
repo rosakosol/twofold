@@ -320,7 +320,7 @@ struct HomeView: View {
                             id: request.requesterId,
                             name: request.requesterFirstName,
                             accentColor: Person.palette[0],
-                            avatarURL: request.requesterAvatarPath.flatMap { BackendService.avatarPublicURL(path: $0) }
+                            avatarURL: request.requesterAvatarURL
                         ),
                         size: 56,
                         showsRing: true

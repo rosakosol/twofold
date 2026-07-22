@@ -4,9 +4,12 @@
 //
 //  Everything a Home Screen widget needs to render, written by the main app (which is the only
 //  thing that talks to Supabase/WeatherKit) into the shared App Group container, then read
-//  synchronously and locally by each widget's TimelineProvider — no network/auth inside the
-//  extension except DrawingPadWidget (public bucket, see PublicStorageURL.swift). Key is
-//  versioned so a future shape change can't crash an old cached read.
+//  synchronously and locally by each widget's TimelineProvider. `drawing-pads` is a private
+//  Storage bucket the extension has no session to sign anything against itself, so
+//  DrawingPadWidget still does its own live network fetch (unlike every other image, which the
+//  main app downloads and caches — see WidgetImageCache), just against the pre-signed URLs
+//  cached here instead of a permanent public one. Key is versioned so a future shape change
+//  can't crash an old cached read.
 //
 //  Shared with LiveActivitiesExtension (see the "Twofold" folder's membership exception for
 //  that target in project.pbxproj).
@@ -76,8 +79,8 @@ struct WidgetSnapshot: Codable {
         var isReunionTrip: Bool
     }
 
-    /// Needed alongside coupleID/partnerID for DrawingPadWidget's Medium side-by-side layout to
-    /// build *my* public drawing-pad URL, the same way it already builds the partner's.
+    /// Kept for DrawingPadWidget's Medium side-by-side layout, which needs to know whose pad is
+    /// "mine" vs. "partner's" alongside the two signed URLs below.
     var myID: UUID?
     var myName: String
     var partnerName: String
@@ -105,17 +108,26 @@ struct WidgetSnapshot: Codable {
     var latestMemory: MemoryInfo?
     var partnerWeather: WeatherInfo?
     var relationshipStats: RelationshipStats?
-    /// Needed by DrawingPadWidget to build the partner's public drawing-pad URL itself
-    /// (PublicStorageURL.swift) — the one widget allowed its own network call.
+    /// Needed by DrawingPadWidget to identify which pads belong to this couple, alongside
+    /// `mySignedDrawingPadURL`/`partnerSignedDrawingPadURL` below.
     var coupleID: UUID?
     var partnerID: UUID?
+    /// Signed `drawing-pads` Storage URLs, refreshed by `WidgetSnapshotWriter` (a 48-hour expiry
+    /// — generous enough to survive a couple of days between app opens). DrawingPadWidget fetches
+    /// these live itself rather than reading cached bytes the way every other widget image does,
+    /// so a partner's fresh doodle can still show up without either device's main app needing to
+    /// run again first — the underlying storage object is overwritten in place at the same path,
+    /// so a not-yet-expired signed URL keeps resolving to whatever's currently there.
+    var mySignedDrawingPadURL: URL?
+    var partnerSignedDrawingPadURL: URL?
     var writtenAt: Date
 
     private static let suiteName = "group.com.orangefinch.Twofold"
-    /// Bumped from v1 when isSubscriptionActive was replaced by subscriptionTier, and from v2
-    /// when trackedFlights was added — the key is versioned specifically so a shape change like
-    /// this can't crash an old cached read.
-    private static let key = "widgetSnapshot.v3"
+    /// Bumped from v1 when isSubscriptionActive was replaced by subscriptionTier, from v2 when
+    /// trackedFlights was added, and from v3 when the drawing-pad public URLs were replaced by
+    /// signed ones — the key is versioned specifically so a shape change like this can't crash an
+    /// old cached read.
+    private static let key = "widgetSnapshot.v4"
 
     private static var defaults: UserDefaults? {
         UserDefaults(suiteName: suiteName)

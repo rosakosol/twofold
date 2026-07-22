@@ -2,14 +2,22 @@
 // session sitting active for days with zero responses from the non-initiating partner just
 // clutters the "waiting" list forever otherwise. Never touches a session either partner has
 // actually engaged with, no matter how old. Cron-triggered only (see
-// supabase/migrations/20260712170000_games_archive_cron_and_notif_prefs.sql); no auth header
-// expected.
+// supabase/migrations/20260712170000_games_archive_cron_and_notif_prefs.sql).
+//
+// Requires the service-role key as a bearer token, same explicit check refresh-due-flights
+// already uses — without this, any authenticated app user could invoke it directly and force a
+// system-wide archive sweep on demand.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const STALE_AFTER_DAYS = 3;
 
-Deno.serve(async (_req) => {
+Deno.serve(async (req) => {
+  const expected = `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`;
+  if (req.headers.get("Authorization") !== expected) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const serviceClient = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,

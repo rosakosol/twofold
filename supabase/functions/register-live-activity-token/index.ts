@@ -4,8 +4,12 @@
 // refreshed token for the same running Activity replaces the old row rather than duplicating it.
 //
 // Requires an `Authorization: Bearer <user access token>` header (the caller's Supabase auth
-// session). RLS on `live_activity_push_tokens` already scopes writes to `profile_id = auth.uid()`,
-// so this can safely use the user-scoped client for the whole request — no service role needed.
+// session). RLS on `live_activity_push_tokens` scopes writes to `profile_id = auth.uid()`, but
+// that only proves the caller owns the *token row* — it says nothing about which flight_id they
+// point it at. Without an explicit check, anyone who obtains another couple's flight UUID could
+// register a token for it and receive that couple's live flight-status pushes indefinitely (the
+// same IDOR class `refresh-flight` guards against — mirrored here via the same
+// RLS-select-proves-membership trick against `flights`).
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
@@ -43,6 +47,17 @@ Deno.serve(async (req) => {
   const { data: { user } } = await userClient.auth.getUser();
   if (!user) {
     return Response.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  // RLS on `flights` already scopes select() to couple members, so a row coming back at all
+  // proves membership — this doubles as the 403 check.
+  const { data: visibleFlight, error: visibleErr } = await userClient
+    .from("flights")
+    .select("id")
+    .eq("id", input.flightId)
+    .maybeSingle();
+  if (visibleErr || !visibleFlight) {
+    return Response.json({ error: "Flight not found" }, { status: 403 });
   }
 
   const { error } = await userClient

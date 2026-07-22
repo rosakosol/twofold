@@ -35,6 +35,8 @@ enum WidgetSnapshotWriter {
                     relationshipStats: nil,
                     coupleID: nil,
                     partnerID: nil,
+                    mySignedDrawingPadURL: nil,
+                    partnerSignedDrawingPadURL: nil,
                     writtenAt: .now
                 )
             )
@@ -65,6 +67,16 @@ enum WidgetSnapshotWriter {
         if let avatarURL = appModel.partner.avatarURL, let data = try? await URLSession.shared.data(from: avatarURL).0 {
             WidgetImageCache.writePartnerAvatarImage(data)
         }
+
+        // `drawing-pads` is a private bucket — DrawingPadWidget still fetches these live itself
+        // (see WidgetSnapshot's doc comment), so what it needs cached here is a signed URL, not
+        // the bytes themselves.
+        let mySignedDrawingPadURL = try? await BackendService.drawingPadSignedURL(
+            coupleID: appModel.couple.id, personID: appModel.currentUser.id
+        )
+        let partnerSignedDrawingPadURL = try? await BackendService.drawingPadSignedURL(
+            coupleID: appModel.couple.id, personID: appModel.partner.id
+        )
 
         var flightInfo: WidgetSnapshot.FlightInfo?
         if let flight = appModel.activeOrUpcomingFlight {
@@ -128,6 +140,8 @@ enum WidgetSnapshotWriter {
                 relationshipStats: relationshipStats,
                 coupleID: appModel.couple.id,
                 partnerID: appModel.partner.id,
+                mySignedDrawingPadURL: mySignedDrawingPadURL,
+                partnerSignedDrawingPadURL: partnerSignedDrawingPadURL,
                 writtenAt: .now
             )
         )

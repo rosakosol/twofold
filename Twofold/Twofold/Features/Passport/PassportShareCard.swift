@@ -3,10 +3,12 @@
 //  Twofold
 //
 //  The shareable "passport" image — designed to actually read as a passport bio-data page
-//  (cover band, bio row, engraved metadata fields, a machine-readable-zone-style footer) rather
-//  than another rounded gradient stat card, using `PassportTheme`'s brand-blue/gold/cream
-//  holographic palette (`PassportHolographicBackground`) so it's unmistakably this app's brand
-//  rather than a copy of any reference app's own colors. Every figure on it comes straight from
+//  (a map banner up top, everything else as engraved text stats/fields below, a
+//  machine-readable-zone-style footer) rather than another rounded gradient stat card, using
+//  `PassportTheme`'s brand-blue/gold/cream holographic palette (`PassportHolographicBackground`)
+//  so it's unmistakably this app's brand rather than a copy of any reference app's own colors.
+//  No avatar and no single "big number" hero — every figure here reads as one of several equal
+//  text stats, not one number blown up over everything else. Every figure comes straight from
 //  `FlightStats`/`WorldMap`, same as the in-app passport card.
 //
 
@@ -25,23 +27,26 @@ struct PassportShareCard: View {
     }
 
     var body: some View {
-        VStack(spacing: Theme.Spacing.lg) {
-            coverBand
-            passportDivider
-            bioRow
-            hero
-            WorldVisitedMapView(visitedCountryNames: visitedCountryNames, unvisitedColor: .white.opacity(0.1))
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(PassportTheme.gold.opacity(0.3), lineWidth: 1)
+        VStack(spacing: 0) {
+            // The map is the card's whole top — full-bleed, not another inset element among
+            // several — with a soft fade at its own bottom edge into the text section below it
+            // rather than a hard dividing line.
+            WorldVisitedMapView(visitedCountryNames: visitedCountryNames, unvisitedColor: .white.opacity(0.14), aspectRatio: 1.5)
+                .overlay(alignment: .bottom) {
+                    LinearGradient(colors: [.clear, PassportTheme.coverBottom.opacity(0.9)], startPoint: .center, endPoint: .bottom)
+                        .frame(height: 46)
                 }
-            statGrid
-            passportDivider
-            metadataGrid
-            mrzBlock
+
+            VStack(spacing: Theme.Spacing.lg) {
+                coverBand
+                passportDivider
+                statGrid
+                passportDivider
+                metadataGrid
+                mrzBlock
+            }
+            .padding(Theme.Spacing.lg)
         }
-        .padding(Theme.Spacing.lg)
         .frame(width: 360)
         .background(PassportHolographicBackground())
         .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
@@ -71,37 +76,12 @@ struct PassportShareCard: View {
         .frame(maxWidth: .infinity)
     }
 
-    private var bioRow: some View {
-        HStack(spacing: Theme.Spacing.md) {
-            AvatarView(person: person, size: 60, showsRing: true)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(person.name.uppercased())
-                    .font(.system(.headline, design: .serif).weight(.bold))
-                    .foregroundStyle(PassportTheme.cream)
-                Text("TWOFOLD PASSPORT HOLDER")
-                    .font(.system(size: 10, weight: .semibold))
-                    .tracking(1)
-                    .foregroundStyle(PassportTheme.gold.opacity(0.75))
-            }
-            Spacer(minLength: 0)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private var hero: some View {
-        VStack(spacing: 2) {
-            Text("\(stats.flightCount)")
-                .font(.system(size: 52, weight: .bold, design: .rounded))
-                .foregroundStyle(PassportTheme.gold)
-            Text("flights")
-                .font(.system(.subheadline, design: .serif))
-                .foregroundStyle(.white)
-        }
-        .frame(maxWidth: .infinity)
-    }
-
+    /// 5 equal-weight stats, no single one enlarged — the flight count included here rather
+    /// than blown up into its own hero number, same "every stat reads as one of several" idea
+    /// the rest of this card follows.
     private var statGrid: some View {
         HStack(alignment: .top, spacing: Theme.Spacing.sm) {
+            passportStat(label: "Flights", value: "\(stats.flightCount)")
             passportStat(label: "Distance", value: MeasurementPreference.distanceLabel(km: stats.totalDistanceKm))
             passportStat(label: "Flight time", value: FlightStats.duration(stats.totalFlightTime))
             passportStat(label: "Airports", value: "\(stats.airports.count)")
@@ -112,6 +92,7 @@ struct PassportShareCard: View {
 
     private var metadataGrid: some View {
         VStack(spacing: 6) {
+            metadataRow(label: "Passport holder", value: person.name.uppercased())
             metadataRow(label: "Authority", value: "Twofold")
             metadataRow(label: "Place of issue", value: placeOfIssue)
             metadataRow(label: "Date of issue", value: Date.now.formatted(Self.issueDateFormat).uppercased())

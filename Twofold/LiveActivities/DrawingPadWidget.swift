@@ -2,12 +2,15 @@
 //  DrawingPadWidget.swift
 //  LiveActivities
 //
-//  Premium tier — the one widget allowed its own network call: drawing-pads is a public
-//  Supabase Storage bucket, so there's no auth/signed-URL problem the way there is for memory
-//  photos. Still caches the last-good fetch (WidgetImageCache) so a stale/offline network shows
-//  something rather than a blank widget. Small stays partner-only; Medium shows both drawing
-//  pads side by side (same idea the old large-only DoodleSideBySideWidget had, just fit into
-//  Medium's shorter frame instead of adding a separate widget/size).
+//  Premium tier — the one widget allowed its own network call: drawing-pads is a private
+//  Supabase Storage bucket, but the main app pre-signs both URLs into WidgetSnapshot (see its
+//  doc comment) each time it refreshes, so this still fetches live over the network — just
+//  against a signed URL instead of a permanent public one. Still caches the last-good fetch
+//  (WidgetImageCache) so a stale/offline network (or an expired signed URL, if the main app
+//  hasn't run in a couple of days) shows something rather than a blank widget. Small stays
+//  partner-only; Medium shows both drawing pads side by side (same idea the old large-only
+//  DoodleSideBySideWidget had, just fit into Medium's shorter frame instead of adding a separate
+//  widget/size).
 //
 
 import SwiftUI
@@ -35,20 +38,20 @@ struct DrawingPadProvider: TimelineProvider {
         let snapshot = WidgetSnapshot.read()
         let nextRefresh = Calendar.current.date(byAdding: .minute, value: 30, to: .now) ?? .now.addingTimeInterval(1800)
 
-        guard let coupleID = snapshot?.coupleID, let myID = snapshot?.myID, let partnerID = snapshot?.partnerID else {
+        guard snapshot?.coupleID != nil, snapshot?.myID != nil, snapshot?.partnerID != nil else {
             completion(Timeline(entries: [cachedEntry()], policy: .after(nextRefresh)))
             return
         }
 
         Task {
             var partnerImageData = WidgetImageCache.readDrawingPadImage()
-            if let url = PublicStorageURL.drawingPad(coupleID: coupleID, personID: partnerID),
+            if let url = snapshot?.partnerSignedDrawingPadURL,
                let fetched = try? await URLSession.shared.data(from: url).0, UIImage(data: fetched) != nil {
                 WidgetImageCache.writeDrawingPadImage(fetched)
                 partnerImageData = fetched
             }
             var myImageData = WidgetImageCache.readMyDrawingImage()
-            if let url = PublicStorageURL.drawingPad(coupleID: coupleID, personID: myID),
+            if let url = snapshot?.mySignedDrawingPadURL,
                let fetched = try? await URLSession.shared.data(from: url).0, UIImage(data: fetched) != nil {
                 WidgetImageCache.writeMyDrawingImage(fetched)
                 myImageData = fetched

@@ -689,7 +689,19 @@ async function notifyLiveActivity(serviceClient: SupabaseClient, oldRow: FlightR
     .eq("flight_id", newRow.id);
   if (error || !tokens || tokens.length === 0) return;
 
-  for (const token of tokens) {
+  // This runs under the service-role client (RLS-bypassing), so re-check couple membership
+  // explicitly here rather than trusting the token rows alone — belt-and-suspenders alongside the
+  // membership check `register-live-activity-token` performs at write time, in case a couple
+  // dissolves (or any future code path writes a token) after registration.
+  const { data: couple } = await serviceClient
+    .from("couples")
+    .select("partner_a_id, partner_b_id")
+    .eq("id", newRow.couple_id)
+    .maybeSingle();
+  const memberIds = couple ? [couple.partner_a_id, couple.partner_b_id] : [];
+  const validTokens = tokens.filter((token) => memberIds.includes(token.profile_id));
+
+  for (const token of validTokens) {
     try {
       const isReunion = token.profile_id !== newRow.created_by;
       const contentState = computeLiveActivityContentState(newRow, isReunion);

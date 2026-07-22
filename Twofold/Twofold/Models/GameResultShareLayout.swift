@@ -11,6 +11,10 @@ enum GameResultShareLayout: String, CaseIterable, Identifiable {
     case scoreSnapshot
     case dailyStreak
     case namesAndAnswer
+    /// The two answers alone, as a real tailed chat exchange (`SpeechBubbleShape`) with almost
+    /// no other chrome — an isolated-component sticker rather than a fully composed card, for
+    /// swiping to when you just want the exchange itself, not a headline/score around it.
+    case speechBubble
 
     var id: String { rawValue }
 
@@ -19,6 +23,7 @@ enum GameResultShareLayout: String, CaseIterable, Identifiable {
         case .scoreSnapshot: "chart.bar.fill"
         case .dailyStreak: "flame.fill"
         case .namesAndAnswer: "text.bubble.fill"
+        case .speechBubble: "bubble.left.and.bubble.right.fill"
         }
     }
 
@@ -27,6 +32,7 @@ enum GameResultShareLayout: String, CaseIterable, Identifiable {
         case .scoreSnapshot: "Snapshot"
         case .dailyStreak: "Streak"
         case .namesAndAnswer: "Simple"
+        case .speechBubble: "Bubble"
         }
     }
 }

@@ -1,7 +1,10 @@
 // Daily nudge for still-solo users (a profile with no active `couples` row referencing it) to
 // invite their partner — two stages, day 1 and day 3 after signup. Cron-triggered only (see
-// supabase/migrations/20260717020000_partner_invite_reminder_cron.sql); no auth header expected,
-// same shape as send-streak-reminders/index.ts.
+// supabase/migrations/20260717020000_partner_invite_reminder_cron.sql).
+//
+// Requires the service-role key as a bearer token, same explicit check refresh-due-flights
+// already uses — without this, any authenticated app user could invoke it directly and force a
+// push blast to every solo user in the app on demand.
 //
 // Idempotency: each stage is bucketed by UTC calendar day (a profile created "yesterday" only
 // ever matches the day-1 window on exactly one cron run, since the window shifts forward a full
@@ -32,7 +35,12 @@ function utcDayStart(daysAgo: number): Date {
   return d;
 }
 
-Deno.serve(async (_req) => {
+Deno.serve(async (req) => {
+  const expected = `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`;
+  if (req.headers.get("Authorization") !== expected) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const serviceClient = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,

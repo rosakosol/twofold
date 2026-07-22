@@ -1,12 +1,20 @@
 // Daily nudge: reminds couples who haven't answered today's Daily Activity question yet, so
 // their streak doesn't lapse. Cron-triggered only (see
-// supabase/migrations/20260713090000_streak_reminder_cron.sql); no auth header expected — same
-// shape as archive-stale-games/index.ts.
+// supabase/migrations/20260713090000_streak_reminder_cron.sql).
+//
+// Requires the service-role key as a bearer token, same explicit check refresh-due-flights
+// already uses — without this, any authenticated app user could invoke it directly and force a
+// push blast to every couple in the app on demand.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { sendAPNs } from "../_shared/apns.ts";
 
-Deno.serve(async (_req) => {
+Deno.serve(async (req) => {
+  const expected = `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`;
+  if (req.headers.get("Authorization") !== expected) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const serviceClient = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,

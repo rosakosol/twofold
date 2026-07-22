@@ -538,25 +538,18 @@ final class AppModel {
     }
 
     /// Drawing pad paths are fully deterministic (`{coupleID}/{personID}/pad.png`), so unlike
-    /// trips/memories there's nothing to "fetch" beyond just pointing at the URL — this just
-    /// primes both URLs so the pad previews have something to render on first appearance.
+    /// trips/memories there's nothing to "fetch" beyond just pointing at a URL — this just primes
+    /// both URLs so the pad previews have something to render on first appearance.
     ///
-    /// Cache-busted on every call, not just right after a save — this runs from
-    /// `DrawingPadCard.onAppear`, which SwiftUI re-fires when the drawing editor's sheet
-    /// dismisses back to Home. Without busting here too, that re-fire was overwriting the
-    /// fresh cache-busted URL `saveMyDrawing` had just set with a bare, non-busted one — so
-    /// `AsyncImage` resolved it against a stale cached response and the new drawing only ever
-    /// showed up after a full app relaunch flushed the cache.
-    func loadDrawingPads() {
+    /// `drawing-pads` is a private bucket now (see `BackendService.drawingPadSignedURL`'s doc
+    /// comment), so this needs a real signed-URL round trip rather than just building a public
+    /// URL string — and since each signed URL embeds its own unique token, it's never the same
+    /// string twice, which is what used to require the separate manual cache-busting step here
+    /// (re-fired from `DrawingPadCard.onAppear` on top of whatever `saveMyDrawing` just set).
+    func loadDrawingPads() async {
         guard let backendCoupleID else { return }
-        myDrawingURL = Self.cacheBusted(BackendService.drawingPadPublicURL(coupleID: backendCoupleID, personID: currentUser.id))
-        partnerDrawingURL = Self.cacheBusted(BackendService.drawingPadPublicURL(coupleID: backendCoupleID, personID: partner.id))
-    }
-
-    private static func cacheBusted(_ url: URL?) -> URL? {
-        guard let url, var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return url }
-        components.queryItems = [URLQueryItem(name: "v", value: "\(Int(Date().timeIntervalSince1970 * 1000))")]
-        return components.url ?? url
+        myDrawingURL = try? await BackendService.drawingPadSignedURL(coupleID: backendCoupleID, personID: currentUser.id)
+        partnerDrawingURL = try? await BackendService.drawingPadSignedURL(coupleID: backendCoupleID, personID: partner.id)
     }
 
     /// Fires once — the first time a couple both (a) has a connected partner and (b) has already

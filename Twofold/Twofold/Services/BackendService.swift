@@ -215,14 +215,14 @@ enum BackendService {
             name: profile.firstName.isEmpty ? "You" : profile.firstName,
             homeCity: profile.homePlaceId.flatMap { places[$0] },
             accentColor: Person.palette[1],
-            avatarURL: profile.avatarPath.flatMap { avatarPublicURL(path: $0) }
+            avatarURL: await avatarSignedURLOrNil(profile.avatarPath)
         )
 
         return OwnProfileState(
             person: person,
             partnerName: profile.partnerName,
             partnerHomeCity: profile.partnerHomePlaceId.flatMap { places[$0] },
-            partnerAvatarURL: profile.partnerAvatarPath.flatMap { avatarPublicURL(path: $0) },
+            partnerAvatarURL: await avatarSignedURLOrNil(profile.partnerAvatarPath),
             anniversaryDate: profile.anniversaryDate.flatMap { Self.dateOnlyFormatter.date(from: $0) },
             subscriptionActive: profile.subscriptionActive,
             subscriptionTier: profile.subscriptionTier,
@@ -619,26 +619,31 @@ enum BackendService {
         enum CodingKeys: String, CodingKey { case partnerAvatarPath = "partner_avatar_path" }
     }
 
-    static func avatarPublicURL(path: String) -> URL? {
-        try? supabase.storage.from("avatars").getPublicURL(path: path)
+    /// `avatars` is a private bucket (see `20260722010000_private_avatars_drawing_pads.sql` —
+    /// it used to be public, meaning anyone who ever obtained a profile/couple UUID could view
+    /// that photo forever, unauthenticated, with no revocation possible). Every read now goes
+    /// through a signed URL instead, scoped by storage RLS to: the owner themself, their
+    /// current partner, the other party to a pending connection request, or — for the
+    /// pre-auth invite-preview screens — anyone while that profile has a pending invite code
+    /// outstanding (mirrors the same narrow pre-auth exposure `get_invite_code_inviter_info`
+    /// already establishes for the inviter's name).
+    static func avatarSignedURL(path: String) async throws -> URL {
+        try await supabase.storage.from("avatars").createSignedURL(path: path, expiresIn: 3600)
     }
 
-    /// Every avatar lives at a fixed, deterministic path (`{userID}/avatar.jpg`) so re-uploads
-    /// overwrite rather than accumulate — but that means `avatarPublicURL` returns the exact
-    /// same URL string before and after a re-upload, and `AsyncImage`/`URLCache` then keep
-    /// showing the stale cached image instead of fetching the new one. Appending a
-    /// cache-busting query item makes each fresh upload's URL genuinely new. Only used right
-    /// after an upload succeeds — regular reads (`fetchCoupleState`, `fetchOwnProfile`) still
-    /// use the plain cacheable URL, since nothing changed for those.
-    private static func freshAvatarURL(path: String) -> URL? {
-        guard let base = avatarPublicURL(path: path),
-              var components = URLComponents(url: base, resolvingAgainstBaseURL: false) else { return nil }
-        components.queryItems = [URLQueryItem(name: "v", value: "\(Int(Date().timeIntervalSince1970 * 1000))")]
-        return components.url
+    /// Convenience for the common `path.flatMap { ... }` shape used all over this file — Optional
+    /// has no async `flatMap`, so callers used to reach for the (synchronous, public-URL) helper
+    /// directly. Swallows a signing failure to nil rather than throwing, same as a missing path.
+    private static func avatarSignedURLOrNil(_ path: String?) async -> URL? {
+        guard let path else { return nil }
+        return try? await avatarSignedURL(path: path)
     }
 
     /// Uploads the signed-in user's profile photo (JPEG data), points their profile at it,
-    /// and returns the public URL for immediate local use.
+    /// and returns a signed URL for immediate local use. Every re-upload overwrites the same
+    /// deterministic path (`{userID}/avatar.jpg`), so unlike the old public-URL scheme there's no
+    /// separate cache-busting step needed — each signed URL embeds its own unique token/expiry,
+    /// so it's never the same string twice.
     @discardableResult
     static func uploadAvatar(imageData: Data) async throws -> URL {
         guard let userID = currentUserID else { throw BackendError.notAuthenticated }
@@ -656,7 +661,7 @@ enum BackendService {
             .eq("id", value: userID)
             .execute()
 
-        guard let url = freshAvatarURL(path: path) else { throw BackendError.avatarURLFailed }
+        guard let url = try? await avatarSignedURL(path: path) else { throw BackendError.avatarURLFailed }
         return url
     }
 
@@ -681,7 +686,7 @@ enum BackendService {
             .eq("id", value: userID)
             .execute()
 
-        guard let url = freshAvatarURL(path: path) else { throw BackendError.avatarURLFailed }
+        guard let url = try? await avatarSignedURL(path: path) else { throw BackendError.avatarURLFailed }
         return url
     }
 
@@ -693,12 +698,24 @@ enum BackendService {
         "\(coupleID)/\(personID)/pad.png"
     }
 
-    static func drawingPadPublicURL(coupleID: UUID, personID: UUID) -> URL? {
-        try? supabase.storage.from("drawing-pads").getPublicURL(path: drawingPadPath(coupleID: coupleID, personID: personID))
+    /// `drawing-pads` is a private bucket (see `avatarSignedURL`'s doc comment — same fix,
+    /// same reasoning). A signed URL is what both the in-app pad views and
+    /// `WidgetSnapshotWriter` use directly; the widget extension itself has no Supabase session
+    /// to sign anything with, so it can no longer fetch this bucket live on its own — see
+    /// `WidgetSnapshot.mySignedDrawingPadURL`/`partnerSignedDrawingPadURL`, refreshed by the main
+    /// app and simply read (and fetched, still over a real network call) by the widget from
+    /// there. A generous 48-hour expiry covers a couple of days between app opens; if it does
+    /// lapse, the widget's fetch just fails and falls back to its last-good cached image, same as
+    /// any other network failure already handled there.
+    static func drawingPadSignedURL(coupleID: UUID, personID: UUID) async throws -> URL {
+        try await supabase.storage.from("drawing-pads").createSignedURL(
+            path: drawingPadPath(coupleID: coupleID, personID: personID),
+            expiresIn: 60 * 60 * 48
+        )
     }
 
-    /// Uploads the signed-in user's drawing pad and returns a cache-busted URL for immediate
-    /// local display — same staleness fix as `freshAvatarURL`, since the path never changes.
+    /// Uploads the signed-in user's drawing pad and returns a signed URL for immediate local
+    /// display — no separate cache-busting needed, same reasoning as `uploadAvatar`.
     @discardableResult
     static func uploadDrawingPad(coupleID: UUID, personID: UUID, imageData: Data) async throws -> URL {
         let path = drawingPadPath(coupleID: coupleID, personID: personID)
@@ -707,12 +724,10 @@ enum BackendService {
             data: imageData,
             options: FileOptions(contentType: "image/png", upsert: true)
         )
-        guard let base = drawingPadPublicURL(coupleID: coupleID, personID: personID),
-              var components = URLComponents(url: base, resolvingAgainstBaseURL: false) else {
+        guard let url = try? await drawingPadSignedURL(coupleID: coupleID, personID: personID) else {
             throw BackendError.avatarURLFailed
         }
-        components.queryItems = [URLQueryItem(name: "v", value: "\(Int(Date().timeIntervalSince1970 * 1000))")]
-        return components.url ?? base
+        return url
     }
 
     // MARK: - Couple pairing
@@ -793,7 +808,7 @@ enum BackendService {
             .execute()
             .value
         guard let row = rows.first else { return nil }
-        return InviterInfo(name: row.firstName, avatarURL: row.avatarPath.flatMap { avatarPublicURL(path: $0) })
+        return InviterInfo(name: row.firstName, avatarURL: await avatarSignedURLOrNil(row.avatarPath))
     }
 
     private struct RedeemInviteCodeResult: Decodable {
@@ -834,6 +849,10 @@ enum BackendService {
         var inviterFirstName: String
         var inviterAvatarPath: String?
         var createdAt: Date
+        /// Resolved after decoding (see `fetchMyOutgoingConnectionRequest`) — signing a storage
+        /// URL is async, so it can't happen inline in a computed property the way the old public-
+        /// URL version did. Deliberately excluded from `CodingKeys` so decoding leaves it nil.
+        var inviterAvatarURL: URL?
 
         enum CodingKeys: String, CodingKey {
             case id
@@ -842,8 +861,6 @@ enum BackendService {
             case inviterAvatarPath = "inviter_avatar_path"
             case createdAt = "created_at"
         }
-
-        var inviterAvatarURL: URL? { inviterAvatarPath.flatMap { avatarPublicURL(path: $0) } }
     }
 
     /// My own outgoing request, if I have one still pending — lets `RootView` show "{inviter}
@@ -853,12 +870,17 @@ enum BackendService {
     /// only being known right after redeeming. A direct `connection_requests` select can't get
     /// the inviter's name/avatar here (no RLS visibility into their profile pre-connection), so
     /// this goes through `fetch_my_outgoing_connection_request` instead — see its own comment.
+    /// The inviter's avatar itself is readable via the `avatars_select_connection_request_party`
+    /// storage policy, which grants exactly this pairing (requester viewing inviter, or vice
+    /// versa) once a `connection_requests` row links them.
     static func fetchMyOutgoingConnectionRequest() async throws -> OutgoingConnectionRequest? {
         let rows: [OutgoingConnectionRequest] = try await supabase
             .rpc("fetch_my_outgoing_connection_request")
             .execute()
             .value
-        return rows.first
+        guard var row = rows.first else { return nil }
+        row.inviterAvatarURL = await avatarSignedURLOrNil(row.inviterAvatarPath)
+        return row
     }
 
     struct PendingConnectionRequest: Identifiable, Decodable {
@@ -867,6 +889,8 @@ enum BackendService {
         var requesterFirstName: String
         var requesterAvatarPath: String?
         var createdAt: Date
+        /// Resolved after decoding, same reason/pattern as `OutgoingConnectionRequest.inviterAvatarURL`.
+        var requesterAvatarURL: URL?
 
         enum CodingKeys: String, CodingKey {
             case id
@@ -877,9 +901,20 @@ enum BackendService {
         }
     }
 
-    /// Incoming requests awaiting my decision (I'm the inviter on each of these).
+    /// Incoming requests awaiting my decision (I'm the inviter on each of these). Avatars
+    /// resolved concurrently, same pattern as memory photos in `fetchCoupleState`.
     static func fetchPendingConnectionRequests() async throws -> [PendingConnectionRequest] {
-        try await supabase.rpc("fetch_pending_connection_requests").execute().value
+        let rows: [PendingConnectionRequest] = try await supabase.rpc("fetch_pending_connection_requests").execute().value
+        return await withTaskGroup(of: (Int, URL?).self) { group in
+            for (index, row) in rows.enumerated() {
+                group.addTask { (index, await avatarSignedURLOrNil(row.requesterAvatarPath)) }
+            }
+            var resolved = rows
+            for await (index, url) in group {
+                resolved[index].requesterAvatarURL = url
+            }
+            return resolved
+        }
     }
 
     /// Accepts or declines an incoming request — only callable by the request's own inviter.
@@ -1103,7 +1138,7 @@ enum BackendService {
         for row in memoryRows { if let placeId = row.placeId { placeIDs.insert(placeId) } }
         let places = try await fetchPlaces(ids: Array(placeIDs))
 
-        func person(for profile: ProfileRow, nameOverride: String?, avatarOverridePath: String?, paletteIndex: Int) -> Person {
+        func person(for profile: ProfileRow, nameOverride: String?, avatarOverridePath: String?, paletteIndex: Int) async -> Person {
             let avatarPath = avatarOverridePath ?? profile.avatarPath
             let name = (nameOverride?.isEmpty == false) ? nameOverride! : (profile.firstName.isEmpty ? "Partner" : profile.firstName)
             return Person(
@@ -1111,20 +1146,20 @@ enum BackendService {
                 name: name,
                 homeCity: profile.homePlaceId.flatMap { places[$0] },
                 accentColor: Person.palette[paletteIndex],
-                avatarURL: avatarPath.flatMap { avatarPublicURL(path: $0) }
+                avatarURL: await avatarSignedURLOrNil(avatarPath)
             )
         }
 
         let couple = Couple(
             id: coupleRow.id,
             // Nobody overrides how I see myself — my own name and avatar are always my own.
-            partnerA: person(for: meProfile, nameOverride: nil, avatarOverridePath: nil, paletteIndex: 1),
+            partnerA: await person(for: meProfile, nameOverride: nil, avatarOverridePath: nil, paletteIndex: 1),
             // My partner, as *I* personally see them: a nickname if I've set one (independent
             // of whatever nickname, if any, they've set for me — each side's `partner_name`
             // lives on their own profile row), otherwise their real first name. Same idea for
             // the avatar — my own custom photo of them if I've set one, otherwise their own.
             // Home city is never overridden — that one's always shared/real once paired.
-            partnerB: person(for: partnerProfile, nameOverride: meProfile.partnerName, avatarOverridePath: meProfile.partnerAvatarPath, paletteIndex: 0),
+            partnerB: await person(for: partnerProfile, nameOverride: meProfile.partnerName, avatarOverridePath: meProfile.partnerAvatarPath, paletteIndex: 0),
             // Couple-level once paired (`redeem_invite_code` seeds it from whichever partner set
             // one during onboarding) — `.now` is only a last-resort fallback for the rare case
             // neither partner ever set one.

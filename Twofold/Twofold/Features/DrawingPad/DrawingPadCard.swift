@@ -25,7 +25,7 @@ struct DrawingPadCard: View {
         .fullScreenCover(isPresented: $showingPartnerFullScreen) {
             DrawingPadFullScreenView(title: appModel.partner.name, url: appModel.partnerDrawingURL)
         }
-        .onAppear { appModel.loadDrawingPads() }
+        .task { await appModel.loadDrawingPads() }
     }
 
     private func padPreview(title: String, url: URL?, isMine: Bool) -> some View {

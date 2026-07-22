@@ -2,9 +2,9 @@
 //  GameResultsShareCard.swift
 //  Twofold
 //
-//  Three genuinely different layouts (not just recolored variants of one fixed body) — see
-//  `GameResultShareLayout`. Each owns its own visual identity so the picker in
-//  `GameResultsShareView` reads as three distinct cards, not one card with a palette swap.
+//  Genuinely different layouts (not just recolored variants of one fixed body) — see
+//  `GameResultShareLayout`. Each owns its own visual identity so swiping through them in
+//  `GameResultsShareView` reads as distinct cards/stickers, not one card with a palette swap.
 //
 
 import SwiftUI
@@ -18,6 +18,7 @@ struct GameResultsShareCard: View {
         case .scoreSnapshot: scoreSnapshotBody
         case .dailyStreak: dailyStreakBody
         case .namesAndAnswer: namesAndAnswerBody
+        case .speechBubble: speechBubbleBody
         }
     }
 
@@ -195,6 +196,57 @@ struct GameResultsShareCard: View {
                 .foregroundStyle(Theme.ink)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: - Speech bubble
+
+    /// Almost no chrome beyond a tiny brand mark and the question — the exchange itself (a real
+    /// tailed chat bubble per side, unlike `messageBubble`'s plain rounded rectangle above) is
+    /// meant to be the whole visual, not one element inside a bigger composed card.
+    private var speechBubbleBody: some View {
+        VStack(spacing: Theme.Spacing.lg) {
+            TwofoldBrandMark(color: Theme.ink, size: 20, textStyle: .subheadline)
+
+            if let question = data.singleRoundQuestion {
+                Text(question)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Theme.subtleInk)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, Theme.Spacing.lg)
+            }
+
+            VStack(spacing: Theme.Spacing.md) {
+                speechBubble(name: "You", text: data.myAnswer, tailOnRight: false)
+                speechBubble(name: data.partner.name, text: data.partnerAnswer, tailOnRight: true)
+            }
+            .padding(.horizontal, Theme.Spacing.lg)
+        }
+        .padding(.vertical, Theme.Spacing.xl)
+        .frame(maxWidth: .infinity)
+        .background(Theme.backgroundGradient)
+        .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
+    }
+
+    private func speechBubble(name: String, text: String?, tailOnRight: Bool) -> some View {
+        HStack {
+            if tailOnRight { Spacer(minLength: 32) }
+            VStack(alignment: tailOnRight ? .trailing : .leading, spacing: 4) {
+                Text(name.uppercased())
+                    .font(.caption2.weight(.semibold))
+                    .tracking(0.5)
+                    .foregroundStyle(Theme.subtleInk)
+                Text(text?.isEmpty == false ? text! : "Skipped this one")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(Theme.ink)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: 220, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(SpeechBubbleShape(tailOnRight: tailOnRight).fill(.white))
+                    .overlay(SpeechBubbleShape(tailOnRight: tailOnRight).stroke(Theme.subtleInk.opacity(0.15), lineWidth: 1))
+            }
+            if !tailOnRight { Spacer(minLength: 32) }
+        }
     }
 
     // MARK: - Shared chrome

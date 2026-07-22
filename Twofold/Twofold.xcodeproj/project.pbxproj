@@ -112,7 +112,6 @@
 				Shared/FlightStatus.swift,
 				Shared/JourneyActivityAttributes.swift,
 				Shared/MeasurementPreference.swift,
-				Shared/PublicStorageURL.swift,
 				Shared/TimeMath.swift,
 				Shared/TrackedFlightEntity.swift,
 				Shared/WidgetImageCache.swift,

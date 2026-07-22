@@ -2,6 +2,16 @@
 //  TripsListView.swift
 //  Twofold
 //
+//  Full-screen interactive globe (`TripsGlobeView`) with an always-present browse sheet docked to
+//  the bottom — same peek/expand mechanics `MemoriesMapView` already established
+//  (`.presentationDetents([peek, .large], selection:)` + `.presentationBackgroundInteraction`, so
+//  the globe stays pannable/zoomable while the sheet is only peeking). At the peek height the
+//  sheet shows a horizontal card carousel (upcoming trips or tracked flights, depending on the
+//  Trips/Flights picker); dragged to `.large` it swaps to the full Upcoming/Past (or Tracked/Past)
+//  list, which is how Past trips/flights stay reachable. Tapping any card or row opens that trip's
+//  or flight's own details as a *separate* partial-height sheet, rather than pushing — "tap
+//  opens a partial screen from the bottom" applies to trip/flight detail, not to browsing itself.
+//
 
 import SwiftUI
 
@@ -13,6 +23,15 @@ struct TripsListView: View {
     /// Tapping the solo-state empty hints below opens this rather than the add-trip/add-flight
     /// sheet — there's a real partner-required blocker before either of those would even work.
     @State private var showingPartnerGate = false
+    /// Never set back to false — this sheet is meant to always be showing, just moving between
+    /// its peek and full heights, not something the user can dismiss outright (there'd be nothing
+    /// left to bring it back).
+    @State private var showingBrowseSheet = true
+    @State private var sheetDetent: PresentationDetent = Self.peekDetent
+    @State private var selectedTrip: Trip?
+    @State private var selectedFlight: Flight?
+
+    private static let peekDetent: PresentationDetent = .height(220)
 
     enum TripsTab: String, CaseIterable {
         case trips = "Trips"
@@ -26,93 +45,173 @@ struct TripsListView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                if tab == .trips {
-                    Section {
-                        TripsGlobeView(
-                            trips: appModel.upcomingTrips,
-                            travelers: travelers(for:),
-                            fallbackCenter: appModel.currentUser.homeCity?.coordinate
-                        )
-                        .containerRelativeFrame(.vertical) { height, _ in height * 0.6 }
-                        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-                    }
-                    .listRowInsets(EdgeInsets())
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-                }
-
-                Section {
-                    Picker("Section", selection: $tab) {
-                        ForEach(TripsTab.allCases, id: \.self) { option in
-                            Text(option.rawValue).tag(option)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .listRowSeparator(.hidden)
-                    .listRowInsets(EdgeInsets())
-                    .padding(.vertical, Theme.Spacing.sm)
-
-                    if tab == .trips, appModel.trips.isEmpty {
-                        emptyTripsHint
-                            .listRowSeparator(.hidden)
-                            .listRowInsets(EdgeInsets())
-                    } else if tab == .flights, appModel.flights.isEmpty {
-                        emptyFlightsHint
-                            .listRowSeparator(.hidden)
-                            .listRowInsets(EdgeInsets())
-                    }
-                }
-                .listRowBackground(Color.clear)
-
-                switch tab {
-                case .trips:
-                    tripSections
-                case .flights:
-                    flightSections
-                }
-            }
-            .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
-            .background(Theme.backgroundGradient.ignoresSafeArea())
-            .navigationTitle("Travel")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        Button {
-                            showingAddTrip = true
-                        } label: {
-                            Label("Add Trip", systemImage: "airplane")
-                        }
-                        Button {
-                            showingAddFlight = true
-                        } label: {
-                            Label("Add Flight", image: "boarding-pass")
-                        }
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                }
-            }
-            .sheet(isPresented: $showingAddTrip) {
-                NavigationStack {
-                    AddTripDetailsView(mode: .standalone, partnerName: appModel.partner.name) { _ in
-                        showingAddTrip = false
-                    }
-                    .toolbar {
-                        ToolbarItem(placement: .topBarLeading) {
-                            Button("Cancel") { showingAddTrip = false }
-                        }
-                    }
-                }
-            }
-            .sheet(isPresented: $showingAddFlight) {
-                AddFlightView()
-            }
-            .sheet(isPresented: $showingPartnerGate) {
-                PartnerRequiredGateView()
+            TripsGlobeView(
+                trips: appModel.upcomingTrips,
+                travelers: travelers(for:),
+                fallbackCenter: appModel.currentUser.homeCity?.coordinate
+            )
+            .ignoresSafeArea()
+            .sheet(isPresented: $showingBrowseSheet) {
+                browseSheet
+                    .presentationDetents([Self.peekDetent, .large], selection: $sheetDetent)
+                    .presentationDragIndicator(.visible)
+                    .presentationBackgroundInteraction(.enabled(upThrough: Self.peekDetent))
+                    .interactiveDismissDisabled()
             }
         }
+        .sheet(item: $selectedTrip) { trip in
+            NavigationStack {
+                TripDetailsView(trip: trip)
+            }
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
+        .sheet(item: $selectedFlight) { flight in
+            NavigationStack {
+                FlightTrackingView(flight: flight)
+            }
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showingAddTrip) {
+            NavigationStack {
+                AddTripDetailsView(mode: .standalone, partnerName: appModel.partner.name) { _ in
+                    showingAddTrip = false
+                }
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("Cancel") { showingAddTrip = false }
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $showingAddFlight) {
+            AddFlightView()
+        }
+        .sheet(isPresented: $showingPartnerGate) {
+            PartnerRequiredGateView()
+        }
+    }
+
+    // MARK: - Browse sheet
+
+    private var browseSheet: some View {
+        VStack(spacing: 0) {
+            browseHeader
+
+            if sheetDetent == Self.peekDetent {
+                peekContent
+            } else {
+                expandedContent
+            }
+        }
+        .background(Theme.backgroundGradient.ignoresSafeArea())
+    }
+
+    private var browseHeader: some View {
+        HStack(spacing: Theme.Spacing.md) {
+            Picker("Section", selection: $tab) {
+                ForEach(TripsTab.allCases, id: \.self) { option in
+                    Text(option.rawValue).tag(option)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            Menu {
+                Button {
+                    showingAddTrip = true
+                } label: {
+                    Label("Add Trip", systemImage: "airplane")
+                }
+                Button {
+                    showingAddFlight = true
+                } label: {
+                    Label("Add Flight", image: "boarding-pass")
+                }
+            } label: {
+                Image(systemName: "plus.circle.fill")
+                    .font(.title2)
+                    .foregroundStyle(Theme.skyBlue)
+            }
+        }
+        .padding(.horizontal, Theme.Spacing.md)
+        .padding(.top, Theme.Spacing.sm)
+        .padding(.bottom, Theme.Spacing.xs)
+    }
+
+    @ViewBuilder
+    private var peekContent: some View {
+        switch tab {
+        case .trips:
+            if appModel.trips.isEmpty {
+                emptyTripsHint.padding(.horizontal, Theme.Spacing.md)
+                Spacer(minLength: 0)
+            } else {
+                carousel(appModel.upcomingTrips) { trip in
+                    Button {
+                        selectedTrip = trip
+                    } label: {
+                        TripCarouselCard(trip: trip, travelers: travelers(for: trip))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        case .flights:
+            if appModel.flights.isEmpty {
+                emptyFlightsHint.padding(.horizontal, Theme.Spacing.md)
+                Spacer(minLength: 0)
+            } else {
+                carousel(appModel.activeOrUpcomingFlights) { flight in
+                    Button {
+                        selectedFlight = flight
+                    } label: {
+                        FlightCarouselCard(flight: flight)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private func carousel<Item: Identifiable, CardContent: View>(
+        _ items: [Item],
+        @ViewBuilder card: @escaping (Item) -> CardContent
+    ) -> some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: Theme.Spacing.md) {
+                ForEach(items) { item in
+                    card(item)
+                }
+            }
+            .scrollTargetLayout()
+            .padding(.horizontal, Theme.Spacing.md)
+        }
+        .scrollTargetBehavior(.viewAligned)
+        .scrollIndicators(.hidden)
+    }
+
+    @ViewBuilder
+    private var expandedContent: some View {
+        List {
+            if tab == .trips, appModel.trips.isEmpty {
+                emptyTripsHint
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets())
+            } else if tab == .flights, appModel.flights.isEmpty {
+                emptyFlightsHint
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets())
+            }
+
+            switch tab {
+            case .trips:
+                tripSections
+            case .flights:
+                flightSections
+            }
+        }
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
     }
 
     @ViewBuilder
@@ -121,11 +220,12 @@ struct TripsListView: View {
         if !upcoming.isEmpty {
             Section("Upcoming") {
                 ForEach(upcoming) { trip in
-                    NavigationLink {
-                        TripDetailsView(trip: trip)
+                    Button {
+                        selectedTrip = trip
                     } label: {
                         TripRowView(trip: trip, travelers: travelers(for: trip))
                     }
+                    .buttonStyle(.plain)
                 }
             }
         }
@@ -134,11 +234,12 @@ struct TripsListView: View {
         if !past.isEmpty {
             Section("Past") {
                 ForEach(past) { trip in
-                    NavigationLink {
-                        TripDetailsView(trip: trip)
+                    Button {
+                        selectedTrip = trip
                     } label: {
                         TripRowView(trip: trip, travelers: travelers(for: trip))
                     }
+                    .buttonStyle(.plain)
                 }
             }
         }
@@ -169,11 +270,12 @@ struct TripsListView: View {
     }
 
     private func flightRow(_ flight: Flight) -> some View {
-        NavigationLink {
-            FlightTrackingView(flight: flight)
+        Button {
+            selectedFlight = flight
         } label: {
             FlightRowView(flight: flight)
         }
+        .buttonStyle(.plain)
         .swipeActions(edge: .trailing) {
             Button(role: .destructive) {
                 Task { await appModel.deleteFlight(flight) }

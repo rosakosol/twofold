@@ -469,3 +469,21 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/airline-logo/deno.json"
 entrypoint = "./functions/airline-logo/index.ts"
+
+# Cron-only, same shape as refresh-due-flights — service-role bearer token checked explicitly in
+# the function itself, so platform-level JWT verification is off.
+[functions.archive-stale-games]
+enabled = true
+verify_jwt = false
+import_map = "./functions/archive-stale-games/deno.json"
+entrypoint = "./functions/archive-stale-games/index.ts"
+
+[functions.send-streak-reminders]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/send-streak-reminders/index.ts"
+
+[functions.send-partner-invite-reminders]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/send-partner-invite-reminders/index.ts"
