@@ -57,6 +57,7 @@ struct FlightTrackingView: View {
     @State private var documentPickerItem: PhotosPickerItem?
     @State private var isUploadingDocument = false
     @State private var showingTripNotes = false
+    @State private var showingShare = false
     @State private var tripNotesDraft = ""
 
     // Legacy self-reported "log an update" — only meaningful when this flight is linked to a
@@ -137,7 +138,9 @@ struct FlightTrackingView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    ShareLink(item: shareText) {
+                    Button {
+                        showingShare = true
+                    } label: {
                         Label("Share", systemImage: "square.and.arrow.up")
                     }
                     Menu {
@@ -177,6 +180,9 @@ struct FlightTrackingView: View {
         }
         .sheet(item: $premiumGateFeature) { feature in
             FlightPremiumGateView(icon: feature.icon, title: feature.title, description: feature.description)
+        }
+        .sheet(isPresented: $showingShare) {
+            FlightShareView(flight: flight)
         }
         .postHogScreenView("Flights: Flight Details")
     }
@@ -314,10 +320,6 @@ struct FlightTrackingView: View {
             ids.append(id)
         }
         setTravelers(ids)
-    }
-
-    private var shareText: String {
-        "\(flight.displayNumber) · \(flight.origin.displayCode) → \(flight.destination.displayCode) — \(flight.countdownSummary)"
     }
 
     /// Mirrors `countdownSummary`'s own choice of "the next relevant moment" (departure
