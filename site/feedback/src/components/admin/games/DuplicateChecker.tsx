@@ -10,12 +10,25 @@ import { ContentForm } from "@/components/admin/games/ContentForm";
 import { CONTENT_TYPES, type ContentRow, type ContentTypeConfig } from "@/lib/games/contentTypes";
 import { findContentIssues, findSimilarPairs } from "@/lib/games/similarity";
 
-function EntryCard({ row, contentType, onEdit }: { row: ContentRow; contentType: ContentTypeConfig; onEdit: () => void }) {
+function EntryCard({
+  row,
+  contentType,
+  deckTitle,
+  onEdit,
+}: {
+  row: ContentRow;
+  contentType: ContentTypeConfig;
+  deckTitle: string;
+  onEdit: () => void;
+}) {
   return (
     <div className="flex items-start justify-between gap-2 rounded-md bg-muted/30 p-2">
-      <p className={`text-sm ${row.active ? "" : "text-muted-foreground line-through"}`}>
-        {contentType.primaryText(row)}
-      </p>
+      <div>
+        <p className={`text-sm ${row.active ? "" : "text-muted-foreground line-through"}`}>
+          {contentType.primaryText(row)}
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">{deckTitle}</p>
+      </div>
       <Button variant="ghost" size="icon-sm" className="shrink-0 text-muted-foreground" aria-label="Edit" onClick={onEdit}>
         <Pencil className="h-4 w-4" />
       </Button>
@@ -36,6 +49,8 @@ function GameTypeChecker({ contentType }: { contentType: ContentTypeConfig }) {
   const allRows = rows ?? [];
   const pairs = findSimilarPairs(allRows, contentType);
   const issues = findContentIssues(allRows, contentType);
+  const deckTitleById = new Map((decks ?? []).map((d) => [d.id, `${d.emoji} ${d.title}`]));
+  const deckTitleFor = (row: ContentRow) => (row.deck_id ? (deckTitleById.get(row.deck_id) ?? "Unknown deck") : "No deck");
 
   function edit(row: ContentRow) {
     setEditingRow(row);
@@ -64,8 +79,8 @@ function GameTypeChecker({ contentType }: { contentType: ContentTypeConfig }) {
                   {score === 1 ? "Exact duplicate" : `${Math.round(score * 100)}% similar`}
                 </Badge>
                 <div className="grid gap-2 sm:grid-cols-2">
-                  <EntryCard row={a} contentType={contentType} onEdit={() => edit(a)} />
-                  <EntryCard row={b} contentType={contentType} onEdit={() => edit(b)} />
+                  <EntryCard row={a} contentType={contentType} deckTitle={deckTitleFor(a)} onEdit={() => edit(a)} />
+                  <EntryCard row={b} contentType={contentType} deckTitle={deckTitleFor(b)} onEdit={() => edit(b)} />
                 </div>
               </div>
             ))}
@@ -85,6 +100,7 @@ function GameTypeChecker({ contentType }: { contentType: ContentTypeConfig }) {
                   <p className={`text-sm ${row.active ? "" : "text-muted-foreground line-through"}`}>
                     {contentType.primaryText(row)}
                   </p>
+                  <p className="mt-1 text-xs text-muted-foreground">{deckTitleFor(row)}</p>
                   <p className="mt-1 flex items-center gap-1 text-xs text-amber-600 dark:text-amber-500">
                     <AlertTriangle className="h-3 w-3 shrink-0" /> {reason}
                   </p>
