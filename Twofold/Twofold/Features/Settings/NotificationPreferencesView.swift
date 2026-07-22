@@ -8,6 +8,8 @@
 
 import PostHog
 import SwiftUI
+import UIKit
+import UserNotifications
 
 struct NotificationPreferencesView: View {
     @Environment(AppModel.self) private var appModel
@@ -22,6 +24,16 @@ struct NotificationPreferencesView: View {
     @State private var partnerInviteReminder = true
     @State private var isLoaded = false
     @State private var loadFailed = false
+    /// The one-time onboarding "Keep me updated" screen is the *only* other place in the app
+    /// that ever calls `requestAuthorization` — anyone who didn't pass through it (an account
+    /// that predates that screen, or just denied it once) has no way back to system permission
+    /// without this. iOS also only lists the app under Settings → Notifications at all once
+    /// `requestAuthorization` has been called at least once, so `.notDetermined` here explains a
+    /// real "there's no notifications entry for Twofold in Settings" report — not a delivery bug,
+    /// a permission-was-never-requested bug. All the toggles below are silently meaningless while
+    /// this is anything other than `.authorized`/`.provisional`/`.ephemeral`.
+    @State private var authStatus: UNAuthorizationStatus = .notDetermined
+    @State private var isRequestingPermission = false
 
     var body: some View {
         ScrollView {
@@ -32,6 +44,8 @@ struct NotificationPreferencesView: View {
                         Button("Retry") { Task { await load() } }
                     }
                 }
+
+                permissionBanner
 
                 // Only meaningful pre-pairing — once `appModel.partner` is real, there's nothing
                 // left to be reminded to invite.
@@ -86,6 +100,13 @@ struct NotificationPreferencesView: View {
         .navigationTitle("Notifications")
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
+        .task { await refreshAuthStatus() }
+        // Returning from Settings.app (after using the "Open Settings" banner button below, or
+        // just switching apps and back) is the one moment a changed system permission wouldn't
+        // otherwise be noticed until this view happened to reload.
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            Task { await refreshAuthStatus() }
+        }
         .onChange(of: partnerDrawingSaved) { _, _ in saveIfLoaded() }
         .onChange(of: partnerTripAdded) { _, _ in saveIfLoaded() }
         .onChange(of: partnerMemoryAdded) { _, _ in saveIfLoaded() }
@@ -95,6 +116,68 @@ struct NotificationPreferencesView: View {
         .onChange(of: dailyStreakReminder) { _, _ in saveIfLoaded() }
         .onChange(of: partnerInviteReminder) { _, _ in saveIfLoaded() }
         .postHogScreenView("Settings: Notification Preferences")
+    }
+
+    /// `.notDetermined` (never asked — either this account predates the onboarding permission
+    /// screen, or it just hasn't come up yet) gets a direct in-app request, since iOS still
+    /// allows that. `.denied` (asked before and said no, or silently never-showed for some other
+    /// reason) can only be fixed in Settings.app — iOS won't let an app re-prompt once denied.
+    @ViewBuilder
+    private var permissionBanner: some View {
+        switch authStatus {
+        case .notDetermined:
+            SectionCard {
+                Text("Notifications aren't turned on yet").font(.subheadline.weight(.semibold))
+                Text("None of the toggles below can do anything until you allow notifications for Twofold.")
+                    .font(.caption2)
+                    .foregroundStyle(Theme.subtleInk)
+                Button {
+                    Task { await requestPermission() }
+                } label: {
+                    if isRequestingPermission {
+                        ProgressView()
+                    } else {
+                        Text("Turn on notifications")
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Theme.skyBlue)
+                .disabled(isRequestingPermission)
+            }
+        case .denied:
+            SectionCard {
+                Text("Notifications are off for Twofold").font(.subheadline.weight(.semibold))
+                Text("Enable them in iOS Settings to hear from \(appModel.partner.name).")
+                    .font(.caption2)
+                    .foregroundStyle(Theme.subtleInk)
+                Button("Open Settings") {
+                    guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+                    UIApplication.shared.open(url)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Theme.skyBlue)
+            }
+        case .authorized, .provisional, .ephemeral:
+            EmptyView()
+        @unknown default:
+            EmptyView()
+        }
+    }
+
+    private func refreshAuthStatus() async {
+        authStatus = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+    }
+
+    /// Same call as `NotificationsSellView.requestPermission()` — this is that same one-time
+    /// system prompt, just reachable from Settings too for anyone who missed it during
+    /// onboarding. Registers the device for remote notifications regardless of the user's
+    /// choice, matching `PushNotificationDelegate`'s existing unconditional launch-time call.
+    private func requestPermission() async {
+        isRequestingPermission = true
+        _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])
+        await refreshAuthStatus()
+        await MainActor.run { UIApplication.shared.registerForRemoteNotifications() }
+        isRequestingPermission = false
     }
 
     private func load() async {

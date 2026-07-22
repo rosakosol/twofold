@@ -30,18 +30,23 @@ struct AvatarView: View {
     /// below without waiting on this, so a view that remounts after the image is already cached
     /// (see the file doc comment) renders the real photo on its very first pass, no placeholder frame.
     @State private var loadedImage: UIImage?
+    /// The URL `loadedImage` was actually loaded for — without tracking this alongside the image,
+    /// `resolvedImage` kept preferring a stale `loadedImage` forever once set once, even after
+    /// `person.avatarURL` changed (e.g. right after uploading a new avatar): the `.task(id:)` that
+    /// re-fetches only ran from the placeholder branch, which became permanently unreachable the
+    /// moment any image had ever loaded. That's what made a changed avatar look like it "didn't
+    /// save" — it saved fine, every already-mounted AvatarView just never re-rendered it.
+    @State private var loadedURL: URL?
 
     private var resolvedImage: UIImage? {
-        loadedImage ?? person.avatarURL.flatMap { AvatarImageCache.shared.image(for: $0) }
+        if let loadedImage, loadedURL == person.avatarURL { return loadedImage }
+        return person.avatarURL.flatMap { AvatarImageCache.shared.image(for: $0) }
     }
 
     var body: some View {
         Group {
             if let resolvedImage {
                 Image(uiImage: resolvedImage).resizable().scaledToFill()
-            } else if let avatarURL = person.avatarURL {
-                placeholder
-                    .task(id: avatarURL) { await load(avatarURL) }
             } else {
                 placeholder
             }
@@ -54,6 +59,17 @@ struct AvatarView: View {
             }
         }
         .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
+        // Keyed on the URL itself (not just presence of one) — re-runs whenever
+        // `person.avatarURL` changes to a different value, including right after a re-upload
+        // produces a fresh cache-busted URL, instead of only firing on the very first load.
+        .task(id: person.avatarURL) {
+            guard let avatarURL = person.avatarURL else {
+                loadedImage = nil
+                loadedURL = nil
+                return
+            }
+            await load(avatarURL)
+        }
     }
 
     private var placeholder: some View {
@@ -75,11 +91,13 @@ struct AvatarView: View {
     private func load(_ url: URL) async {
         if let cached = AvatarImageCache.shared.image(for: url) {
             loadedImage = cached
+            loadedURL = url
             return
         }
         guard let (data, _) = try? await URLSession.shared.data(from: url), let image = UIImage(data: data) else { return }
         AvatarImageCache.shared.store(image, for: url)
         loadedImage = image
+        loadedURL = url
     }
 }
 
