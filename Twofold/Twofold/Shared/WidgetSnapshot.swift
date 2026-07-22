@@ -68,7 +68,7 @@ struct WidgetSnapshot: Codable {
     /// "next reunion" card and `nextReunionDaysToGo`) — not tied to a tracked flight, since a
     /// trip's own departure date is what actually marks "when we'll be together", and not every
     /// trip has (or needs) an AeroAPI-tracked flight attached. `departureDate` stored raw, not a
-    /// precomputed day-count, so NextReunionWidget stays correct without waiting on a fresh
+    /// precomputed day-count, so TripCountdownWidget stays correct without waiting on a fresh
     /// snapshot write — same reasoning as `anniversaryDate`.
     struct ReunionInfo: Codable {
         var departureDate: Date
@@ -96,6 +96,11 @@ struct WidgetSnapshot: Codable {
     /// content the same way Games does (see WidgetTier.swift).
     var subscriptionTier: String?
     var nextFlight: FlightInfo?
+    /// Every currently-relevant flight (`AppModel.activeOrUpcomingFlights`), not just the
+    /// soonest — feeds `TrackedFlightQuery`'s picker for the configurable Flight Countdown
+    /// widget, which needs to offer the user more than one option. `nextFlight` above stays the
+    /// "just give me the soonest one" convenience every other widget already relies on.
+    var trackedFlights: [FlightInfo] = []
     var nextReunion: ReunionInfo?
     var latestMemory: MemoryInfo?
     var partnerWeather: WeatherInfo?
@@ -107,9 +112,10 @@ struct WidgetSnapshot: Codable {
     var writtenAt: Date
 
     private static let suiteName = "group.com.orangefinch.Twofold"
-    /// Bumped from v1 when isSubscriptionActive was replaced by subscriptionTier — the key is
-    /// versioned specifically so a shape change like this can't crash an old cached read.
-    private static let key = "widgetSnapshot.v2"
+    /// Bumped from v1 when isSubscriptionActive was replaced by subscriptionTier, and from v2
+    /// when trackedFlights was added — the key is versioned specifically so a shape change like
+    /// this can't crash an old cached read.
+    private static let key = "widgetSnapshot.v3"
 
     private static var defaults: UserDefaults? {
         UserDefaults(suiteName: suiteName)

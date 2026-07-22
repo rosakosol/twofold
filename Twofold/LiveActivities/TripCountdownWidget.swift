@@ -2,14 +2,16 @@
 //  TripCountdownWidget.swift
 //  LiveActivities
 //
-//  Plus tier (reunion/trip countdown, per the widget matrix) — reuses WidgetSellView.swift's
-//  countdownWidget mockup design. Renamed from FlightCountdownWidget to Trip Countdown (this
-//  couple's next trip, not just a bare flight) — `kind` stays "FlightCountdownWidget" though;
-//  it's WidgetKit's stable identity for any instance already placed on someone's Home Screen,
-//  so changing it would orphan those, and it's an internal string nobody sees. First widget
-//  needing a ticking multi-entry timeline: WidgetKit's reload budget is limited, so rather than
-//  asking the OS to reload every minute, one getTimeline call generates a tiered run of future
-//  entries (dense near the target, sparse further out) and WidgetKit just walks through them.
+//  Basic tier (free) — was "NextReunionWidget" (display name only; this was already, functionally,
+//  the real trip countdown: counts down the soonest upcoming *trip* (WidgetSnapshot.nextReunion,
+//  sourced from AppModel.upcomingTrips.first — the same trip Home's "next reunion" card and
+//  nextReunionDaysToGo use), not a tracked flight — a trip's own departure date is what marks
+//  "when we'll be together", and not every trip has an AeroAPI-tracked flight attached (that's
+//  FlightCountdownWidget's separate, flight-specific — and user-configurable — concern). `kind`
+//  stays "NextReunionWidget" to avoid orphaning already-placed Lock Screen instances.
+//
+//  Available on the Lock Screen (.accessoryRectangular/.accessoryCircular, as before) and now
+//  also the Home Screen (.systemSmall).
 //
 
 import SwiftUI
@@ -17,127 +19,63 @@ import WidgetKit
 
 struct TripCountdownEntry: TimelineEntry {
     let date: Date
-    let subscriptionTier: String?
-    let targetDate: Date?
-    let isDeparted: Bool
-    let originCity: String?
+    let daysToGo: Int?
     let destinationCity: String?
-    let flightNumber: String?
-    let flightID: UUID?
-    let travelerIsMe: Bool?
-    let myName: String
-    let partnerName: String
 }
 
 struct TripCountdownProvider: TimelineProvider {
     func placeholder(in context: Context) -> TripCountdownEntry {
-        TripCountdownEntry(date: .now, subscriptionTier: WidgetTier.plus, targetDate: .now.addingTimeInterval(3600 * 5), isDeparted: true, originCity: "Melbourne", destinationCity: "Singapore", flightNumber: "QF31", flightID: nil, travelerIsMe: true, myName: "You", partnerName: "Partner")
+        TripCountdownEntry(date: .now, daysToGo: 12, destinationCity: "Singapore")
     }
 
     func getSnapshot(in context: Context, completion: @escaping (TripCountdownEntry) -> Void) {
-        completion(entries(from: WidgetSnapshot.read()).first ?? placeholder(in: context))
+        completion(entry(from: WidgetSnapshot.read()))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<TripCountdownEntry>) -> Void) {
-        let all = entries(from: WidgetSnapshot.read())
-        // .atEnd re-invokes getTimeline once the tiered run is exhausted, which naturally
-        // re-reads whatever the main app has written to the snapshot by then.
-        completion(Timeline(entries: all, policy: .atEnd))
+        let current = entry(from: WidgetSnapshot.read())
+        let midnight = Calendar.current.nextDate(after: .now, matching: DateComponents(hour: 0, minute: 1), matchingPolicy: .nextTime) ?? .now.addingTimeInterval(86400)
+        completion(Timeline(entries: [current], policy: .after(midnight)))
     }
 
-    private func entries(from snapshot: WidgetSnapshot?) -> [TripCountdownEntry] {
-        let subscriptionTier = snapshot?.subscriptionTier
-        let myName = snapshot?.myName ?? "You"
-        let partnerName = snapshot?.partnerName ?? "Partner"
-        guard let flight = snapshot?.nextFlight else {
-            return [TripCountdownEntry(date: .now, subscriptionTier: subscriptionTier, targetDate: nil, isDeparted: false, originCity: nil, destinationCity: nil, flightNumber: nil, flightID: nil, travelerIsMe: nil, myName: myName, partnerName: partnerName)]
+    private func entry(from snapshot: WidgetSnapshot?) -> TripCountdownEntry {
+        guard let reunion = snapshot?.nextReunion else {
+            return TripCountdownEntry(date: .now, daysToGo: nil, destinationCity: nil)
         }
-
-        let now = Date.now
-        let isDeparted = (flight.bestDeparture ?? .distantFuture) <= now
-        let target = isDeparted ? flight.bestArrival : flight.bestDeparture
-
-        guard let target else {
-            return [TripCountdownEntry(date: now, subscriptionTier: subscriptionTier, targetDate: nil, isDeparted: isDeparted, originCity: flight.originCity, destinationCity: flight.destinationCity, flightNumber: flight.flightNumber, flightID: flight.id, travelerIsMe: flight.travelerIsMe, myName: myName, partnerName: partnerName)]
-        }
-
-        return Self.tieredDates(from: now, to: target).map { date in
-            TripCountdownEntry(date: date, subscriptionTier: subscriptionTier, targetDate: target, isDeparted: isDeparted, originCity: flight.originCity, destinationCity: flight.destinationCity, flightNumber: flight.flightNumber, flightID: flight.id, travelerIsMe: flight.travelerIsMe, myName: myName, partnerName: partnerName)
-        }
-    }
-
-    /// Dense near the target, sparse further out — 60s apart inside the final 10 minutes, 5
-    /// minutes apart inside the final hour, 30 minutes apart beyond that. Capped well under
-    /// WidgetKit's practical per-timeline entry budget.
-    static func tieredDates(from now: Date, to target: Date, cap: Int = 200) -> [Date] {
-        guard target > now else { return [now] }
-        var dates: [Date] = []
-        var cursor = now
-        while cursor < target, dates.count < cap {
-            dates.append(cursor)
-            let remaining = target.timeIntervalSince(cursor)
-            let step: TimeInterval = remaining <= 600 ? 60 : (remaining <= 3600 ? 300 : 1800)
-            cursor = cursor.addingTimeInterval(step)
-        }
-        dates.append(target)
-        return dates
+        let days = Calendar.current.dateComponents([.day], from: .now, to: reunion.departureDate).day ?? 0
+        return TripCountdownEntry(date: .now, daysToGo: max(0, days), destinationCity: reunion.destinationCity)
     }
 }
 
 struct TripCountdownWidgetView: View {
     let entry: TripCountdownEntry
 
-    private var isLocked: Bool { WidgetTier.isLocked(required: WidgetTier.plus, current: entry.subscriptionTier) }
-
-    private var remainingLabel: String {
-        guard let targetDate = entry.targetDate else { return "—" }
-        let remaining = max(0, targetDate.timeIntervalSince(entry.date))
-        let hours = Int(remaining) / 3600
-        let minutes = (Int(remaining) % 3600) / 60
-        if hours > 0 { return "\(hours)h \(minutes)m" }
-        return "\(minutes)m"
-    }
+    @Environment(\.widgetFamily) private var family
 
     private var caption: String {
-        guard entry.targetDate != nil else { return "No upcoming trip" }
-        return entry.isDeparted ? "until \(entry.destinationCity ?? "arrival")" : "until departure"
-    }
-
-    /// Locked → paywall (existing convention). Unlocked → this exact flight's tracking screen
-    /// when there is one, otherwise Passport (where trips/flights are viewed/added).
-    private var deepLinkURL: URL? {
-        if isLocked { return URL(string: "twofold://paywall") }
-        if let flightID = entry.flightID { return URL(string: "twofold://flight/\(flightID.uuidString)") }
-        return URL(string: "twofold://passport")
+        guard entry.daysToGo != nil else { return "No trip planned yet" }
+        return entry.destinationCity.map { "until you're in \($0)" } ?? "until your reunion"
     }
 
     var body: some View {
-        homeScreenBody
-            .widgetURL(deepLinkURL)
+        Group {
+            switch family {
+            case .accessoryCircular: accessoryCircular
+            case .accessoryRectangular: accessoryRectangular
+            case .accessoryInline: accessoryInline
+            default: homeScreenBody
+            }
+        }
+        .widgetURL(URL(string: "twofold://home"))
     }
 
     private var homeScreenBody: some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 4) {
-                if let travelerIsMe = entry.travelerIsMe {
-                    WidgetAvatarView(person: travelerIsMe ? .me : .partner, name: travelerIsMe ? entry.myName : entry.partnerName, size: 22)
-                } else {
-                    Image(systemName: "airplane.departure").font(.title3)
-                }
-                if let data = WidgetImageCache.readAirlineLogoImage(), let uiImage = UIImage(data: data) {
-                    Image(uiImage: uiImage)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 16, height: 16)
-                        .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
-                }
-                if let flightNumber = entry.flightNumber {
-                    Text(flightNumber).font(.caption2.weight(.bold))
-                }
-            }
+            Label("Trip Countdown", systemImage: "heart.fill")
+                .font(.caption2.weight(.bold))
             Spacer()
-            Text(entry.targetDate != nil ? remainingLabel : "✈️")
-                .font(.system(size: 30, weight: .bold, design: .rounded))
+            Text(entry.daysToGo.map { $0 == 0 ? "🎉" : "\($0)" } ?? "✈️")
+                .font(.system(size: 34, weight: .bold, design: .rounded))
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
             Text(caption)
@@ -150,23 +88,75 @@ struct TripCountdownWidgetView: View {
         .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .background(
-            LinearGradient(colors: [Color(hex: "0B3D91"), Color(hex: "1C7ED6")], startPoint: .topLeading, endPoint: .bottomTrailing)
+            LinearGradient(colors: [Color(hex: "FF6B81"), Color(hex: "C93756")], startPoint: .topLeading, endPoint: .bottomTrailing)
         )
         .overlay(alignment: .bottomTrailing) {
-            Image(systemName: "globe.americas.fill")
+            Image(systemName: "airplane.circle.fill")
                 .font(.system(size: 60))
                 .opacity(0.18)
                 .foregroundStyle(.white)
                 .offset(x: 16, y: 16)
         }
         .widgetBranded()
-        .widgetLock(requiredTier: WidgetTier.plus, currentTier: entry.subscriptionTier)
+    }
+
+    @ViewBuilder
+    private var accessoryRectangular: some View {
+        if let daysToGo = entry.daysToGo {
+            VStack(alignment: .leading, spacing: 1) {
+                Label(daysToGo == 0 ? "Today" : "\(daysToGo) days", systemImage: "heart.fill")
+                    .font(.headline)
+                Text(caption)
+                    .font(.caption2)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+        } else {
+            Label("No trip planned yet", systemImage: "heart.fill")
+        }
+    }
+
+    /// The Lock Screen's single text-line slot — same "Today"/celebratory-glyph treatment as
+    /// the other accessory families.
+    @ViewBuilder
+    private var accessoryInline: some View {
+        if let daysToGo = entry.daysToGo {
+            if daysToGo == 0 {
+                Label("Trip day is today! 🎉", systemImage: "heart.fill")
+            } else {
+                Label(entry.destinationCity.map { "\(daysToGo)d until \($0)" } ?? "\(daysToGo) days until your trip", systemImage: "heart.fill")
+            }
+        } else {
+            Label("No trip planned yet", systemImage: "heart.fill")
+        }
+    }
+
+    /// Small Lock Screen slot — condensed to the number + a one-word label, same treatment as
+    /// DaysTogetherWidget's own `accessoryCircular`. `daysToGo == 0` gets a small celebratory
+    /// glyph instead of "0 / days", since "today" doesn't read as a countdown anymore.
+    @ViewBuilder
+    private var accessoryCircular: some View {
+        ZStack {
+            AccessoryWidgetBackground()
+            if let daysToGo = entry.daysToGo {
+                if daysToGo == 0 {
+                    Text("🎉").font(.title2)
+                } else {
+                    VStack(spacing: 0) {
+                        Text("\(daysToGo)").font(.system(.title3, design: .rounded).bold())
+                        Text("to go").font(.caption2)
+                    }
+                }
+            } else {
+                Image(systemName: "heart.fill")
+            }
+        }
     }
 }
 
 struct TripCountdownWidget: Widget {
-    // Deliberately unchanged from the pre-rename "FlightCountdownWidget" — see the file header.
-    let kind = "FlightCountdownWidget"
+    // Deliberately unchanged from before this file's own rename — see the file header.
+    let kind = "NextReunionWidget"
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: TripCountdownProvider()) { entry in
@@ -174,8 +164,8 @@ struct TripCountdownWidget: Widget {
                 .containerBackground(for: .widget) { Color.clear }
         }
         .configurationDisplayName("Trip Countdown")
-        .description("Time until your next trip departs or arrives, on your Home Screen.")
-        .supportedFamilies([.systemSmall])
+        .description("Countdown to your next trip together, on your Home or Lock Screen.")
+        .supportedFamilies([.systemSmall, .accessoryRectangular, .accessoryCircular, .accessoryInline])
         .contentMarginsDisabled()
     }
 }
@@ -183,5 +173,23 @@ struct TripCountdownWidget: Widget {
 #Preview(as: .systemSmall) {
     TripCountdownWidget()
 } timeline: {
-    TripCountdownEntry(date: .now, subscriptionTier: WidgetTier.plus, targetDate: .now.addingTimeInterval(3600 * 2 + 600), isDeparted: true, originCity: "Melbourne", destinationCity: "Singapore", flightNumber: "QF31", flightID: nil, travelerIsMe: true, myName: "You", partnerName: "Partner")
+    TripCountdownEntry(date: .now, daysToGo: 12, destinationCity: "Singapore")
+}
+
+#Preview(as: .accessoryRectangular) {
+    TripCountdownWidget()
+} timeline: {
+    TripCountdownEntry(date: .now, daysToGo: 12, destinationCity: "Singapore")
+}
+
+#Preview(as: .accessoryCircular) {
+    TripCountdownWidget()
+} timeline: {
+    TripCountdownEntry(date: .now, daysToGo: 12, destinationCity: "Singapore")
+}
+
+#Preview(as: .accessoryInline) {
+    TripCountdownWidget()
+} timeline: {
+    TripCountdownEntry(date: .now, daysToGo: 12, destinationCity: "Singapore")
 }

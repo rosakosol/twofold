@@ -52,6 +52,7 @@ struct DaysTogetherWidgetView: View {
             switch family {
             case .accessoryRectangular: accessoryRectangular
             case .accessoryCircular: accessoryCircular
+            case .accessoryInline: accessoryInline
             default: homeScreenBody
             }
         }
@@ -134,6 +135,17 @@ struct DaysTogetherWidgetView: View {
         }
     }
 
+    /// The Lock Screen's single text-line slot, next to the time — one `Label`, system-tinted
+    /// like every other accessory family here, no room for a second line.
+    @ViewBuilder
+    private var accessoryInline: some View {
+        if let days = entry.days {
+            Label("\(days) days together", systemImage: "heart.fill")
+        } else {
+            Label("Set anniversary date", systemImage: "heart.fill")
+        }
+    }
+
     private var emptyState: some View {
         VStack(spacing: 4) {
             Image(systemName: "heart.fill").font(.title3).foregroundStyle(LiveActivityPalette.subtleInk)
@@ -154,7 +166,7 @@ struct DaysTogetherWidget: Widget {
         }
         .configurationDisplayName("Days Together")
         .description("Your running total, right on your Home Screen or Lock Screen.")
-        .supportedFamilies([.systemSmall, .accessoryRectangular, .accessoryCircular])
+        .supportedFamilies([.systemSmall, .accessoryRectangular, .accessoryCircular, .accessoryInline])
         .contentMarginsDisabled()
     }
 }
@@ -166,6 +178,12 @@ struct DaysTogetherWidget: Widget {
 }
 
 #Preview(as: .accessoryCircular) {
+    DaysTogetherWidget()
+} timeline: {
+    DaysTogetherEntry(date: .now, days: 412, myName: "Rosa", partnerName: "Dara")
+}
+
+#Preview(as: .accessoryInline) {
     DaysTogetherWidget()
 } timeline: {
     DaysTogetherEntry(date: .now, days: 412, myName: "Rosa", partnerName: "Dara")

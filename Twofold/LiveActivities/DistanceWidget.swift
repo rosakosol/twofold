@@ -54,6 +54,8 @@ struct DistanceProvider: TimelineProvider {
 struct DistanceWidgetView: View {
     let entry: DistanceEntry
 
+    @Environment(\.widgetFamily) private var family
+
     private func initial(_ name: String) -> String {
         name.trimmingCharacters(in: .whitespaces).first.map { String($0).uppercased() } ?? "?"
     }
@@ -80,27 +82,46 @@ struct DistanceWidgetView: View {
 
     var body: some View {
         Group {
-            if let distanceLabel = entry.distanceLabel {
-                VStack(alignment: .leading, spacing: 1) {
-                    HStack(spacing: 4) {
-                        initialsPair
-                        Text(distanceLabel).font(.headline)
-                    }
-                    if let myCity = entry.myCity, let partnerCity = entry.partnerCity {
-                        Text("\(myCity) ↔ \(partnerCity)")
-                            .font(.caption2)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
-                    }
-                }
-            } else {
-                HStack(spacing: 4) {
-                    initialsPair
-                    Text("Add your home cities")
-                }
+            switch family {
+            case .accessoryInline: accessoryInline
+            default: accessoryRectangular
             }
         }
         .widgetURL(URL(string: "twofold://home"))
+    }
+
+    @ViewBuilder
+    private var accessoryRectangular: some View {
+        if let distanceLabel = entry.distanceLabel {
+            VStack(alignment: .leading, spacing: 1) {
+                HStack(spacing: 4) {
+                    initialsPair
+                    Text(distanceLabel).font(.headline)
+                }
+                if let myCity = entry.myCity, let partnerCity = entry.partnerCity {
+                    Text("\(myCity) ↔ \(partnerCity)")
+                        .font(.caption2)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
+            }
+        } else {
+            HStack(spacing: 4) {
+                initialsPair
+                Text("Add your home cities")
+            }
+        }
+    }
+
+    /// The Lock Screen's single text-line slot — no room for the initials pair or the city
+    /// names, just the distance itself.
+    @ViewBuilder
+    private var accessoryInline: some View {
+        if let distanceLabel = entry.distanceLabel {
+            Label("\(distanceLabel) apart", systemImage: "arrow.left.and.right")
+        } else {
+            Label("Add your home cities", systemImage: "arrow.left.and.right")
+        }
     }
 }
 
@@ -114,12 +135,18 @@ struct DistanceWidget: Widget {
         }
         .configurationDisplayName("Distance Apart")
         .description("How far apart you and your partner are right now, on your Lock Screen.")
-        .supportedFamilies([.accessoryRectangular])
+        .supportedFamilies([.accessoryRectangular, .accessoryInline])
         .contentMarginsDisabled()
     }
 }
 
 #Preview(as: .accessoryRectangular) {
+    DistanceWidget()
+} timeline: {
+    DistanceEntry(date: .now, distanceLabel: "6,060 km", myCity: "Melbourne", partnerCity: "Singapore", myName: "Rosa", partnerName: "Dara")
+}
+
+#Preview(as: .accessoryInline) {
     DistanceWidget()
 } timeline: {
     DistanceEntry(date: .now, distanceLabel: "6,060 km", myCity: "Melbourne", partnerCity: "Singapore", myName: "Rosa", partnerName: "Dara")

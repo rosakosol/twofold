@@ -16,15 +16,17 @@ private struct WidgetCatalogEntry: Identifiable {
     let name: String
     let subtitle: String
     let systemImage: String
-    /// "plus"/"premium" — matches WidgetTier/AppModel.subscriptionTier's tier strings.
-    let tier: String
+    /// "plus"/"premium" — matches WidgetTier/AppModel.subscriptionTier's tier strings. nil for a
+    /// widget with no tier gate at all (no badge shown).
+    let tier: String?
 }
 
 struct WidgetsCatalogView: View {
     @Environment(AppModel.self) private var appModel
 
     private let entries: [WidgetCatalogEntry] = [
-        WidgetCatalogEntry(name: "Reunion & Trip Countdown", subtitle: "Time until you're together, or until takeoff", systemImage: "airplane.departure", tier: WidgetTier.plus),
+        WidgetCatalogEntry(name: "Trip Countdown", subtitle: "Time until your next trip together — Home or Lock Screen", systemImage: "heart.fill", tier: nil),
+        WidgetCatalogEntry(name: "Flight Countdown", subtitle: "Time until a flight you pick departs or arrives", systemImage: "airplane.departure", tier: WidgetTier.plus),
         WidgetCatalogEntry(name: "Flight Status", subtitle: "Live status, route, and estimated time, for your next flight", systemImage: "airplane.circle.fill", tier: WidgetTier.plus),
         WidgetCatalogEntry(name: "Anniversary", subtitle: "Your running days-together total", systemImage: "heart.fill", tier: WidgetTier.plus),
         WidgetCatalogEntry(name: "Partner's Time", subtitle: "Their local time, at a glance", systemImage: "clock.fill", tier: WidgetTier.plus),
@@ -62,7 +64,9 @@ struct WidgetsCatalogView: View {
 
                             Spacer()
 
-                            tierBadge(for: entry.tier)
+                            if let tier = entry.tier {
+                                tierBadge(for: tier)
+                            }
                         }
                     }
                 }

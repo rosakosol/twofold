@@ -68,25 +68,12 @@ enum WidgetSnapshotWriter {
 
         var flightInfo: WidgetSnapshot.FlightInfo?
         if let flight = appModel.activeOrUpcomingFlight {
-            let hasDeparted = (flight.bestDeparture ?? .distantFuture) <= .now
-            flightInfo = WidgetSnapshot.FlightInfo(
-                id: flight.id,
-                status: flight.status,
-                originCity: flight.origin.displayName,
-                destinationCity: flight.destination.displayName,
-                originCode: flight.origin.displayCode,
-                destinationCode: flight.destination.displayCode,
-                bestDeparture: flight.bestDeparture,
-                bestArrival: flight.bestArrival,
-                delaySeconds: hasDeparted ? flight.arrivalDelaySeconds : flight.departureDelaySeconds,
-                flightNumber: flight.displayNumber,
-                progress: flight.progress,
-                travelerIsMe: flight.travelerIDs.isEmpty ? nil : flight.travelerIDs.contains(appModel.currentUser.id)
-            )
+            flightInfo = Self.flightInfo(for: flight, currentUserID: appModel.currentUser.id)
             if let logoURL = flight.displayLogoURL, let data = try? await URLSession.shared.data(from: logoURL).0 {
                 WidgetImageCache.writeAirlineLogoImage(data)
             }
         }
+        let trackedFlights = appModel.activeOrUpcomingFlights.map { Self.flightInfo(for: $0, currentUserID: appModel.currentUser.id) }
 
         var memoryInfo: WidgetSnapshot.MemoryInfo?
         if let latestMemory = appModel.memories.max(by: { $0.date < $1.date }) {
@@ -134,6 +121,7 @@ enum WidgetSnapshotWriter {
                 anniversaryDate: appModel.couple.startedDatingOn,
                 subscriptionTier: appModel.subscriptionTier,
                 nextFlight: flightInfo,
+                trackedFlights: trackedFlights,
                 nextReunion: reunionInfo,
                 latestMemory: memoryInfo,
                 partnerWeather: weatherInfo,
@@ -144,5 +132,23 @@ enum WidgetSnapshotWriter {
             )
         )
         WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    private static func flightInfo(for flight: Flight, currentUserID: UUID) -> WidgetSnapshot.FlightInfo {
+        let hasDeparted = (flight.bestDeparture ?? .distantFuture) <= .now
+        return WidgetSnapshot.FlightInfo(
+            id: flight.id,
+            status: flight.status,
+            originCity: flight.origin.displayName,
+            destinationCity: flight.destination.displayName,
+            originCode: flight.origin.displayCode,
+            destinationCode: flight.destination.displayCode,
+            bestDeparture: flight.bestDeparture,
+            bestArrival: flight.bestArrival,
+            delaySeconds: hasDeparted ? flight.arrivalDelaySeconds : flight.departureDelaySeconds,
+            flightNumber: flight.displayNumber,
+            progress: flight.progress,
+            travelerIsMe: flight.travelerIDs.isEmpty ? nil : flight.travelerIDs.contains(currentUserID)
+        )
     }
 }
