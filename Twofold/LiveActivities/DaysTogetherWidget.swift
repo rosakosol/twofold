@@ -51,6 +51,7 @@ struct DaysTogetherWidgetView: View {
         Group {
             switch family {
             case .accessoryRectangular: accessoryRectangular
+            case .accessoryCircular: accessoryCircular
             default: homeScreenBody
             }
         }
@@ -116,6 +117,23 @@ struct DaysTogetherWidgetView: View {
         }
     }
 
+    /// Small Lock Screen slot — same auto-tinted, no-branding treatment as `accessoryRectangular`,
+    /// just condensed to fit the circle: the number on top, a one-word label under it.
+    @ViewBuilder
+    private var accessoryCircular: some View {
+        ZStack {
+            AccessoryWidgetBackground()
+            if let days = entry.days {
+                VStack(spacing: 0) {
+                    Text("\(days)").font(.system(.title3, design: .rounded).bold())
+                    Text("days").font(.caption2)
+                }
+            } else {
+                Image(systemName: "heart.fill")
+            }
+        }
+    }
+
     private var emptyState: some View {
         VStack(spacing: 4) {
             Image(systemName: "heart.fill").font(.title3).foregroundStyle(LiveActivityPalette.subtleInk)
@@ -136,12 +154,18 @@ struct DaysTogetherWidget: Widget {
         }
         .configurationDisplayName("Days Together")
         .description("Your running total, right on your Home Screen or Lock Screen.")
-        .supportedFamilies([.systemSmall, .accessoryRectangular])
+        .supportedFamilies([.systemSmall, .accessoryRectangular, .accessoryCircular])
         .contentMarginsDisabled()
     }
 }
 
 #Preview(as: .systemSmall) {
+    DaysTogetherWidget()
+} timeline: {
+    DaysTogetherEntry(date: .now, days: 412, myName: "Rosa", partnerName: "Dara")
+}
+
+#Preview(as: .accessoryCircular) {
     DaysTogetherWidget()
 } timeline: {
     DaysTogetherEntry(date: .now, days: 412, myName: "Rosa", partnerName: "Dara")

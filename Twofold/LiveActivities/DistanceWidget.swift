@@ -17,11 +17,13 @@ struct DistanceEntry: TimelineEntry {
     let distanceLabel: String?
     let myCity: String?
     let partnerCity: String?
+    let myName: String
+    let partnerName: String
 }
 
 struct DistanceProvider: TimelineProvider {
     func placeholder(in context: Context) -> DistanceEntry {
-        DistanceEntry(date: .now, distanceLabel: "6,060 km", myCity: "Melbourne", partnerCity: "Singapore")
+        DistanceEntry(date: .now, distanceLabel: "6,060 km", myCity: "Melbourne", partnerCity: "Singapore", myName: "You", partnerName: "Partner")
     }
 
     func getSnapshot(in context: Context, completion: @escaping (DistanceEntry) -> Void) {
@@ -38,19 +40,52 @@ struct DistanceProvider: TimelineProvider {
     }
 
     private func entry(from snapshot: WidgetSnapshot?) -> DistanceEntry {
-        DistanceEntry(date: .now, distanceLabel: snapshot?.distanceLabel, myCity: snapshot?.myCity, partnerCity: snapshot?.partnerCity)
+        DistanceEntry(
+            date: .now,
+            distanceLabel: snapshot?.distanceLabel,
+            myCity: snapshot?.myCity,
+            partnerCity: snapshot?.partnerCity,
+            myName: snapshot?.myName ?? "You",
+            partnerName: snapshot?.partnerName ?? "Partner"
+        )
     }
 }
 
 struct DistanceWidgetView: View {
     let entry: DistanceEntry
 
+    private func initial(_ name: String) -> String {
+        name.trimmingCharacters(in: .whitespaces).first.map { String($0).uppercased() } ?? "?"
+    }
+
+    /// Two overlapping bordered circles, each holding one person's initial — the same "you and
+    /// your partner" pairing AvatarView's overlap treatment shows elsewhere in the app, just
+    /// text-only. Accessory Lock Screen widgets render in a single system-applied tint
+    /// (`.accessory` widget rendering mode ignores custom colors), so this reads as an outline +
+    /// letter rather than anything resembling the real colored avatars.
+    private var initialsPair: some View {
+        HStack(spacing: -6) {
+            initialBadge(initial(entry.myName))
+            initialBadge(initial(entry.partnerName))
+        }
+    }
+
+    private func initialBadge(_ letter: String) -> some View {
+        ZStack {
+            Circle().strokeBorder(lineWidth: 1)
+            Text(letter).font(.system(size: 9, weight: .bold))
+        }
+        .frame(width: 16, height: 16)
+    }
+
     var body: some View {
         Group {
             if let distanceLabel = entry.distanceLabel {
                 VStack(alignment: .leading, spacing: 1) {
-                    Label(distanceLabel, systemImage: "figure.2.arms.open")
-                        .font(.headline)
+                    HStack(spacing: 4) {
+                        initialsPair
+                        Text(distanceLabel).font(.headline)
+                    }
                     if let myCity = entry.myCity, let partnerCity = entry.partnerCity {
                         Text("\(myCity) ↔ \(partnerCity)")
                             .font(.caption2)
@@ -59,7 +94,10 @@ struct DistanceWidgetView: View {
                     }
                 }
             } else {
-                Label("Add your home cities", systemImage: "figure.2.arms.open")
+                HStack(spacing: 4) {
+                    initialsPair
+                    Text("Add your home cities")
+                }
             }
         }
         .widgetURL(URL(string: "twofold://home"))
@@ -84,5 +122,5 @@ struct DistanceWidget: Widget {
 #Preview(as: .accessoryRectangular) {
     DistanceWidget()
 } timeline: {
-    DistanceEntry(date: .now, distanceLabel: "6,060 km", myCity: "Melbourne", partnerCity: "Singapore")
+    DistanceEntry(date: .now, distanceLabel: "6,060 km", myCity: "Melbourne", partnerCity: "Singapore", myName: "Rosa", partnerName: "Dara")
 }
