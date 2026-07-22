@@ -19,9 +19,17 @@ import SwiftUI
 struct PassportView: View {
     @Environment(AppModel.self) private var appModel
     @State private var showingSnapshot = false
+    @State private var showingPassportShare = false
 
+    /// The passport card's own scope — deliberately the current user alone, not the couple
+    /// combined (that framing already lives on `RelationshipStatsCard` above it). Matches "your
+    /// passport" the way a real one only ever documents one person's own travel.
     private var flightStats: FlightStats {
-        FlightStats(trips: appModel.trips, couple: appModel.couple)
+        FlightStats(trips: appModel.trips.filter { $0.travelerIDs.contains(appModel.currentUser.id) }, couple: appModel.couple)
+    }
+
+    private var visitedCountryNames: Set<String> {
+        WorldMap.visitedNames(from: flightStats.countries.map(\.name))
     }
 
     private var relationshipStats: RelationshipMilestoneStats {
@@ -66,6 +74,9 @@ struct PassportView: View {
             .sheet(isPresented: $showingSnapshot) {
                 RelationshipStatsShareView(couple: appModel.couple, trips: appModel.trips, memories: appModel.memories, stats: relationshipStats)
             }
+            .sheet(isPresented: $showingPassportShare) {
+                PassportShareView(couple: appModel.couple, person: appModel.currentUser, stats: flightStats, visitedCountryNames: visitedCountryNames)
+            }
         }
     }
 
@@ -74,36 +85,35 @@ struct PassportView: View {
     /// Deliberately its own dark "cover" look, not `SectionCard` — every other card on this tab
     /// reads as an app screen; this one is styled to read as the actual travel document its
     /// name promises (navy cover, gold foil, engraved serif type, a bordered visa-page grid),
-    /// while every number in it stays exactly as real as the rest of the app.
-    private enum PassportInk {
-        static let coverTop = Color(hex: "1B2A4A")
-        static let coverBottom = Color(hex: "0B111F")
-        static let gold = Color(hex: "D8B463")
-        static let cream = Color(hex: "F3ECD9")
-    }
-
+    /// while every number in it stays exactly as real as the rest of the app. Palette lives in
+    /// `PassportTheme` so the share card can reuse it exactly.
     private var passportCard: some View {
         VStack(spacing: Theme.Spacing.lg) {
             passportHeader
 
             // Hero — same voice and type treatment as the All Flight Stats page, engraved
-            // instead of the app's usual rounded/sky-blue treatment.
+            // instead of the app's usual rounded/sky-blue treatment. Individually framed (this
+            // card's own scope), not the couple-combined "for each other" copy — that stays on
+            // RelationshipStatsCard above, which is the couple-framed card.
             VStack(spacing: Theme.Spacing.xs) {
-                Text(appModel.couple.sharesHomeCity ? "Together, you've travelled" : "You've travelled")
+                Text("You've travelled")
                     .font(.system(.subheadline, design: .serif))
                     .foregroundStyle(.white)
 
-                Text("\(Text(MeasurementPreference.convertedValue(km: appModel.stats.totalDistanceKm), format: .number.precision(.fractionLength(0))).font(.system(size: 44, weight: .bold, design: .rounded)).foregroundStyle(PassportInk.gold))\(Text(" \(MeasurementPreference.unitSuffix())").font(.title.weight(.bold)).foregroundStyle(PassportInk.cream.opacity(0.85)))")
-
-                if !appModel.couple.sharesHomeCity {
-                    Text("for each other")
-                        .font(.system(.subheadline, design: .serif))
-                        .foregroundStyle(.white)
-                }
+                Text("\(Text(MeasurementPreference.convertedValue(km: flightStats.totalDistanceKm), format: .number.precision(.fractionLength(0))).font(.system(size: 44, weight: .bold, design: .rounded)).foregroundStyle(PassportTheme.gold))\(Text(" \(MeasurementPreference.unitSuffix())").font(.title.weight(.bold)).foregroundStyle(PassportTheme.cream.opacity(0.85)))")
             }
             .frame(maxWidth: .infinity)
 
             coupleFlightPath
+
+            passportDivider
+
+            WorldVisitedMapView(visitedCountryNames: visitedCountryNames)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .strokeBorder(PassportTheme.gold.opacity(0.25), lineWidth: 1)
+                }
 
             passportDivider
 
@@ -112,6 +122,7 @@ struct PassportView: View {
                 passportStat(label: "Flight time", value: FlightStats.duration(flightStats.totalFlightTime))
                 passportStat(label: "Airports", value: "\(flightStats.airports.count)")
                 passportStat(label: "Airlines", value: "\(flightStats.airlines.count)")
+                passportStat(label: "Countries", value: "\(flightStats.countries.count)")
             }
             .frame(maxWidth: .infinity)
 
@@ -125,13 +136,13 @@ struct PassportView: View {
                     Image(systemName: "chevron.right")
                         .font(.caption.weight(.bold))
                 }
-                .foregroundStyle(PassportInk.gold)
+                .foregroundStyle(PassportTheme.gold)
                 .padding(.horizontal, Theme.Spacing.md)
                 .padding(.vertical, 12)
-                .background(PassportInk.gold.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .background(PassportTheme.gold.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .overlay {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .strokeBorder(PassportInk.gold.opacity(0.4), lineWidth: 1)
+                        .strokeBorder(PassportTheme.gold.opacity(0.4), lineWidth: 1)
                 }
             }
         }
@@ -139,7 +150,7 @@ struct PassportView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             ZStack {
-                LinearGradient(colors: [PassportInk.coverTop, PassportInk.coverBottom], startPoint: .top, endPoint: .bottom)
+                LinearGradient(colors: [PassportTheme.coverTop, PassportTheme.coverBottom], startPoint: .top, endPoint: .bottom)
                 RadialGradient(colors: [.white.opacity(0.06), .clear], center: .top, startRadius: 10, endRadius: 320)
             }
         )
@@ -148,31 +159,41 @@ struct PassportView: View {
             // Cover border, plus a slightly inset second line — the embossed double-rule
             // classic passport covers use around their emblem/title.
             RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .strokeBorder(PassportInk.gold.opacity(0.55), lineWidth: 1.5)
+                .strokeBorder(PassportTheme.gold.opacity(0.55), lineWidth: 1.5)
             RoundedRectangle(cornerRadius: 21, style: .continuous)
-                .strokeBorder(PassportInk.gold.opacity(0.25), lineWidth: 1)
+                .strokeBorder(PassportTheme.gold.opacity(0.25), lineWidth: 1)
                 .padding(7)
         }
     }
 
-    /// The cover's title block — an emblem standing in for a national seal, "PASSPORT" in
-    /// letter-spaced engraved serif.
+    /// The cover's title block — the real biometric-passport chip symbol standing in for a
+    /// national seal, "PASSPORT" in letter-spaced engraved serif, and a share button.
     private var passportHeader: some View {
-        VStack(spacing: 6) {
-            Image(systemName: "seal.fill")
-                .font(.system(size: 26))
-                .foregroundStyle(PassportInk.gold)
-            Text("PASSPORT")
-                .font(.system(.title3, design: .serif).weight(.bold))
-                .tracking(6)
-                .foregroundStyle(PassportInk.cream)
+        ZStack(alignment: .topTrailing) {
+            VStack(spacing: 6) {
+                BiometricPassportSymbol(size: 28)
+                Text("PASSPORT")
+                    .font(.system(.title3, design: .serif).weight(.bold))
+                    .tracking(6)
+                    .foregroundStyle(PassportTheme.cream)
+            }
+            .frame(maxWidth: .infinity)
+
+            Button {
+                showingPassportShare = true
+            } label: {
+                Image(systemName: "square.and.arrow.up")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(PassportTheme.gold)
+                    .padding(8)
+                    .background(PassportTheme.gold.opacity(0.15), in: Circle())
+            }
         }
-        .frame(maxWidth: .infinity)
     }
 
     private var passportDivider: some View {
         Rectangle()
-            .fill(PassportInk.gold.opacity(0.3))
+            .fill(PassportTheme.gold.opacity(0.3))
             .frame(height: 1)
     }
 
@@ -182,15 +203,15 @@ struct PassportView: View {
             AvatarView(person: appModel.currentUser, size: 56, showsRing: true)
 
             HorizontalDashedLine()
-                .stroke(PassportInk.gold.opacity(0.6), style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: [5, 5]))
+                .stroke(PassportTheme.gold.opacity(0.6), style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: [5, 5]))
                 .frame(height: 2)
                 .overlay {
                     Image(systemName: "airplane")
                         .font(.subheadline)
-                        .foregroundStyle(PassportInk.gold)
+                        .foregroundStyle(PassportTheme.gold)
                         .padding(6)
-                        .background(PassportInk.coverBottom, in: Circle())
-                        .overlay { Circle().strokeBorder(PassportInk.gold.opacity(0.5), lineWidth: 1) }
+                        .background(PassportTheme.coverBottom, in: Circle())
+                        .overlay { Circle().strokeBorder(PassportTheme.gold.opacity(0.5), lineWidth: 1) }
                 }
 
             AvatarView(person: appModel.partner, size: 56, showsRing: true)
@@ -203,12 +224,12 @@ struct PassportView: View {
         VStack(spacing: 2) {
             Text(label.uppercased())
                 .font(.caption2.weight(.semibold))
-                .foregroundStyle(PassportInk.gold.opacity(0.75))
+                .foregroundStyle(PassportTheme.gold.opacity(0.75))
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
             Text(value)
                 .font(.system(size: 22, weight: .bold, design: .rounded))
-                .foregroundStyle(PassportInk.cream)
+                .foregroundStyle(PassportTheme.cream)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
         }
