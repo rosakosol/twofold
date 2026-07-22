@@ -4,9 +4,10 @@
 //
 //  The shareable "passport" image — designed to actually read as a passport bio-data page
 //  (cover band, bio row, engraved metadata fields, a machine-readable-zone-style footer) rather
-//  than another rounded gradient stat card, using `PassportTheme`'s navy/gold/cream palette so
-//  it's unmistakably this app's brand rather than a copy of any reference app's own colors. Every
-//  figure on it comes straight from `FlightStats`/`WorldMap`, same as the in-app passport card.
+//  than another rounded gradient stat card, using `PassportTheme`'s brand-blue/gold/cream
+//  holographic palette (`PassportHolographicBackground`) so it's unmistakably this app's brand
+//  rather than a copy of any reference app's own colors. Every figure on it comes straight from
+//  `FlightStats`/`WorldMap`, same as the in-app passport card.
 //
 
 import SwiftUI
@@ -42,12 +43,7 @@ struct PassportShareCard: View {
         }
         .padding(Theme.Spacing.lg)
         .frame(width: 360)
-        .background(
-            ZStack {
-                LinearGradient(colors: [PassportTheme.coverTop, PassportTheme.coverBottom], startPoint: .top, endPoint: .bottom)
-                RadialGradient(colors: [.white.opacity(0.07), .clear], center: .top, startRadius: 10, endRadius: 380)
-            }
-        )
+        .background(PassportHolographicBackground())
         .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 32, style: .continuous)

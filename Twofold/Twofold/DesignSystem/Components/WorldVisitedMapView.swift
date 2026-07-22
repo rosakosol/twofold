@@ -18,6 +18,12 @@ struct WorldVisitedMapView: View {
     var visitedColor: Color = Theme.leafGreen
     var unvisitedColor: Color = .white.opacity(0.08)
     var strokeColor: Color = .white.opacity(0.22)
+    /// The bundled boundary points are normalized to a 0...1 box that's true equirectangular
+    /// (360° longitude : 180° latitude, i.e. exactly 2:1) — that's the default here. Callers
+    /// wanting a taller map (more vertical room in a fixed-width card) can pass a smaller ratio;
+    /// the tradeoff is a mild vertical stretch versus the true projection, acceptable at the
+    /// small, decorative scale this view is ever shown at (not a navigational map).
+    var aspectRatio: CGFloat = 2
 
     var body: some View {
         Canvas { context, size in
@@ -28,11 +34,7 @@ struct WorldVisitedMapView: View {
                 context.stroke(path, with: .color(strokeColor), lineWidth: 0.4)
             }
         }
-        // The bundled boundary points are normalized to a 0...1 box representing 360° of
-        // longitude by 180° of latitude — a plain 2:1 rectangle. Any other aspect would stretch
-        // every country horizontally or vertically, so this is enforced here rather than left to
-        // whatever frame a caller happens to apply.
-        .aspectRatio(2, contentMode: .fit)
+        .aspectRatio(aspectRatio, contentMode: .fit)
     }
 
     /// Even-odd fill (rather than the default nonzero rule) so holes — an enclave like Lesotho

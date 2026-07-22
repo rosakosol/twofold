@@ -82,11 +82,11 @@ struct PassportView: View {
 
     // MARK: - Passport card
 
-    /// Deliberately its own dark "cover" look, not `SectionCard` — every other card on this tab
+    /// Deliberately its own "cover" look, not `SectionCard` — every other card on this tab
     /// reads as an app screen; this one is styled to read as the actual travel document its
-    /// name promises (navy cover, gold foil, engraved serif type, a bordered visa-page grid),
-    /// while every number in it stays exactly as real as the rest of the app. Palette lives in
-    /// `PassportTheme` so the share card can reuse it exactly.
+    /// name promises (brand-blue holographic cover, gold foil, engraved serif type), while every
+    /// number in it stays exactly as real as the rest of the app. Palette + holographic
+    /// background live in `PassportTheme` so the share card can reuse them exactly.
     private var passportCard: some View {
         VStack(spacing: Theme.Spacing.lg) {
             passportHeader
@@ -104,11 +104,12 @@ struct PassportView: View {
             }
             .frame(maxWidth: .infinity)
 
-            coupleFlightPath
-
             passportDivider
 
-            WorldVisitedMapView(visitedCountryNames: visitedCountryNames)
+            // Taller than the map's true 2:1 equirectangular proportions (a mild, acceptable
+            // stretch at this decorative scale) so it reads as this card's main visual, not a
+            // thin strip — filling the room the avatar/flight-path row used to take.
+            WorldVisitedMapView(visitedCountryNames: visitedCountryNames, aspectRatio: 1.5)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .overlay {
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -148,12 +149,7 @@ struct PassportView: View {
         }
         .padding(Theme.Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            ZStack {
-                LinearGradient(colors: [PassportTheme.coverTop, PassportTheme.coverBottom], startPoint: .top, endPoint: .bottom)
-                RadialGradient(colors: [.white.opacity(0.06), .clear], center: .top, startRadius: 10, endRadius: 320)
-            }
-        )
+        .background(PassportHolographicBackground())
         .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
         .overlay {
             // Cover border, plus a slightly inset second line — the embossed double-rule
@@ -197,29 +193,6 @@ struct PassportView: View {
             .frame(height: 1)
     }
 
-    /// Both partners joined by a dashed flight path with a plane at its midpoint.
-    private var coupleFlightPath: some View {
-        HStack(spacing: Theme.Spacing.sm) {
-            AvatarView(person: appModel.currentUser, size: 56, showsRing: true)
-
-            HorizontalDashedLine()
-                .stroke(PassportTheme.gold.opacity(0.6), style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: [5, 5]))
-                .frame(height: 2)
-                .overlay {
-                    Image(systemName: "airplane")
-                        .font(.subheadline)
-                        .foregroundStyle(PassportTheme.gold)
-                        .padding(6)
-                        .background(PassportTheme.coverBottom, in: Circle())
-                        .overlay { Circle().strokeBorder(PassportTheme.gold.opacity(0.5), lineWidth: 1) }
-                }
-
-            AvatarView(person: appModel.partner, size: 56, showsRing: true)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, Theme.Spacing.lg)
-    }
-
     private func passportStat(label: String, value: String) -> some View {
         VStack(spacing: 2) {
             Text(label.uppercased())
@@ -234,16 +207,6 @@ struct PassportView: View {
                 .minimumScaleFactor(0.6)
         }
         .frame(maxWidth: .infinity)
-    }
-}
-
-/// Simple full-width horizontal line, drawn as a Shape so it can take a dashed stroke.
-private struct HorizontalDashedLine: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.move(to: CGPoint(x: rect.minX, y: rect.midY))
-        path.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
-        return path
     }
 }
 
