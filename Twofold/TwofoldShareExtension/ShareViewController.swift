@@ -11,6 +11,7 @@
 import UIKit
 import Social
 import UniformTypeIdentifiers
+import PDFKit
 
 class ShareViewController: SLComposeServiceViewController {
 
@@ -20,8 +21,12 @@ class ShareViewController: SLComposeServiceViewController {
 
     override func didSelectPost() {
         Task {
-            if let text = await extractSharedText(), !text.isEmpty {
-                PendingShareStore.add(PendingFlightShare(rawText: text))
+            let subject = await extractSubject()
+            let bodyText = await extractBodyText()
+            let pdfText = await extractPDFText()
+
+            if subject != nil || bodyText != nil || pdfText != nil {
+                PendingShareStore.add(PendingFlightShare(subject: subject, bodyText: bodyText, pdfText: pdfText))
             }
             self.extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
         }
@@ -33,29 +38,36 @@ class ShareViewController: SLComposeServiceViewController {
 
     // MARK: - Content extraction
 
+    private var inputItems: [NSExtensionItem] {
+        (extensionContext?.inputItems as? [NSExtensionItem]) ?? []
+    }
+
+    /// Mail/Gmail/Outlook typically surface the email's subject as the share item's title,
+    /// separate from `contentText`/attachments (which carry the body). Booking confirmation
+    /// subjects often summarize the flight number and date even when the body is sparse.
+    private func extractSubject() async -> String? {
+        for item in inputItems {
+            if let title = item.attributedTitle?.string.trimmingCharacters(in: .whitespacesAndNewlines),
+               !title.isEmpty {
+                return title
+            }
+        }
+        return nil
+    }
+
     /// Apple Mail typically pre-fills `contentText` with the shared body; Gmail/Outlook
     /// are less consistent, so this falls back through attachments, then HTML stripped
-    /// to plain text, then a shared URL, then the item's own title/subject.
-    private func extractSharedText() async -> String? {
-        var pieces: [String] = []
-
+    /// to plain text, then a shared URL, then the item's own content text.
+    private func extractBodyText() async -> String? {
         let composedText = contentText.trimmingCharacters(in: .whitespacesAndNewlines)
         if !composedText.isEmpty {
-            pieces.append(composedText)
+            return composedText
         }
-
-        if pieces.isEmpty, let attachmentText = await extractAttachmentText() {
-            pieces.append(attachmentText)
-        }
-
-        let combined = pieces.joined(separator: "\n\n")
-        return combined.isEmpty ? nil : combined
+        return await extractAttachmentText()
     }
 
     private func extractAttachmentText() async -> String? {
-        guard let items = extensionContext?.inputItems as? [NSExtensionItem] else { return nil }
-
-        for item in items {
+        for item in inputItems {
             if let attachments = item.attachments {
                 for provider in attachments where provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
                     if let text = await loadText(from: provider, typeIdentifier: UTType.plainText.identifier) {
@@ -75,11 +87,29 @@ class ShareViewController: SLComposeServiceViewController {
                 }
             }
 
-            if let title = item.attributedTitle?.string, !title.isEmpty {
-                return title
-            }
             if let content = item.attributedContentText?.string, !content.isEmpty {
                 return content
+            }
+        }
+        return nil
+    }
+
+    /// Only used as a fallback when subject/body don't yield a flight (see
+    /// FlightEmailParsingService). Capped to avoid holding a large blob in the
+    /// extension's tight memory budget.
+    private func extractPDFText() async -> String? {
+        let maxPDFBytes = 8 * 1024 * 1024
+
+        for item in inputItems {
+            guard let attachments = item.attachments else { continue }
+            for provider in attachments where provider.hasItemConformingToTypeIdentifier(UTType.pdf.identifier) {
+                guard let data = await loadData(from: provider, typeIdentifier: UTType.pdf.identifier),
+                      data.count <= maxPDFBytes,
+                      let document = PDFDocument(data: data),
+                      let text = document.string?.trimmingCharacters(in: .whitespacesAndNewlines),
+                      !text.isEmpty
+                else { continue }
+                return text
             }
         }
         return nil
@@ -103,6 +133,20 @@ class ShareViewController: SLComposeServiceViewController {
         await withCheckedContinuation { continuation in
             provider.loadItem(forTypeIdentifier: UTType.url.identifier, options: nil) { item, _ in
                 continuation.resume(returning: item as? URL)
+            }
+        }
+    }
+
+    private func loadData(from provider: NSItemProvider, typeIdentifier: String) async -> Data? {
+        await withCheckedContinuation { continuation in
+            provider.loadItem(forTypeIdentifier: typeIdentifier, options: nil) { item, _ in
+                if let data = item as? Data {
+                    continuation.resume(returning: data)
+                } else if let url = item as? URL, let data = try? Data(contentsOf: url) {
+                    continuation.resume(returning: data)
+                } else {
+                    continuation.resume(returning: nil)
+                }
             }
         }
     }

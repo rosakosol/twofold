@@ -15,12 +15,20 @@ import Foundation
 
 struct PendingFlightShare: Codable, Identifiable, Equatable {
     let id: UUID
-    let rawText: String
+    /// The shared email's subject line, when the host app exposes one.
+    let subject: String?
+    /// The shared email's body text (plain text, or HTML stripped to plain text).
+    let bodyText: String?
+    /// Text extracted from a PDF attachment (boarding pass, e-ticket) — only meant to be
+    /// used as a fallback when `subject`/`bodyText` don't yield a flight.
+    let pdfText: String?
     let capturedAt: Date
 
-    init(id: UUID = UUID(), rawText: String, capturedAt: Date = .now) {
+    init(id: UUID = UUID(), subject: String? = nil, bodyText: String? = nil, pdfText: String? = nil, capturedAt: Date = .now) {
         self.id = id
-        self.rawText = rawText
+        self.subject = subject
+        self.bodyText = bodyText
+        self.pdfText = pdfText
         self.capturedAt = capturedAt
     }
 }

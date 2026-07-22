@@ -172,7 +172,7 @@ struct TripDetailsView: View {
             HStack {
                 Text("Distance").font(.caption).foregroundStyle(Theme.subtleInk)
                 Spacer()
-                Text(MeasurementPreference.distanceLabel(km: trip.distanceKm)).font(.subheadline.weight(.medium))
+                Text(MeasurementPreference.distanceLabel(km: trip.effectiveDistanceKm)).font(.subheadline.weight(.medium))
             }
         }
     }
@@ -187,32 +187,45 @@ struct TripDetailsView: View {
         }
     }
 
+    /// "Flight" (singular) even though `trip.flights` can hold more than one — a connecting
+    /// itinerary (e.g. Melbourne → Singapore → London) is genuinely two-or-more separate tracked
+    /// flights, each listed as its own row below, in departure order via `orderedFlights`.
+    /// "Link a flight" always stays available (not just when empty) so a second/third leg can be
+    /// attached the same way the first one was.
     private func flightSection(_ trip: Trip) -> some View {
         SectionCard {
             HStack {
-                Text("Flight").font(.subheadline.weight(.semibold))
+                Text(trip.flights.count > 1 ? "Flights" : "Flight").font(.subheadline.weight(.semibold))
                 Spacer()
-                if trip.flight == nil {
-                    Button("Link a flight") { showingLinkFlightPicker = true }
-                        .font(.caption.weight(.semibold))
+                Button(trip.flights.isEmpty ? "Link a flight" : "Link another leg") {
+                    showingLinkFlightPicker = true
                 }
+                .font(.caption.weight(.semibold))
             }
 
-            if let flight = trip.flight {
-                NavigationLink {
-                    FlightTrackingView(flight: flight)
-                } label: {
-                    FlightRowView(flight: flight)
-                }
-                .buttonStyle(.plain)
-
-                Button(role: .destructive) {
-                    Task { await appModel.unlinkFlight(flight) }
-                } label: {
-                    Text("Unlink flight").font(.caption)
-                }
-            } else {
+            if trip.flights.isEmpty {
                 Text("No flight linked yet.").font(.caption).foregroundStyle(Theme.subtleInk)
+            } else {
+                ForEach(trip.orderedFlights) { flight in
+                    VStack(alignment: .leading, spacing: 4) {
+                        NavigationLink {
+                            FlightTrackingView(flight: flight)
+                        } label: {
+                            FlightRowView(flight: flight)
+                        }
+                        .buttonStyle(.plain)
+
+                        Button(role: .destructive) {
+                            Task { await appModel.unlinkFlight(flight) }
+                        } label: {
+                            Text("Unlink flight").font(.caption)
+                        }
+                    }
+
+                    if flight.id != trip.orderedFlights.last?.id {
+                        Divider()
+                    }
+                }
             }
         }
     }

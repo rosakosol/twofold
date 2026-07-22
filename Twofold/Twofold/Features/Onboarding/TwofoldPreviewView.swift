@@ -90,7 +90,7 @@ struct TwofoldPreviewView: View {
                                         .foregroundStyle(Theme.subtleInk)
                                     Text(daysToGo == 0 ? "Today 💛" : "\(daysToGo) days to go")
                                         .font(.title2.weight(.bold))
-                                    if let flight = trip.flight {
+                                    if let flight = trip.mostRelevantFlight {
                                         Text("\(flight.flightNumber) · \(trip.origin.city) → \(trip.destination.city)")
                                             .font(.caption)
                                             .foregroundStyle(Theme.subtleInk)

@@ -66,7 +66,11 @@ struct PendingFlightShareReviewView: View {
 
     private func load() async {
         do {
-            extracted = try await FlightEmailParsingService.parse(text: share.rawText)
+            extracted = try await FlightEmailParsingService.parse(
+                subject: share.subject,
+                body: share.bodyText,
+                pdfText: share.pdfText
+            )
         } catch {
             extracted = nil
         }
@@ -93,6 +97,6 @@ struct PendingFlightShareReviewView: View {
 }
 
 #Preview {
-    PendingFlightShareReviewView(share: PendingFlightShare(rawText: "QF35 SIN to MEL, 14 Sep 2026, 10:20am"))
+    PendingFlightShareReviewView(share: PendingFlightShare(bodyText: "QF35 SIN to MEL, 14 Sep 2026, 10:20am"))
         .environment(AppModel())
 }

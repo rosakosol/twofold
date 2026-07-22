@@ -312,7 +312,12 @@ private struct FullStatsView: View {
                 .font(.headline)
                 .foregroundStyle(Theme.subtleInk)
 
-            Text("\(Text(MeasurementPreference.convertedValue(km: scopedTrips.reduce(0) { $0 + $1.distanceKm }), format: .number.precision(.fractionLength(0))).font(.system(size: 44, weight: .bold, design: .rounded)).foregroundStyle(Theme.skyBlue))\(Text(" \(MeasurementPreference.unitSuffix())").font(.title.weight(.bold)).foregroundStyle(Theme.leafGreen))")
+            // Reunion-only, same as AppModel.stats.totalDistanceKm — see that property's comment.
+            // Kept reunion-scoped across all three Who tabs (not just "All"), so switching scope
+            // only changes *whose* reunion travel is being measured, never what's being measured.
+            // `effectiveDistanceKm`, not the raw `distanceKm`, so a connecting itinerary's real
+            // flown distance counts.
+            Text("\(Text(MeasurementPreference.convertedValue(km: scopedTrips.filter { $0.isReunionTrip }.reduce(0) { $0 + $1.effectiveDistanceKm }), format: .number.precision(.fractionLength(0))).font(.system(size: 44, weight: .bold, design: .rounded)).foregroundStyle(Theme.skyBlue))\(Text(" \(MeasurementPreference.unitSuffix())").font(.title.weight(.bold)).foregroundStyle(Theme.leafGreen))")
 
             if scope == .all {
                 Text(appModel.couple.sharesHomeCity ? "together" : "for each other")
@@ -534,16 +539,18 @@ struct FlightStats {
     private static let longHaulKm = 4_000.0
 
     init(trips: [Trip], couple: Couple) {
-        let flightTrips = trips.filter { $0.flight != nil }
+        let flightTrips = trips.filter { !$0.flights.isEmpty }
 
         flightCount = flightTrips.count
         userFlightCount = flightTrips.count { $0.travelerIDs.contains(couple.partnerA.id) }
         partnerFlightCount = flightTrips.count { $0.travelerIDs.contains(couple.partnerB.id) }
         domesticCount = flightTrips.count { $0.origin.country == $0.destination.country }
         internationalCount = flightTrips.count { $0.origin.country != $0.destination.country }
-        longHaulCount = flightTrips.count { $0.distanceKm > Self.longHaulKm }
+        // `effectiveDistanceKm` (not the raw trip `distanceKm`) so a connecting itinerary's real
+        // flown distance counts — see Trip.effectiveDistanceKm.
+        longHaulCount = flightTrips.count { $0.effectiveDistanceKm > Self.longHaulKm }
 
-        totalDistanceKm = flightTrips.reduce(0) { $0 + $1.distanceKm }
+        totalDistanceKm = flightTrips.reduce(0) { $0 + $1.effectiveDistanceKm }
         averageDistanceKm = flightTrips.isEmpty ? 0 : totalDistanceKm / Double(flightTrips.count)
 
         let durations = flightTrips.map { max(0, $0.arrivalDate.timeIntervalSince($0.departureDate)) }
@@ -551,20 +558,23 @@ struct FlightStats {
         averageFlightTime = durations.isEmpty ? 0 : totalFlightTime / Double(durations.count)
         longestFlightTime = durations.max() ?? 0
 
-        airports = Self.ranked(flightTrips.flatMap { [Self.airportName($0.origin), Self.airportName($0.destination)] })
-        airlines = Self.ranked(flightTrips.compactMap { trip in
-            let code = trip.flight?.flightNumber.prefix { $0.isLetter } ?? ""
-            return code.isEmpty ? nil : code.uppercased()
+        // Per-leg, not per-trip — a connecting itinerary (Melbourne → Singapore → London) really
+        // did touch Singapore's airport and may well have flown two different airlines, neither
+        // of which the trip's own stated origin/destination alone would surface.
+        airports = Self.ranked(flightTrips.flatMap { trip in
+            trip.flights.flatMap { [$0.origin.displayCode, $0.destination.displayCode] }
         })
-        routes = Self.ranked(flightTrips.map { trip in
-            // Direction-agnostic, so MEL → LHR and LHR → MEL count as one route.
-            [Self.airportName(trip.origin), Self.airportName(trip.destination)].sorted().joined(separator: " – ")
+        airlines = Self.ranked(flightTrips.flatMap { trip in
+            trip.flights.compactMap { flight -> String? in
+                let code = flight.flightNumber.prefix { $0.isLetter }
+                return code.isEmpty ? nil : code.uppercased()
+            }
+        })
+        routes = Self.ranked(flightTrips.flatMap { trip in
+            // Direction-agnostic per leg, so MEL → SIN and SIN → MEL count as one route.
+            trip.flights.map { [$0.origin.displayCode, $0.destination.displayCode].sorted().joined(separator: " – ") }
         })
         countries = Self.ranked(trips.flatMap { [$0.origin.country, $0.destination.country] })
-    }
-
-    private static func airportName(_ place: Place) -> String {
-        place.iataCode?.uppercased() ?? place.city
     }
 
     private static func ranked(_ names: [String]) -> [Ranked] {

@@ -1016,7 +1016,7 @@ enum BackendService {
         var trips: [Trip]
         var memories: [Memory]
         /// Every flight for the couple — the authoritative list. Trip-linked flights are also
-        /// mirrored onto `trip.flight` for backward compatibility with trip-scoped UI.
+        /// grouped onto `trip.flights` for trip-scoped UI (a trip can have more than one leg).
         var flights: [Flight]
         /// "Your partner doesn't pay anything" — access is granted if *either* partner's
         /// device last reported an active local StoreKit entitlement.
@@ -1133,16 +1133,15 @@ enum BackendService {
         )
 
         let flights = flightRows.map { Self.makeFlight(from: $0) }
-        // A trip can have at most one *meaningfully* linked flight for the existing trip-scoped
-        // UI (TripsListView, GlobeHomeView's reunion card) — first-match is fine since that's
-        // the only shape the current add-flight flows ever produce.
-        let flightsByTrip = Dictionary(flights.compactMap { flight in flight.tripID.map { ($0, flight) } }, uniquingKeysWith: { first, _ in first })
+        // A trip's real itinerary can be more than one tracked flight (e.g. a connecting journey
+        // routed through a layover) — group by trip rather than keeping only the first match.
+        let flightsByTrip = Dictionary(grouping: flights.filter { $0.tripID != nil }, by: { $0.tripID! })
 
         let trips: [Trip] = tripRows.compactMap { row in
             guard let origin = places[row.originId],
                   let destination = places[row.destinationId] else { return nil }
 
-            var trip = Trip(
+            return Trip(
                 id: row.id,
                 travelerIDs: row.travelerIds,
                 origin: origin,
@@ -1151,10 +1150,9 @@ enum BackendService {
                 arrivalDate: row.arrivalAt,
                 isReunionTrip: isReunionCategory(row.category),
                 distanceKm: row.distanceKm,
+                flights: flightsByTrip[row.id] ?? [],
                 notes: row.notes
             )
-            trip.flight = flightsByTrip[row.id]
-            return trip
         }
 
         let photoRowsByMemory = Dictionary(grouping: memoryPhotoRows, by: \.memoryId)

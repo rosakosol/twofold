@@ -63,15 +63,25 @@ struct ExtractedFlightDetails: Decodable {
 
 enum FlightEmailParsingError: Error {
     case invalidResponse
+    case missingContent
 }
 
 enum FlightEmailParsingService {
-    static func parse(text: String) async throws -> ExtractedFlightDetails {
+    /// `subject`/`body` are tried first server-side; `pdfText` (text extracted from a PDF
+    /// attachment) is only used as a fallback when those don't yield a flight — see
+    /// parse-flight-email's `extractFlight` fallback logic.
+    static func parse(subject: String?, body: String?, pdfText: String?) async throws -> ExtractedFlightDetails {
+        var payload: [String: String] = [:]
+        if let subject, !subject.isEmpty { payload["subject"] = subject }
+        if let body, !body.isEmpty { payload["body"] = body }
+        if let pdfText, !pdfText.isEmpty { payload["pdfText"] = pdfText }
+        guard !payload.isEmpty else { throw FlightEmailParsingError.missingContent }
+
         var request = URLRequest(url: SupabaseConfig.projectURL.appendingPathComponent("functions/v1/parse-flight-email"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(SupabaseConfig.publishableKey, forHTTPHeaderField: "apiKey")
-        request.httpBody = try JSONEncoder().encode(["text": text])
+        request.httpBody = try JSONEncoder().encode(payload)
 
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {

@@ -301,7 +301,7 @@ private struct TripPageView: View {
         ) {
             VStack(alignment: .leading, spacing: Theme.Spacing.md) {
                 routeCard
-                if let flight = trip.flight {
+                ForEach(trip.orderedFlights) { flight in
                     HStack(spacing: Theme.Spacing.sm) {
                         Image(systemName: "airplane.circle.fill").foregroundStyle(Theme.skyBlue)
                         Text("\(flight.displayNumber)\(flight.airlineName.map { " · \($0)" } ?? "")")

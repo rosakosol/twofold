@@ -57,7 +57,7 @@ enum MockData {
         arrivalDate: activeFlight.scheduledArrival,
         isReunionTrip: true,
         distanceKm: 6060,
-        flight: activeFlight
+        flights: [activeFlight]
     )
 
     static let pastLandedFlight: Flight = {
@@ -83,7 +83,7 @@ enum MockData {
         arrivalDate: pastLandedFlight.scheduledArrival,
         isReunionTrip: true,
         distanceKm: 6060,
-        flight: pastLandedFlight,
+        flights: [pastLandedFlight],
         notes: "You flew to Dara"
     )
 

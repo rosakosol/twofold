@@ -1,6 +1,12 @@
 // Extracts flight number, origin airport, and scheduled departure (plus optional
-// destination) from raw shared email text, using OpenAI structured outputs so the
-// response is guaranteed to match our schema rather than free-form prose.
+// destination) from a shared email, using OpenAI structured outputs so the response is
+// guaranteed to match our schema rather than free-form prose.
+//
+// Input is `subject`/`body` (the email's subject line and text body) plus an optional
+// `pdfText` (text already extracted client-side from a PDF attachment, e.g. a boarding
+// pass or e-ticket). Subject+body are tried first since that's the common case and
+// cheapest; `pdfText` is only used as a fallback when nothing usable comes from them,
+// since PDF text (barcodes, boilerplate) is noisier and less reliable to extract from.
 //
 // Stateless — no DB read/write — so it's callable with just the Supabase publishable
 // (anon) key. Requires the OPENAI_API_KEY secret: `supabase secrets set OPENAI_API_KEY=...`
@@ -52,38 +58,62 @@ const EXTRACTION_SCHEMA = {
   additionalProperties: false,
 };
 
+async function extractFlight(text: string) {
+  const response = await openai.responses.create({
+    model: MODEL,
+    input: [
+      {
+        role: "system",
+        content:
+          "You extract flight details from a shared email (booking confirmations, itineraries, " +
+          "check-in reminders, boarding passes). The input may include a 'Subject:' line, a " +
+          "'Body:' section, or both — booking confirmation subjects often summarize the flight " +
+          "number and date even when the body is sparse, so weigh both equally. " +
+          "Only fill a field if you are confident it is correct — return null rather than guessing. " +
+          "Dates/times must be copied exactly as stated, with no timezone conversion.",
+      },
+      { role: "user", content: text },
+    ],
+    text: {
+      format: {
+        type: "json_schema",
+        name: "flight_extraction",
+        schema: EXTRACTION_SCHEMA,
+        strict: true,
+      },
+    },
+  });
+
+  return response.output_parsed ?? JSON.parse(response.output_text);
+}
+
+function hasContent(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
 export default {
   fetch: withSupabase({ auth: ["publishable"] }, async (req, _ctx) => {
-    const { text } = await req.json();
+    const { subject, body, pdfText } = await req.json();
 
-    if (!text || typeof text !== "string" || text.trim().length === 0) {
-      return Response.json({ error: "Missing 'text'" }, { status: 400 });
+    const primarySections = [
+      hasContent(subject) ? `Subject: ${subject.trim()}` : null,
+      hasContent(body) ? `Body:\n${body.trim()}` : null,
+    ].filter((section): section is string => section !== null);
+    const primaryText = primarySections.join("\n\n");
+
+    if (primaryText.length === 0 && !hasContent(pdfText)) {
+      return Response.json({ error: "Missing 'subject'/'body'/'pdfText'" }, { status: 400 });
     }
 
-    const response = await openai.responses.create({
-      model: MODEL,
-      input: [
-        {
-          role: "system",
-          content:
-            "You extract flight details from shared email text (booking confirmations, itineraries, check-in reminders). " +
-            "Only fill a field if you are confident it is correct — return null rather than guessing. " +
-            "Dates/times must be copied exactly as stated in the email, with no timezone conversion.",
-        },
-        { role: "user", content: text },
-      ],
-      text: {
-        format: {
-          type: "json_schema",
-          name: "flight_extraction",
-          schema: EXTRACTION_SCHEMA,
-          strict: true,
-        },
-      },
-    });
+    let parsed = primaryText.length > 0 ? await extractFlight(primaryText) : null;
 
-    const parsed = response.output_parsed ?? JSON.parse(response.output_text);
-    return Response.json(parsed);
+    // Subject/body didn't yield a usable flight — fall back to text extracted from a PDF
+    // attachment (boarding pass, e-ticket), if one was provided.
+    if ((!parsed || !parsed.flightNumber) && hasContent(pdfText)) {
+      parsed = await extractFlight(pdfText.trim());
+    }
+
+    return Response.json(parsed ?? {});
   }),
 };
 
@@ -94,6 +124,7 @@ export default {
 
   curl -i --location --request POST 'http://127.0.0.1:54321/functions/v1/parse-flight-email' \
     --header 'apiKey: sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH' \
-    --data '{"text":"Your flight QF35 departs Singapore (SIN) on 14 Sep 2026 at 10:20..."}'
+    --header 'Content-Type: application/json' \
+    --data '{"subject":"Your Jetstar itinerary","body":"Flight QF35 departs Singapore (SIN) on 14 Sep 2026 at 10:20..."}'
 
 */

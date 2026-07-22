@@ -664,7 +664,7 @@ struct HomeView: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
 
-                    if let flight = trip.flight {
+                    if let flight = trip.mostRelevantFlight {
                         Text("\(trip.departureDate, format: .dateTime.day().month(.abbreviated)) · \(flight.flightNumber)")
                             .font(.caption)
                             .foregroundStyle(Theme.subtleInk)

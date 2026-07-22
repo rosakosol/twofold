@@ -132,7 +132,7 @@ final class AppModel {
 
     var needsPartnerInvite: Bool { !partnerConnected }
     var needsFirstTrip: Bool { trips.isEmpty }
-    var needsFirstFlight: Bool { !trips.contains { $0.flight != nil } }
+    var needsFirstFlight: Bool { !trips.contains { !$0.flights.isEmpty } }
     var needsHomeCities: Bool { couple.partnerA.homeCity == nil || couple.partnerB.homeCity == nil }
 
     var activeTrip: Trip? {
@@ -169,12 +169,19 @@ final class AppModel {
     }
 
     var stats: MockData.RelationshipStats {
-        let totalDistance = trips.reduce(0) { $0 + $1.distanceKm }
+        // Reunion-only — this feeds the "you've travelled X for each other" hero (PassportView,
+        // SnapshotThemeCard), which should only count trips actually taken to see each other, not
+        // every trip ever logged (a solo/personal trip isn't "for each other" just because it
+        // happened). `FlightStats.totalDistanceKm` is the separate, deliberately-unfiltered "every
+        // flight regardless of reason" figure shown in the Flight Distance breakdown.
+        // `effectiveDistanceKm` (not the raw `distanceKm`) so a connecting itinerary's real
+        // flown distance counts, not just the trip's direct origin→destination distance.
+        let totalDistance = trips.filter { $0.isReunionTrip }.reduce(0) { $0 + $1.effectiveDistanceKm }
         let daysTogether = max(0, Calendar.current.dateComponents([.day], from: couple.startedDatingOn, to: .now).day ?? 0)
         return MockData.RelationshipStats(
             totalDistanceKm: totalDistance,
             tripCount: trips.count,
-            flightCount: trips.filter { $0.flight != nil }.count,
+            flightCount: trips.filter { !$0.flights.isEmpty }.count,
             countryCount: Set(trips.flatMap { [$0.origin.country, $0.destination.country] }).count,
             daysTogether: daysTogether,
             earthMultiple: totalDistance / Geo.earthCircumferenceKm
@@ -942,7 +949,7 @@ final class AppModel {
         if let fresh = try? await BackendService.fetchFlights(coupleID: backendCoupleID) {
             flights = fresh
             for index in trips.indices {
-                trips[index].flight = fresh.first { $0.tripID == trips[index].id }
+                trips[index].flights = fresh.filter { $0.tripID == trips[index].id }
             }
             await LiveActivityManager.shared.reconcileOnLaunch(with: fresh)
             await LiveActivityManager.shared.syncActivities(
@@ -978,7 +985,7 @@ final class AppModel {
         guard let backendCoupleID else { return }
         if var fresh = try? await BackendService.fetchTrips(coupleID: backendCoupleID) {
             for index in fresh.indices {
-                fresh[index].flight = flights.first { $0.tripID == fresh[index].id }
+                fresh[index].flights = flights.filter { $0.tripID == fresh[index].id }
             }
             trips = fresh
         }
@@ -1013,13 +1020,13 @@ final class AppModel {
 
     /// Full edit of a trip's own fields (origin/destination/dates/category/notes) — as opposed
     /// to `updateTripNotes`, which only ever touched notes. Recomputes `distanceKm` since
-    /// either city could have changed, and preserves the trip's linked flight (not part of what
+    /// either city could have changed, and preserves the trip's linked flights (not part of what
     /// this edits).
     func updateTrip(_ trip: Trip) async {
         guard let index = trips.firstIndex(where: { $0.id == trip.id }) else { return }
         var updated = trip
         updated.distanceKm = Geo.distanceKm(trip.origin.coordinate, trip.destination.coordinate)
-        updated.flight = trips[index].flight
+        updated.flights = trips[index].flights
         trips[index] = updated
         try? await BackendService.updateTrip(updated)
     }
@@ -1030,25 +1037,32 @@ final class AppModel {
         PendingTripStore.remove(id: trip.id)
         pendingFlightCandidates.removeValue(forKey: trip.id)
         Analytics.capture(Analytics.Event.tripDelete)
-        // `flights.trip_id` has ON DELETE SET NULL server-side — the flight survives
-        // untethered, so mirror that locally rather than leaving it pointing at a trip that no
-        // longer exists.
-        if let flightIndex = flights.firstIndex(where: { $0.tripID == trip.id }) {
-            flights[flightIndex].tripID = nil
+        // `flights.trip_id` has ON DELETE SET NULL server-side — every leg survives untethered
+        // (there can be more than one), so mirror that locally rather than leaving any of them
+        // pointing at a trip that no longer exists.
+        for index in flights.indices where flights[index].tripID == trip.id {
+            flights[index].tripID = nil
         }
         guard backendCoupleID != nil else { return }
         try? await BackendService.deleteTrip(id: trip.id)
     }
 
-    /// The only way to attach an already-tracked flight to a trip after the fact — every other
-    /// write path for `flight.tripID` (`AeroFlightService.addFlight`) only ever sets it once,
-    /// at add-flight time.
+    /// Keeps `trips[tripID].flights` consistent with the authoritative `flights` array after any
+    /// local mutation to a flight's `tripID`/fields — recomputed fresh from `flights` rather than
+    /// patched in place, so it's correct regardless of how many legs that trip has.
+    private func syncTripFlights(tripID: UUID) {
+        guard let tripIndex = trips.firstIndex(where: { $0.id == tripID }) else { return }
+        trips[tripIndex].flights = flights.filter { $0.tripID == tripID }
+    }
+
+    /// Attaches an already-tracked flight to a trip — a trip can have more than one (e.g. a
+    /// connecting itinerary tracked as separate legs), so this adds rather than replaces. Every
+    /// other write path for `flight.tripID` (`AeroFlightService.addFlight`) only ever sets it
+    /// once, at add-flight time.
     func linkFlight(_ flight: Flight, to trip: Trip) async {
         guard let flightIndex = flights.firstIndex(where: { $0.id == flight.id }) else { return }
         flights[flightIndex].tripID = trip.id
-        if let tripIndex = trips.firstIndex(where: { $0.id == trip.id }) {
-            trips[tripIndex].flight = flights[flightIndex]
-        }
+        syncTripFlights(tripID: trip.id)
         try? await BackendService.setFlightTrip(flightID: flight.id, tripID: trip.id)
     }
 
@@ -1056,9 +1070,7 @@ final class AppModel {
         guard let flightIndex = flights.firstIndex(where: { $0.id == flight.id }) else { return }
         let tripID = flights[flightIndex].tripID
         flights[flightIndex].tripID = nil
-        if let tripID, let tripIndex = trips.firstIndex(where: { $0.id == tripID }) {
-            trips[tripIndex].flight = nil
-        }
+        if let tripID { syncTripFlights(tripID: tripID) }
         try? await BackendService.setFlightTrip(flightID: flight.id, tripID: nil)
     }
 
@@ -1069,9 +1081,7 @@ final class AppModel {
     func setFlightTravelers(_ flight: Flight, travelerIDs: [UUID]) async {
         guard let index = flights.firstIndex(where: { $0.id == flight.id }) else { return }
         flights[index].travelerIDs = travelerIDs
-        if let tripID = flights[index].tripID, let tripIndex = trips.firstIndex(where: { $0.id == tripID }) {
-            trips[tripIndex].flight = flights[index]
-        }
+        if let tripID = flights[index].tripID { syncTripFlights(tripID: tripID) }
         try? await BackendService.setFlightTravelers(flightID: flight.id, travelerIDs: travelerIDs)
     }
 

@@ -40,7 +40,9 @@ struct RelationshipMilestoneStats {
 
         let reunions = trips.filter { $0.isReunionTrip }
         reunionCount = reunions.count
-        reunionDistanceKm = reunions.reduce(0) { $0 + $1.distanceKm }
+        // `effectiveDistanceKm`, not the raw `distanceKm` — a connecting itinerary's real flown
+        // distance should count, not just the trip's direct origin→destination distance.
+        reunionDistanceKm = reunions.reduce(0) { $0 + $1.effectiveDistanceKm }
 
         // Guards against any legacy row where arrival <= departure (bad data), rather than
         // letting a zero/negative "duration" win a max()/min() it has no business winning.

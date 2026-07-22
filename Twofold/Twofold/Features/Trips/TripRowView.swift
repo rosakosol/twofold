@@ -28,7 +28,7 @@ struct TripRowView: View {
     }
 
     private var statusBadge: (text: String, tint: Color)? {
-        guard let flight = trip.flight else { return nil }
+        guard let flight = trip.mostRelevantFlight else { return nil }
         switch flight.status {
         case .arrived, .landed: return ("Landed", Theme.leafGreen)
         case .boarding: return ("Boarding", Theme.skyBlue)
@@ -78,8 +78,8 @@ struct TripRowView: View {
 
                 HStack(spacing: Theme.Spacing.xs) {
                     Text(trip.departureDate, format: .dateTime.day().month(.abbreviated).year())
-                    if let flight = trip.flight {
-                        Text("· \(flight.flightNumber)")
+                    if let flight = trip.mostRelevantFlight {
+                        Text(trip.flights.count > 1 ? "· \(flight.flightNumber) +\(trip.flights.count - 1)" : "· \(flight.flightNumber)")
                     }
                 }
                 .font(.caption)

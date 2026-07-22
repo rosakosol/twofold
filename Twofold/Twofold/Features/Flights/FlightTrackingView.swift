@@ -1192,7 +1192,7 @@ struct FlightTrackingView: View {
 
 #Preview {
     NavigationStack {
-        FlightTrackingView(flight: MockData.reunionTrip.flight ?? MockData.activeFlight)
+        FlightTrackingView(flight: MockData.reunionTrip.mostRelevantFlight ?? MockData.activeFlight)
     }
     .environment(AppModel())
 }

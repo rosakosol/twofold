@@ -36,8 +36,11 @@ struct FlightConfirmationView: View {
         }
     }
 
-    private var flightlessTrips: [Trip] {
-        appModel.trips.filter { $0.flight == nil }
+    /// Every trip is linkable, not just ones with no flight yet — a trip's real itinerary can be
+    /// more than one tracked flight (e.g. a connecting journey), so this flight might be a second
+    /// or third leg rather than the first.
+    private var linkableTrips: [Trip] {
+        appModel.trips
     }
 
     var body: some View {
@@ -84,12 +87,12 @@ struct FlightConfirmationView: View {
                         .pickerStyle(.segmented)
                     }
 
-                    if !flightlessTrips.isEmpty {
+                    if !linkableTrips.isEmpty {
                         VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                             Text("Link to a trip").font(.caption).foregroundStyle(Theme.subtleInk)
                             Picker("Link to a trip", selection: $linkedTripID) {
                                 Text("None").tag(Trip.ID?.none)
-                                ForEach(flightlessTrips) { trip in
+                                ForEach(linkableTrips) { trip in
                                     Text("\(trip.origin.city) → \(trip.destination.city)").tag(Trip.ID?.some(trip.id))
                                 }
                             }
