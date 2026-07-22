@@ -103,7 +103,6 @@ struct DistanceShareCard: View {
         }
         .frame(width: Self.mapSize.width, height: Self.mapSize.height)
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(.white.opacity(0.25), lineWidth: 1))
         .shadow(color: .black.opacity(0.35), radius: 16, y: 8)
     }
 
