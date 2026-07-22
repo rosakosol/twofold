@@ -3,9 +3,11 @@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { GameTypeStats } from "@/components/admin/games/GameTypeStats";
 import { OverallGameStats } from "@/components/admin/games/OverallGameStats";
+import { DuplicateChecker } from "@/components/admin/games/DuplicateChecker";
 import { CONTENT_TYPES } from "@/lib/games/contentTypes";
 
 const OVERALL_TAB = "overall";
+const DUPLICATES_TAB = "duplicates";
 
 export default function AdminGamesPage() {
   return (
@@ -20,6 +22,7 @@ export default function AdminGamesPage() {
       <Tabs defaultValue={OVERALL_TAB} className="mt-6">
         <TabsList>
           <TabsTrigger value={OVERALL_TAB}>Overall</TabsTrigger>
+          <TabsTrigger value={DUPLICATES_TAB}>Similarity Check</TabsTrigger>
           {CONTENT_TYPES.map((c) => (
             <TabsTrigger key={c.key} value={c.key}>
               {c.label}
@@ -29,6 +32,9 @@ export default function AdminGamesPage() {
 
         <TabsContent value={OVERALL_TAB} className="mt-4">
           <OverallGameStats />
+        </TabsContent>
+        <TabsContent value={DUPLICATES_TAB} className="mt-4">
+          <DuplicateChecker />
         </TabsContent>
         {CONTENT_TYPES.map((c) => (
           <TabsContent key={c.key} value={c.key} className="mt-4">
