@@ -93,7 +93,7 @@ struct FlightConfirmationView: View {
                             Picker("Link to a trip", selection: $linkedTripID) {
                                 Text("None").tag(Trip.ID?.none)
                                 ForEach(linkableTrips) { trip in
-                                    Text("\(trip.origin.city) → \(trip.destination.city)").tag(Trip.ID?.some(trip.id))
+                                    Text("\(trip.origin.displayCity) → \(trip.destination.displayCity)").tag(Trip.ID?.some(trip.id))
                                 }
                             }
                             .pickerStyle(.menu)

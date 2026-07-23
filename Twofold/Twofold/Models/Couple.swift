@@ -16,13 +16,19 @@ struct Couple: Identifiable, Hashable {
     /// midnight — not to be confused with `startedDatingOn`, the couple's own real-world
     /// anniversary date.
     var connectedAt: Date?
+    /// The greatest distance ever recorded between this couple's two home cities — a persisted
+    /// running max (see `update_couple_max_distance`), since home cities change over time and
+    /// nothing else remembers how far apart you've been in the past. Nil for a couple that's
+    /// never had both home cities set at once yet.
+    var maxDistanceKm: Double?
 
-    init(id: UUID = UUID(), partnerA: Person, partnerB: Person, startedDatingOn: Date, connectedAt: Date? = nil) {
+    init(id: UUID = UUID(), partnerA: Person, partnerB: Person, startedDatingOn: Date, connectedAt: Date? = nil, maxDistanceKm: Double? = nil) {
         self.id = id
         self.partnerA = partnerA
         self.partnerB = partnerB
         self.startedDatingOn = startedDatingOn
         self.connectedAt = connectedAt
+        self.maxDistanceKm = maxDistanceKm
     }
 
     /// Whether both partners share the same home city — used to soften copy that would

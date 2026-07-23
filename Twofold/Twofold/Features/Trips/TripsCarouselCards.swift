@@ -2,18 +2,16 @@
 //  TripsCarouselCards.swift
 //  Twofold
 //
-//  Compact, fixed-width cards for the Trips tab's peek-height browse sheet — floating directly
-//  over the full-screen globe, unlike `TripRowView`/`FlightRowView` which are plain backgroundless
-//  rows built for a `List`'s own chrome. Purpose-built rather than retrofitting those (which stay
+//  Compact cards for the Trips tab's peek-height browse sheet — floating directly over the
+//  full-screen globe, unlike `TripRowView`/`FlightRowView` which are plain backgroundless rows
+//  built for a `List`'s own chrome. Purpose-built rather than retrofitting those (which stay
 //  exactly as they are for the sheet's expanded `.large`-detent list), so a little of their
 //  countdown/summary logic is duplicated here in compact form rather than shared — small enough,
-//  and each view's real job (fixed-width floating card vs. full-width list row) is different
-//  enough, that forcing one shared implementation would cost more than the duplication does.
+//  and each view's real job (single floating card vs. full-width list row) is different enough,
+//  that forcing one shared implementation would cost more than the duplication does.
 //
 
 import SwiftUI
-
-private let carouselCardWidth: CGFloat = 300
 
 struct TripCarouselCard: View {
     let trip: Trip
@@ -28,45 +26,54 @@ struct TripCarouselCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-            HStack(spacing: Theme.Spacing.md) {
+        HStack(alignment: .top, spacing: Theme.Spacing.md) {
+            VStack(spacing: Theme.Spacing.xs) {
                 countdownBadge
-
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: Theme.Spacing.xs) {
-                        Text(trip.origin.city).lineLimit(1)
-                        Image(systemName: "arrow.right")
-                        Text(trip.destination.city).lineLimit(1)
-                    }
-                    .font(.subheadline.weight(.semibold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-
-                    Text(dateRangeText)
-                        .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
-                }
-
-                Spacer(minLength: 0)
+                travelerAvatars
             }
 
-            HStack {
-                HStack(spacing: -8) {
-                    ForEach(travelers) { person in
-                        AvatarView(person: person, size: 20)
-                            .overlay(Circle().stroke(Theme.cardBackground, lineWidth: 1.5))
-                    }
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: Theme.Spacing.xs) {
+                    Text(trip.origin.displayCity).lineLimit(1)
+                    Image(systemName: "arrow.right")
+                    Text(trip.destination.displayCity).lineLimit(1)
                 }
-                Spacer()
-                Text(RelationshipMilestoneStats.tripDuration(trip))
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(Theme.ink)
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                // Back on one row now that this card spans the panel's full width (see
+                // `TripsListView`'s single-card peek) rather than a narrow fixed-width carousel
+                // card — there's room for both without crowding, so no reason to spend a whole
+                // extra line on the duration alone.
+                HStack(spacing: Theme.Spacing.xs) {
+                    Text(dateRangeText)
+                    Text("·")
+                    Text(RelationshipMilestoneStats.tripDuration(trip))
+                }
+                .font(.caption)
+                .foregroundStyle(Theme.subtleInk)
+                .lineLimit(1)
             }
         }
         .padding(Theme.Spacing.md)
-        .frame(width: carouselCardWidth, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         .shadow(color: .black.opacity(0.15), radius: 12, y: 6)
+    }
+
+    /// Centered under `countdownBadge` (same fixed 38pt column) rather than floating at the
+    /// card's own bottom-left — the badge is what these travelers are "for", so pairing them
+    /// visually reads more directly than a separate row.
+    private var travelerAvatars: some View {
+        HStack(spacing: -8) {
+            ForEach(travelers) { person in
+                AvatarView(person: person, size: 20)
+                    .overlay(Circle().stroke(Theme.cardBackground, lineWidth: 1.5))
+            }
+        }
+        .frame(width: 38)
     }
 
     @ViewBuilder
@@ -133,7 +140,7 @@ struct FlightCarouselCard: View {
             }
         }
         .padding(Theme.Spacing.md)
-        .frame(width: carouselCardWidth, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         .shadow(color: .black.opacity(0.15), radius: 12, y: 6)
     }

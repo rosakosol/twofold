@@ -66,7 +66,16 @@ struct RelationshipStatsShareCard: View {
 
     private var textColor: Color { isLightBackground ? Theme.ink : .white }
 
+    @ViewBuilder
     var body: some View {
+        if backgroundTheme == .classic {
+            classicBody
+        } else {
+            storyBody
+        }
+    }
+
+    private var storyBody: some View {
         VStack(spacing: Theme.Spacing.lg) {
             TwofoldBrandMark(color: textColor, size: 28, textStyle: .title3)
 
@@ -99,6 +108,32 @@ struct RelationshipStatsShareCard: View {
         .padding(.vertical, Theme.Spacing.xl)
         .frame(maxWidth: .infinity)
         .background(backgroundGradient)
+        .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
+    }
+
+    /// The default — a white card that mirrors the in-app `RelationshipStatsCard` almost exactly
+    /// (same couple header, hero row, and milestone tiles with matching icons), rather than the
+    /// photo-story/gradient treatment every other background option uses. Reuses
+    /// `RelationshipStatsCard` directly instead of re-implementing its layout — this view exists
+    /// only to add the brand mark on top, which the in-app card (surrounded by its own screen
+    /// chrome) has no need for.
+    private var classicBody: some View {
+        VStack(spacing: Theme.Spacing.sm) {
+            TwofoldBrandMark(color: Theme.ink, size: 24, textStyle: .title3)
+            RelationshipStatsCard(
+                couple: couple,
+                stats: stats,
+                showTripsStat: showTripsChip,
+                showReunionsStat: showReunionsChip,
+                showMemoriesStat: showMemoriesChip
+            )
+        }
+        // `RelationshipStatsCard` already carries its own `SectionCard` padding — this only
+        // needs enough outer margin for the brand mark and the rounded-corner clip below, not a
+        // second full padding pass stacked on top of that (which was making the card's own
+        // bottom-half stats look over-padded specifically on this share screen, not in-app).
+        .padding(Theme.Spacing.sm)
+        .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
     }
 
@@ -216,7 +251,7 @@ struct RelationshipStatsShareCard: View {
         trips: MockData.trips,
         memories: MockData.memories,
         selectedMemoryIDs: Set(MockData.memories.prefix(6).map(\.id)),
-        stats: RelationshipMilestoneStats(trips: MockData.trips, memories: MockData.memories, startedDatingOn: .now.addingTimeInterval(-86_400 * 400))
+        stats: RelationshipMilestoneStats(couple: MockData.couple, trips: MockData.trips, memories: MockData.memories)
     )
     .padding()
     .background(Color.black)

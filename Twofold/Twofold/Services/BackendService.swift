@@ -747,6 +747,7 @@ enum BackendService {
         /// fails `fetchCoupleState()` entirely, which `loadSignedInState()` silently swallows and
         /// falls back to the solo-profile path, making a fully paired couple look disconnected.
         var startedDatingOnRaw: String?
+        var maxDistanceKm: Double?
 
         enum CodingKeys: String, CodingKey {
             case id, status
@@ -755,6 +756,7 @@ enum BackendService {
             case dissolvedAt = "dissolved_at"
             case startedDatingOnRaw = "started_dating_on"
             case createdAt = "created_at"
+            case maxDistanceKm = "max_distance_km"
         }
 
         var startedDatingOn: Date? {
@@ -1164,7 +1166,8 @@ enum BackendService {
             // one during onboarding) — `.now` is only a last-resort fallback for the rare case
             // neither partner ever set one.
             startedDatingOn: coupleRow.startedDatingOn ?? .now,
-            connectedAt: coupleRow.createdAt
+            connectedAt: coupleRow.createdAt,
+            maxDistanceKm: coupleRow.maxDistanceKm
         )
 
         let flights = flightRows.map { Self.makeFlight(from: $0) }
@@ -1244,6 +1247,26 @@ enum BackendService {
             partnerConnectedCelebrationShown: meProfile.partnerConnectedCelebrationShown,
             setupChecklistDismissed: meProfile.setupChecklistDismissed
         )
+    }
+
+    /// Best-effort — a failed update just means the persisted high-water-mark stays stale until
+    /// the next opportunity, not something worth surfacing as an error to the caller (see
+    /// `AppModel.performAdopt`, the one call site). `couples` has no direct client update
+    /// policy, so this goes through a security-definer RPC that does the `GREATEST` comparison
+    /// server-side rather than a client read-then-write, which could race across both partners'
+    /// devices and silently drop the higher value.
+    static func updateCoupleMaxDistance(coupleID: UUID, distanceKm: Double) async throws {
+        struct Params: Encodable {
+            var pCoupleId: UUID
+            var pDistanceKm: Double
+            enum CodingKeys: String, CodingKey {
+                case pCoupleId = "p_couple_id"
+                case pDistanceKm = "p_distance_km"
+            }
+        }
+        try await supabase
+            .rpc("update_couple_max_distance", params: Params(pCoupleId: coupleID, pDistanceKm: distanceKm))
+            .execute()
     }
 
     // MARK: - Trips / flights

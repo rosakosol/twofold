@@ -58,13 +58,16 @@ struct RelationshipStatsCustomizationView: View {
                             .fill(LinearGradient(colors: theme.colors, startPoint: .topLeading, endPoint: .bottomTrailing))
                             .frame(width: 40, height: 40)
                             .overlay {
-                                Circle().strokeBorder(Theme.ink.opacity(backgroundTheme == theme ? 0.8 : 0), lineWidth: 2.5)
+                                // A faint outline even when unselected — `.classic`'s swatch is
+                                // white, which would otherwise be invisible against this card's
+                                // own light background.
+                                Circle().strokeBorder(Theme.ink.opacity(backgroundTheme == theme ? 0.8 : 0.15), lineWidth: 2.5)
                             }
                             .overlay {
                                 if backgroundTheme == theme {
                                     Image(systemName: "checkmark")
                                         .font(.caption.weight(.bold))
-                                        .foregroundStyle(.white)
+                                        .foregroundStyle(theme == .classic ? Theme.ink : .white)
                                 }
                             }
                         Text(theme.rawValue)

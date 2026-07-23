@@ -17,7 +17,7 @@ struct RelationshipStatsShareView: View {
     @State private var selectedMemoryIDs: Set<Memory.ID> = []
     @State private var showingPhotoPicker = false
     @State private var showingCustomization = false
-    @State private var backgroundTheme: RelationshipStatsCardBackground = .auto
+    @State private var backgroundTheme: RelationshipStatsCardBackground = .classic
     @State private var showTripsChip = true
     @State private var showReunionsChip = true
     @State private var showMemoriesChip = true
@@ -122,6 +122,6 @@ struct RelationshipStatsShareView: View {
         couple: MockData.couple,
         trips: MockData.trips,
         memories: MockData.memories,
-        stats: RelationshipMilestoneStats(trips: MockData.trips, memories: MockData.memories, startedDatingOn: .now.addingTimeInterval(-86_400 * 400))
+        stats: RelationshipMilestoneStats(couple: MockData.couple, trips: MockData.trips, memories: MockData.memories)
     )
 }

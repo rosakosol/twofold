@@ -319,9 +319,15 @@ final class AppModel {
     /// round-trip) — `PaywallView` calls this right after a purchase/restore succeeds, before
     /// its own `onSubscribed()` callback fires, so `RootView`'s gate never flashes a second
     /// paywall for someone who just subscribed (the Supabase write happens alongside this, but
-    /// this local flag is what `RootView` actually reads).
-    func markSubscriptionActive() {
+    /// this local flag is what `RootView` actually reads). Also updates `subscriptionTier` and
+    /// pushes a fresh widget snapshot immediately — previously only `isSubscriptionActive` was
+    /// set here, so tier-gated UI (`isDeckLocked`/`isPremiumLocked`, Home's plan-dependent
+    /// copy) and widgets stayed on the pre-purchase tier until the next foreground/relaunch's
+    /// `performAdopt` round trip.
+    func markSubscriptionActive(tier: String) {
         isSubscriptionActive = true
+        subscriptionTier = tier
+        Task { await WidgetSnapshotWriter.refresh(appModel: self) }
     }
 
     /// Flips instantly (so the caller's UI never shows the celebration twice in one session)
@@ -703,6 +709,7 @@ final class AppModel {
         subscriptionTier = state.subscriptionTier
         partnerConnectedCelebrationShown = state.partnerConnectedCelebrationShown
         setupChecklistDismissed = state.setupChecklistDismissed
+        noteCurrentDistanceIfRecord()
 
         var stillPendingTrips = Set<Trip.ID>()
         for trip in localOnlyTrips {
@@ -765,6 +772,20 @@ final class AppModel {
         pendingMemoryIDs = stillPendingMemories
         Task { await WidgetSnapshotWriter.refresh(appModel: self) }
         await startFlightsRealtimeSubscription(coupleID: state.couple.id)
+    }
+
+    /// Opportunistic persistence for the Stats tab's "Longest distance between" milestone — fires
+    /// every time fresh couple state loads (this runs from `performAdopt`, itself called on every
+    /// foreground refresh), which is exactly when both partners' home cities are known to be
+    /// current. Only calls the backend when today's distance would actually raise the stored
+    /// record, both to avoid a pointless network call on every refresh and because the RPC's own
+    /// `GREATEST` is a safety net for races, not something to lean on for the common case.
+    private func noteCurrentDistanceIfRecord() {
+        guard let mine = couple.partnerA.homeCity?.coordinate, let theirs = couple.partnerB.homeCity?.coordinate else { return }
+        let currentKm = Geo.distanceKm(mine, theirs)
+        guard currentKm > (couple.maxDistanceKm ?? 0) else { return }
+        let coupleID = couple.id
+        Task { try? await BackendService.updateCoupleMaxDistance(coupleID: coupleID, distanceKm: currentKm) }
     }
 
     /// Idempotent — safe to call even if a subscription for this exact couple is already
@@ -907,7 +928,7 @@ final class AppModel {
         if let backendCoupleID {
             do {
                 try await BackendService.insertTrip(coupleID: backendCoupleID, trip: trip)
-                Task { await BackendService.notifyPartner(event: .tripAdded, detail: "\(origin.city) to \(destination.city)") }
+                Task { await BackendService.notifyPartner(event: .tripAdded, detail: "\(origin.displayCity) to \(destination.displayCity)") }
                 if let flightCandidate {
                     if (try? await AeroFlightService.addFlight(faFlightId: flightCandidate.faFlightId, tripID: trip.id, travelerIDs: travelerIDs, notifyMe: true)) != nil {
                         await refreshFlights()

@@ -175,7 +175,9 @@ struct FlightTrackingView: View {
             if let flightChannel { Task { await BackendService.unsubscribe(flightChannel) } }
             if let selfReportChannel { Task { await BackendService.unsubscribe(selfReportChannel) } }
         }
-        .sheet(isPresented: $showingTripNotes) {
+        // Pushed onto this screen's own NavigationStack rather than presented as a second sheet
+        // on top of Flight Details — same reasoning as TripDetailsView's edit flow.
+        .navigationDestination(isPresented: $showingTripNotes) {
             tripNotesSheet
         }
         .sheet(item: $premiumGateFeature) { feature in
@@ -965,26 +967,24 @@ struct FlightTrackingView: View {
     }
 
     private var tripNotesSheet: some View {
-        NavigationStack {
-            TextEditor(text: $tripNotesDraft)
-                .padding(Theme.Spacing.sm)
-                .navigationTitle("Trip checklist")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .topBarLeading) { Button("Cancel") { showingTripNotes = false } }
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button("Save") {
-                            Task {
-                                if var trip = linkedTrip {
-                                    trip.notes = tripNotesDraft
-                                    await appModel.updateTripNotes(trip)
-                                }
-                                showingTripNotes = false
+        TextEditor(text: $tripNotesDraft)
+            .padding(Theme.Spacing.sm)
+            .navigationTitle("Trip checklist")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) { Button("Cancel") { showingTripNotes = false } }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Save") {
+                        Task {
+                            if var trip = linkedTrip {
+                                trip.notes = tripNotesDraft
+                                await appModel.updateTripNotes(trip)
                             }
+                            showingTripNotes = false
                         }
                     }
                 }
-        }
+            }
     }
 
     // MARK: - Notification preferences

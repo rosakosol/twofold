@@ -5,22 +5,21 @@
 
 import SwiftUI
 
-/// The Relationship Stats snapshot card's background choice — `.auto` is the default warm
-/// sunset gradient, everything else is a fixed, curated alternative for a couple who'd rather
-/// pick a different look. A "solid" look is just a gradient whose two stops happen to match —
-/// no separate code path needed.
+/// The Relationship Stats snapshot card's look. `.classic` is the default — a white card that
+/// mirrors the in-app `RelationshipStatsCard` (the same milestone tiles, icons, and layout,
+/// just rendered standalone for sharing) rather than the photo-story layout `.auto` uses. Only
+/// two options now (Ocean/Midnight removed) — a "solid" look would just be a gradient whose two
+/// stops happen to match, no separate case needed if a plain-color option comes back later.
 enum RelationshipStatsCardBackground: String, CaseIterable, Identifiable {
-    case auto = "Auto"
-    case ocean = "Ocean"
-    case midnight = "Midnight"
+    case classic = "Classic"
+    case auto = "Sunset"
 
     var id: String { rawValue }
 
     var colors: [Color] {
         switch self {
+        case .classic: [Color.white, Color.white]
         case .auto: [Color(hex: "FF9A5A"), Color(hex: "C2417A")]
-        case .ocean: [Color(hex: "1B5E82"), Color(hex: "1D6B4A")]
-        case .midnight: [Color(hex: "10192B"), Color(hex: "10192B")]
         }
     }
 }

@@ -1,0 +1,14 @@
+{
+  "/(board)/admin/games/page": "/admin/games",
+  "/(board)/admin/page": "/admin",
+  "/(board)/admin/requests/[id]/page": "/admin/requests/[id]",
+  "/(board)/auth/callback/route": "/auth/callback",
+  "/(board)/auth/sign-in/page": "/auth/sign-in",
+  "/(board)/changelog/page": "/changelog",
+  "/(board)/feedback/[slug]/opengraph-image-1jnjmy/route": "/feedback/[slug]/opengraph-image-1jnjmy",
+  "/(board)/feedback/[slug]/page": "/feedback/[slug]",
+  "/(board)/feedback/bookmarks/page": "/feedback/bookmarks",
+  "/(board)/feedback/page": "/feedback",
+  "/_not-found/page": "/_not-found",
+  "/favicon.ico/route": "/favicon.ico"
+}

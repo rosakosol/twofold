@@ -656,9 +656,9 @@ struct HomeView: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.9)
                     HStack(spacing: Theme.Spacing.xs) {
-                        Text(trip.origin.iataCode ?? trip.origin.city)
+                        Text(trip.origin.iataCode ?? trip.origin.displayCity)
                         Image(systemName: "arrow.right")
-                        Text(trip.destination.iataCode ?? trip.destination.city)
+                        Text(trip.destination.iataCode ?? trip.destination.displayCity)
                     }
                     .font(.headline)
                     .lineLimit(1)

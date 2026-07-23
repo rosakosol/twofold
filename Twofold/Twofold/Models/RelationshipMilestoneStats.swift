@@ -7,6 +7,7 @@
 //  fresh from real trips/memories, same as `FlightStats`, never fabricated.
 //
 
+import CoreLocation
 import Foundation
 
 struct RelationshipMilestoneStats {
@@ -19,18 +20,27 @@ struct RelationshipMilestoneStats {
     let tripCount: Int
     let memoryCount: Int
     let reunionCount: Int
-    /// Total distance covered specifically by trips taken to see each other — a subset of
-    /// `FlightStats.totalDistanceKm`, which counts every trip regardless of reason.
-    let reunionDistanceKm: Double
+    /// The greatest distance ever recorded between this couple's two home cities — the max of
+    /// the persisted historical high-water-mark (`couple.maxDistanceKm`, updated opportunistically
+    /// by `AppModel.noteCurrentDistanceIfRecord`) and whatever their current home cities compute
+    /// to right now, so this never shows a stale, too-low number in the gap before the next
+    /// persisted update lands. Was `reunionDistanceKm` (the *sum* of reunion-trip distances flown
+    /// — a fundamentally different, historical-total metric) before this was rebuilt around a
+    /// live "how far apart have you two been" milestone instead.
+    let longestDistanceKm: Double
     let longestTrip: Trip?
     let shortestTrip: Trip?
-    /// Longest gap between one reunion trip's return and the next one's departure — nil until
-    /// there have been at least two reunion trips to measure a gap between.
+    /// Longest gap between one reunion trip's return and the next one's departure. Falls back to
+    /// "how long since you've been apart" — measured from `couple.connectedAt` (or
+    /// `startedDatingOn` if that's somehow unset) — when there aren't two reunion trips to measure
+    /// a historical gap between but the couple is currently in different home cities, so a couple
+    /// with no trips yet sees a real running count instead of a blank "—".
     let longestSeparationDays: Int?
     let nextReunion: Trip?
     let nextReunionDaysToGo: Int?
 
-    init(trips: [Trip], memories: [Memory], startedDatingOn: Date) {
+    init(couple: Couple, trips: [Trip], memories: [Memory]) {
+        let startedDatingOn = couple.startedDatingOn
         daysTogether = max(0, Calendar.current.dateComponents([.day], from: startedDatingOn, to: .now).day ?? 0)
         let ymd = Calendar.current.dateComponents([.year, .month], from: startedDatingOn, to: .now)
         yearsTogether = max(0, ymd.year ?? 0)
@@ -40,9 +50,12 @@ struct RelationshipMilestoneStats {
 
         let reunions = trips.filter { $0.isReunionTrip }
         reunionCount = reunions.count
-        // `effectiveDistanceKm`, not the raw `distanceKm` — a connecting itinerary's real flown
-        // distance should count, not just the trip's direct origin→destination distance.
-        reunionDistanceKm = reunions.reduce(0) { $0 + $1.effectiveDistanceKm }
+
+        var currentDistanceKm: Double?
+        if let mine = couple.partnerA.homeCity?.coordinate, let theirs = couple.partnerB.homeCity?.coordinate {
+            currentDistanceKm = Geo.distanceKm(mine, theirs)
+        }
+        longestDistanceKm = max(couple.maxDistanceKm ?? 0, currentDistanceKm ?? 0)
 
         // Guards against any legacy row where arrival <= departure (bad data), rather than
         // letting a zero/negative "duration" win a max()/min() it has no business winning.
@@ -60,7 +73,14 @@ struct RelationshipMilestoneStats {
                 }
             }
         }
-        longestSeparationDays = longestGapDays
+        if let longestGapDays {
+            longestSeparationDays = longestGapDays
+        } else if !couple.sharesHomeCity, couple.partnerA.homeCity != nil, couple.partnerB.homeCity != nil {
+            let since = couple.connectedAt ?? startedDatingOn
+            longestSeparationDays = max(0, Calendar.current.dateComponents([.day], from: since, to: .now).day ?? 0)
+        } else {
+            longestSeparationDays = nil
+        }
 
         let upcomingReunions = reunions.filter { $0.departureDate > .now }.sorted { $0.departureDate < $1.departureDate }
         nextReunion = upcomingReunions.first

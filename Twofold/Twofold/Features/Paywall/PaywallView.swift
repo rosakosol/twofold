@@ -393,7 +393,7 @@ struct PaywallView: View {
     private func handleEntitlementChange(_ customerInfo: CustomerInfo, event: String) async {
         guard let tier = SubscriptionTier.active(in: customerInfo) else { return }
         try? await BackendService.updateSubscriptionStatus(active: true, tier: tier.dbValue)
-        appModel.markSubscriptionActive()
+        appModel.markSubscriptionActive(tier: tier.dbValue)
         Analytics.capture(event, properties: ["tier": tier.dbValue])
         onSubscribed()
         // Only when reached as a dismissable sheet/push — RootView's forced gate has nothing to

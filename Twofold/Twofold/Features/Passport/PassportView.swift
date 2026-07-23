@@ -2,15 +2,12 @@
 //  PassportView.swift
 //  Twofold
 //
-//  The "Stats" tab (still `MainTab.passport` internally, and the flight-specific card below
-//  keeps the "Passport" name — only the tab itself was renamed, to reflect that relationship
-//  stats, not just flight stats, are now the primary content). `RelationshipStatsCard` leads —
-//  days together, trips, memories, and deeper milestones (reunions, longest/shortest trip,
-//  longest separation, next reunion countdown). The passport card (flight-specific: routes,
-//  airlines, airports) sits underneath as its own clearly-labeled secondary section. "All Flight
-//  Stats" drills into the full flight breakdown (scoped All / user / partner via a segmented
-//  control) — every card there individually shareable as an image. All computed from real trips,
-//  never fabricated.
+//  The "Stats" tab (still `MainTab.passport` internally) — three sections via the segmented
+//  control: Relationship (days together, trips, memories, milestones), Trips (couple-wide trip
+//  breakdown), and Flights (`FlightStatsCard`, the current user's own tracked-flight numbers).
+//  "All Flight Stats" drills into the full flight breakdown (scoped All / user / partner via a
+//  segmented control) — every card there individually shareable as an image. All computed from
+//  real trips, never fabricated.
 //
 
 import PostHog
@@ -20,51 +17,52 @@ struct PassportView: View {
     @Environment(AppModel.self) private var appModel
     @State private var showingSnapshot = false
     @State private var showingPassportShare = false
+    @State private var showingAllFlightStats = false
+    @State private var section: StatsSection = .relationship
 
-    /// The passport card's own scope — deliberately the current user alone, not the couple
+    private enum StatsSection: String, CaseIterable {
+        case relationship = "Relationship"
+        case trips = "Trips"
+        case flights = "Flights"
+    }
+
+    /// `FlightStatsCard`'s own scope — deliberately the current user alone, not the couple
     /// combined (that framing already lives on `RelationshipStatsCard` above it). Matches "your
-    /// passport" the way a real one only ever documents one person's own travel.
+    /// own travel" the way flight stats are personal, not a shared/couple figure.
     private var flightStats: FlightStats {
         FlightStats(trips: appModel.trips.filter { $0.travelerIDs.contains(appModel.currentUser.id) }, couple: appModel.couple)
     }
 
-    private var visitedCountryNames: Set<String> {
-        WorldMap.visitedNames(from: flightStats.countries.map(\.name))
+    private var relationshipStats: RelationshipMilestoneStats {
+        RelationshipMilestoneStats(couple: appModel.couple, trips: appModel.trips, memories: appModel.memories)
     }
 
-    private var relationshipStats: RelationshipMilestoneStats {
-        RelationshipMilestoneStats(trips: appModel.trips, memories: appModel.memories, startedDatingOn: appModel.couple.startedDatingOn)
+    /// Couple-wide, like `relationshipStats` above — trips are a shared activity, not a
+    /// per-person document the way the flight-specific passport card is.
+    private var tripStats: TripStats {
+        TripStats(trips: appModel.trips)
     }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: Theme.Spacing.lg) {
-                    VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-                        Text("RELATIONSHIP STATS")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(Theme.subtleInk)
-                            .padding(.leading, Theme.Spacing.xs)
-                        RelationshipStatsCard(couple: appModel.couple, stats: relationshipStats)
+                    Picker("Section", selection: $section) {
+                        ForEach(StatsSection.allCases, id: \.self) { option in
+                            Text(option.rawValue).tag(option)
+                        }
                     }
+                    .pickerStyle(.segmented)
 
-                    Button {
-                        showingSnapshot = true
-                    } label: {
-                        Label("Create a snapshot", systemImage: "square.and.arrow.up")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Theme.skyBlue, in: Capsule())
-                            .foregroundStyle(.white)
-                    }
-
-                    VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-                        Text("PASSPORT")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(Theme.subtleInk)
-                            .padding(.leading, Theme.Spacing.xs)
-                        passportCard
+                    switch section {
+                    case .relationship:
+                        RelationshipStatsCard(couple: appModel.couple, stats: relationshipStats) {
+                            showingSnapshot = true
+                        }
+                    case .trips:
+                        TripStatsCard(stats: tripStats)
+                    case .flights:
+                        FlightStatsCard(stats: flightStats, onShare: { showingPassportShare = true }, onShowAllStats: { showingAllFlightStats = true })
                     }
                 }
                 .padding(Theme.Spacing.md)
@@ -75,139 +73,14 @@ struct PassportView: View {
                 RelationshipStatsShareView(couple: appModel.couple, trips: appModel.trips, memories: appModel.memories, stats: relationshipStats)
             }
             .sheet(isPresented: $showingPassportShare) {
-                PassportShareView(couple: appModel.couple, person: appModel.currentUser, stats: flightStats, visitedCountryNames: visitedCountryNames)
+                PassportShareView(stats: flightStats)
             }
-        }
-    }
-
-    // MARK: - Passport card
-
-    /// Deliberately its own "cover" look, not `SectionCard` — every other card on this tab
-    /// reads as an app screen; this one is styled to read as the actual travel document its
-    /// name promises (brand-blue holographic cover, gold foil, engraved serif type), while every
-    /// number in it stays exactly as real as the rest of the app. Palette + holographic
-    /// background live in `PassportTheme` so the share card can reuse them exactly.
-    private var passportCard: some View {
-        VStack(spacing: Theme.Spacing.lg) {
-            passportHeader
-
-            // Hero — same voice and type treatment as the All Flight Stats page, engraved
-            // instead of the app's usual rounded/sky-blue treatment. Individually framed (this
-            // card's own scope), not the couple-combined "for each other" copy — that stays on
-            // RelationshipStatsCard above, which is the couple-framed card.
-            VStack(spacing: Theme.Spacing.xs) {
-                Text("You've travelled")
-                    .font(.system(.subheadline, design: .serif))
-                    .foregroundStyle(.white)
-
-                Text("\(Text(MeasurementPreference.convertedValue(km: flightStats.totalDistanceKm), format: .number.precision(.fractionLength(0))).font(.system(size: 44, weight: .bold, design: .rounded)).foregroundStyle(PassportTheme.gold))\(Text(" \(MeasurementPreference.unitSuffix())").font(.title.weight(.bold)).foregroundStyle(PassportTheme.cream.opacity(0.85)))")
-            }
-            .frame(maxWidth: .infinity)
-
-            passportDivider
-
-            // Taller than the map's true 2:1 equirectangular proportions (a mild, acceptable
-            // stretch at this decorative scale) so it reads as this card's main visual, not a
-            // thin strip — filling the room the avatar/flight-path row used to take.
-            WorldVisitedMapView(visitedCountryNames: visitedCountryNames, aspectRatio: 1.5)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(PassportTheme.gold.opacity(0.25), lineWidth: 1)
-                }
-
-            passportDivider
-
-            HStack(alignment: .top, spacing: Theme.Spacing.sm) {
-                passportStat(label: "Flights", value: "\(flightStats.flightCount)")
-                passportStat(label: "Flight time", value: FlightStats.duration(flightStats.totalFlightTime))
-                passportStat(label: "Airports", value: "\(flightStats.airports.count)")
-                passportStat(label: "Airlines", value: "\(flightStats.airlines.count)")
-                passportStat(label: "Countries", value: "\(flightStats.countries.count)")
-            }
-            .frame(maxWidth: .infinity)
-
-            NavigationLink {
+            .navigationDestination(isPresented: $showingAllFlightStats) {
                 FullStatsView()
-            } label: {
-                HStack {
-                    Text("All Flight Stats")
-                        .font(.subheadline.weight(.semibold))
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption.weight(.bold))
-                }
-                .foregroundStyle(PassportTheme.gold)
-                .padding(.horizontal, Theme.Spacing.md)
-                .padding(.vertical, 12)
-                .background(PassportTheme.gold.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .strokeBorder(PassportTheme.gold.opacity(0.4), lineWidth: 1)
-                }
-            }
-        }
-        .padding(Theme.Spacing.lg)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(PassportHolographicBackground())
-        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-        .overlay {
-            // Cover border, plus a slightly inset second line — the embossed double-rule
-            // classic passport covers use around their emblem/title.
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .strokeBorder(PassportTheme.gold.opacity(0.55), lineWidth: 1.5)
-            RoundedRectangle(cornerRadius: 21, style: .continuous)
-                .strokeBorder(PassportTheme.gold.opacity(0.25), lineWidth: 1)
-                .padding(7)
-        }
-    }
-
-    /// The cover's title block — the real biometric-passport chip symbol standing in for a
-    /// national seal, "PASSPORT" in letter-spaced engraved serif, and a share button.
-    private var passportHeader: some View {
-        ZStack(alignment: .topTrailing) {
-            VStack(spacing: 6) {
-                BiometricPassportSymbol(size: 28)
-                Text("PASSPORT")
-                    .font(.system(.title3, design: .serif).weight(.bold))
-                    .tracking(6)
-                    .foregroundStyle(PassportTheme.cream)
-            }
-            .frame(maxWidth: .infinity)
-
-            Button {
-                showingPassportShare = true
-            } label: {
-                Image(systemName: "square.and.arrow.up")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(PassportTheme.gold)
-                    .padding(8)
-                    .background(PassportTheme.gold.opacity(0.15), in: Circle())
             }
         }
     }
 
-    private var passportDivider: some View {
-        Rectangle()
-            .fill(PassportTheme.gold.opacity(0.3))
-            .frame(height: 1)
-    }
-
-    private func passportStat(label: String, value: String) -> some View {
-        VStack(spacing: 2) {
-            Text(label.uppercased())
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(PassportTheme.gold.opacity(0.75))
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-            Text(value)
-                .font(.system(size: 22, weight: .bold, design: .rounded))
-                .foregroundStyle(PassportTheme.cream)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-        }
-        .frame(maxWidth: .infinity)
-    }
 }
 
 // MARK: - Full stats
@@ -490,8 +363,9 @@ private struct FullStatsView: View {
 // MARK: - Flight stats math
 
 /// Everything the passport card, snapshot card, and full-stats page show, computed from
-/// real trips. Flight-specific numbers only count trips that have a flight attached; the
-/// countries list uses all trips (matching the long-standing `AppModel.stats.countryCount`).
+/// real trips — every field here, including `countries`, counts only trips that have a flight
+/// actually attached, so "All Flight Stats" never mixes in a trip that was just planned/logged
+/// with no real tracked flight behind it.
 struct FlightStats {
     struct Ranked: Identifiable {
         let name: String
@@ -525,9 +399,16 @@ struct FlightStats {
     init(trips: [Trip], couple: Couple) {
         let flightTrips = trips.filter { !$0.flights.isEmpty }
 
-        flightCount = flightTrips.count
-        userFlightCount = flightTrips.count { $0.travelerIDs.contains(couple.partnerA.id) }
-        partnerFlightCount = flightTrips.count { $0.travelerIDs.contains(couple.partnerB.id) }
+        // Per leg, not per trip — a trip with a connecting itinerary or a round trip (outbound +
+        // return, each its own tracked `Flight`) is genuinely two-or-more flights, not one. Using
+        // `flightTrips.count` here previously meant "Flights" quietly measured how many *trips*
+        // had a flight attached rather than how many flights were actually flown, so a couple
+        // with three round-trip vacations (six real flights) saw "Flights: 3" while every other
+        // breakdown below (airports, airlines, routes) already counted all six legs — the two
+        // numbers looked like they disagreed because one was counting trips and the other flights.
+        flightCount = flightTrips.reduce(0) { $0 + $1.flights.count }
+        userFlightCount = flightTrips.filter { $0.travelerIDs.contains(couple.partnerA.id) }.reduce(0) { $0 + $1.flights.count }
+        partnerFlightCount = flightTrips.filter { $0.travelerIDs.contains(couple.partnerB.id) }.reduce(0) { $0 + $1.flights.count }
         domesticCount = flightTrips.count { $0.origin.country == $0.destination.country }
         internationalCount = flightTrips.count { $0.origin.country != $0.destination.country }
         // `effectiveDistanceKm` (not the raw trip `distanceKm`) so a connecting itinerary's real
@@ -537,7 +418,17 @@ struct FlightStats {
         totalDistanceKm = flightTrips.reduce(0) { $0 + $1.effectiveDistanceKm }
         averageDistanceKm = flightTrips.isEmpty ? 0 : totalDistanceKm / Double(flightTrips.count)
 
-        let durations = flightTrips.map { max(0, $0.arrivalDate.timeIntervalSince($0.departureDate)) }
+        // Per leg, from each flight's own scheduled/actual times — a trip's `departureDate`/
+        // `arrivalDate` span the whole vacation (e.g. a 14-day trip), not how long any single
+        // flight was actually in the air, which is what "Flight time" is supposed to mean. Using
+        // the trip's own dates here was the bug behind a one-flight trip showing "336h" (=14
+        // days) as its flight time instead of the real ~15-hour flight duration.
+        let durations = flightTrips.flatMap { trip in
+            trip.flights.compactMap { flight -> TimeInterval? in
+                guard let departure = flight.bestDeparture, let arrival = flight.bestArrival, arrival > departure else { return nil }
+                return arrival.timeIntervalSince(departure)
+            }
+        }
         totalFlightTime = durations.reduce(0, +)
         averageFlightTime = durations.isEmpty ? 0 : totalFlightTime / Double(durations.count)
         longestFlightTime = durations.max() ?? 0
@@ -558,7 +449,7 @@ struct FlightStats {
             // Direction-agnostic per leg, so MEL → SIN and SIN → MEL count as one route.
             trip.flights.map { [$0.origin.displayCode, $0.destination.displayCode].sorted().joined(separator: " – ") }
         })
-        countries = Self.ranked(trips.flatMap { [$0.origin.country, $0.destination.country] })
+        countries = Self.ranked(flightTrips.flatMap { [$0.origin.country, $0.destination.country] })
     }
 
     private static func ranked(_ names: [String]) -> [Ranked] {

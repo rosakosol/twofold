@@ -115,20 +115,6 @@ struct GameResultsShareCard: View {
                 .tracking(1.5)
                 .foregroundStyle(.white.opacity(0.8))
 
-            HStack(spacing: Theme.Spacing.md) {
-                AvatarView(person: data.me, size: 56, showsRing: true)
-                AvatarView(person: data.partner, size: 56, showsRing: true)
-            }
-
-            if let streak = data.dailyStreak {
-                HStack(spacing: 4) {
-                    Text("🔥").font(.title3)
-                    Text("\(streak)-day streak")
-                        .font(.title2.weight(.bold))
-                        .foregroundStyle(.white)
-                }
-            }
-
             if let question = data.singleRoundQuestion {
                 Text(question)
                     .font(.subheadline.weight(.medium))
@@ -240,8 +226,14 @@ struct GameResultsShareCard: View {
                     .foregroundStyle(Theme.ink)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: 220, alignment: .leading)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
+                    // `SpeechBubbleShape` carves its tail out of the bottom `tailHeight` (9pt) of
+                    // whatever frame it's given, so a plain `.padding(.vertical, 12)` here (same
+                    // as `messageBubble`'s 10) only ever left ~3pt of *visible* padding above the
+                    // tail — cramped compared to `messageBubble`'s plain rect, which has no tail
+                    // eating into it. Bumped enough to give the bubble body room to breathe on
+                    // top of the tail cutout, not just nominally larger numbers.
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 18)
                     .background(SpeechBubbleShape(tailOnRight: tailOnRight).fill(.white))
                     .overlay(SpeechBubbleShape(tailOnRight: tailOnRight).stroke(Theme.subtleInk.opacity(0.15), lineWidth: 1))
             }

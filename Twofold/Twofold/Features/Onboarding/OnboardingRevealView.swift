@@ -47,7 +47,7 @@ struct OnboardingRevealView: View {
                     }
                     .padding(.top, Theme.Spacing.sm)
 
-                    Text("\(trip.origin.city) → \(trip.destination.city)")
+                    Text("\(trip.origin.displayCity) → \(trip.destination.displayCity)")
                         .font(.headline)
                         .padding(.top, Theme.Spacing.xs)
 

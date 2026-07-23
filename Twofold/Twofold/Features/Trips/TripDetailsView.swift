@@ -76,9 +76,12 @@ struct TripDetailsView: View {
                 }
             }
         }
-        .sheet(isPresented: $showingEditSheet) {
+        // Pushed onto this same NavigationStack (TripsListView already wraps this whole screen in
+        // one) rather than presented as a second sheet stacked on top of the first — editing
+        // continues from where you already are instead of piling on another modal layer.
+        .navigationDestination(isPresented: $showingEditSheet) {
             if let trip {
-                NavigationStack { EditTripView(trip: trip) }
+                EditTripView(trip: trip)
             }
         }
         .sheet(isPresented: $showingLinkFlightPicker) {
@@ -134,36 +137,38 @@ struct TripDetailsView: View {
                 } else {
                     AvatarView(person: travelers[0], size: 52)
                 }
-                VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: Theme.Spacing.xs) {
                     Text(travelers.map(\.name).joined(separator: " & "))
                         .font(.subheadline)
                         .foregroundStyle(Theme.subtleInk)
                         .lineLimit(1)
                         .minimumScaleFactor(0.85)
-                    HStack(spacing: Theme.Spacing.xs) {
-                        Text(trip.origin.city)
-                        Image(systemName: "arrow.right")
-                        Text(trip.destination.city)
-                    }
-                    .font(.title3.weight(.bold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+                    PillBadge(text: trip.isReunionTrip ? "Reunion" : "Trip", tint: Theme.skyBlue)
                 }
                 Spacer(minLength: 0)
-                PillBadge(text: trip.isReunionTrip ? "Reunion" : "Trip", tint: Theme.skyBlue)
             }
+
+            HStack(spacing: Theme.Spacing.xs) {
+                Text(trip.origin.displayCity)
+                Image(systemName: "arrow.right")
+                Text(trip.destination.displayCity)
+            }
+            .font(.title3.weight(.bold))
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             Divider()
 
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Departs").font(.caption).foregroundStyle(Theme.subtleInk)
+                    Text("Start").font(.caption).foregroundStyle(Theme.subtleInk)
                     Text(trip.departureDate, format: .dateTime.day().month(.abbreviated).year())
                         .font(.subheadline.weight(.medium))
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text("Returns").font(.caption).foregroundStyle(Theme.subtleInk)
+                    Text("End").font(.caption).foregroundStyle(Theme.subtleInk)
                     Text(trip.arrivalDate, format: .dateTime.day().month(.abbreviated).year())
                         .font(.subheadline.weight(.medium))
                 }

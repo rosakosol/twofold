@@ -19,67 +19,53 @@ struct TripRowView: View {
         return "\(trip.departureDate.formatted(format)) – \(trip.arrivalDate.formatted(format))"
     }
 
-    private var statusBadge: (text: String, tint: Color)? {
-        guard let flight = trip.mostRelevantFlight else { return nil }
-        switch flight.status {
-        case .arrived, .landed: return ("Landed", Theme.leafGreen)
-        case .boarding: return ("Boarding", Theme.skyBlue)
-        case .departed: return ("Departed", Theme.skyBlue)
-        case .inAir: return ("In the air", Theme.skyBlue)
-        case .landingSoon: return ("Landing soon", Theme.heartRed)
-        case .scheduled: return ("Upcoming", Theme.subtleInk)
-        case .delayed: return ("Delayed", Theme.heartRed)
-        case .cancelled, .diverted: return ("Disrupted", Theme.heartRed)
-        }
-    }
-
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-            HStack(spacing: Theme.Spacing.md) {
+        // Mirrors `TripCarouselCard`'s layout exactly (single leading column of countdown badge +
+        // avatars, city-to-city full width on its own line, date range and duration combined on
+        // one secondary line) — this row and that peek card used to diverge (this one split
+        // duration/flight-number/status into a separate trailing column, with avatars on their
+        // own row below), which made a trip look formatted differently depending on whether you
+        // saw it in the peek carousel or the expanded list, for no real reason.
+        HStack(alignment: .top, spacing: Theme.Spacing.md) {
+            VStack(spacing: Theme.Spacing.xs) {
                 countdownBadge
-
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: Theme.Spacing.xs) {
-                        Text(trip.origin.city)
-                            .lineLimit(1)
-                        Image(systemName: "arrow.right")
-                        Text(trip.destination.city)
-                            .lineLimit(1)
-                    }
-                    .font(.headline)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-
-                    HStack(spacing: Theme.Spacing.xs) {
-                        Text(dateRangeText)
-                        if let flight = trip.mostRelevantFlight {
-                            Text(trip.flights.count > 1 ? "· \(flight.flightNumber) +\(trip.flights.count - 1)" : "· \(flight.flightNumber)")
-                        }
-                    }
-                    .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
-                }
-
-                Spacer()
-
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text(RelationshipMilestoneStats.tripDuration(trip))
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Theme.ink)
-                    if let statusBadge {
-                        PillBadge(text: statusBadge.text, tint: statusBadge.tint)
-                    }
-                }
+                travelerAvatars
             }
 
-            HStack(spacing: -8) {
-                ForEach(travelers) { person in
-                    AvatarView(person: person, size: 22)
-                        .overlay(Circle().stroke(Theme.cardBackground, lineWidth: 1.5))
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: Theme.Spacing.xs) {
+                    Text(trip.origin.displayCity).lineLimit(1)
+                    Image(systemName: "arrow.right")
+                    Text(trip.destination.displayCity).lineLimit(1)
                 }
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                HStack(spacing: Theme.Spacing.xs) {
+                    Text(dateRangeText)
+                    Text("·")
+                    Text(RelationshipMilestoneStats.tripDuration(trip))
+                }
+                .font(.caption)
+                .foregroundStyle(Theme.subtleInk)
+                .lineLimit(1)
             }
         }
         .padding(Theme.Spacing.sm)
+    }
+
+    /// Centered under `countdownBadge` (same fixed-width column) rather than a separate row below
+    /// the whole trip summary — same pairing `TripCarouselCard` uses.
+    private var travelerAvatars: some View {
+        HStack(spacing: -8) {
+            ForEach(travelers) { person in
+                AvatarView(person: person, size: 20)
+                    .overlay(Circle().stroke(Theme.cardBackground, lineWidth: 1.5))
+            }
+        }
+        .frame(width: 38)
     }
 
     /// Replaces the old solo/paired avatar in this spot — days-to-go while the trip is still
@@ -92,26 +78,26 @@ struct TripRowView: View {
             if trip.departureDate > .now {
                 let days = max(0, Calendar.current.dateComponents([.day], from: .now, to: trip.departureDate).day ?? 0)
                 Text(days == 0 ? "🎉" : "\(days)")
-                    .font(.system(size: days == 0 ? 20 : 20, weight: .bold, design: .rounded))
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
                 Text(days == 0 ? "Today" : (days == 1 ? "day" : "days"))
                     .font(.caption2)
                     .foregroundStyle(Theme.subtleInk)
             } else if trip.isActive {
                 Image(systemName: "airplane")
-                    .font(.title3)
+                    .font(.subheadline)
                     .foregroundStyle(Theme.skyBlue)
                 Text("Now")
                     .font(.caption2)
                     .foregroundStyle(Theme.subtleInk)
             } else {
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.title3)
+                    .font(.subheadline)
                     .foregroundStyle(Theme.leafGreen)
                 Text("Done")
                     .font(.caption2)
                     .foregroundStyle(Theme.subtleInk)
             }
         }
-        .frame(width: 44)
+        .frame(width: 38)
     }
 }

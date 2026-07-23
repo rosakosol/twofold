@@ -2,15 +2,17 @@
 //  TripsListView.swift
 //  Twofold
 //
-//  Full-screen interactive globe (`TripsGlobeView`) with an always-present browse sheet docked to
-//  the bottom — same peek/expand mechanics `MemoriesMapView` already established
-//  (`.presentationDetents([peek, .large], selection:)` + `.presentationBackgroundInteraction`, so
-//  the globe stays pannable/zoomable while the sheet is only peeking). At the peek height the
-//  sheet shows a horizontal card carousel (upcoming trips or tracked flights, depending on the
-//  Trips/Flights picker); dragged to `.large` it swaps to the full Upcoming/Past (or Tracked/Past)
-//  list, which is how Past trips/flights stay reachable. Tapping any card or row opens that trip's
-//  or flight's own details as a *separate* partial-height sheet, rather than pushing — "tap
-//  opens a partial screen from the bottom" applies to trip/flight detail, not to browsing itself.
+//  Full-screen interactive globe (`TripsGlobeView`) with an always-present browse panel docked to
+//  the bottom — drawn as regular inline content (not a system `.sheet`), so it can float above the
+//  MainTabView's own tab bar without ever covering it. A system sheet presented from inside a tab
+//  disables that tab bar underneath for as long as it's up, which is fine for a momentary
+//  drill-in (trip/flight detail, added below as real sheets) but not for a panel that's meant to
+//  be on screen permanently — that would leave the tab bar permanently untappable. At the peek
+//  height the panel shows a horizontal card carousel (upcoming trips or tracked flights, depending
+//  on the Trips/Flights picker); dragged (or tapped) to expanded it swaps to the full Upcoming/
+//  Past (or Tracked/Past) list, which is how Past trips/flights stay reachable. Tapping any card
+//  or row opens that trip's or flight's own details as a real sheet — a *momentary* modal is
+//  exactly the case system sheets are fine for.
 //
 
 import SwiftUI
@@ -23,15 +25,24 @@ struct TripsListView: View {
     /// Tapping the solo-state empty hints below opens this rather than the add-trip/add-flight
     /// sheet — there's a real partner-required blocker before either of those would even work.
     @State private var showingPartnerGate = false
-    /// Never set back to false — this sheet is meant to always be showing, just moving between
-    /// its peek and full heights, not something the user can dismiss outright (there'd be nothing
-    /// left to bring it back).
-    @State private var showingBrowseSheet = true
-    @State private var sheetDetent: PresentationDetent = Self.peekDetent
+    @State private var isExpanded = false
+    /// Live finger position while dragging the handle, folded into the panel's rendered height so
+    /// it tracks the gesture 1:1. Plain `@State`, not `@GestureState` — `@GestureState` resets to
+    /// 0 the instant the gesture ends, *before* `.onEnded`'s own state mutation lands, which
+    /// visibly snapped the panel back to its pre-drag height for a frame before animating to the
+    /// real target (the "glitchy" jump). Driving this from `@State` and clearing it in the same
+    /// explicit `withAnimation` block as the `isExpanded` flip below makes both changes land in
+    /// one animated step instead of two.
+    @State private var dragOffset: CGFloat = 0
     @State private var selectedTrip: Trip?
     @State private var selectedFlight: Flight?
 
-    private static let peekDetent: PresentationDetent = .height(220)
+    // Bumped up from 220 now that the header itself carries an extra row (the "Travel" title) and
+    // the carousel card itself grew a line (duration split onto its own line from the date range)
+    // — the old value was sized for a shorter header/card and was leaving the card cut off at the
+    // bottom of the panel's fixed height instead of comfortably visible.
+    private let peekHeight: CGFloat = 340
+    private let panelAnimation: Animation = .spring(response: 0.35, dampingFraction: 0.86)
 
     enum TripsTab: String, CaseIterable {
         case trips = "Trips"
@@ -43,35 +54,76 @@ struct TripsListView: View {
         return people.isEmpty ? [appModel.currentUser] : people
     }
 
+    /// Inset from each side — narrower than full width so the panel reads as its own floating
+    /// card rather than a full-bleed sheet, just a little wider than `MainTabView`'s own floating
+    /// tab bar rather than matching it exactly.
+    private let horizontalInset: CGFloat = 12
+    /// Matches the corner curvature of `MainTabView`'s own floating (iOS 18+ "Tab" API) tab bar —
+    /// noticeably rounder than `Theme.Radius.card` (20, used by regular content cards), which read
+    /// visibly less round side by side with the tab bar this panel sits directly above. Local to
+    /// this view rather than a `Theme.Radius` change, since ordinary cards elsewhere aren't meant
+    /// to match tab-bar curvature.
+    private let panelCornerRadius: CGFloat = 40
+
     var body: some View {
         NavigationStack {
-            TripsGlobeView(
-                trips: appModel.upcomingTrips,
-                travelers: travelers(for:),
-                fallbackCenter: appModel.currentUser.homeCity?.coordinate
-            )
-            .ignoresSafeArea()
-            .sheet(isPresented: $showingBrowseSheet) {
-                browseSheet
-                    .presentationDetents([Self.peekDetent, .large], selection: $sheetDetent)
-                    .presentationDragIndicator(.visible)
-                    .presentationBackgroundInteraction(.enabled(upThrough: Self.peekDetent))
-                    .interactiveDismissDisabled()
+            GeometryReader { proxy in
+                // Ignoring *all* edges on this GeometryReader (below) makes `proxy.size` the true
+                // full screen size — including the tab bar's reserved space at the bottom — while
+                // `proxy.safeAreaInsets.top` still reports how tall the status bar/Dynamic Island
+                // region is, so it can be kept clear manually instead of relying on the view
+                // "respecting" a safe area it no longer participates in. Computing against the
+                // true full height and deliberately extending past the tab bar (rather than
+                // computing against the tab-bar-excluded height and trying to get a partial
+                // `ignoresSafeArea(edges: .bottom)` to claw the difference back on just the panel)
+                // is what actually gets the panel's rounded corners behind the tab bar reliably —
+                // the partial-edge approach looked right in some layouts but not others.
+                // `topBreathingRoom` keeps a real sliver of globe visible/reachable above the
+                // panel even fully expanded, rather than the panel reaching literally the top of
+                // the screen.
+                let topBreathingRoom: CGFloat = 64
+                let expandedHeight = proxy.size.height - proxy.safeAreaInsets.top - topBreathingRoom
+                let restingHeight = isExpanded ? expandedHeight : peekHeight
+                let panelHeight = min(expandedHeight, max(peekHeight, restingHeight - dragOffset))
+                let panelWidth = max(0, proxy.size.width - horizontalInset * 2)
+
+                ZStack(alignment: .bottom) {
+                    // `TripsGlobeView` shrinks its own rendered content below its layout frame
+                    // (see its `.scaleEffect` doc comment) to look more zoomed out than MapKit's
+                    // clamped camera distance alone allows — this sits behind it so the now-
+                    // exposed margin reads as more of the same black space, not a jarring white
+                    // edge showing through to whatever's otherwise behind it in this ZStack.
+                    // `ignoresSafeArea()` applied once to the whole `ZStack` below (not to each
+                    // layer individually) — applying it per-child left the odd case, on some
+                    // layouts, of this `Color.black` not actually reaching full screen width.
+                    Color.black
+
+                    TripsGlobeView(
+                        trips: appModel.upcomingTrips,
+                        fallbackCenter: appModel.currentUser.homeCity?.coordinate,
+                        reservedBottomHeight: panelHeight
+                    )
+
+                browsePanel
+                    .frame(width: panelWidth, height: panelHeight, alignment: .top)
+                    .background(Theme.backgroundGradient)
+                    .clipShape(RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous))
+                    .shadow(color: .black.opacity(0.15), radius: 16, y: -4)
+                    .padding(.bottom, 12)
+                }
+                .ignoresSafeArea()
             }
-        }
-        .sheet(item: $selectedTrip) { trip in
-            NavigationStack {
+            .ignoresSafeArea()
+            // Pushed onto this same `NavigationStack` (not presented as a sheet) — tapping a trip
+            // or flight card now moves to an in-line screen the same way the rest of the app's
+            // "tap a row, see its detail" flows do, rather than opening a second modal on top of
+            // the globe+panel.
+            .navigationDestination(item: $selectedTrip) { trip in
                 TripDetailsView(trip: trip)
             }
-            .presentationDetents([.medium, .large])
-            .presentationDragIndicator(.visible)
-        }
-        .sheet(item: $selectedFlight) { flight in
-            NavigationStack {
+            .navigationDestination(item: $selectedFlight) { flight in
                 FlightTrackingView(flight: flight)
             }
-            .presentationDetents([.medium, .large])
-            .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showingAddTrip) {
             NavigationStack {
@@ -93,52 +145,111 @@ struct TripsListView: View {
         }
     }
 
-    // MARK: - Browse sheet
+    // MARK: - Browse panel
 
-    private var browseSheet: some View {
+    private var browsePanel: some View {
         VStack(spacing: 0) {
+            dragHandle
             browseHeader
 
-            if sheetDetent == Self.peekDetent {
-                peekContent
-            } else {
+            if isExpanded {
                 expandedContent
+            } else {
+                peekContent
             }
         }
-        .background(Theme.backgroundGradient.ignoresSafeArea())
+    }
+
+    /// The only part of the panel a drag gesture attaches to — restricting it to this small,
+    /// generously-hit-tested handle (rather than the whole panel) avoids fighting the expanded
+    /// state's own `List` for scroll-vs-resize gestures. A plain tap toggles too, since dragging
+    /// precisely is more effort than it needs to be for a simple expand/collapse.
+    private var dragHandle: some View {
+        Capsule()
+            .fill(Theme.subtleInk.opacity(0.35))
+            .frame(width: 36, height: 5)
+            .padding(.vertical, Theme.Spacing.sm)
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                withAnimation(panelAnimation) {
+                    isExpanded.toggle()
+                }
+            }
+            .gesture(
+                DragGesture()
+                    .onChanged { value in
+                        dragOffset = value.translation.height
+                    }
+                    .onEnded { value in
+                        let draggedUp = value.translation.height < -40 || value.predictedEndTranslation.height < -80
+                        let draggedDown = value.translation.height > 40 || value.predictedEndTranslation.height > 80
+                        // Both changes land inside the same explicit animation so the panel
+                        // animates directly from wherever the drag left it to the final target
+                        // height in one motion — letting `dragOffset` reset via an implicit/
+                        // `@GestureState`-driven reset outside this block is what caused the old
+                        // "snap back, then animate" glitch.
+                        withAnimation(panelAnimation) {
+                            if draggedUp {
+                                isExpanded = true
+                            } else if draggedDown {
+                                isExpanded = false
+                            }
+                            dragOffset = 0
+                        }
+                    }
+            )
     }
 
     private var browseHeader: some View {
-        HStack(spacing: Theme.Spacing.md) {
-            Picker("Section", selection: $tab) {
-                ForEach(TripsTab.allCases, id: \.self) { option in
-                    Text(option.rawValue).tag(option)
-                }
-            }
-            .pickerStyle(.segmented)
+        // `lg` between title and tabs, and again between the header and whatever's below (see
+        // this view's own `.padding(.bottom, lg)`) — matches the Stats tab's own title/tabs/card
+        // rhythm (`PassportView`'s `VStack(spacing: Theme.Spacing.lg)`), rather than the tighter
+        // `xs` this used before, which read noticeably more cramped side by side with Stats.
+        VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
+            // Matches Memories'/Games' own `.navigationTitle` weight — this panel is its own
+            // screen in every way that matters, it just doesn't sit under a standard nav bar.
+            // Collapsing is drag-only (the handle above) — no separate button, so there's exactly
+            // one interaction to learn for both directions.
+            Text("Travel")
+                .font(.title.weight(.bold))
+                .foregroundStyle(Theme.ink)
 
-            Menu {
-                Button {
-                    showingAddTrip = true
-                } label: {
-                    Label("Add Trip", systemImage: "airplane")
+            HStack(spacing: Theme.Spacing.md) {
+                Picker("Section", selection: $tab) {
+                    ForEach(TripsTab.allCases, id: \.self) { option in
+                        Text(option.rawValue).tag(option)
+                    }
                 }
-                Button {
-                    showingAddFlight = true
+                .pickerStyle(.segmented)
+
+                Menu {
+                    Button {
+                        showingAddTrip = true
+                    } label: {
+                        Label("Add Trip", systemImage: "airplane")
+                    }
+                    Button {
+                        showingAddFlight = true
+                    } label: {
+                        Label("Add Flight", image: "boarding-pass")
+                    }
                 } label: {
-                    Label("Add Flight", image: "boarding-pass")
+                    Image(systemName: "plus.circle.fill")
+                        .font(.title2)
+                        .foregroundStyle(Theme.skyBlue)
                 }
-            } label: {
-                Image(systemName: "plus.circle.fill")
-                    .font(.title2)
-                    .foregroundStyle(Theme.skyBlue)
             }
         }
         .padding(.horizontal, Theme.Spacing.md)
-        .padding(.top, Theme.Spacing.sm)
-        .padding(.bottom, Theme.Spacing.xs)
+        .padding(.bottom, Theme.Spacing.lg)
     }
 
+    /// Exactly one card — the single soonest upcoming trip/flight, not a scrollable row of them —
+    /// with the rest reachable only by expanding to the full list below. A horizontal carousel
+    /// here (even a non-paging, freely-scrolling one) still read as "swipe to see your other
+    /// trips", which duplicated what expanding already does and made peek feel like its own
+    /// separate browsing mode instead of a quick glance at what's next.
     @ViewBuilder
     private var peekContent: some View {
         switch tab {
@@ -146,48 +257,34 @@ struct TripsListView: View {
             if appModel.trips.isEmpty {
                 emptyTripsHint.padding(.horizontal, Theme.Spacing.md)
                 Spacer(minLength: 0)
-            } else {
-                carousel(appModel.upcomingTrips) { trip in
-                    Button {
-                        selectedTrip = trip
-                    } label: {
-                        TripCarouselCard(trip: trip, travelers: travelers(for: trip))
-                    }
-                    .buttonStyle(.plain)
+            } else if let trip = appModel.upcomingTrips.first {
+                Button {
+                    selectedTrip = trip
+                } label: {
+                    TripCarouselCard(trip: trip, travelers: travelers(for: trip))
                 }
+                .buttonStyle(.plain)
+                .padding(.horizontal, Theme.Spacing.md)
+                .padding(.bottom, Theme.Spacing.lg)
             }
         case .flights:
-            if appModel.flights.isEmpty {
+            // Gated on *tracked* flights specifically, not "ever had any flight" — a couple
+            // with only past/completed flights and nothing currently tracked should still see
+            // the "add a flight" hint here, not an empty carousel with nothing to tap.
+            if appModel.activeOrUpcomingFlights.isEmpty {
                 emptyFlightsHint.padding(.horizontal, Theme.Spacing.md)
                 Spacer(minLength: 0)
-            } else {
-                carousel(appModel.activeOrUpcomingFlights) { flight in
-                    Button {
-                        selectedFlight = flight
-                    } label: {
-                        FlightCarouselCard(flight: flight)
-                    }
-                    .buttonStyle(.plain)
+            } else if let flight = appModel.activeOrUpcomingFlights.first {
+                Button {
+                    selectedFlight = flight
+                } label: {
+                    FlightCarouselCard(flight: flight)
                 }
+                .buttonStyle(.plain)
+                .padding(.horizontal, Theme.Spacing.md)
+                .padding(.bottom, Theme.Spacing.lg)
             }
         }
-    }
-
-    private func carousel<Item: Identifiable, CardContent: View>(
-        _ items: [Item],
-        @ViewBuilder card: @escaping (Item) -> CardContent
-    ) -> some View {
-        ScrollView(.horizontal) {
-            HStack(spacing: Theme.Spacing.md) {
-                ForEach(items) { item in
-                    card(item)
-                }
-            }
-            .scrollTargetLayout()
-            .padding(.horizontal, Theme.Spacing.md)
-        }
-        .scrollTargetBehavior(.viewAligned)
-        .scrollIndicators(.hidden)
     }
 
     @ViewBuilder
@@ -195,10 +292,6 @@ struct TripsListView: View {
         List {
             if tab == .trips, appModel.trips.isEmpty {
                 emptyTripsHint
-                    .listRowSeparator(.hidden)
-                    .listRowInsets(EdgeInsets())
-            } else if tab == .flights, appModel.flights.isEmpty {
-                emptyFlightsHint
                     .listRowSeparator(.hidden)
                     .listRowInsets(EdgeInsets())
             }
@@ -257,6 +350,13 @@ struct TripsListView: View {
                     flightRow(flight)
                 }
             }
+        } else {
+            // Nothing currently tracked — show the "add a flight" hint here even if there's
+            // real history below in Past flights, rather than only when the tab has never had
+            // any flight at all.
+            emptyFlightsHint
+                .listRowSeparator(.hidden)
+                .listRowInsets(EdgeInsets())
         }
 
         let completed = appModel.completedFlights

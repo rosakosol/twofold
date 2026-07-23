@@ -69,7 +69,6 @@ struct RootView: View {
                 // short of force-quitting. This covers that, and is harmless/no-op otherwise.
                 Task { await appModel.refreshCoupleStateIfNeeded() }
                 Task { await refreshPendingOutgoingConnectionRequestIfNeeded() }
-                Task { await WidgetSnapshotWriter.refresh(appModel: appModel) }
                 refreshCurrentCityIfNeeded()
             }
         }
@@ -238,6 +237,12 @@ struct RootView: View {
         if let tier = try? await BackendService.fetchCoupleSubscriptionTier() {
             appModel.subscriptionTier = tier
         }
+        // Owns its own widget refresh (same convention every other state-mutating `AppModel`
+        // method uses — see `performAdopt`, `refreshFlights`, `addMemory`) rather than relying on
+        // the separate concurrent refresh `onChange(of: scenePhase)` used to fire alongside this:
+        // two independently-scheduled `Task`s have no ordering guarantee, so that refresh could
+        // run before this method's tier/active updates landed and ship a stale widget snapshot.
+        await WidgetSnapshotWriter.refresh(appModel: appModel)
     }
 
     /// Only meaningful in exactly the gap `PendingConnectionApprovalView` covers — no point
