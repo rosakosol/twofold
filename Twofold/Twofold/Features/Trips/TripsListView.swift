@@ -37,6 +37,18 @@ struct TripsListView: View {
     @State private var selectedTrip: Trip?
     @State private var selectedFlight: Flight?
 
+    /// Long-press any row (in either tab) to enter this — every row grows a selection circle,
+    /// tapping toggles membership instead of navigating, and the header swaps to a Cancel/Delete
+    /// bar. Swipe-to-delete (single trip/flight, no mode change) only applies while this is
+    /// false. Same convention as `MemoriesListView`'s multi-select, adapted to this panel's own
+    /// header instead of a system toolbar, since this screen deliberately doesn't sit under one
+    /// (see this file's own header comment).
+    @State private var isSelecting = false
+    @State private var selectedTripIDs: Set<Trip.ID> = []
+    @State private var selectedFlightIDs: Set<Flight.ID> = []
+    @State private var showingBulkDeleteConfirm = false
+    @State private var hapticTrigger = false
+
     // Bumped up from 220 now that the header itself carries an extra row (the "Travel" title) and
     // the carousel card itself grew a line (duration split onto its own line from the date range)
     // — the old value was sized for a shorter header/card and was leaving the card cut off at the
@@ -52,6 +64,13 @@ struct TripsListView: View {
     private func travelers(for trip: Trip) -> [Person] {
         let people = trip.travelerIDs.compactMap { appModel.couple.partner($0) }
         return people.isEmpty ? [appModel.currentUser] : people
+    }
+
+    private var selectedCount: Int {
+        switch tab {
+        case .trips: selectedTripIDs.count
+        case .flights: selectedFlightIDs.count
+        }
     }
 
     /// Inset from each side — narrower than full width so the panel reads as its own floating
@@ -152,6 +171,26 @@ struct TripsListView: View {
         .sheet(isPresented: $showingPartnerGate) {
             PartnerRequiredGateView()
         }
+        .sensoryFeedback(.selection, trigger: hapticTrigger)
+        // Switching tabs mid-selection would leave "N Selected" pointed at whichever set
+        // matches the tab you're leaving, with no way to see or clear it from the tab you land
+        // on — clearing both on every tab change keeps "what's selected" unambiguous.
+        .onChange(of: tab) {
+            isSelecting = false
+            selectedTripIDs.removeAll()
+            selectedFlightIDs.removeAll()
+        }
+        .alert(
+            selectedCount == 1
+                ? "Delete this \(tab == .trips ? "trip" : "flight")?"
+                : "Delete \(selectedCount) \(tab == .trips ? "trips" : "flights")?",
+            isPresented: $showingBulkDeleteConfirm
+        ) {
+            Button("Delete", role: .destructive) { deleteSelection() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This can't be undone.")
+        }
     }
 
     // MARK: - Browse panel
@@ -236,45 +275,82 @@ struct TripsListView: View {
         // rhythm (`PassportView`'s `VStack(spacing: Theme.Spacing.lg)`), rather than the tighter
         // `xs` this used before, which read noticeably more cramped side by side with Stats.
         VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
-            // Matches Memories'/Games' own `.navigationTitle` weight — this panel is its own
-            // screen in every way that matters, it just doesn't sit under a standard nav bar.
-            // Collapsing is drag-only (the handle above) — no separate button, so there's exactly
-            // one interaction to learn for both directions.
-            Text("Travel")
-                .font(.title.weight(.bold))
-                .foregroundStyle(Theme.ink)
+            if isSelecting {
+                selectionHeader
+            } else {
+                // Matches Memories'/Games' own `.navigationTitle` weight — this panel is its own
+                // screen in every way that matters, it just doesn't sit under a standard nav bar.
+                // Collapsing is drag-only (the handle above) — no separate button, so there's
+                // exactly one interaction to learn for both directions.
+                Text("Travel")
+                    .font(.title.weight(.bold))
+                    .foregroundStyle(Theme.ink)
 
-            HStack(spacing: Theme.Spacing.md) {
-                Picker("Section", selection: $tab) {
-                    ForEach(TripsTab.allCases, id: \.self) { option in
-                        Text(option.rawValue).tag(option)
+                HStack(spacing: Theme.Spacing.md) {
+                    Picker("Section", selection: $tab) {
+                        ForEach(TripsTab.allCases, id: \.self) { option in
+                            Text(option.rawValue).tag(option)
+                        }
                     }
-                }
-                .pickerStyle(.segmented)
+                    .pickerStyle(.segmented)
 
-                // Goes straight to whichever add flow matches the currently-visible tab — this used
-                // to be a Menu offering both "Add Trip"/"Add Flight" regardless of `tab`, an extra
-                // tap that was redundant with the picker already showing what you're looking at.
-                // Gated the same way `emptyTripsHint`/`emptyFlightsHint` already gate their own
-                // "add" buttons, for the same reason: neither add flow works meaningfully solo.
-                Button {
-                    guard appModel.partnerConnected else {
-                        showingPartnerGate = true
-                        return
+                    // Goes straight to whichever add flow matches the currently-visible tab — this
+                    // used to be a Menu offering both "Add Trip"/"Add Flight" regardless of `tab`,
+                    // an extra tap that was redundant with the picker already showing what you're
+                    // looking at. Gated the same way `emptyTripsHint`/`emptyFlightsHint` already
+                    // gate their own "add" buttons, for the same reason: neither add flow works
+                    // meaningfully solo.
+                    Button {
+                        guard appModel.partnerConnected else {
+                            showingPartnerGate = true
+                            return
+                        }
+                        switch tab {
+                        case .trips: showingAddTrip = true
+                        case .flights: showingAddFlight = true
+                        }
+                    } label: {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.title2)
+                            .foregroundStyle(Theme.skyBlue)
                     }
-                    switch tab {
-                    case .trips: showingAddTrip = true
-                    case .flights: showingAddFlight = true
-                    }
-                } label: {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.title2)
-                        .foregroundStyle(Theme.skyBlue)
                 }
             }
         }
         .padding(.horizontal, Theme.Spacing.md)
         .padding(.bottom, Theme.Spacing.lg)
+    }
+
+    /// Replaces the title/picker/add-button row while multi-selecting — this panel doesn't sit
+    /// under a standard nav bar (see this file's own header comment), so the Cancel/Delete
+    /// controls a system `.toolbar` would normally carry live here instead, right above the list
+    /// they act on rather than at the very top of the screen, disconnected from it.
+    private var selectionHeader: some View {
+        HStack {
+            Button("Cancel") {
+                withAnimation(.snappy) {
+                    isSelecting = false
+                    selectedTripIDs.removeAll()
+                    selectedFlightIDs.removeAll()
+                }
+            }
+            .foregroundStyle(Theme.skyBlue)
+
+            Spacer(minLength: 0)
+
+            Text("\(selectedCount) Selected")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Theme.ink)
+
+            Spacer(minLength: 0)
+
+            Button(role: .destructive) {
+                showingBulkDeleteConfirm = true
+            } label: {
+                Text("Delete")
+            }
+            .disabled(selectedCount == 0)
+        }
     }
 
     /// Exactly one card — the single soonest upcoming trip/flight, not a scrollable row of them —
@@ -345,12 +421,7 @@ struct TripsListView: View {
         if !upcoming.isEmpty {
             Section("Upcoming") {
                 ForEach(upcoming) { trip in
-                    Button {
-                        selectedTrip = trip
-                    } label: {
-                        TripRowView(trip: trip, travelers: travelers(for: trip))
-                    }
-                    .buttonStyle(.plain)
+                    tripRow(trip)
                 }
             }
         }
@@ -359,12 +430,49 @@ struct TripsListView: View {
         if !past.isEmpty {
             Section("Past") {
                 ForEach(past) { trip in
-                    Button {
-                        selectedTrip = trip
-                    } label: {
+                    tripRow(trip)
+                }
+            }
+        }
+    }
+
+    /// Swaps between a plain toggle-selection `Button` (selecting mode) and the regular
+    /// tap-to-navigate + swipe-to-delete (normal mode) — same shape as `flightRow`/
+    /// `MemoriesListView.row`. Long-pressing while *not* selecting enters selection mode with
+    /// this trip pre-selected.
+    @ViewBuilder
+    private func tripRow(_ trip: Trip) -> some View {
+        Group {
+            if isSelecting {
+                Button {
+                    toggleTripSelection(trip)
+                } label: {
+                    HStack(spacing: Theme.Spacing.sm) {
+                        selectionIndicator(isSelected: selectedTripIDs.contains(trip.id))
                         TripRowView(trip: trip, travelers: travelers(for: trip))
                     }
-                    .buttonStyle(.plain)
+                }
+                .buttonStyle(.plain)
+            } else {
+                Button {
+                    selectedTrip = trip
+                } label: {
+                    TripRowView(trip: trip, travelers: travelers(for: trip))
+                }
+                .buttonStyle(.plain)
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    Button(role: .destructive) {
+                        Task { await appModel.deleteTrip(trip) }
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                }
+                .onLongPressGesture {
+                    hapticTrigger.toggle()
+                    withAnimation(.snappy) {
+                        isSelecting = true
+                        selectedTripIDs = [trip.id]
+                    }
                 }
             }
         }
@@ -401,18 +509,87 @@ struct TripsListView: View {
         }
     }
 
+    /// Swaps between a plain toggle-selection `Button` (selecting mode) and the regular
+    /// tap-to-navigate + swipe-to-delete (normal mode) — same shape as `tripRow`/
+    /// `MemoriesListView.row`. Long-pressing while *not* selecting enters selection mode with
+    /// this flight pre-selected.
+    @ViewBuilder
     private func flightRow(_ flight: Flight) -> some View {
-        Button {
-            selectedFlight = flight
-        } label: {
-            FlightRowView(flight: flight)
+        Group {
+            if isSelecting {
+                Button {
+                    toggleFlightSelection(flight)
+                } label: {
+                    HStack(spacing: Theme.Spacing.sm) {
+                        selectionIndicator(isSelected: selectedFlightIDs.contains(flight.id))
+                        FlightRowView(flight: flight)
+                    }
+                }
+                .buttonStyle(.plain)
+            } else {
+                Button {
+                    selectedFlight = flight
+                } label: {
+                    FlightRowView(flight: flight)
+                }
+                .buttonStyle(.plain)
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    Button(role: .destructive) {
+                        Task { await appModel.deleteFlight(flight) }
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                }
+                .onLongPressGesture {
+                    hapticTrigger.toggle()
+                    withAnimation(.snappy) {
+                        isSelecting = true
+                        selectedFlightIDs = [flight.id]
+                    }
+                }
+            }
         }
-        .buttonStyle(.plain)
-        .swipeActions(edge: .trailing) {
-            Button(role: .destructive) {
-                Task { await appModel.deleteFlight(flight) }
-            } label: {
-                Label("Remove", systemImage: "trash")
+    }
+
+    private func selectionIndicator(isSelected: Bool) -> some View {
+        Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+            .font(.title3)
+            .foregroundStyle(isSelected ? Theme.skyBlue : Theme.subtleInk.opacity(0.35))
+    }
+
+    private func toggleTripSelection(_ trip: Trip) {
+        hapticTrigger.toggle()
+        if selectedTripIDs.contains(trip.id) {
+            selectedTripIDs.remove(trip.id)
+        } else {
+            selectedTripIDs.insert(trip.id)
+        }
+    }
+
+    private func toggleFlightSelection(_ flight: Flight) {
+        hapticTrigger.toggle()
+        if selectedFlightIDs.contains(flight.id) {
+            selectedFlightIDs.remove(flight.id)
+        } else {
+            selectedFlightIDs.insert(flight.id)
+        }
+    }
+
+    private func deleteSelection() {
+        switch tab {
+        case .trips:
+            let toDelete = appModel.trips.filter { selectedTripIDs.contains($0.id) }
+            Task {
+                await appModel.deleteTrips(toDelete)
+                isSelecting = false
+                selectedTripIDs.removeAll()
+            }
+        case .flights:
+            let toDelete = appModel.flights.filter { selectedFlightIDs.contains($0.id) }
+            Task {
+                await appModel.deleteFlights(toDelete)
+                isSelecting = false
+                selectedFlightIDs.removeAll()
             }
         }
     }
