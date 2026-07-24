@@ -5,7 +5,7 @@ import { Providers } from "@/app/providers";
 
 // Same two families the marketing site uses (site/styles.css's --font-body/--font-display)
 // — loaded once here since both the marketing route group and the (board) group
-// (feedback/admin/changelog/auth) share them, just applied via different stylesheets.
+// (feedback/admin/auth) share them, just applied via different stylesheets.
 const bodyFont = Inter({
   variable: "--font-body",
   subsets: ["latin"],

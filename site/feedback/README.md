@@ -17,7 +17,7 @@ database.
 
 - `src/app/feedback/` — the board (list, filters, search, submit)
 - `src/app/feedback/[slug]/` — feature detail (vote, comments, dev updates, subscribe)
-- `src/app/roadmap/`, `src/app/changelog/`
+- `src/app/roadmap/`
 - `src/app/auth/` — sign-in (magic link + Google) and the OAuth/magic-link callback route
 - `src/app/admin/` — gated by `is_feedback_admin()`, once Phase 7 lands
 - `src/components/feedback/`, `src/components/admin/`, `src/components/layout/`

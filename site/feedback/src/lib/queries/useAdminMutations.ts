@@ -1,6 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import { queryKeys } from "@/lib/queries/queryKeys";
 import type { FeatureCategory, FeatureStatus } from "@/lib/utils/constants";
 
 function invalidateFeatureQueries(queryClient: ReturnType<typeof useQueryClient>) {
@@ -86,7 +85,6 @@ export function usePostDeveloperUpdate(featureId: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["features", featureId, "developer-updates"] });
-      queryClient.invalidateQueries({ queryKey: queryKeys.changelog() });
     },
   });
 }

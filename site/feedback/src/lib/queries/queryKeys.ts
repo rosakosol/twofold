@@ -16,6 +16,5 @@ export const queryKeys = {
   mySubscriptions: (userId: string | undefined) => ["subscriptions", "mine", userId] as const,
   duplicateSearch: (query: string) => ["features", "duplicates", query] as const,
   roadmap: () => ["features", "roadmap"] as const,
-  changelog: () => ["changelog"] as const,
   adminFeatureList: (filters: unknown) => ["admin", "features", filters] as const,
 };

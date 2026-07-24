@@ -6,9 +6,8 @@ import { usePathname } from "next/navigation";
 import { UserMenu } from "@/components/layout/UserMenu";
 import { useIsAdmin } from "@/lib/auth/useIsAdmin";
 
-// Same link set as MarketingHeader's NAV_LINKS, plus the board-only Changelog link —
-// deliberately not just "Board"/"Changelog" alone, so the whole site is reachable from
-// any page's navbar, matching marketing's navbar 1:1 in everything but this one addition.
+// Same link set as MarketingHeader's NAV_LINKS, so the whole site is reachable from any
+// page's navbar, matching marketing's navbar 1:1.
 const NAV_LINKS = [
   { href: "/", label: "Home" },
   { href: "/features", label: "Features" },
@@ -23,7 +22,7 @@ const ADMIN_LINKS = [
   { href: "/studio", label: "Studio" },
 ];
 
-/** Board/admin/changelog/auth equivalent of MarketingHeader — same `.site-nav` markup
+/** Board/admin/auth equivalent of MarketingHeader — same `.site-nav` markup
  * and CSS (src/styles/site-nav.css) so the two navbars are pixel-identical, just with
  * UserMenu (sign-in/avatar) in place of the marketing "Get the App" CTA. */
 export function SiteHeader() {
@@ -62,12 +61,6 @@ export function SiteHeader() {
                 </Link>
               </li>
             ))}
-            <li className="site-nav-divider" aria-hidden />
-            <li>
-              <Link href="/changelog" className={pathname === "/changelog" ? "is-active" : undefined}>
-                Changelog
-              </Link>
-            </li>
             {isAdmin && (
               <>
                 <li className="site-nav-divider" aria-hidden />

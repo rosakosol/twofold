@@ -2,7 +2,7 @@ import "@/styles/site-nav.css";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 
-// Feedback board, admin, changelog, auth — the shadcn/Tailwind-styled half of the app,
+// Feedback board, admin, auth — the shadcn/Tailwind-styled half of the app,
 // as opposed to (marketing)'s ported site/styles.css. Split into its own group
 // specifically so each can own its own header/footer without colliding. `board-shell`
 // (globals.css) scopes the sans-serif/compact typography pass to just this half of the
