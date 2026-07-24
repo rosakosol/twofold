@@ -4,8 +4,9 @@ import type {StructureResolver} from 'sanity/structure'
 // singletons (exactly one document per fixed ID) — the site's HTML has a fixed number of
 // slots for each (one hero, 6 feature cards, 2 legal pages, 2 quiz outcomes), so this is
 // copy-only editing, not a free-form list editors add to or remove from. Document IDs
-// here must match what site/assets/js/cms*.js queries by. FAQ items and quiz questions
-// are the genuinely free-form lists.
+// here must match what site/assets/js/cms*.js queries by. Quiz questions are the one
+// genuinely free-form list left here — FAQ moved to its own custom tool (see config.ts's
+// `tools` entry), since it's no longer a Sanity document type at all.
 const FEATURES = [
   {id: 'feature-relationship-globe', title: 'Relationship Globe'},
   {id: 'feature-live-flight-tracking', title: 'Live Flight Tracking'},
@@ -30,7 +31,7 @@ const PLANS = [
   {id: 'plan-premium', title: 'Premium'},
 ]
 
-const MANAGED_TYPE_NAMES = new Set(['hero', 'feature', 'faqItem', 'legalPage', 'quizQuestion', 'quizResult', 'plan'])
+const MANAGED_TYPE_NAMES = new Set(['hero', 'feature', 'legalPage', 'quizQuestion', 'quizResult', 'plan'])
 
 export const structure: StructureResolver = (S) =>
   S.list()
@@ -55,9 +56,6 @@ export const structure: StructureResolver = (S) =>
               )
             )
         ),
-      S.listItem()
-        .title('FAQ')
-        .child(S.documentTypeList('faqItem').title('FAQ Items').defaultOrdering([{field: 'order', direction: 'asc'}])),
       S.listItem()
         .title('Pricing Plans')
         .child(

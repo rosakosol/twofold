@@ -1,9 +1,15 @@
-import type { FaqItemDoc } from "@/lib/marketing/sanity";
+// Ported verbatim from the old static faq.html — shown only if getFaqEntries() (Supabase) fails
+// entirely, same "never blank the page" fail-soft pattern the old cms-faq.js used. Decoupled
+// from FaqEntry's free-text category (src/lib/marketing/faq.ts) since this fallback's fixed
+// 3-category taxonomy only needs to make sense on its own, failure-path render.
+export interface FaqFallbackItem {
+  category: "getting-started" | "subscriptions" | "privacy";
+  order: number;
+  question: string;
+  answer: string;
+}
 
-// Ported verbatim from the old static faq.html — shown per-category only when Sanity
-// has no published items for that category, same "never blank the page" fail-soft
-// pattern the old cms-faq.js used.
-export const FAQ_FALLBACK: FaqItemDoc[] = [
+export const FAQ_FALLBACK: FaqFallbackItem[] = [
   {
     category: "getting-started",
     order: 1,
@@ -83,7 +89,7 @@ export const FAQ_FALLBACK: FaqItemDoc[] = [
   },
 ];
 
-export const FAQ_CATEGORY_LABELS: Record<FaqItemDoc["category"], string> = {
+export const FAQ_CATEGORY_LABELS: Record<FaqFallbackItem["category"], string> = {
   "getting-started": "Getting started",
   subscriptions: "Subscriptions & billing",
   privacy: "Privacy & data",

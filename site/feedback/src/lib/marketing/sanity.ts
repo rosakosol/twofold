@@ -66,22 +66,8 @@ export async function getFeatures(slugs: readonly string[]): Promise<Record<stri
   return bySlug;
 }
 
-export interface FaqItemDoc {
-  question: string;
-  answer: string;
-  category: "getting-started" | "subscriptions" | "privacy";
-  order?: number;
-}
-
-export async function getFaqItems(): Promise<FaqItemDoc[]> {
-  return (
-    (await sanityClient.fetch(
-      `*[_type == "faqItem"] | order(order asc){ question, answer, category, order }`,
-      {},
-      { next: { revalidate: SANITY_REVALIDATE_SECONDS } }
-    )) ?? []
-  );
-}
+// FAQ used to be fetched from here (getFaqItems/FaqItemDoc) — retired along with Sanity's
+// `faqItem` document type. See src/lib/marketing/faq.ts (Supabase-backed) instead.
 
 export interface LegalPageDoc {
   title?: string;

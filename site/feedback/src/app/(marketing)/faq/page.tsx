@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getFaqItems, type FaqItemDoc } from "@/lib/marketing/sanity";
+import { getFaqEntries, groupFaqEntriesByCategory } from "@/lib/marketing/faq";
 import { FAQ_FALLBACK, FAQ_CATEGORY_LABELS } from "@/lib/marketing/faqFallback";
 import { FaqAccordionItem } from "@/components/marketing/FaqAccordionItem";
 import { Reveal } from "@/components/marketing/Reveal";
@@ -9,10 +9,30 @@ export const metadata: Metadata = {
   description: "Answers to common questions about Twofold: platforms, subscriptions, billing, privacy, and how partner connections work.",
 };
 
-const CATEGORY_ORDER: FaqItemDoc["category"][] = ["getting-started", "subscriptions", "privacy"];
+// The footer's "Manage subscription" link (components/layout/SiteFooter.tsx) points at
+// /faq#subscriptions — matched by category label, not a fixed category id, since faq_entries'
+// category column is free text rather than a Sanity-style fixed enum.
+const SUBSCRIPTIONS_ANCHOR_LABEL = "Subscriptions & billing";
 
 export default async function FaqPage() {
-  const sanityItems = await getFaqItems();
+  const entries = await getFaqEntries();
+
+  // Empty means the Supabase fetch failed outright (see getFaqEntries's own doc comment) —
+  // fall back to the same static copy the old Sanity-backed page used for the equivalent case,
+  // rather than rendering a blank FAQ page.
+  const groups =
+    entries.length > 0
+      ? groupFaqEntriesByCategory(entries)
+      : (["getting-started", "subscriptions", "privacy"] as const).map((category) => ({
+          category: FAQ_CATEGORY_LABELS[category],
+          items: FAQ_FALLBACK.filter((item) => item.category === category).map((item) => ({
+            id: `${category}-${item.order}`,
+            category: FAQ_CATEGORY_LABELS[category],
+            question: item.question,
+            answer: item.answer,
+            sortOrder: item.order,
+          })),
+        }));
 
   return (
     <>
@@ -37,25 +57,25 @@ export default async function FaqPage() {
 
       <section style={{ paddingTop: 20 }}>
         <div className="wrap faq-wrap">
-          {CATEGORY_ORDER.map((category, categoryIndex) => {
-            const fromSanity = sanityItems.filter((item) => item.category === category);
-            const items = fromSanity.length > 0 ? fromSanity : FAQ_FALLBACK.filter((item) => item.category === category);
-            return (
-              <Reveal key={category} className="faq-group" id={category === "subscriptions" ? "subscriptions" : undefined}>
-                <h2>{FAQ_CATEGORY_LABELS[category]}</h2>
-                <div className="acc-list">
-                  {items.map((item, index) => (
-                    <FaqAccordionItem
-                      key={item.question}
-                      question={item.question}
-                      answer={item.answer}
-                      defaultOpen={categoryIndex === 0 && index === 0}
-                    />
-                  ))}
-                </div>
-              </Reveal>
-            );
-          })}
+          {groups.map((group, groupIndex) => (
+            <Reveal
+              key={group.category}
+              className="faq-group"
+              id={group.category === SUBSCRIPTIONS_ANCHOR_LABEL ? "subscriptions" : undefined}
+            >
+              <h2>{group.category}</h2>
+              <div className="acc-list">
+                {group.items.map((item, index) => (
+                  <FaqAccordionItem
+                    key={item.id}
+                    question={item.question}
+                    answer={item.answer}
+                    defaultOpen={groupIndex === 0 && index === 0}
+                  />
+                ))}
+              </div>
+            </Reveal>
+          ))}
         </div>
       </section>
     </>
