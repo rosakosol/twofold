@@ -86,6 +86,16 @@ struct TripsListView: View {
                 let restingHeight = isExpanded ? expandedHeight : peekHeight
                 let panelHeight = min(expandedHeight, max(peekHeight, restingHeight - dragOffset))
                 let panelWidth = max(0, proxy.size.width - horizontalInset * 2)
+                // Which content the panel shows tracks the *live* dragged height, not just the
+                // settled `isExpanded` state — previously the panel's height grew smoothly in
+                // real time as you dragged (following `panelHeight` above) while still showing
+                // the single peek card the whole way, only swapping to the full list at the very
+                // end once `isExpanded` flipped in the drag's `.onEnded`. That mismatch (a smooth
+                // height animation the entire gesture, then a hard content pop right as your
+                // finger lifts) is what read as glitchy. Crossing this partway through the drag
+                // instead means the list is already showing well before release, so the swap
+                // blends into the motion rather than landing as a jarring finishing move.
+                let showingExpandedContent = panelHeight > peekHeight + 60
 
                 ZStack(alignment: .bottom) {
                     // `TripsGlobeView` shrinks its own rendered content below its layout frame
@@ -100,11 +110,10 @@ struct TripsListView: View {
 
                     TripsGlobeView(
                         trips: appModel.upcomingTrips,
-                        fallbackCenter: appModel.currentUser.homeCity?.coordinate,
-                        reservedBottomHeight: panelHeight
+                        fallbackCenter: appModel.currentUser.homeCity?.coordinate
                     )
 
-                browsePanel
+                browsePanel(showingExpandedContent: showingExpandedContent)
                     .frame(width: panelWidth, height: panelHeight, alignment: .top)
                     .background(Theme.backgroundGradient)
                     .clipShape(RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous))
@@ -147,37 +156,53 @@ struct TripsListView: View {
 
     // MARK: - Browse panel
 
-    private var browsePanel: some View {
+    private func browsePanel(showingExpandedContent: Bool) -> some View {
         VStack(spacing: 0) {
             dragHandle
             browseHeader
 
-            if isExpanded {
+            if showingExpandedContent {
                 expandedContent
+                    .transition(.opacity)
             } else {
                 peekContent
+                    .transition(.opacity)
             }
         }
+        // Explicit, so the peek-card/full-list swap always cross-fades — including when
+        // `showingExpandedContent` flips mid-drag from a slow, continuous `.onChanged` update
+        // (those aren't wrapped in `withAnimation` themselves, only the drag's `.onEnded` settle
+        // is), which is exactly when the swap used to pop with no transition at all. A fast
+        // swipe never showed this: it crosses the threshold as part of `.onEnded`'s own animated
+        // settle, so the pop just happened to ride along with that animation instead of standing
+        // out on its own.
+        .animation(.easeInOut(duration: 0.2), value: showingExpandedContent)
     }
 
     /// The only part of the panel a drag gesture attaches to — restricting it to this small,
     /// generously-hit-tested handle (rather than the whole panel) avoids fighting the expanded
-    /// state's own `List` for scroll-vs-resize gestures. A plain tap toggles too, since dragging
-    /// precisely is more effort than it needs to be for a simple expand/collapse.
+    /// state's own `List` for scroll-vs-resize gestures.
     private var dragHandle: some View {
         Capsule()
             .fill(Theme.subtleInk.opacity(0.35))
             .frame(width: 36, height: 5)
-            .padding(.vertical, Theme.Spacing.sm)
             .frame(maxWidth: .infinity)
+            // Fixed 44pt hit region — this used to be just the capsule's own 5pt height plus
+            // `Theme.Spacing.sm` (8pt) padding on each side, a 21pt-tall target well under
+            // Apple's 44pt minimum recommended touch target, which is exactly why the drag so
+            // often failed to register at all. The capsule glyph itself stays visually small;
+            // only the tappable/draggable area grows.
+            .frame(height: 44)
             .contentShape(Rectangle())
-            .onTapGesture {
-                withAnimation(panelAnimation) {
-                    isExpanded.toggle()
-                }
-            }
             .gesture(
-                DragGesture()
+                // One gesture handles both tap-to-toggle and drag-to-resize, rather than a
+                // separate `.onTapGesture` alongside this `DragGesture` — two simultaneous
+                // gesture recognizers on the same view have to disambiguate a quick tap from
+                // the start of a drag, which was its own source of dropped/ignored taps.
+                // `minimumDistance: 0` makes the drag start tracking immediately on touch-down
+                // (rather than waiting for ~10pt of movement before `onChanged` fires at all),
+                // which is what made the whole gesture feel unresponsive/laggy to begin with.
+                DragGesture(minimumDistance: 0)
                     .onChanged { value in
                         dragOffset = value.translation.height
                     }
@@ -194,6 +219,10 @@ struct TripsListView: View {
                                 isExpanded = true
                             } else if draggedDown {
                                 isExpanded = false
+                            } else if abs(value.translation.height) < 10 {
+                                // Barely moved at all — a tap, not a drag that fell short of the
+                                // expand/collapse threshold.
+                                isExpanded.toggle()
                             }
                             dragOffset = 0
                         }
