@@ -31,7 +31,7 @@ export function useAdminFeatureList(filters: AdminFeatureFilters) {
 
       const { data, error } = await query;
       if (error) throw error;
-      return data as unknown as FeatureDetail[];
+      return (data as unknown as Omit<FeatureDetail, "author">[]).map((row) => ({ ...row, author: null }));
     },
   });
 }
@@ -48,7 +48,7 @@ export function useAdminFeature(id: string) {
         .eq("id", id)
         .single();
       if (error) throw error;
-      return data as unknown as FeatureDetail;
+      return { ...(data as unknown as Omit<FeatureDetail, "author">), author: null };
     },
   });
 }

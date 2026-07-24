@@ -1,14 +1,4 @@
-import type { FeatureCategory, FeatureStatus, SortOption } from "@/lib/utils/constants";
-
-export interface FeatureListFilters {
-  category?: FeatureCategory;
-  status?: FeatureStatus;
-  sort: SortOption;
-  search?: string;
-}
-
 export const queryKeys = {
-  featureList: (filters: FeatureListFilters) => ["features", "list", filters] as const,
   feature: (slug: string) => ["features", "detail", slug] as const,
   comments: (featureId: string) => ["features", featureId, "comments"] as const,
   myVotes: (userId: string | undefined) => ["votes", "mine", userId] as const,

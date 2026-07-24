@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       airlines: {
@@ -117,21 +142,7 @@ export type Database = {
             foreignKeyName: "connection_requests_inviter_id_fkey"
             columns: ["inviter_id"]
             isOneToOne: false
-            referencedRelation: "feedback_public_profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "connection_requests_inviter_id_fkey"
-            columns: ["inviter_id"]
-            isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "connection_requests_requester_id_fkey"
-            columns: ["requester_id"]
-            isOneToOne: false
-            referencedRelation: "feedback_public_profiles"
             referencedColumns: ["id"]
           },
           {
@@ -149,6 +160,7 @@ export type Database = {
           dissolved_at: string | null
           dissolved_by: string | null
           id: string
+          max_distance_km: number | null
           partner_a_id: string
           partner_b_id: string
           started_dating_on: string | null
@@ -160,6 +172,7 @@ export type Database = {
           dissolved_at?: string | null
           dissolved_by?: string | null
           id?: string
+          max_distance_km?: number | null
           partner_a_id: string
           partner_b_id: string
           started_dating_on?: string | null
@@ -171,6 +184,7 @@ export type Database = {
           dissolved_at?: string | null
           dissolved_by?: string | null
           id?: string
+          max_distance_km?: number | null
           partner_a_id?: string
           partner_b_id?: string
           started_dating_on?: string | null
@@ -182,13 +196,6 @@ export type Database = {
             foreignKeyName: "couples_dissolved_by_fkey"
             columns: ["dissolved_by"]
             isOneToOne: false
-            referencedRelation: "feedback_public_profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "couples_dissolved_by_fkey"
-            columns: ["dissolved_by"]
-            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -196,21 +203,7 @@ export type Database = {
             foreignKeyName: "couples_partner_a_id_fkey"
             columns: ["partner_a_id"]
             isOneToOne: false
-            referencedRelation: "feedback_public_profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "couples_partner_a_id_fkey"
-            columns: ["partner_a_id"]
-            isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "couples_partner_b_id_fkey"
-            columns: ["partner_b_id"]
-            isOneToOne: false
-            referencedRelation: "feedback_public_profiles"
             referencedColumns: ["id"]
           },
           {
@@ -316,13 +309,6 @@ export type Database = {
             foreignKeyName: "developer_updates_author_id_fkey"
             columns: ["author_id"]
             isOneToOne: false
-            referencedRelation: "feedback_public_profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "developer_updates_author_id_fkey"
-            columns: ["author_id"]
-            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -365,13 +351,6 @@ export type Database = {
             foreignKeyName: "device_push_tokens_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
-            referencedRelation: "feedback_public_profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "device_push_tokens_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -399,13 +378,6 @@ export type Database = {
             columns: ["feature_id"]
             isOneToOne: false
             referencedRelation: "feature_requests"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "feature_bookmarks_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "feedback_public_profiles"
             referencedColumns: ["id"]
           },
           {
@@ -454,13 +426,6 @@ export type Database = {
             foreignKeyName: "feature_comments_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "feedback_public_profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "feature_comments_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -500,13 +465,6 @@ export type Database = {
             columns: ["feature_id"]
             isOneToOne: false
             referencedRelation: "feature_requests"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "feature_notification_outbox_recipient_id_fkey"
-            columns: ["recipient_id"]
-            isOneToOne: false
-            referencedRelation: "feedback_public_profiles"
             referencedColumns: ["id"]
           },
           {
@@ -569,13 +527,6 @@ export type Database = {
             foreignKeyName: "feature_requests_author_id_fkey"
             columns: ["author_id"]
             isOneToOne: false
-            referencedRelation: "feedback_public_profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "feature_requests_author_id_fkey"
-            columns: ["author_id"]
-            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -616,13 +567,6 @@ export type Database = {
             foreignKeyName: "feature_subscribers_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "feedback_public_profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "feature_subscribers_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -656,13 +600,6 @@ export type Database = {
             foreignKeyName: "feature_votes_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "feedback_public_profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "feature_votes_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -682,13 +619,6 @@ export type Database = {
           profile_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "feedback_admins_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: true
-            referencedRelation: "feedback_public_profiles"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "feedback_admins_profile_id_fkey"
             columns: ["profile_id"]
@@ -790,13 +720,6 @@ export type Database = {
             columns: ["trip_id"]
             isOneToOne: false
             referencedRelation: "trips"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "flight_documents_uploaded_by_fkey"
-            columns: ["uploaded_by"]
-            isOneToOne: false
-            referencedRelation: "feedback_public_profiles"
             referencedColumns: ["id"]
           },
           {
@@ -908,13 +831,6 @@ export type Database = {
             foreignKeyName: "flight_notification_preferences_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
-            referencedRelation: "feedback_public_profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "flight_notification_preferences_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -987,13 +903,6 @@ export type Database = {
           note?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "flight_updates_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "feedback_public_profiles"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "flight_updates_created_by_fkey"
             columns: ["created_by"]
@@ -1227,13 +1136,6 @@ export type Database = {
             foreignKeyName: "flights_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "feedback_public_profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "flights_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -1272,13 +1174,6 @@ export type Database = {
           row_b_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "game_content_duplicate_dismissals_dismissed_by_fkey"
-            columns: ["dismissed_by"]
-            isOneToOne: false
-            referencedRelation: "feedback_public_profiles"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "game_content_duplicate_dismissals_dismissed_by_fkey"
             columns: ["dismissed_by"]
@@ -1353,13 +1248,6 @@ export type Database = {
           session_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "game_responses_responder_id_fkey"
-            columns: ["responder_id"]
-            isOneToOne: false
-            referencedRelation: "feedback_public_profiles"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "game_responses_responder_id_fkey"
             columns: ["responder_id"]
@@ -1470,13 +1358,6 @@ export type Database = {
             foreignKeyName: "game_sessions_initiator_id_fkey"
             columns: ["initiator_id"]
             isOneToOne: false
-            referencedRelation: "feedback_public_profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "game_sessions_initiator_id_fkey"
-            columns: ["initiator_id"]
-            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -1525,13 +1406,6 @@ export type Database = {
             foreignKeyName: "invite_codes_inviter_id_fkey"
             columns: ["inviter_id"]
             isOneToOne: false
-            referencedRelation: "feedback_public_profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "invite_codes_inviter_id_fkey"
-            columns: ["inviter_id"]
-            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -1554,13 +1428,6 @@ export type Database = {
           redeemer_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "invite_redemption_attempts_redeemer_id_fkey"
-            columns: ["redeemer_id"]
-            isOneToOne: false
-            referencedRelation: "feedback_public_profiles"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "invite_redemption_attempts_redeemer_id_fkey"
             columns: ["redeemer_id"]
@@ -1607,13 +1474,6 @@ export type Database = {
             columns: ["flight_id"]
             isOneToOne: false
             referencedRelation: "flights"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "live_activity_push_tokens_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: false
-            referencedRelation: "feedback_public_profiles"
             referencedColumns: ["id"]
           },
           {
@@ -1788,13 +1648,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "notification_preferences_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: true
-            referencedRelation: "feedback_public_profiles"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "notification_preferences_profile_id_fkey"
             columns: ["profile_id"]
@@ -2081,15 +1934,7 @@ export type Database = {
       }
     }
     Views: {
-      feedback_public_profiles: {
-        Row: {
-          avatar_path: string | null
-          display_name: string | null
-          id: string | null
-          is_admin: boolean | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       abandon_game_session: {
@@ -2159,6 +2004,14 @@ export type Database = {
           total_rounds: number
         }[]
       }
+      get_feedback_public_profiles: {
+        Args: { profile_ids: string[] }
+        Returns: {
+          avatar_path: string
+          display_name: string
+          id: string
+        }[]
+      }
       get_invite_code_inviter_info: {
         Args: { p_code: string }
         Returns: {
@@ -2176,6 +2029,7 @@ export type Database = {
           dissolved_at: string | null
           dissolved_by: string | null
           id: string
+          max_distance_km: number | null
           partner_a_id: string
           partner_b_id: string
           started_dating_on: string | null
@@ -2233,6 +2087,7 @@ export type Database = {
           dissolved_at: string | null
           dissolved_by: string | null
           id: string
+          max_distance_km: number | null
           partner_a_id: string
           partner_b_id: string
           started_dating_on: string | null
@@ -2267,6 +2122,7 @@ export type Database = {
           dissolved_at: string | null
           dissolved_by: string | null
           id: string
+          max_distance_km: number | null
           partner_a_id: string
           partner_b_id: string
           started_dating_on: string | null
@@ -2279,6 +2135,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      update_couple_max_distance: {
+        Args: { p_couple_id: string; p_distance_km: number }
+        Returns: undefined
       }
     }
     Enums: {
@@ -2455,6 +2315,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       couple_status: ["active", "dissolved"],

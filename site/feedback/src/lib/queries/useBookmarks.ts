@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { queryKeys } from "@/lib/queries/queryKeys";
 import type { FeatureListItem } from "@/lib/queries/useFeatureList";
+import { fetchAuthorProfiles } from "@/lib/queries/authorProfiles";
 
 /** The set of feature ids the current user has bookmarked — same cheap single-round-trip
  * shape as useMyVoteIds, so any card can answer "is this bookmarked?" without a
@@ -35,16 +36,22 @@ export function useBookmarkedFeatures(userId: string | undefined) {
         .select(
           `feature:feature_requests!feature_bookmarks_feature_id_fkey(
             id, title, slug, description, category, status, upvote_count, comment_count,
-            is_pinned, merged_into, created_at, updated_at, author_id,
-            author:feedback_public_profiles!feature_requests_author_id_fkey(id, display_name, avatar_path)
+            is_pinned, merged_into, created_at, updated_at, author_id
           )`
         )
         .eq("user_id", userId!)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data ?? [])
-        .map((row) => row.feature as unknown as FeatureListItem | null)
-        .filter((feature): feature is FeatureListItem => !!feature);
+
+      const features = (data ?? [])
+        .map((row) => row.feature as unknown as Omit<FeatureListItem, "author"> | null)
+        .filter((feature): feature is Omit<FeatureListItem, "author"> => !!feature);
+      const authors = await fetchAuthorProfiles(supabase, features.map((f) => f.author_id));
+
+      return features.map((feature) => ({
+        ...feature,
+        author: (feature.author_id && authors.get(feature.author_id)) || null,
+      }));
     },
   });
 }
