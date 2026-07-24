@@ -155,6 +155,9 @@ struct AddFlightResultsStepView: View {
                         if candidate.isCodeshare == true {
                             PillBadge(text: "Codeshare", tint: Theme.subtleInk)
                         }
+                        if !candidate.canTrack {
+                            PillBadge(text: "Not trackable yet", tint: Theme.subtleInk)
+                        }
                         Spacer(minLength: 0)
                     }
 
@@ -177,8 +180,13 @@ struct AddFlightResultsStepView: View {
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+            .opacity(candidate.canTrack ? 1 : 0.6)
         }
         .buttonStyle(.plain)
+        // Nothing to confirm/hand off yet for a schedule-only candidate (see "Not trackable yet"
+        // badge above) — disabled rather than omitted so it still shows the caller their flight
+        // really is on the schedule, just not addable until closer to departure.
+        .disabled(!candidate.canTrack)
     }
 
 

@@ -157,3 +157,21 @@ export function lookupAirlineName(operatorIata?: string | null, operatorIcao?: s
   if (operator && AIRLINE_NAMES_BY_ICAO[operator]) return AIRLINE_NAMES_BY_ICAO[operator];
   return null;
 }
+
+// Two airline codes can refer to the same carrier while looking nothing alike — a 2-letter IATA
+// code ("QF") vs its 3-letter ICAO equivalent ("QFA") — and resolve-flight needs to compare a
+// user-typed designator's airline code against whatever format AeroAPI happens to report an
+// operator in. No separate IATA<->ICAO cross-reference table exists in this codebase; reusing the
+// two lookup tables above (built in parallel, same carrier per row) via their shared display name
+// avoids maintaining a second table that could drift out of sync with this one. Airlines absent
+// from both tables fall back to strict equality — treated as "not a match" rather than risking a
+// false positive from two unrelated unknown codes both resolving to `null`.
+export function airlineCodesMatch(a?: string | null, b?: string | null): boolean {
+  if (!a || !b) return false;
+  const an = a.trim().toUpperCase();
+  const bn = b.trim().toUpperCase();
+  if (an === bn) return true;
+  const aName = lookupAirlineName(an, an, an);
+  if (!aName) return false;
+  return aName === lookupAirlineName(bn, bn, bn);
+}

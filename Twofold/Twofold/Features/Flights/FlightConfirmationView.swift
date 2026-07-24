@@ -122,17 +122,33 @@ struct FlightConfirmationView: View {
                         Text(errorMessage).font(.caption).foregroundStyle(Theme.heartRed)
                     }
 
-                    Button(action: confirm) {
-                        HStack {
-                            if isSaving { ProgressView().tint(.white) }
-                            Text(isSaving ? "Saving…" : "Track this flight")
+                    if candidate.canTrack {
+                        Button(action: confirm) {
+                            HStack {
+                                if isSaving { ProgressView().tint(.white) }
+                                Text(isSaving ? "Saving…" : "Track this flight")
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .foregroundStyle(.white)
+                            .background(Theme.primaryButtonGradient, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                        }
+                        .disabled(isSaving)
+                    } else {
+                        // Schedule-only candidate — AeroAPI hasn't assigned it a trackable flight
+                        // instance yet (normally resolves a few days before departure), so there's
+                        // no faFlightId for add-flight to persist against.
+                        VStack(spacing: Theme.Spacing.xs) {
+                            Image(systemName: "clock.badge.questionmark").font(.title2).foregroundStyle(Theme.subtleInk)
+                            Text("Not trackable yet").font(.subheadline.weight(.medium))
+                            Text("This flight is on the airline's schedule, but tracking details aren't available yet. Check back closer to departure.")
+                                .font(.caption)
+                                .foregroundStyle(Theme.subtleInk)
+                                .multilineTextAlignment(.center)
                         }
                         .frame(maxWidth: .infinity)
-                        .padding()
-                        .foregroundStyle(.white)
-                        .background(Theme.primaryButtonGradient, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                        .padding(Theme.Spacing.lg)
                     }
-                    .disabled(isSaving)
                 }
                 .padding(Theme.Spacing.md)
             }
@@ -147,11 +163,12 @@ struct FlightConfirmationView: View {
     }
 
     private func confirm() {
+        guard let faFlightId = candidate.faFlightId else { return } // button is hidden whenever this is nil; defensive only
         isSaving = true
         errorMessage = nil
         Task {
             do {
-                try await AeroFlightService.addFlight(faFlightId: candidate.faFlightId, tripID: linkedTripID, travelerIDs: travelerIDs, shared: shareWithPartner, notifyMe: notifyMe)
+                try await AeroFlightService.addFlight(faFlightId: faFlightId, tripID: linkedTripID, travelerIDs: travelerIDs, shared: shareWithPartner, notifyMe: notifyMe)
                 await appModel.refreshFlights()
                 onDone()
             } catch {

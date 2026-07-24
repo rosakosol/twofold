@@ -929,25 +929,28 @@ final class AppModel {
             do {
                 try await BackendService.insertTrip(coupleID: backendCoupleID, trip: trip)
                 Task { await BackendService.notifyPartner(event: .tripAdded, detail: "\(origin.displayCity) to \(destination.displayCity)") }
-                if let flightCandidate {
-                    if (try? await AeroFlightService.addFlight(faFlightId: flightCandidate.faFlightId, tripID: trip.id, travelerIDs: travelerIDs, notifyMe: true)) != nil {
+                // A schedule-only candidate (no faFlightId yet — see AeroFlightCandidate.canTrack)
+                // has nothing add-flight could persist against; treated the same as "no candidate
+                // picked" rather than queuing something that will never resolve.
+                if let faFlightId = flightCandidate?.faFlightId {
+                    if (try? await AeroFlightService.addFlight(faFlightId: faFlightId, tripID: trip.id, travelerIDs: travelerIDs, notifyMe: true)) != nil {
                         await refreshFlights()
                     } else {
-                        pendingFlightCandidates[trip.id] = (flightCandidate.faFlightId, travelerIDs)
+                        pendingFlightCandidates[trip.id] = (faFlightId, travelerIDs)
                     }
                 }
             } catch {
                 pendingTripIDs.insert(trip.id)
                 PendingTripStore.save(trip)
-                if let flightCandidate {
-                    pendingFlightCandidates[trip.id] = (flightCandidate.faFlightId, travelerIDs)
+                if let faFlightId = flightCandidate?.faFlightId {
+                    pendingFlightCandidates[trip.id] = (faFlightId, travelerIDs)
                 }
             }
         } else {
             pendingTripIDs.insert(trip.id)
             PendingTripStore.save(trip)
-            if let flightCandidate {
-                pendingFlightCandidates[trip.id] = (flightCandidate.faFlightId, travelerIDs)
+            if let faFlightId = flightCandidate?.faFlightId {
+                pendingFlightCandidates[trip.id] = (faFlightId, travelerIDs)
             }
         }
 

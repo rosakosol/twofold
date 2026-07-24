@@ -7,8 +7,14 @@
 // session) so we can verify they belong to an active couple before spending an AeroAPI call.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { type AeroFlight, resolveFlightByIdent, searchRoute } from "../_shared/aeroapi.ts";
-import { lookupAirlineName } from "../_shared/airlines.ts";
+import {
+  type AeroFlight,
+  type AeroScheduledFlight,
+  fetchScheduledFlights,
+  resolveFlightByIdent,
+  searchRoute,
+} from "../_shared/aeroapi.ts";
+import { airlineCodesMatch, lookupAirlineName } from "../_shared/airlines.ts";
 import { deriveFlightStatus } from "../_shared/flight-status.ts";
 
 interface NumberModeInput {
@@ -33,31 +39,25 @@ function isValidDate(date: unknown): date is string {
   return typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date);
 }
 
-// AeroAPI's ident lookup wants an ISO8601 start/end window; give it a couple of days either side
-// of the requested date to comfortably catch overnight departures/arrivals.
+// AeroAPI's ident lookup (/flights/{ident}) wants an ISO8601 start/end window; give it a couple
+// of days either side of the requested date to comfortably catch overnight departures/arrivals.
 //
 // AeroAPI rejects the request outright ("invalid end bound: time is too far into future (limit:
 // 2 days)") if `end` is more than ~2 days past the moment of the request — regardless of how far
-// out the caller's requested date is. Clamp `end` into that ceiling instead of letting a
-// legitimately-future search (e.g. searching a flight number for next week) 400 the whole
-// lookup; a few minutes of slack below the hard cap guards against clock skew between here and
-// AeroAPI. A search clamped this way may simply come back with fewer/no matches for a date
-// that's genuinely beyond what AeroAPI can predict yet — that's a real "no flights found" state,
-// not a bug.
+// out the caller's requested date is. This is a hard limit of this specific endpoint (it's a
+// live-tracking endpoint, not a schedule-search one) — no window arithmetic can make it return a
+// flight further out than that; `wasClamped` tells the caller when this happened so it knows to
+// fall back to /schedules (see below) instead of trusting an empty/wrong-day result from here.
 //
 // `start` is left alone unless clamping `end` would otherwise invert the range (only possible
-// when the requested date is more than ~3 days out — at that point AeroAPI's own schedule
-// horizon doesn't reach the requested date at all, and there's no window that could return it).
-// A previous version shifted the *entire* window backward by the clamp overshoot whenever `end`
-// was out of range, which — for any date just 2-3 days out, the completely ordinary case a
-// traveler searching ahead of time hits constantly — dragged `start` back onto calendar days well
-// before the one actually requested. AeroAPI would then return real flight instances for those
-// earlier days too, `filterPreferringSameDay` would find none matching the requested date
-// (because the true instance's departure time had *also* been clamped out of the window by the
-// same shift) and fall back to returning every result unfiltered — surfacing flights from a day
-// or two before the one the caller picked, with nothing distinguishing them. Reported live:
-// searching 2 days ahead returned candidates dated both 1 and 2 days earlier than requested.
-function dateWindow(date: string): { startISO: string; endISO: string } {
+// when the requested date is more than ~3 days out). A previous version shifted the *entire*
+// window backward by the clamp overshoot whenever `end` was out of range, which dragged `start`
+// back onto calendar days well before the one actually requested and surfaced those flights
+// through the same-day filter's fallback — fixed by only clamping `end`. But even with that fix,
+// a date 2+ days out still can't reliably reach the true requested day within this endpoint's
+// 2-day ceiling (the clamped window may end partway *through* the requested day, missing a
+// later-in-the-day departure entirely) — that's what `wasClamped` exists to signal upstream.
+function dateWindow(date: string): { startISO: string; endISO: string; wasClamped: boolean } {
   const target = new Date(`${date}T00:00:00Z`);
   let end = new Date(target.getTime());
   end.setUTCDate(end.getUTCDate() + 2);
@@ -68,7 +68,9 @@ function dateWindow(date: string): { startISO: string; endISO: string } {
   maxEnd.setUTCDate(maxEnd.getUTCDate() + 2);
   maxEnd.setUTCMinutes(maxEnd.getUTCMinutes() - 5);
 
+  let wasClamped = false;
   if (end.getTime() > maxEnd.getTime()) {
+    wasClamped = true;
     end = maxEnd;
     // Guard against an inverted/zero-width range (AeroAPI: "type is incorrect") on a date far
     // enough out that even `start` (target - 1 day) lands past the clamped `end` — keep at least
@@ -82,11 +84,59 @@ function dateWindow(date: string): { startISO: string; endISO: string } {
   // AeroAPI's parser has rejected a `.toISOString()` timestamp's trailing milliseconds before
   // ("type is incorrect") — strip them defensively; AeroAPI's own documented examples never
   // include a fractional-seconds component.
+  return { startISO: toAeroTimestamp(start), endISO: toAeroTimestamp(end), wasClamped };
+}
+
+// Padding window for /schedules — that endpoint has no ~2-day future cap (up to a year ahead,
+// per AeroAPI's own docs) so this only needs the same +/- 1-day local-day-spillover padding
+// dateWindow uses, never a clamp.
+function scheduleWindow(date: string): { startISO: string; endISO: string } {
+  const target = new Date(`${date}T00:00:00Z`);
+  const end = new Date(target.getTime());
+  end.setUTCDate(end.getUTCDate() + 2);
+  const start = new Date(target.getTime());
+  start.setUTCDate(start.getUTCDate() - 1);
   return { startISO: toAeroTimestamp(start), endISO: toAeroTimestamp(end) };
 }
 
 function toAeroTimestamp(date: Date): string {
   return date.toISOString().replace(/\.\d{3}Z$/, "Z");
+}
+
+// Splits a flight designator ("QF35", "qf035") into the airline code + numeric flight number
+// /schedules' own `airline`/`flight_number` query params want. Returns null on anything that
+// doesn't look like <letters><digits> — callers skip the /schedules lookup entirely rather than
+// guess, since an unfiltered /schedules call (no airline/flight_number) would return every
+// scheduled flight globally for the date window.
+function splitFlightDesignator(raw: string): { airline: string; flightNumber: number } | null {
+  const match = raw.trim().toUpperCase().match(/^([A-Z]{2,3})0*(\d+)$/);
+  if (!match) return null;
+  return { airline: match[1], flightNumber: Number(match[2]) };
+}
+
+// A number-mode search for "QF94" should only surface flights QF actually operates — not every
+// flight AeroAPI's designator-matching turns up under that number, which includes codeshares QF
+// merely markets a seat on (e.g. an American Airlines-operated flight). AeroAPI's /flights/{ident}
+// exposes the true operator via operator/operator_icao/operator_iata, independent of which ident
+// the caller searched by; checked against whichever format the code happens to come back in via
+// airlineCodesMatch, since operator_iata/operator_icao/operator don't always agree on IATA vs ICAO.
+function isOperatingCarrier(f: AeroFlight, designator: { airline: string; flightNumber: number } | null): boolean {
+  if (!designator) return true; // unparseable input — already skipped everywhere else, don't filter here either
+  const operatorCodes = [f.operator_iata, f.operator_icao, f.operator].filter((c): c is string => Boolean(c));
+  if (operatorCodes.length === 0) return true; // AeroAPI gave no operator field at all — don't drop a result over missing data
+  return operatorCodes.some((code) => airlineCodesMatch(code, designator.airline));
+}
+
+// Same idea for /schedules results: `actual_ident*` is populated only when the row's own `ident`
+// is itself a codeshare designator, in which case it names the real operator's identifier (per
+// AeroAPI's schema docs). Since fetchScheduledFlights already filters by airline/flightNumber, any
+// row where actual_ident disagrees with ident is exactly a codeshare row for the searched
+// designator — drop it. No actual_ident at all means this row already is the operating flight.
+function isScheduledOperatingCarrier(s: AeroScheduledFlight): boolean {
+  const actual = s.actual_ident_iata ?? s.actual_ident_icao ?? s.actual_ident;
+  if (!actual) return true;
+  const ident = s.ident_iata ?? s.ident_icao ?? s.ident;
+  return !ident || actual.toUpperCase() === ident.toUpperCase();
 }
 
 // `iso` is a UTC instant from AeroAPI; `date` is the calendar date the caller searched for.
@@ -135,6 +185,11 @@ function isSameLocalDay(iso: string | null | undefined, date: string, timeZone: 
 // occurrences of the same flight/route right alongside today's, with nothing in the UI
 // distinguishing them by day. Filtering-with-fallback fixes the common case without
 // reintroducing that silent-exclusion problem in the rare case nothing matches at all.
+//
+// This fallback is genuinely safe now in a way it wasn't before dateWindow's fix + the /schedules
+// fallback: it used to also mask "the true requested-day flight got clamped out of the /flights
+// window," making a real bug look like an ordinary empty result. /schedules never has that
+// problem (no future cap), so a same-day miss there really does mean "no matching flight."
 function filterPreferringSameDay<T extends { scheduled_out?: string | null }>(
   results: T[],
   date: string,
@@ -149,7 +204,35 @@ function filterPreferringSameDay<T extends { scheduled_out?: string | null }>(
   });
 }
 
-function toCandidate(f: AeroFlight) {
+// Response shape both AeroFlight (/flights/{ident}, /flights/search) and AeroScheduledFlight
+// (/schedules) normalize into — the two sources have genuinely different field shapes (nested
+// origin/destination objects with timezone/name/city vs. flat code strings; live-tracking fields
+// vs. none at all), so each gets its own mapper into this common shape rather than one trying to
+// pretend to be the other.
+interface Candidate {
+  faFlightId: string | null;
+  identIata: string | null;
+  identIcao: string | null;
+  operatorName: string | null;
+  operatorIata: string | null;
+  flightNumberIata: string | null;
+  aircraftType: string | null;
+  origin: { iata: string | null; icao: string | null; name: string | null; city: string | null; timezone: string | null } | null;
+  destination: { iata: string | null; icao: string | null; name: string | null; city: string | null; timezone: string | null } | null;
+  scheduledOut: string | null;
+  scheduledIn: string | null;
+  status: ReturnType<typeof deriveFlightStatus>;
+  cancelled: boolean;
+  diverted: boolean;
+  isCodeshare: boolean;
+  // false only for a /schedules result whose fa_flight_id came back null — a flight that's on
+  // the airline's published schedule but that FlightAware hasn't assigned a concrete trackable
+  // instance to yet (per AeroAPI's own docs, this normally resolves a few days before departure).
+  // The client should let the caller see this candidate but not attempt to add-flight it yet.
+  isTrackable: boolean;
+}
+
+function fromLiveFlight(f: AeroFlight): Candidate {
   return {
     faFlightId: f.fa_flight_id,
     identIata: f.ident_iata ?? null,
@@ -182,7 +265,56 @@ function toCandidate(f: AeroFlight) {
     cancelled: Boolean(f.cancelled),
     diverted: Boolean(f.diverted),
     isCodeshare: (f.codeshares?.length ?? 0) > 0,
+    isTrackable: true,
   };
+}
+
+function fromScheduledFlight(s: AeroScheduledFlight): Candidate {
+  // /schedules gives no separate operator code — derive one from the ident's leading letters
+  // (the same shape splitFlightDesignator parses the user's *input* with).
+  const operatorCode = (s.ident_iata ?? s.ident_icao ?? s.ident)?.toUpperCase().match(/^[A-Z]{2,3}/)?.[0] ?? null;
+  return {
+    faFlightId: s.fa_flight_id,
+    identIata: s.ident_iata ?? null,
+    identIcao: s.ident_icao ?? null,
+    operatorName: lookupAirlineName(operatorCode, operatorCode, operatorCode),
+    operatorIata: operatorCode,
+    flightNumberIata: s.ident_iata ?? s.ident ?? null,
+    aircraftType: s.aircraft_type ?? null,
+    origin: s.origin_iata || s.origin_icao
+      ? { iata: s.origin_iata ?? null, icao: s.origin_icao ?? null, name: null, city: null, timezone: null }
+      : null,
+    destination: s.destination_iata || s.destination_icao
+      ? { iata: s.destination_iata ?? null, icao: s.destination_icao ?? null, name: null, city: null, timezone: null }
+      : null,
+    scheduledOut: s.scheduled_out ?? null,
+    scheduledIn: s.scheduled_in ?? null,
+    // No live-tracking fields exist on a schedule row at all — always derives to "scheduled".
+    status: deriveFlightStatus({}),
+    cancelled: false,
+    diverted: false,
+    isCodeshare: false,
+    isTrackable: s.fa_flight_id != null,
+  };
+}
+
+// Merges live-tracking and schedule-sourced candidates for the same search, preferring the live
+// version (richer data) wherever both cover the same physical flight. Dedupes by faFlightId when
+// both sides have one, else by identIata+scheduledOut — the two sources are never expected to
+// overlap much in practice (schedules is only consulted when dateWindow reports it clamped the
+// live window short), but a date right at that boundary could plausibly return the same flight
+// from both.
+function mergeCandidates(primary: Candidate[], extra: Candidate[]): Candidate[] {
+  const seen = new Set<string>();
+  const key = (c: Candidate) => c.faFlightId ?? `${c.identIata ?? c.identIcao ?? ""}:${c.scheduledOut ?? ""}`;
+  const merged: Candidate[] = [];
+  for (const c of [...primary, ...extra]) {
+    const k = key(c);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    merged.push(c);
+  }
+  return merged;
 }
 
 Deno.serve(async (req) => {
@@ -232,37 +364,89 @@ Deno.serve(async (req) => {
   }
 
   try {
-    let flights: AeroFlight[] = [];
+    let candidates: Candidate[] = [];
 
     if (input.mode === "number") {
-      const { startISO, endISO } = dateWindow(input.date);
+      const designator = splitFlightDesignator(input.flightNumber);
+      const { startISO, endISO, wasClamped } = dateWindow(input.date);
       const results = await resolveFlightByIdent(input.flightNumber, { startISO, endISO, identType: "designator" });
-      flights = filterPreferringSameDay(results, input.date, (f: AeroFlight) => input.deviceTimeZone ?? f.origin?.timezone);
+
+      let operatingFlights = results.filter((f) => isOperatingCarrier(f, designator));
       if (input.originIata) {
-        flights = flights.filter((f) => f.origin?.code_iata === input.originIata || f.origin?.code === input.originIata);
+        // AeroAPI's own generic `code` field is sometimes populated when the more specific
+        // `code_iata` isn't — check both, same as the original pre-/schedules-fallback logic.
+        operatingFlights = operatingFlights.filter((f) => f.origin?.code_iata === input.originIata || f.origin?.code === input.originIata);
       }
+
+      // Once /schedules is also going to be consulted (wasClamped), don't trust the live
+      // endpoint's same-day *fallback* (showing every result when none matched) — its window
+      // couldn't fully reach the requested day in the first place, so a same-day miss here just
+      // means "let /schedules answer this one," not "show whatever AeroAPI did return anyway."
+      // That fallback used to surface a flight from an adjacent day with nothing distinguishing
+      // it — /schedules doesn't have that failure mode (no future cap), so only *it* gets to
+      // fall back to an unfiltered result if its own same-day filter comes up empty.
+      let liveCandidates: Candidate[];
+      if (wasClamped) {
+        const sameDay = operatingFlights.filter((f) =>
+          isSameLocalDay(f.scheduled_out, input.date, input.deviceTimeZone ?? f.origin?.timezone)
+        );
+        liveCandidates = sameDay.map(fromLiveFlight);
+      } else {
+        const liveFlights = filterPreferringSameDay(operatingFlights, input.date, (f) => input.deviceTimeZone ?? f.origin?.timezone);
+        liveCandidates = liveFlights.map(fromLiveFlight);
+      }
+
+      let scheduledCandidates: Candidate[] = [];
+      let scheduledLog = "skipped (not clamped or unparseable designator)";
+      // Only worth the extra AeroAPI call when /flights/{ident}'s own future cap actually bit —
+      // for a same-day/next-day search the live endpoint already covers the full requested day.
+      if (wasClamped && designator) {
+        const { startISO: schedStart, endISO: schedEnd } = scheduleWindow(input.date);
+        try {
+          const scheduled = await fetchScheduledFlights(schedStart, schedEnd, {
+            airline: designator.airline,
+            flightNumber: designator.flightNumber,
+            origin: input.originIata,
+          });
+          const operatingScheduled = scheduled.filter(isScheduledOperatingCarrier);
+          const scheduledFlights = filterPreferringSameDay(operatingScheduled, input.date, () => input.deviceTimeZone);
+          scheduledCandidates = scheduledFlights.map(fromScheduledFlight);
+          scheduledLog = `window=[${schedStart},${schedEnd}] aeroapi returned ${scheduled.length}, ` +
+            `${operatingScheduled.length} after operator filter, ${scheduledCandidates.length} after same-day filter`;
+        } catch (err) {
+          // A /schedules failure (e.g. date_end > 1 year out) shouldn't take down a request that
+          // still has a legitimate (if possibly empty) /flights/{ident} result — log and continue
+          // with just the live-endpoint candidates, same "degrade, don't fail" posture as every
+          // other per-source try/catch in this codebase (fetchHistoricalFlights, fetchAirportWeather).
+          scheduledLog = `failed: ${(err as Error).message}`;
+        }
+      }
+
+      candidates = mergeCandidates(liveCandidates, scheduledCandidates);
       // Dumps every ident/scheduled_out AeroAPI actually returned (not just the count) — with no
       // way to hit AeroAPI directly outside a running deployment, this is what makes a "flight X
       // doesn't show up" report diagnosable from the Supabase dashboard's function logs alone,
       // rather than needing to guess blind at date-window/filter math.
       console.log(
-        `[resolve-flight] number ${input.flightNumber} on ${input.date}: window=[${startISO},${endISO}] ` +
-          `aeroapi returned ${results.length} total, ${flights.length} after same-day filter/origin filter. ` +
-          `raw=${JSON.stringify(results.map((f) => ({ ident: f.ident_iata ?? f.ident_icao ?? f.ident, out: f.scheduled_out, originTz: f.origin?.timezone })))}`,
+        `[resolve-flight] number ${input.flightNumber} on ${input.date}: live window=[${startISO},${endISO}] ` +
+          `wasClamped=${wasClamped}, aeroapi returned ${results.length} live, ${operatingFlights.length} after operator filter, ` +
+          `${liveCandidates.length} after same-day; schedules ${scheduledLog}; ${candidates.length} candidates after merge. ` +
+          `raw=${JSON.stringify(results.map((f) => ({ ident: f.ident_iata ?? f.ident_icao ?? f.ident, operator: f.operator_iata ?? f.operator_icao ?? f.operator, out: f.scheduled_out, originTz: f.origin?.timezone })))}`,
       );
     } else {
       const results = await searchRoute(input.originIata, input.destinationIata);
       // AeroAPI's route search has no date param of its own — the date filter is applied here,
       // client-side.
-      flights = filterPreferringSameDay(results, input.date, (f: AeroFlight) => input.deviceTimeZone ?? f.origin?.timezone);
+      const flights = filterPreferringSameDay(results, input.date, (f: AeroFlight) => input.deviceTimeZone ?? f.origin?.timezone);
+      candidates = flights.map(fromLiveFlight);
       console.log(
         `[resolve-flight] route ${input.originIata}->${input.destinationIata} on ${input.date}: ` +
-          `aeroapi returned ${results.length} total, ${flights.length} after same-day filter. ` +
+          `aeroapi returned ${results.length} total, ${candidates.length} after same-day filter. ` +
           `raw=${JSON.stringify(results.map((f) => ({ ident: f.ident_iata ?? f.ident_icao ?? f.ident, out: f.scheduled_out, originTz: f.origin?.timezone })))}`,
       );
     }
 
-    return Response.json({ candidates: flights.map(toCandidate) });
+    return Response.json({ candidates });
   } catch (err) {
     const message = (err as Error).message;
     console.error("[resolve-flight] AeroAPI lookup failed:", message);

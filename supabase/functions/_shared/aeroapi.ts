@@ -141,6 +141,63 @@ export async function resolveFlightByIdent(
   return json?.flights ?? [];
 }
 
+// Published-schedule flight, from GET /schedules/{date_start}/{date_end} — a genuinely
+// different endpoint/data source from everything else in this file: those are all
+// live-tracking endpoints (AeroAPI's own ~2-day future cap on /flights/{ident} — see
+// resolve-flight/index.ts's dateWindow — is a real limit of that endpoint, not
+// something any client-side window arithmetic can work around), while /schedules
+// returns airline-published schedules up to a year ahead. Deliberately NOT reshaped
+// into AeroFlight — flat origin/destination strings (no nested airport object with
+// timezone/name/city) and no live-tracking fields (actual_*, progress_percent,
+// departure_delay) at all, since schedules never has them. Kept as its own type so
+// resolve-flight/index.ts's normalization to the response `Candidate` shape is
+// explicit about which fields each source can and can't provide, rather than
+// papering over the difference by faking an AeroFlight.
+export interface AeroScheduledFlight {
+  ident: string;
+  ident_icao?: string | null;
+  ident_iata?: string | null;
+  // Present only when `ident` is a codeshare/marketing designator — the identifier the
+  // flight's actual operating carrier uses. resolve-flight/index.ts uses this to drop
+  // marketing-only rows from a number-mode search (searching "QF94" shouldn't surface
+  // an American-Airlines-operated flight just because Qantas markets a seat on it).
+  actual_ident?: string | null;
+  actual_ident_icao?: string | null;
+  actual_ident_iata?: string | null;
+  aircraft_type?: string | null;
+  scheduled_out?: string | null;
+  scheduled_in?: string | null;
+  origin_icao?: string | null;
+  origin_iata?: string | null;
+  destination_icao?: string | null;
+  destination_iata?: string | null;
+  // Per AeroAPI's own schema: "Will be null for flights scheduled more than a few days
+  // in the future" — FlightAware hasn't assigned this specific flight instance a
+  // concrete trackable id yet. A candidate with a null fa_flight_id genuinely exists on
+  // the airline's schedule but can't be passed to add-flight until closer to departure.
+  fa_flight_id: string | null;
+}
+
+// date_start/date_end: must span <=3 weeks, date_start >=3 months in the past, date_end
+// <=1 year in the future (AeroAPI-enforced; violations surface as a normal aeroRequest
+// throw, same as any other rejected request).
+export async function fetchScheduledFlights(
+  dateStartISO: string,
+  dateEndISO: string,
+  opts: { airline?: string; flightNumber?: number; origin?: string; destination?: string } = {},
+): Promise<AeroScheduledFlight[]> {
+  const json = await aeroRequest(
+    `/schedules/${encodeURIComponent(dateStartISO)}/${encodeURIComponent(dateEndISO)}`,
+    {
+      airline: opts.airline,
+      flight_number: opts.flightNumber !== undefined ? String(opts.flightNumber) : undefined,
+      origin: opts.origin,
+      destination: opts.destination,
+    },
+  );
+  return json?.scheduled ?? [];
+}
+
 // Historical instances of a flight designator (e.g. "UAE1"), not a single fa_flight_id instance —
 // the basis for delay-performance stats (see _shared/flight-sync.ts's computeDelayStats). Requires
 // AeroAPI's Standard tier; Personal-tier accounts will get an error response from AeroAPI itself,

@@ -22,7 +22,14 @@ struct AeroFlightCandidate: Identifiable, Decodable, Hashable {
         var timezone: String?
     }
 
-    var faFlightId: String
+    // `resolve-flight` can now surface a candidate sourced from AeroAPI's published schedules
+    // (a search far enough out to exceed /flights/{ident}'s ~2-day live-tracking cap) — those
+    // rows have `fa_flight_id: null` until FlightAware assigns the flight a trackable instance,
+    // normally a few days before departure. Was `String`, which crashed the *entire* candidates
+    // array decode (Swift's array decoding is all-or-nothing) the moment any one candidate came
+    // back schedule-only — surfaced as a generic "unexpected response" error for a real, correct
+    // search result. `isTrackable` mirrors this: false exactly when `faFlightId` is nil.
+    var faFlightId: String?
     var identIata: String?
     var identIcao: String?
     var operatorName: String?
@@ -37,8 +44,15 @@ struct AeroFlightCandidate: Identifiable, Decodable, Hashable {
     var cancelled: Bool?
     var diverted: Bool?
     var isCodeshare: Bool?
+    var isTrackable: Bool?
 
-    var id: String { faFlightId }
+    /// False only for a schedule-only candidate the server can't hand to `add-flight` yet —
+    /// callers should show a "check back closer to departure" state instead of a confirm action.
+    var canTrack: Bool { isTrackable ?? (faFlightId != nil) }
+
+    // Falls back to the same identIata/scheduledOut composite key resolve-flight's own
+    // `mergeCandidates` uses when a candidate has no `faFlightId` yet.
+    var id: String { faFlightId ?? "\(identIata ?? identIcao ?? "?"):\(scheduledOut?.timeIntervalSince1970 ?? 0)" }
 
     var displayFlightNumber: String { flightNumberIata ?? identIata ?? identIcao ?? "—" }
     var logoURL: URL? { AirlineLogo.url(forIATACode: operatorIata) }
@@ -59,8 +73,36 @@ enum AeroFlightError: LocalizedError {
 }
 
 enum AeroFlightService {
+    // A single candidate resolve-flight can't shape the way this client expects (an AeroAPI field
+    // quirk the server hasn't normalized yet — the null-faFlightId schedule-candidate case above
+    // was exactly this) used to sink the *entire* search: Swift's array decoding is all-or-nothing,
+    // so one bad element meant every other, perfectly good candidate in the same response
+    // vanished behind a generic "unexpected response" error instead of just being dropped.
+    // Decoding through `FailableCandidate` isolates each element's decode into its own scope
+    // (its `init(from:)` swallows the inner failure via `try?` rather than rethrowing, so the
+    // outer array decode never sees a throw and can't abort) — a bad candidate is silently
+    // skipped rather than failing the whole list.
     private struct CandidatesResponse: Decodable {
         var candidates: [AeroFlightCandidate]
+
+        private enum CodingKeys: String, CodingKey { case candidates }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            let failable = try container.decode([FailableCandidate].self, forKey: .candidates)
+            let dropped = failable.count - failable.compactMap(\.value).count
+            if dropped > 0 {
+                print("[aero-flight] dropped \(dropped) of \(failable.count) candidates that failed to decode")
+            }
+            candidates = failable.compactMap(\.value)
+        }
+
+        private struct FailableCandidate: Decodable {
+            let value: AeroFlightCandidate?
+            init(from decoder: Decoder) throws {
+                value = try? AeroFlightCandidate(from: decoder)
+            }
+        }
     }
 
     private struct ErrorResponse: Decodable {
