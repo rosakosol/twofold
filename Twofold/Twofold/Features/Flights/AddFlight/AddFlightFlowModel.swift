@@ -56,10 +56,22 @@ final class AddFlightFlowModel {
     let topBarTitle: String
     let onTopBarAction: () -> Void
 
-    init(nearCoordinate: CLLocationCoordinate2D?, topBarTitle: String, onTopBarAction: @escaping () -> Void, initialFlightNumberDigits: String? = nil) {
+    /// Set when this flow was opened from a specific trip's "Link a flight" screen's "Create
+    /// new" option — preselects `FlightConfirmationView`'s own "Link to a trip" picker to this
+    /// trip, rather than the caller having to remember to pick it again after searching.
+    let initialTripID: Trip.ID?
+
+    init(
+        nearCoordinate: CLLocationCoordinate2D?,
+        topBarTitle: String,
+        onTopBarAction: @escaping () -> Void,
+        initialFlightNumberDigits: String? = nil,
+        initialTripID: Trip.ID? = nil
+    ) {
         self.nearCoordinate = nearCoordinate
         self.topBarTitle = topBarTitle
         self.onTopBarAction = onTopBarAction
+        self.initialTripID = initialTripID
         let digitsOnly = (initialFlightNumberDigits ?? "").filter(\.isNumber)
         if !digitsOnly.isEmpty {
             mode = .flightNumber

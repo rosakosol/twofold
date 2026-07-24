@@ -136,7 +136,13 @@ struct FlightCarouselCard: View {
                     .foregroundStyle(Theme.subtleInk)
                     .lineLimit(1)
                 Spacer()
-                PillBadge(text: flight.status.displayLabel, tint: flight.status.semanticColor)
+                // See FlightRowView's matching check — a pending (not-yet-trackable) flight's
+                // `status` still just reads "Scheduled", indistinguishable from a normal live one.
+                if flight.faFlightID == nil {
+                    PillBadge(text: "Not live yet", tint: Theme.subtleInk)
+                } else {
+                    PillBadge(text: flight.status.displayLabel, tint: flight.status.semanticColor)
+                }
             }
         }
         .padding(Theme.Spacing.md)

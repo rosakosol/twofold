@@ -12,6 +12,10 @@ struct MemoriesMapView: View {
 
     @Environment(AppModel.self) private var appModel
     @State private var selectedCity: Place?
+    /// Drives `AddMemoryView`'s sheet when the per-location list's own empty state is tapped —
+    /// separate from `selectedCity` since that one's sheet stays open underneath (adding a memory
+    /// here shouldn't also close the location list it was tapped from).
+    @State private var addMemoryPlace: Place?
     /// Starts small (peek height) so the map's still visible/pannable underneath — swiping the
     /// sheet up, or tapping anywhere in the peek content, expands it to full height.
     @State private var sheetDetent: PresentationDetent = Self.peekDetent
@@ -83,7 +87,10 @@ struct MemoriesMapView: View {
         }
         .sheet(item: $selectedCity) { city in
             NavigationStack {
-                MemoriesListView(initialLocationFilter: city)
+                // Previously left at its default no-op closure — tapping this location's own
+                // "Add your first memory" empty-state hint did nothing at all, since only
+                // MemoriesView's tab-mode instantiation ever wired onTapAddMemory through.
+                MemoriesListView(initialLocationFilter: city, onTapAddMemory: { addMemoryPlace = city })
             }
             .simultaneousGesture(
                 TapGesture().onEnded {
@@ -93,6 +100,9 @@ struct MemoriesMapView: View {
             .presentationDetents([Self.peekDetent, .large], selection: $sheetDetent)
             .presentationDragIndicator(.visible)
             .presentationBackgroundInteraction(.enabled(upThrough: Self.peekDetent))
+        }
+        .sheet(item: $addMemoryPlace) { place in
+            AddMemoryView(initialPlace: place)
         }
         .postHogScreenView("Memories: Map")
     }

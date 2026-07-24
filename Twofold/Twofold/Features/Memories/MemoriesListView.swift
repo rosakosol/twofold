@@ -93,7 +93,14 @@ struct MemoriesListView: View {
 
     private var content: some View {
         Group {
-            if appModel.memories.isEmpty {
+            // Was `appModel.memories.isEmpty` — checked the *global* memory count regardless of
+            // `locationFilter`, so this pushed from a map pin (or with a filter applied) never
+            // showed the real "add your first memory" hint once the couple had memories anywhere
+            // else: deleting the last memory at a filtered location fell through to
+            // `noMatchState`'s plain "no memories match" text instead, with no way to add one
+            // right there. `yearFilter == nil` keeps a genuinely-filtered-to-zero year (memories
+            // exist, just not that year) reading as `noMatchState`, not this big CTA.
+            if filteredMemories.isEmpty && yearFilter == nil {
                 emptyState
             } else {
                 VStack(spacing: 0) {

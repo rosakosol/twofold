@@ -4,6 +4,15 @@
 // flight_status_events have no client write policy by design — see the migration), and creates
 // default notification preference rows for both partners.
 //
+// `faFlightId` may be omitted for a schedule-only candidate (AeroAPI hasn't assigned it a
+// trackable instance yet — normally resolves a few days before departure, see
+// resolve-flight/index.ts's `isTrackable`/`canTrack`). In that case `pending` must carry enough
+// of the original candidate to persist a placeholder row — this is the ONE place client-supplied
+// flight fields are trusted, precisely because there's no fa_flight_id yet to re-fetch fresh data
+// by. `refreshOneFlight` (_shared/flight-sync.ts) periodically retries resolving a real
+// fa_flight_id for these via /schedules, and once found, transparently starts full live tracking
+// through the exact same poll pipeline as any other flight — no separate "activate tracking" step.
+//
 // Deliberately does NOT register an AeroAPI alert (used to, via createAlert() — removed as a
 // cost optimization). Alerts had no dedup across couples (two couples tracking the same
 // real-world flight registered two separate alerts, billed separately per delivery), were never
@@ -20,16 +29,86 @@
 // session) so we can resolve which couple this flight belongs to.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { fetchAirportCoordinates, fetchFlightByFaId } from "../_shared/aeroapi.ts";
+import { type AeroFlight, fetchAirportCoordinates, fetchFlightByFaId } from "../_shared/aeroapi.ts";
 import { deriveFlightStatus } from "../_shared/flight-status.ts";
-import { mapAeroFlightToRow } from "../_shared/flight-sync.ts";
+import { type MappedAeroFields, mapAeroFlightToRow } from "../_shared/flight-sync.ts";
+
+interface PendingCandidate {
+  identIata?: string | null;
+  identIcao?: string | null;
+  operatorName?: string | null;
+  operatorIata?: string | null;
+  flightNumberIata?: string | null;
+  aircraftType?: string | null;
+  origin?: { iata?: string | null; icao?: string | null; name?: string | null; city?: string | null; timezone?: string | null } | null;
+  destination?: { iata?: string | null; icao?: string | null; name?: string | null; city?: string | null; timezone?: string | null } | null;
+  scheduledOut?: string | null;
+  scheduledIn?: string | null;
+}
 
 interface Input {
-  faFlightId: string;
+  faFlightId?: string;
+  pending?: PendingCandidate;
   tripId?: string;
   travelerIds?: string[];
   shared?: boolean;
   notifyMe: boolean;
+}
+
+// Builds the same shape mapAeroFlightToRow() produces, but straight from the client-supplied
+// candidate instead of a fresh AeroAPI response — the only fields available for a flight AeroAPI
+// hasn't assigned a trackable instance to yet. Every live-tracking-only field (position, actual_*,
+// delays, gate/terminal, weather) stays null, same as any other freshly-scheduled flight with no
+// data for those yet.
+function mapPendingCandidateToRow(pending: PendingCandidate): MappedAeroFields {
+  return {
+    fa_flight_id: null,
+    flight_number_iata: pending.flightNumberIata ?? pending.identIata ?? null,
+    flight_number_icao: pending.identIcao ?? null,
+    atc_ident: null,
+    airline_name: pending.operatorName ?? null,
+    airline_code: pending.operatorIata ?? null,
+    airline_logo_url: null,
+    origin_iata: pending.origin?.iata ?? null,
+    origin_icao: pending.origin?.icao ?? null,
+    origin_name: pending.origin?.name ?? null,
+    origin_city: pending.origin?.city ?? null,
+    origin_timezone: pending.origin?.timezone ?? null,
+    origin_latitude: null,
+    origin_longitude: null,
+    destination_iata: pending.destination?.iata ?? null,
+    destination_icao: pending.destination?.icao ?? null,
+    destination_name: pending.destination?.name ?? null,
+    destination_city: pending.destination?.city ?? null,
+    destination_timezone: pending.destination?.timezone ?? null,
+    destination_latitude: null,
+    destination_longitude: null,
+    aircraft_type: pending.aircraftType ?? null,
+    registration: null,
+    route: null,
+    scheduled_out: pending.scheduledOut ?? null,
+    scheduled_off: null,
+    scheduled_on: null,
+    scheduled_in: pending.scheduledIn ?? null,
+    estimated_out: null,
+    estimated_off: null,
+    estimated_on: null,
+    estimated_in: null,
+    actual_out: null,
+    actual_off: null,
+    actual_on: null,
+    actual_in: null,
+    departure_delay_seconds: null,
+    arrival_delay_seconds: null,
+    terminal_origin: null,
+    gate_origin: null,
+    terminal_destination: null,
+    gate_destination: null,
+    baggage_claim: null,
+    cancelled: false,
+    diverted: false,
+    status: "scheduled",
+  };
 }
 
 Deno.serve(async (req) => {
@@ -44,8 +123,14 @@ Deno.serve(async (req) => {
     return Response.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  if (!input?.faFlightId || typeof input.faFlightId !== "string") {
-    return Response.json({ error: "'faFlightId' is required" }, { status: 400 });
+  if (input?.faFlightId !== undefined && typeof input.faFlightId !== "string") {
+    return Response.json({ error: "'faFlightId' must be a string" }, { status: 400 });
+  }
+  if (!input?.faFlightId && (!input?.pending?.flightNumberIata || !input?.pending?.scheduledOut)) {
+    return Response.json(
+      { error: "Either 'faFlightId', or 'pending' with 'flightNumberIata' and 'scheduledOut', is required" },
+      { status: 400 },
+    );
   }
   if (typeof input.notifyMe !== "boolean") {
     return Response.json({ error: "'notifyMe' is required" }, { status: 400 });
@@ -88,18 +173,22 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
-  let aeroFlight;
-  try {
-    aeroFlight = await fetchFlightByFaId(input.faFlightId);
-  } catch (err) {
-    console.error("[add-flight] AeroAPI lookup failed:", (err as Error).message);
-    return Response.json({ error: "Flight lookup failed, please try again" }, { status: 502 });
+  let aeroFlight: AeroFlight | null = null;
+  let mapped: MappedAeroFields;
+  if (input.faFlightId) {
+    try {
+      aeroFlight = await fetchFlightByFaId(input.faFlightId);
+    } catch (err) {
+      console.error("[add-flight] AeroAPI lookup failed:", (err as Error).message);
+      return Response.json({ error: "Flight lookup failed, please try again" }, { status: 502 });
+    }
+    if (!aeroFlight) {
+      return Response.json({ error: "Flight not found" }, { status: 404 });
+    }
+    mapped = await mapAeroFlightToRow(serviceClient, aeroFlight);
+  } else {
+    mapped = mapPendingCandidateToRow(input.pending!);
   }
-  if (!aeroFlight) {
-    return Response.json({ error: "Flight not found" }, { status: 404 });
-  }
-
-  const mapped = await mapAeroFlightToRow(serviceClient, aeroFlight);
 
   // Airport coordinates aren't on the /flights response — a one-time /airports/{id} lookup per
   // side. Best-effort: a failed lookup just leaves the columns null, which the map screen
@@ -133,7 +222,10 @@ Deno.serve(async (req) => {
     console.error("[add-flight] destination coordinate lookup threw:", (err as Error).message);
   }
 
-  const status = deriveFlightStatus(aeroFlight);
+  // `mapped.status` already carries this (mapAeroFlightToRow/mapPendingCandidateToRow both set
+  // it), but re-derived from the live aeroFlight when we have one — a pending row's own
+  // "scheduled" is nothing further to derive.
+  const status = aeroFlight ? deriveFlightStatus(aeroFlight) : mapped.status;
 
   const { data: inserted, error: insertErr } = await serviceClient
     .from("flights")

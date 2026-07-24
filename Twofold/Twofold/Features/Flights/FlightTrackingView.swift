@@ -271,12 +271,26 @@ struct FlightTrackingView: View {
                 .minimumScaleFactor(0.8)
 
             HStack(spacing: Theme.Spacing.sm) {
-                PillBadge(text: flight.status.displayLabel, tint: flight.status.semanticColor)
+                // See FlightRowView's matching check — a pending flight (added from a
+                // schedule-only candidate, no faFlightID yet) still just derives to "Scheduled"
+                // like any normal live flight, which reads as tracking already having started.
+                if flight.faFlightID == nil {
+                    PillBadge(text: "Not live yet", tint: Theme.subtleInk)
+                } else {
+                    PillBadge(text: flight.status.displayLabel, tint: flight.status.semanticColor)
+                }
                 if flight.isDelayed, flight.status != .cancelled {
                     Image(systemName: flight.status.icon).font(.caption2).foregroundStyle(Theme.heartRed)
                 }
                 Text(flight.countdownSummary)
                     .font(.title2.weight(.bold))
+            }
+
+            if flight.faFlightID == nil {
+                Text("This flight is on the airline's schedule — we'll start tracking it live automatically once AeroAPI makes it available, usually a few days before departure.")
+                    .font(.caption2)
+                    .foregroundStyle(Theme.subtleInk)
+                    .multilineTextAlignment(.center)
             }
 
             // Every time elsewhere on this screen (journey rows, departure/arrival cards) is
@@ -1138,7 +1152,12 @@ struct FlightTrackingView: View {
     }
 
     private func refreshFromProvider() async {
-        guard !isRefreshing, flight.trackingEnabled, flight.faFlightID != nil else { return }
+        // `faFlightID == nil` (a pending, not-yet-trackable flight) is deliberately NOT excluded
+        // here — refresh-flight's server-side refreshOneFlight now attempts to resolve a real
+        // faFlightID for exactly this case, so a pull-to-refresh (or this screen's initial
+        // .task-triggered call) should give it a chance to do that immediately rather than only
+        // waiting for the next cron tick.
+        guard !isRefreshing, flight.trackingEnabled else { return }
         isRefreshing = true
         try? await AeroFlightService.refreshFlight(id: flight.id)
         if let fresh = try? await BackendService.fetchFlight(id: flight.id) {

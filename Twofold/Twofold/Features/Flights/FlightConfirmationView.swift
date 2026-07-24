@@ -23,6 +23,15 @@ struct FlightConfirmationView: View {
     @State private var isSaving = false
     @State private var errorMessage: String?
 
+    /// Set when this search was opened from a specific trip's "Link a flight" screen's "Create
+    /// new" option — preselects "Link to a trip" below to that trip, rather than leaving it at
+    /// "None" and relying on the caller to remember to pick it again.
+    init(candidate: AeroFlightCandidate, initialTripID: Trip.ID? = nil, onDone: @escaping () -> Void) {
+        self.candidate = candidate
+        self.onDone = onDone
+        _linkedTripID = State(initialValue: initialTripID)
+    }
+
     private enum TravelerChoice: Hashable {
         case notSure, me, partner, both
     }
@@ -114,41 +123,45 @@ struct FlightConfirmationView: View {
 
                         Divider()
 
-                        Toggle("Notify me about this flight", isOn: $notifyMe)
+                        Toggle("Track this flight", isOn: $notifyMe)
                             .font(.subheadline.weight(.medium))
+                        Text("Get live status updates and alerts as this flight progresses — including once tracking kicks in, if it's not trackable yet.")
+                            .font(.caption)
+                            .foregroundStyle(Theme.subtleInk)
+                    }
+
+                    if !candidate.canTrack {
+                        // Schedule-only candidate — AeroAPI hasn't assigned it a trackable flight
+                        // instance yet (normally resolves a few days before departure). Still
+                        // addable: the server persists it as a pending flight and starts full live
+                        // tracking automatically once a real instance is assigned — no separate
+                        // "activate tracking" step for the caller to remember to come back for.
+                        HStack(alignment: .top, spacing: Theme.Spacing.sm) {
+                            Image(systemName: "clock.badge.questionmark").foregroundStyle(Theme.subtleInk)
+                            Text("Not trackable live yet — it's on the airline's schedule, and we'll start tracking automatically once it is (usually a few days before departure).")
+                                .font(.caption)
+                                .foregroundStyle(Theme.subtleInk)
+                        }
+                        .padding(Theme.Spacing.sm)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                     }
 
                     if let errorMessage {
                         Text(errorMessage).font(.caption).foregroundStyle(Theme.heartRed)
                     }
 
-                    if candidate.canTrack {
-                        Button(action: confirm) {
-                            HStack {
-                                if isSaving { ProgressView().tint(.white) }
-                                Text(isSaving ? "Saving…" : "Track this flight")
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .foregroundStyle(.white)
-                            .background(Theme.primaryButtonGradient, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-                        }
-                        .disabled(isSaving)
-                    } else {
-                        // Schedule-only candidate — AeroAPI hasn't assigned it a trackable flight
-                        // instance yet (normally resolves a few days before departure), so there's
-                        // no faFlightId for add-flight to persist against.
-                        VStack(spacing: Theme.Spacing.xs) {
-                            Image(systemName: "clock.badge.questionmark").font(.title2).foregroundStyle(Theme.subtleInk)
-                            Text("Not trackable yet").font(.subheadline.weight(.medium))
-                            Text("This flight is on the airline's schedule, but tracking details aren't available yet. Check back closer to departure.")
-                                .font(.caption)
-                                .foregroundStyle(Theme.subtleInk)
-                                .multilineTextAlignment(.center)
+                    Button(action: confirm) {
+                        HStack {
+                            if isSaving { ProgressView().tint(.white) }
+                            Text(isSaving ? "Saving…" : "Add Flight")
                         }
                         .frame(maxWidth: .infinity)
-                        .padding(Theme.Spacing.lg)
+                        .padding()
+                        .foregroundStyle(.white)
+                        .background(Theme.primaryButtonGradient, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                     }
+                    .disabled(isSaving)
                 }
                 .padding(Theme.Spacing.md)
             }
@@ -163,12 +176,11 @@ struct FlightConfirmationView: View {
     }
 
     private func confirm() {
-        guard let faFlightId = candidate.faFlightId else { return } // button is hidden whenever this is nil; defensive only
         isSaving = true
         errorMessage = nil
         Task {
             do {
-                try await AeroFlightService.addFlight(faFlightId: faFlightId, tripID: linkedTripID, travelerIDs: travelerIDs, shared: shareWithPartner, notifyMe: notifyMe)
+                try await AeroFlightService.addFlight(candidate: candidate, tripID: linkedTripID, travelerIDs: travelerIDs, shared: shareWithPartner, notifyMe: notifyMe)
                 await appModel.refreshFlights()
                 onDone()
             } catch {

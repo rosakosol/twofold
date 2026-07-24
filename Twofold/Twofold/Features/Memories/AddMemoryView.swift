@@ -17,6 +17,17 @@ struct AddMemoryView: View {
     /// Cancel button and disables swipe-to-dismiss, so saving a memory is the only way off this
     /// screen. Every other call site (the real Memories tab) leaves this at the default.
     var isDismissable: Bool = true
+    /// Set when opened from a specific location's context (a map pin's memory list) so the new
+    /// memory doesn't default to the device's current location/home city instead.
+    private let initialPlace: Place?
+    /// Set when opened from a trip's "Link a memory" screen's "Create new" option — the new
+    /// memory gets linked to this trip immediately after it's created, the same way picking an
+    /// already-existing memory there calls `AppModel.linkMemory`.
+    private let linkToTrip: Trip?
+    /// Fires once saving succeeds, after `dismiss()` is queued — lets a caller that presented
+    /// this as a nested sheet (e.g. `LinkMemoryPickerView`) also close itself, rather than
+    /// leaving the caller's own screen up once its actual goal (getting a memory linked) is done.
+    private let onSaved: (() -> Void)?
 
     @State private var title: String
     @State private var place: Place?
@@ -49,15 +60,25 @@ struct AddMemoryView: View {
         var data: Data
     }
 
-    init(existingMemory: Memory? = nil, isDismissable: Bool = true) {
+    init(
+        existingMemory: Memory? = nil,
+        isDismissable: Bool = true,
+        initialPlace: Place? = nil,
+        linkToTrip: Trip? = nil,
+        onSaved: (() -> Void)? = nil
+    ) {
         self.existingMemory = existingMemory
         self.isDismissable = isDismissable
+        self.initialPlace = initialPlace
+        self.linkToTrip = linkToTrip
+        self.onSaved = onSaved
         _title = State(initialValue: existingMemory?.title ?? "")
-        _place = State(initialValue: existingMemory?.place)
+        let startingPlace = existingMemory?.place ?? initialPlace
+        _place = State(initialValue: startingPlace)
         _date = State(initialValue: existingMemory?.date ?? .now)
         _note = State(initialValue: existingMemory?.note ?? "")
         _existingPhotos = State(initialValue: existingMemory?.photos ?? [])
-        _mapCameraPosition = State(initialValue: existingMemory?.place.map {
+        _mapCameraPosition = State(initialValue: startingPlace.map {
             .region(MKCoordinateRegion(center: $0.coordinate, latitudinalMeters: 4000, longitudinalMeters: 4000))
         } ?? .automatic)
     }
@@ -434,9 +455,13 @@ struct AddMemoryView: View {
                 existingMemory.note = trimmedNote
                 await appModel.updateMemory(existingMemory, newImagesData: imagesData)
             } else {
-                await appModel.addMemory(title: trimmedTitle, place: place, date: date, note: trimmedNote, imagesData: imagesData)
+                let memory = await appModel.addMemory(title: trimmedTitle, place: place, date: date, note: trimmedNote, imagesData: imagesData)
+                if let linkToTrip {
+                    await appModel.linkMemory(memory, to: linkToTrip)
+                }
             }
             isSaving = false
+            onSaved?()
             dismiss()
         }
     }

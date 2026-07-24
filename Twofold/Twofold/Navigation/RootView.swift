@@ -30,7 +30,7 @@ struct RootView: View {
             if appModel.isLoadingSession {
                 ZStack {
                     Theme.backgroundGradient.ignoresSafeArea()
-                    ProgressView()
+                    BrandLoadingView()
                 }
             } else if appModel.hasCouple {
                 if appModel.isSubscriptionActive {

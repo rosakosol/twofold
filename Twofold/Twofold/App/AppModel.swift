@@ -114,7 +114,7 @@ final class AppModel {
     /// to doesn't exist server-side until pairing completes. Kept here (not just as local
     /// `@State` on the view) so it survives past that screen and gets attempted once the trip
     /// is actually inserted, in `performAdopt(_:)` — previously this was silently dropped.
-    private var pendingFlightCandidates: [Trip.ID: (faFlightId: String, travelerIDs: [Person.ID])] = [:]
+    private var pendingFlightCandidates: [Trip.ID: (candidate: AeroFlightCandidate, travelerIDs: [Person.ID])] = [:]
     /// A pending memory's photos can't be uploaded until there's a real couple to namespace the
     /// storage path under — held here so they aren't silently dropped, and uploaded once paired.
     private var pendingMemoryPhotoData: [Memory.ID: [Data]] = [:]
@@ -741,8 +741,8 @@ final class AppModel {
         // on failure so the next `performAdopt` retries it; skipped entirely for a trip that's
         // still pending, since `AeroFlightService.addFlight`'s trip FK would just reject it.
         var didAttachPendingFlight = false
-        for (tripID, candidate) in pendingFlightCandidates where !stillPendingTrips.contains(tripID) {
-            if (try? await AeroFlightService.addFlight(faFlightId: candidate.faFlightId, tripID: tripID, travelerIDs: candidate.travelerIDs, notifyMe: true)) != nil {
+        for (tripID, pending) in pendingFlightCandidates where !stillPendingTrips.contains(tripID) {
+            if (try? await AeroFlightService.addFlight(candidate: pending.candidate, tripID: tripID, travelerIDs: pending.travelerIDs, notifyMe: true)) != nil {
                 pendingFlightCandidates.removeValue(forKey: tripID)
                 didAttachPendingFlight = true
             }
@@ -930,27 +930,28 @@ final class AppModel {
                 try await BackendService.insertTrip(coupleID: backendCoupleID, trip: trip)
                 Task { await BackendService.notifyPartner(event: .tripAdded, detail: "\(origin.displayCity) to \(destination.displayCity)") }
                 // A schedule-only candidate (no faFlightId yet — see AeroFlightCandidate.canTrack)
-                // has nothing add-flight could persist against; treated the same as "no candidate
-                // picked" rather than queuing something that will never resolve.
-                if let faFlightId = flightCandidate?.faFlightId {
-                    if (try? await AeroFlightService.addFlight(faFlightId: faFlightId, tripID: trip.id, travelerIDs: travelerIDs, notifyMe: true)) != nil {
+                // still gets persisted as a pending flight — add-flight accepts it without one and
+                // refresh-due-flights' cron backfills a real faFlightId (and starts live tracking)
+                // automatically once AeroAPI assigns this flight one.
+                if let flightCandidate {
+                    if (try? await AeroFlightService.addFlight(candidate: flightCandidate, tripID: trip.id, travelerIDs: travelerIDs, notifyMe: true)) != nil {
                         await refreshFlights()
                     } else {
-                        pendingFlightCandidates[trip.id] = (faFlightId, travelerIDs)
+                        pendingFlightCandidates[trip.id] = (flightCandidate, travelerIDs)
                     }
                 }
             } catch {
                 pendingTripIDs.insert(trip.id)
                 PendingTripStore.save(trip)
-                if let faFlightId = flightCandidate?.faFlightId {
-                    pendingFlightCandidates[trip.id] = (faFlightId, travelerIDs)
+                if let flightCandidate {
+                    pendingFlightCandidates[trip.id] = (flightCandidate, travelerIDs)
                 }
             }
         } else {
             pendingTripIDs.insert(trip.id)
             PendingTripStore.save(trip)
-            if let faFlightId = flightCandidate?.faFlightId {
-                pendingFlightCandidates[trip.id] = (faFlightId, travelerIDs)
+            if let flightCandidate {
+                pendingFlightCandidates[trip.id] = (flightCandidate, travelerIDs)
             }
         }
 

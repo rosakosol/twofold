@@ -28,6 +28,7 @@ struct AddFlightFlowView: View {
     init(
         nearCoordinate: CLLocationCoordinate2D?,
         initialFlightNumberDigits: String? = nil,
+        initialTripID: Trip.ID? = nil,
         topBarTitle: String = "Cancel",
         onTopBarAction: @escaping () -> Void,
         completion: Completion
@@ -37,7 +38,8 @@ struct AddFlightFlowView: View {
             nearCoordinate: nearCoordinate,
             topBarTitle: topBarTitle,
             onTopBarAction: onTopBarAction,
-            initialFlightNumberDigits: initialFlightNumberDigits
+            initialFlightNumberDigits: initialFlightNumberDigits,
+            initialTripID: initialTripID
         ))
     }
 

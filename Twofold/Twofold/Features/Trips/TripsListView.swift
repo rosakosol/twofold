@@ -252,16 +252,19 @@ struct TripsListView: View {
                 }
                 .pickerStyle(.segmented)
 
-                Menu {
-                    Button {
-                        showingAddTrip = true
-                    } label: {
-                        Label("Add Trip", systemImage: "airplane")
+                // Goes straight to whichever add flow matches the currently-visible tab — this used
+                // to be a Menu offering both "Add Trip"/"Add Flight" regardless of `tab`, an extra
+                // tap that was redundant with the picker already showing what you're looking at.
+                // Gated the same way `emptyTripsHint`/`emptyFlightsHint` already gate their own
+                // "add" buttons, for the same reason: neither add flow works meaningfully solo.
+                Button {
+                    guard appModel.partnerConnected else {
+                        showingPartnerGate = true
+                        return
                     }
-                    Button {
-                        showingAddFlight = true
-                    } label: {
-                        Label("Add Flight", image: "boarding-pass")
+                    switch tab {
+                    case .trips: showingAddTrip = true
+                    case .flights: showingAddFlight = true
                     }
                 } label: {
                     Image(systemName: "plus.circle.fill")

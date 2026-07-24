@@ -9,6 +9,7 @@ import {
   fetchAirportWeather,
   fetchFlightByFaId,
   fetchPosition,
+  fetchScheduledFlights,
 } from "./aeroapi.ts";
 import { fetchLivePosition } from "./adsb.ts";
 import { fetchRouteFallback } from "./adsbdb.ts";
@@ -927,13 +928,85 @@ export async function syncLivePositions(serviceClient: SupabaseClient, activeCou
   }
 }
 
+// Parses a flight designator ("QF35") into airline + numeric flight number — same shape
+// resolve-flight/index.ts's own splitFlightDesignator parses the user's search input with.
+// Duplicated (not imported) deliberately: resolve-flight/index.ts is a separate, already-deployed
+// function this shares no module with, and this one-line regex is cheaper to keep in sync by eye
+// than to risk a shared-import refactor of an already-working, already-fixed function.
+function splitPendingFlightDesignator(raw: string): { airline: string; flightNumber: number } | null {
+  const match = raw.trim().toUpperCase().match(/^([A-Z]{2,3})0*(\d+)$/);
+  if (!match) return null;
+  return { airline: match[1], flightNumber: Number(match[2]) };
+}
+
+function toPendingLookupTimestamp(date: Date): string {
+  return date.toISOString().replace(/\.\d{3}Z$/, "Z");
+}
+
+// A flight added from a schedule-only resolve-flight candidate (see AeroFlightCandidate.canTrack,
+// Swift side) has `fa_flight_id: null` until AeroAPI assigns it a trackable instance — normally a
+// few days before departure. Re-attempts resolution via /schedules (no future-cap issue, unlike
+// /flights/{ident} — see resolve-flight/index.ts's dateWindow comment) using the same
+// flight-number/date-window search that originally surfaced this candidate. Returns null (not an
+// error) whenever nothing's resolvable yet; the caller just tries again next time this row is due.
+async function tryResolvePendingFaFlightId(flightRow: FlightRow): Promise<string | null> {
+  const ident = flightRow.flight_number_iata ?? flightRow.flight_number_icao;
+  const designator = ident ? splitPendingFlightDesignator(ident) : null;
+  if (!designator || !flightRow.scheduled_out) return null;
+
+  const target = new Date(flightRow.scheduled_out);
+  const start = toPendingLookupTimestamp(new Date(target.getTime() - 24 * 60 * 60 * 1000));
+  const end = toPendingLookupTimestamp(new Date(target.getTime() + 24 * 60 * 60 * 1000));
+
+  let scheduled;
+  try {
+    scheduled = await fetchScheduledFlights(start, end, {
+      airline: designator.airline,
+      flightNumber: designator.flightNumber,
+      origin: flightRow.origin_iata ?? flightRow.origin_icao ?? undefined,
+    });
+  } catch (err) {
+    console.error(`[flight-sync] pending-flight /schedules lookup failed for ${flightRow.id}:`, (err as Error).message);
+    return null;
+  }
+
+  const match = scheduled.find((s) => s.fa_flight_id && (s.ident_iata ?? s.ident_icao ?? s.ident) === ident);
+  return match?.fa_flight_id ?? null;
+}
+
 // Fetches fresh data for one already-resolved flight and runs it through syncFlight, then
 // returns the updated row. Shared by refresh-flight (single flight, user-triggered) and
 // refresh-due-flights (cron, many flights) so the fetch+sync logic only lives once.
 export async function refreshOneFlight(serviceClient: SupabaseClient, flightRow: FlightRow): Promise<FlightRow | null> {
   if (!flightRow.fa_flight_id) {
-    console.error(`[flight-sync] flight ${flightRow.id} has no fa_flight_id, cannot refresh`);
-    return flightRow;
+    const resolvedId = await tryResolvePendingFaFlightId(flightRow);
+    if (!resolvedId) {
+      // Still not on FlightAware's trackable set yet — bump last_refreshed_at so isDue()'s
+      // normal staleness tiering paces the next /schedules attempt exactly like a resolved
+      // flight's own poll cadence (more often as scheduled_out approaches), rather than
+      // hammering /schedules every single cron tick regardless of how far out this is.
+      const nowIso = new Date().toISOString();
+      const { error } = await serviceClient.from("flights").update({ last_refreshed_at: nowIso }).eq("id", flightRow.id);
+      if (error) console.error(`[flight-sync] failed to bump last_refreshed_at for pending flight ${flightRow.id}:`, error.message);
+      return { ...flightRow, last_refreshed_at: nowIso };
+    }
+
+    const aeroFlight = await fetchFlightByFaId(resolvedId);
+    if (!aeroFlight) {
+      // /schedules and /flights/{id} occasionally disagree for a beat right at resolution —
+      // leave fa_flight_id unset so the next tick just tries /schedules again instead of getting
+      // stuck trusting an id /flights/{id} doesn't (yet) recognize.
+      console.error(`[flight-sync] newly-resolved fa_flight_id ${resolvedId} not yet recognized by /flights/{id} for ${flightRow.id}`);
+      return flightRow;
+    }
+
+    // `flightRow` (still fa_flight_id: null here) is deliberately the diff baseline — diffEvents()
+    // already special-cases "existing has no fa_flight_id, mapped does" into a single "scheduled"
+    // event marking the moment this flight became live-trackable, rather than a payload's worth of
+    // individual gate/time/etc. "changes" measured since add-flight time.
+    await syncFlight(serviceClient, flightRow, aeroFlight, "poll");
+    const { data: updated } = await serviceClient.from("flights").select("*").eq("id", flightRow.id).single();
+    return (updated as FlightRow) ?? flightRow;
   }
 
   const aeroFlight = await fetchFlightByFaId(flightRow.fa_flight_id);

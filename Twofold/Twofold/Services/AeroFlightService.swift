@@ -170,14 +170,58 @@ enum AeroFlightService {
     /// default (pass `shared: false` to keep it visible only to the caller), optionally linked
     /// to a trip. Returns the new flight's id; callers should follow up with
     /// `AppModel.refreshFlights()` to pull the full row.
+    ///
+    /// `candidate.canTrack == false` (a schedule-only result AeroAPI hasn't assigned a trackable
+    /// instance to yet) is fine here — add-flight persists a pending row from the candidate's own
+    /// fields instead of a faFlightId, and the server's refresh-due-flights cron periodically
+    /// retries resolving a real one, starting full live tracking automatically the moment it does.
     @discardableResult
-    static func addFlight(faFlightId: String, tripID: UUID?, travelerIDs: [UUID] = [], shared: Bool = true, notifyMe: Bool) async throws -> UUID {
-        var body: [String: Any] = ["faFlightId": faFlightId, "shared": shared, "notifyMe": notifyMe]
+    static func addFlight(candidate: AeroFlightCandidate, tripID: UUID?, travelerIDs: [UUID] = [], shared: Bool = true, notifyMe: Bool) async throws -> UUID {
+        var body: [String: Any] = ["shared": shared, "notifyMe": notifyMe]
+        if let faFlightId = candidate.faFlightId {
+            body["faFlightId"] = faFlightId
+        } else {
+            body["pending"] = pendingPayload(for: candidate)
+        }
         if let tripID { body["tripId"] = tripID.uuidString }
         if !travelerIDs.isEmpty { body["travelerIds"] = travelerIDs.map { $0.uuidString } }
         let response: AddFlightResponse = try await call("add-flight", body: body)
-        Analytics.capture(Analytics.Event.flightAdd, properties: ["is_shared": shared, "is_linked_to_trip": tripID != nil])
+        Analytics.capture(Analytics.Event.flightAdd, properties: [
+            "is_shared": shared,
+            "is_linked_to_trip": tripID != nil,
+            "was_pending": candidate.faFlightId == nil,
+        ])
         return response.flightId
+    }
+
+    // Builds a plain [String: Any] with only non-nil keys present — assigning a `String?` value
+    // straight into a `[String: Any]` dictionary is a well-known Swift footgun (it can box the
+    // optional itself into `Any` rather than omitting the key), so every field is unwrapped
+    // explicitly via `if let` instead of trusting subscript-assignment bridging.
+    private static func pendingPayload(for candidate: AeroFlightCandidate) -> [String: Any] {
+        var payload: [String: Any] = [:]
+        if let v = candidate.identIata { payload["identIata"] = v }
+        if let v = candidate.identIcao { payload["identIcao"] = v }
+        if let v = candidate.operatorName { payload["operatorName"] = v }
+        if let v = candidate.operatorIata { payload["operatorIata"] = v }
+        if let v = candidate.flightNumberIata { payload["flightNumberIata"] = v }
+        if let v = candidate.aircraftType { payload["aircraftType"] = v }
+        if let origin = candidate.origin { payload["origin"] = airportPayload(origin) }
+        if let destination = candidate.destination { payload["destination"] = airportPayload(destination) }
+        let iso = ISO8601DateFormatter()
+        if let scheduledOut = candidate.scheduledOut { payload["scheduledOut"] = iso.string(from: scheduledOut) }
+        if let scheduledIn = candidate.scheduledIn { payload["scheduledIn"] = iso.string(from: scheduledIn) }
+        return payload
+    }
+
+    private static func airportPayload(_ airport: AeroFlightCandidate.Airport) -> [String: Any] {
+        var payload: [String: Any] = [:]
+        if let v = airport.iata { payload["iata"] = v }
+        if let v = airport.icao { payload["icao"] = v }
+        if let v = airport.name { payload["name"] = v }
+        if let v = airport.city { payload["city"] = v }
+        if let v = airport.timezone { payload["timezone"] = v }
+        return payload
     }
 
     /// Asks the server to re-check this flight against AeroAPI now, rather than waiting for
