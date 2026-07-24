@@ -21,7 +21,7 @@ struct WhosMoreLikelyGameView: View {
     @State private var isSubmitting = false
     @State private var isSendingReminder = false
     @State private var hapticTrigger = false
-    @State private var showingNoMailAppAlert = false
+    @State private var showingReportSheet = false
     @State private var showingLeaveConfirm = false
 
     private var myID: UUID { appModel.currentUser.id }
@@ -97,7 +97,7 @@ struct WhosMoreLikelyGameView: View {
             if !store.isRevealed {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
-                        SupportMenuItems(userID: myID, context: "\(GameType.moreLikely.displayName) — session \(sessionID.uuidString)", showingNoMailAppAlert: $showingNoMailAppAlert)
+                        ReportProblemMenuItem(showingReportSheet: $showingReportSheet)
                     } label: {
                         Image(systemName: "ellipsis.circle")
                     }
@@ -106,7 +106,9 @@ struct WhosMoreLikelyGameView: View {
         }
         .navigationBarBackButtonHidden(isActivelyPlaying || isDoneWithMyRounds)
         .interactivePopGestureDisabled(isActivelyPlaying || isDoneWithMyRounds)
-        .noMailAppAlert(isPresented: $showingNoMailAppAlert)
+        .gameIssueReportSheet(isPresented: $showingReportSheet) {
+            store.gameIssueContext(gameType: .moreLikely, deckTitle: title, myID: myID)
+        }
         .gameLeaveConfirmation(isPresented: $showingLeaveConfirm) { Task { await leaveGame() } }
         .task { await store.load(sessionID: sessionID) }
         .task { await store.subscribeRealtime(sessionID: sessionID) }

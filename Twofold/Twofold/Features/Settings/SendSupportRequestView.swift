@@ -2,21 +2,32 @@
 //  SendSupportRequestView.swift
 //  Twofold
 //
-//  Inline "Contact Support" form, reached from SupportView's "Still need help?" section — sends
-//  the email server-side (via HelpService/submit-help-message), with a category so support can
-//  triage/route it without reading the message first.
+//  The app's single "Contact Support" form — reached from SupportView's "Still need help?"
+//  section, and from every game screen's "Report a Problem" (which opens it preset to
+//  .gameIssue with the deck/card attached). Sends the email server-side via
+//  HelpService/submit-help-message, with a category so support can triage without reading the
+//  message first. Feedback is just a category here now; there's no separate feedback screen.
 //
 
 import PostHog
 import SwiftUI
 
 struct SendSupportRequestView: View {
+    /// Preset by the caller (e.g. .gameIssue from a game screen) but still user-changeable —
+    /// someone who opened it mid-game may well want to file something else.
+    private let gameContext: GameIssueContext?
+
     @Environment(\.dismiss) private var dismiss
-    @State private var category: SupportRequestCategory = .other
+    @State private var category: SupportRequestCategory
     @State private var message = ""
     @State private var isSaving = false
     @State private var errorMessage: String?
     @State private var didSend = false
+
+    init(initialCategory: SupportRequestCategory = .other, gameContext: GameIssueContext? = nil) {
+        self.gameContext = gameContext
+        _category = State(initialValue: initialCategory)
+    }
 
     private var canSend: Bool {
         !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isSaving
@@ -35,6 +46,20 @@ struct SendSupportRequestView: View {
                         }
                         .pickerStyle(.menu)
                         .padding()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                    }
+
+                    // Shown rather than attached silently — the reporter can see exactly which
+                    // deck/card is going along with their message.
+                    if let gameContext {
+                        HStack(alignment: .top, spacing: Theme.Spacing.xs) {
+                            Image(systemName: "paperclip")
+                            Text(gameContext.summary)
+                        }
+                        .font(.caption)
+                        .foregroundStyle(Theme.subtleInk)
+                        .padding(Theme.Spacing.sm)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                     }
@@ -90,7 +115,7 @@ struct SendSupportRequestView: View {
         errorMessage = nil
         Task {
             do {
-                try await HelpService.submitSupportRequest(category: category, message: message)
+                try await HelpService.submitSupportRequest(category: category, message: message, game: gameContext)
                 isSaving = false
                 didSend = true
             } catch {

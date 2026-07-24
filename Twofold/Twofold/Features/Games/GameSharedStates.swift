@@ -35,48 +35,71 @@ struct GameAbandonedState: View {
     }
 }
 
-/// The "Report a Problem"/"Send Feedback" items shared by every game screen's overflow menu —
-/// `mailto:` links (see `SupportMail`), with `showingNoMailAppAlert` flipped true if nothing on
-/// the device can actually open one (the caller owns presenting that alert, since it needs to
-/// live on the same view as the `Menu` these sit inside).
-struct SupportMenuItems: View {
-    let userID: UUID
-    let context: String
-    @Binding var showingNoMailAppAlert: Bool
+/// The "Report a Problem" item in every game screen's overflow menu. Opens the same in-app
+/// support form the Settings > Help > Support flow uses (preset to .gameIssue, with the deck and
+/// current card attached) — this replaced the old pair of `mailto:` items, which depended on the
+/// device having a mail client configured and arrived with no structured context.
+struct ReportProblemMenuItem: View {
+    @Binding var showingReportSheet: Bool
 
     var body: some View {
         Button {
-            open(SupportMail.reportProblemURL(userID: userID, context: context))
+            showingReportSheet = true
         } label: {
             Label("Report a Problem", systemImage: "exclamationmark.bubble")
-        }
-        Button {
-            open(SupportMail.feedbackURL())
-        } label: {
-            Label("Send Feedback", systemImage: "envelope")
-        }
-    }
-
-    private func open(_ url: URL?) {
-        guard let url else {
-            showingNoMailAppAlert = true
-            return
-        }
-        UIApplication.shared.open(url) { success in
-            if !success { showingNoMailAppAlert = true }
         }
     }
 }
 
-/// Paired with `SupportMenuItems` — attach to whichever view hosts the `Menu`, so a failed
-/// `mailto:` open (no mail client configured) still tells the person how to reach out.
+/// Paired with `ReportProblemMenuItem` — attach to whichever view hosts the `Menu`.
 extension View {
-    func noMailAppAlert(isPresented: Binding<Bool>) -> some View {
-        alert("Couldn't Open Mail", isPresented: isPresented) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("No mail app is set up on this device. You can reach us at \(SupportMail.address).")
+    func gameIssueReportSheet(isPresented: Binding<Bool>, context: @escaping () -> GameIssueContext) -> some View {
+        sheet(isPresented: isPresented) {
+            SendSupportRequestView(initialCategory: .gameIssue, gameContext: context())
         }
+    }
+}
+
+/// Flattens the polymorphic round content into the one label + one id a support report needs.
+/// `reportID` is the row id in that content type's own table — the thing that actually lets a
+/// report be traced back to a specific question in the games admin tables.
+extension GameRoundContent {
+    var reportID: UUID {
+        switch self {
+        case .trivia(let question): question.id
+        case .moreLikely(let prompt): prompt.id
+        case .thisOrThat(let prompt): prompt.id
+        case .deepConversation(let topic): topic.id
+        }
+    }
+
+    var reportText: String {
+        switch self {
+        case .trivia(let question): question.question
+        case .moreLikely(let prompt): prompt.prompt
+        case .thisOrThat(let prompt): "\(prompt.optionA) / \(prompt.optionB)"
+        case .deepConversation(let topic): topic.topic
+        }
+    }
+}
+
+extension GameSessionStore {
+    /// The deck/card context for a report filed from a live game screen. `title` is the deck
+    /// name the caller was already given (see `gameDestinationView`); the currently displayed
+    /// round supplies the card. On the results screen there's no single current round, so
+    /// callers there pass `round: nil` and only deck-level context is sent.
+    func gameIssueContext(gameType: GameType, deckTitle: String?, myID: UUID) -> GameIssueContext {
+        let round = displayedRound(myID: myID)
+        let roundContent = round.flatMap { content(for: $0) }
+        return GameIssueContext(
+            gameType: gameType.displayName,
+            gameTitle: deckTitle,
+            deckID: session?.deckID,
+            content: roundContent?.reportText,
+            contentID: roundContent?.reportID,
+            roundNumber: round?.roundNumber,
+            sessionID: session?.id
+        )
     }
 }
 

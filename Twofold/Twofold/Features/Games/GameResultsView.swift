@@ -30,7 +30,7 @@ struct GameResultsView: View {
     /// Set alongside `resetRoute` in `resetDeck(deckID:)` — `SessionRoute` itself only carries
     /// id/gameType, so this rides separately to the `.navigationDestination` closure below.
     @State private var resetTopic: String?
-    @State private var showingNoMailAppAlert = false
+    @State private var showingReportSheet = false
     @State private var showingShare = false
 
     private var isFullyRevealed: Bool { revealedCount >= store.rounds.count }
@@ -114,14 +114,19 @@ struct GameResultsView: View {
                         }
                     }
                     Divider()
-                    SupportMenuItems(userID: myID, context: "\(gameType.displayName) results — session \(store.session?.id.uuidString ?? "unknown")", showingNoMailAppAlert: $showingNoMailAppAlert)
+                    ReportProblemMenuItem(showingReportSheet: $showingReportSheet)
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
                 .disabled(isResettingDeck)
             }
         }
-        .noMailAppAlert(isPresented: $showingNoMailAppAlert)
+        // Post-game: every round is answered, so `displayedRound` is nil and the context
+        // carries deck + session but no single "current" card — correct, since a complaint
+        // filed here is about the deck/results as a whole rather than one question.
+        .gameIssueReportSheet(isPresented: $showingReportSheet) {
+            store.gameIssueContext(gameType: gameType, deckTitle: title, myID: myID)
+        }
         .sheet(isPresented: $showingShare) {
             GameResultsShareView(data: shareData)
         }

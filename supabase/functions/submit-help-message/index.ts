@@ -1,31 +1,30 @@
-// Settings > Help's "Send Feedback" and "Support" inline forms both submit here — sends an
-// actual email via Amazon SES rather than handing off to the device's Mail app (that's what
-// Services/SupportMail.swift's mailto: links are for, used elsewhere in the app — this is a
-// separate, newer mechanism specifically for the Help screens).
+// Settings > Help > Support's "Contact Support" form submits here — sends an actual email via
+// Zoho Mail's SMTP rather than handing off to the device's Mail app. This is now the ONLY
+// in-app contact path: the separate "Send Feedback" screen and the in-game mailto: menus were
+// both folded into this one categorised form (Feedback and Game Issue are just categories now),
+// so Services/SupportMail.swift and its mailto: flow are gone.
 //
 // Requires a real signed-in user (`Authorization: Bearer <user access token>`) — same reasoning
-// as moderate-name/parse-flight-email: this triggers a billable third-party call (SES) with no
-// other rate-limiting, so it must never be reachable with just the publishable/anon key.
+// as moderate-name/parse-flight-email: this triggers an outbound third-party call with no other
+// rate-limiting, so it must never be reachable with just the publishable/anon key.
 //
-// Requires three Supabase secrets, none of which exist yet as of this writing — SES sending will
-// fail with a 500 until they're set:
-//   - AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY: an IAM user (or role) with ses:SendEmail
-//     permission only — do not reuse broader AWS credentials here.
-//   - AWS_REGION: whichever region twofoldapp.com.au is verified in (e.g. "ap-southeast-2").
-//   - SES_FROM_ADDRESS: a "From" address at a domain (or individual address) verified in SES —
-//     e.g. "Twofold <no-reply@twofoldapp.com.au>". Sending will also fail while the SES account
-//     is still in sandbox mode unless this exact address/domain is separately verified as a
-//     recipient too; request production access to lift that restriction.
+// Requires these Supabase secrets — sending fails with a 500 until they're set:
+//   - ZOHO_SMTP_USER / ZOHO_SMTP_PASSWORD: the Zoho mailbox login and an **app-specific
+//     password** (Zoho > Security > App Passwords). Not the account's normal login password.
+//   - ZOHO_SMTP_HOST (optional, default "smtp.zoho.com"): use the host for the DC the account
+//     was created in — e.g. "smtp.zoho.com.au" for the AU DC. Wrong DC = auth failures.
+//   - ZOHO_SMTP_PORT (optional, default 465): 465 implicit TLS, or 587 for STARTTLS.
+//   - ZOHO_FROM_ADDRESS (optional, defaults to ZOHO_SMTP_USER): Zoho only permits sending as
+//     the authenticated mailbox or one of its verified aliases — an unverified From is rejected.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { SendEmailCommand, SESv2Client } from "@aws-sdk/client-sesv2";
+import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
-const RECIPIENTS = {
-  feedback: "feedback@twofoldapp.com.au",
-  support: "support@twofoldapp.com.au",
-} as const;
+// Every category now lands in one inbox — the old feedback@/support@ split went away with the
+// separate feedback form, since one categorised queue is simpler to actually monitor.
+const RECIPIENT = "support@twofoldapp.com.au";
 
-// Mirrored in Swift (Features/Settings/SupportRequestCategory or similar) for the picker — no
+// Mirrored in Swift (Services/HelpService.swift's SupportRequestCategory) for the picker — no
 // shared codegen between the two, so keep both lists in sync by hand if this ever changes (same
 // duplication this codebase already accepts for FlightStatus, see _shared/flight-status.ts).
 const SUPPORT_CATEGORIES = [
@@ -33,7 +32,9 @@ const SUPPORT_CATEGORIES = [
   "Bug Report",
   "Flight Tracking",
   "Trips & Memories",
+  "Game Issue",
   "Feature Request",
+  "Feedback",
   "Other",
 ] as const;
 type SupportCategory = typeof SUPPORT_CATEGORIES[number];
@@ -44,21 +45,53 @@ function isSupportCategory(value: unknown): value is SupportCategory {
 
 const MAX_MESSAGE_LENGTH = 5000;
 
+/// Attached automatically when the report came from a game screen's "Report a Problem" — the
+/// IDs matter more than the labels: a deck title can be renamed or duplicated, so deckID and
+/// contentID are what actually pin a report to a specific row in the games admin tables.
+/// All fields optional: the results screen has no single "current" round, and daily-activity
+/// sessions aren't deck-originated, so title/deck/content are legitimately absent there.
+interface GameContext {
+  gameType?: string;
+  gameTitle?: string;
+  deckID?: string;
+  content?: string;
+  contentID?: string;
+  roundNumber?: number;
+  sessionID?: string;
+}
+
 interface Input {
-  target: "feedback" | "support";
   category?: string;
   subject?: string;
   message: string;
+  game?: GameContext;
 }
 
-function sesClient(): SESv2Client {
-  const region = Deno.env.get("AWS_REGION");
-  const accessKeyId = Deno.env.get("AWS_ACCESS_KEY_ID");
-  const secretAccessKey = Deno.env.get("AWS_SECRET_ACCESS_KEY");
-  if (!region || !accessKeyId || !secretAccessKey) {
-    throw new Error("AWS SES credentials are not configured (AWS_REGION/AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY)");
+function smtpClient(): SMTPClient {
+  const username = Deno.env.get("ZOHO_SMTP_USER");
+  const password = Deno.env.get("ZOHO_SMTP_PASSWORD");
+  if (!username || !password) {
+    throw new Error("Zoho SMTP credentials are not configured (ZOHO_SMTP_USER/ZOHO_SMTP_PASSWORD)");
   }
-  return new SESv2Client({ region, credentials: { accessKeyId, secretAccessKey } });
+  const hostname = Deno.env.get("ZOHO_SMTP_HOST") ?? "smtp.zoho.com";
+  const port = Number(Deno.env.get("ZOHO_SMTP_PORT") ?? "465");
+  return new SMTPClient({
+    connection: { hostname, port, tls: port === 465, auth: { username, password } },
+  });
+}
+
+/// Rendered as a labelled block above the message so whoever reads the email can jump straight
+/// to the offending deck/question without asking the reporter follow-up questions.
+function gameContextLines(game: GameContext): string[] {
+  const lines: string[] = [];
+  if (game.gameType) lines.push(`Game: ${game.gameType}`);
+  if (game.gameTitle) lines.push(`Deck: ${game.gameTitle}`);
+  if (game.deckID) lines.push(`Deck ID: ${game.deckID}`);
+  if (typeof game.roundNumber === "number") lines.push(`Round: ${game.roundNumber}`);
+  if (game.content) lines.push(`Content: ${game.content}`);
+  if (game.contentID) lines.push(`Content ID: ${game.contentID}`);
+  if (game.sessionID) lines.push(`Session ID: ${game.sessionID}`);
+  return lines.length ? ["— Game context —", ...lines, ""] : [];
 }
 
 Deno.serve(async (req) => {
@@ -73,16 +106,13 @@ Deno.serve(async (req) => {
     return Response.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  if (input?.target !== "feedback" && input?.target !== "support") {
-    return Response.json({ error: "'target' must be 'feedback' or 'support'" }, { status: 400 });
-  }
   if (!input.message || typeof input.message !== "string" || !input.message.trim()) {
     return Response.json({ error: "'message' is required" }, { status: 400 });
   }
   if (input.message.length > MAX_MESSAGE_LENGTH) {
     return Response.json({ error: `'message' must be ${MAX_MESSAGE_LENGTH} characters or fewer` }, { status: 400 });
   }
-  if (input.target === "support" && !isSupportCategory(input.category)) {
+  if (!isSupportCategory(input.category)) {
     return Response.json({ error: `'category' must be one of: ${SUPPORT_CATEGORIES.join(", ")}` }, { status: 400 });
   }
 
@@ -96,46 +126,45 @@ Deno.serve(async (req) => {
     return Response.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const fromAddress = Deno.env.get("SES_FROM_ADDRESS");
+  const fromAddress = Deno.env.get("ZOHO_FROM_ADDRESS") ?? Deno.env.get("ZOHO_SMTP_USER");
   if (!fromAddress) {
-    console.error("[submit-help-message] SES_FROM_ADDRESS is not configured");
+    console.error("[submit-help-message] ZOHO_FROM_ADDRESS/ZOHO_SMTP_USER is not configured");
     return Response.json({ error: "Email sending isn't set up yet — please try again later" }, { status: 500 });
   }
 
-  const recipient = RECIPIENTS[input.target];
   const trimmedSubject = input.subject?.trim();
   const subject = trimmedSubject && trimmedSubject.length > 0
     ? trimmedSubject
-    : input.target === "support"
-    ? `[${input.category}] Support request`
-    : "Twofold app feedback";
+    : `[${input.category}] Twofold support request`;
 
   // Reply-To is the caller's own account email (resolved server-side, never client-supplied) —
-  // so feedback@/support@ can just hit "reply" in their own mail client to respond directly,
-  // without asking the person to type their email into the form.
+  // so support@ can just hit "reply" to respond directly, without asking the person to type
+  // their email into the form.
   const bodyLines = [
-    input.target === "support" ? `Category: ${input.category}` : null,
+    `Category: ${input.category}`,
     `Account: ${user.email ?? "(no email on file)"} — ${user.id}`,
     "",
+    ...(input.game ? gameContextLines(input.game) : []),
     input.message.trim(),
-  ].filter((line): line is string => line !== null);
+  ];
 
+  let client: SMTPClient | undefined;
   try {
-    const ses = sesClient();
-    await ses.send(new SendEmailCommand({
-      FromEmailAddress: fromAddress,
-      Destination: { ToAddresses: [recipient] },
-      ReplyToAddresses: user.email ? [user.email] : undefined,
-      Content: {
-        Simple: {
-          Subject: { Data: subject, Charset: "UTF-8" },
-          Body: { Text: { Data: bodyLines.join("\n"), Charset: "UTF-8" } },
-        },
-      },
-    }));
+    client = smtpClient();
+    await client.send({
+      from: fromAddress,
+      to: RECIPIENT,
+      replyTo: user.email || undefined,
+      subject,
+      content: bodyLines.join("\n"),
+    });
   } catch (err) {
-    console.error("[submit-help-message] SES send failed:", (err as Error).message);
+    console.error("[submit-help-message] Zoho SMTP send failed:", (err as Error).message);
     return Response.json({ error: "Couldn't send your message — please try again" }, { status: 502 });
+  } finally {
+    // denomailer holds the TCP connection open otherwise, which keeps the isolate alive until
+    // it's forcibly reaped.
+    await client?.close().catch(() => {});
   }
 
   return Response.json({ success: true });
@@ -149,6 +178,6 @@ Deno.serve(async (req) => {
   curl -i --location --request POST 'http://127.0.0.1:54321/functions/v1/submit-help-message' \
     --header 'apiKey: sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH' \
     --header 'Authorization: Bearer <user-access-token>' \
-    --data '{"target":"feedback","message":"Love the app, one suggestion..."}'
+    --data '{"category":"Feedback","message":"Love the app, one suggestion..."}'
 
 */

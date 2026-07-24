@@ -13,15 +13,8 @@ struct HelpView: View {
         ScrollView {
             VStack(spacing: Theme.Spacing.md) {
                 SectionCard {
-                    NavigationLink {
-                        SendFeedbackView()
-                    } label: {
-                        SettingsRow(title: "Send Feedback", systemImage: "envelope.fill")
-                    }
-                    .buttonStyle(.plain)
-
-                    Divider()
-
+                    // Support is the single entry point for getting in touch — feedback is a
+                    // category inside its form now, not its own screen.
                     NavigationLink {
                         SupportView()
                     } label: {
