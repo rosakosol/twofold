@@ -18,13 +18,42 @@ function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   )
 }
 
-function SelectValue({ className, ...props }: SelectPrimitive.Value.Props) {
+/**
+ * Unlike Radix, Base UI's `Select.Value` renders the RAW selected value — it does not mirror
+ * the selected `SelectItem`'s children. Without help, a trigger therefore reads "__all__" or
+ * "in_progress" instead of "All categories"/"In Progress".
+ *
+ * Pass `labels` (a value -> label map) to format it. Base UI's documented mechanism for this is
+ * a function child, which is what this builds; an explicit `children` still wins if a call site
+ * needs something more custom than a lookup.
+ */
+function SelectValue({
+  className,
+  labels,
+  children,
+  placeholder,
+  ...props
+}: SelectPrimitive.Value.Props & { labels?: Record<string, React.ReactNode> }) {
+  const format =
+    children ??
+    (labels
+      ? (value: unknown) =>
+          // A function child overrides Base UI's own placeholder handling, so the
+          // "nothing selected yet" cases have to fall back to it explicitly.
+          value === null || value === undefined || value === ""
+            ? placeholder
+            : labels[String(value)] ?? String(value)
+      : undefined)
+
   return (
     <SelectPrimitive.Value
       data-slot="select-value"
       className={cn("flex flex-1 text-left", className)}
+      placeholder={placeholder}
       {...props}
-    />
+    >
+      {format}
+    </SelectPrimitive.Value>
   )
 }
 

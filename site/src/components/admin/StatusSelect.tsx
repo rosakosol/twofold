@@ -19,7 +19,7 @@ export function StatusSelect({ featureId, status }: { featureId: string; status:
   return (
     <Select value={status} onValueChange={handleChange} disabled={updateStatus.isPending}>
       <SelectTrigger size="sm">
-        <SelectValue />
+        <SelectValue labels={STATUS_LABELS} />
       </SelectTrigger>
       <SelectContent>
         {STATUS_VALUES.map((value) => (

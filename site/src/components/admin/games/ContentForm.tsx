@@ -265,7 +265,12 @@ export function ContentForm({ contentType, decks, editingRow, open, onOpenChange
             <Label>Deck (optional)</Label>
             <Select value={deckId} onValueChange={(v) => v && setDeckId(v)}>
               <SelectTrigger>
-                <SelectValue />
+                <SelectValue
+                  labels={{
+                    [NO_DECK]: "No deck",
+                    ...Object.fromEntries(relevantDecks.map((deck) => [deck.id, `${deck.emoji} ${deck.title}`])),
+                  }}
+                />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={NO_DECK}>No deck</SelectItem>

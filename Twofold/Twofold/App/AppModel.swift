@@ -1009,14 +1009,31 @@ final class AppModel {
         }
     }
 
-    /// Stops tracking a flight entirely (swipe-to-remove on the Trips tab). Re-runs
-    /// `refreshFlights()` afterward rather than just filtering `flights` locally so the Live
-    /// Activity sync/reconcile logic there — which already ends an Activity for any flight that
-    /// disappeared from the fetched list — handles cleanup without duplicating that logic here.
+    /// Stops tracking a flight entirely (swipe-to-remove or bulk-select-delete on the Trips tab).
+    /// Removed from `flights` immediately for a snappy swipe/bulk-delete (same optimistic-removal
+    /// shape as `deleteTrip`) — `refreshFlights()` still runs afterward rather than trusting that
+    /// local removal alone, since its Live Activity sync/reconcile logic there already ends an
+    /// Activity for any flight that disappeared from the fetched list, and this reuses that
+    /// cleanup rather than duplicating it here.
     func deleteFlight(_ flight: Flight) async {
-        try? await BackendService.deleteFlight(id: flight.id)
+        flights.removeAll { $0.id == flight.id }
+        for index in trips.indices {
+            trips[index].flights.removeAll { $0.id == flight.id }
+        }
         Analytics.capture(Analytics.Event.flightDelete)
+        try? await BackendService.deleteFlight(id: flight.id)
         await refreshFlights()
+    }
+
+    /// Bulk-delete entry point for the Trips tab's flight multi-select mode — sequential, not
+    /// concurrent, same reasoning as `deleteMemories`: `deleteFlight` mutates `flights` in place
+    /// and `AppModel` isn't actor-isolated, so running many deletes at once would race on that
+    /// array. A handful of sequential deletes is fast enough that this isn't a real latency
+    /// concern.
+    func deleteFlights(_ flightsToDelete: [Flight]) async {
+        for flight in flightsToDelete {
+            await deleteFlight(flight)
+        }
     }
 
     /// "Reunion" framing (the app's existing romantic language for "your partner is on their
@@ -1063,6 +1080,14 @@ final class AppModel {
         }
         guard backendCoupleID != nil else { return }
         try? await BackendService.deleteTrip(id: trip.id)
+    }
+
+    /// Bulk-delete entry point for the Trips tab's trip multi-select mode — same sequential
+    /// reasoning as `deleteMemories`/`deleteFlights`.
+    func deleteTrips(_ tripsToDelete: [Trip]) async {
+        for trip in tripsToDelete {
+            await deleteTrip(trip)
+        }
     }
 
     /// Keeps `trips[tripID].flights` consistent with the authoritative `flights` array after any

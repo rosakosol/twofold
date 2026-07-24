@@ -4,16 +4,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-const NAV_LINKS = [
-  { href: "/admin", label: "Requests" },
-  { href: "/admin/games", label: "Games" },
-  { href: "/studio", label: "Site content" },
-];
+const NAV_LINKS = [{ href: "/admin", label: "Requests" }];
 
 /**
  * The admin section's own nav — separate from `SiteHeader`'s public nav, since these
- * are internal-only tools. "Site content" now links to /studio, the embedded Sanity
- * Studio (src/sanity/) — same app, same deployment, not a separate URL to remember.
+ * are internal-only tools.
+ *
+ * Games (/admin/games) and Site content (/studio, the embedded Sanity Studio) were
+ * deliberately dropped from this nav — both routes still exist and work if you navigate
+ * to them directly, they're just no longer surfaced as tabs here.
  */
 export function AdminNav() {
   const pathname = usePathname();

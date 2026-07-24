@@ -63,9 +63,16 @@ enum SubscriptionTier: String, CaseIterable {
     }
 
     /// The higher tier among `customerInfo`'s currently active entitlements, if any. Premium
-    /// wins if a customer somehow has both active at once — Plus/Premium share one subscription
-    /// group in App Store Connect, so Apple should only ever grant one at a time, but this stays
-    /// correct either way, same as the old StoreKit-only version of this check did.
+    /// wins if a customer somehow has both active at once.
+    ///
+    /// That "somehow" isn't actually rare: Plus and Premium **must** be four products in one
+    /// shared App Store Connect subscription group (Premium ranked above Plus — mirrored locally
+    /// in Twofold.storekit) for Apple to auto-replace one with the other on upgrade/downgrade. If
+    /// they're ever in separate groups (a real bug this app hit — see git history around
+    /// 2026-07-25), switching plans doesn't replace anything: the old subscription keeps billing
+    /// alongside the new one, RevenueCat's Customer Center correctly shows both as active (it just
+    /// mirrors true StoreKit state), and this resolver is the only thing stopping that from also
+    /// showing as "both plans active" in this app's own UI.
     static func active(in customerInfo: CustomerInfo) -> SubscriptionTier? {
         let active = customerInfo.entitlements.active.keys
         if active.contains(RevenueCatConfig.Entitlement.premium) { return .premium }

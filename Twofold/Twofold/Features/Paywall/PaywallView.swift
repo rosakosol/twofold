@@ -82,8 +82,10 @@ struct PaywallView: View {
     private var isAlreadySubscribedToSelectedTier: Bool { effectiveActiveTier == selectedTier }
 
     /// Either this account or their partner already holds the *other* tier. App Store Connect's
-    /// subscription-group exclusivity only applies within a single Apple ID — it does nothing to
-    /// stop two different partners from each independently subscribing to a different tier, which
+    /// subscription-group exclusivity only applies within a single Apple ID (and only once Plus/
+    /// Premium are actually configured as one shared group — see the same caveat on
+    /// `SubscriptionTier.active(in:)`) — it does nothing to stop two different partners from each
+    /// independently subscribing to a different tier, which
     /// is the real way this app's "one subscription per couple" design breaks (confirmed: each
     /// partner's own `subscription_tier` is written to their own profile row independently, see
     /// `BackendService.updateSubscriptionStatus`). So the CTA routes to RevenueCat's Customer

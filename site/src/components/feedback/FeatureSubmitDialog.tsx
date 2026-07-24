@@ -155,7 +155,7 @@ export function FeatureSubmitDialog() {
                   <Label htmlFor="category">Category</Label>
                   <Select value={category} onValueChange={(v) => setCategory(v as FeatureCategory)}>
                     <SelectTrigger id="category" className="w-full">
-                      <SelectValue placeholder="Choose a category" />
+                      <SelectValue placeholder="Choose a category" labels={CATEGORY_LABELS} />
                     </SelectTrigger>
                     <SelectContent>
                       {CATEGORY_VALUES.map((value) => (
