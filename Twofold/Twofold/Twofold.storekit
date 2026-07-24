@@ -36,7 +36,7 @@
       "localizations" : [
 
       ],
-      "name" : "Twofold Plus",
+      "name" : "Twofold",
       "subscriptions" : [
         {
           "adHocOffers" : [
@@ -45,34 +45,21 @@
           "billingPlans" : [
             {
               "billingPlanType" : "BILLED_UPFRONT",
-              "commitmentDisplayPrice" : "9.99",
-              "displayPrice" : "9.99",
-              "internalID" : "93E8385D",
+              "commitmentDisplayPrice" : "119.99",
+              "displayPrice" : "119.99",
+              "internalID" : "82DB7D71",
               "isEnabled" : true
             }
           ],
           "codeOffers" : [
 
           ],
-          "displayPrice" : "9.99",
+          "displayPrice" : "119.99",
           "familyShareable" : false,
           "groupNumber" : 1,
-          "internalID" : "89C5CC67",
-          "introductoryOffer" : {
-            "billingPlanType" : "BILLED_UPFRONT",
-            "internalID" : "F36C000C",
-            "numberOfPeriods" : 1,
-            "paymentMode" : "free",
-            "subscriptionPeriod" : "P2W"
-          },
+          "internalID" : "979DA8B1",
           "introductoryOffers" : [
-            {
-              "billingPlanType" : "BILLED_UPFRONT",
-              "internalID" : "F36C000C",
-              "numberOfPeriods" : 1,
-              "paymentMode" : "free",
-              "subscriptionPeriod" : "P2W"
-            }
+
           ],
           "localizations" : [
             {
@@ -81,9 +68,48 @@
               "locale" : "en_US"
             }
           ],
-          "productID" : "com.orangefinch.Twofold.plus.monthly",
+          "productID" : "com.orangefinch.Twofold.premium.yearly",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Premium Yearly",
+          "subscriptionGroupID" : "33EFA2A8",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "billingPlans" : [
+            {
+              "billingPlanType" : "BILLED_UPFRONT",
+              "commitmentDisplayPrice" : "19.99",
+              "displayPrice" : "19.99",
+              "internalID" : "5D249558",
+              "isEnabled" : true
+            }
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "19.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "8E879334",
+          "introductoryOffers" : [
+
+          ],
+          "localizations" : [
+            {
+              "description" : "",
+              "displayName" : "",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.orangefinch.Twofold.premium.monthly",
           "recurringSubscriptionPeriod" : "P1M",
-          "referenceName" : "Plus Monthly",
+          "referenceName" : "Premium Monthly",
           "subscriptionGroupID" : "33EFA2A8",
           "type" : "RecurringSubscription",
           "winbackOffers" : [
@@ -141,54 +167,6 @@
           "winbackOffers" : [
 
           ]
-        }
-      ]
-    },
-    {
-      "id" : "1EFF29F5",
-      "localizations" : [
-
-      ],
-      "name" : "Twofold Premium",
-      "subscriptions" : [
-        {
-          "adHocOffers" : [
-
-          ],
-          "billingPlans" : [
-            {
-              "billingPlanType" : "BILLED_UPFRONT",
-              "commitmentDisplayPrice" : "19.99",
-              "displayPrice" : "19.99",
-              "internalID" : "5D249558",
-              "isEnabled" : true
-            }
-          ],
-          "codeOffers" : [
-
-          ],
-          "displayPrice" : "19.99",
-          "familyShareable" : false,
-          "groupNumber" : 1,
-          "internalID" : "8E879334",
-          "introductoryOffers" : [
-
-          ],
-          "localizations" : [
-            {
-              "description" : "",
-              "displayName" : "",
-              "locale" : "en_US"
-            }
-          ],
-          "productID" : "com.orangefinch.Twofold.premium.monthly",
-          "recurringSubscriptionPeriod" : "P1M",
-          "referenceName" : "Premium Monthly",
-          "subscriptionGroupID" : "1EFF29F5",
-          "type" : "RecurringSubscription",
-          "winbackOffers" : [
-
-          ]
         },
         {
           "adHocOffers" : [
@@ -197,21 +175,34 @@
           "billingPlans" : [
             {
               "billingPlanType" : "BILLED_UPFRONT",
-              "commitmentDisplayPrice" : "119.99",
-              "displayPrice" : "119.99",
-              "internalID" : "82DB7D71",
+              "commitmentDisplayPrice" : "9.99",
+              "displayPrice" : "9.99",
+              "internalID" : "93E8385D",
               "isEnabled" : true
             }
           ],
           "codeOffers" : [
 
           ],
-          "displayPrice" : "119.99",
+          "displayPrice" : "9.99",
           "familyShareable" : false,
           "groupNumber" : 1,
-          "internalID" : "979DA8B1",
+          "internalID" : "89C5CC67",
+          "introductoryOffer" : {
+            "billingPlanType" : "BILLED_UPFRONT",
+            "internalID" : "F36C000C",
+            "numberOfPeriods" : 1,
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P2W"
+          },
           "introductoryOffers" : [
-
+            {
+              "billingPlanType" : "BILLED_UPFRONT",
+              "internalID" : "F36C000C",
+              "numberOfPeriods" : 1,
+              "paymentMode" : "free",
+              "subscriptionPeriod" : "P2W"
+            }
           ],
           "localizations" : [
             {
@@ -220,10 +211,10 @@
               "locale" : "en_US"
             }
           ],
-          "productID" : "com.orangefinch.Twofold.premium.yearly",
-          "recurringSubscriptionPeriod" : "P1Y",
-          "referenceName" : "Premium Yearly",
-          "subscriptionGroupID" : "1EFF29F5",
+          "productID" : "com.orangefinch.Twofold.plus.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Plus Monthly",
+          "subscriptionGroupID" : "33EFA2A8",
           "type" : "RecurringSubscription",
           "winbackOffers" : [
 
