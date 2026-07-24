@@ -1,7 +1,5 @@
-import { MessageSquare, Pin } from "lucide-react";
 import { VoteButton } from "@/components/feedback/VoteButton";
-import { FeatureStatusBadge } from "@/components/feedback/FeatureStatusBadge";
-import { CATEGORY_LABELS, type FeatureCategory, type FeatureStatus } from "@/lib/utils/constants";
+import { CATEGORY_LABELS, STATUS_LABELS, type FeatureCategory, type FeatureStatus } from "@/lib/utils/constants";
 import { formatRelativeTime } from "@/lib/utils/format";
 
 /** Minimal shape any request-like row needs — deliberately smaller than the full
@@ -21,38 +19,49 @@ export interface FeatureCardData {
   author: { display_name: string } | null;
 }
 
+// design_handoff_twofold_site/feedback.html only has 4 status-pill looks
+// (Requested/Planned/In Progress/Shipped) — folds the real 6-value enum down the
+// same way the roadmap buckets already do (considering -> requested, closed has no
+// reference equivalent so it also reads as the neutral "requested" grey).
+const STATUS_PILL_CLASS: Record<FeatureStatus, string> = {
+  requested: "status-requested",
+  considering: "status-requested",
+  planned: "status-planned",
+  in_progress: "status-progress",
+  released: "status-shipped",
+  closed: "status-requested",
+};
+
 export function FeatureCard({ feature }: { feature: FeatureCardData }) {
+  const status = feature.status as FeatureStatus;
+
   return (
-    <div className="flex gap-4 rounded-xl border bg-card p-4">
+    <div className="fb-item">
       <VoteButton featureId={feature.id} upvoteCount={feature.upvote_count} />
 
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          {feature.is_pinned && <Pin className="h-3.5 w-3.5 shrink-0 text-primary" />}
-          <h3 className="truncate font-semibold">{feature.title}</h3>
+      <div className="fb-body">
+        <div className="fb-body-top">
+          <div>
+            <p className="fb-title">
+              {feature.is_pinned && <span aria-hidden>📌 </span>}
+              {feature.title}
+            </p>
+            {feature.description && <p className="fb-desc">{feature.description}</p>}
+            <span className="fb-meta">
+              {feature.author?.display_name ?? "Anonymous"} · {formatRelativeTime(feature.created_at)}
+            </span>
+          </div>
+          <span className={`status ${STATUS_PILL_CLASS[status]}`}>{STATUS_LABELS[status]}</span>
         </div>
-
-        {feature.description && (
-          <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{feature.description}</p>
-        )}
-
-        <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-          <span>{feature.author?.display_name ?? "Anonymous"}</span>
-          <span aria-hidden>·</span>
-          <span>{formatRelativeTime(feature.created_at)}</span>
+        <div className="fb-foot">
+          <span className="tag">#{CATEGORY_LABELS[feature.category as FeatureCategory]}</span>
+          <span className="fb-comments">
+            <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+            </svg>
+            {feature.comment_count}
+          </span>
         </div>
-
-        <span className="mt-2 inline-flex w-fit items-center rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-          #{CATEGORY_LABELS[feature.category as FeatureCategory]}
-        </span>
-      </div>
-
-      <div className="flex shrink-0 flex-col items-end justify-between gap-2">
-        <FeatureStatusBadge status={feature.status as FeatureStatus} />
-        <span className="flex items-center gap-1 text-xs text-muted-foreground">
-          <MessageSquare className="h-3.5 w-3.5" />
-          {feature.comment_count}
-        </span>
       </div>
     </div>
   );

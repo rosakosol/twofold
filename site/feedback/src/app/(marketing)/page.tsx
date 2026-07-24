@@ -1,18 +1,12 @@
 import Link from "next/link";
 import { Reveal } from "@/components/marketing/Reveal";
 import { FeatureTeaserGrid } from "@/components/marketing/FeatureTeaserGrid";
-import { RelationshipQuiz } from "@/components/marketing/RelationshipQuiz";
 import { WaitlistForm } from "@/components/marketing/WaitlistForm";
-import { getHero, getFeatures, getQuizQuestions, getQuizResults } from "@/lib/marketing/sanity";
+import { getHero, getFeatures } from "@/lib/marketing/sanity";
 import { APP_STORE_URL, PLANS, FEATURE_SLUGS } from "@/lib/marketing/config";
 
 export default async function HomePage() {
-  const [hero, featureDocs, quizQuestions, quizResults] = await Promise.all([
-    getHero(),
-    getFeatures(FEATURE_SLUGS),
-    getQuizQuestions(),
-    getQuizResults(),
-  ]);
+  const [hero, featureDocs] = await Promise.all([getHero(), getFeatures(FEATURE_SLUGS)]);
 
   const headline = hero?.headline || "See how far you've gone\nfor each other.";
   const eyebrow = hero?.eyebrow || "Built for long-distance couples";
@@ -112,7 +106,7 @@ export default async function HomePage() {
 
       <section aria-labelledby="how-heading">
         <div className="wrap">
-          <div className="section-head reveal">
+          <Reveal className="section-head">
             <p className="eyebrow">
               <svg className="icon">
                 <use href="/assets/icons.svg#icon-sparkle" />
@@ -121,7 +115,7 @@ export default async function HomePage() {
             </p>
             <h2 id="how-heading">From &ldquo;miles apart&rdquo; to one shared map</h2>
             <p>No spreadsheets, no guessing when they&apos;ll land. Twofold does the tracking so you can just look forward to seeing each other.</p>
-          </div>
+          </Reveal>
           <div className="steps">
             <Reveal className="step-card">
               <span className="step-num">1</span>
@@ -144,7 +138,7 @@ export default async function HomePage() {
 
       <section aria-labelledby="features-heading">
         <div className="wrap">
-          <div className="section-head reveal">
+          <Reveal className="section-head">
             <p className="eyebrow">
               <svg className="icon">
                 <use href="/assets/icons.svg#icon-heart" />
@@ -152,35 +146,82 @@ export default async function HomePage() {
               Everything your distance deserves
             </p>
             <h2 id="features-heading">Built around the two of you</h2>
-          </div>
+          </Reveal>
           <FeatureTeaserGrid docs={featureDocs} />
         </div>
       </section>
 
-      <RelationshipQuiz questions={quizQuestions} results={quizResults} />
-
-      <section aria-labelledby="pricing-teaser-heading">
+      <section className="showcase">
         <div className="wrap">
-          <div className="section-head reveal">
+          <Reveal>
             <p className="eyebrow">
               <svg className="icon">
                 <use href="/assets/icons.svg#icon-sparkle" />
               </svg>
-              Simple pricing
+              The globe
             </p>
-            <h2 id="pricing-teaser-heading">Plus for the everyday, Premium for the full globe</h2>
-            <p>Start with a plan that fits your relationship — upgrade any time, and either partner&apos;s subscription unlocks it for both of you.</p>
-          </div>
-          <Reveal className="pricing-grid">
-            <div className="price-card">
-              <h3>{PLANS.plus.name}</h3>
-              <p className="price-tagline">{PLANS.plus.tagline}</p>
-              <div className="price-amount">
-                <span className="num">{PLANS.plus.yearly.perMonthLabel}</span>
-                <span className="period">/mo, billed yearly</span>
+            <h2 style={{ margin: "16px 0 16px" }}>Your whole story, on one map</h2>
+            <p className="lede" style={{ marginBottom: 24 }}>
+              Every reunion draws a new arc between you. Zoom into a city to revisit the memories you made there —
+              it&apos;s the centrepiece both of you open first.
+            </p>
+            <ul className="check-list">
+              <li>
+                <svg className="icon">
+                  <use href="/assets/icons.svg#icon-check" />
+                </svg>
+                See your current distance apart, updated live
+              </li>
+              <li>
+                <svg className="icon">
+                  <use href="/assets/icons.svg#icon-check" />
+                </svg>
+                Rotate and zoom into cities to explore memories
+              </li>
+              <li>
+                <svg className="icon">
+                  <use href="/assets/icons.svg#icon-check" />
+                </svg>
+                Every reunion trip draws a new line across your history
+              </li>
+            </ul>
+          </Reveal>
+          <Reveal className="media-frame" data-delay="120">
+            <div className="phone-mock">
+              <div className="phone-mock-notch" />
+              <div className="phone-mock-screen">
+                <div className="mock-globe" aria-hidden>
+                  <div className="mock-dot" style={{ background: "var(--sky-blue)", top: "28%", left: "22%" }} />
+                  <div className="mock-dot" style={{ background: "var(--heart-red)", top: "62%", left: "68%" }} />
+                </div>
               </div>
-              <p className="price-sub">or {PLANS.plus.monthly.priceLabel}/month</p>
-              <ul className="feature-list">
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      <section aria-labelledby="pricing-teaser-heading">
+        <div className="wrap">
+          <Reveal className="section-head">
+            <p className="eyebrow">
+              <svg className="icon">
+                <use href="/assets/icons.svg#icon-sparkle" />
+              </svg>
+              Pricing
+            </p>
+            <h2 id="pricing-teaser-heading">One subscription, shared by both of you</h2>
+            <p style={{ marginTop: 12 }}>Either partner&apos;s subscription unlocks the full experience for you both.</p>
+          </Reveal>
+          <div className="price-grid">
+            <Reveal as="article" className="card price-card">
+              <h3>{PLANS.plus.name}</h3>
+              <p className="plan-sub">{PLANS.plus.tagline}</p>
+              <div className="price-amt">
+                <span className="n">{PLANS.plus.yearly.perMonthLabel}</span>
+                <span className="per">/mo, billed yearly</span>
+              </div>
+              <p className="price-alt">or {PLANS.plus.monthly.priceLabel}/month</p>
+              <ul className="check-list">
                 {PLANS.plus.features.slice(1, 4).map((feature) => (
                   <li key={feature}>
                     <svg className="icon">
@@ -190,20 +231,20 @@ export default async function HomePage() {
                   </li>
                 ))}
               </ul>
-              <Link className="btn btn-outline btn-block" href="/pricing">
+              <Link className="btn btn-ghost" href="/pricing">
                 Choose Plus
               </Link>
-            </div>
-            <div className="price-card is-featured">
-              <span className="price-ribbon">Most popular</span>
+            </Reveal>
+            <Reveal as="article" className="card price-card feature" data-delay="90">
+              <span className="price-tag">Most popular</span>
               <h3>{PLANS.premium.name}</h3>
-              <p className="price-tagline">{PLANS.premium.tagline}</p>
-              <div className="price-amount">
-                <span className="num">{PLANS.premium.yearly.perMonthLabel}</span>
-                <span className="period">/mo, billed yearly</span>
+              <p className="plan-sub">{PLANS.premium.tagline}</p>
+              <div className="price-amt">
+                <span className="n">{PLANS.premium.yearly.perMonthLabel}</span>
+                <span className="per">/mo, billed yearly</span>
               </div>
-              <p className="price-sub">or {PLANS.premium.monthly.priceLabel}/month</p>
-              <ul className="feature-list">
+              <p className="price-alt">or {PLANS.premium.monthly.priceLabel}/month</p>
+              <ul className="check-list">
                 {PLANS.premium.features.slice(0, 3).map((feature) => (
                   <li key={feature}>
                     <svg className="icon">
@@ -213,35 +254,17 @@ export default async function HomePage() {
                   </li>
                 ))}
               </ul>
-              <Link className="btn btn-primary btn-block" href="/pricing">
+              <Link className="btn btn-primary" href="/pricing">
                 Choose Premium
               </Link>
-            </div>
-          </Reveal>
-        </div>
-      </section>
-
-      <section aria-labelledby="cta-heading">
-        <div className="cta-banner reveal">
-          <h2 id="cta-heading">Start closing the distance today</h2>
-          <p>Twofold is free to download, with Plus and Premium unlocking the full experience for both of you.</p>
-          <div className="cta-row">
-            <a className="btn btn-dark btn-lg" data-appstore-link href={APP_STORE_URL}>
-              <svg className="icon">
-                <use href="/assets/icons.svg#icon-apple" />
-              </svg>
-              Download for iOS
-            </a>
-            <Link className="btn btn-ghost btn-lg" href="/pricing" style={{ background: "rgba(255,255,255,0.9)" }}>
-              See pricing
-            </Link>
+            </Reveal>
           </div>
         </div>
       </section>
 
       <section id="waitlist" aria-labelledby="waitlist-heading">
-        <div className="wrap">
-          <Reveal className="waitlist-card">
+        <div className="wrap waitlist-wrap">
+          <Reveal className="card waitlist-card">
             <p className="eyebrow" style={{ justifyContent: "center" }}>
               <svg className="icon">
                 <use href="/assets/icons.svg#icon-bell" />

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Reveal } from "@/components/marketing/Reveal";
 import { getFeatures } from "@/lib/marketing/sanity";
 import { featureWithFallback, FEATURE_ICON, FEATURE_TONE } from "@/lib/marketing/featuresFallback";
-import { FEATURE_SLUGS, APP_STORE_URL, type FeatureSlug } from "@/lib/marketing/config";
+import { FEATURE_SLUGS, type FeatureSlug } from "@/lib/marketing/config";
 
 export const metadata: Metadata = {
   title: "Features",
@@ -131,32 +131,34 @@ export default async function FeaturesPage() {
 
   return (
     <>
-      <section className="page-hero">
-        <p className="eyebrow">
-          <svg className="icon">
-            <use href="/assets/icons.svg#icon-sparkle" />
-          </svg>
-          Features
-        </p>
-        <h1>Everything your distance deserves</h1>
-        <p>Twofold isn&apos;t just a flight tracker — it&apos;s a shared home for your relationship, wherever in the world you both are.</p>
-      </section>
+      <header className="page-head">
+        <Reveal className="wrap">
+          <span className="eyebrow">
+            <svg className="icon">
+              <use href="/assets/icons.svg#icon-sparkle" />
+            </svg>
+            Features
+          </span>
+          <h1>Everything your distance deserves</h1>
+          <p className="lead">Twofold isn&apos;t just a flight tracker — it&apos;s a shared home for your relationship, wherever in the world you both are.</p>
+        </Reveal>
+      </header>
 
-      <section>
+      <section style={{ paddingTop: 30 }}>
         <div className="wrap">
           {FEATURE_SLUGS.map((slug, index) => {
             const feature = featureWithFallback(slug, docs[slug]);
             return (
-              <Reveal key={slug} className={`feature-detail${index % 2 === 1 ? " reverse" : ""}`}>
-                <div className="feature-detail-copy">
-                  <div className={`feature-icon ${FEATURE_TONE[slug]}`}>
+              <Reveal key={slug} className={`feature-row${index % 2 === 1 ? " flip" : ""}`}>
+                <div className="fr-text">
+                  <div className={`icon-badge ${FEATURE_TONE[slug]}`}>
                     <svg className="icon">
                       <use href={`/assets/icons.svg#${FEATURE_ICON[slug]}`} />
                     </svg>
                   </div>
                   <h2>{feature.title}</h2>
-                  <p>{feature.detailDescription}</p>
-                  <ul className="feature-list">
+                  <p className="desc">{feature.detailDescription}</p>
+                  <ul className="check-list">
                     {feature.bullets.map((bullet) => (
                       <li key={bullet}>
                         <svg className="icon">
@@ -167,7 +169,7 @@ export default async function FeaturesPage() {
                     ))}
                   </ul>
                 </div>
-                <div className="feature-detail-art">
+                <div className="media-frame">
                   <FeatureArt slug={slug} />
                 </div>
               </Reveal>
@@ -176,22 +178,19 @@ export default async function FeaturesPage() {
         </div>
       </section>
 
-      <section aria-labelledby="cta-heading">
-        <div className="cta-banner reveal">
-          <h2 id="cta-heading">Ready to start your globe?</h2>
-          <p>Download Twofold free, then choose Plus or Premium for the full experience.</p>
-          <div className="cta-row">
-            <a className="btn btn-dark btn-lg" data-appstore-link href={APP_STORE_URL}>
-              <svg className="icon">
-                <use href="/assets/icons.svg#icon-apple" />
-              </svg>
-              Download for iOS
-            </a>
-            <Link className="btn btn-ghost btn-lg" href="/pricing" style={{ background: "rgba(255,255,255,0.9)" }}>
+      <section className="cta-band" style={{ paddingTop: 0 }}>
+        <Reveal className="wrap">
+          <div className="card">
+            <h2>Start closing the distance</h2>
+            <p>Either partner&apos;s subscription unlocks everything for you both.</p>
+            <Link className="btn btn-primary btn-lg" href="/pricing">
               See pricing
+              <svg className="icon">
+                <use href="/assets/icons.svg#icon-arrow-right" />
+              </svg>
             </Link>
           </div>
-        </div>
+        </Reveal>
       </section>
     </>
   );

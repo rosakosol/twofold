@@ -16,7 +16,7 @@ export function RequestsList({ byStatus }: { byStatus: Map<FeatureStatus, Roadma
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="fb-list">
       {items.map((item) => (
         <FeatureCard key={item.id} feature={item} />
       ))}

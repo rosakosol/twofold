@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Features — Twofold</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="site.css">
+<style id="__om-edit-overrides"></style>
+<style>
+.page-head { padding: 70px 0 20px; text-align: center; }
+.page-head .eyebrow { justify-content: center; margin-bottom: 16px; }
+.page-head h1 { max-width: 760px; margin: 0 auto 18px; }
+.page-head .lead { max-width: 540px; margin: 0 auto; }
+
+.feature-row { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: center; padding: 46px 0; border-top: 1px solid var(--border-softer); }
+.feature-row:first-child { border-top: none; }
+.feature-row.flip .fr-text { order: 2; }
+.feature-row h2 { font-size: 1.9rem; margin: 14px 0 12px; }
+.feature-row p.desc { font-size: 1rem; margin: 0 0 20px; max-width: 440px; }
+.feature-row .media-frame { aspect-ratio: 4/3; }
+.feature-row.flip .media-frame { aspect-ratio: 3/4; max-width: 300px; }
+
+@media (max-width: 820px) {
+  .feature-row { grid-template-columns: 1fr; gap: 24px; }
+  .feature-row.flip .fr-text { order: 0; }
+  .feature-row.flip .media-frame { max-width: none; aspect-ratio: 4/3; }
+}
+.cta-band { text-align: center; }
+.cta-band .card { max-width: 620px; margin: 0 auto; padding: 44px; }
+.cta-band h2 { margin-bottom: 10px; }
+.cta-band p { max-width: 420px; margin: 0 auto 24px; }
+</style>
+</head>
+<body>
+<nav class="nav">
+  <div class="wrap">
+    <a class="brand" href="index.html"><img src="uploads/AppIcon-Light.png" alt="Twofold">twofold</a>
+    <div class="nav-links">
+      <a href="index.html">Home</a>
+      <a href="features.html" class="active">Features</a>
+      <a href="pricing.html">Pricing</a>
+      <a href="faq.html">FAQ</a>
+      <a href="feedback.html">Feedback</a>
+    </div>
+    <div class="nav-right"><a href="pricing.html" class="btn btn-primary btn-sm">Get the App</a></div>
+  </div>
+</nav>
+
+<header class="page-head">
+  <div class="wrap reveal">
+    <span class="eyebrow">Features</span>
+    <h1>Everything your distance deserves</h1>
+    <p class="lead">Twofold isn't just a flight tracker — it's a shared home for your relationship, wherever in the world you both are.</p>
+  </div>
+</header>
+
+<section class="section" style="padding-top:30px">
+  <div class="wrap">
+
+    <div class="feature-row reveal">
+      <div class="fr-text">
+        <div class="icon-badge ib-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 3 2.5 15 0 18M12 3c-2.5 3-2.5 15 0 18"/></svg></div>
+        <h2>Relationship Globe</h2>
+        <p class="desc">The centre of Twofold is an interactive 3D globe showing both of you — where you are, the distance between you right now, and every journey you've taken to close it.</p>
+        <ul class="check-list">
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l4 4L19 6"/></svg>See your current distance apart, updated automatically</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l4 4L19 6"/></svg>Rotate and zoom into cities to explore memories</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l4 4L19 6"/></svg>Every reunion trip draws a new line across your shared history</li>
+        </ul>
+      </div>
+      <div class="media-frame"><image-slot id="feat-globe" shape="rect" fit="cover" placeholder="Drop the globe screen"></image-slot></div>
+    </div>
+
+    <div class="feature-row flip reveal">
+      <div class="fr-text">
+        <div class="icon-badge ib-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg></div>
+        <h2>Live Flight Tracking</h2>
+        <p class="desc">Follow each other's flights in real time. Twofold tells you the moment they take off, and sends a notification the second they land safely.</p>
+        <ul class="check-list">
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l4 4L19 6"/></svg>Real-time status, gate, and delay updates</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l4 4L19 6"/></svg>"Landed" notifications the moment they're on the ground</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l4 4L19 6"/></svg>Live Activity on the Lock Screen for the whole flight</li>
+        </ul>
+      </div>
+      <div class="media-frame"><image-slot id="feat-flight" shape="rect" fit="cover" placeholder="Drop the flight screen"></image-slot></div>
+    </div>
+
+    <div class="feature-row reveal">
+      <div class="fr-text">
+        <div class="icon-badge ib-red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-5-7-11a7 7 0 0114 0c0 6-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg></div>
+        <h2>Memories</h2>
+        <p class="desc">Save photos and moments to the exact places they happened. Over time, your globe fills with pins — a map of everywhere your story has taken you.</p>
+        <ul class="check-list">
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l4 4L19 6"/></svg>Attach photos and notes to any location</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l4 4L19 6"/></svg>Revisit memories by zooming into the globe</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l4 4L19 6"/></svg>Private to your relationship — never public</li>
+        </ul>
+      </div>
+      <div class="media-frame"><image-slot id="feat-mem" shape="rect" fit="cover" placeholder="Drop the memories screen"></image-slot></div>
+    </div>
+
+    <div class="feature-row flip reveal">
+      <div class="fr-text">
+        <div class="icon-badge ib-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="4"/><path d="M7 12h3M8.5 10.5v3M15.5 11h.01M18 13h.01"/></svg></div>
+        <h2>Couple Games</h2>
+        <p class="desc">Bite-sized questions and games built for two, made to close the distance even when you can't be in the same room — from quick "this or that" rounds to deeper discussion prompts.</p>
+        <ul class="check-list">
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l4 4L19 6"/></svg>500+ questions and games, 2000+ on Premium</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l4 4L19 6"/></svg>Play async — answer whenever you both have a moment</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l4 4L19 6"/></svg>New topics and decks added regularly</li>
+        </ul>
+      </div>
+      <div class="media-frame"><image-slot id="feat-games" shape="rect" fit="cover" placeholder="Drop the games screen"></image-slot></div>
+    </div>
+
+    <div class="feature-row reveal">
+      <div class="fr-text">
+        <div class="icon-badge ib-ink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg></div>
+        <h2>Widgets &amp; Live Activities</h2>
+        <p class="desc">Keep your relationship on your Home Screen and Lock Screen — a countdown to your next reunion, today's distance apart, or a live flight tracker while they're in the air.</p>
+        <ul class="check-list">
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l4 4L19 6"/></svg>Countdown, distance, and flight-status widgets</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l4 4L19 6"/></svg>Live Activities for in-progress flights</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l4 4L19 6"/></svg>More widget styles unlocked on Premium</li>
+        </ul>
+      </div>
+      <div class="media-frame"><image-slot id="feat-widgets" shape="rect" fit="cover" placeholder="Drop the widgets screen"></image-slot></div>
+    </div>
+
+    <div class="feature-row flip reveal">
+      <div class="fr-text">
+        <div class="icon-badge ib-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h6"/></svg></div>
+        <h2>Relationship Record</h2>
+        <p class="desc">Export a beautifully laid-out PDF of every trip, memory, and mile you've travelled for each other — a keepsake of your long-distance story, ready to print or save.</p>
+        <ul class="check-list">
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l4 4L19 6"/></svg>Every trip, flight, and memory in one document</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l4 4L19 6"/></svg>Beautifully designed, ready to print</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l4 4L19 6"/></svg>Included with Twofold Premium</li>
+        </ul>
+      </div>
+      <div class="media-frame"><image-slot id="feat-record" shape="rect" fit="cover" placeholder="Drop the PDF record"></image-slot></div>
+    </div>
+
+  </div>
+</section>
+
+<section class="section cta-band" style="padding-top:0">
+  <div class="wrap reveal">
+    <div class="card">
+      <h2>Start closing the distance</h2>
+      <p>Either partner's subscription unlocks everything for you both.</p>
+      <a href="pricing.html" class="btn btn-primary btn-lg">See pricing <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="18" height="18"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="wrap">
+    <div><div class="brand"><img src="uploads/AppIcon-Light.png" alt="Twofold">twofold</div><p>The living map for long-distance couples. Track flights, close the distance, keep the memories.</p></div>
+    <div class="foot-col"><h4>Product</h4><a href="features.html">Features</a><a href="pricing.html">Pricing</a><a href="faq.html">FAQ</a><a href="#">Download on iOS</a></div>
+    <div class="foot-col"><h4>Support</h4><a href="#">Contact us</a><a href="#">Manage subscription</a><a href="#">Android waitlist</a></div>
+    <div class="foot-col"><h4>Legal</h4><a href="#">Privacy Policy</a><a href="#">Terms of Use</a></div>
+  </div>
+  <div class="foot-base"><div class="wrap"><span>© 2026 Twofold. Made for the couples doing long distance.</span><span>twofoldapp.com.au</span></div></div>
+</footer>
+
+<script src="image-slot.js"></script>
+<script src="site.js"></script>
+</body>
+</html>

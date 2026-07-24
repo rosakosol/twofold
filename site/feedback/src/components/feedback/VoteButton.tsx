@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
-import { ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/lib/auth/useUser";
 import { useMyVoteIds, useVote } from "@/lib/queries/useVote";
@@ -38,15 +37,12 @@ export function VoteButton({ featureId, upvoteCount }: VoteButtonProps) {
       onClick={handleClick}
       disabled={vote.isPending}
       aria-pressed={hasVoted}
-      className={cn(
-        "flex flex-col items-center justify-center gap-0.5 rounded-lg border px-3 py-1.5 min-w-14 transition-all active:scale-90 disabled:pointer-events-none",
-        hasVoted
-          ? "border-primary bg-primary/10 text-primary"
-          : "border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-foreground"
-      )}
+      className={cn("vote", hasVoted && "voted")}
     >
-      <ChevronUp className={cn("h-4 w-4 transition-transform", hasVoted && "scale-110")} />
-      <span className="text-sm font-semibold tabular-nums">{upvoteCount}</span>
+      <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4}>
+        <path d="M6 15l6-6 6 6" />
+      </svg>
+      <span className="count">{upvoteCount}</span>
     </button>
   );
 }

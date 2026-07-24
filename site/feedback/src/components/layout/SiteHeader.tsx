@@ -49,7 +49,7 @@ export function SiteHeader() {
       <div className="site-nav-inner">
         <Link className="site-nav-brand" href="/">
           {/* eslint-disable-next-line @next/next/no-img-element -- fixed-size brand mark, matches MarketingHeader's */}
-          <img src="/assets/globe-heart.png" alt="" width={28} height={28} />
+          <img src="/assets/app-icon.png" alt="" width={28} height={28} />
           <span>twofold</span>
         </Link>
         <nav>

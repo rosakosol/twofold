@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pricing — Twofold</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="site.css">
+<style id="__om-edit-overrides"></style>
+<style>
+.page-head { padding: 70px 0 8px; text-align: center; }
+.page-head .eyebrow { justify-content: center; margin-bottom: 16px; }
+.page-head h1 { max-width: 720px; margin: 0 auto 16px; }
+.page-head .lead { max-width: 520px; margin: 0 auto; }
+.apple-note { display: inline-flex; align-items: center; gap: 9px; margin-top: 22px; background: rgba(255,255,255,0.7); border: 1px solid var(--border-softer); border-radius: var(--radius-pill); padding: 9px 18px; font-size: 0.86rem; color: var(--subtle-ink); box-shadow: var(--shadow-sm); }
+.apple-note svg { width: 15px; height: 15px; color: var(--ink); }
+
+.billing-toggle { display: inline-flex; background: rgba(255,255,255,0.75); border: 1px solid var(--border-soft); border-radius: var(--radius-pill); padding: 5px; margin: 34px auto 0; box-shadow: var(--shadow-sm); }
+.billing-toggle button { border: none; background: transparent; font-family: var(--font-body); font-weight: 600; font-size: 0.9rem; color: var(--subtle-ink); padding: 9px 22px; border-radius: var(--radius-pill); cursor: pointer; transition: all 0.25s var(--ease); display: inline-flex; align-items: center; gap: 8px; }
+.billing-toggle button.active { background: var(--ink); color: #fff; box-shadow: var(--shadow-sm); }
+.save-pill { font-size: 0.68rem; background: var(--leaf-green); color: #fff; padding: 2px 8px; border-radius: var(--radius-pill); font-weight: 600; }
+.billing-toggle button.active .save-pill { background: rgba(255,255,255,0.25); }
+
+.pricing-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 22px; max-width: 780px; margin: 44px auto 0; }
+.plan { position: relative; padding: 34px 32px; }
+.plan.feature { box-shadow: var(--shadow-lg); border-color: rgba(79,169,224,0.4); }
+.plan-badge { position: absolute; top: -13px; left: 50%; transform: translateX(-50%); background: linear-gradient(160deg, var(--heart-red), var(--heart-red-deep)); color: #fff; font-size: 0.72rem; font-weight: 600; padding: 5px 14px; border-radius: var(--radius-pill); box-shadow: var(--shadow-sm); }
+.plan h3 { font-size: 1.3rem; margin-bottom: 4px; }
+.plan .plan-sub { font-size: 0.9rem; color: var(--faint-ink); margin: 0 0 22px; }
+.price-line { display: flex; align-items: baseline; gap: 6px; }
+.price-line .n { font-family: var(--font-display); font-size: 3rem; font-weight: 600; color: var(--ink); line-height: 1; }
+.price-line .per { font-size: 0.92rem; color: var(--faint-ink); }
+.price-foot { font-size: 0.82rem; color: var(--faint-ink); margin: 8px 0 24px; min-height: 1em; }
+.plan .check-list { margin-bottom: 28px; }
+.plan .btn { width: 100%; }
+[data-plan].hidden { display: none; }
+
+.pricing-foot { text-align: center; padding: 20px 0 0; }
+.pricing-foot .arrow-link { border-bottom-color: var(--heart-red); }
+
+@media (max-width: 720px) { .pricing-grid { grid-template-columns: 1fr; max-width: 420px; } }
+</style>
+</head>
+<body>
+<nav class="nav">
+  <div class="wrap">
+    <a class="brand" href="index.html"><img src="uploads/AppIcon-Light.png" alt="Twofold">twofold</a>
+    <div class="nav-links">
+      <a href="index.html">Home</a>
+      <a href="features.html">Features</a>
+      <a href="pricing.html" class="active">Pricing</a>
+      <a href="faq.html">FAQ</a>
+      <a href="feedback.html">Feedback</a>
+    </div>
+    <div class="nav-right"><a href="pricing.html" class="btn btn-primary btn-sm">Get the App</a></div>
+  </div>
+</nav>
+
+<header class="page-head">
+  <div class="wrap reveal">
+    <span class="eyebrow">Pricing</span>
+    <h1>One subscription, shared by both of you</h1>
+    <p class="lead">Subscribe here on the web or right inside the app — either partner's subscription unlocks the full experience for you both.</p>
+    <div class="apple-note"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 3c.1 1-.3 2-1 2.8-.6.7-1.6 1.3-2.6 1.2-.1-1 .4-2 1-2.7.7-.8 1.7-1.3 2.6-1.3zM19 17c-.5 1.1-.7 1.6-1.3 2.6-.9 1.4-2.1 3.1-3.6 3.1-1.3 0-1.7-.9-3.5-.9s-2.2.8-3.5.9c-1.5.1-2.6-1.5-3.5-2.9C1.5 17 1.2 12.5 3 10c.9-1.3 2.4-2.1 3.8-2.1 1.4 0 2.3.9 3.5.9 1.1 0 1.8-.9 3.5-.9 1.2 0 2.5.7 3.4 1.8-3 1.6-2.5 5.9.8 7.3z"/></svg>You'll sign in with Apple at checkout — it's how we match your web purchase to your Twofold account.</div>
+  </div>
+</header>
+
+<section class="section" style="padding-top:30px">
+  <div class="wrap" style="text-align:center">
+    <div class="billing-toggle reveal" data-toggle-group>
+      <button data-val="monthly">Monthly</button>
+      <button data-val="yearly" class="active">Yearly <span class="save-pill">Save 50%</span></button>
+    </div>
+
+    <div class="pricing-grid">
+      <div class="card plan reveal">
+        <h3>Twofold Plus</h3>
+        <p class="plan-sub">Everything you need for long-distance love</p>
+        <div data-plan="yearly">
+          <div class="price-line"><span class="n">$5.00</span><span class="per">/mo</span></div>
+          <p class="price-foot">Billed yearly — works out to $59.99/yr</p>
+        </div>
+        <div data-plan="monthly" class="hidden">
+          <div class="price-line"><span class="n">$9.99</span><span class="per">/mo</span></div>
+          <p class="price-foot">Billed monthly · cancel anytime</p>
+        </div>
+        <ul class="check-list">
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l4 4L19 6"/></svg>Unlimited trips &amp; memories</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l4 4L19 6"/></svg>Track up to 5 flights each month</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l4 4L19 6"/></svg>500+ questions and games</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l4 4L19 6"/></svg>Relationship Globe &amp; Live Flight Tracking</li>
+        </ul>
+        <a href="#" class="btn btn-ghost">Get Plus</a>
+      </div>
+
+      <div class="card plan feature reveal" data-delay="90">
+        <span class="plan-badge">Most popular</span>
+        <h3>Twofold Premium</h3>
+        <p class="plan-sub">The full relationship globe experience</p>
+        <div data-plan="yearly">
+          <div class="price-line"><span class="n">$10.00</span><span class="per">/mo</span></div>
+          <p class="price-foot">Billed yearly — works out to $119.99/yr</p>
+        </div>
+        <div data-plan="monthly" class="hidden">
+          <div class="price-line"><span class="n">$19.99</span><span class="per">/mo</span></div>
+          <p class="price-foot">Billed monthly · cancel anytime</p>
+        </div>
+        <ul class="check-list">
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l4 4L19 6"/></svg>Everything in Twofold Plus</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l4 4L19 6"/></svg>Track up to 20 flights each month</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l4 4L19 6"/></svg>2000+ questions and games</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l4 4L19 6"/></svg>Relationship Record PDF export</li>
+        </ul>
+        <a href="#" class="btn btn-primary">Get Premium</a>
+      </div>
+    </div>
+
+    <div class="pricing-foot reveal">
+      <a class="arrow-link" href="faq.html">More questions <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="wrap">
+    <div><div class="brand"><img src="uploads/AppIcon-Light.png" alt="Twofold">twofold</div><p>The living map for long-distance couples. Track flights, close the distance, keep the memories.</p></div>
+    <div class="foot-col"><h4>Product</h4><a href="features.html">Features</a><a href="pricing.html">Pricing</a><a href="faq.html">FAQ</a><a href="#">Download on iOS</a></div>
+    <div class="foot-col"><h4>Support</h4><a href="#">Contact us</a><a href="#">Manage subscription</a><a href="#">Android waitlist</a></div>
+    <div class="foot-col"><h4>Legal</h4><a href="#">Privacy Policy</a><a href="#">Terms of Use</a></div>
+  </div>
+  <div class="foot-base"><div class="wrap"><span>© 2026 Twofold. Made for the couples doing long distance.</span><span>twofoldapp.com.au</span></div></div>
+</footer>
+
+<script src="site.js"></script>
+</body>
+</html>

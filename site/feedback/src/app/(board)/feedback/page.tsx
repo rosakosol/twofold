@@ -1,5 +1,6 @@
 "use client";
 
+import "./feedback.css";
 import { Suspense, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { TriangleAlert } from "lucide-react";
@@ -9,7 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { FeatureSubmitDialog } from "@/components/feedback/FeatureSubmitDialog";
 import { SearchBar } from "@/components/feedback/SearchBar";
 import { EmptyState } from "@/components/feedback/EmptyState";
-import { PopularThisWeek } from "@/components/feedback/PopularThisWeek";
 import { RequestsList } from "@/components/feedback/RequestsList";
 import { RoadmapColumn } from "@/components/feedback/RoadmapColumn";
 import { useRoadmap, type RoadmapItem } from "@/lib/queries/useRoadmap";
@@ -19,8 +19,8 @@ const ALL = "__all__";
 
 // Roadmap simplified to 4 quick-glance stages instead of the full 6-value status enum —
 // "considering" folds into Requested (both mean "not committed to yet"), and "closed" is
-// excluded entirely (not a forward-looking state). Fixed 4-column grid instead of the old
-// horizontally-scrolling row, so it always fits the viewport width.
+// excluded entirely (not a forward-looking state). Matches design_handoff_twofold_site/
+// feedback.html's 4-column board exactly.
 const ROADMAP_BUCKETS: { key: string; label: string; statuses: FeatureStatus[] }[] = [
   { key: "requested", label: "Requested", statuses: ["requested", "considering"] },
   { key: "planned", label: "Planned", statuses: ["planned"] },
@@ -67,89 +67,75 @@ function Board() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="font-heading text-xl font-semibold tracking-tight">Feedback</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Vote on ideas, or tell us what would make Twofold better.
-          </p>
+    <div className="fb-page">
+      <header className="fb-head">
+        <div className="fb-head-inner">
+          <div>
+            <h1>Feedback</h1>
+            <p>Vote on ideas, or tell us what would make Twofold better.</p>
+          </div>
+          <FeatureSubmitDialog />
         </div>
-        <FeatureSubmitDialog />
+      </header>
+
+      <div className="fb-controls">
+        <SearchBar value={search} onChange={(v) => updateParam("q", v || undefined)} />
+        <Select value={category ?? ALL} onValueChange={(v) => v && updateParam("category", v === ALL ? undefined : v)}>
+          <SelectTrigger size="sm" className="fb-select">
+            <SelectValue placeholder="Category" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>All categories</SelectItem>
+            {CATEGORY_VALUES.map((value) => (
+              <SelectItem key={value} value={value}>
+                {CATEGORY_LABELS[value]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_260px]">
-        <div className="min-w-0">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="sm:max-w-xs sm:flex-1">
-              <SearchBar value={search} onChange={(v) => updateParam("q", v || undefined)} />
-            </div>
-            <Select value={category ?? ALL} onValueChange={(v) => v && updateParam("category", v === ALL ? undefined : v)}>
-              <SelectTrigger size="sm">
-                <SelectValue placeholder="Category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>All categories</SelectItem>
-                {CATEGORY_VALUES.map((value) => (
-                  <SelectItem key={value} value={value}>
-                    {CATEGORY_LABELS[value]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+      {isError ? (
+        <EmptyState
+          icon={TriangleAlert}
+          title="Couldn't load feedback"
+          description="Something went wrong fetching requests — check your connection and try again."
+          action={
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
+              Retry
+            </Button>
+          }
+        />
+      ) : isLoading || !filtered ? (
+        <div className="fb-list">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-24 w-full rounded-2xl" />
+          ))}
+        </div>
+      ) : (
+        <RequestsList byStatus={filtered} />
+      )}
 
-          <div className="mt-6">
-            {isError ? (
-              <EmptyState
-                icon={TriangleAlert}
-                title="Couldn't load feedback"
-                description="Something went wrong fetching requests — check your connection and try again."
-                action={
-                  <Button variant="outline" size="sm" onClick={() => refetch()}>
-                    Retry
-                  </Button>
-                }
-              />
-            ) : isLoading || !filtered ? (
-              <div className="flex flex-col gap-2">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Skeleton key={i} className="h-12 w-full rounded-lg" />
-                ))}
+      <div className="roadmap-head">
+        <h2>Roadmap</h2>
+        <p>The fuller picture, stage by stage.</p>
+      </div>
+      <div className="roadmap">
+        {isError ? null : isLoading || !filtered
+          ? ROADMAP_BUCKETS.map((bucket) => (
+              <div key={bucket.key} className="flex min-w-0 flex-col gap-2">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-20 w-full rounded-2xl" />
+                <Skeleton className="h-20 w-full rounded-2xl" />
               </div>
-            ) : (
-              <RequestsList byStatus={filtered} />
-            )}
-          </div>
-        </div>
-
-        <aside className="lg:pt-[52px]">
-          <PopularThisWeek />
-        </aside>
-      </div>
-
-      <div className="mt-10 border-t pt-6">
-        <h2 className="font-heading text-lg font-semibold tracking-tight">Roadmap</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          The fuller picture, stage by stage.
-        </p>
-        <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {isError ? null : isLoading || !filtered
-            ? ROADMAP_BUCKETS.map((bucket) => (
-                <div key={bucket.key} className="flex min-w-0 flex-col gap-2">
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-20 w-full rounded-lg" />
-                  <Skeleton className="h-20 w-full rounded-lg" />
-                </div>
-              ))
-            : ROADMAP_BUCKETS.map((bucket) => (
-                <RoadmapColumn
-                  key={bucket.key}
-                  label={bucket.label}
-                  items={bucket.statuses.flatMap((status) => filtered.get(status) ?? [])}
-                />
-              ))}
-        </div>
+            ))
+          : ROADMAP_BUCKETS.map((bucket) => (
+              <RoadmapColumn
+                key={bucket.key}
+                label={bucket.label}
+                items={bucket.statuses.flatMap((status) => filtered.get(status) ?? [])}
+              />
+            ))}
       </div>
     </div>
   );

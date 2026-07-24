@@ -1,5 +1,6 @@
 "use client";
 
+import "../feedback.css";
 import Link from "next/link";
 import { Bookmark } from "lucide-react";
 import { FeatureCard } from "@/components/feedback/FeatureCard";
@@ -21,9 +22,9 @@ export default function BookmarksPage() {
       </div>
       <p className="mt-1 text-sm text-muted-foreground">Requests you&apos;ve saved for later.</p>
 
-      <div className="mt-6 flex flex-col gap-3">
+      <div className="fb-list mt-6">
         {userLoading || isLoading ? (
-          Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-xl" />)
+          Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-2xl" />)
         ) : !user ? (
           <EmptyState
             title="Sign in to see your bookmarks"

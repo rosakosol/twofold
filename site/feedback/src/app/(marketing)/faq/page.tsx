@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { getFaqItems, type FaqItemDoc } from "@/lib/marketing/sanity";
 import { FAQ_FALLBACK, FAQ_CATEGORY_LABELS } from "@/lib/marketing/faqFallback";
+import { FaqAccordionItem } from "@/components/marketing/FaqAccordionItem";
+import { Reveal } from "@/components/marketing/Reveal";
 
 export const metadata: Metadata = {
   title: "FAQ",
@@ -9,70 +11,51 @@ export const metadata: Metadata = {
 
 const CATEGORY_ORDER: FaqItemDoc["category"][] = ["getting-started", "subscriptions", "privacy"];
 
-function FaqAccordion({ items, defaultOpenFirst }: { items: FaqItemDoc[]; defaultOpenFirst?: boolean }) {
-  return (
-    <div className="faq-list" style={{ marginBottom: 48 }}>
-      {items.map((item, index) => (
-        <details key={item.question} className="faq-item" open={defaultOpenFirst && index === 0}>
-          <summary>
-            {item.question}
-            <svg className="icon icon-chevron">
-              <use href="/assets/icons.svg#icon-chevron-down" />
-            </svg>
-          </summary>
-          <div className="faq-body">{item.answer}</div>
-        </details>
-      ))}
-    </div>
-  );
-}
-
 export default async function FaqPage() {
   const sanityItems = await getFaqItems();
 
   return (
     <>
-      <section className="page-hero">
-        <p className="eyebrow">
-          <svg className="icon">
-            <use href="/assets/icons.svg#icon-sparkle" />
-          </svg>
-          FAQ
-        </p>
-        <h1>Frequently asked questions</h1>
-        <p>
-          Can&apos;t find what you&apos;re looking for?{" "}
-          <a className="text-link" href="mailto:hello@twofoldapp.com.au">
-            Email us
-          </a>{" "}
-          — a real person will get back to you.
-        </p>
-      </section>
+      <header className="page-head">
+        <Reveal className="wrap">
+          <span className="eyebrow">
+            <svg className="icon">
+              <use href="/assets/icons.svg#icon-sparkle" />
+            </svg>
+            FAQ
+          </span>
+          <h1>Frequently asked questions</h1>
+          <p className="lead">
+            Can&apos;t find what you&apos;re looking for?{" "}
+            <a className="text-link" href="mailto:hello@twofoldapp.com.au" style={{ display: "inline-flex" }}>
+              Email us
+            </a>{" "}
+            — a real person will get back to you.
+          </p>
+        </Reveal>
+      </header>
 
-      <section>
-        <div className="wrap-narrow">
+      <section style={{ paddingTop: 20 }}>
+        <div className="wrap faq-wrap">
           {CATEGORY_ORDER.map((category, categoryIndex) => {
             const fromSanity = sanityItems.filter((item) => item.category === category);
             const items = fromSanity.length > 0 ? fromSanity : FAQ_FALLBACK.filter((item) => item.category === category);
             return (
-              <div key={category} id={category === "subscriptions" ? "subscriptions" : undefined}>
-                <h2 style={{ marginBottom: 16 }}>{FAQ_CATEGORY_LABELS[category]}</h2>
-                <FaqAccordion items={items} defaultOpenFirst={categoryIndex === 0} />
-              </div>
+              <Reveal key={category} className="faq-group" id={category === "subscriptions" ? "subscriptions" : undefined}>
+                <h2>{FAQ_CATEGORY_LABELS[category]}</h2>
+                <div className="acc-list">
+                  {items.map((item, index) => (
+                    <FaqAccordionItem
+                      key={item.question}
+                      question={item.question}
+                      answer={item.answer}
+                      defaultOpen={categoryIndex === 0 && index === 0}
+                    />
+                  ))}
+                </div>
+              </Reveal>
             );
           })}
-        </div>
-      </section>
-
-      <section aria-labelledby="cta-heading">
-        <div className="cta-banner reveal">
-          <h2 id="cta-heading">Still have a question?</h2>
-          <p>We read every email — reach out and we&apos;ll get back to you.</p>
-          <div className="cta-row">
-            <a className="btn btn-dark btn-lg" href="mailto:hello@twofoldapp.com.au">
-              Email us
-            </a>
-          </div>
         </div>
       </section>
     </>

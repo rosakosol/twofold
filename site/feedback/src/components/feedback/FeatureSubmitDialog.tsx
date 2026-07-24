@@ -115,13 +115,11 @@ export function FeatureSubmitDialog() {
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger
         render={
-          <Button>
+          <button type="button" className="btn btn-primary new-req">
             <Plus className="h-4 w-4" />
             New request
-            <kbd className="ml-1 rounded border border-primary-foreground/30 px-1.5 py-0.5 text-[10px] opacity-70">
-              c
-            </kbd>
-          </Button>
+            <kbd className="ml-1 rounded border border-white/30 px-1.5 py-0.5 text-[10px] opacity-70">c</kbd>
+          </button>
         }
       />
       <DialogContent>
