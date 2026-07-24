@@ -226,14 +226,17 @@ struct GameResultsShareCard: View {
                     .foregroundStyle(Theme.ink)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: 220, alignment: .leading)
-                    // `SpeechBubbleShape` carves its tail out of the bottom `tailHeight` (9pt) of
-                    // whatever frame it's given, so a plain `.padding(.vertical, 12)` here (same
-                    // as `messageBubble`'s 10) only ever left ~3pt of *visible* padding above the
-                    // tail — cramped compared to `messageBubble`'s plain rect, which has no tail
-                    // eating into it. Bumped enough to give the bubble body room to breathe on
-                    // top of the tail cutout, not just nominally larger numbers.
+                    // `SpeechBubbleShape` carves its rounded body out of the *top* `height -
+                    // tailHeight` (9pt) of whatever frame it's given, leaving the bottom 9pt for
+                    // the tail triangle — so a uniform `.padding(.vertical, 18)` here looked
+                    // visibly uneven: the full 18pt shows above the text, but only 18 - 9 = 9pt of
+                    // it remains between the text and the body's rounded bottom edge (the rest is
+                    // the tail cutout). Padding the bottom by the tail height on top of the
+                    // baseline 18 (i.e. 18 + 9 = 27) makes the two edges match visually instead of
+                    // just numerically.
                     .padding(.horizontal, 18)
-                    .padding(.vertical, 18)
+                    .padding(.top, 18)
+                    .padding(.bottom, 18 + SpeechBubbleShape.defaultTailHeight)
                     .background(SpeechBubbleShape(tailOnRight: tailOnRight).fill(.white))
                     .overlay(SpeechBubbleShape(tailOnRight: tailOnRight).stroke(Theme.subtleInk.opacity(0.15), lineWidth: 1))
             }

@@ -11,9 +11,16 @@
 import SwiftUI
 
 struct SpeechBubbleShape: Shape {
+    /// Callers padding content that sits behind this shape need to know this too — the tail is
+    /// carved out of the bottom of whatever frame the shape is given (see `path(in:)`), so a
+    /// symmetric `.padding(.vertical:)` on that content ends up looking bottom-heavy-short unless
+    /// the bottom side adds this on top of whatever top padding it's matching. See
+    /// `GameResultsShareCard.speechBubble` for exactly that compensation.
+    static let defaultTailHeight: CGFloat = 9
+
     var cornerRadius: CGFloat = 18
     var tailWidth: CGFloat = 14
-    var tailHeight: CGFloat = 9
+    var tailHeight: CGFloat = defaultTailHeight
     /// true = tail at the bottom-right corner (an "outgoing"/your-side bubble), false =
     /// bottom-left (an "incoming"/their-side bubble) — same left/right convention iMessage uses.
     var tailOnRight: Bool
