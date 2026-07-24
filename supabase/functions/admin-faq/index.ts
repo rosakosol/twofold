@@ -1,4 +1,4 @@
-// Backs the Sanity Studio's custom "FAQ" tool (site/feedback/src/sanity/tools/FaqTool.tsx) —
+// Backs the Sanity Studio's custom "FAQ" tool (site/src/sanity/tools/FaqTool.tsx) —
 // handles create/update/delete on the faq_entries table (see
 // supabase/migrations/20260901001200_faq_entries.sql). Reads don't go through this function at
 // all: faq_entries already has a public SELECT policy, so the Studio tool (and the marketing
@@ -8,12 +8,12 @@
 // Gated by a shared secret (`FAQ_ADMIN_SECRET`, sent as the `x-admin-secret` header) rather than
 // a real user session — the Sanity Studio has no Supabase auth of its own to forward. This
 // secret necessarily ends up embedded in the Studio's client-side bundle (as
-// `NEXT_PUBLIC_FAQ_ADMIN_SECRET` in site/feedback), so it's only as safe as who's been granted
+// `NEXT_PUBLIC_FAQ_ADMIN_SECRET` in site), so it's only as safe as who's been granted
 // access to the Sanity Studio itself — acceptable here since FAQ content isn't sensitive data,
 // and reaching the Studio at all already requires a real Sanity account + project invite. Both
 // env vars must be set to the same value:
 //   - This function's Supabase secret: FAQ_ADMIN_SECRET
-//   - site/feedback's Next.js env var (client-exposed by design): NEXT_PUBLIC_FAQ_ADMIN_SECRET
+//   - site's Next.js env var (client-exposed by design): NEXT_PUBLIC_FAQ_ADMIN_SECRET
 //
 // Called directly from a browser (the Studio, unlike every other Edge Function in this project
 // which is only ever called from the native Swift app or another server) — needs real CORS

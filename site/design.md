@@ -52,7 +52,7 @@ No custom font files — both are Apple system fonts, selected via `design:`:
 
 ## Website (marketing site + feedback board)
 
-Source: `site/styles.css` (marketing site), mirrored into `site/feedback/src/app/globals.css` (feedback board, via Tailwind CSS variables).
+Source: `site/styles.css` (marketing site), mirrored into `site/src/app/globals.css` (feedback board, via Tailwind CSS variables).
 
 ### Colors
 
@@ -81,7 +81,7 @@ Same palette as the app, renamed to CSS custom properties, plus a few web-only a
 
 Shadow scale (also web-only, no app equivalent): `--shadow-sm/md/lg`.
 
-**Feedback board** (`site/feedback/src/app/globals.css`) retints shadcn/ui's default tokens onto this same palette rather than introducing new colors:
+**Feedback board** (`site/src/app/globals.css`) retints shadcn/ui's default tokens onto this same palette rather than introducing new colors:
 
 | shadcn token | Value | Matches |
 |---|---|---|
@@ -104,4 +104,4 @@ Both the marketing site and the feedback board use the same two Google Fonts, ch
 | Body / everything else | **Inter** (sans-serif) — closest Google Fonts match to San Francisco | `--font-body` |
 
 - Marketing site: loaded as static `@font-face`/Google Fonts links, applied via `--font-display` / `--font-body` in `site/styles.css`.
-- Feedback board: loaded via `next/font/google` in `site/feedback/src/app/layout.tsx`, exposed as the same `--font-display` / `--font-body` variables so both codebases share one naming convention.
+- Feedback board: loaded via `next/font/google` in `site/src/app/layout.tsx`, exposed as the same `--font-display` / `--font-body` variables so both codebases share one naming convention.

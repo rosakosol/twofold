@@ -3,9 +3,9 @@
 ## What this is
 
 There is no real, publishable component library anywhere in the Twofold repo — the
-iOS app is SwiftUI (not React), and the website's UI (`site/`, `site/feedback/`) is
-either static HTML/CSS or app-specific Next.js components, never exported as a
-standalone package. So this sync is deliberately **tokens-only**: `site/design-system/`
+iOS app is SwiftUI (not React), and the website's UI (`site/`) is app-specific Next.js
+components, never exported as a standalone package. So this sync is deliberately
+**tokens-only**: `site/design-system/`
 is a minimal scratch package (`package.json` + an empty `dist/index.js` + `styles.css`)
 created solely to feed the design-sync converter, which detected zero component
 exports and correctly treated it as a tokens-only DS (`[ZERO_MATCH] ... treating as
