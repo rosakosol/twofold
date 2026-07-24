@@ -660,9 +660,34 @@ This section documents the actual native iOS codebase as it exists today (SwiftU
 
 ### What's real vs. not yet
 
-* **Real, backend-connected**: auth (Apple/Google/email), couple pairing via invite codes, home cities, trips, memories (with photo upload), relationship stats, profile editing, sign-out, StoreKit 2 purchases (locally testable now; real App Store Connect products still needed before shipping)
-* **Real but self-reported**: flight tracking — there's no aviation-schedule API integration yet, so flight numbers/times are exactly what the user enters, not independently verified. Wiring up a real provider is intentionally on hold for now.
+* **Real, backend-connected**: auth (Apple/Google/email), couple pairing via invite codes, home cities, trips, memories (with photo upload), relationship stats, profile editing, sign-out, StoreKit 2 purchases (locally testable now; real App Store Connect products still needed before shipping), flight tracking (real AeroAPI + ADS-B integration — see "Flight Data APIs" below)
 * **UI-only / not wired up yet**: Live Activities (marketing screen only, no `ActivityKit` calls, no Widget Extension target), push notifications (permission is requested for real, but nothing server-side sends a push yet — the "Get notified when they land" toggle on the flight tracking screen is currently cosmetic)
+
+### Flight Data APIs
+
+Flight tracking is backed by real third-party data — the app never calls these providers directly (per the "iOS app should never directly expose or communicate with commercial flight data provider credentials" principle above); every call goes through a Supabase Edge Function under `supabase/functions/`, which in turn goes through the shared typed clients in `supabase/functions/_shared/` (`aeroapi.ts`, `adsb.ts`, `adsbdb.ts`).
+
+**Providers, in order of how they're actually used:**
+
+1. **[AeroAPI](https://www.flightaware.com/commercial/aeroapi/) (FlightAware)** — the authoritative source for flight schedule/status/route and (as a fallback) live position. Paid, rate-limited.
+2. **ADS-B free mirrors** (`adsb.lol` → `adsb.fi` → `airplanes.live`, tried in that order) — the *primary* source for live in-flight position, ahead of AeroAPI's own paid position endpoint. Community-run, no SLA, never throws — a miss just falls through to the next mirror, then eventually to AeroAPI.
+3. **[adsbdb.com](https://www.adsbdb.com/)** — free callsign → route/airline metadata, used only when AeroAPI's own response is missing route data (rare).
+
+**Every endpoint called, and where:**
+
+| Endpoint | Client function | Edge Function(s) | Triggered by |
+|---|---|---|---|
+| `GET /flights/{ident}` (designator) | `resolveFlightByIdent` (`aeroapi.ts`) | `resolve-flight` | Add Flight → search by flight number / search by route (`AddFlightResultsStepView.swift`, `AeroFlightService.searchByFlightNumber`/`.searchByRoute`) |
+| `GET /flights/{ident}` (`fa_flight_id`) | `fetchFlightByFaId` (`aeroapi.ts`) | `add-flight`, `refresh-flight`, `refresh-due-flights` | Confirming a flight (`FlightConfirmationView.swift` → `AeroFlightService.addFlight`); opening/reopening the live-tracking screen (`FlightTrackingView.swift` → `AeroFlightService.refreshFlight`); the every-minute background poll (pg_cron, not user-triggered) |
+| `GET /flights/{id}/position` | `fetchPosition` (`aeroapi.ts`) | `refresh-flight`, `refresh-due-flights` | **Fallback only** — called by `syncLivePositionForFaFlightId` (`flight-sync.ts`) only after several consecutive misses across all three ADS-B mirrors, rate-limited via its own TTL so it can't be re-triggered every poll |
+| `GET /v2/callsign/{callsign}` (×3 mirrors) | `fetchLivePosition` (`adsb.ts`) | `refresh-flight`, `refresh-due-flights` | Same two triggers as above — this runs *first*, before AeroAPI's position endpoint is ever considered |
+| `GET /history/flights/{ident}` | `fetchHistoricalFlights` (chunked into ≤6-day windows) (`aeroapi.ts`) | `flight-delay-stats` | The on-time-performance card on the live-tracking screen (`FlightTrackingView.swift` → `AeroFlightService.fetchDelayStats`; Premium-gated, requires AeroAPI Standard tier) |
+| `GET /flights/search` | `searchRoute` (`aeroapi.ts`) | `resolve-flight` | Add Flight → search by route, when searching by flight number isn't what the user chose |
+| `GET /airports/{id}/weather/observations`, `GET /airports/{id}/weather/forecast` | `fetchAirportWeather` (`aeroapi.ts`) via `maybeRefreshWeather` (`flight-sync.ts`) | `refresh-due-flights` only | The every-minute background cron poll — not called from Add Flight or the user-triggered refresh |
+| `GET /airports/{id}` | `fetchAirportCoordinates` (`aeroapi.ts`), called directly and via `backfillAirportCoordinates` (`flight-sync.ts`) | `add-flight` (direct, for the new row); `refresh-flight`/`refresh-due-flights`/`aeroapi-webhook` (via `syncFlight` → `backfillAirportCoordinates`, a one-time backfill only while a side's coordinates are still null) | Adding a flight, and every subsequent poll/webhook until both airports have coordinates cached |
+| `GET /v0/callsign/{callsign}` (adsbdb.com) | `fetchRouteFallback` (`adsbdb.ts`) via `mapAeroFlightToRow` (`flight-sync.ts`) | `add-flight`, `refresh-flight`, `refresh-due-flights`, `aeroapi-webhook` (every caller of `mapAeroFlightToRow`/`syncFlight`) | Only when AeroAPI's own flight response has no route data on either side at all (rare) |
+| `PUT /alerts/endpoint` | `registerWebhookEndpoint` (`aeroapi.ts`) | `aeroapi-webhook` (its own `GET`, self-registration) | One-time/operator-run setup, not part of any user flow |
+| *(inbound)* FlightAware alert webhook | — | `aeroapi-webhook` | FlightAware's own servers POST here when a subscribed flight event fires — not called by the app at all |
 
 ## Future Ideas
 
