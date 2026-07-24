@@ -1,0 +1,7 @@
+{
+  "name": "twofold-design-tokens",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Twofold brand tokens (colors + fonts) for Claude Design — no components, tokens only. See site/design.md for the source of truth.",
+  "main": "dist/index.js"
+}

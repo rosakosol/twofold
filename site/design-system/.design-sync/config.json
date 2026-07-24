@@ -1,0 +1,8 @@
+{
+  "projectId": "2755dc26-ae41-450e-96e7-92f167979f40",
+  "pkg": "twofold-design-tokens",
+  "globalName": "TwofoldTokens",
+  "shape": "package",
+  "cssEntry": "styles.css",
+  "readmeHeader": ".design-sync/conventions.md"
+}
