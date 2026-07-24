@@ -1,0 +1,159 @@
+/* Shared site footer — same markup/classes as the marketing site's footer
+   (SiteFooter is rendered by BOTH route groups). The marketing group sources
+   these rules from (marketing)/marketing.css; the (board) group (feedback/
+   admin/auth) has no marketing.css, so without this file its footer renders
+   unstyled. Kept class-for-class identical to marketing.css's footer block
+   (site/design_handoff_twofold_site/*.html's 4-column footer) so both groups
+   read as one product.
+
+   Self-contained on purpose: --maxw / --border-softer / --sky-blue-deep are
+   NOT in globals.css (only in feedback.css, which is scoped to the feedback
+   route), so they're pinned on .footer here so admin/auth footers work too.
+   --subtle-ink / --faint-ink / --border-soft / --font-display are global. */
+
+.footer {
+  --maxw: 1120px;
+  --border-softer: rgba(28, 42, 56, 0.06);
+  --sky-blue-deep: #3d8fc9;
+  border-top: 1px solid var(--border-soft);
+  margin-top: 40px;
+  padding: 64px 0 40px;
+}
+
+/* Base .wrap centering (marketing-only otherwise) folded in for the footer's
+   two .wrap rows so the columns and baseline row stay max-width + centered. */
+.footer .wrap,
+.footer .foot-base .wrap {
+  width: 100%;
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 0 28px;
+}
+
+.footer .wrap {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr 1fr 1fr;
+  gap: 40px;
+}
+
+.footer .brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.footer .brand img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+.footer p {
+  font-size: 0.9rem;
+  max-width: 260px;
+  margin: 0;
+  color: var(--subtle-ink);
+}
+
+.foot-col h4 {
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--faint-ink);
+  margin: 0 0 16px;
+  font-weight: 600;
+}
+
+.foot-col a {
+  display: block;
+  color: var(--subtle-ink);
+  font-size: 0.92rem;
+  padding: 5px 0;
+  text-decoration: none;
+}
+
+.foot-col a:hover {
+  color: var(--sky-blue-deep);
+}
+
+.foot-base {
+  border-top: 1px solid var(--border-softer);
+  margin-top: 48px;
+  padding-top: 24px;
+}
+
+.foot-base .wrap {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  grid-template-columns: none;
+}
+
+.foot-base span {
+  font-size: 0.85rem;
+  color: var(--faint-ink);
+}
+
+/* App Store badge in the Product column — mirrors the landing-page hero CTA
+   (.appstore-badge in marketing.css). Restyled here so the (board) group renders
+   it too; --radius-pill / --shadow-md / --ease are marketing-only otherwise, so
+   they're pinned on the badge. --ink is global. */
+.foot-appstore {
+  --radius-pill: 999px;
+  --shadow-md: 0 10px 30px rgba(28, 42, 56, 0.08);
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  margin-top: 10px;
+  padding: 10px 20px;
+  background: var(--ink);
+  color: #fff;
+  border-radius: var(--radius-pill);
+  text-decoration: none;
+  transition: transform 0.2s var(--ease), box-shadow 0.25s var(--ease);
+}
+.foot-appstore:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  color: #fff;
+}
+.foot-appstore .icon {
+  width: 22px;
+  height: 22px;
+}
+.foot-appstore .badge-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+  text-align: left;
+}
+.foot-appstore .badge-text small {
+  font-size: 0.62rem;
+  opacity: 0.8;
+}
+.foot-appstore .badge-text strong {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .footer .wrap {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .footer .wrap {
+    grid-template-columns: 1fr;
+  }
+  .foot-base .wrap {
+    flex-direction: column;
+    gap: 12px;
+    text-align: center;
+  }
+}

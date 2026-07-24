@@ -21,8 +21,19 @@ export function SiteFooter() {
           <Link href="/features">Features</Link>
           <Link href="/pricing">Pricing</Link>
           <Link href="/faq">FAQ</Link>
-          <a data-appstore-link href={APP_STORE_URL}>
-            Download on iOS
+          <a
+            className="appstore-badge foot-appstore"
+            data-appstore-link
+            href={APP_STORE_URL}
+            aria-label="Download Twofold on the App Store"
+          >
+            <svg className="icon" aria-hidden>
+              <use href="/assets/icons.svg#icon-apple" />
+            </svg>
+            <span className="badge-text">
+              <small>Download on the</small>
+              <strong>App&nbsp;Store</strong>
+            </span>
           </a>
         </div>
         <div className="foot-col">

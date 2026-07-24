@@ -1,4 +1,5 @@
 import "@/styles/site-nav.css";
+import "@/styles/site-footer.css";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 
