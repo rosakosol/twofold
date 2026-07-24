@@ -10,6 +10,8 @@
 //
 
 import Foundation
+import PostgREST
+import Supabase
 
 /// Mirrors submit-help-message/index.ts's SUPPORT_CATEGORIES verbatim — no shared codegen
 /// between the two, so keep both lists in sync by hand if this ever changes.
