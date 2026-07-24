@@ -38,12 +38,25 @@ function isValidDate(date: unknown): date is string {
 //
 // AeroAPI rejects the request outright ("invalid end bound: time is too far into future (limit:
 // 2 days)") if `end` is more than ~2 days past the moment of the request — regardless of how far
-// out the caller's requested date is. Clamp both bounds into that window instead of letting a
+// out the caller's requested date is. Clamp `end` into that ceiling instead of letting a
 // legitimately-future search (e.g. searching a flight number for next week) 400 the whole
 // lookup; a few minutes of slack below the hard cap guards against clock skew between here and
 // AeroAPI. A search clamped this way may simply come back with fewer/no matches for a date
 // that's genuinely beyond what AeroAPI can predict yet — that's a real "no flights found" state,
 // not a bug.
+//
+// `start` is left alone unless clamping `end` would otherwise invert the range (only possible
+// when the requested date is more than ~3 days out — at that point AeroAPI's own schedule
+// horizon doesn't reach the requested date at all, and there's no window that could return it).
+// A previous version shifted the *entire* window backward by the clamp overshoot whenever `end`
+// was out of range, which — for any date just 2-3 days out, the completely ordinary case a
+// traveler searching ahead of time hits constantly — dragged `start` back onto calendar days well
+// before the one actually requested. AeroAPI would then return real flight instances for those
+// earlier days too, `filterPreferringSameDay` would find none matching the requested date
+// (because the true instance's departure time had *also* been clamped out of the window by the
+// same shift) and fall back to returning every result unfiltered — surfacing flights from a day
+// or two before the one the caller picked, with nothing distinguishing them. Reported live:
+// searching 2 days ahead returned candidates dated both 1 and 2 days earlier than requested.
 function dateWindow(date: string): { startISO: string; endISO: string } {
   const target = new Date(`${date}T00:00:00Z`);
   let end = new Date(target.getTime());
@@ -56,14 +69,14 @@ function dateWindow(date: string): { startISO: string; endISO: string } {
   maxEnd.setUTCMinutes(maxEnd.getUTCMinutes() - 5);
 
   if (end.getTime() > maxEnd.getTime()) {
-    // Shift the whole window back in time rather than just pinning `end` to the ceiling —
-    // pinning alone can collapse `start` to the same instant as `end` (or leave it past `end`)
-    // once clamped, and a zero/negative-width range is its own kind of malformed request as far
-    // as AeroAPI's own schema validation is concerned ("type is incorrect"). Preserving the
-    // original 3-day width keeps the request shape identical to the un-clamped case.
-    const shiftMs = end.getTime() - maxEnd.getTime();
     end = maxEnd;
-    start = new Date(start.getTime() - shiftMs);
+    // Guard against an inverted/zero-width range (AeroAPI: "type is incorrect") on a date far
+    // enough out that even `start` (target - 1 day) lands past the clamped `end` — keep at least
+    // an hour of width rather than shifting the whole window and reintroducing the bug above.
+    const MIN_WIDTH_MS = 60 * 60 * 1000;
+    if (start.getTime() > end.getTime() - MIN_WIDTH_MS) {
+      start = new Date(end.getTime() - MIN_WIDTH_MS);
+    }
   }
 
   // AeroAPI's parser has rejected a `.toISOString()` timestamp's trailing milliseconds before
