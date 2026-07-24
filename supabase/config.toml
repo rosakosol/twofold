@@ -487,3 +487,13 @@ entrypoint = "./functions/send-streak-reminders/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/send-partner-invite-reminders/index.ts"
+
+# Called by the Sanity Studio's custom FAQ tool (site/feedback/src/sanity/tools/FaqTool.tsx),
+# which has no Supabase user session to send — authenticated via a shared `x-admin-secret`
+# header instead (checked explicitly inside the function), same shape as aeroapi-webhook's
+# token-based auth, so platform-level JWT verification is off.
+[functions.admin-faq]
+enabled = true
+verify_jwt = false
+import_map = "./functions/admin-faq/deno.json"
+entrypoint = "./functions/admin-faq/index.ts"

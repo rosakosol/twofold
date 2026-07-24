@@ -56,6 +56,32 @@ enum BackendService {
         return session
     }
 
+    /// Never throws for "no account with that email" — Supabase deliberately responds the same
+    /// way regardless, so a caller can't enumerate registered emails via this endpoint. `redirectTo`
+    /// is the app's own custom-scheme link (not a Universal Link): the emailed link always points
+    /// at Supabase's own domain first (which verifies the token server-side), then 302s the
+    /// browser here — a custom scheme is fine for that hop and needs no associated-domains/AASA
+    /// setup, unlike InviteCode's link. `OnboardingCoordinatorView`'s `.onOpenURL` recognizes it
+    /// and calls `completePasswordRecovery(from:)` below.
+    static func requestPasswordReset(email: String) async throws {
+        try await supabase.auth.resetPasswordForEmail(email, redirectTo: URL(string: "twofold://reset-password"))
+        Analytics.capture(Analytics.Event.passwordResetRequest)
+    }
+
+    /// Exchanges the token embedded in a tapped password-recovery link for a real (recovery)
+    /// session — `session(from:)` handles both the implicit-grant (fragment) and PKCE (`code=`)
+    /// link shapes transparently based on the project's configured auth flow, so this doesn't
+    /// need to know or care which one is active. Throws for an invalid/expired/already-used link.
+    static func completePasswordRecovery(from url: URL) async throws {
+        try await supabase.auth.session(from: url)
+    }
+
+    /// Requires an active session — always true right after `completePasswordRecovery(from:)`
+    /// succeeds, which is the only place this is called from (`ResetPasswordView`).
+    static func updatePassword(_ newPassword: String) async throws {
+        try await supabase.auth.update(user: UserAttributes(password: newPassword))
+    }
+
     /// Native Sign in with Apple. `nonce` is the raw (unhashed) nonce that was hashed into the
     /// original Apple authorization request — Supabase re-hashes and compares it against the
     /// token's own nonce claim to guard against replay.

@@ -17,6 +17,7 @@ enum Analytics {
         // Onboarding
         static let accountCreate = "onboarding:account_create"
         static let signIn = "onboarding:sign_in"
+        static let passwordResetRequest = "onboarding:password_reset_request"
         static let inviteRedeem = "onboarding:invite_redeem"
 
         // Subscription

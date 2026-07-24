@@ -25,6 +25,7 @@ struct SignInView: View {
     @State private var password = ""
     @State private var isSubmitting = false
     @State private var errorMessage: String?
+    @State private var showingForgotPassword = false
 
     private var canSubmit: Bool {
         !email.trimmingCharacters(in: .whitespaces).isEmpty && !password.isEmpty && !isSubmitting
@@ -62,6 +63,15 @@ struct SignInView: View {
                                 .font(.caption)
                                 .foregroundStyle(Theme.heartRed)
                         }
+
+                        Button {
+                            showingForgotPassword = true
+                        } label: {
+                            Text("Forgot password?")
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(Theme.skyBlue)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .trailing)
 
                         Button {
                             signInWithPassword()
@@ -110,6 +120,9 @@ struct SignInView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Cancel") { dismiss() }
                 }
+            }
+            .sheet(isPresented: $showingForgotPassword) {
+                ForgotPasswordView()
             }
         }
     }

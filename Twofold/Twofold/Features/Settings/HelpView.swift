@@ -13,8 +13,19 @@ struct HelpView: View {
         ScrollView {
             VStack(spacing: Theme.Spacing.md) {
                 SectionCard {
-                    Link(destination: URL(string: "mailto:support@twofoldapp.com.au")!) {
-                        SettingsRow(title: "Report Feedback", systemImage: "envelope.fill", showsChevron: false)
+                    NavigationLink {
+                        SendFeedbackView()
+                    } label: {
+                        SettingsRow(title: "Send Feedback", systemImage: "envelope.fill")
+                    }
+                    .buttonStyle(.plain)
+
+                    Divider()
+
+                    NavigationLink {
+                        SupportView()
+                    } label: {
+                        SettingsRow(title: "Support", systemImage: "questionmark.circle.fill")
                     }
                     .buttonStyle(.plain)
 

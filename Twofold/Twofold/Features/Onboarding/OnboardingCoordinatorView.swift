@@ -9,6 +9,8 @@ import PostHog
 
 struct OnboardingCoordinatorView: View {
     @State private var onboarding = OnboardingModel()
+    @State private var showingPasswordReset = false
+    @State private var passwordRecoveryError: String?
 
     var body: some View {
         NavigationStack(path: $onboarding.path) {
@@ -23,8 +25,33 @@ struct OnboardingCoordinatorView: View {
         .onOpenURL { url in
             // Google's sign-in flow redirects back into the app via its own URL scheme.
             if GIDSignIn.sharedInstance.handle(url) { return }
+            if url.scheme?.lowercased() == "twofold", url.host?.lowercased() == "reset-password" {
+                Task { await handlePasswordRecovery(url) }
+                return
+            }
             guard let code = InviteCode.code(from: url) else { return }
             onboarding.resetForNewInvite(code: code)
+        }
+        .fullScreenCover(isPresented: $showingPasswordReset) {
+            ResetPasswordView()
+        }
+        .alert("Link expired", isPresented: Binding(get: { passwordRecoveryError != nil }, set: { if !$0 { passwordRecoveryError = nil } })) {
+            Button("OK") {}
+        } message: {
+            Text(passwordRecoveryError ?? "This password reset link is no longer valid — request a new one from the sign-in screen.")
+        }
+    }
+
+    /// `ForgotPasswordView`'s emailed link lands here already tapped-through from Supabase's own
+    /// domain (which verified the token server-side) — exchanging it for a session is what
+    /// `completePasswordRecovery` does; a failure here means an expired/already-used/malformed
+    /// link, not a network hiccup worth silently retrying.
+    private func handlePasswordRecovery(_ url: URL) async {
+        do {
+            try await BackendService.completePasswordRecovery(from: url)
+            showingPasswordReset = true
+        } catch {
+            passwordRecoveryError = error.localizedDescription
         }
     }
 
