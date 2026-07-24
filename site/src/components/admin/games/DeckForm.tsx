@@ -105,7 +105,7 @@ export function DeckForm({ editingDeck, open, onOpenChange }: Props) {
               disabled={isEditing}
             >
               <SelectTrigger>
-                <SelectValue />
+                <SelectValue labels={Object.fromEntries(CONTENT_TYPES.map((c) => [c.gameType, c.label]))} />
               </SelectTrigger>
               <SelectContent>
                 {CONTENT_TYPES.map((c) => (

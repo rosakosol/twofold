@@ -40,7 +40,7 @@ export default function AdminPage() {
           onValueChange={(v) => setStatus(!v || v === ALL ? undefined : (v as FeatureStatus))}
         >
           <SelectTrigger size="sm">
-            <SelectValue placeholder="Status" />
+            <SelectValue placeholder="Status" labels={{ [ALL]: "All statuses", ...STATUS_LABELS }} />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL}>All statuses</SelectItem>
@@ -54,7 +54,7 @@ export default function AdminPage() {
 
         <Select value={sort} onValueChange={(v) => setSort(v as AdminFeatureFilters["sort"])}>
           <SelectTrigger size="sm">
-            <SelectValue />
+            <SelectValue labels={{ newest: "Newest", popularity: "Most popular" }} />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="newest">Newest</SelectItem>

@@ -82,7 +82,7 @@ function Board() {
         <SearchBar value={search} onChange={(v) => updateParam("q", v || undefined)} />
         <Select value={category ?? ALL} onValueChange={(v) => v && updateParam("category", v === ALL ? undefined : v)}>
           <SelectTrigger size="sm" className="fb-select">
-            <SelectValue placeholder="Category" />
+            <SelectValue placeholder="Category" labels={{ [ALL]: "All categories", ...CATEGORY_LABELS }} />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL}>All categories</SelectItem>
