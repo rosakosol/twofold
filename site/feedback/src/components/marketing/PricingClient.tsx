@@ -3,7 +3,8 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
-import { PLANS, type Plan } from "@/lib/marketing/config";
+import { PLANS } from "@/lib/marketing/config";
+import type { ResolvedPlan } from "@/lib/marketing/sanity";
 import { getSession, onAuthChange, signInWithApple, signOut } from "@/lib/marketing/auth";
 import { fetchOfferings, fetchCustomerInfo, findPackage, purchasePackage, activeEntitlements } from "@/lib/marketing/billing";
 import { Reveal } from "@/components/marketing/Reveal";
@@ -34,31 +35,29 @@ function AppStoreBadge({ label = "Download on the" }: { label?: string }) {
 function PlanCard({
   plan,
   period,
-  featured,
   buyingKey,
   onBuy,
 }: {
-  plan: Plan;
+  plan: ResolvedPlan;
   period: Period;
-  featured: boolean;
   buyingKey: string | null;
   onBuy: (planId: PlanId, period: Period) => void;
 }) {
   const key = `${plan.id}-${period}`;
   const isBuying = buyingKey === key;
-  const periodData = plan[period];
+  const monthlyFigure = period === "monthly" ? plan.monthly.priceLabel : plan.yearly.perMonthLabel;
 
   return (
-    <div className={`card plan${featured ? " feature" : ""}`}>
-      {featured && <span className="plan-badge">Most popular</span>}
+    <div className={`card plan${plan.featured ? " feature" : ""}`}>
+      {plan.featured && <span className="plan-badge">Most popular</span>}
       <h3>{plan.name}</h3>
       <p className="plan-sub">{plan.tagline}</p>
       <div className="price-line">
-        <span className="n">{period === "monthly" ? periodData.priceLabel : periodData.perMonthLabel}</span>
+        <span className="n">{monthlyFigure}</span>
         <span className="per">/mo</span>
       </div>
       <p className="price-foot">
-        {period === "yearly" ? `Billed yearly — works out to ${periodData.priceLabel}/yr` : "Billed monthly · cancel anytime"}
+        {period === "yearly" ? `Billed yearly — works out to ${plan.yearly.priceLabel}/yr` : "Billed monthly · cancel anytime"}
       </p>
       <ul className="check-list">
         {plan.features.map((feature) => (
@@ -70,14 +69,14 @@ function PlanCard({
           </li>
         ))}
       </ul>
-      <button type="button" className={`btn ${featured ? "btn-primary" : "btn-ghost"}`} disabled={isBuying} onClick={() => onBuy(plan.id, period)}>
-        {isBuying ? "Opening checkout…" : `Get ${plan.id === "plus" ? "Plus" : "Premium"}`}
+      <button type="button" className={`btn ${plan.featured ? "btn-primary" : "btn-ghost"}`} disabled={isBuying} onClick={() => onBuy(plan.id, period)}>
+        {isBuying ? "Opening checkout…" : plan.ctaLabel}
       </button>
     </div>
   );
 }
 
-function PricingContent() {
+function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: ResolvedPlan } }) {
   const searchParams = useSearchParams();
   const requestedPlan = searchParams.get("plan");
 
@@ -274,10 +273,10 @@ function PricingContent() {
 
               <div className="pricing-grid">
                 <div id="plan-plus">
-                  <PlanCard plan={PLANS.plus} period={period} featured={false} buyingKey={buyingKey} onBuy={attemptPurchase} />
+                  <PlanCard plan={plans.plus} period={period} buyingKey={buyingKey} onBuy={attemptPurchase} />
                 </div>
                 <div id="plan-premium">
-                  <PlanCard plan={PLANS.premium} period={period} featured buyingKey={buyingKey} onBuy={attemptPurchase} />
+                  <PlanCard plan={plans.premium} period={period} buyingKey={buyingKey} onBuy={attemptPurchase} />
                 </div>
               </div>
 
@@ -311,10 +310,10 @@ function PricingContent() {
   );
 }
 
-export function PricingClient() {
+export function PricingClient({ plans }: { plans: { plus: ResolvedPlan; premium: ResolvedPlan } }) {
   return (
     <Suspense>
-      <PricingContent />
+      <PricingContent plans={plans} />
     </Suspense>
   );
 }

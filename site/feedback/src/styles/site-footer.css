@@ -98,11 +98,16 @@
   color: var(--faint-ink);
 }
 
-/* App Store badge in the Product column — mirrors the landing-page hero CTA
-   (.appstore-badge in marketing.css). Restyled here so the (board) group renders
-   it too; --radius-pill / --shadow-md / --ease are marketing-only otherwise, so
-   they're pinned on the badge. --ink is global. */
-.foot-appstore {
+/* App Store badge in the Product column — must match the landing-page hero CTA
+   (.appstore-badge in marketing.css) EXACTLY, including hover. Restyled here so the
+   (board) group renders it too; --radius-pill / --shadow-md / --ease are
+   marketing-only otherwise, so they're pinned on the badge. --ink is global.
+
+   Selectors are qualified with .foot-col so they out-specify the generic
+   `.foot-col a { display:block; color:var(--subtle-ink); padding:5px 0 }` (and its
+   :hover) rule above — without that extra class the plain link rule wins and the
+   badge collapses to a block text link. */
+.foot-col a.foot-appstore {
   --radius-pill: 999px;
   --shadow-md: 0 10px 30px rgba(28, 42, 56, 0.08);
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
@@ -110,33 +115,33 @@
   align-items: center;
   gap: 11px;
   margin-top: 10px;
-  padding: 10px 20px;
+  padding: 10px 22px 10px 20px;
   background: var(--ink);
   color: #fff;
   border-radius: var(--radius-pill);
   text-decoration: none;
   transition: transform 0.2s var(--ease), box-shadow 0.25s var(--ease);
 }
-.foot-appstore:hover {
+.foot-col a.foot-appstore:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
   color: #fff;
 }
-.foot-appstore .icon {
+.foot-col a.foot-appstore .icon {
   width: 22px;
   height: 22px;
 }
-.foot-appstore .badge-text {
+.foot-col a.foot-appstore .badge-text {
   display: flex;
   flex-direction: column;
   line-height: 1.15;
   text-align: left;
 }
-.foot-appstore .badge-text small {
+.foot-col a.foot-appstore .badge-text small {
   font-size: 0.62rem;
   opacity: 0.8;
 }
-.foot-appstore .badge-text strong {
+.foot-col a.foot-appstore .badge-text strong {
   font-size: 1rem;
   font-weight: 600;
 }

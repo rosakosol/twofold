@@ -25,7 +25,12 @@ const QUIZ_RESULTS = [
   {id: 'quizResult-premium', title: 'Result: Premium'},
 ]
 
-const MANAGED_TYPE_NAMES = new Set(['hero', 'feature', 'faqItem', 'legalPage', 'quizQuestion', 'quizResult'])
+const PLANS = [
+  {id: 'plan-plus', title: 'Plus'},
+  {id: 'plan-premium', title: 'Premium'},
+]
+
+const MANAGED_TYPE_NAMES = new Set(['hero', 'feature', 'faqItem', 'legalPage', 'quizQuestion', 'quizResult', 'plan'])
 
 export const structure: StructureResolver = (S) =>
   S.list()
@@ -53,6 +58,20 @@ export const structure: StructureResolver = (S) =>
       S.listItem()
         .title('FAQ')
         .child(S.documentTypeList('faqItem').title('FAQ Items').defaultOrdering([{field: 'order', direction: 'asc'}])),
+      S.listItem()
+        .title('Pricing Plans')
+        .child(
+          S.list()
+            .title('Pricing Plans')
+            .items(
+              PLANS.map(({id, title}) =>
+                S.listItem()
+                  .title(title)
+                  .id(id)
+                  .child(S.document().schemaType('plan').documentId(id))
+              )
+            )
+        ),
       S.divider(),
       S.listItem()
         .title('Relationship Quiz')

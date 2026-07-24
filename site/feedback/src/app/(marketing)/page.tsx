@@ -2,11 +2,11 @@ import Link from "next/link";
 import { Reveal } from "@/components/marketing/Reveal";
 import { FeatureTeaserGrid } from "@/components/marketing/FeatureTeaserGrid";
 import { WaitlistForm } from "@/components/marketing/WaitlistForm";
-import { getHero, getFeatures } from "@/lib/marketing/sanity";
-import { APP_STORE_URL, PLANS, FEATURE_SLUGS } from "@/lib/marketing/config";
+import { getHero, getFeatures, getResolvedPlans } from "@/lib/marketing/sanity";
+import { APP_STORE_URL, FEATURE_SLUGS } from "@/lib/marketing/config";
 
 export default async function HomePage() {
-  const [hero, featureDocs] = await Promise.all([getHero(), getFeatures(FEATURE_SLUGS)]);
+  const [hero, featureDocs, plans] = await Promise.all([getHero(), getFeatures(FEATURE_SLUGS), getResolvedPlans()]);
 
   const headline = hero?.headline || "See how far you've gone\nfor each other.";
   const eyebrow = hero?.eyebrow || "Built for long-distance couples";
@@ -45,12 +45,6 @@ export default async function HomePage() {
                   <strong>App&nbsp;Store</strong>
                 </span>
               </a>
-              <Link className="btn btn-primary btn-lg hide-on-mobile" href="/pricing">
-                Get started
-                <svg className="icon">
-                  <use href="/assets/icons.svg#icon-arrow-right" />
-                </svg>
-              </Link>
               <a className="appstore-badge hide-on-mobile" data-appstore-link href={APP_STORE_URL} aria-label="Download Twofold on the App Store">
                 <svg className="icon">
                   <use href="/assets/icons.svg#icon-apple" />
@@ -60,6 +54,12 @@ export default async function HomePage() {
                   <strong>App&nbsp;Store</strong>
                 </span>
               </a>
+              <Link className="btn btn-primary btn-lg hide-on-mobile" href="/pricing">
+                Get started
+                <svg className="icon">
+                  <use href="/assets/icons.svg#icon-arrow-right" />
+                </svg>
+              </Link>
               <Link className="text-link hide-on-desktop" href="/pricing">
                 See pricing
               </Link>
@@ -74,8 +74,13 @@ export default async function HomePage() {
           <div className="hero-art" aria-hidden>
             <div className="art-glow" />
             <div className="art-glow-2" />
-            {/* eslint-disable-next-line @next/next/no-img-element -- decorative art, matches ported static markup */}
-            <img src="/assets/globe-heart.png" alt="" className="art-globe" />
+            {/* Rectangular placeholder for a real app-UI screenshot. To swap in the
+                real image, replace this whole <div> with:
+                  <img src="/assets/hero-app-ui.png" alt="" className="art-shot" />
+                — the .art-shot styles (size, rounding, shadow, float) apply to both. */}
+            <div className="art-shot art-shot-placeholder">
+              <span>App&nbsp;UI</span>
+            </div>
             <div className="hero-chip hero-chip-1">
               <span className="icon-wrap">
                 <svg className="icon">
@@ -213,16 +218,17 @@ export default async function HomePage() {
             <p style={{ marginTop: 12 }}>Either partner&apos;s subscription unlocks the full experience for you both.</p>
           </Reveal>
           <div className="price-grid">
-            <Reveal as="article" className="card price-card">
-              <h3>{PLANS.plus.name}</h3>
-              <p className="plan-sub">{PLANS.plus.tagline}</p>
+            <Reveal as="article" className={`card price-card${plans.plus.featured ? " feature" : ""}`}>
+              {plans.plus.featured && <span className="price-tag">Most popular</span>}
+              <h3>{plans.plus.name}</h3>
+              <p className="plan-sub">{plans.plus.tagline}</p>
               <div className="price-amt">
-                <span className="n">{PLANS.plus.yearly.perMonthLabel}</span>
+                <span className="n">{plans.plus.yearly.perMonthLabel}</span>
                 <span className="per">/mo, billed yearly</span>
               </div>
-              <p className="price-alt">or {PLANS.plus.monthly.priceLabel}/month</p>
+              <p className="price-alt">or {plans.plus.monthly.priceLabel}/month</p>
               <ul className="check-list">
-                {PLANS.plus.features.slice(1, 4).map((feature) => (
+                {plans.plus.features.slice(1, 4).map((feature) => (
                   <li key={feature}>
                     <svg className="icon">
                       <use href="/assets/icons.svg#icon-check" />
@@ -231,21 +237,21 @@ export default async function HomePage() {
                   </li>
                 ))}
               </ul>
-              <Link className="btn btn-ghost" href="/pricing">
+              <Link className={`btn ${plans.plus.featured ? "btn-primary" : "btn-ghost"}`} href="/pricing">
                 Choose Plus
               </Link>
             </Reveal>
-            <Reveal as="article" className="card price-card feature" data-delay="90">
-              <span className="price-tag">Most popular</span>
-              <h3>{PLANS.premium.name}</h3>
-              <p className="plan-sub">{PLANS.premium.tagline}</p>
+            <Reveal as="article" className={`card price-card${plans.premium.featured ? " feature" : ""}`} data-delay="90">
+              {plans.premium.featured && <span className="price-tag">Most popular</span>}
+              <h3>{plans.premium.name}</h3>
+              <p className="plan-sub">{plans.premium.tagline}</p>
               <div className="price-amt">
-                <span className="n">{PLANS.premium.yearly.perMonthLabel}</span>
+                <span className="n">{plans.premium.yearly.perMonthLabel}</span>
                 <span className="per">/mo, billed yearly</span>
               </div>
-              <p className="price-alt">or {PLANS.premium.monthly.priceLabel}/month</p>
+              <p className="price-alt">or {plans.premium.monthly.priceLabel}/month</p>
               <ul className="check-list">
-                {PLANS.premium.features.slice(0, 3).map((feature) => (
+                {plans.premium.features.slice(0, 3).map((feature) => (
                   <li key={feature}>
                     <svg className="icon">
                       <use href="/assets/icons.svg#icon-check" />
@@ -254,7 +260,7 @@ export default async function HomePage() {
                   </li>
                 ))}
               </ul>
-              <Link className="btn btn-primary" href="/pricing">
+              <Link className={`btn ${plans.premium.featured ? "btn-primary" : "btn-ghost"}`} href="/pricing">
                 Choose Premium
               </Link>
             </Reveal>

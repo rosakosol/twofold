@@ -538,6 +538,33 @@ section {
   0%, 100% { transform: translateY(0) rotate(-1deg); }
   50% { transform: translateY(-16px) rotate(1deg); }
 }
+/* App-UI screenshot in the hero (replaced the floating globe-heart). .art-shot styles
+   BOTH the placeholder <div> and a real <img> swapped in later, so the size/rounding/
+   shadow/float carry over untouched. A real <img class="art-shot"> keeps its own
+   aspect ratio (no crop); only the empty placeholder needs an explicit shape, which
+   lives in .art-shot-placeholder — delete that class from the markup once the real
+   image is in. */
+.art-shot {
+  position: relative;
+  width: min(340px, 78%);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  animation: float 7s var(--ease) infinite;
+}
+.art-shot-placeholder {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 3 / 4;
+  background: linear-gradient(160deg, var(--card-bg-alt), #dcecf7);
+  border: 2px dashed var(--border-soft);
+}
+.art-shot-placeholder span {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--faint-ink);
+}
 .floaty,
 .hero-chip {
   position: absolute;
@@ -590,7 +617,7 @@ section {
   background: linear-gradient(160deg, var(--heart-red), var(--heart-red-deep));
 }
 @media (prefers-reduced-motion: reduce) {
-  .globe-img, .art-globe, .floaty, .hero-chip { animation: none; }
+  .globe-img, .art-globe, .art-shot, .floaty, .hero-chip { animation: none; }
 }
 
 @media (max-width: 860px) {
@@ -1263,6 +1290,20 @@ section {
 }
 .foot-col a:hover {
   color: var(--sky-blue-deep);
+}
+/* The shared SiteFooter renders the App Store badge inside .foot-col, whose generic
+   `a` rule above (display:block / color / padding) out-specifies .appstore-badge and
+   would flatten the badge into a plain text link. Qualify with .foot-col so the
+   badge's own layout wins; the rest of the badge look comes from .appstore-badge.
+   Mirrors the (board) group's site-footer.css. */
+.foot-col a.appstore-badge {
+  display: inline-flex;
+  color: #fff;
+  padding: 10px 22px 10px 20px;
+  margin-top: 10px;
+}
+.foot-col a.appstore-badge:hover {
+  color: #fff;
 }
 .foot-base {
   border-top: 1px solid var(--border-softer);

@@ -29,8 +29,10 @@ export interface PlanPeriod {
   perMonthLabel?: string;
 }
 
+export type PlanId = "plus" | "premium";
+
 export interface Plan {
-  id: "plus" | "premium";
+  id: PlanId;
   name: string;
   entitlement: string;
   tagline: string;

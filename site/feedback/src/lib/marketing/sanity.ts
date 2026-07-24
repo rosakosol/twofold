@@ -1,5 +1,6 @@
 import { createClient } from "@sanity/client";
 import type { PortableTextBlock } from "@portabletext/react";
+import { PLANS, type PlanId } from "@/lib/marketing/config";
 
 // Server-side Sanity reads for marketing content (hero, features, FAQ, legal pages).
 // Replaces the old hand-rolled client-side fetch (site/assets/js/cms.js) — moving this
@@ -95,6 +96,86 @@ export async function getLegalPage(pageId: "privacy" | "terms"): Promise<LegalPa
     { id: `legalPage-${pageId}` },
     { next: { revalidate: SANITY_REVALIDATE_SECONDS } }
   );
+}
+
+// Pricing plans. Sanity holds DISPLAY copy only (name, tagline, price labels, features,
+// which card is featured); the RevenueCat wiring (entitlement + package IDs) always comes
+// from code (config.ts PLANS), which also supplies the fallback for any field left blank
+// in Studio — same null-fallback philosophy as getHero. getResolvedPlans() merges the two
+// so both the /pricing cards and the home pricing preview render the same edited content.
+export interface PlanDoc {
+  name?: string;
+  tagline?: string;
+  featured?: boolean;
+  monthlyPriceLabel?: string;
+  yearlyPriceLabel?: string;
+  yearlyPerMonthLabel?: string;
+  ctaLabel?: string;
+  features?: string[];
+}
+
+export interface ResolvedPlan {
+  id: PlanId;
+  name: string;
+  tagline: string;
+  featured: boolean;
+  ctaLabel: string;
+  monthly: { priceLabel: string };
+  yearly: { priceLabel: string; perMonthLabel: string };
+  features: string[];
+}
+
+type PlanDocWithMeta = PlanDoc & { _id: string; _updatedAt?: string };
+
+export async function getPlans(): Promise<{ plus: PlanDocWithMeta | null; premium: PlanDocWithMeta | null }> {
+  const docs: PlanDocWithMeta[] = await sanityClient.fetch(
+    `*[_id in ["plan-plus", "plan-premium"]]{ _id, _updatedAt, name, tagline, featured, monthlyPriceLabel, yearlyPriceLabel, yearlyPerMonthLabel, ctaLabel, features }`,
+    {},
+    { next: { revalidate: SANITY_REVALIDATE_SECONDS } }
+  );
+  return {
+    plus: docs.find((d) => d._id === "plan-plus") ?? null,
+    premium: docs.find((d) => d._id === "plan-premium") ?? null,
+  };
+}
+
+function resolvePlan(id: PlanId, doc: PlanDoc | null, featuredDefault: boolean): ResolvedPlan {
+  const code = PLANS[id];
+  return {
+    id,
+    name: doc?.name || code.name,
+    tagline: doc?.tagline || code.tagline,
+    featured: doc?.featured ?? featuredDefault,
+    ctaLabel: doc?.ctaLabel || `Get ${id === "plus" ? "Plus" : "Premium"}`,
+    monthly: { priceLabel: doc?.monthlyPriceLabel || code.monthly.priceLabel },
+    yearly: {
+      priceLabel: doc?.yearlyPriceLabel || code.yearly.priceLabel,
+      perMonthLabel: doc?.yearlyPerMonthLabel || code.yearly.perMonthLabel || code.yearly.priceLabel,
+    },
+    features: doc?.features?.length ? doc.features : code.features,
+  };
+}
+
+export async function getResolvedPlans(): Promise<{ plus: ResolvedPlan; premium: ResolvedPlan }> {
+  const { plus, premium } = await getPlans();
+  const resolvedPlus = resolvePlan("plus", plus, false);
+  const resolvedPremium = resolvePlan("premium", premium, true);
+
+  // Guard: at most one plan may be featured (the "Most popular" badge + highlight). An
+  // editor can set the flag on both docs independently, which would show two badges — so
+  // if both are on, last edited wins and the other is quietly demoted. Uses Sanity's
+  // _updatedAt; a missing/unparseable stamp sorts oldest so a real edit always beats it.
+  if (resolvedPlus.featured && resolvedPremium.featured) {
+    const plusEdited = Date.parse(plus?._updatedAt ?? "") || 0;
+    const premiumEdited = Date.parse(premium?._updatedAt ?? "") || 0;
+    if (plusEdited >= premiumEdited) {
+      resolvedPremium.featured = false;
+    } else {
+      resolvedPlus.featured = false;
+    }
+  }
+
+  return { plus: resolvedPlus, premium: resolvedPremium };
 }
 
 export interface QuizQuestionDoc {
