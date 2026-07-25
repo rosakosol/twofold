@@ -10,7 +10,24 @@ import { spawn } from "node:child_process";
 
 const BASE = "http://localhost:3000";
 // Ordered slowest-first so the worst offender starts compiling immediately.
-const ROUTES = ["/studio", "/feedback", "/admin", "/admin/games", "/"];
+//
+// The /admin/games/* entries look redundant next to /admin/games but aren't: Turbopack
+// compiles per *route*, not per segment, so warming the tabs page does nothing for the
+// pages you click through to — those were still eating a ~6s cold compile on first visit,
+// with no skeleton possible because prefetch-on-viewport is disabled in dev (see
+// next/dist/client/components/links.js) so nothing is fetched until the click, and the
+// server sends no bytes until the compile finishes. The [type]/[id] values below are
+// arbitrary — one request compiles the whole dynamic route for every param value.
+const ROUTES = [
+  "/studio",
+  "/feedback",
+  "/admin",
+  "/admin/games",
+  "/admin/games/trivia_questions/entries",
+  "/admin/games/trivia_questions/decks",
+  "/admin/games/decks/warm",
+  "/",
+];
 
 // `next` resolves off node_modules/.bin, which npm run puts on PATH; shell:true also lets a
 // bare `node scripts/warm-dev.mjs` find it on a typical dev machine.
