@@ -11,7 +11,7 @@ struct AboutUsView: View {
         ScrollView {
             VStack(spacing: Theme.Spacing.lg) {
                 TwofoldBrandMark(size: 56, textStyle: .title)
-                    .padding(.top, Theme.Spacing.xl)
+                    .padding(.top, Theme.Spacing.sm)
 
                 SectionCard {
                     Image("rosa")
