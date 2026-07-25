@@ -12,6 +12,11 @@ struct GameResultsShareView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.displayScale) private var displayScale
     @State private var page = 0
+    /// Which entries in `data.deepConversationRounds` are included as swipeable pages — starts
+    /// with every topic selected (matches the old "share everything available" behavior), and is
+    /// toggled per-topic via the toolbar's "Choose Topics" menu. Irrelevant (and left empty) for
+    /// every other game type/the Daily Question, which already have exactly one Q&A and no picker.
+    @State private var selectedRoundIDs: Set<UUID>
     /// Set instead of sharing directly whenever the current layout renders the *partner's*
     /// answer text (every layout except `.scoreSnapshot` — see `GameResultShareData.availableLayouts`,
     /// only reachable when there's a real single-round Q&A to render). Mutual in-app reveal
@@ -20,24 +25,60 @@ struct GameResultsShareView: View {
     /// sharing on the first tap the way `.scoreSnapshot` (no free text, no one else's words) can.
     @State private var pendingShareAction: PendingShareAction?
 
+    init(data: GameResultShareData) {
+        self.data = data
+        _selectedRoundIDs = State(initialValue: Set((data.deepConversationRounds ?? []).map(\.id)))
+    }
+
     private enum PendingShareAction {
         case instagram(UIImage)
         case other(UIImage)
     }
 
-    /// Every layout this specific result actually has data for — one card per swipeable page.
-    /// Most game types only ever get `[.scoreSnapshot]` (a single, non-swiping page); the Daily
-    /// Question is the one case with several, including the isolated-component `.speechBubble`
-    /// sticker (see `GameResultShareData.availableLayouts`).
-    private var layouts: [GameResultShareLayout] { data.availableLayouts }
+    /// One swipeable page — `round` is nil for every non-deepConversations game type and the
+    /// Daily Question, which render straight from `data`'s own single-round fields; a multi-round
+    /// Deep Conversations deck instead produces one of these per *selected* topic per layout, so
+    /// `round` carries which topic's Q&A this specific page should overlay onto `data`.
+    private struct SharePage {
+        let round: GameResultShareRound?
+        let layout: GameResultShareLayout
+    }
+
+    /// Every page to actually render. A multi-round Deep Conversations deck gets both Q&A layouts
+    /// (`.namesAndAnswer`, `.speechBubble`) for each topic the person has checked in the "Choose
+    /// Topics" menu — deselecting every topic isn't possible (see `toggleRound`), so this is never
+    /// empty once there are any rounds to begin with. Every other case (including the Daily
+    /// Question) just renders `data.availableLayouts` as-is, since those already carry at most one
+    /// Q&A pair with nothing to pick between.
+    private var pages: [SharePage] {
+        if let rounds = data.deepConversationRounds, !rounds.isEmpty {
+            let selected = rounds.filter { selectedRoundIDs.contains($0.id) }
+            return selected.flatMap { round in
+                [SharePage(round: round, layout: .namesAndAnswer), SharePage(round: round, layout: .speechBubble)]
+            }
+        }
+        return data.availableLayouts.map { SharePage(round: nil, layout: $0) }
+    }
+
+    /// `data` with `singleRoundQuestion`/`myAnswer`/`partnerAnswer` overwritten from this page's
+    /// own topic, when it has one — every other field (and every other game type/the Daily
+    /// Question, where `page.round` is always nil) passes through unchanged.
+    private func shareData(for page: SharePage) -> GameResultShareData {
+        guard let round = page.round else { return data }
+        var copy = data
+        copy.singleRoundQuestion = round.question
+        copy.myAnswer = round.myAnswer
+        copy.partnerAnswer = round.partnerAnswer
+        return copy
+    }
 
     var body: some View {
         NavigationStack {
             VStack(spacing: Theme.Spacing.md) {
                 TabView(selection: $page) {
-                    ForEach(Array(layouts.enumerated()), id: \.offset) { index, layout in
+                    ForEach(Array(pages.enumerated()), id: \.offset) { index, sharePage in
                         ScrollView {
-                            GameResultsShareCard(data: data, layout: layout)
+                            GameResultsShareCard(data: shareData(for: sharePage), layout: sharePage.layout)
                                 .padding(.top, Theme.Spacing.lg)
                                 .shadow(color: .black.opacity(0.2), radius: 20, y: 10)
                         }
@@ -47,7 +88,7 @@ struct GameResultsShareView: View {
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
 
-                if layouts.count > 1 {
+                if pages.count > 1 {
                     dotIndicator
                 }
 
@@ -63,14 +104,58 @@ struct GameResultsShareView: View {
                     Button("Close", systemImage: "xmark") { dismiss() }
                         .labelStyle(.iconOnly)
                 }
+                if let rounds = data.deepConversationRounds, !rounds.isEmpty {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        topicsMenu(rounds)
+                    }
+                }
             }
         }
         .postHogScreenView("Games: Results Share")
     }
 
+    /// Checking/unchecking a topic here is about which exchanges to include, never about
+    /// "matching" — free-text Deep Conversations answers have no equivalent to This-or-That/
+    /// More-Likely's similarity percent (see `GameResultShareData.deepConversationRounds`'s own
+    /// doc comment).
+    private func topicsMenu(_ rounds: [GameResultShareRound]) -> some View {
+        Menu {
+            ForEach(rounds) { round in
+                Button {
+                    toggleRound(round.id)
+                } label: {
+                    if selectedRoundIDs.contains(round.id) {
+                        Label(round.question, systemImage: "checkmark")
+                    } else {
+                        Text(round.question)
+                    }
+                }
+            }
+        } label: {
+            Label("Choose Topics", systemImage: "list.bullet")
+        }
+        .labelStyle(.iconOnly)
+    }
+
+    /// Always keeps at least one topic selected — an entirely empty selection would leave the
+    /// share sheet with no pages and no image for the CTA row to share, a dead end rather than a
+    /// useful state. Clamps `page` back onto the last remaining page if the current one was just
+    /// removed by deselecting its topic.
+    private func toggleRound(_ id: UUID) {
+        if selectedRoundIDs.contains(id) {
+            guard selectedRoundIDs.count > 1 else { return }
+            selectedRoundIDs.remove(id)
+        } else {
+            selectedRoundIDs.insert(id)
+        }
+        if !pages.indices.contains(page) {
+            page = max(0, pages.count - 1)
+        }
+    }
+
     private var dotIndicator: some View {
         HStack(spacing: 6) {
-            ForEach(layouts.indices, id: \.self) { index in
+            ForEach(pages.indices, id: \.self) { index in
                 Circle()
                     .fill(index == page ? Theme.ink : Theme.subtleInk.opacity(0.3))
                     .frame(width: 6, height: 6)
@@ -81,8 +166,8 @@ struct GameResultsShareView: View {
     // MARK: - CTA row
 
     private var currentLayoutIncludesPartnerAnswer: Bool {
-        guard layouts.indices.contains(page) else { return false }
-        return layouts[page] != .scoreSnapshot
+        guard pages.indices.contains(page) else { return false }
+        return pages[page].layout != .scoreSnapshot
     }
 
     @ViewBuilder
@@ -159,8 +244,9 @@ struct GameResultsShareView: View {
     }
 
     private func currentPageImage() -> UIImage? {
-        guard layouts.indices.contains(page) else { return nil }
-        return renderImage(GameResultsShareCard(data: data, layout: layouts[page]))
+        guard pages.indices.contains(page) else { return nil }
+        let currentPage = pages[page]
+        return renderImage(GameResultsShareCard(data: shareData(for: currentPage), layout: currentPage.layout))
     }
 
     @MainActor
@@ -173,7 +259,7 @@ struct GameResultsShareView: View {
     }
 }
 
-#Preview {
+#Preview("Daily Question") {
     let data = GameResultShareData(
         gameType: .deepConversations,
         title: "Daily Question",
@@ -184,11 +270,35 @@ struct GameResultsShareView: View {
         triviaMyScore: nil,
         triviaPartnerScore: nil,
         triviaTotalRounds: nil,
-        deepConversationSummary: nil,
+        deepConversationRounds: nil,
         singleRoundQuestion: "What's one small thing I did recently that made you feel loved?",
         myAnswer: "Making coffee for me before I even asked.",
         partnerAnswer: "Texting me a photo of the sunset on your walk.",
         dailyStreak: 12
+    )
+    return GameResultsShareView(data: data)
+}
+
+#Preview("Deep Conversations deck") {
+    let data = GameResultShareData(
+        gameType: .deepConversations,
+        title: "Getting to Know Each Other",
+        isDaily: false,
+        me: MockData.dara,
+        partner: MockData.rosa,
+        matchPercent: nil,
+        triviaMyScore: nil,
+        triviaPartnerScore: nil,
+        triviaTotalRounds: nil,
+        deepConversationRounds: [
+            GameResultShareRound(question: "What's a childhood memory that still makes you smile?", myAnswer: "Building blanket forts with my sister.", partnerAnswer: "Catching fireflies in summer."),
+            GameResultShareRound(question: "What's one small thing I did recently that made you feel loved?", myAnswer: "Making coffee for me before I even asked.", partnerAnswer: "Texting me a photo of the sunset on your walk."),
+            GameResultShareRound(question: "What does your ideal weekend look like?", myAnswer: "Sleeping in, then a long walk somewhere new.", partnerAnswer: "Cooking a big breakfast together."),
+        ],
+        singleRoundQuestion: nil,
+        myAnswer: nil,
+        partnerAnswer: nil,
+        dailyStreak: nil
     )
     return GameResultsShareView(data: data)
 }

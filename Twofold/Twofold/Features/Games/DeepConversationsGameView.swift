@@ -83,6 +83,12 @@ struct DeepConversationsGameView: View {
                 )
             }
         }
+        // Without this, swapping branches (e.g. `ProgressView` → `GameResultsView` the instant a
+        // session loads already-revealed, via History/a deep link) picks up SwiftUI's default
+        // fade/insertion transition — which made the full-bleed background below appear briefly
+        // undersized before snapping to full width. `.identity` makes every branch swap in
+        // instantly instead — see the other 3 typed game views for the fuller version of this.
+        .transition(.identity)
         .safeAreaInset(edge: .top) {
             if store.pendingSyncCount > 0 {
                 OfflineGameBanner(isConnected: NetworkMonitor.shared.isConnected, pendingCount: store.pendingSyncCount)

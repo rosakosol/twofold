@@ -65,11 +65,6 @@ struct GameResultsShareCard: View {
                     .foregroundStyle(.white.opacity(0.7))
                 scoreColumn(value: "\(partnerScore)", label: data.partner.name)
             }
-        } else if let summary = data.deepConversationSummary {
-            Text(summary)
-                .font(.title2.weight(.bold))
-                .foregroundStyle(.white)
-                .multilineTextAlignment(.center)
         }
     }
 
@@ -88,8 +83,9 @@ struct GameResultsShareCard: View {
     }
 
     /// Tinted by the actual result for the match games (matches `GameResultsView.similarityTint`);
-    /// falls back to the game type's own brand gradient for Trivia/Deep Conversations, which have
-    /// no single "how well did we do" color to react to.
+    /// falls back to the game type's own brand gradient for Trivia, which has no single "how well
+    /// did we do" color to react to. Deep Conversations never reaches `scoreSnapshot` at all (see
+    /// `GameResultShareData.availableLayouts`), so this fallback is Trivia-only in practice.
     private var scoreGradient: LinearGradient {
         if let matchPercent = data.matchPercent {
             let tint: Color = switch matchPercent {
@@ -282,7 +278,7 @@ struct GameResultsShareCard: View {
         triviaMyScore: nil,
         triviaPartnerScore: nil,
         triviaTotalRounds: nil,
-        deepConversationSummary: nil,
+        deepConversationRounds: nil,
         singleRoundQuestion: nil,
         myAnswer: nil,
         partnerAnswer: nil,

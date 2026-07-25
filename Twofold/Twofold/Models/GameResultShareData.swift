@@ -10,6 +10,17 @@
 
 import Foundation
 
+/// One topic + both answers from a multi-round Deep Conversations deck — lets the share sheet
+/// offer a "choose a topic to feature" picker. Deep Conversations answers are free text with no
+/// right answer to compare against (unlike This-or-That/More-Likely's `matchPercent`), so this is
+/// deliberately about picking *which* exchange to show off, never whether the two of you "matched."
+struct GameResultShareRound: Identifiable {
+    let id = UUID()
+    let question: String
+    let myAnswer: String
+    let partnerAnswer: String
+}
+
 struct GameResultShareData {
     let gameType: GameType
     let title: String
@@ -24,32 +35,45 @@ struct GameResultShareData {
     let triviaMyScore: Int?
     let triviaPartnerScore: Int?
     let triviaTotalRounds: Int?
-    /// "Talked about X of Y topics" — deepConversations only, and only when it isn't the single-
-    /// round Daily Question (which uses the single-round fields below instead).
-    let deepConversationSummary: String?
+    /// Every topic from a multi-round Deep Conversations deck (not the Daily Question, which has
+    /// exactly one round already covered by `singleRoundQuestion` below, so this stays nil for
+    /// it). nil for every other game type.
+    let deepConversationRounds: [GameResultShareRound]?
 
-    // MARK: Single-round layouts (daily streak / names & answer)
+    // MARK: Single-round layouts (daily streak / names & answer / speech bubble)
 
-    /// Set only when the session has exactly one round — in practice, the Daily Question.
-    let singleRoundQuestion: String?
-    let myAnswer: String?
-    let partnerAnswer: String?
+    /// The question+both-answers currently featured on the `.namesAndAnswer`/`.speechBubble`
+    /// layouts. Set once from the Daily Question's own (and only) round; for a multi-round Deep
+    /// Conversations deck these start nil and `GameResultsShareView` overwrites them from
+    /// whichever entry in `deepConversationRounds` the person picks — `var`, not `let`, for
+    /// exactly that reason.
+    var singleRoundQuestion: String?
+    var myAnswer: String?
+    var partnerAnswer: String?
     let dailyStreak: Int?
 
-    /// The Daily Question has no score/match/summary stat to headline — `scoreSnapshot` would
-    /// render as just a brand mark and avatars — so it's skipped there in favor of the two
-    /// single-Q&A layouts. Every other game type only ever gets `scoreSnapshot`, since they're
-    /// multi-round and have no single Q&A to headline instead.
+    /// The Daily Question has no score/match stat to headline — `scoreSnapshot` would render as
+    /// just a brand mark and avatars — so it's skipped there in favor of the two single-Q&A
+    /// layouts. Deep Conversations decks have no match/score concept either (free text, nothing
+    /// to compare), so they skip `scoreSnapshot` too and go straight to the two single-Q&A
+    /// layouts once a topic's been picked (see `GameResultsShareView.selectedRoundIndex`). Every
+    /// other game type gets `scoreSnapshot`.
     var availableLayouts: [GameResultShareLayout] {
-        guard isDaily else { return [.scoreSnapshot] }
-        var layouts: [GameResultShareLayout] = []
-        if dailyStreak != nil, singleRoundQuestion != nil {
-            layouts.append(.dailyStreak)
+        if isDaily {
+            var layouts: [GameResultShareLayout] = []
+            if dailyStreak != nil, singleRoundQuestion != nil {
+                layouts.append(.dailyStreak)
+            }
+            if singleRoundQuestion != nil {
+                layouts.append(.namesAndAnswer)
+                layouts.append(.speechBubble)
+            }
+            return layouts
         }
-        if singleRoundQuestion != nil {
-            layouts.append(.namesAndAnswer)
-            layouts.append(.speechBubble)
+        if gameType == .deepConversations {
+            guard deepConversationRounds?.isEmpty == false else { return [] }
+            return [.namesAndAnswer, .speechBubble]
         }
-        return layouts
+        return [.scoreSnapshot]
     }
 }

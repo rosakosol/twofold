@@ -22,6 +22,19 @@ struct GameHistoryView: View {
     /// actually need it (every other game type/session shows fine from the list alone).
     @State private var scores: [UUID: (mine: Int, partner: Int)] = [:]
     @State private var dailyQuestionText: [UUID: String] = [:]
+    /// nil = every game type. Independent of `dailyOnly` below — the two combine (e.g. "Trivia
+    /// Battle" + daily-only yields nothing, since only Deep Conversations sessions are ever
+    /// daily), rather than one being a sub-option of the other.
+    @State private var selectedGameType: GameType?
+    @State private var dailyOnly = false
+
+    private var filteredSessions: [GameSession] {
+        sessions.filter { session in
+            if let selectedGameType, session.gameType != selectedGameType { return false }
+            if dailyOnly, !session.isDaily { return false }
+            return true
+        }
+    }
 
     var body: some View {
         Group {
@@ -36,14 +49,22 @@ struct GameHistoryView: View {
                 emptyState
             } else {
                 ScrollView {
-                    VStack(spacing: Theme.Spacing.sm) {
-                        ForEach(sessions) { session in
-                            NavigationLink {
-                                gameDestination(session: session)
-                            } label: {
-                                historyRow(session)
+                    VStack(spacing: Theme.Spacing.md) {
+                        filterRow
+
+                        if filteredSessions.isEmpty {
+                            filteredEmptyState
+                        } else {
+                            VStack(spacing: Theme.Spacing.sm) {
+                                ForEach(filteredSessions) { session in
+                                    NavigationLink {
+                                        gameDestination(session: session)
+                                    } label: {
+                                        historyRow(session)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
                             }
-                            .buttonStyle(.plain)
                         }
                     }
                     .padding(Theme.Spacing.md)
@@ -72,6 +93,55 @@ struct GameHistoryView: View {
         }
         .padding(Theme.Spacing.xl)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// Shown instead of the row list when filters narrow `sessions` down to nothing — distinct
+    /// from `emptyState` above, which only covers there being no completed games at all.
+    private var filteredEmptyState: some View {
+        VStack(spacing: Theme.Spacing.sm) {
+            Image(systemName: "line.3.horizontal.decrease.circle")
+                .font(.largeTitle)
+                .foregroundStyle(Theme.subtleInk)
+            Text("No games match these filters")
+                .font(.headline)
+            Button("Clear filters") {
+                selectedGameType = nil
+                dailyOnly = false
+            }
+            .font(.caption.weight(.semibold))
+        }
+        .padding(Theme.Spacing.xl)
+        .frame(maxWidth: .infinity)
+    }
+
+    /// Mirrors `AllDecksBrowseView.filterPill`'s pill styling for visual consistency across the
+    /// Games feature's two filter UIs. `dailyOnly` is a plain toggle rather than a member of the
+    /// same mutually-exclusive set as the game-type pills — see `dailyOnly`'s own doc comment.
+    private var filterRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: Theme.Spacing.sm) {
+                filterPill(isSelected: selectedGameType == nil, label: "All") { selectedGameType = nil }
+                ForEach(GameType.allCases) { type in
+                    filterPill(isSelected: selectedGameType == type, label: type.displayName) { selectedGameType = type }
+                }
+                filterPill(isSelected: dailyOnly, label: "Daily Question") { dailyOnly.toggle() }
+            }
+        }
+    }
+
+    private func filterPill(isSelected: Bool, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label)
+                .font(.caption.weight(.semibold))
+                .padding(.horizontal, Theme.Spacing.md)
+                .padding(.vertical, Theme.Spacing.xs)
+                .foregroundStyle(isSelected ? .white : Theme.ink)
+                .background(
+                    isSelected ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.cardBackground),
+                    in: Capsule()
+                )
+        }
+        .buttonStyle(.plain)
     }
 
     private func historyRow(_ session: GameSession) -> some View {
