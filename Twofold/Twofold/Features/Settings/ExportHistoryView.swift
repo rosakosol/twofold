@@ -46,15 +46,28 @@ struct ExportHistoryView: View {
         appModel.trips.sorted { $0.departureDate < $1.departureDate }
     }
 
+    /// Every memory, trip-linked or not — the source of truth for selection/description state,
+    /// since a trip-linked memory still needs both. Use `standaloneMemories` for the flat
+    /// top-level "Memories" section, which only lists ones with nowhere else to nest under.
     private var memories: [Memory] {
         appModel.memories.sorted { $0.date < $1.date }
     }
 
-    /// Flights already shown as part of a trip's own page (see `TripPageView`'s inline flight
-    /// summary) are excluded here — only flights with no trip get their own selectable entry, so
-    /// the same flight never appears twice in the exported document.
+    /// Trip-linked memories are shown nested under their own trip's row instead — excluded here
+    /// so the same memory never appears twice in the list, mirroring `standaloneFlights` below.
+    private var standaloneMemories: [Memory] {
+        memories.filter { $0.tripID == nil }
+    }
+
+    /// Flights linked to a trip (`Flight.tripID` set) are shown nested under that trip's own row
+    /// instead — only flights with no trip get their own top-level selectable entry, so the same
+    /// flight never appears twice in the exported document.
     private var standaloneFlights: [Flight] {
         appModel.flights.filter { $0.tripID == nil }.sorted { ($0.bestDeparture ?? .distantPast) < ($1.bestDeparture ?? .distantPast) }
+    }
+
+    private func linkedMemories(for trip: Trip) -> [Memory] {
+        memories.filter { $0.tripID == trip.id }
     }
 
     private var selectedCount: Int {
@@ -64,7 +77,7 @@ struct ExportHistoryView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: Theme.Spacing.lg) {
-                if trips.isEmpty && memories.isEmpty && standaloneFlights.isEmpty {
+                if trips.isEmpty && standaloneMemories.isEmpty && standaloneFlights.isEmpty {
                     emptyState
                 } else {
                     if !trips.isEmpty {
@@ -74,9 +87,9 @@ struct ExportHistoryView: View {
                             }
                         }
                     }
-                    if !memories.isEmpty {
+                    if !standaloneMemories.isEmpty {
                         section(title: "Memories", systemImage: "heart.fill") {
-                            ForEach(memories) { memory in
+                            ForEach(standaloneMemories) { memory in
                                 memoryRow(memory)
                             }
                         }
@@ -133,7 +146,10 @@ struct ExportHistoryView: View {
     // MARK: - Trip row
 
     private func tripRow(_ trip: Trip) -> some View {
-        SectionCard {
+        let linkedFlights = trip.orderedFlights
+        let tripMemories = linkedMemories(for: trip)
+
+        return SectionCard {
             VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
                 HStack(spacing: Theme.Spacing.sm) {
                     selectionToggle(isOn: selectedTripIDs.contains(trip.id)) { toggleSelection($0, id: trip.id, set: &selectedTripIDs) }
@@ -147,8 +163,59 @@ struct ExportHistoryView: View {
                 if expandedIDs.contains(trip.id) {
                     descriptionEditor(text: bindingForTripDescription(trip.id))
                 }
+                // Linked flights/memories appear underneath their trip rather than as their own
+                // top-level rows — they'll be bundled into the same section of the exported PDF
+                // regardless of whether their own trip checkbox above is on, so leaving them
+                // toggleable here (not just informational) still lets you drop just one leg or
+                // one memory from an otherwise-included trip.
+                if !linkedFlights.isEmpty || !tripMemories.isEmpty {
+                    Divider()
+                    VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                        ForEach(linkedFlights) { flight in
+                            linkedFlightRow(flight)
+                        }
+                        ForEach(tripMemories) { memory in
+                            linkedMemoryRow(memory)
+                        }
+                    }
+                }
             }
         }
+    }
+
+    private func linkedFlightRow(_ flight: Flight) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+            HStack(spacing: Theme.Spacing.sm) {
+                selectionToggle(isOn: selectedFlightIDs.contains(flight.id)) {
+                    toggleSelection($0, id: flight.id, set: &selectedFlightIDs)
+                    if $0 { loadAttachmentsIfNeeded(flight) }
+                }
+                AirlineLogoView(url: flight.displayLogoURL, size: 22)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(flight.displayNumber).font(.caption.weight(.semibold))
+                    Text("\(flight.origin.displayCode) → \(flight.destination.displayCode)").font(.caption2).foregroundStyle(Theme.subtleInk)
+                }
+                Spacer(minLength: 0)
+            }
+            if selectedFlightIDs.contains(flight.id) {
+                flightAttachmentsSection(flight)
+                    .padding(.leading, 30)
+            }
+        }
+        .padding(.leading, Theme.Spacing.lg)
+    }
+
+    private func linkedMemoryRow(_ memory: Memory) -> some View {
+        HStack(spacing: Theme.Spacing.sm) {
+            selectionToggle(isOn: selectedMemoryIDs.contains(memory.id)) { toggleSelection($0, id: memory.id, set: &selectedMemoryIDs) }
+            MemoryPhotoView(memory: memory, cornerRadius: 6).frame(width: 28, height: 28)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(memory.title).font(.caption.weight(.semibold))
+                Text(memory.date, format: .dateTime.day().month(.abbreviated).year()).font(.caption2).foregroundStyle(Theme.subtleInk)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.leading, Theme.Spacing.lg)
     }
 
     // MARK: - Memory row
@@ -345,7 +412,9 @@ struct ExportHistoryView: View {
         guard selectedTripIDs.isEmpty, selectedMemoryIDs.isEmpty, selectedFlightIDs.isEmpty else { return }
         selectedTripIDs = Set(trips.map(\.id))
         selectedMemoryIDs = Set(memories.map(\.id))
-        selectedFlightIDs = Set(standaloneFlights.map(\.id))
+        // Every flight, not just standalone ones — a trip-linked flight is just as selectable/
+        // exportable now, just shown nested under its trip's row instead of its own top-level one.
+        selectedFlightIDs = Set(appModel.flights.map(\.id))
         for trip in trips {
             tripDescriptions[trip.id] = trip.notes ?? ""
             originalTripDescriptions[trip.id] = trip.notes ?? ""
@@ -354,7 +423,7 @@ struct ExportHistoryView: View {
             memoryDescriptions[memory.id] = memory.note
             originalMemoryDescriptions[memory.id] = memory.note
         }
-        for flight in standaloneFlights where selectedFlightIDs.contains(flight.id) {
+        for flight in appModel.flights where selectedFlightIDs.contains(flight.id) {
             loadAttachmentsIfNeeded(flight)
         }
     }
@@ -378,9 +447,28 @@ struct ExportHistoryView: View {
 
             var items: [ExportTimelineItem] = []
             for trip in trips where selectedTripIDs.contains(trip.id) {
-                items.append(.trip(trip, description: tripDescriptions[trip.id] ?? ""))
+                let linkedFlights: [ExportTimelineItem.LinkedFlight] = trip.orderedFlights
+                    .filter { selectedFlightIDs.contains($0.id) }
+                    .map { flight in
+                        ExportTimelineItem.LinkedFlight(
+                            flight: flight,
+                            includeAttachments: includeAttachments[flight.id] ?? true,
+                            attachments: flightAttachments[flight.id] ?? []
+                        )
+                    }
+                let tripLinkedMemories: [ExportTimelineItem.LinkedMemory] = linkedMemories(for: trip)
+                    .filter { selectedMemoryIDs.contains($0.id) }
+                    .map { memory in
+                        ExportTimelineItem.LinkedMemory(memory: memory, description: memoryDescriptions[memory.id] ?? "")
+                    }
+                items.append(.trip(
+                    trip,
+                    description: tripDescriptions[trip.id] ?? "",
+                    linkedFlights: linkedFlights,
+                    linkedMemories: tripLinkedMemories
+                ))
             }
-            for memory in memories where selectedMemoryIDs.contains(memory.id) {
+            for memory in standaloneMemories where selectedMemoryIDs.contains(memory.id) {
                 items.append(.memory(memory, description: memoryDescriptions[memory.id] ?? ""))
             }
             for flight in standaloneFlights where selectedFlightIDs.contains(flight.id) {
