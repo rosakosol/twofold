@@ -39,13 +39,14 @@ struct DeckCardRow: View {
 
     private var isLocked: Bool { appModel.isDeckLocked(deck) }
     private var bothCompleted: Bool { progress?.bothCompleted ?? false }
+    private var needsPartnerGate: Bool { !appModel.partnerConnected && deck.gameType.requiresPartner }
 
     var body: some View {
         Group {
             if isLocked {
                 Button { showingPremiumGate = true } label: { content }
                     .buttonStyle(.plain)
-            } else if !appModel.partnerConnected {
+            } else if needsPartnerGate {
                 Button { showingPartnerGate = true } label: { content }
                     .buttonStyle(.plain)
             } else if bothCompleted, let progress {
@@ -126,7 +127,7 @@ struct DeckCardRow: View {
                 .frame(width: 56, height: 32, alignment: .leading)
 
                 Spacer(minLength: 0)
-                if !isLocked && appModel.partnerConnected {
+                if !isLocked && !needsPartnerGate {
                     Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
                 }
             }
@@ -145,7 +146,7 @@ struct DeckCardRow: View {
         // for its own locked state — one visual vocabulary for "needs a partner" everywhere in
         // Games, not a second, different-looking lock idiom just for deck cards.
         .overlay {
-            if !isLocked && !appModel.partnerConnected {
+            if !isLocked && needsPartnerGate {
                 RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
                     .fill(.black.opacity(0.4))
                     .overlay(alignment: .topTrailing) {

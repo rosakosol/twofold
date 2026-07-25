@@ -297,17 +297,23 @@ struct TripsListView: View {
                     // Goes straight to whichever add flow matches the currently-visible tab — this
                     // used to be a Menu offering both "Add Trip"/"Add Flight" regardless of `tab`,
                     // an extra tap that was redundant with the picker already showing what you're
-                    // looking at. Gated the same way `emptyTripsHint`/`emptyFlightsHint` already
-                    // gate their own "add" buttons, for the same reason: neither add flow works
-                    // meaningfully solo.
+                    // looking at. Only Flights still needs the partner gate — tracking depends on
+                    // couple_id server-side (AeroAPI polling, push fan-out); Trips already has a
+                    // solo-first local-then-sync path (`PendingTripStore`), same as onboarding's
+                    // pre-pairing add-trip flow.
                     Button {
-                        guard appModel.partnerConnected else {
-                            showingPartnerGate = true
-                            return
-                        }
                         switch tab {
-                        case .trips: showingAddTrip = true
-                        case .flights: showingAddFlight = true
+                        case .trips:
+                            showingAddTrip = true
+                        case .flights:
+                            // Flights still needs a partner — tracking is wired through
+                            // couple_id at the AeroAPI polling/push layer server-side, unlike
+                            // Trips which already has a solo-first local-then-sync path.
+                            guard appModel.partnerConnected else {
+                                showingPartnerGate = true
+                                return
+                            }
+                            showingAddFlight = true
                         }
                     } label: {
                         Image(systemName: "plus.circle.fill")
@@ -596,23 +602,15 @@ struct TripsListView: View {
 
     @ViewBuilder
     private var emptyTripsHint: some View {
-        if appModel.partnerConnected {
-            Button {
-                showingAddTrip = true
-            } label: {
-                emptyHintCard(icon: "airplane.circle.fill", title: "Add your first trip", subtitle: "Tap to plan a reunion or a trip of your own.")
-            }
-            .buttonStyle(.plain)
-            .padding(.top, Theme.Spacing.xs)
-        } else {
-            Button {
-                showingPartnerGate = true
-            } label: {
-                emptyHintCard(icon: "person.2.fill", title: "Invite your partner to add your first trip together", subtitle: "Trips are better planned together.")
-            }
-            .buttonStyle(.plain)
-            .padding(.top, Theme.Spacing.xs)
+        // Unlike `emptyFlightsHint` below, Trips no longer needs a partner to add one — see the
+        // toolbar `+` button's comment above.
+        Button {
+            showingAddTrip = true
+        } label: {
+            emptyHintCard(icon: "airplane.circle.fill", title: "Add your first trip", subtitle: "Tap to plan a reunion or a trip of your own.")
         }
+        .buttonStyle(.plain)
+        .padding(.top, Theme.Spacing.xs)
     }
 
     @ViewBuilder

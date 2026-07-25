@@ -146,6 +146,10 @@ struct SignInView: View {
     /// `MainTabView`, tearing this sheet's presenter down along with it.
     private func finishSignIn() async {
         await appModel.loadSignedInState()
+        if let deletedMessage = appModel.accountDeletedMessage {
+            errorMessage = deletedMessage
+            appModel.accountDeletedMessage = nil
+        }
         isSubmitting = false
     }
 }

@@ -32,6 +32,7 @@ struct HomeView: View {
     @State private var myWeatherReading: CurrentWeatherReading?
     @State private var myWeatherFetchedForCityID: UUID?
     @State private var flightCarouselPage: Flight.ID?
+    @State private var partnerDisconnectedAlert: String?
 
     private var distanceKm: Double? {
         guard let mine = appModel.currentUser.homeCity?.coordinate, let theirs = appModel.partner.homeCity?.coordinate else { return nil }
@@ -85,8 +86,8 @@ struct HomeView: View {
                     }
                     if appModel.partnerConnected {
                         DrawingPadCard()
-                        RecommendedGamesSection()
                     }
+                    RecommendedGamesSection()
                 }
                 .padding(Theme.Spacing.md)
             }
@@ -169,6 +170,19 @@ struct HomeView: View {
                         }
                     }
                 }
+            }
+            .onChange(of: appModel.partnerDisconnectedMessage) { _, newValue in
+                guard let newValue else { return }
+                partnerDisconnectedAlert = newValue
+                appModel.partnerDisconnectedMessage = nil
+            }
+            .alert("Your connection has ended", isPresented: Binding(
+                get: { partnerDisconnectedAlert != nil },
+                set: { if !$0 { partnerDisconnectedAlert = nil } }
+            )) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(partnerDisconnectedAlert ?? "")
             }
         }
     }

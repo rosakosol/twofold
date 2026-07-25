@@ -34,6 +34,11 @@ struct GameResultsView: View {
     @State private var showingShare = false
 
     private var isFullyRevealed: Bool { revealedCount >= store.rounds.count }
+    /// A solo session reveals the instant its one real player finishes every round (see
+    /// `advance_game_session`'s solo branch) — there's no partner response to ever show, so the
+    /// header/summary/per-round chips all need a "your partner hasn't joined yet" framing instead
+    /// of a real comparison. More Likely can't reach this at all (blocked server-side solo).
+    private var isSolo: Bool { !appModel.partnerConnected }
 
     /// 0...100 — only meaningful for the two match-style games.
     private var matchPercent: Int? {
@@ -135,11 +140,14 @@ struct GameResultsView: View {
         }
         .onAppear {
             animateReveal()
-            // Reaching game results already implies a connected partner (all game content is
-            // gated behind `partnerConnected`) — `hasCouple` guard added for symmetry with
-            // `AppModel.checkReviewMilestones()`, not because this is actually reachable earlier.
+            // `hasCouple` guard for symmetry with `AppModel.checkReviewMilestones()` — true for
+            // solo users too (see its own doc comment), so this still fires for a solo player's
+            // first completed game, not just a paired one.
             if appModel.hasCouple {
                 appModel.noteReviewMilestone(.firstGameResults)
+            }
+            if isSolo {
+                appModel.noteSoloActionCompleted()
             }
             // `AppModel.gameDecks`/`deckProgress` are cached for the whole app session and only
             // ever refreshed explicitly (see `loadGameDecksIfNeeded()`'s doc comment) — without
@@ -159,11 +167,30 @@ struct GameResultsView: View {
         switch gameType {
         case .triviaBattle:
             let myScore = GameLogic.triviaScore(responses: store.responses, responderID: myID)
-            let partnerScore = GameLogic.triviaScore(responses: store.responses, responderID: partnerID)
             VStack(spacing: Theme.Spacing.xs) {
                 Image(systemName: "trophy.fill").font(.system(size: 40)).foregroundStyle(Theme.leafGreen)
-                Text("You got \(myScore)/\(store.rounds.count), \(partnerName) got \(partnerScore)/\(store.rounds.count)")
+                if isSolo {
+                    Text("You got \(myScore)/\(store.rounds.count)!")
+                        .font(.title3.weight(.bold))
+                        .multilineTextAlignment(.center)
+                    Text("Invite your partner to play and compare scores.")
+                        .font(.caption)
+                        .foregroundStyle(Theme.subtleInk)
+                } else {
+                    let partnerScore = GameLogic.triviaScore(responses: store.responses, responderID: partnerID)
+                    Text("You got \(myScore)/\(store.rounds.count), \(partnerName) got \(partnerScore)/\(store.rounds.count)")
+                        .font(.title3.weight(.bold))
+                        .multilineTextAlignment(.center)
+                }
+            }
+        case .moreLikely, .thisOrThat where isSolo:
+            VStack(spacing: Theme.Spacing.sm) {
+                Image(systemName: "person.2.fill").font(.system(size: 40)).foregroundStyle(Theme.skyBlue)
+                Text("Your answers are saved")
                     .font(.title3.weight(.bold))
+                Text("Invite your partner to see how you match up.")
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.subtleInk)
                     .multilineTextAlignment(.center)
             }
         case .moreLikely, .thisOrThat:
@@ -182,7 +209,7 @@ struct GameResultsView: View {
         case .deepConversations:
             VStack(spacing: Theme.Spacing.xs) {
                 Image(systemName: "bubble.left.and.bubble.right.fill").font(.system(size: 40)).foregroundStyle(Theme.leafGreen)
-                Text("You both shared your thoughts")
+                Text(isSolo ? "You shared your thoughts" : "You both shared your thoughts")
                     .font(.title3.weight(.bold))
             }
         }
@@ -282,13 +309,13 @@ struct GameResultsView: View {
 
             if gameType == .deepConversations {
                 responseBlock(name: "You", text: mine?.answerValue)
-                responseBlock(name: partnerName, text: partner?.answerValue)
+                responseBlock(name: partnerName, text: partner?.answerValue, placeholder: isSolo ? "Hasn't joined yet" : "Skipped this one")
                 discussionMarkers(round)
             } else {
                 HStack {
                     answerChip(name: "You", text: answerText(mine?.answerValue, for: round), tint: matched ? Theme.leafGreen : Theme.ink)
                     Spacer(minLength: Theme.Spacing.sm)
-                    answerChip(name: partnerName, text: answerText(partner?.answerValue, for: round), tint: matched ? Theme.leafGreen : Theme.ink)
+                    answerChip(name: partnerName, text: answerText(partner?.answerValue, for: round, placeholder: isSolo ? "Hasn't joined yet" : "Skipped"), tint: matched ? Theme.leafGreen : Theme.ink)
                 }
 
                 if gameType == .triviaBattle, case let .trivia(question)? = store.content(for: round) {
@@ -343,10 +370,10 @@ struct GameResultsView: View {
             .foregroundStyle(isCorrect == true ? Theme.leafGreen : Theme.heartRed)
     }
 
-    private func responseBlock(name: String, text: String?) -> some View {
+    private func responseBlock(name: String, text: String?, placeholder: String = "Skipped this one") -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(name).font(.caption.weight(.semibold)).foregroundStyle(Theme.subtleInk)
-            Text(text?.isEmpty == false ? text! : "Skipped this one")
+            Text(text?.isEmpty == false ? text! : placeholder)
                 .font(.subheadline)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -392,6 +419,12 @@ struct GameResultsView: View {
         switch gameType {
         case .triviaBattle:
             EmptyView()
+        case .moreLikely, .thisOrThat where isSolo:
+            summaryCard(title: "Invite your partner", emoji: "💌") {
+                Text("Once they join, you'll both be able to see how your answers compare.")
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.subtleInk)
+            }
         case .moreLikely, .thisOrThat:
             let mismatched = GameLogic.mismatchedRounds(rounds: store.rounds, responses: store.responses, partnerAID: myID, partnerBID: partnerID)
 
@@ -448,8 +481,8 @@ struct GameResultsView: View {
         }
     }
 
-    private func answerText(_ value: String?, for round: GameSessionRound) -> String {
-        guard let value, !value.isEmpty else { return "Skipped" }
+    private func answerText(_ value: String?, for round: GameSessionRound, placeholder: String = "Skipped") -> String {
+        guard let value, !value.isEmpty else { return placeholder }
         switch store.content(for: round) {
         case .trivia:
             return value

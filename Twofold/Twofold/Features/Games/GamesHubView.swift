@@ -44,16 +44,12 @@ struct GamesHubView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
-                    if appModel.partnerConnected {
-                        searchAndFilterBar
-                        DailyActivityCard()
-                    }
+                    searchAndFilterBar
+                    DailyActivityCard()
                     travelSection
                     section(title: "Compete", games: competeGames)
                     section(title: "Connect", games: connectGames)
-                    if appModel.partnerConnected {
-                        TopicsSection()
-                    }
+                    TopicsSection()
                 }
                 .padding(Theme.Spacing.md)
             }
@@ -144,7 +140,7 @@ struct GamesHubView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: Theme.Spacing.sm) {
                     ForEach(games) { gameType in
-                        if appModel.partnerConnected {
+                        if appModel.partnerConnected || !gameType.requiresPartner {
                             NavigationLink {
                                 GameTypeDecksView(gameType: gameType)
                             } label: {

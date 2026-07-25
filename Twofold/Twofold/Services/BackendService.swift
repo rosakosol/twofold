@@ -223,6 +223,38 @@ enum BackendService {
             let message = (try? JSONDecoder().decode(ErrorResponse.self, from: data))?.error
             throw BackendError.requestFailed(message: message)
         }
+
+        // supabase-swift keeps the refresh token in the Keychain across relaunches (see
+        // `restoreSession()`), so without this the device stays silently signed in on a fully
+        // valid local session even though the server-side account is gone — the app would
+        // just resume straight back into the now-scrubbed profile. `auth.admin.deleteUser`'s
+        // soft delete alone isn't enough to prevent that; it only marks `deleted_at` on
+        // `auth.users`, it doesn't revoke an already-issued session.
+        try? await supabase.auth.signOut()
+    }
+
+    /// True if this account was scrubbed by `delete_own_account()`. A backstop against the fact
+    /// that Supabase Auth's soft delete doesn't reliably block a *fresh* sign-in — in particular,
+    /// the Apple/Google id-token exchange looks up an existing `auth.identities` row by provider
+    /// subject, which soft delete doesn't touch, so it can resolve straight back to the same
+    /// deleted `auth.users` row and hand back a valid session. `AppModel.loadSignedInState()`
+    /// calls this right after any session is established (launch restore, password sign-in, or
+    /// Apple/Google sign-in) and signs back out immediately if it's true, rather than letting a
+    /// deleted, scrubbed profile actually load.
+    static func currentAccountIsDeleted() async -> Bool {
+        guard let userID = currentUserID else { return false }
+        struct Row: Decodable {
+            var accountDeletedAt: String?
+            enum CodingKeys: String, CodingKey { case accountDeletedAt = "account_deleted_at" }
+        }
+        let rows: [Row]? = try? await supabase
+            .from("profiles")
+            .select("account_deleted_at")
+            .eq("id", value: userID)
+            .limit(1)
+            .execute()
+            .value
+        return rows?.first?.accountDeletedAt != nil
     }
 
     /// Everything about a solo (pre-pairing) user worth restoring on relaunch: their own

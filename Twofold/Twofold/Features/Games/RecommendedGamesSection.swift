@@ -46,7 +46,7 @@ struct RecommendedGamesSection: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: Theme.Spacing.sm) {
                     ForEach(Self.recommended) { gameType in
-                        if appModel.partnerConnected {
+                        if appModel.partnerConnected || !gameType.requiresPartner {
                             NavigationLink {
                                 GameTypeDecksView(gameType: gameType)
                             } label: {
