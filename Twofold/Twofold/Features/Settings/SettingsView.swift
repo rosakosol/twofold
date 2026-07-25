@@ -166,6 +166,23 @@ struct SettingsView: View {
                             }
                         }
                         .disabled(isSigningOut)
+                        // Attached directly to this button (not down on the whole `NavigationStack`,
+                        // where it lived before) — on iPad, `confirmationDialog` renders as a
+                        // popover anchored to whatever view it's declared on. Declared this far
+                        // from the actual button, with no way to infer a real anchor, it fell back
+                        // to a fixed spot near the top of the screen instead of pointing at the
+                        // Sign Out button itself. Attaching it here gives it a real anchor to point
+                        // from, and changes nothing about the plain bottom-sheet behavior this
+                        // already had on iPhone.
+                        .confirmationDialog("Sign out of Twofold?", isPresented: $showingSignOutConfirm, titleVisibility: .visible) {
+                            Button("Sign Out", role: .destructive) {
+                                Task {
+                                    isSigningOut = true
+                                    await appModel.signOut()
+                                }
+                            }
+                            Button("Cancel", role: .cancel) {}
+                        }
                     }
 
                     SettingsFooterView()
@@ -202,15 +219,6 @@ struct SettingsView: View {
                     title: "Export Your Story",
                     description: "Turn your trips, memories, and flights into a beautiful, formatted keepsake PDF. Upgrade to Premium to export your story."
                 )
-            }
-            .confirmationDialog("Sign out of Twofold?", isPresented: $showingSignOutConfirm, titleVisibility: .visible) {
-                Button("Sign Out", role: .destructive) {
-                    Task {
-                        isSigningOut = true
-                        await appModel.signOut()
-                    }
-                }
-                Button("Cancel", role: .cancel) {}
             }
         }
     }
