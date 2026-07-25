@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/db/types";
+import { createZohoTransport } from "@/lib/mail/zoho";
 
 // Port of the old site/functions/api/waitlist.ts (Cloudflare Pages Function + D1) —
 // same validation/honeypot logic, writing to Supabase's waitlist_signups table instead
-// of D1 (which Vercel can't reach), same two Resend emails via raw fetch (no SDK
-// change needed, Resend's HTTP API works the same from any server runtime).
+// of D1 (which Vercel can't reach). Emails now go via the same Zoho Mail SMTP account
+// /api/support uses (see lib/mail/zoho.ts) rather than Resend, which this project isn't
+// using — was a raw-fetch call to Resend's HTTP API before this migration.
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -47,37 +49,39 @@ export async function POST(request: Request) {
 }
 
 async function sendEmails(email: string): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY;
-  const fromEmail = process.env.WAITLIST_FROM_EMAIL ?? "Twofold <hello@twofoldapp.com.au>";
   const notifyEmail = process.env.WAITLIST_NOTIFY_EMAIL ?? "hello@twofoldapp.com.au";
-  if (!apiKey) {
-    console.warn("[waitlist] RESEND_API_KEY not set — skipping confirmation emails");
+
+  let mailer: ReturnType<typeof createZohoTransport>;
+  try {
+    mailer = createZohoTransport();
+  } catch (err) {
+    // Best-effort, same as before: the signup itself already succeeded (the insert above),
+    // so a missing/misconfigured mail setup shouldn't fail the request — just log it.
+    console.warn("[waitlist] Zoho SMTP not configured — skipping confirmation emails:", (err as Error).message);
     return;
   }
+  const { transport, from } = mailer;
 
-  const send = (payload: Record<string, unknown>) =>
-    fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-  const results = await Promise.allSettled([
-    send({
-      from: fromEmail,
-      to: email,
-      subject: "You're on the Twofold Android waitlist",
-      html: "<p>Thanks for your interest in Twofold!</p><p>We're building the Android version next — we'll email this address the moment it's ready to download.</p><p>— The Twofold team</p>",
-    }),
-    send({
-      from: fromEmail,
-      to: notifyEmail,
-      subject: "New Twofold Android waitlist signup",
-      html: `<p>New signup: ${escapeHtml(email)}</p>`,
-    }),
-  ]);
-  for (const result of results) {
-    if (result.status === "rejected") console.error("[waitlist] email send failed:", result.reason);
+  try {
+    const results = await Promise.allSettled([
+      transport.sendMail({
+        from,
+        to: email,
+        subject: "You're on the Twofold Android waitlist",
+        html: "<p>Thanks for your interest in Twofold!</p><p>We're building the Android version next — we'll email this address the moment it's ready to download.</p><p>— The Twofold team</p>",
+      }),
+      transport.sendMail({
+        from,
+        to: notifyEmail,
+        subject: "New Twofold Android waitlist signup",
+        html: `<p>New signup: ${escapeHtml(email)}</p>`,
+      }),
+    ]);
+    for (const result of results) {
+      if (result.status === "rejected") console.error("[waitlist] email send failed:", result.reason);
+    }
+  } finally {
+    transport.close();
   }
 }
 

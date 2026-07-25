@@ -1395,6 +1395,52 @@ section {
 }
 
 /* ============================================================
+   Support form — src/components/marketing/SupportForm.tsx (/support)
+   ============================================================ */
+
+.support-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  text-align: left;
+}
+.support-field label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+.support-field input,
+.support-field select,
+.support-field textarea {
+  width: 100%;
+  border: 1px solid var(--border-soft);
+  background: var(--card-bg-alt);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  color: var(--ink);
+  outline: none;
+  transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+.support-field textarea {
+  resize: vertical;
+  min-height: 140px;
+  line-height: 1.5;
+}
+.support-field input:focus,
+.support-field select:focus,
+.support-field textarea:focus {
+  border-color: var(--sky-blue);
+  box-shadow: 0 0 0 4px rgba(79, 169, 224, 0.14);
+}
+.support-form .btn {
+  align-self: flex-start;
+}
+
+/* ============================================================
    Footer — src/components/layout/SiteFooter.tsx (shared with the board group)
    ============================================================ */
 

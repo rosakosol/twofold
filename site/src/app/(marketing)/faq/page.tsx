@@ -9,9 +9,9 @@ export const metadata: Metadata = {
   description: "Answers to common questions about Twofold: platforms, subscriptions, billing, privacy, and how partner connections work.",
 };
 
-// The footer's "Manage subscription" link (components/layout/SiteFooter.tsx) points at
-// /faq#subscriptions — matched by category label, not a fixed category id, since faq_entries'
-// category column is free text rather than a Sanity-style fixed enum.
+// Deep-link anchor for the subscriptions/billing FAQ group — matched by category label, not a
+// fixed category id, since faq_entries' category column is free text rather than a Sanity-style
+// fixed enum.
 const SUBSCRIPTIONS_ANCHOR_LABEL = "Subscriptions & billing";
 
 export default async function FaqPage() {
