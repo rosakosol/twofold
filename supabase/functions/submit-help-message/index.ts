@@ -5,7 +5,7 @@
 // so Services/SupportMail.swift and its mailto: flow are gone.
 //
 // Requires a real signed-in user (`Authorization: Bearer <user access token>`) — same reasoning
-// as moderate-name/parse-flight-email: this triggers an outbound third-party call with no other
+// as parse-flight-email: this triggers an outbound third-party call with no other
 // rate-limiting, so it must never be reachable with just the publishable/anon key.
 //
 // Requires these Supabase secrets — sending fails with a 500 until they're set:

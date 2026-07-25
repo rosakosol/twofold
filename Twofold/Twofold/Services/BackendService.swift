@@ -1619,8 +1619,8 @@ enum BackendService {
         return rows.map { $0.toModel() }
     }
 
-    /// Mirrors `subscribeToFlightUpdates` — a Realtime channel of newly-inserted provider
-    /// events, written server-side by the AeroAPI sync pipeline.
+    /// A Realtime channel of newly-inserted provider events, written server-side by the
+    /// AeroAPI sync pipeline.
     static func subscribeToFlightStatusEvents(flightID: UUID) -> (channel: RealtimeChannelV2, stream: AsyncStream<FlightStatusEvent>) {
         let channel = supabase.channel("flight_status_events_\(flightID.uuidString)")
         let insertions = channel.postgresChange(
@@ -1998,76 +1998,6 @@ enum BackendService {
             .update(TripIDUpdate(tripId: tripID))
             .eq("id", value: memoryID)
             .execute()
-    }
-
-    // MARK: - Flight updates (self-reported)
-
-    private struct FlightUpdateRow: Decodable {
-        var id: UUID
-        var kind: FlightUpdateKind
-        var note: String?
-        var createdAt: Date
-
-        enum CodingKeys: String, CodingKey {
-            case id, kind, note
-            case createdAt = "created_at"
-        }
-    }
-
-    private struct FlightUpdateInsert: Encodable {
-        var flightId: UUID
-        var kind: FlightUpdateKind
-        var note: String?
-        var createdBy: UUID
-
-        enum CodingKeys: String, CodingKey {
-            case kind, note
-            case flightId = "flight_id"
-            case createdBy = "created_by"
-        }
-    }
-
-    static func fetchFlightUpdates(flightID: UUID) async throws -> [FlightUpdate] {
-        let rows: [FlightUpdateRow] = try await supabase
-            .from("flight_updates")
-            .select()
-            .eq("flight_id", value: flightID)
-            .order("created_at", ascending: false)
-            .execute()
-            .value
-        return rows.map { FlightUpdate(id: $0.id, kind: $0.kind, note: $0.note, createdAt: $0.createdAt) }
-    }
-
-    static func insertFlightUpdate(flightID: UUID, kind: FlightUpdateKind, note: String?) async throws {
-        guard let userID = currentUserID else { throw BackendError.notAuthenticated }
-        try await supabase
-            .from("flight_updates")
-            .insert(FlightUpdateInsert(flightId: flightID, kind: kind, note: note, createdBy: userID))
-            .execute()
-    }
-
-    /// Opens a Realtime channel and streams newly-inserted updates for one flight. The caller
-    /// owns the channel's lifetime and must pass it to `supabase.removeChannel(_:)` when the
-    /// screen watching it disappears.
-    static func subscribeToFlightUpdates(flightID: UUID) -> (channel: RealtimeChannelV2, stream: AsyncStream<FlightUpdate>) {
-        let channel = supabase.channel("flight_updates_\(flightID.uuidString)")
-        let insertions = channel.postgresChange(
-            InsertAction.self,
-            table: "flight_updates",
-            filter: .eq("flight_id", value: flightID.uuidString)
-        )
-
-        let (stream, continuation) = AsyncStream<FlightUpdate>.makeStream()
-        Task {
-            try? await channel.subscribeWithError()
-            for await insertion in insertions {
-                guard let row = try? insertion.decodeRecord(as: FlightUpdateRow.self, decoder: AnyJSON.decoder) else { continue }
-                continuation.yield(FlightUpdate(id: row.id, kind: row.kind, note: row.note, createdAt: row.createdAt))
-            }
-            continuation.finish()
-        }
-
-        return (channel, stream)
     }
 
     static func unsubscribe(_ channel: RealtimeChannelV2) async {
@@ -2735,7 +2665,7 @@ enum BackendService {
             .execute()
     }
 
-    /// Mirrors `subscribeToFlightUpdates`, but the stream deliberately carries no payload —
+    /// Unlike `subscribeToFlightStatusEvents`, this stream deliberately carries no payload —
     /// per the reveal design, the client always re-fetches via the RLS-protected select on any
     /// change rather than trusting realtime payload contents for sensitive round data.
     static func subscribeToGameSession(id: UUID) -> (channel: RealtimeChannelV2, stream: AsyncStream<Void>) {
