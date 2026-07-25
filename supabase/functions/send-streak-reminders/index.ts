@@ -80,13 +80,29 @@ Deno.serve(async (req) => {
       .in("profile_id", allowedPartnerIds);
     if (!tokens || tokens.length === 0) continue;
 
+    // A streak in progress is worth naming explicitly — losing it is the whole reason to
+    // answer today, so that's a stronger nudge than the generic copy below. current_streak
+    // still reflects the streak as of the couple's last answered day (advance_game_session
+    // only resets it once a day is actually missed), so it's exactly "the streak they stand
+    // to lose if they skip today."
+    const { data: streakRow } = await serviceClient
+      .from("daily_streaks")
+      .select("current_streak")
+      .eq("couple_id", couple.id)
+      .maybeSingle();
+    const currentStreak = streakRow?.current_streak ?? 0;
+
+    const body = currentStreak > 0
+      ? `You're on a ${currentStreak} day streak — answer today's question to keep it going 🔥`
+      : "Today's question is waiting — answer it before the day ends.";
+
     for (const token of tokens) {
       try {
         await sendAPNs(
           token.apns_token,
           token.environment,
           "Keep your streak going",
-          "Today's question is waiting — answer it before the day ends.",
+          body,
         );
       } catch (err) {
         console.error("[send-streak-reminders] sendAPNs threw:", (err as Error).message);
