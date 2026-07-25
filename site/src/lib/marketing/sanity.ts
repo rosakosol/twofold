@@ -37,33 +37,29 @@ export async function getHero(): Promise<HeroDoc | null> {
 }
 
 export interface FeatureDoc {
+  slug?: string;
   title?: string;
   teaserDescription?: string;
   detailDescription?: string;
   bullets?: string[];
+  icon?: string;
+  tone?: string;
 }
 
-export async function getFeature(slug: string): Promise<FeatureDoc | null> {
-  return sanityClient.fetch(
-    `*[_id == $id][0]{ title, teaserDescription, detailDescription, bullets }`,
-    { id: `feature-${slug}` },
-    { next: { revalidate: SANITY_REVALIDATE_SECONDS } }
+// Features are a free-form list, not fixed slots — editors add, remove, rename, and
+// reorder them in Studio, so this returns the whole `feature` collection in `order`
+// rather than looking up a known set of IDs. An empty result (nothing published yet)
+// means the caller falls back to FEATURES_FALLBACK wholesale; see featuresFallback.ts.
+export async function getFeatures(): Promise<FeatureDoc[]> {
+  return (
+    (await sanityClient.fetch(
+      `*[_type == "feature" && defined(slug.current)] | order(coalesce(order, 9999) asc, title asc){
+        "slug": slug.current, title, teaserDescription, detailDescription, bullets, icon, tone
+      }`,
+      {},
+      { next: { revalidate: SANITY_REVALIDATE_SECONDS } }
+    )) ?? []
   );
-}
-
-export async function getFeatures(slugs: readonly string[]): Promise<Record<string, FeatureDoc>> {
-  const ids = slugs.map((slug) => `feature-${slug}`);
-  const docs: (FeatureDoc & { _id: string })[] = await sanityClient.fetch(
-    `*[_id in $ids]{ _id, title, teaserDescription, detailDescription, bullets }`,
-    { ids },
-    { next: { revalidate: SANITY_REVALIDATE_SECONDS } }
-  );
-  const bySlug: Record<string, FeatureDoc> = {};
-  for (const doc of docs) {
-    const slug = doc._id.replace(/^feature-/, "");
-    bySlug[slug] = doc;
-  }
-  return bySlug;
 }
 
 // FAQ used to be fetched from here (getFaqItems/FaqItemDoc) — retired along with Sanity's

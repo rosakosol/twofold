@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Reveal } from "@/components/marketing/Reveal";
 import { getFeatures } from "@/lib/marketing/sanity";
-import { featureWithFallback, FEATURE_ICON, FEATURE_TONE } from "@/lib/marketing/featuresFallback";
-import { FEATURE_SLUGS, type FeatureSlug } from "@/lib/marketing/config";
+import { resolveFeatures, type ResolvedFeature } from "@/lib/marketing/featuresFallback";
 
 export const metadata: Metadata = {
   title: "Features",
@@ -11,8 +10,12 @@ export const metadata: Metadata = {
     "Everything Twofold gives long-distance couples: a shared 3D relationship globe, live flight tracking, memories tied to real places, couple games, widgets, and a printable relationship record.",
 };
 
-function FeatureArt({ slug }: { slug: FeatureSlug }) {
-  switch (slug) {
+// Hand-built illustration per feature, keyed by slug. Features themselves are editable in
+// Studio (add/remove/rename/reorder), but the artwork is bespoke JSX — so a feature added
+// there, or one whose slug was changed, renders the generic card at the bottom until
+// someone adds a matching `case` here.
+function FeatureArt({ feature }: { feature: ResolvedFeature }) {
+  switch (feature.slug) {
     case "relationship-globe":
       return (
         <div className="phone-mock">
@@ -123,11 +126,29 @@ function FeatureArt({ slug }: { slug: FeatureSlug }) {
           </div>
         </div>
       );
+    default:
+      return (
+        <div className="mock-card" style={{ maxWidth: 220 }}>
+          <div className="mock-card-row">
+            <span className="icon-dot" style={{ background: "var(--sky-blue)" }}>
+              <svg className="icon">
+                <use href={`/assets/icons.svg#${feature.icon}`} />
+              </svg>
+            </span>
+            <div style={{ fontWeight: 700, fontSize: 14 }}>{feature.title}</div>
+          </div>
+          <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+            <div className="mock-line" style={{ width: "90%" }} />
+            <div className="mock-line" style={{ width: "70%" }} />
+            <div className="mock-line" style={{ width: "80%" }} />
+          </div>
+        </div>
+      );
   }
 }
 
 export default async function FeaturesPage() {
-  const docs = await getFeatures(FEATURE_SLUGS);
+  const features = resolveFeatures(await getFeatures());
 
   return (
     <>
@@ -146,14 +167,13 @@ export default async function FeaturesPage() {
 
       <section style={{ paddingTop: 30 }}>
         <div className="wrap">
-          {FEATURE_SLUGS.map((slug, index) => {
-            const feature = featureWithFallback(slug, docs[slug]);
+          {features.map((feature, index) => {
             return (
-              <Reveal key={slug} className={`feature-row${index % 2 === 1 ? " flip" : ""}`}>
+              <Reveal key={feature.slug} className={`feature-row${index % 2 === 1 ? " flip" : ""}`}>
                 <div className="fr-text">
-                  <div className={`icon-badge ${FEATURE_TONE[slug]}`}>
+                  <div className={`icon-badge ${feature.tone}`}>
                     <svg className="icon">
-                      <use href={`/assets/icons.svg#${FEATURE_ICON[slug]}`} />
+                      <use href={`/assets/icons.svg#${feature.icon}`} />
                     </svg>
                   </div>
                   <h2>{feature.title}</h2>
@@ -170,7 +190,7 @@ export default async function FeaturesPage() {
                   </ul>
                 </div>
                 <div className="media-frame">
-                  <FeatureArt slug={slug} />
+                  <FeatureArt feature={feature} />
                 </div>
               </Reveal>
             );

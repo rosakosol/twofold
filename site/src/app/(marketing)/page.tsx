@@ -5,15 +5,17 @@ import { WaitlistForm } from "@/components/marketing/WaitlistForm";
 import { RelationshipQuiz } from "@/components/marketing/RelationshipQuiz";
 import { isQuizPlayable } from "@/lib/marketing/quiz";
 import { getHero, getFeatures, getQuizQuestions, getQuizResults } from "@/lib/marketing/sanity";
-import { APP_STORE_URL, FEATURE_SLUGS } from "@/lib/marketing/config";
+import { resolveFeatures } from "@/lib/marketing/featuresFallback";
+import { APP_STORE_URL } from "@/lib/marketing/config";
 
 export default async function HomePage() {
   const [hero, featureDocs, quizQuestions, quizResults] = await Promise.all([
     getHero(),
-    getFeatures(FEATURE_SLUGS),
+    getFeatures(),
     getQuizQuestions(),
     getQuizResults(),
   ]);
+  const features = resolveFeatures(featureDocs);
 
   const headline = hero?.headline || "See how far you've gone\nfor each other.";
   const eyebrow = hero?.eyebrow || "Built for long-distance couples";
@@ -178,7 +180,7 @@ export default async function HomePage() {
             </p>
             <h2 id="features-heading">Built around the two of you</h2>
           </Reveal>
-          <FeatureTeaserGrid docs={featureDocs} />
+          <FeatureTeaserGrid features={features} />
         </div>
       </section>
 

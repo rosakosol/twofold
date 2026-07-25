@@ -1,32 +1,24 @@
-import type { FeatureSlug } from "@/lib/marketing/config";
 import type { FeatureDoc } from "@/lib/marketing/sanity";
 
-// Icon/tone are readOnly in the Sanity schema (feature.ts) — fixed per slot, not
-// editor-controlled — so they live here as plain data rather than coming from Sanity.
-// Shared by both the home page's teaser grid and features/page.tsx's detail sections
-// (the old site had this duplicated across cms-home.js/cms-features.js; consolidated).
-export const FEATURE_ICON: Record<FeatureSlug, string> = {
-  "relationship-globe": "icon-globe",
-  "live-flight-tracking": "icon-plane",
-  memories: "icon-pin",
-  "couple-games": "icon-gamepad",
-  "widgets-live-activities": "icon-grid",
-  "relationship-record": "icon-file-download",
-};
+export interface ResolvedFeature {
+  slug: string;
+  title: string;
+  teaserDescription: string;
+  detailDescription: string;
+  bullets: string[];
+  /** Symbol id in public/assets/icons.svg, e.g. "icon-globe". */
+  icon: string;
+  /** CSS class on the icon chip, e.g. "tone-sky". */
+  tone: string;
+}
 
-export const FEATURE_TONE: Record<FeatureSlug, string> = {
-  "relationship-globe": "tone-sky",
-  "live-flight-tracking": "tone-sky",
-  memories: "tone-red",
-  "couple-games": "tone-green",
-  "widgets-live-activities": "tone-ink",
-  "relationship-record": "tone-sky",
-};
-
-// Ported verbatim from the old static features.html / index.html — used per-feature
-// only when Sanity has nothing published for that feature's fixed document id yet.
-export const FEATURES_FALLBACK: Record<FeatureSlug, Required<Pick<FeatureDoc, "title" | "teaserDescription" | "detailDescription" | "bullets">>> = {
-  "relationship-globe": {
+// Used only when Sanity has no `feature` documents published at all — copy ported
+// verbatim from the old static features.html / index.html. Once anything is published,
+// Sanity is the whole list (including how many features there are and their order), so
+// this is a cold-start safety net rather than a per-field default.
+export const FEATURES_FALLBACK: ResolvedFeature[] = [
+  {
+    slug: "relationship-globe",
     title: "Relationship Globe",
     teaserDescription:
       "An interactive 3D globe showing both of you — your current distance apart, and every trip you've taken to close it.",
@@ -37,8 +29,11 @@ export const FEATURES_FALLBACK: Record<FeatureSlug, Required<Pick<FeatureDoc, "t
       "Rotate and zoom into cities to explore memories",
       "Every reunion trip draws a new line across your shared history",
     ],
+    icon: "icon-globe",
+    tone: "tone-sky",
   },
-  "live-flight-tracking": {
+  {
+    slug: "live-flight-tracking",
     title: "Live Flight Tracking",
     teaserDescription: "Follow each other's flights in real time — status, gate, delays, and a notification the moment they land.",
     detailDescription:
@@ -48,8 +43,11 @@ export const FEATURES_FALLBACK: Record<FeatureSlug, Required<Pick<FeatureDoc, "t
       "“Landed” notifications the moment they're on the ground",
       "Live Activity on the Lock Screen for the whole flight",
     ],
+    icon: "icon-plane",
+    tone: "tone-sky",
   },
-  memories: {
+  {
+    slug: "memories",
     title: "Memories",
     teaserDescription: "Save photos and moments to the exact places they happened, building a map of your shared story.",
     detailDescription:
@@ -59,8 +57,11 @@ export const FEATURES_FALLBACK: Record<FeatureSlug, Required<Pick<FeatureDoc, "t
       "Revisit memories by zooming into the globe",
       "Private to your relationship — never public",
     ],
+    icon: "icon-pin",
+    tone: "tone-red",
   },
-  "couple-games": {
+  {
+    slug: "couple-games",
     title: "Couple Games",
     teaserDescription: "Bite-sized questions and games built for two, made to close the distance even when apart.",
     detailDescription:
@@ -70,8 +71,11 @@ export const FEATURES_FALLBACK: Record<FeatureSlug, Required<Pick<FeatureDoc, "t
       "Play async — answer whenever you both have a moment",
       "New topics and decks added regularly",
     ],
+    icon: "icon-gamepad",
+    tone: "tone-green",
   },
-  "widgets-live-activities": {
+  {
+    slug: "widgets-live-activities",
     title: "Widgets & Live Activities",
     teaserDescription: "Keep your relationship on your Home Screen and Lock Screen, always in view.",
     detailDescription:
@@ -81,8 +85,11 @@ export const FEATURES_FALLBACK: Record<FeatureSlug, Required<Pick<FeatureDoc, "t
       "Live Activities for in-progress flights",
       "More widget styles unlocked on Premium",
     ],
+    icon: "icon-grid",
+    tone: "tone-ink",
   },
-  "relationship-record": {
+  {
+    slug: "relationship-record",
     title: "Relationship Record",
     teaserDescription: "Export a beautifully laid-out PDF keepsake of every trip, memory, and mile you've travelled for each other.",
     detailDescription:
@@ -92,15 +99,39 @@ export const FEATURES_FALLBACK: Record<FeatureSlug, Required<Pick<FeatureDoc, "t
       "Beautifully designed, ready to print",
       "Included with Twofold Premium",
     ],
+    icon: "icon-file-download",
+    tone: "tone-sky",
   },
-};
+];
 
-export function featureWithFallback(slug: FeatureSlug, doc: FeatureDoc | undefined) {
-  const fallback = FEATURES_FALLBACK[slug];
-  return {
-    title: doc?.title || fallback.title,
-    teaserDescription: doc?.teaserDescription || fallback.teaserDescription,
-    detailDescription: doc?.detailDescription || fallback.detailDescription,
-    bullets: doc?.bullets && doc.bullets.length === 3 ? doc.bullets : fallback.bullets,
-  };
+const DEFAULT_ICON = "icon-sparkle";
+const DEFAULT_TONE = "tone-sky";
+
+/**
+ * Turns whatever Sanity returned into the list the pages render. A doc missing an
+ * optional field falls back to the same-slug entry above where one exists (so an editor
+ * blanking a field doesn't leave a hole), and to a generic icon/tone for brand-new
+ * features that have no counterpart in code.
+ */
+export function resolveFeatures(docs: FeatureDoc[]): ResolvedFeature[] {
+  if (!docs.length) return FEATURES_FALLBACK;
+
+  return docs.flatMap((doc) => {
+    const slug = doc.slug;
+    // Belt-and-braces: the GROQ query already filters undefined slugs, and the schema
+    // requires one — but a slug is what keys the illustration, so never render without.
+    if (!slug) return [];
+    const fallback = FEATURES_FALLBACK.find((f) => f.slug === slug);
+    return [
+      {
+        slug,
+        title: doc.title || fallback?.title || slug,
+        teaserDescription: doc.teaserDescription || fallback?.teaserDescription || "",
+        detailDescription: doc.detailDescription || fallback?.detailDescription || "",
+        bullets: doc.bullets?.length ? doc.bullets : fallback?.bullets ?? [],
+        icon: doc.icon ? `icon-${doc.icon}` : fallback?.icon ?? DEFAULT_ICON,
+        tone: doc.tone ? `tone-${doc.tone}` : fallback?.tone ?? DEFAULT_TONE,
+      },
+    ];
+  });
 }

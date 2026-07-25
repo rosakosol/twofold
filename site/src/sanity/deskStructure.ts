@@ -1,21 +1,11 @@
 import type {StructureResolver} from 'sanity/structure'
 
-// "hero", each of the 6 features, the two legal pages, and the two quiz results are all
-// singletons (exactly one document per fixed ID) — the site's HTML has a fixed number of
-// slots for each (one hero, 6 feature cards, 2 legal pages, 2 quiz outcomes), so this is
-// copy-only editing, not a free-form list editors add to or remove from. Document IDs
-// here must match what site/assets/js/cms*.js queries by. Quiz questions are the one
-// genuinely free-form list left here — FAQ moved to its own custom tool (see config.ts's
-// `tools` entry), since it's no longer a Sanity document type at all.
-const FEATURES = [
-  {id: 'feature-relationship-globe', title: 'Relationship Globe'},
-  {id: 'feature-live-flight-tracking', title: 'Live Flight Tracking'},
-  {id: 'feature-memories', title: 'Memories'},
-  {id: 'feature-couple-games', title: 'Couple Games'},
-  {id: 'feature-widgets-live-activities', title: 'Widgets & Live Activities'},
-  {id: 'feature-relationship-record', title: 'Relationship Record'},
-]
-
+// "hero", the two legal pages, the two plans, and the two quiz results are singletons
+// (exactly one document per fixed ID) — the site has a fixed number of slots for each
+// (one hero, 2 legal pages, 2 plans, 2 quiz outcomes), so those are copy-only editing.
+// Features and quiz questions are free-form lists editors add to and remove from, so
+// they get a plain document list instead. FAQ moved to its own custom tool (see
+// config.ts's `tools` entry), since it's no longer a Sanity document type at all.
 const LEGAL_PAGES = [
   {id: 'legalPage-privacy', title: 'Privacy Policy'},
   {id: 'legalPage-terms', title: 'Terms of Use'},
@@ -44,18 +34,7 @@ export const structure: StructureResolver = (S) =>
       S.divider(),
       S.listItem()
         .title('Features')
-        .child(
-          S.list()
-            .title('Features')
-            .items(
-              FEATURES.map(({id, title}) =>
-                S.listItem()
-                  .title(title)
-                  .id(id)
-                  .child(S.document().schemaType('feature').documentId(id))
-              )
-            )
-        ),
+        .child(S.documentTypeList('feature').title('Features').defaultOrdering([{field: 'order', direction: 'asc'}])),
       S.listItem()
         .title('Pricing Plans')
         .child(

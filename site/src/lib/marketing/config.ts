@@ -74,13 +74,7 @@ export const PLANS: Record<"plus" | "premium", Plan> = {
   },
 };
 
-export const FEATURE_SLUGS = [
-  "relationship-globe",
-  "live-flight-tracking",
-  "memories",
-  "couple-games",
-  "widgets-live-activities",
-  "relationship-record",
-] as const;
-
-export type FeatureSlug = (typeof FEATURE_SLUGS)[number];
+// FEATURE_SLUGS/FeatureSlug used to live here, back when the feature cards were a fixed
+// set of six slots. Features are now a free-form Sanity list (add/remove/rename/reorder
+// in Studio), so the list and its order come from the CMS — see
+// src/lib/marketing/featuresFallback.ts for the cold-start fallback copy.
