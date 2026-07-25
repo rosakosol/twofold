@@ -19,6 +19,7 @@ struct SignInView: View {
     var onUseInvite: (() -> Void)?
 
     @Environment(AppModel.self) private var appModel
+    @Environment(OnboardingModel.self) private var onboarding
     @Environment(\.dismiss) private var dismiss
 
     @State private var email = ""
@@ -97,6 +98,7 @@ struct SignInView: View {
                         AppleGoogleSignInButtons(
                             onSuccess: { _, _ in Task { await finishSignIn() } },
                             onError: { errorMessage = $0 },
+                            onAccountDeleted: { handleAccountDeleted() },
                             isSubmitting: $isSubmitting
                         )
 
@@ -135,7 +137,11 @@ struct SignInView: View {
                 try await BackendService.signIn(email: email, password: password)
                 await finishSignIn()
             } catch {
-                errorMessage = error.localizedDescription
+                if case BackendError.accountDeleted = error {
+                    handleAccountDeleted()
+                } else {
+                    errorMessage = error.localizedDescription
+                }
                 isSubmitting = false
             }
         }
@@ -146,11 +152,32 @@ struct SignInView: View {
     /// `MainTabView`, tearing this sheet's presenter down along with it.
     private func finishSignIn() async {
         await appModel.loadSignedInState()
+        // Defense in depth for a stale/resumed session specifically — a *fresh* sign-in
+        // attempt is already rejected earlier now (`BackendService`'s sign-in methods each
+        // throw `.accountDeleted` before ever reaching here), which is what `signInWithPassword`
+        // and the Apple/Google `onAccountDeleted` callback above actually handle.
+        if appModel.accountDeletedMessage != nil {
+            handleAccountDeleted()
+            return
+        }
         isSubmitting = false
+    }
+
+    /// Redirects straight into a fresh onboarding flow instead of leaving this sheet showing a
+    /// dead-end error — see `OnboardingModel.resetAfterDeletedAccount()`. `WelcomeView` shows
+    /// `appModel.accountDeletedMessage` once as a friendly alert after this sheet dismisses.
+    private func handleAccountDeleted() {
+        if appModel.accountDeletedMessage == nil {
+            appModel.accountDeletedMessage = "That account has been deleted. Create a new account to keep using Twofold."
+        }
+        onboarding.resetAfterDeletedAccount()
+        isSubmitting = false
+        dismiss()
     }
 }
 
 #Preview {
     SignInView()
         .environment(AppModel())
+        .environment(OnboardingModel())
 }

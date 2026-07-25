@@ -8,9 +8,11 @@ import MapKit
 
 struct WelcomeView: View {
     @Environment(OnboardingModel.self) private var onboarding
+    @Environment(AppModel.self) private var appModel
 
     @State private var showingSignIn = false
     @State private var iconPulsing = false
+    @State private var accountDeletedAlert: String?
 
     // Centered further east/south than a plain Europe/Africa view so Australia is in frame
     // alongside Asia and Africa; distance bumped up slightly to fit that wider span.
@@ -144,10 +146,29 @@ struct WelcomeView: View {
                 }
             )
         }
+        .onAppear {
+            // Covers the cold-launch path: a stale local session from before this account was
+            // deleted just got silently signed back out by `loadSignedInState()`, landing here
+            // rather than resuming straight into the app. Read once and clear, same as
+            // `SignInView`'s explicit sign-in path.
+            if let message = appModel.accountDeletedMessage {
+                accountDeletedAlert = message
+                appModel.accountDeletedMessage = nil
+            }
+        }
+        .alert("Account deleted", isPresented: Binding(
+            get: { accountDeletedAlert != nil },
+            set: { if !$0 { accountDeletedAlert = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(accountDeletedAlert ?? "")
+        }
     }
 }
 
 #Preview {
     WelcomeView()
         .environment(OnboardingModel())
+        .environment(AppModel())
 }

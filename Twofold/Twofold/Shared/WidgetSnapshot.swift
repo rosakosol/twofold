@@ -142,4 +142,11 @@ struct WidgetSnapshot: Codable {
         guard let data = defaults?.data(forKey: key) else { return nil }
         return try? JSONDecoder().decode(WidgetSnapshot.self, from: data)
     }
+
+    /// Called on sign-out — without this, Home Screen widgets and Live Activities kept showing
+    /// the signed-out account's (and their partner's) name, city, anniversary date, and upcoming
+    /// trip/flight until a different account signed in and overwrote this key.
+    static func clear() {
+        defaults?.removeObject(forKey: key)
+    }
 }

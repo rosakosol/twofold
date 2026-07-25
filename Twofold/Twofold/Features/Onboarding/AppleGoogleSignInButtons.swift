@@ -18,6 +18,10 @@ struct AppleGoogleSignInButtons: View {
     /// when available so the caller can use it if it doesn't have a better one already.
     var onSuccess: (_ userID: UUID, _ providedFirstName: String?) -> Void
     var onError: (String) -> Void
+    /// Called instead of `onError` specifically when the resolved identity belongs to a
+    /// previously-deleted account (`BackendError.accountDeleted`) — callers redirect straight
+    /// into a fresh onboarding flow rather than showing an inline error for this one case.
+    var onAccountDeleted: () -> Void = {}
     @Binding var isSubmitting: Bool
 
     @State private var currentAppleNonce: String = ""
@@ -84,7 +88,11 @@ struct AppleGoogleSignInButtons: View {
                 guard let userID = BackendService.currentUserID else { throw BackendError.notAuthenticated }
                 onSuccess(userID, credential.fullName?.givenName)
             } catch {
-                onError(error.localizedDescription)
+                if case BackendError.accountDeleted = error {
+                    onAccountDeleted()
+                } else {
+                    onError(error.localizedDescription)
+                }
             }
             isSubmitting = false
         }
@@ -112,7 +120,11 @@ struct AppleGoogleSignInButtons: View {
                 let userID = try await BackendService.signInWithGoogle()
                 onSuccess(userID, nil)
             } catch {
-                onError(error.localizedDescription)
+                if case BackendError.accountDeleted = error {
+                    onAccountDeleted()
+                } else {
+                    onError(error.localizedDescription)
+                }
             }
             isSubmitting = false
         }

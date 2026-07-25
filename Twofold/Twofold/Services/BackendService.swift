@@ -18,6 +18,8 @@ enum BackendError: LocalizedError {
     case placeLookupFailed
     case avatarURLFailed
     case providerNotConfigured
+    case requestFailed(message: String?)
+    case accountDeleted
 
     var errorDescription: String? {
         switch self {
@@ -25,6 +27,8 @@ enum BackendError: LocalizedError {
         case .placeLookupFailed: "Couldn't resolve that city."
         case .avatarURLFailed: "Couldn't get a URL for that photo."
         case .providerNotConfigured: "This sign-in option isn't set up yet."
+        case .requestFailed(let message): message ?? "Something went wrong. Please try again."
+        case .accountDeleted: "This account has been deleted and can't be used to sign in. Create a new account to keep using Twofold."
         }
     }
 }
@@ -41,19 +45,38 @@ enum BackendService {
             data: ["first_name": .string(firstName)]
         )
         Analytics.capture(Analytics.Event.accountCreate, properties: ["method": "email"])
-        if let session = response.session {
-            return session
+        let session: Session
+        if let responseSession = response.session {
+            session = responseSession
+        } else {
+            // Confirmations are disabled for this project, so a session should always come back
+            // immediately; fall back to an explicit sign-in just in case that ever changes.
+            session = try await supabase.auth.signIn(email: email, password: password)
         }
-        // Confirmations are disabled for this project, so a session should always come back
-        // immediately; fall back to an explicit sign-in just in case that ever changes.
-        return try await supabase.auth.signIn(email: email, password: password)
+        try await rejectIfAccountDeleted()
+        return session
     }
 
     @discardableResult
     static func signIn(email: String, password: String) async throws -> Session {
         let session = try await supabase.auth.signIn(email: email, password: password)
+        try await rejectIfAccountDeleted()
         Analytics.capture(Analytics.Event.signIn, properties: ["method": "email"])
         return session
+    }
+
+    /// Shared guard for every sign-in/sign-up entry point in this section — Supabase's soft
+    /// delete (`delete_own_account()`/the `delete-account` Edge Function) doesn't reliably block
+    /// a *fresh* sign-in: email/password can still authenticate against the not-actually-removed
+    /// `auth.users` row, and Apple/Google's id-token exchange looks up an existing `auth.identities`
+    /// row by provider subject, which soft delete never touches either. Every path that just
+    /// established a session checks this immediately and signs back out rather than letting a
+    /// scrubbed, deleted profile ever be adopted — `AppModel.loadSignedInState()` has the
+    /// equivalent guard for a *resumed* (not freshly established) session.
+    private static func rejectIfAccountDeleted() async throws {
+        guard await currentAccountIsDeleted() else { return }
+        try? await supabase.auth.signOut()
+        throw BackendError.accountDeleted
     }
 
     /// Never throws for "no account with that email" — Supabase deliberately responds the same
@@ -90,6 +113,7 @@ enum BackendService {
         let session = try await supabase.auth.signInWithIdToken(
             credentials: OpenIDConnectCredentials(provider: .apple, idToken: idToken, nonce: nonce)
         )
+        try await rejectIfAccountDeleted()
         Analytics.capture(Analytics.Event.signIn, properties: ["method": "apple"])
         return session
     }
@@ -144,6 +168,7 @@ enum BackendService {
                 nonce: nonce
             )
         )
+        try await rejectIfAccountDeleted()
         guard let userID = currentUserID else { throw BackendError.notAuthenticated }
         Analytics.capture(Analytics.Event.signIn, properties: ["method": "google"])
         return userID
@@ -198,6 +223,61 @@ enum BackendService {
 
     static func signOut() async throws {
         try await supabase.auth.signOut()
+    }
+
+    /// Permanently deletes this account — calls the `delete-account` Edge Function (needs the
+    /// service-role key to soft-delete the `auth.users` row, so it can't be done directly from
+    /// the client). See that function's and `delete_own_account()`'s own doc comments for why
+    /// this is a careful scoped cleanup rather than a blunt cascade delete: any couple this
+    /// profile is part of is dissolved (not destroyed), so a partner's shared trip/memory
+    /// history is never lost just because the other person deleted their own account.
+    static func deleteAccount() async throws {
+        guard let accessToken = currentAccessToken else { throw BackendError.notAuthenticated }
+
+        var request = URLRequest(url: SupabaseConfig.projectURL.appendingPathComponent("functions/v1/delete-account"))
+        request.httpMethod = "POST"
+        request.setValue(SupabaseConfig.publishableKey, forHTTPHeaderField: "apiKey")
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else { throw BackendError.requestFailed(message: nil) }
+        guard (200..<300).contains(http.statusCode) else {
+            struct ErrorResponse: Decodable { var error: String? }
+            let message = (try? JSONDecoder().decode(ErrorResponse.self, from: data))?.error
+            throw BackendError.requestFailed(message: message)
+        }
+
+        // supabase-swift keeps the refresh token in the Keychain across relaunches (see
+        // `restoreSession()`), so without this the device stays silently signed in on a fully
+        // valid local session even though the server-side account is gone — the app would
+        // just resume straight back into the now-scrubbed profile. `auth.admin.deleteUser`'s
+        // soft delete alone isn't enough to prevent that; it only marks `deleted_at` on
+        // `auth.users`, it doesn't revoke an already-issued session.
+        try? await supabase.auth.signOut()
+    }
+
+    /// True if this account was scrubbed by `delete_own_account()`. A backstop against the fact
+    /// that Supabase Auth's soft delete doesn't reliably block a *fresh* sign-in — in particular,
+    /// the Apple/Google id-token exchange looks up an existing `auth.identities` row by provider
+    /// subject, which soft delete doesn't touch, so it can resolve straight back to the same
+    /// deleted `auth.users` row and hand back a valid session. `AppModel.loadSignedInState()`
+    /// calls this right after any session is established (launch restore, password sign-in, or
+    /// Apple/Google sign-in) and signs back out immediately if it's true, rather than letting a
+    /// deleted, scrubbed profile actually load.
+    static func currentAccountIsDeleted() async -> Bool {
+        guard let userID = currentUserID else { return false }
+        struct Row: Decodable {
+            var accountDeletedAt: String?
+            enum CodingKeys: String, CodingKey { case accountDeletedAt = "account_deleted_at" }
+        }
+        let rows: [Row]? = try? await supabase
+            .from("profiles")
+            .select("account_deleted_at")
+            .eq("id", value: userID)
+            .limit(1)
+            .execute()
+            .value
+        return rows?.first?.accountDeletedAt != nil
     }
 
     /// Everything about a solo (pre-pairing) user worth restoring on relaunch: their own
@@ -2268,7 +2348,7 @@ enum BackendService {
 
     private struct GameSessionRow: Decodable {
         var id: UUID
-        var coupleId: UUID
+        var coupleId: UUID?
         var gameType: GameType
         var initiatorId: UUID
         var status: GameSessionStatus

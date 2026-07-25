@@ -11,11 +11,21 @@ import Observation
 import PostHog
 import RevenueCat
 import Supabase
+import WidgetKit
 
 @Observable
 final class AppModel {
     var isLoadingSession = true
     var hasCouple: Bool = false
+    /// Set by `loadSignedInState()` when it finds a session belonging to an already-deleted
+    /// account and signs it back out. `SignInView`/`WelcomeView` read this once to show the
+    /// user why they landed back at sign-in instead of their previous session resuming.
+    var accountDeletedMessage: String?
+    /// Set by `adoptSoloProfile(_:)` whenever it fires while the couple was still considered
+    /// connected a moment ago — a partner removing you, or a partner deleting their own account,
+    /// look identical from here. `HomeView` reads this once to explain why Trips/Memories/
+    /// Flights just went quiet, instead of letting them silently empty out with no context.
+    var partnerDisconnectedMessage: String?
     var couple: Couple = AppModel.placeholderCouple
     var trips: [Trip] = []
     var memories: [Memory] = []
@@ -89,6 +99,10 @@ final class AppModel {
     /// presents `ReviewPromptView` as a sheet whenever this is non-nil. See
     /// `checkReviewMilestones()`/`noteReviewMilestone(_:)`.
     var pendingReviewMilestone: ReviewMilestone?
+
+    /// RootView presents `PartnerInviteNudgeView` as a sheet whenever this is true — see
+    /// `noteSoloActionCompleted()`.
+    var pendingPartnerInviteNudge = false
 
     /// Set once a real `couples` row exists for this user.
     private var backendCoupleID: UUID?
@@ -226,6 +240,16 @@ final class AppModel {
     /// leaving a solo (unpaired) user to fall back into onboarding just because
     /// `fetchCoupleState` found nothing.
     func loadSignedInState() async {
+        // Backstop for a soft-deleted account whose session (or whose Apple/Google identity)
+        // can still resolve to a signed-in state — see `BackendService.currentAccountIsDeleted()`.
+        // Must run before anything else touches profile/couple state, so a scrubbed, deleted
+        // account is never actually adopted and shown.
+        if await BackendService.currentAccountIsDeleted() {
+            try? await BackendService.signOut()
+            accountDeletedMessage = "This account has been deleted and can't be signed back into. Create a new account to keep using Twofold."
+            isLoadingSession = false
+            return
+        }
         await retryPendingPushTokenRegistrationIfNeeded()
         await identifyWithRevenueCat()
         identifyWithPostHog()
@@ -280,6 +304,10 @@ final class AppModel {
     /// discarded along with the dissolved couple's data.
     private func adoptSoloProfile(_ profile: BackendService.OwnProfileState) async {
         await stopFlightsRealtimeSubscription()
+        if partnerConnected {
+            let name = couple.partnerB.name.isEmpty ? "your partner" : couple.partnerB.name
+            partnerDisconnectedMessage = "We're sorry — your connection with \(name) has ended. Nothing has been deleted; your shared trips, memories, and flights are still there, safe and yours to look back on or export anytime from Settings."
+        }
         partnerConnected = false
         backendCoupleID = nil
         trips = trips.filter { pendingTripIDs.contains($0.id) }
@@ -373,8 +401,33 @@ final class AppModel {
     func signOut() async {
         await stopFlightsRealtimeSubscription()
         try? await BackendService.signOut()
+        await clearLocalSessionState()
+    }
+
+    /// Permanently deletes this account (see `BackendService.deleteAccount()`'s doc comment for
+    /// exactly what that does server-side) and clears local state the same way `signOut()`
+    /// does — the account is gone either way, so the device needs to end up in the same signed-
+    /// out state. Rethrows so the caller (the confirmation screen) can show a real error instead
+    /// of silently doing nothing if the request fails.
+    func deleteAccount() async throws {
+        await stopFlightsRealtimeSubscription()
+        try await BackendService.deleteAccount()
+        await clearLocalSessionState()
+    }
+
+    /// Shared by `signOut()` and `deleteAccount()` — both end with the device in the same
+    /// signed-out state, whether the account still exists (just logged out of) or not (deleted).
+    private func clearLocalSessionState() async {
         _ = try? await Purchases.shared.logOut()
         PostHogSDK.shared.reset()
+        // Without this, Home Screen widgets and Live Activities kept showing the signed-out
+        // account's (and their partner's) name, photos, anniversary date, and upcoming trip/
+        // flight until a different account signed in and overwrote them — none of this was
+        // previously cleared by sign-out at all.
+        await LiveActivityManager.shared.endAll()
+        WidgetSnapshot.clear()
+        WidgetImageCache.clearAll()
+        WidgetCenter.shared.reloadAllTimelines()
         hasCouple = false
         partnerConnected = false
         inviteCode = nil
@@ -577,6 +630,15 @@ final class AppModel {
     func noteReviewMilestone(_ milestone: ReviewMilestone) {
         guard pendingReviewMilestone == nil, ReviewPromptService.markShownIfEligible(milestone) else { return }
         pendingReviewMilestone = milestone
+    }
+
+    /// Call after a solo (unpaired) user finishes adding a trip/memory or completes a game —
+    /// surfaces `PartnerInviteNudgeView` at most once a day. No-ops once paired, since there's
+    /// nothing left to invite anyone to.
+    func noteSoloActionCompleted() {
+        guard !partnerConnected, PartnerInviteNudgeService.isEligibleToday() else { return }
+        pendingPartnerInviteNudge = true
+        PartnerInviteNudgeService.markShown()
     }
 
     // MARK: - Games: Daily Activity + topic browsing

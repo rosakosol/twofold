@@ -10,6 +10,7 @@ struct RootView: View {
     @Environment(AppModel.self) private var appModel
     @Environment(\.scenePhase) private var scenePhase
     @State private var subscriptionStore = SubscriptionStore()
+    @State private var appLock = AppLockService()
     /// Drives the foreground-triggered "where am I now" refresh that replaced the old one-time
     /// manual home-city picker — see `refreshCurrentCityIfNeeded()`.
     @State private var currentCityService = HomeLocationService()
@@ -26,6 +27,7 @@ struct RootView: View {
     @State private var recordDeepLink: WidgetDeepLink.Destination?
 
     var body: some View {
+        ZStack {
         Group {
             if appModel.isLoadingSession {
                 ZStack {
@@ -82,6 +84,8 @@ struct RootView: View {
                 }
                 Task { await refreshPendingOutgoingConnectionRequestIfNeeded() }
                 refreshCurrentCityIfNeeded()
+            } else if newPhase == .background {
+                appLock.lock()
             }
         }
         .onChange(of: currentCityService.state) { _, newState in
@@ -175,6 +179,23 @@ struct RootView: View {
             ReviewPromptView(milestone: milestone)
                 .postHogScreenView("Review Prompt")
         }
+        // Same suppression reasoning as the review prompt above — never compete with the
+        // partner-connected celebration or the review prompt for the same sheet slot.
+        .sheet(isPresented: partnerInviteNudgeBinding) {
+            PartnerInviteNudgeView()
+                .postHogScreenView("Partner Invite Nudge")
+        }
+
+        // On top of everything above (including the loading spinner) rather than gated behind
+        // `hasCouple`/`isLoadingSession` — `appLock.isLocked` already starts pre-set from the
+        // persisted preference before this view's first render, so nothing sensitive ever has a
+        // frame to flash on screen before this covers it.
+        if appLock.isEnabled && appLock.isLocked {
+            AppLockView(appLock: appLock)
+                .transition(.opacity)
+                .zIndex(1)
+        }
+        }
     }
 
     /// Only ever called for the three cases actually assigned to `recordDeepLink`
@@ -228,6 +249,23 @@ struct RootView: View {
         Binding(
             get: { showingPartnerConnectedCelebration ? nil : appModel.pendingReviewMilestone },
             set: { appModel.pendingReviewMilestone = $0 }
+        )
+    }
+
+    /// Same suppression chain as `reviewPromptBinding` above, one step further down: never
+    /// compete with the partner-connected celebration or an already-queued review prompt for
+    /// the same sheet slot. In practice these two rarely collide (the review prompt's
+    /// `partnerConnected`-gated milestones can't fire for a solo user), except `.firstGameResults`
+    /// — reachable solo now — which is exactly the case this exists to resolve in the review
+    /// prompt's favor.
+    private var partnerInviteNudgeBinding: Binding<Bool> {
+        Binding(
+            get: {
+                appModel.pendingPartnerInviteNudge
+                    && !showingPartnerConnectedCelebration
+                    && appModel.pendingReviewMilestone == nil
+            },
+            set: { appModel.pendingPartnerInviteNudge = $0 }
         )
     }
 

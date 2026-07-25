@@ -457,6 +457,12 @@ struct AddMemoryView: View {
                 if let linkToTrip {
                     await appModel.linkMemory(memory, to: linkToTrip)
                 }
+                // Only outside onboarding's mandatory first-memory step (`isDismissable ==
+                // false` there) — that flow already has its own dedicated, better-placed
+                // invite-partner screen later on, so this would just be a redundant prompt.
+                if isDismissable {
+                    appModel.noteSoloActionCompleted()
+                }
             }
             isSaving = false
             onSaved?()

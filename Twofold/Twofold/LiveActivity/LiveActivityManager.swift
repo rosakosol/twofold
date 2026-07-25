@@ -70,6 +70,16 @@ final class LiveActivityManager {
         }
     }
 
+    /// Called on sign-out — ends every Live Activity this device is currently running, so the
+    /// Lock Screen/Dynamic Island don't keep showing the signed-out account's flight after
+    /// sign-out. Reuses `endActivity`'s own teardown (local end, bookkeeping cleanup, and
+    /// unregistering the server-side push token) for each one still running.
+    func endAll() async {
+        for (flightID, activity) in runningActivities {
+            await endActivity(activity, flightID: flightID)
+        }
+    }
+
     private func startActivity(for flight: Flight, travelerName: String, isReunion: Bool) async {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
         let attributes = flight.makeJourneyActivityAttributes(travelerName: travelerName)

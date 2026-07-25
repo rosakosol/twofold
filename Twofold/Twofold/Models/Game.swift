@@ -108,6 +108,14 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
         }
     }
 
+    /// Only More Likely is unplayable solo — its answer is literally the UUID of *which
+    /// partner* is more likely, so the question has no meaning without a second real person.
+    /// The other three have an objective answer (Trivia), a private pick with no partner
+    /// needed to record it (This or That), or free text (Deep Conversations) — all can be
+    /// started and answered solo, with results/comparison unlocking once a partner joins.
+    /// `start_deck_session`/`get_daily_question_session` enforce this same rule server-side.
+    var requiresPartner: Bool { self == .moreLikely }
+
     var durationMinutes: Int {
         switch self {
         case .triviaBattle: 12
@@ -153,7 +161,10 @@ enum GameSessionStatus: String, Codable, Hashable {
 
 struct GameSession: Identifiable, Hashable {
     let id: UUID
-    var coupleID: UUID
+    /// Nil for a solo (unpaired) session — see `start_deck_session`/`get_daily_question_session`'s
+    /// solo branch. Reattached to a real couple by `respond_to_connection_request` the moment
+    /// the session's initiator pairs up.
+    var coupleID: UUID?
     var gameType: GameType
     var initiatorID: UUID
     var status: GameSessionStatus

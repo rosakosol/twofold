@@ -31,6 +31,8 @@
 	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>Twofold uses your camera to capture boarding passes and travel documents.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Twofold can use Face ID to keep your relationship private if someone else picks up your phone.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Twofold uses your location to automatically set your city so we can show accurate timezones, weather, and distance with your partner.</string>
 	<key>NSSupportsLiveActivities</key>

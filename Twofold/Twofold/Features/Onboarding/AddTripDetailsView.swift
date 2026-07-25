@@ -209,6 +209,12 @@ struct AddTripDetailsView: View {
                 flightCandidate: selectedFlightCandidate
             )
             isSaving = false
+            // Only post-onboarding — during onboarding itself there's already a dedicated,
+            // better-placed invite-partner screen later in that flow, so this would just be a
+            // redundant, competing prompt.
+            if mode == .standalone {
+                appModel.noteSoloActionCompleted()
+            }
             onSave(trip)
         }
     }
