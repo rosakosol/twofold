@@ -63,12 +63,23 @@ struct RootView: View {
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
-                Task { await checkSubscription() }
-                // Previously only HomeView (inside MainTabView) ever re-checked couple state on
-                // foreground — meaning someone stuck on `PendingConnectionApprovalView` (below;
-                // never mounts MainTabView) had no way to discover their request being accepted
-                // short of force-quitting. This covers that, and is harmless/no-op otherwise.
-                Task { await appModel.refreshCoupleStateIfNeeded() }
+                // Sequential in one `Task`, not two separate concurrent ones — both
+                // `checkSubscription()` and `refreshCoupleStateIfNeeded()` independently touch
+                // Supabase's auth/session layer, and firing them at the same time on every single
+                // foreground (compounded by `HomeView`'s own foreground refreshes doing the same,
+                // see its doc comment) is what a live crash report traced a main-thread hang and
+                // eventual watchdog kill back to — many concurrent callers all contending for the
+                // SDK's internal auth-session lock at once. One after another still keeps both
+                // fresh on every foreground, just without the pile-up.
+                Task {
+                    await checkSubscription()
+                    // Previously only HomeView (inside MainTabView) ever re-checked couple state
+                    // on foreground — meaning someone stuck on `PendingConnectionApprovalView`
+                    // (below; never mounts MainTabView) had no way to discover their request
+                    // being accepted short of force-quitting. This covers that, and is harmless/
+                    // no-op otherwise.
+                    await appModel.refreshCoupleStateIfNeeded()
+                }
                 Task { await refreshPendingOutgoingConnectionRequestIfNeeded() }
                 refreshCurrentCityIfNeeded()
             }

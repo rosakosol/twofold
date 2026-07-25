@@ -128,7 +128,16 @@ struct HomeView: View {
             .onChange(of: scenePhase) { _, newPhase in
                 if newPhase == .active {
                     refreshPendingShares()
-                    Task { await appModel.refreshCoupleStateIfNeeded() }
+                    // Not `refreshCoupleStateIfNeeded()` here too — `RootView`'s own
+                    // `onChange(of: scenePhase)` already calls it at the app root on every
+                    // foreground, and since `HomeView` only ever mounts once that's already
+                    // resolved `MainTabView`, both fired concurrently on *every single*
+                    // foreground. Piled on top of `checkSubscription()` (also fired from
+                    // `RootView` on the same event) and this view's own `refreshFlights()`/
+                    // `refreshWeatherIfNeeded()` below, that meant several concurrent calls all
+                    // hitting Supabase's auth/session layer at once on every foreground — the
+                    // real cause behind an occasional main-thread hang/watchdog kill traced back
+                    // to `AuthClient.session` lock contention in a live crash report.
                     Task { await appModel.refreshFlights() }
                     Task { await refreshWeatherIfNeeded() }
                     if appModel.needsPartnerInvite {

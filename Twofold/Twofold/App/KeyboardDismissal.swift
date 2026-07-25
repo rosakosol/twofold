@@ -37,6 +37,6 @@ enum KeyboardDismissal {
 
 private extension UIWindow {
     @objc func twofold_dismissKeyboard() {
-        sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 }
