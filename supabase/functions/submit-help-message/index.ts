@@ -167,15 +167,20 @@ Deno.serve(async (req) => {
     return Response.json({ error: "Couldn't send your message — please try again" }, { status: 502 });
   } finally {
     // denomailer holds the TCP connection open otherwise, which keeps the isolate alive until
-    // it's forcibly reaped. `close()` returns undefined rather than a promise when the connection
-    // never came up (an auth failure, say), so this can't chain `.catch` onto it — and because a
-    // throw from `finally` discards the pending return, doing so replaced the 502 above with an
-    // opaque 500 exactly when the send had already failed and the caller most needed the reason.
-    try {
-      await client?.close();
-    } catch {
-      // Nothing to clean up — the connection either never opened or is already gone.
-    }
+    // it's forcibly reaped. Two hazards make this more delicate than it looks, and `finally`
+    // punishes both — whatever happens here supersedes the returns above, so a throw or a hang
+    // is reported to the caller as a failure even though the mail has already gone out:
+    //   - `close()` returns undefined rather than a promise when the connection never came up
+    //     (an auth failure, say), so it can't be treated as a promise unconditionally.
+    //   - when the connection *did* come up it can block indefinitely, waiting on a server
+    //     goodbye Zoho doesn't reliably send. That stalls the request until the runtime kills
+    //     it, and the caller sees a non-2xx with no error body.
+    // So: normalise to a promise, swallow rejections, and cap the wait. Leaking the socket for
+    // the isolate's remaining lifetime is much cheaper than misreporting a successful send.
+    await Promise.race([
+      Promise.resolve(client?.close()).catch(() => {}),
+      new Promise((resolve) => setTimeout(resolve, 2000)),
+    ]);
   }
 
   return Response.json({ success: true });
