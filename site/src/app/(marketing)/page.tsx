@@ -2,11 +2,18 @@ import Link from "next/link";
 import { Reveal } from "@/components/marketing/Reveal";
 import { FeatureTeaserGrid } from "@/components/marketing/FeatureTeaserGrid";
 import { WaitlistForm } from "@/components/marketing/WaitlistForm";
-import { getHero, getFeatures, getResolvedPlans } from "@/lib/marketing/sanity";
+import { RelationshipQuiz } from "@/components/marketing/RelationshipQuiz";
+import { isQuizPlayable } from "@/lib/marketing/quiz";
+import { getHero, getFeatures, getQuizQuestions, getQuizResults } from "@/lib/marketing/sanity";
 import { APP_STORE_URL, FEATURE_SLUGS } from "@/lib/marketing/config";
 
 export default async function HomePage() {
-  const [hero, featureDocs, plans] = await Promise.all([getHero(), getFeatures(FEATURE_SLUGS), getResolvedPlans()]);
+  const [hero, featureDocs, quizQuestions, quizResults] = await Promise.all([
+    getHero(),
+    getFeatures(FEATURE_SLUGS),
+    getQuizQuestions(),
+    getQuizResults(),
+  ]);
 
   const headline = hero?.headline || "See how far you've gone\nfor each other.";
   const eyebrow = hero?.eyebrow || "Built for long-distance couples";
@@ -54,7 +61,7 @@ export default async function HomePage() {
                   <strong>App&nbsp;Store</strong>
                 </span>
               </a>
-              <Link className="btn btn-primary btn-lg hide-on-mobile" href="/pricing">
+              <Link className="btn btn-primary btn-lg hide-on-mobile" href="#quiz">
                 Get started
                 <svg className="icon">
                   <use href="/assets/icons.svg#icon-arrow-right" />
@@ -224,68 +231,30 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section aria-labelledby="pricing-teaser-heading">
-        <div className="wrap">
-          <Reveal className="section-head">
-            <p className="eyebrow">
-              <svg className="icon">
-                <use href="/assets/icons.svg#icon-sparkle" />
-              </svg>
-              Pricing
-            </p>
-            <h2 id="pricing-teaser-heading">One subscription, shared by both of you</h2>
-            <p style={{ marginTop: 12 }}>Either partner&apos;s subscription unlocks the full experience for you both.</p>
-          </Reveal>
-          <div className="price-grid">
-            <Reveal as="article" className={`card price-card${plans.plus.featured ? " feature" : ""}`}>
-              {plans.plus.featured && <span className="price-tag">Most popular</span>}
-              <h3>{plans.plus.name}</h3>
-              <p className="plan-sub">{plans.plus.tagline}</p>
-              <div className="price-amt">
-                <span className="n">{plans.plus.yearly.perMonthLabel}</span>
-                <span className="per">/mo, billed yearly</span>
-              </div>
-              <p className="price-alt">or {plans.plus.monthly.priceLabel}/month</p>
-              <ul className="check-list">
-                {plans.plus.features.slice(1, 4).map((feature) => (
-                  <li key={feature}>
-                    <svg className="icon">
-                      <use href="/assets/icons.svg#icon-check" />
-                    </svg>
-                    {feature}
-                  </li>
-                ))}
-              </ul>
-              <Link className={`btn ${plans.plus.featured ? "btn-primary" : "btn-ghost"}`} href="/pricing">
-                Choose Plus
-              </Link>
-            </Reveal>
-            <Reveal as="article" className={`card price-card${plans.premium.featured ? " feature" : ""}`} data-delay="90">
-              {plans.premium.featured && <span className="price-tag">Most popular</span>}
-              <h3>{plans.premium.name}</h3>
-              <p className="plan-sub">{plans.premium.tagline}</p>
-              <div className="price-amt">
-                <span className="n">{plans.premium.yearly.perMonthLabel}</span>
-                <span className="per">/mo, billed yearly</span>
-              </div>
-              <p className="price-alt">or {plans.premium.monthly.priceLabel}/month</p>
-              <ul className="check-list">
-                {plans.premium.features.slice(0, 3).map((feature) => (
-                  <li key={feature}>
-                    <svg className="icon">
-                      <use href="/assets/icons.svg#icon-check" />
-                    </svg>
-                    {feature}
-                  </li>
-                ))}
-              </ul>
-              <Link className={`btn ${plans.premium.featured ? "btn-primary" : "btn-ghost"}`} href="/pricing">
-                Choose Premium
+      {isQuizPlayable(quizQuestions) ? (
+        <RelationshipQuiz questions={quizQuestions} results={quizResults} />
+      ) : (
+        // Same #quiz anchor id even when there's no playable quiz yet, so the hero's
+        // "Get started" button (which scrolls to #quiz) always lands somewhere useful
+        // instead of silently going nowhere.
+        <section id="quiz" aria-labelledby="quiz-teaser-heading">
+          <div className="wrap quiz-teaser-wrap">
+            <Reveal className="card quiz-teaser-card">
+              <p className="eyebrow" style={{ justifyContent: "center" }}>
+                <svg className="icon">
+                  <use href="/assets/icons.svg#icon-sparkle" />
+                </svg>
+                Find your fit
+              </p>
+              <h2 id="quiz-teaser-heading">Not sure which plan is right for you?</h2>
+              <p>Our quick quiz is almost ready — for now, take a look at what each plan includes.</p>
+              <Link href="/pricing" className="btn btn-white btn-lg">
+                See pricing
               </Link>
             </Reveal>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       <section id="waitlist" aria-labelledby="waitlist-heading">
         <div className="wrap waitlist-wrap">

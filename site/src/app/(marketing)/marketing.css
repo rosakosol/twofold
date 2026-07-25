@@ -977,8 +977,7 @@ section {
    ============================================================ */
 
 .quiz-card {
-  max-width: 560px;
-  margin: 0 auto;
+  width: 100%;
   background: var(--card-bg);
   border-radius: var(--radius-lg);
   padding: 40px 36px;
@@ -1185,24 +1184,6 @@ section {
   display: none;
 }
 
-/* Quiz teaser, directly below the plan grid — deliberately a saturated gradient card
-   (unlike .cta-band elsewhere, which is a plain white card on purpose) so it visually
-   breaks from the two plan cards above it and reads as "a different kind of decision
-   than picking a plan." */
-.quiz-teaser-card {
-  background: linear-gradient(160deg, var(--heart-red), var(--heart-red-deep));
-  border-color: rgba(255, 255, 255, 0.25);
-  text-align: center;
-}
-.quiz-teaser-card h3 {
-  color: #fff;
-  margin-bottom: 10px;
-}
-.quiz-teaser-card p {
-  color: rgba(255, 255, 255, 0.88);
-  margin-bottom: 24px;
-}
-
 .pricing-foot {
   text-align: center;
   padding: 20px 0 0;
@@ -1344,6 +1325,40 @@ section {
   margin: 0 auto 26px;
   color: var(--subtle-ink);
 }
+
+/* Quiz teaser (home page, in place of the old pricing preview) — deliberately a
+   saturated gradient card (unlike .cta-band elsewhere, which is a plain white card on
+   purpose) so it visually breaks from the rest of the page and reads as "a different
+   kind of decision than picking a plan." Mirrors .waitlist-wrap/.waitlist-card's own
+   structure just above. */
+.quiz-teaser-wrap {
+  max-width: 560px;
+  margin: 0 auto;
+  text-align: center;
+}
+.quiz-teaser-card {
+  background: linear-gradient(160deg, var(--heart-red), var(--heart-red-deep));
+  border-color: rgba(255, 255, 255, 0.25);
+  padding: 44px;
+  text-align: center;
+}
+.quiz-teaser-card h2 {
+  color: #fff;
+  margin: 14px 0 12px;
+}
+.quiz-teaser-card p {
+  color: rgba(255, 255, 255, 0.88);
+  max-width: 440px;
+  margin: 0 auto 26px;
+}
+.quiz-teaser-card .eyebrow {
+  color: rgba(255, 255, 255, 0.85);
+}
+.quiz-teaser-card .eyebrow::before {
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.25);
+}
+
 .waitlist-form,
 .field-row {
   display: flex;

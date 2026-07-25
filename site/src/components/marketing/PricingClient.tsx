@@ -1,7 +1,6 @@
 "use client";
 
 import { Suspense, useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { PLANS } from "@/lib/marketing/config";
@@ -280,14 +279,6 @@ function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: Resol
                   <PlanCard plan={plans.premium} period={period} buyingKey={buyingKey} onBuy={attemptPurchase} />
                 </div>
               </div>
-
-              <Reveal className="card quiz-teaser-card" style={{ marginTop: 28, maxWidth: 560, marginLeft: "auto", marginRight: "auto" }}>
-                <h3>Not sure which plan is right for you?</h3>
-                <p>Take our 60-second quiz and we&apos;ll point you to the plan that fits how you two do long distance.</p>
-                <Link href="/quiz" className="btn btn-white btn-lg">
-                  Take the quiz
-                </Link>
-              </Reveal>
 
               {purchaseError && (
                 <p className="form-status" data-state="error" style={{ textAlign: "center", marginTop: 20 }}>

@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useReveal } from "@/hooks/useReveal";
+import { isQuizPlayable } from "@/lib/marketing/quiz";
 import type { QuizQuestionDoc, QuizResultDoc } from "@/lib/marketing/sanity";
 
 const LEAN_WEIGHTS: Record<string, number> = {
@@ -62,7 +63,7 @@ export function RelationshipQuiz({
 
   // Every hook above must run unconditionally on every render (Rules of Hooks), so the
   // "not enough content to show a quiz" bail-out has to come after them, not before.
-  const isPlayable = questions.length >= 2 && questions.every((q) => q.options.length >= 2);
+  const isPlayable = isQuizPlayable(questions);
 
   const plan: "plus" | "premium" = useMemo(() => {
     const score = answers.reduce((sum, lean) => sum + (LEAN_WEIGHTS[lean] ?? 0), 0);
@@ -99,7 +100,7 @@ export function RelationshipQuiz({
 
   return (
     <section id="quiz" aria-labelledby="quiz-heading">
-      <div className="wrap-narrow">
+      <div className="wrap">
         <div ref={headReveal} className="section-head reveal">
           <p className="eyebrow">
             <svg className="icon">
