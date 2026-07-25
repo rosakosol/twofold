@@ -54,5 +54,5 @@ struct PassportShareView: View {
 }
 
 #Preview {
-    PassportShareView(stats: FlightStats(trips: MockData.trips, couple: MockData.couple))
+    PassportShareView(stats: FlightStats(flights: MockData.trips.flatMap(\.flights), trips: MockData.trips, couple: MockData.couple))
 }

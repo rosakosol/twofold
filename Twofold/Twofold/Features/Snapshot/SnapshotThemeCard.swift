@@ -11,6 +11,7 @@ import UIKit
 struct SnapshotThemeCard: View {
     let couple: Couple
     let trips: [Trip]
+    let flights: [Flight]
     let stats: MockData.RelationshipStats
     let theme: SnapshotTheme
     /// Real satellite Earth imagery for the `.earth` theme, generated once by the caller via
@@ -19,7 +20,7 @@ struct SnapshotThemeCard: View {
     var earthGlobeImage: UIImage? = nil
 
     private var flightStats: FlightStats {
-        FlightStats(trips: trips, couple: couple)
+        FlightStats(flights: flights, trips: trips, couple: couple)
     }
 
     var body: some View {
@@ -115,5 +116,5 @@ struct SnapshotThemeCard: View {
 }
 
 #Preview {
-    SnapshotThemeCard(couple: MockData.couple, trips: [], stats: MockData.stats, theme: .classic)
+    SnapshotThemeCard(couple: MockData.couple, trips: [], flights: [], stats: MockData.stats, theme: .classic)
 }

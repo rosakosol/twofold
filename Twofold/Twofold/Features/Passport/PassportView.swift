@@ -29,9 +29,15 @@ struct PassportView: View {
 
     /// `FlightStatsCard`'s own scope — deliberately the current user alone, not the couple
     /// combined (that framing already lives on `RelationshipStatsCard` above it). Matches "your
-    /// own travel" the way flight stats are personal, not a shared/couple figure.
+    /// own travel" the way flight stats are personal, not a shared/couple figure. Scoped by each
+    /// flight's own `travelerIDs` (not a linked trip's), so it's accurate regardless of whether
+    /// that flight has a trip at all.
     private var flightStats: FlightStats {
-        FlightStats(trips: appModel.trips.filter { $0.travelerIDs.contains(appModel.currentUser.id) }, couple: appModel.couple)
+        FlightStats(
+            flights: appModel.flights.filter { $0.travelerIDs.contains(appModel.currentUser.id) },
+            trips: appModel.trips,
+            couple: appModel.couple
+        )
     }
 
     private var relationshipStats: RelationshipMilestoneStats {
@@ -102,6 +108,8 @@ private struct FullStatsView: View {
     @Environment(\.displayScale) private var displayScale
     @State private var scope: StatScope = .all
 
+    /// Only for `hero`'s reunion-distance figure below, which is genuinely a trip-level concept
+    /// ("reunion trip") — `stats` itself is scoped by `scopedFlights`, not this.
     private var scopedTrips: [Trip] {
         switch scope {
         case .all: appModel.trips
@@ -110,8 +118,18 @@ private struct FullStatsView: View {
         }
     }
 
+    /// Scoped by each flight's own `travelerIDs` — independent of whether that flight has a
+    /// linked trip, or what that trip's own (separate) `travelerIDs` says.
+    private var scopedFlights: [Flight] {
+        switch scope {
+        case .all: appModel.flights
+        case .user: appModel.flights.filter { $0.travelerIDs.contains(appModel.currentUser.id) }
+        case .partner: appModel.flights.filter { $0.travelerIDs.contains(appModel.partner.id) }
+        }
+    }
+
     private var stats: FlightStats {
-        FlightStats(trips: scopedTrips, couple: appModel.couple)
+        FlightStats(flights: scopedFlights, trips: appModel.trips, couple: appModel.couple)
     }
 
     var body: some View {
@@ -368,10 +386,9 @@ private struct FullStatsView: View {
 
 // MARK: - Flight stats math
 
-/// Everything the passport card, snapshot card, and full-stats page show, computed from
-/// real trips — every field here, including `countries`, counts only trips that have a flight
-/// actually attached, so "All Flight Stats" never mixes in a trip that was just planned/logged
-/// with no real tracked flight behind it.
+/// Everything the passport card, snapshot card, and full-stats page show, computed from real
+/// tracked flights — a flight counts here whether or not it has a linked trip (see `init`'s own
+/// doc comment for exactly which fields need a trip anyway, and why).
 struct FlightStats {
     struct Ranked: Identifiable {
         let name: String
@@ -402,60 +419,60 @@ struct FlightStats {
     /// Flights longer than this count as long haul.
     private static let longHaulKm = 4_000.0
 
-    init(trips: [Trip], couple: Couple) {
-        let flightTrips = trips.filter { !$0.flights.isEmpty }
+    /// `flights` drives every stat except domestic/international/countries — a tracked flight
+    /// counts here whether or not it's linked to a trip, and regardless of that trip's own
+    /// `travelerIDs` (this used to be built from `trips` alone, which meant a standalone flight
+    /// never counted at all, and a trip-linked one silently didn't count for whichever partner
+    /// wasn't marked as a *trip* traveler even if they were correctly marked as a *flight*
+    /// traveler — two independent fields that were never kept in sync). `trips` is passed
+    /// separately purely as a lookup table: domestic/international/countries need a real country,
+    /// which a raw `Flight`/`FlightAirport` (an AeroAPI or self-reported snapshot) never carries —
+    /// only a linked trip's own curated `Place` does. A flight with no trip, or whose trip isn't
+    /// in `trips`, simply doesn't contribute to those three specific breakdowns; every other stat
+    /// below still counts it fully.
+    init(flights: [Flight], trips: [Trip], couple: Couple) {
+        flightCount = flights.count
+        userFlightCount = flights.count { $0.travelerIDs.contains(couple.partnerA.id) }
+        partnerFlightCount = flights.count { $0.travelerIDs.contains(couple.partnerB.id) }
 
-        // Per leg, not per trip — a trip with a connecting itinerary or a round trip (outbound +
-        // return, each its own tracked `Flight`) is genuinely two-or-more flights, not one. Using
-        // `flightTrips.count` here previously meant "Flights" quietly measured how many *trips*
-        // had a flight attached rather than how many flights were actually flown, so a couple
-        // with three round-trip vacations (six real flights) saw "Flights: 3" while every other
-        // breakdown below (airports, airlines, routes) already counted all six legs — the two
-        // numbers looked like they disagreed because one was counting trips and the other flights.
-        flightCount = flightTrips.reduce(0) { $0 + $1.flights.count }
-        userFlightCount = flightTrips.filter { $0.travelerIDs.contains(couple.partnerA.id) }.reduce(0) { $0 + $1.flights.count }
-        partnerFlightCount = flightTrips.filter { $0.travelerIDs.contains(couple.partnerB.id) }.reduce(0) { $0 + $1.flights.count }
-        domesticCount = flightTrips.count { $0.origin.country == $0.destination.country }
-        internationalCount = flightTrips.count { $0.origin.country != $0.destination.country }
-        // `effectiveDistanceKm` (not the raw trip `distanceKm`) so a connecting itinerary's real
-        // flown distance counts — see Trip.effectiveDistanceKm.
-        longHaulCount = flightTrips.count { $0.effectiveDistanceKm > Self.longHaulKm }
+        // Each linked trip counted once (not once per leg) — matches how a trip's own stated
+        // origin/destination represents the *overall* journey, same granularity `hero`'s
+        // reunion-distance figure elsewhere in this file uses.
+        let tripsByID = Dictionary(uniqueKeysWithValues: trips.map { ($0.id, $0) })
+        let linkedTrips = Set(flights.compactMap(\.tripID)).compactMap { tripsByID[$0] }
+        domesticCount = linkedTrips.count { $0.origin.country == $0.destination.country }
+        internationalCount = linkedTrips.count { $0.origin.country != $0.destination.country }
+        countries = Self.ranked(linkedTrips.flatMap { [$0.origin.country, $0.destination.country] })
 
-        totalDistanceKm = flightTrips.reduce(0) { $0 + $1.effectiveDistanceKm }
-        averageDistanceKm = flightTrips.isEmpty ? 0 : totalDistanceKm / Double(flightTrips.count)
+        // Each flight's own great-circle distance, not a trip's `effectiveDistanceKm` — "long
+        // haul" is naturally about a single flight, and a standalone long flight with no trip
+        // attached obviously still qualifies.
+        let flightDistances = flights.compactMap { flight -> Double? in
+            guard let origin = flight.origin.coordinate, let destination = flight.destination.coordinate else { return nil }
+            return Geo.distanceKm(origin, destination)
+        }
+        longHaulCount = flightDistances.count { $0 > Self.longHaulKm }
+        totalDistanceKm = flightDistances.reduce(0, +)
+        averageDistanceKm = flightDistances.isEmpty ? 0 : totalDistanceKm / Double(flightDistances.count)
 
-        // Per leg, from each flight's own scheduled/actual times — a trip's `departureDate`/
-        // `arrivalDate` span the whole vacation (e.g. a 14-day trip), not how long any single
-        // flight was actually in the air, which is what "Flight time" is supposed to mean. Using
-        // the trip's own dates here was the bug behind a one-flight trip showing "336h" (=14
-        // days) as its flight time instead of the real ~15-hour flight duration.
-        let durations = flightTrips.flatMap { trip in
-            trip.flights.compactMap { flight -> TimeInterval? in
-                guard let departure = flight.bestDeparture, let arrival = flight.bestArrival, arrival > departure else { return nil }
-                return arrival.timeIntervalSince(departure)
-            }
+        // From each flight's own scheduled/actual times — a trip's `departureDate`/`arrivalDate`
+        // span the whole vacation (e.g. a 14-day trip), not how long any single flight was
+        // actually in the air, which is what "Flight time" is supposed to mean.
+        let durations = flights.compactMap { flight -> TimeInterval? in
+            guard let departure = flight.bestDeparture, let arrival = flight.bestArrival, arrival > departure else { return nil }
+            return arrival.timeIntervalSince(departure)
         }
         totalFlightTime = durations.reduce(0, +)
         averageFlightTime = durations.isEmpty ? 0 : totalFlightTime / Double(durations.count)
         longestFlightTime = durations.max() ?? 0
 
-        // Per-leg, not per-trip — a connecting itinerary (Melbourne → Singapore → London) really
-        // did touch Singapore's airport and may well have flown two different airlines, neither
-        // of which the trip's own stated origin/destination alone would surface.
-        airports = Self.ranked(flightTrips.flatMap { trip in
-            trip.flights.flatMap { [$0.origin.displayCode, $0.destination.displayCode] }
+        airports = Self.ranked(flights.flatMap { [$0.origin.displayCode, $0.destination.displayCode] })
+        airlines = Self.ranked(flights.compactMap { flight -> String? in
+            let code = flight.flightNumber.prefix { $0.isLetter }
+            return code.isEmpty ? nil : code.uppercased()
         })
-        airlines = Self.ranked(flightTrips.flatMap { trip in
-            trip.flights.compactMap { flight -> String? in
-                let code = flight.flightNumber.prefix { $0.isLetter }
-                return code.isEmpty ? nil : code.uppercased()
-            }
-        })
-        routes = Self.ranked(flightTrips.flatMap { trip in
-            // Direction-agnostic per leg, so MEL → SIN and SIN → MEL count as one route.
-            trip.flights.map { [$0.origin.displayCode, $0.destination.displayCode].sorted().joined(separator: " – ") }
-        })
-        countries = Self.ranked(flightTrips.flatMap { [$0.origin.country, $0.destination.country] })
+        // Direction-agnostic, so MEL → SIN and SIN → MEL count as one route.
+        routes = Self.ranked(flights.map { [$0.origin.displayCode, $0.destination.displayCode].sorted().joined(separator: " – ") })
     }
 
     private static func ranked(_ names: [String]) -> [Ranked] {

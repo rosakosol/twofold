@@ -22,7 +22,7 @@ struct SnapshotShareView: View {
         NavigationStack {
             VStack(spacing: Theme.Spacing.lg) {
                 ScrollView {
-                    SnapshotThemeCard(couple: appModel.couple, trips: appModel.trips, stats: appModel.stats, theme: selectedTheme, earthGlobeImage: earthGlobeImage)
+                    SnapshotThemeCard(couple: appModel.couple, trips: appModel.trips, flights: appModel.flights, stats: appModel.stats, theme: selectedTheme, earthGlobeImage: earthGlobeImage)
                         .padding(.top, Theme.Spacing.lg)
                         .shadow(color: .black.opacity(0.2), radius: 20, y: 10)
                 }
@@ -102,7 +102,7 @@ struct SnapshotShareView: View {
         // is responsive (`SnapshotThemeCard` fills whatever it's given), but the exported PNG
         // should always come out the same deliberate size.
         let renderer = ImageRenderer(
-            content: SnapshotThemeCard(couple: appModel.couple, trips: appModel.trips, stats: appModel.stats, theme: selectedTheme, earthGlobeImage: earthGlobeImage)
+            content: SnapshotThemeCard(couple: appModel.couple, trips: appModel.trips, flights: appModel.flights, stats: appModel.stats, theme: selectedTheme, earthGlobeImage: earthGlobeImage)
                 .frame(width: 360)
         )
         renderer.scale = displayScale
