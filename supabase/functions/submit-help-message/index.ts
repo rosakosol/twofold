@@ -11,6 +11,10 @@
 // Requires these Supabase secrets — sending fails with a 500 until they're set:
 //   - ZOHO_SMTP_USER / ZOHO_SMTP_PASSWORD: the Zoho mailbox login and an **app-specific
 //     password** (Zoho > Security > App Passwords). Not the account's normal login password.
+//     This must be a real licensed mailbox (rosa@) — **never an alias**. support@/hello@/etc.
+//     are aliases on that mailbox and have no password of their own, so authenticating as one
+//     always fails with a bare `535 Authentication Failed` that looks exactly like a wrong
+//     password. Send *as* the alias via ZOHO_FROM_ADDRESS below, authenticate as the mailbox.
 //   - ZOHO_SMTP_HOST (optional, default "smtp.zoho.com"): use the host for the DC the account
 //     was created in — e.g. "smtp.zoho.com.au" for the AU DC. Wrong DC = auth failures.
 //   - ZOHO_SMTP_PORT (optional, default 465): 465 implicit TLS, or 587 for STARTTLS.
