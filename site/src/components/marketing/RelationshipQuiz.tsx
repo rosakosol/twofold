@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useReveal } from "@/hooks/useReveal";
+import { Reveal } from "@/components/marketing/Reveal";
 import { isQuizPlayable } from "@/lib/marketing/quiz";
 import type { QuizQuestionDoc, QuizResultDoc } from "@/lib/marketing/sanity";
 
@@ -41,20 +41,7 @@ export function RelationshipQuiz({
   const [answers, setAnswers] = useState<string[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showResult, setShowResult] = useState(false);
-  // Every .reveal element needs a ref wired to useReveal (see Reveal.tsx) or it never
-  // gets its "is-visible" class and stays permanently at opacity: 0. This component
-  // predates the shared <Reveal> wrapper and can't use it directly for the result
-  // card anyway, since resultRef (for scrollIntoView) needs to point at the same node —
-  // so all three .reveal elements here call the hook directly instead.
-  const headReveal = useReveal<HTMLDivElement>();
-  const cardReveal = useReveal<HTMLDivElement>();
-  const resultReveal = useReveal<HTMLDivElement>();
   const resultRef = useRef<HTMLDivElement>(null);
-
-  function setResultRef(node: HTMLDivElement | null) {
-    resultRef.current = node;
-    resultReveal.current = node;
-  }
 
   const resolvedResults = useMemo(
     () => ({ plus: results.plus ?? FALLBACK_RESULTS.plus, premium: results.premium ?? FALLBACK_RESULTS.premium }),
@@ -101,7 +88,7 @@ export function RelationshipQuiz({
   return (
     <section id="quiz" aria-labelledby="quiz-heading">
       <div className="wrap">
-        <div ref={headReveal} className="section-head reveal">
+        <Reveal className="section-head">
           <p className="eyebrow">
             <svg className="icon">
               <use href="/assets/icons.svg#icon-sparkle" />
@@ -110,10 +97,18 @@ export function RelationshipQuiz({
           </p>
           <h2 id="quiz-heading">Which plan fits your relationship?</h2>
           <p>Answer a few quick questions and we&apos;ll point you to the plan that matches how you two do long distance.</p>
-        </div>
+        </Reveal>
 
+        {/* Neither card below uses the scroll-triggered .reveal treatment — both are
+            driven directly by clicking an answer, not by scrolling down to discover
+            them for the first time. They also sit at the same position in this ternary,
+            so React reuses one underlying DOM node between the two; .reveal's manually-
+            added "is-visible" class (added outside React's own tracking, by an
+            IntersectionObserver callback) would otherwise get wiped the moment React
+            re-renders that reused node with the other branch's className — which reads
+            as the result card fading back out right after it appears. */}
         {!showResult ? (
-          <div ref={cardReveal} className="quiz-card reveal">
+          <div className="quiz-card">
             <div className="quiz-progress">
               {questions.map((q, index) => (
                 <span key={q.question} className={`dot${index < currentIndex ? " is-done" : ""}${index === currentIndex ? " is-current" : ""}`} />
@@ -139,7 +134,7 @@ export function RelationshipQuiz({
             </div>
           </div>
         ) : (
-          <div ref={setResultRef} className="quiz-card quiz-result reveal">
+          <div ref={resultRef} className="quiz-card quiz-result">
             <p className="eyebrow" style={{ justifyContent: "center" }}>
               <svg className="icon">
                 <use href="/assets/icons.svg#icon-check-circle" />

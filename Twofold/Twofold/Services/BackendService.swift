@@ -1845,25 +1845,26 @@ enum BackendService {
 
     // MARK: - Push device tokens
 
-    private struct DeviceTokenUpsert: Encodable {
-        var profileId: UUID
-        var apnsToken: String
-        var environment: String
-        var lastSeenAt: Date
-
-        enum CodingKeys: String, CodingKey {
-            case profileId = "profile_id"
-            case apnsToken = "apns_token"
-            case environment
-            case lastSeenAt = "last_seen_at"
-        }
-    }
-
+    /// Goes through the RPC rather than upserting `device_push_tokens` directly: a token already
+    /// registered by a *different* account on this same device (someone signed out and signed in
+    /// as someone else) can't be updated under the own-rows-only UPDATE policy, so the direct
+    /// upsert failed with 42501 and the device quietly stopped getting pushes. The security-
+    /// definer function reassigns it to the caller — see the migration's header for why that
+    /// isn't just a looser policy. `profile_id` is taken from `auth.uid()` server-side, so
+    /// there's nothing to pass but the token itself.
     static func registerDeviceToken(_ token: String, environment: String) async throws {
-        guard let userID = currentUserID else { throw BackendError.notAuthenticated }
+        guard currentUserID != nil else { throw BackendError.notAuthenticated }
+        struct Params: Encodable {
+            var pApnsToken: String
+            var pEnvironment: String
+
+            enum CodingKeys: String, CodingKey {
+                case pApnsToken = "p_apns_token"
+                case pEnvironment = "p_environment"
+            }
+        }
         try await supabase
-            .from("device_push_tokens")
-            .upsert(DeviceTokenUpsert(profileId: userID, apnsToken: token, environment: environment, lastSeenAt: .now), onConflict: "apns_token")
+            .rpc("register_device_push_token", params: Params(pApnsToken: token, pEnvironment: environment))
             .execute()
     }
 

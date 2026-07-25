@@ -163,8 +163,15 @@ Deno.serve(async (req) => {
     return Response.json({ error: "Couldn't send your message — please try again" }, { status: 502 });
   } finally {
     // denomailer holds the TCP connection open otherwise, which keeps the isolate alive until
-    // it's forcibly reaped.
-    await client?.close().catch(() => {});
+    // it's forcibly reaped. `close()` returns undefined rather than a promise when the connection
+    // never came up (an auth failure, say), so this can't chain `.catch` onto it — and because a
+    // throw from `finally` discards the pending return, doing so replaced the 502 above with an
+    // opaque 500 exactly when the send had already failed and the caller most needed the reason.
+    try {
+      await client?.close();
+    } catch {
+      // Nothing to clean up — the connection either never opened or is already gone.
+    }
   }
 
   return Response.json({ success: true });
