@@ -11,7 +11,7 @@ export function SiteFooter() {
         <div>
           <div className="brand">
             {/* eslint-disable-next-line @next/next/no-img-element -- fixed-size brand mark */}
-            <img src="/assets/app-icon.png" alt="" />
+            <img src="/assets/globe-heart.png" alt="" />
             <span>twofold</span>
           </div>
           <p>The living map for long-distance couples. Track flights, close the distance, keep the memories.</p>

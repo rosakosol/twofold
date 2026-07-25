@@ -122,21 +122,40 @@ export default async function HomePage() {
             <p>No spreadsheets, no guessing when they&apos;ll land. Twofold does the tracking so you can just look forward to seeing each other.</p>
           </Reveal>
           <div className="steps">
-            <Reveal className="step-card">
-              <span className="step-num">1</span>
-              <h3>Connect with your partner</h3>
-              <p>Pair your accounts once with an invite link. Everything you share from then on belongs to both of you.</p>
-            </Reveal>
-            <Reveal className="step-card">
-              <span className="step-num">2</span>
-              <h3>Share your trips &amp; flights</h3>
-              <p>Add a flight or a trip in seconds. Twofold tracks status automatically and tells your partner when you land.</p>
-            </Reveal>
-            <Reveal className="step-card">
-              <span className="step-num">3</span>
-              <h3>Watch your globe grow</h3>
-              <p>Every journey to see each other draws a new line across your shared globe — a living record of your relationship.</p>
-            </Reveal>
+            <div className="step">
+              {/* Rectangular placeholder for a real step screenshot. To swap in the real
+                  image, replace this whole <div> with:
+                    <img src="/assets/step-connect.png" alt="" className="step-art" />
+                  — the .step-art sizing (equal width, rounding) applies to both. */}
+              <div className="step-art step-art-placeholder">
+                <span>Connect</span>
+              </div>
+              <Reveal className="step-card">
+                <span className="step-num">1</span>
+                <h3>Connect with your partner</h3>
+                <p>Pair your accounts once with an invite link. Everything you share from then on belongs to both of you.</p>
+              </Reveal>
+            </div>
+            <div className="step">
+              <div className="step-art step-art-placeholder">
+                <span>Share flights</span>
+              </div>
+              <Reveal className="step-card">
+                <span className="step-num">2</span>
+                <h3>Share your trips &amp; flights</h3>
+                <p>Add a flight or a trip in seconds. Twofold tracks status automatically and tells your partner when you land.</p>
+              </Reveal>
+            </div>
+            <div className="step">
+              <div className="step-art step-art-placeholder">
+                <span>Shared globe</span>
+              </div>
+              <Reveal className="step-card">
+                <span className="step-num">3</span>
+                <h3>Watch your globe grow</h3>
+                <p>Every journey to see each other draws a new line across your shared globe — a living record of your relationship.</p>
+              </Reveal>
+            </div>
           </div>
         </div>
       </section>

@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useReveal } from "@/hooks/useReveal";
 import type { QuizQuestionDoc, QuizResultDoc } from "@/lib/marketing/sanity";
 
 const LEAN_WEIGHTS: Record<string, number> = {
@@ -39,7 +40,20 @@ export function RelationshipQuiz({
   const [answers, setAnswers] = useState<string[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showResult, setShowResult] = useState(false);
+  // Every .reveal element needs a ref wired to useReveal (see Reveal.tsx) or it never
+  // gets its "is-visible" class and stays permanently at opacity: 0. This component
+  // predates the shared <Reveal> wrapper and can't use it directly for the result
+  // card anyway, since resultRef (for scrollIntoView) needs to point at the same node —
+  // so all three .reveal elements here call the hook directly instead.
+  const headReveal = useReveal<HTMLDivElement>();
+  const cardReveal = useReveal<HTMLDivElement>();
+  const resultReveal = useReveal<HTMLDivElement>();
   const resultRef = useRef<HTMLDivElement>(null);
+
+  function setResultRef(node: HTMLDivElement | null) {
+    resultRef.current = node;
+    resultReveal.current = node;
+  }
 
   const resolvedResults = useMemo(
     () => ({ plus: results.plus ?? FALLBACK_RESULTS.plus, premium: results.premium ?? FALLBACK_RESULTS.premium }),
@@ -86,7 +100,7 @@ export function RelationshipQuiz({
   return (
     <section id="quiz" aria-labelledby="quiz-heading">
       <div className="wrap-narrow">
-        <div className="section-head reveal">
+        <div ref={headReveal} className="section-head reveal">
           <p className="eyebrow">
             <svg className="icon">
               <use href="/assets/icons.svg#icon-sparkle" />
@@ -98,7 +112,7 @@ export function RelationshipQuiz({
         </div>
 
         {!showResult ? (
-          <div className="quiz-card reveal">
+          <div ref={cardReveal} className="quiz-card reveal">
             <div className="quiz-progress">
               {questions.map((q, index) => (
                 <span key={q.question} className={`dot${index < currentIndex ? " is-done" : ""}${index === currentIndex ? " is-current" : ""}`} />
@@ -124,7 +138,7 @@ export function RelationshipQuiz({
             </div>
           </div>
         ) : (
-          <div ref={resultRef} className="quiz-card quiz-result reveal">
+          <div ref={setResultRef} className="quiz-card quiz-result reveal">
             <p className="eyebrow" style={{ justifyContent: "center" }}>
               <svg className="icon">
                 <use href="/assets/icons.svg#icon-check-circle" />
