@@ -32,6 +32,7 @@ struct SettingsView: View {
     @State private var isSigningOut = false
     @State private var showingExportHistory = false
     @State private var showingExportPremiumGate = false
+    @State private var appLock = AppLockService()
 
     var body: some View {
         NavigationStack {
@@ -117,6 +118,32 @@ struct SettingsView: View {
                             SettingsRow(title: "Notifications", systemImage: "bell.fill")
                         }
                         .buttonStyle(.plain)
+
+                        Divider()
+
+                        HStack {
+                            Label("Require \(appLock.methodName)", systemImage: "lock.fill")
+                                .foregroundStyle(Theme.ink)
+                            Spacer()
+                            Toggle(
+                                "",
+                                isOn: Binding(
+                                    get: { appLock.isEnabled },
+                                    set: { appLock.isEnabled = $0 }
+                                )
+                            )
+                            .labelsHidden()
+                            .disabled(!appLock.isAvailableOnDevice)
+                        }
+                        // Same reasoning as `AboutYouView`'s account-scoped rows: this is a
+                        // device preference (UserDefaults, not synced), so it's fine to live
+                        // right alongside Measurements/Notifications rather than a whole separate
+                        // "Privacy & Security" section for one row.
+                        if !appLock.isAvailableOnDevice {
+                            Text("Set a passcode on this device to turn this on.")
+                                .font(.caption)
+                                .foregroundStyle(Theme.subtleInk)
+                        }
                     }
 
                     SectionCard {
@@ -183,6 +210,15 @@ struct SettingsView: View {
                             }
                             Button("Cancel", role: .cancel) {}
                         }
+
+                        Divider()
+
+                        NavigationLink {
+                            DeleteAccountView()
+                        } label: {
+                            SettingsRow(title: "Delete Account", systemImage: "trash.fill", isDestructive: true)
+                        }
+                        .buttonStyle(.plain)
                     }
 
                     SettingsFooterView()

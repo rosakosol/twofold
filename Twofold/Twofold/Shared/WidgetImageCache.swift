@@ -119,4 +119,15 @@ enum WidgetImageCache {
         guard let url = containerURL?.appendingPathComponent(airlineLogoFilename) else { return nil }
         return try? Data(contentsOf: url)
     }
+
+    /// Called on sign-out — removes every cached image file from the shared App Group container
+    /// (both avatars, the latest memory photo, both drawing pads, the airline logo) so widgets
+    /// don't keep rendering the signed-out account's (and their partner's) photos after they've
+    /// signed out, until a different account signs in and overwrites them.
+    static func clearAll() {
+        guard let containerURL else { return }
+        for filename in [myAvatarFilename, partnerAvatarFilename, latestMemoryFilename, drawingPadFilename, myDrawingFilename, airlineLogoFilename] {
+            try? FileManager.default.removeItem(at: containerURL.appendingPathComponent(filename))
+        }
+    }
 }

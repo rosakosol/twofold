@@ -11,6 +11,7 @@ import Observation
 import PostHog
 import RevenueCat
 import Supabase
+import WidgetKit
 
 @Observable
 final class AppModel {
@@ -373,8 +374,33 @@ final class AppModel {
     func signOut() async {
         await stopFlightsRealtimeSubscription()
         try? await BackendService.signOut()
+        await clearLocalSessionState()
+    }
+
+    /// Permanently deletes this account (see `BackendService.deleteAccount()`'s doc comment for
+    /// exactly what that does server-side) and clears local state the same way `signOut()`
+    /// does — the account is gone either way, so the device needs to end up in the same signed-
+    /// out state. Rethrows so the caller (the confirmation screen) can show a real error instead
+    /// of silently doing nothing if the request fails.
+    func deleteAccount() async throws {
+        await stopFlightsRealtimeSubscription()
+        try await BackendService.deleteAccount()
+        await clearLocalSessionState()
+    }
+
+    /// Shared by `signOut()` and `deleteAccount()` — both end with the device in the same
+    /// signed-out state, whether the account still exists (just logged out of) or not (deleted).
+    private func clearLocalSessionState() async {
         _ = try? await Purchases.shared.logOut()
         PostHogSDK.shared.reset()
+        // Without this, Home Screen widgets and Live Activities kept showing the signed-out
+        // account's (and their partner's) name, photos, anniversary date, and upcoming trip/
+        // flight until a different account signed in and overwrote them — none of this was
+        // previously cleared by sign-out at all.
+        await LiveActivityManager.shared.endAll()
+        WidgetSnapshot.clear()
+        WidgetImageCache.clearAll()
+        WidgetCenter.shared.reloadAllTimelines()
         hasCouple = false
         partnerConnected = false
         inviteCode = nil

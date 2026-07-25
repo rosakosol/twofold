@@ -18,6 +18,7 @@ enum BackendError: LocalizedError {
     case placeLookupFailed
     case avatarURLFailed
     case providerNotConfigured
+    case requestFailed(message: String?)
 
     var errorDescription: String? {
         switch self {
@@ -25,6 +26,7 @@ enum BackendError: LocalizedError {
         case .placeLookupFailed: "Couldn't resolve that city."
         case .avatarURLFailed: "Couldn't get a URL for that photo."
         case .providerNotConfigured: "This sign-in option isn't set up yet."
+        case .requestFailed(let message): message ?? "Something went wrong. Please try again."
         }
     }
 }
@@ -198,6 +200,29 @@ enum BackendService {
 
     static func signOut() async throws {
         try await supabase.auth.signOut()
+    }
+
+    /// Permanently deletes this account — calls the `delete-account` Edge Function (needs the
+    /// service-role key to soft-delete the `auth.users` row, so it can't be done directly from
+    /// the client). See that function's and `delete_own_account()`'s own doc comments for why
+    /// this is a careful scoped cleanup rather than a blunt cascade delete: any couple this
+    /// profile is part of is dissolved (not destroyed), so a partner's shared trip/memory
+    /// history is never lost just because the other person deleted their own account.
+    static func deleteAccount() async throws {
+        guard let accessToken = currentAccessToken else { throw BackendError.notAuthenticated }
+
+        var request = URLRequest(url: SupabaseConfig.projectURL.appendingPathComponent("functions/v1/delete-account"))
+        request.httpMethod = "POST"
+        request.setValue(SupabaseConfig.publishableKey, forHTTPHeaderField: "apiKey")
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else { throw BackendError.requestFailed(message: nil) }
+        guard (200..<300).contains(http.statusCode) else {
+            struct ErrorResponse: Decodable { var error: String? }
+            let message = (try? JSONDecoder().decode(ErrorResponse.self, from: data))?.error
+            throw BackendError.requestFailed(message: message)
+        }
     }
 
     /// Everything about a solo (pre-pairing) user worth restoring on relaunch: their own

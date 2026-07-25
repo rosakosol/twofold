@@ -10,6 +10,7 @@ struct RootView: View {
     @Environment(AppModel.self) private var appModel
     @Environment(\.scenePhase) private var scenePhase
     @State private var subscriptionStore = SubscriptionStore()
+    @State private var appLock = AppLockService()
     /// Drives the foreground-triggered "where am I now" refresh that replaced the old one-time
     /// manual home-city picker — see `refreshCurrentCityIfNeeded()`.
     @State private var currentCityService = HomeLocationService()
@@ -26,6 +27,7 @@ struct RootView: View {
     @State private var recordDeepLink: WidgetDeepLink.Destination?
 
     var body: some View {
+        ZStack {
         Group {
             if appModel.isLoadingSession {
                 ZStack {
@@ -82,6 +84,8 @@ struct RootView: View {
                 }
                 Task { await refreshPendingOutgoingConnectionRequestIfNeeded() }
                 refreshCurrentCityIfNeeded()
+            } else if newPhase == .background {
+                appLock.lock()
             }
         }
         .onChange(of: currentCityService.state) { _, newState in
@@ -174,6 +178,17 @@ struct RootView: View {
         .sheet(item: reviewPromptBinding) { milestone in
             ReviewPromptView(milestone: milestone)
                 .postHogScreenView("Review Prompt")
+        }
+
+        // On top of everything above (including the loading spinner) rather than gated behind
+        // `hasCouple`/`isLoadingSession` — `appLock.isLocked` already starts pre-set from the
+        // persisted preference before this view's first render, so nothing sensitive ever has a
+        // frame to flash on screen before this covers it.
+        if appLock.isEnabled && appLock.isLocked {
+            AppLockView(appLock: appLock)
+                .transition(.opacity)
+                .zIndex(1)
+        }
         }
     }
 
