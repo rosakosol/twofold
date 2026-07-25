@@ -172,10 +172,8 @@ struct GameHistoryView: View {
                         .lineLimit(2)
                     HStack(spacing: 4) {
                         Text(session.gameType.displayName)
-                        if let completedAt = session.completedAt {
-                            Text("•")
-                            Text(completedAt, format: .dateTime.day().month(.abbreviated).year())
-                        }
+                        Text("•")
+                        Text(completionDate(for: session), format: .dateTime.day().month(.abbreviated).year())
                     }
                     .font(.caption)
                     .foregroundStyle(Theme.subtleInk)
@@ -211,12 +209,21 @@ struct GameHistoryView: View {
         errorMessage = nil
         do {
             let all = try await BackendService.fetchGameSessions(status: .completed)
-            sessions = GameLogic.completedSessionsOnly(all)
+            // Most recently completed first — `.filter` above preserves order, so sorting here
+            // once is enough for `filteredSessions` (and the row list built from it) too.
+            sessions = GameLogic.completedSessionsOnly(all).sorted { completionDate(for: $0) > completionDate(for: $1) }
             await loadExtraDetails()
         } catch {
             errorMessage = error.localizedDescription
         }
         isLoading = false
+    }
+
+    /// Falls back to `updatedAt` for the rare completed session missing `completedAt` — a
+    /// completed row's last write is, in practice, the moment it was marked complete, so this
+    /// keeps both the sort and the displayed date meaningful instead of silently having neither.
+    private func completionDate(for session: GameSession) -> Date {
+        session.completedAt ?? session.updatedAt
     }
 
     /// Fetches full session detail — concurrently, one request per session — only for trivia
