@@ -19,6 +19,7 @@ enum BackendError: LocalizedError {
     case avatarURLFailed
     case providerNotConfigured
     case requestFailed(message: String?)
+    case accountDeleted
 
     var errorDescription: String? {
         switch self {
@@ -27,6 +28,7 @@ enum BackendError: LocalizedError {
         case .avatarURLFailed: "Couldn't get a URL for that photo."
         case .providerNotConfigured: "This sign-in option isn't set up yet."
         case .requestFailed(let message): message ?? "Something went wrong. Please try again."
+        case .accountDeleted: "This account has been deleted and can't be used to sign in. Create a new account to keep using Twofold."
         }
     }
 }
@@ -43,19 +45,38 @@ enum BackendService {
             data: ["first_name": .string(firstName)]
         )
         Analytics.capture(Analytics.Event.accountCreate, properties: ["method": "email"])
-        if let session = response.session {
-            return session
+        let session: Session
+        if let responseSession = response.session {
+            session = responseSession
+        } else {
+            // Confirmations are disabled for this project, so a session should always come back
+            // immediately; fall back to an explicit sign-in just in case that ever changes.
+            session = try await supabase.auth.signIn(email: email, password: password)
         }
-        // Confirmations are disabled for this project, so a session should always come back
-        // immediately; fall back to an explicit sign-in just in case that ever changes.
-        return try await supabase.auth.signIn(email: email, password: password)
+        try await rejectIfAccountDeleted()
+        return session
     }
 
     @discardableResult
     static func signIn(email: String, password: String) async throws -> Session {
         let session = try await supabase.auth.signIn(email: email, password: password)
+        try await rejectIfAccountDeleted()
         Analytics.capture(Analytics.Event.signIn, properties: ["method": "email"])
         return session
+    }
+
+    /// Shared guard for every sign-in/sign-up entry point in this section — Supabase's soft
+    /// delete (`delete_own_account()`/the `delete-account` Edge Function) doesn't reliably block
+    /// a *fresh* sign-in: email/password can still authenticate against the not-actually-removed
+    /// `auth.users` row, and Apple/Google's id-token exchange looks up an existing `auth.identities`
+    /// row by provider subject, which soft delete never touches either. Every path that just
+    /// established a session checks this immediately and signs back out rather than letting a
+    /// scrubbed, deleted profile ever be adopted — `AppModel.loadSignedInState()` has the
+    /// equivalent guard for a *resumed* (not freshly established) session.
+    private static func rejectIfAccountDeleted() async throws {
+        guard await currentAccountIsDeleted() else { return }
+        try? await supabase.auth.signOut()
+        throw BackendError.accountDeleted
     }
 
     /// Never throws for "no account with that email" — Supabase deliberately responds the same
@@ -92,6 +113,7 @@ enum BackendService {
         let session = try await supabase.auth.signInWithIdToken(
             credentials: OpenIDConnectCredentials(provider: .apple, idToken: idToken, nonce: nonce)
         )
+        try await rejectIfAccountDeleted()
         Analytics.capture(Analytics.Event.signIn, properties: ["method": "apple"])
         return session
     }
@@ -146,6 +168,7 @@ enum BackendService {
                 nonce: nonce
             )
         )
+        try await rejectIfAccountDeleted()
         guard let userID = currentUserID else { throw BackendError.notAuthenticated }
         Analytics.capture(Analytics.Event.signIn, properties: ["method": "google"])
         return userID

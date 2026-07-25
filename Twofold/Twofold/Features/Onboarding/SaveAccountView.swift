@@ -43,6 +43,7 @@ struct SaveAccountView: View {
                             Task { await finish(userID: userID, providedFirstName: providedFirstName) }
                         },
                         onError: { errorMessage = $0 },
+                        onAccountDeleted: { handleAccountDeleted() },
                         isSubmitting: $isSubmitting
                     )
 
@@ -117,10 +118,23 @@ struct SaveAccountView: View {
                 guard let userID = BackendService.currentUserID else { throw BackendError.notAuthenticated }
                 await finish(userID: userID, providedFirstName: nil)
             } catch {
-                errorMessage = error.localizedDescription
+                if case BackendError.accountDeleted = error {
+                    handleAccountDeleted()
+                } else {
+                    errorMessage = error.localizedDescription
+                }
             }
             isSubmitting = false
         }
+    }
+
+    /// Redirects straight into a fresh onboarding flow instead of leaving this screen showing a
+    /// dead-end error — see `OnboardingModel.resetAfterDeletedAccount()`. Resetting `onboarding.
+    /// path` to empty pops this view itself back to `WelcomeView`, which shows
+    /// `appModel.accountDeletedMessage` once as a friendly alert.
+    private func handleAccountDeleted() {
+        appModel.accountDeletedMessage = "That account has been deleted. Create a new account to keep using Twofold."
+        onboarding.resetAfterDeletedAccount()
     }
 
     private func finish(userID: UUID, providedFirstName: String?) async {

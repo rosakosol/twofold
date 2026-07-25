@@ -78,6 +78,7 @@ struct CreateAccountView: View {
                             Task { await finishSignIn(userID: userID, providedFirstName: providedFirstName) }
                         },
                         onError: { errorMessage = $0 },
+                        onAccountDeleted: { handleAccountDeleted() },
                         isSubmitting: $isSubmitting
                     )
                 }
@@ -104,10 +105,23 @@ struct CreateAccountView: View {
                 guard let userID = BackendService.currentUserID else { throw BackendError.notAuthenticated }
                 await finishSignIn(userID: userID, providedFirstName: firstName)
             } catch {
-                errorMessage = error.localizedDescription
+                if case BackendError.accountDeleted = error {
+                    handleAccountDeleted()
+                } else {
+                    errorMessage = error.localizedDescription
+                }
             }
             isSubmitting = false
         }
+    }
+
+    /// Redirects straight into a fresh onboarding flow instead of leaving this screen showing a
+    /// dead-end error — see `OnboardingModel.resetAfterDeletedAccount()`. Resetting `onboarding.
+    /// path` to empty pops this view itself back to `WelcomeView`, which shows
+    /// `appModel.accountDeletedMessage` once as a friendly alert.
+    private func handleAccountDeleted() {
+        appModel.accountDeletedMessage = "That account has been deleted. Create a new account to keep using Twofold."
+        onboarding.resetAfterDeletedAccount()
     }
 
     /// Lands both the email/password and provider sign-in paths in the same place: adopt the

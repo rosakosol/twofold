@@ -96,6 +96,53 @@ final class OnboardingModel {
         return cachedIllustrativeOriginCity
     }
 
+    /// Called when a sign-in attempt anywhere in onboarding (or the returning-user sign-in
+    /// sheet) resolves to a previously-deleted account — see `BackendError.accountDeleted`.
+    /// A full wipe back to a brand-new `OnboardingModel()`'s defaults, not just the account
+    /// fields — every questionnaire answer collected so far gets discarded too, so this is a
+    /// genuinely fresh flow rather than one that quietly remembers anything about the previous
+    /// attempt. `path = []` also pops all the way back to `WelcomeView`, the root of
+    /// `OnboardingCoordinatorView`'s NavigationStack.
+    func resetAfterDeletedAccount() {
+        path = []
+        role = .inviter
+
+        firstName = ""
+        email = ""
+        password = ""
+
+        homeCity = nil
+
+        inviteCode = nil
+        inviterName = nil
+        inviterAvatarURL = nil
+        hasAccount = false
+
+        draftedTrip = nil
+
+        situation = nil
+        frequency = nil
+        attribution = nil
+        goals = []
+
+        partnerName = ""
+        partnerCity = nil
+        anniversaryDate = nil
+
+        userGender = nil
+        partnerGender = nil
+
+        selfPhotoData = nil
+        partnerPhotoData = nil
+
+        notificationsGranted = nil
+
+        draftedFlightNumber = nil
+        draftedFlightDate = nil
+
+        cachedIllustrativeOriginCity = nil
+    }
+
     func resetForNewInvite(code: String) {
         role = .invitee
         inviteCode = code
