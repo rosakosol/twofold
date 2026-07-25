@@ -214,23 +214,34 @@ struct GameResultsView: View {
 
     private var shareData: GameResultShareData {
         let singleRound = store.rounds.count == 1 ? store.rounds[0] : nil
-        let deepConversationSummary: String? = {
-            guard gameType == .deepConversations, store.session?.isDaily != true else { return nil }
-            let talkedAbout = store.rounds.filter { $0.discussionStatus == .talkedAbout }.count
-            return "Talked about \(talkedAbout) of \(store.rounds.count) topics"
+        let isDailyQuestion = store.session?.isDaily == true
+        // Every topic from a multi-round Deep Conversations deck, each with both free-text
+        // answers — feeds the share sheet's "choose a topic" picker (see
+        // `GameResultShareData.deepConversationRounds`'s own doc comment for why this is about
+        // *which* exchange to feature, never a match/similarity concept). Excluded for the Daily
+        // Question, which already has its one round covered by `singleRoundQuestion` below.
+        let deepConversationRounds: [GameResultShareRound]? = {
+            guard gameType == .deepConversations, !isDailyQuestion else { return nil }
+            return store.rounds.map { round in
+                GameResultShareRound(
+                    question: questionText(for: round),
+                    myAnswer: answerText(store.myResponse(for: round, myID: myID)?.answerValue, for: round),
+                    partnerAnswer: answerText(store.partnerResponse(for: round, partnerID: partnerID)?.answerValue, for: round)
+                )
+            }
         }()
 
         return GameResultShareData(
             gameType: gameType,
             title: title ?? gameType.displayName,
-            isDaily: store.session?.isDaily ?? false,
+            isDaily: isDailyQuestion,
             me: appModel.currentUser,
             partner: appModel.partner,
             matchPercent: matchPercent,
             triviaMyScore: gameType == .triviaBattle ? GameLogic.triviaScore(responses: store.responses, responderID: myID) : nil,
             triviaPartnerScore: gameType == .triviaBattle ? GameLogic.triviaScore(responses: store.responses, responderID: partnerID) : nil,
             triviaTotalRounds: gameType == .triviaBattle ? store.rounds.count : nil,
-            deepConversationSummary: deepConversationSummary,
+            deepConversationRounds: deepConversationRounds,
             singleRoundQuestion: singleRound.map { questionText(for: $0) },
             myAnswer: singleRound.map { answerText(store.myResponse(for: $0, myID: myID)?.answerValue, for: $0) },
             partnerAnswer: singleRound.map { answerText(store.partnerResponse(for: $0, partnerID: partnerID)?.answerValue, for: $0) },

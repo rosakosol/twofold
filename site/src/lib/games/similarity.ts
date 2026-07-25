@@ -87,12 +87,17 @@ function triviaOptionsOf(row: TriviaQuestion): string[] {
 export function findContentIssues(rows: ContentRow[], contentType: ContentTypeConfig): ContentIssue[] {
   const issues: ContentIssue[] = [];
 
+  // This-or-that entries are two bare choices by design ("Coffee / Tea"), so the
+  // short-text heuristic flags essentially the whole table. Genuinely empty text is
+  // still worth reporting for them.
+  const skipShortTextCheck = contentType.key === "this_or_that_prompts";
+
   for (const row of rows) {
     const text = contentType.primaryText(row);
     const wordCount = normalize(text).split(" ").filter(Boolean).length;
     if (wordCount === 0) {
       issues.push({ row, reason: "Empty text" });
-    } else if (wordCount < 3) {
+    } else if (wordCount < 3 && !skipShortTextCheck) {
       issues.push({ row, reason: "Very short text — check it isn't a placeholder" });
     }
     if (!row.category?.trim()) {

@@ -38,6 +38,12 @@ struct DeckEntryView: View {
                 }
             }
         }
+        // Without this, swapping from `ProgressView` to `gameDestination(sessionID:)` — which can
+        // itself immediately land on `GameResultsView` if the deck's session is already complete —
+        // picks up SwiftUI's default fade/insertion transition, briefly showing the full-bleed
+        // background below undersized before it snaps to full width. See the 4 typed game views
+        // for the fuller version of this same fix.
+        .transition(.identity)
         .background(Theme.backgroundGradient.ignoresSafeArea())
         .navigationTitle(deck.title)
         .navigationBarTitleDisplayMode(.inline)

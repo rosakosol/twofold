@@ -8,7 +8,11 @@
 .site-nav {
   position: sticky;
   top: 0;
-  z-index: 100;
+  /* Below the UI kit's overlay layer (dropdowns/popovers/dialogs/sheets all sit at
+     z-50 and portal to <body>, so they'd render *behind* the navbar at any higher
+     value — which is exactly what the avatar menu did at z-100). Still well above
+     page content, which tops out at z-index 2 (marketing.css). */
+  z-index: 40;
   height: 72px;
   display: flex;
   align-items: center;
@@ -95,6 +99,18 @@
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+/* Signed-in email shown beside the avatar. Hidden below the desktop breakpoint, where
+   the navbar has no room for it and the address is already in the avatar menu. */
+.site-nav-email {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #5b6b7a;
+  font-size: 0.85rem;
+  font-weight: 500;
 }
 
 .site-nav-cta {
@@ -191,6 +207,10 @@
   }
 
   .site-nav-actions .site-nav-cta-desktop {
+    display: none;
+  }
+
+  .site-nav-email {
     display: none;
   }
 }

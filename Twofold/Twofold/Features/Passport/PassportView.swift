@@ -16,6 +16,7 @@ import SwiftUI
 struct PassportView: View {
     @Environment(AppModel.self) private var appModel
     @State private var showingSnapshot = false
+    @State private var showingTripShare = false
     @State private var showingPassportShare = false
     @State private var showingAllFlightStats = false
     @State private var section: StatsSection = .relationship
@@ -60,7 +61,9 @@ struct PassportView: View {
                             showingSnapshot = true
                         }
                     case .trips:
-                        TripStatsCard(stats: tripStats)
+                        TripStatsCard(stats: tripStats) {
+                            showingTripShare = true
+                        }
                     case .flights:
                         FlightStatsCard(stats: flightStats, onShare: { showingPassportShare = true }, onShowAllStats: { showingAllFlightStats = true })
                     }
@@ -71,6 +74,9 @@ struct PassportView: View {
             .navigationTitle("Stats")
             .sheet(isPresented: $showingSnapshot) {
                 RelationshipStatsShareView(couple: appModel.couple, trips: appModel.trips, memories: appModel.memories, stats: relationshipStats)
+            }
+            .sheet(isPresented: $showingTripShare) {
+                TripStatsShareView(stats: tripStats)
             }
             .sheet(isPresented: $showingPassportShare) {
                 PassportShareView(stats: flightStats)

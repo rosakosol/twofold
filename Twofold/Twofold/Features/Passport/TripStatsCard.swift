@@ -12,55 +12,73 @@ import SwiftUI
 
 struct TripStatsCard: View {
     let stats: TripStats
+    /// Inline share affordance in the card's own corner, same placement/behavior as
+    /// `RelationshipStatsCard.onShare`/`FlightStatsCard.onShare` — nil hides the button (the
+    /// share card's own preview has nothing to open).
+    var onShare: (() -> Void)?
 
     var body: some View {
         SectionCard {
-            HStack(spacing: Theme.Spacing.sm) {
-                ZStack {
-                    Circle().fill(Theme.skyBlue.opacity(0.15))
-                    Image(systemName: "suitcase.fill").font(.subheadline).foregroundStyle(Theme.skyBlue)
+            ZStack(alignment: .topTrailing) {
+                VStack(spacing: Theme.Spacing.md) {
+                    HStack(spacing: Theme.Spacing.sm) {
+                        ZStack {
+                            Circle().fill(Theme.skyBlue.opacity(0.15))
+                            Image(systemName: "suitcase.fill").font(.subheadline).foregroundStyle(Theme.skyBlue)
+                        }
+                        .frame(width: 32, height: 32)
+                        Text("Trip Stats")
+                            .font(.headline)
+                            .foregroundStyle(Theme.ink)
+                        Spacer(minLength: 0)
+                    }
+
+                    HStack(alignment: .top, spacing: Theme.Spacing.sm) {
+                        heroStat(label: "Total Trips", value: "\(stats.totalTrips)")
+                        heroStat(label: "Distance", value: MeasurementPreference.distanceLabel(km: stats.totalDistanceKm))
+                        heroStat(label: "Trip Days", value: "\(stats.totalDays)")
+                    }
+                    .frame(maxWidth: .infinity)
+
+                    Divider()
+
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: Theme.Spacing.sm), GridItem(.flexible())], spacing: Theme.Spacing.sm) {
+                        milestoneTile(
+                            icon: "arrow.up.right",
+                            label: "Longest Trip",
+                            value: stats.longestTrip.map { RelationshipMilestoneStats.tripDuration($0) } ?? "—",
+                            detail: stats.longestTrip?.destination.displayCity,
+                            tint: Theme.leafGreen
+                        )
+                        milestoneTile(
+                            icon: "arrow.down.left",
+                            label: "Shortest Trip",
+                            value: stats.shortestTrip.map { RelationshipMilestoneStats.tripDuration($0) } ?? "—",
+                            detail: stats.shortestTrip?.destination.displayCity,
+                            tint: Theme.leafGreen
+                        )
+                        milestoneTile(
+                            icon: "mappin.and.ellipse",
+                            label: "Top Destination",
+                            value: stats.topDestination?.name ?? "—",
+                            detail: stats.topDestination.map { $0.count == 1 ? "1 trip" : "\($0.count) trips" },
+                            tint: Theme.skyBlue
+                        )
+                        milestoneTile(icon: "heart.fill", label: "Reunion Trips", value: "\(stats.reunionCount)", tint: Theme.heartRed)
+                        milestoneTile(icon: "calendar.badge.clock", label: "Upcoming", value: "\(stats.upcomingCount)", tint: .orange)
+                        milestoneTile(icon: "checkmark.circle.fill", label: "Completed", value: "\(stats.pastCount)", tint: .purple)
+                    }
                 }
-                .frame(width: 32, height: 32)
-                Text("Trip Stats")
-                    .font(.headline)
-                    .foregroundStyle(Theme.ink)
-                Spacer(minLength: 0)
-            }
 
-            HStack(alignment: .top, spacing: Theme.Spacing.sm) {
-                heroStat(label: "Total Trips", value: "\(stats.totalTrips)")
-                heroStat(label: "Distance", value: MeasurementPreference.distanceLabel(km: stats.totalDistanceKm))
-                heroStat(label: "Trip Days", value: "\(stats.totalDays)")
-            }
-            .frame(maxWidth: .infinity)
-
-            Divider()
-
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: Theme.Spacing.sm), GridItem(.flexible())], spacing: Theme.Spacing.sm) {
-                milestoneTile(
-                    icon: "arrow.up.right",
-                    label: "Longest Trip",
-                    value: stats.longestTrip.map { RelationshipMilestoneStats.tripDuration($0) } ?? "—",
-                    detail: stats.longestTrip?.destination.displayCity,
-                    tint: Theme.leafGreen
-                )
-                milestoneTile(
-                    icon: "arrow.down.left",
-                    label: "Shortest Trip",
-                    value: stats.shortestTrip.map { RelationshipMilestoneStats.tripDuration($0) } ?? "—",
-                    detail: stats.shortestTrip?.destination.displayCity,
-                    tint: Theme.leafGreen
-                )
-                milestoneTile(
-                    icon: "mappin.and.ellipse",
-                    label: "Top Destination",
-                    value: stats.topDestination?.name ?? "—",
-                    detail: stats.topDestination.map { $0.count == 1 ? "1 trip" : "\($0.count) trips" },
-                    tint: Theme.skyBlue
-                )
-                milestoneTile(icon: "heart.fill", label: "Reunion Trips", value: "\(stats.reunionCount)", tint: Theme.heartRed)
-                milestoneTile(icon: "calendar.badge.clock", label: "Upcoming", value: "\(stats.upcomingCount)", tint: .orange)
-                milestoneTile(icon: "checkmark.circle.fill", label: "Completed", value: "\(stats.pastCount)", tint: .purple)
+                if let onShare {
+                    Button(action: onShare) {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Theme.subtleInk)
+                            .padding(8)
+                            .background(Theme.backgroundGradient, in: Circle())
+                    }
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
