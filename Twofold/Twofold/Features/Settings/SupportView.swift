@@ -99,7 +99,15 @@ private struct FAQRow: View {
                         .rotationEffect(.degrees(isExpanded ? 180 : 0))
                 }
                 if isExpanded {
-                    Text(entry.answer).font(.caption).foregroundStyle(Theme.subtleInk)
+                    // On top of the VStack's `xs` spacing — the answer reads as part of the
+                    // question without it, and the extra gap is what separates the two.
+                    // `.subheadline` rather than `.caption`: this is body copy people actually
+                    // read, so it matches the question's size and leans on `subtleInk` alone to
+                    // stay visually secondary to it.
+                    Text(entry.answer)
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.subtleInk)
+                        .padding(.top, Theme.Spacing.xs)
                 }
             }
             .padding(.vertical, Theme.Spacing.xs)
