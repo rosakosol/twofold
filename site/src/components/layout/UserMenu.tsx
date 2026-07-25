@@ -47,40 +47,45 @@ export function UserMenu() {
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button variant="ghost" size="icon" className="rounded-full">
-            <Avatar className="h-8 w-8">
-              <AvatarImage
-                src={avatarUrl(user.id, process.env.NEXT_PUBLIC_SUPABASE_URL!)}
-                alt=""
-              />
-              <AvatarFallback>{initials}</AvatarFallback>
-            </Avatar>
-          </Button>
-        }
-      />
-      <DropdownMenuContent align="end" className="w-56">
-        <div className="px-2 py-1.5 text-sm text-muted-foreground truncate flex items-center gap-2">
-          <UserIcon className="h-4 w-4" />
-          {email}
-        </div>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
+    <>
+      <span className="site-nav-email" title={email}>
+        {email}
+      </span>
+      <DropdownMenu>
+        <DropdownMenuTrigger
           render={
-            <Link href="/feedback/bookmarks">
-              <Bookmark className="h-4 w-4" />
-              Your bookmarks
-            </Link>
+            <Button variant="ghost" size="icon" className="rounded-full" aria-label={email}>
+              <Avatar className="h-8 w-8">
+                <AvatarImage
+                  src={avatarUrl(user.id, process.env.NEXT_PUBLIC_SUPABASE_URL!)}
+                  alt=""
+                />
+                <AvatarFallback>{initials}</AvatarFallback>
+              </Avatar>
+            </Button>
           }
         />
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleSignOut} variant="destructive">
-          <LogOut className="h-4 w-4" />
-          Sign out
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+        <DropdownMenuContent align="end" className="w-56">
+          <div className="px-2 py-1.5 text-sm text-muted-foreground truncate flex items-center gap-2">
+            <UserIcon className="h-4 w-4" />
+            {email}
+          </div>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            render={
+              <Link href="/feedback/bookmarks">
+                <Bookmark className="h-4 w-4" />
+                Your bookmarks
+              </Link>
+            }
+          />
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={handleSignOut} variant="destructive">
+            <LogOut className="h-4 w-4" />
+            Sign out
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </>
   );
 }

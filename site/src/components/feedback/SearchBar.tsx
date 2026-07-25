@@ -45,13 +45,8 @@ export function SearchBar({ value, onChange, placeholder = "Search feedback…" 
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         placeholder={placeholder}
-        className="rounded-full pl-9 pr-8"
+        className="rounded-full pl-9"
       />
-      {!draft && (
-        <kbd className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-          /
-        </kbd>
-      )}
     </div>
   );
 }

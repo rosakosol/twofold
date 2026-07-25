@@ -159,6 +159,39 @@
        that wins regardless). */
     @apply text-foreground bg-background font-sans;
   }
+
+  /* Tailwind v4's preflight leaves buttons on the browser default (`cursor: default`),
+     which made every shadcn button/trigger on the site feel non-clickable. Restore the
+     pointer for anything actually interactive — kept in @layer base so a component can
+     still override it with a `cursor-*` utility. */
+  button,
+  summary,
+  label[for],
+  select,
+  [role="button"],
+  [role="menuitem"],
+  [role="menuitemcheckbox"],
+  [role="menuitemradio"],
+  [role="option"],
+  [role="tab"],
+  [role="switch"],
+  [type="checkbox"],
+  [type="radio"],
+  [type="submit"],
+  [type="reset"],
+  [type="button"],
+  [type="file"]::file-selector-button {
+    cursor: pointer;
+  }
+
+  /* ...but never on something that can't be clicked. */
+  button:disabled,
+  select:disabled,
+  input:disabled,
+  [aria-disabled="true"],
+  [data-disabled] {
+    cursor: default;
+  }
 }
 
 /* Scoped to the (board) route group's root wrapper — see (board)/layout.tsx. Sans-serif
