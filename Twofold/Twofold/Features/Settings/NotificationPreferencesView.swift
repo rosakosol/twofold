@@ -59,40 +59,39 @@ struct NotificationPreferencesView: View {
                 }
 
                 SectionCard {
-                    Text("Notify me when \(appModel.partner.name)…")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Theme.subtleInk)
-                    Toggle("Saves a drawing", isOn: $partnerDrawingSaved).font(.subheadline)
-                    Toggle("Adds a trip", isOn: $partnerTripAdded).font(.subheadline)
-                    Toggle("Adds a memory", isOn: $partnerMemoryAdded).font(.subheadline)
-                    Toggle("Starts a game", isOn: $partnerGameStarted).font(.subheadline)
+                    groupHeader("Travel")
+                    toggleRow(
+                        "My partner adds a trip",
+                        isOn: $partnerTripAdded,
+                        caption: "Flight updates have their own notification settings on each tracked flight."
+                    )
                 }
 
                 SectionCard {
-                    Toggle("Results are ready", isOn: $partnerGameResultsReady).font(.subheadline)
-                    Text("Sent once you've both finished a game and can see how you matched.")
-                        .font(.caption2)
-                        .foregroundStyle(Theme.subtleInk)
+                    groupHeader("Memories")
+                    toggleRow("My partner adds a memory", isOn: $partnerMemoryAdded)
+                    toggleRow("My partner saves a drawing", isOn: $partnerDrawingSaved)
                 }
 
                 SectionCard {
-                    Toggle("Finishes their answers first", isOn: $partnerGamePartnerFinished).font(.subheadline)
-                    Text("Sent when \(appModel.partner.name) finishes a game before you do, so you know it's your turn.")
-                        .font(.caption2)
-                        .foregroundStyle(Theme.subtleInk)
+                    groupHeader("Games")
+                    toggleRow("My partner starts a game", isOn: $partnerGameStarted)
+                    toggleRow(
+                        "Your results are ready",
+                        isOn: $partnerGameResultsReady,
+                        caption: "Sent once you've both finished a game and can see how you matched."
+                    )
+                    toggleRow(
+                        "My partner finishes first",
+                        isOn: $partnerGamePartnerFinished,
+                        caption: "Sent when your partner finishes before you, so you know it's your turn."
+                    )
+                    toggleRow(
+                        "Daily deep question reminder",
+                        isOn: $dailyStreakReminder,
+                        caption: "A nudge if today's question hasn't been answered yet."
+                    )
                 }
-
-                SectionCard {
-                    Toggle("Daily streak reminder", isOn: $dailyStreakReminder).font(.subheadline)
-                    Text("A nudge if today's Daily Activity question hasn't been answered yet.")
-                        .font(.caption2)
-                        .foregroundStyle(Theme.subtleInk)
-                }
-
-                Text("Flight updates have their own notification settings on each tracked flight.")
-                    .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
-                    .padding(.horizontal, Theme.Spacing.sm)
             }
             .padding(Theme.Spacing.md)
         }
@@ -116,6 +115,25 @@ struct NotificationPreferencesView: View {
         .onChange(of: dailyStreakReminder) { _, _ in saveIfLoaded() }
         .onChange(of: partnerInviteReminder) { _, _ in saveIfLoaded() }
         .postHogScreenView("Settings: Notification Preferences")
+    }
+
+    private func groupHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(Theme.subtleInk)
+    }
+
+    /// Wraps a toggle and its optional caption in their own tight-spaced VStack, so
+    /// grouping several rows inside one SectionCard doesn't space a row's own caption
+    /// the same as the gap to the *next* row (SectionCard applies one uniform spacing
+    /// between all of its direct children).
+    private func toggleRow(_ label: String, isOn: Binding<Bool>, caption: String? = nil) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Toggle(label, isOn: isOn).font(.subheadline)
+            if let caption {
+                Text(caption).font(.caption2).foregroundStyle(Theme.subtleInk)
+            }
+        }
     }
 
     /// `.notDetermined` (never asked — either this account predates the onboarding permission
