@@ -2395,7 +2395,7 @@ enum BackendService {
 
     private struct GameSessionRow: Decodable {
         var id: UUID
-        var coupleId: UUID
+        var coupleId: UUID?
         var gameType: GameType
         var initiatorId: UUID
         var status: GameSessionStatus

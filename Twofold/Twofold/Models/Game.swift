@@ -161,7 +161,10 @@ enum GameSessionStatus: String, Codable, Hashable {
 
 struct GameSession: Identifiable, Hashable {
     let id: UUID
-    var coupleID: UUID
+    /// Nil for a solo (unpaired) session — see `start_deck_session`/`get_daily_question_session`'s
+    /// solo branch. Reattached to a real couple by `respond_to_connection_request` the moment
+    /// the session's initiator pairs up.
+    var coupleID: UUID?
     var gameType: GameType
     var initiatorID: UUID
     var status: GameSessionStatus
