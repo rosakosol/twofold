@@ -54,7 +54,7 @@ export function WaitlistForm() {
           type="email"
           inputMode="email"
           autoComplete="email"
-          placeholder="you@example.com"
+          placeholder="yourname@email.com"
           required
         />
         <input className="hp-field" type="text" name="company" tabIndex={-1} autoComplete="off" aria-hidden="true" />

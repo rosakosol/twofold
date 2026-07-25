@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { APP_STORE_URL } from "@/lib/marketing/config";
 
-/** Shared with both route groups (marketing + board) — one footer, matching
- * design_handoff_twofold_site/*.html's 4-column footer exactly, so every page reads
- * as the same product no matter which layout renders it. */
+/** Shared with both route groups (marketing + board) — one footer, so every page reads
+ * as the same product no matter which layout renders it. Originally matched
+ * design_handoff_twofold_site/*.html's 4-column footer exactly; since diverged
+ * (Feedback added under Product, FAQ moved under Support, Manage Subscription/Android
+ * waitlist links dropped, Contact us points at /support instead of a mailto link). */
 export function SiteFooter() {
   return (
     <footer className="footer">
@@ -20,7 +22,7 @@ export function SiteFooter() {
           <h4>Product</h4>
           <Link href="/features">Features</Link>
           <Link href="/pricing">Pricing</Link>
-          <Link href="/faq">FAQ</Link>
+          <Link href="/feedback">Feedback</Link>
           <a
             className="appstore-badge foot-appstore"
             data-appstore-link
@@ -38,9 +40,8 @@ export function SiteFooter() {
         </div>
         <div className="foot-col">
           <h4>Support</h4>
-          <a href="mailto:hello@twofoldapp.com.au">Contact us</a>
-          <Link href="/faq#subscriptions">Manage subscription</Link>
-          <Link href="/#waitlist">Android waitlist</Link>
+          <Link href="/support">Contact us</Link>
+          <Link href="/faq">FAQ</Link>
         </div>
         <div className="foot-col">
           <h4>Legal</h4>
