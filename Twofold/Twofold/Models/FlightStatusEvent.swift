@@ -3,9 +3,7 @@
 //  Twofold
 //
 //  Provider-sourced event history (gate changes, delays, departure/landing, etc.), written
-//  server-side by the AeroAPI sync pipeline. Distinct from `FlightUpdate` (FlightUpdate.swift),
-//  which is the traveler's own self-reported meal/disruption/sleep notes — a different,
-//  older feature that stays as-is.
+//  server-side by the AeroAPI sync pipeline.
 //
 
 import SwiftUI

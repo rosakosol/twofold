@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>{{subject}}</title>
+<!--[if mso]><style>body,table,td,a{font-family:Arial,Helvetica,sans-serif !important}</style><![endif]-->
+<style>
+  @media only screen and (max-width:620px){
+    .sp{padding-left:24px !important;padding-right:24px !important}
+    .h1{font-size:26px !important;line-height:32px !important}
+  }
+  a{color:#3d8fc9}
+  a:hover{color:#4fa9e0}
+</style>
+</head>
+<body style="margin:0;padding:0;background-color:#e6f3ea;-webkit-text-size-adjust:100%;">
+<span style="display:none;font-size:1px;color:#e6f3ea;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">{{preheader}}</span>
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#e6f3ea;">
+<tr><td align="center" style="padding:32px 12px 48px 12px;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="width:600px;max-width:600px;">
+
+    <tr><td align="center" style="padding:8px 0 22px 0;">
+      <img src="https://www.twofoldapp.com.au/assets/globe-heart.png" width="24" height="24" alt="" style="display:inline-block;vertical-align:middle;border:0;">
+      <span style="font-family:Georgia,'Times New Roman',serif;font-size:20px;letter-spacing:.02em;color:#1c2a38;vertical-align:middle;">&nbsp;twofold</span>
+      <span style="font-family:Arial,Helvetica,sans-serif;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#8695a3;vertical-align:middle;">&nbsp;&nbsp;support</span>
+    </td></tr>
+
+    <tr><td style="background-color:#ffffff;border-radius:20px;border:1px solid rgba(28,42,56,.06);">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;">
+
+        <tr><td class="sp h1" style="padding:44px 48px 0 48px;font-family:Georgia,'Times New Roman',serif;font-size:32px;line-height:38px;mso-line-height-rule:exactly;color:#1c2a38;">
+          Got it — a person has this.
+        </td></tr>
+
+        <tr><td class="sp" style="padding:16px 48px 0 48px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:26px;mso-line-height-rule:exactly;color:#5b6b7a;">
+          Thanks for writing in, {{first_name}}. Your message is in front of our support team — not a bot queue. We answer in order, usually within <strong style="color:#1c2a38;">{{response_time}}</strong>.
+        </td></tr>
+
+        <!-- ticket -->
+        <tr><td class="sp" style="padding:28px 48px 0 48px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;background-color:#f4faff;border-radius:12px;">
+            <tr>
+              <td style="padding:20px 24px;font-family:Arial,Helvetica,sans-serif;">
+                <div style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#8695a3;mso-line-height-rule:exactly;line-height:16px;">Ticket</div>
+                <div style="font-family:Georgia,'Times New Roman',serif;font-size:22px;color:#1c2a38;mso-line-height-rule:exactly;line-height:28px;padding-top:4px;">#{{ticket_id}}</div>
+              </td>
+              <td align="right" style="padding:20px 24px;font-family:Arial,Helvetica,sans-serif;">
+                <div style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#8695a3;mso-line-height-rule:exactly;line-height:16px;">Received</div>
+                <div style="font-family:Georgia,'Times New Roman',serif;font-size:22px;color:#1c2a38;mso-line-height-rule:exactly;line-height:28px;padding-top:4px;">{{received_at}}</div>
+              </td>
+            </tr>
+          </table>
+        </td></tr>
+
+        <!-- their message -->
+        <tr><td class="sp" style="padding:30px 48px 0 48px;font-family:Arial,Helvetica,sans-serif;font-size:13px;letter-spacing:.05em;text-transform:uppercase;color:#8695a3;mso-line-height-rule:exactly;line-height:18px;">
+          What you sent us
+        </td></tr>
+        <tr><td class="sp" style="padding:10px 48px 0 48px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;">
+            <tr><td style="border-left:3px solid #6fbf8b;padding:2px 0 2px 18px;font-family:Georgia,'Times New Roman',serif;font-size:16px;line-height:27px;mso-line-height-rule:exactly;color:#1c2a38;">
+              {{message_body}}
+            </td></tr>
+          </table>
+        </td></tr>
+
+        <!-- Content varies by category (sync tips only make sense for Bug Report/Flight
+             Tracking) — see sendSupportEmails() in app/api/support/route.ts for the two
+             variants this token can render, or an empty string to omit the section entirely. -->
+        <tr><td class="sp" style="padding:32px 48px 0 48px;">
+          {{wait_tips_html}}
+        </td></tr>
+
+        <tr><td class="sp" style="padding:28px 48px 0 48px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+            <td style="border:1px solid rgba(28,42,56,.09);border-radius:999px;">
+              <a href="{{help_center_url}}" style="display:block;padding:12px 26px;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;color:#3d8fc9;text-decoration:none;mso-line-height-rule:exactly;line-height:20px;">Browse the help centre</a>
+            </td>
+          </tr></table>
+        </td></tr>
+
+        <tr><td class="sp" style="padding:32px 48px 44px 48px;">
+          <div style="border-top:1px solid rgba(28,42,56,.06);padding-top:22px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:23px;mso-line-height-rule:exactly;color:#8695a3;">
+            Reply to this email to add anything — screenshots help. Keep <strong style="color:#5b6b7a;">#{{ticket_id}}</strong> in the subject so it lands on the same thread.
+          </div>
+        </td></tr>
+
+      </table>
+    </td></tr>
+
+    <tr><td align="center" style="padding:26px 40px 0 40px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:20px;mso-line-height-rule:exactly;color:#8695a3;">
+      Twofold support · <a href="mailto:{{support_email}}" style="color:#8695a3;text-decoration:underline;">{{support_email}}</a>
+    </td></tr>
+
+  </table>
+</td></tr>
+</table>
+</body>
+</html>

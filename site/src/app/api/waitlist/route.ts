@@ -2,12 +2,22 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/db/types";
 import { createZohoTransport } from "@/lib/mail/zoho";
+import { renderTemplate, extractSubject } from "@/lib/mail/renderTemplate";
+import { escapeHtml } from "@/lib/mail/escapeHtml";
+import { SUPPORT_EMAIL, SITE_URL } from "@/lib/mail/companyInfo";
 
 // Port of the old site/functions/api/waitlist.ts (Cloudflare Pages Function + D1) —
 // same validation/honeypot logic, writing to Supabase's waitlist_signups table instead
 // of D1 (which Vercel can't reach). Emails now go via the same Zoho Mail SMTP account
 // /api/support uses (see lib/mail/zoho.ts) rather than Resend, which this project isn't
 // using — was a raw-fetch call to Resend's HTTP API before this migration.
+//
+// Uses lib/mail/templates/waitlist-confirmation.html (to the signer) and
+// waitlist-internal-alert.html (to WAITLIST_NOTIFY_EMAIL) — see that folder's README.md.
+// Both were trimmed down from their original design: no referral/invite system, no
+// device/location/survey tracking, no admin dashboard, and no waitlist-position/signup-count
+// stats — none of that is tracked (or worth tracking) today, so those sections were dropped
+// rather than filled with fabricated values.
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -63,18 +73,32 @@ async function sendEmails(email: string): Promise<void> {
   const { transport, from } = mailer;
 
   try {
+    const confirmationHtml = renderTemplate("waitlist-confirmation", {
+      subject: "You're on the Twofold Android waitlist",
+      preheader: "Thanks for signing up — we'll email this address the moment Android is ready.",
+      support_email: SUPPORT_EMAIL,
+      site_url: SITE_URL,
+    });
+
+    const alertHtml = renderTemplate("waitlist-internal-alert", {
+      subject: "New Twofold Android waitlist signup",
+      preheader: `New signup: ${email}`,
+      signup_at: new Intl.DateTimeFormat("en-AU", { dateStyle: "medium", timeStyle: "short" }).format(new Date()),
+      user_email: escapeHtml(email),
+    });
+
     const results = await Promise.allSettled([
       transport.sendMail({
         from,
         to: email,
-        subject: "You're on the Twofold Android waitlist",
-        html: "<p>Thanks for your interest in Twofold!</p><p>We're building the Android version next — we'll email this address the moment it's ready to download.</p><p>— The Twofold team</p>",
+        subject: extractSubject(confirmationHtml),
+        html: confirmationHtml,
       }),
       transport.sendMail({
         from,
         to: notifyEmail,
-        subject: "New Twofold Android waitlist signup",
-        html: `<p>New signup: ${escapeHtml(email)}</p>`,
+        subject: extractSubject(alertHtml),
+        html: alertHtml,
       }),
     ]);
     for (const result of results) {
@@ -83,21 +107,4 @@ async function sendEmails(email: string): Promise<void> {
   } finally {
     transport.close();
   }
-}
-
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (char) => {
-    switch (char) {
-      case "&":
-        return "&amp;";
-      case "<":
-        return "&lt;";
-      case ">":
-        return "&gt;";
-      case '"':
-        return "&quot;";
-      default:
-        return "&#39;";
-    }
-  });
 }

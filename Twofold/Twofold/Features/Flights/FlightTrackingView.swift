@@ -60,13 +60,6 @@ struct FlightTrackingView: View {
     @State private var showingShare = false
     @State private var tripNotesDraft = ""
 
-    // Legacy self-reported "log an update" — only meaningful when this flight is linked to a
-    // trip with a known traveler (the feature predates independent flights).
-    @State private var selfReportedUpdates: [FlightUpdate] = []
-    @State private var noteDraft = ""
-    @State private var isSendingUpdate = false
-    @State private var selfReportChannel: RealtimeChannelV2?
-
     init(flight: Flight) {
         _flight = State(initialValue: flight)
     }
@@ -81,10 +74,6 @@ struct FlightTrackingView: View {
     /// trip-linked flights that predate that field.
     private var travelerIDs: [Person.ID] {
         flight.travelerIDs.isEmpty ? linkedTrip.map { $0.travelerIDs } ?? [] : flight.travelerIDs
-    }
-
-    private var isTraveler: Bool {
-        travelerIDs.contains(appModel.currentUser.id)
     }
 
     private var travelers: [Person] {
@@ -120,12 +109,6 @@ struct FlightTrackingView: View {
                     delayAnalysisCard
                     goodToKnowCard
                     flightInfoCard
-                    if linkedTrip != nil, isTraveler {
-                        legacyLogUpdateCard
-                    }
-                    if !selfReportedUpdates.isEmpty {
-                        legacyUpdatesCard
-                    }
                     notificationPreferencesCard
                 }
                 .padding(Theme.Spacing.md)
@@ -173,7 +156,6 @@ struct FlightTrackingView: View {
         .onDisappear {
             if let eventsChannel { Task { await BackendService.unsubscribe(eventsChannel) } }
             if let flightChannel { Task { await BackendService.unsubscribe(flightChannel) } }
-            if let selfReportChannel { Task { await BackendService.unsubscribe(selfReportChannel) } }
         }
         // Pushed onto this screen's own NavigationStack rather than presented as a second sheet
         // on top of Flight Details — same reasoning as TripDetailsView's edit flow.
@@ -1033,71 +1015,6 @@ struct FlightTrackingView: View {
         }
     }
 
-    // MARK: - Legacy self-reported updates (only when traveler on a linked trip)
-
-    private var legacyLogUpdateCard: some View {
-        SectionCard {
-            Text("Log an update").font(.subheadline.weight(.semibold))
-            TextField("Add a note (optional)", text: $noteDraft)
-                .textFieldStyle(.roundedBorder)
-                .font(.subheadline)
-            HStack(spacing: Theme.Spacing.sm) {
-                ForEach([FlightUpdateKind.mealService, .disruption, .goingToSleep], id: \.self) { kind in
-                    Button {
-                        logSelfReportedUpdate(kind: kind)
-                    } label: {
-                        VStack(spacing: 4) {
-                            Image(systemName: kind.icon).font(.subheadline.weight(.semibold))
-                            Text(kind.label).font(.caption2.weight(.medium)).multilineTextAlignment(.center)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, Theme.Spacing.sm)
-                        .foregroundStyle(.white)
-                        .background(LinearGradient(colors: kind.iconGradient, startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    }
-                    .disabled(isSendingUpdate)
-                }
-            }
-        }
-    }
-
-    private var legacyUpdatesCard: some View {
-        SectionCard {
-            Text("Their notes").font(.subheadline.weight(.semibold))
-            ForEach(selfReportedUpdates) { update in
-                HStack(alignment: .top, spacing: Theme.Spacing.sm) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 8, style: .continuous).fill(LinearGradient(colors: update.kind.iconGradient, startPoint: .topLeading, endPoint: .bottomTrailing))
-                        Image(systemName: update.kind.icon).foregroundStyle(.white).font(.caption)
-                    }
-                    .frame(width: 28, height: 28)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(update.kind.label).font(.subheadline.weight(.semibold))
-                        if let note = update.note, !note.isEmpty {
-                            Text(note).font(.caption).foregroundStyle(Theme.subtleInk)
-                        }
-                    }
-                    Spacer(minLength: 0)
-                    Text(update.createdAt, format: .dateTime.hour().minute()).font(.caption2).foregroundStyle(Theme.subtleInk)
-                }
-            }
-        }
-    }
-
-    private func logSelfReportedUpdate(kind: FlightUpdateKind) {
-        let note = noteDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-        let update = FlightUpdate(kind: kind, note: note.isEmpty ? kind.defaultNote : note)
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
-            selfReportedUpdates.insert(update, at: 0)
-        }
-        noteDraft = ""
-        isSendingUpdate = true
-        Task {
-            try? await BackendService.insertFlightUpdate(flightID: flight.id, kind: update.kind, note: update.note)
-            isSendingUpdate = false
-        }
-    }
-
     // MARK: - Loading / refreshing
 
     private func loadEverything() async {
@@ -1121,10 +1038,6 @@ struct FlightTrackingView: View {
             baggageClaimNotif = prefs.baggageClaimUpdate
         }
         preferencesLoaded = true
-
-        if linkedTrip != nil, let fetched = try? await BackendService.fetchFlightUpdates(flightID: flight.id) {
-            selfReportedUpdates = fetched
-        }
 
         let (channel, stream) = BackendService.subscribeToFlightStatusEvents(flightID: flight.id)
         eventsChannel = channel

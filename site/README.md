@@ -37,6 +37,30 @@ database.
 - `src/lib/validation/` — Zod schemas
 - `supabase/migrations/` — the feedback board's own migrations, applied to the shared project
 
+## Content model
+
+Everything in Studio is either a **singleton** (one document at a fixed `_id`, wired up in
+`src/sanity/deskStructure.ts`) or a **free-form list** editors add to and remove from:
+
+| Content | Shape | Fallback when unpublished |
+| --- | --- | --- |
+| Home hero | singleton `hero` | inline in `src/app/(marketing)/page.tsx` |
+| Features | **free-form list** (`feature`) | `src/lib/marketing/featuresFallback.ts` |
+| Pricing plans | singletons `plan-plus` / `plan-premium` | `PLANS` in `src/lib/marketing/config.ts` |
+| Quiz | free-form `quizQuestion` + 2 result singletons | quiz hidden if unplayable |
+| Privacy / Terms | singletons `legalPage-privacy` / `legalPage-terms` | inline JSX in each page |
+| FAQ | not Sanity — Supabase `faq_entries`, via the custom FAQ tool | `src/lib/marketing/faqFallback.ts` |
+
+Features carry their own title, copy, bullets, icon, colour, and `order`, so adding,
+removing, renaming, and reordering cards is entirely a Studio operation — both the home
+page grid and `/features` render whatever is published. The one piece still in code is the
+per-feature illustration on `/features` (`FeatureArt`, keyed by the feature's slug); a
+feature whose slug has no `case` there falls back to a generic mock card.
+
+`scripts/seed-sanity.mjs` seeded the feature and legal-page documents from the in-code copy
+(create-only; `--replace` to overwrite). Studio is the source of truth now — the fallbacks
+above only apply when a document is missing entirely.
+
 ## Local development
 
 ```
