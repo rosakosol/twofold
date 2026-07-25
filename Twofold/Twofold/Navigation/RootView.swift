@@ -55,6 +55,7 @@ struct RootView: View {
             }
         }
         .task {
+            KeyboardDismissal.installOnce()
             await appModel.restoreSession()
             await checkSubscription()
             await refreshPendingOutgoingConnectionRequestIfNeeded()
