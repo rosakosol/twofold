@@ -50,8 +50,8 @@ struct PartnerSetupView: View {
                     }
 
                     SectionCard {
-                        Text("Their name").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.subtleInk)
-                        TextField("Their name", text: $partnerName)
+                        Text("Partner's name").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.subtleInk)
+                        TextField("Partner's name", text: $partnerName)
                             .textContentType(.givenName)
                             .textInputAutocapitalization(.words)
                             .padding()
@@ -74,8 +74,8 @@ struct PartnerSetupView: View {
                         }
                     } else {
                         SectionCard {
-                            Text("Their city").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.subtleInk)
-                            CityMenuPicker(label: "Their city", selection: $partnerCity)
+                            Text("Partner's city").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.subtleInk)
+                            CityMenuPicker(label: "Partner's city", selection: $partnerCity)
                         }
                     }
 

@@ -49,9 +49,11 @@ struct AddMemoryView: View {
     @State private var mapCameraPosition: MapCameraPosition
 
     private enum Field: Hashable { case title, note }
-    /// Drives both the keyboard's "Done" accessory and the map's shrink-while-editing-notes
-    /// behavior below — the map used to stay fixed at half the screen even with the keyboard up,
-    /// leaving barely any room to actually see what you were typing in the notes field.
+    /// Drives the map's shrink-while-editing-notes behavior below — the map used to stay fixed at
+    /// half the screen even with the keyboard up, leaving barely any room to actually see what
+    /// you were typing in the notes field. Cleared to `nil` automatically once the keyboard is
+    /// dismissed (tap-outside, app-wide — see `KeyboardDismissal`), since `@FocusState` tracks the
+    /// real first-responder state rather than needing its own explicit reset.
     @FocusState private var focusedField: Field?
 
     private struct PendingPhoto: Identifiable {
@@ -127,10 +129,6 @@ struct AddMemoryView: View {
                     ToolbarItem(placement: .topBarLeading) {
                         Button("Cancel") { dismiss() }
                     }
-                }
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("Done") { focusedField = nil }
                 }
             }
             .interactiveDismissDisabled(!isDismissable)

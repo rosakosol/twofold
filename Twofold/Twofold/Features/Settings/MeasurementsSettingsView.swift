@@ -7,7 +7,10 @@ import PostHog
 import SwiftUI
 
 struct MeasurementsSettingsView: View {
-    @State private var system: MeasurementSystem = MeasurementPreference.current
+    /// Bound straight to the shared store rather than mirrored into `@State` and written back on
+    /// change — one source of truth, so the control can't drift from what the rest of the app is
+    /// rendering.
+    @Bindable private var store = MeasurementPreferenceStore.shared
 
     var body: some View {
         ScrollView {
@@ -16,7 +19,7 @@ struct MeasurementsSettingsView: View {
                     // `.inline` renders as unreliable, unresponsive rows outside a real `List` —
                     // `SectionCard` is a plain VStack, so segmented (also a better fit for a
                     // binary choice) is what actually registers taps here.
-                    Picker("Units", selection: $system) {
+                    Picker("Units", selection: $store.system) {
                         ForEach(MeasurementSystem.allCases, id: \.self) { option in
                             Text(option.displayName).tag(option)
                         }
@@ -34,9 +37,6 @@ struct MeasurementsSettingsView: View {
         .background(Theme.backgroundGradient.ignoresSafeArea())
         .navigationTitle("Measurements")
         .navigationBarTitleDisplayMode(.inline)
-        .onChange(of: system) { _, newValue in
-            MeasurementPreference.current = newValue
-        }
         .postHogScreenView("Settings: Measurements")
     }
 }

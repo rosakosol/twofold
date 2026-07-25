@@ -167,11 +167,6 @@ struct DeepConversationsGameView: View {
 
     private func responseInput(round: GameSessionRound) -> some View {
         VStack(spacing: Theme.Spacing.sm) {
-            Text("Jot down a few private thoughts before you see each other's answers.")
-                .font(.caption)
-                .foregroundStyle(Theme.subtleInk)
-                .multilineTextAlignment(.center)
-
             TextEditor(text: $responseText)
                 .frame(height: 120)
                 .scrollContentBackground(.hidden)

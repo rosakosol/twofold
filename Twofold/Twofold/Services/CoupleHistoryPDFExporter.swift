@@ -19,13 +19,34 @@ import PDFKit
 /// One selected, exportable entry — built by `ExportHistoryView` from the user's selections.
 /// `date` drives the single chronological ordering across all three kinds combined.
 enum ExportTimelineItem: Identifiable {
-    case trip(Trip, description: String)
+    /// A flight linked to a trip (`Flight.tripID` matches) — carries the same attachment
+    /// inclusion/data a standalone flight would, so a trip's flights are just as fully
+    /// represented, just grouped with their trip instead of sorted independently into the
+    /// timeline. See `LinkedMemory`'s doc comment for why these live on the `.trip` case itself
+    /// rather than as their own top-level `ExportTimelineItem`s.
+    struct LinkedFlight {
+        let flight: Flight
+        let includeAttachments: Bool
+        let attachments: [FlightDocument]
+    }
+
+    /// A memory linked to a trip (`Memory.tripID` matches). Deliberately carried on the `.trip`
+    /// case rather than as a separate top-level `.memory` item — a linked memory's date is
+    /// usually close to its trip's anyway, but bundling it here *guarantees* it renders directly
+    /// after that trip's page (and any linked flights) regardless of the global date sort, which
+    /// is the whole point of "appears in conjunction with its trip."
+    struct LinkedMemory {
+        let memory: Memory
+        let description: String
+    }
+
+    case trip(Trip, description: String, linkedFlights: [LinkedFlight], linkedMemories: [LinkedMemory])
     case memory(Memory, description: String)
     case flight(Flight, includeAttachments: Bool, attachments: [FlightDocument])
 
     var id: String {
         switch self {
-        case .trip(let trip, _): "trip-\(trip.id)"
+        case .trip(let trip, _, _, _): "trip-\(trip.id)"
         case .memory(let memory, _): "memory-\(memory.id)"
         case .flight(let flight, _, _): "flight-\(flight.id)"
         }
@@ -33,7 +54,7 @@ enum ExportTimelineItem: Identifiable {
 
     var date: Date {
         switch self {
-        case .trip(let trip, _): trip.departureDate
+        case .trip(let trip, _, _, _): trip.departureDate
         case .memory(let memory, _): memory.date
         case .flight(let flight, _, _): flight.bestDeparture ?? .distantPast
         }
@@ -71,8 +92,30 @@ enum CoupleHistoryPDFExporter {
 
         for item in sorted {
             switch item {
-            case .trip(let trip, let description):
-                append(renderPage(TripPageView(trip: trip, description: description)))
+            case .trip(let trip, let description, let linkedFlights, let linkedMemories):
+                append(renderPage(TripPageView(
+                    trip: trip,
+                    description: description,
+                    linkedFlights: linkedFlights.map(\.flight),
+                    linkedMemories: linkedMemories.map(\.memory)
+                )))
+
+                // Linked memories/flights appear immediately after their trip's own page — in
+                // that order, and each flight's attachments right after its own page — so the
+                // whole bundle reads together, rather than being scattered across the document
+                // wherever their own dates would otherwise sort them.
+                for linked in linkedMemories {
+                    let photo = await downloadImage(from: linked.memory.photoURL)
+                    append(renderPage(MemoryPageView(memory: linked.memory, description: linked.description, photo: photo)))
+                }
+                for linked in linkedFlights {
+                    let logo = await downloadImage(from: linked.flight.displayLogoURL)
+                    append(renderPage(FlightPageView(flight: linked.flight, logo: logo)))
+                    guard linked.includeAttachments else { continue }
+                    for attachment in linked.attachments {
+                        await appendAttachment(attachment, into: master, append: append)
+                    }
+                }
 
             case .memory(let memory, let description):
                 let photo = await downloadImage(from: memory.photoURL)
@@ -291,6 +334,11 @@ private struct StoryPageChrome<Content: View>: View {
 private struct TripPageView: View {
     let trip: Trip
     let description: String
+    /// Passed in explicitly (rather than read straight off `trip.orderedFlights`) so this stays a
+    /// pure reflection of what's actually selected/exported — `trip.orderedFlights` includes
+    /// every linked flight regardless of the user's own selection in `ExportHistoryView`.
+    let linkedFlights: [Flight]
+    let linkedMemories: [Memory]
 
     var body: some View {
         StoryPageChrome(
@@ -301,10 +349,20 @@ private struct TripPageView: View {
         ) {
             VStack(alignment: .leading, spacing: Theme.Spacing.md) {
                 routeCard
-                ForEach(trip.orderedFlights) { flight in
+                // Just an index of what follows — each linked flight/memory gets its own full
+                // page (with attachments, for flights) immediately after this one.
+                ForEach(linkedFlights) { flight in
                     HStack(spacing: Theme.Spacing.sm) {
                         Image(systemName: "airplane.circle.fill").foregroundStyle(Theme.skyBlue)
                         Text("\(flight.displayNumber)\(flight.airlineName.map { " · \($0)" } ?? "")")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(Theme.subtleInk)
+                    }
+                }
+                ForEach(linkedMemories) { memory in
+                    HStack(spacing: Theme.Spacing.sm) {
+                        Image(systemName: "heart.fill").foregroundStyle(Theme.heartRed)
+                        Text(memory.title)
                             .font(.subheadline.weight(.medium))
                             .foregroundStyle(Theme.subtleInk)
                     }

@@ -53,7 +53,7 @@ struct RelationshipStatsCard: View {
                         if showReunionsStat {
                             milestoneTile(icon: "heart.fill", label: "Total Reunions", value: "\(stats.reunionCount)", tint: Theme.heartRed)
                         }
-                        milestoneTile(icon: "airplane", label: "Longest Distance", value: MeasurementPreference.distanceLabel(km: stats.longestDistanceKm), tint: Theme.skyBlue)
+                        milestoneTile(icon: "airplane", label: "Longest Distance Apart", value: MeasurementPreference.distanceLabel(km: stats.longestDistanceKm), tint: Theme.skyBlue)
                         milestoneTile(
                             icon: "arrow.up.right",
                             label: "Longest Trip",
