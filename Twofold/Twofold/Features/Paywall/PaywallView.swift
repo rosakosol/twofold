@@ -116,15 +116,6 @@ struct PaywallView: View {
             }
         }
         .toolbar { toolbarContent }
-        .confirmationDialog("Sign out of Twofold?", isPresented: $showingSignOutConfirm, titleVisibility: .visible) {
-            Button("Sign Out", role: .destructive) {
-                Task {
-                    isSigningOut = true
-                    await appModel.signOut()
-                }
-            }
-            Button("Cancel", role: .cancel) {}
-        }
         .alert("Something went wrong", isPresented: isShowingError) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -353,6 +344,22 @@ struct PaywallView: View {
                     showingSignOutConfirm = true
                 }
                 .disabled(isSigningOut)
+                // Attached directly to this button (not up on the whole screen, where it lived
+                // before) — on iPad, a `confirmationDialog` renders as a popover anchored to
+                // whatever view it's declared on. Declared this far from the actual button, with
+                // no way to infer a real anchor, it fell back to a fixed spot near the top of the
+                // screen instead of pointing at the Sign Out button itself. Attaching it here
+                // gives it a real anchor to point from, and changes nothing about the plain
+                // bottom-sheet behavior this already had on iPhone.
+                .confirmationDialog("Sign out of Twofold?", isPresented: $showingSignOutConfirm, titleVisibility: .visible) {
+                    Button("Sign Out", role: .destructive) {
+                        Task {
+                            isSigningOut = true
+                            await appModel.signOut()
+                        }
+                    }
+                    Button("Cancel", role: .cancel) {}
+                }
             }
         }
     }
