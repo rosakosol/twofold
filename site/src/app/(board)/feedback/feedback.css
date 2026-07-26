@@ -142,6 +142,9 @@
   gap: 12px;
 }
 
+/* No hover state: the card itself isn't a link or a button — the vote control inside it is
+   the only interactive part, and it has its own hover below. A whole-card lift promised a
+   click target that doesn't exist. */
 .fb-item {
   display: flex;
   gap: 18px;
@@ -150,11 +153,6 @@
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
   border: 1px solid var(--border-softer);
-  transition: transform 0.3s var(--ease), box-shadow 0.3s var(--ease);
-}
-.fb-item:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-lg);
 }
 
 .vote {
@@ -321,17 +319,13 @@
   gap: 12px;
   min-height: 120px;
 }
+/* Read-only, like .fb-item above — a roadmap entry isn't clickable, so it doesn't lift. */
 .rm-card {
   background: var(--card-bg);
   border: 1px solid var(--border-softer);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-sm);
   padding: 16px 18px;
-  transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease);
-}
-.rm-card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-md);
 }
 .rm-card .t {
   font-weight: 600;

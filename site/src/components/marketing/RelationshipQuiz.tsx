@@ -34,10 +34,18 @@ const FALLBACK_RESULTS: Record<"plus" | "premium", QuizResultDoc> = {
 export function RelationshipQuiz({
   questions,
   results,
+  autoStart = false,
 }: {
   questions: QuizQuestionDoc[];
   results: { plus: QuizResultDoc | null; premium: QuizResultDoc | null };
+  /**
+   * Skip the "Take the quiz" card and open on question 1. On for /quiz, where the visitor
+   * navigated specifically to take it; off on the home page, where the quiz is one section
+   * among many and shouldn't read as a half-answered form to someone scrolling past.
+   */
+  autoStart?: boolean;
 }) {
+  const [started, setStarted] = useState(autoStart);
   const [answers, setAnswers] = useState<string[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showResult, setShowResult] = useState(false);
@@ -80,10 +88,48 @@ export function RelationshipQuiz({
     setAnswers([]);
     setCurrentIndex(0);
     setShowResult(false);
+    // Back to whichever state this instance opened in — the start card on the home page,
+    // question 1 on /quiz.
+    setStarted(autoStart);
   }
 
   const result = resolvedResults[plan];
   const question = questions[currentIndex];
+
+  // The red gradient start card. Self-contained (its own eyebrow and heading) rather than
+  // sitting under the section-head the started states use, because that's the shape it had
+  // as the standalone "quiz isn't ready yet" teaser on the home page — see page.tsx, which
+  // still renders the same card for that case. Deliberately NOT wrapped in <Reveal>: its
+  // "is-visible" class is added outside React's tracking by an IntersectionObserver, so
+  // after the observer has already fired once, re-rendering this card on "Retake quiz"
+  // would bring it back at opacity 0.
+  if (!started) {
+    return (
+      <section id="quiz" aria-labelledby="quiz-start-heading">
+        <div className="wrap quiz-teaser-wrap">
+          <div className="card quiz-teaser-card">
+            <p className="eyebrow" style={{ justifyContent: "center" }}>
+              <svg className="icon">
+                <use href="/assets/icons.svg#icon-sparkle" />
+              </svg>
+              Find your fit
+            </p>
+            <h2 id="quiz-start-heading">Which plan fits your relationship?</h2>
+            <p>
+              Answer {questions.length} quick questions and we&apos;ll point you to the plan that matches how you two do
+              long distance.
+            </p>
+            <button type="button" className="btn btn-white btn-lg" onClick={() => setStarted(true)}>
+              Take the quiz
+              <svg className="icon">
+                <use href="/assets/icons.svg#icon-arrow-right" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section id="quiz" aria-labelledby="quiz-heading">

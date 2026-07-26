@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Reveal } from "@/components/marketing/Reveal";
 import { FeatureTeaserGrid } from "@/components/marketing/FeatureTeaserGrid";
+import { ScrollLink } from "@/components/marketing/ScrollLink";
 import { WaitlistForm } from "@/components/marketing/WaitlistForm";
 import { RelationshipQuiz } from "@/components/marketing/RelationshipQuiz";
 import { isQuizPlayable } from "@/lib/marketing/quiz";
@@ -63,12 +64,12 @@ export default async function HomePage() {
                   <strong>App&nbsp;Store</strong>
                 </span>
               </a>
-              <Link className="btn btn-primary btn-lg hide-on-mobile" href="#quiz">
+              <ScrollLink className="btn btn-primary btn-lg hide-on-mobile" targetId="quiz">
                 Get started
                 <svg className="icon">
                   <use href="/assets/icons.svg#icon-arrow-right" />
                 </svg>
-              </Link>
+              </ScrollLink>
               <Link className="text-link hide-on-desktop" href="/pricing">
                 See pricing
               </Link>
@@ -130,7 +131,10 @@ export default async function HomePage() {
             <h2 id="how-heading">From &ldquo;miles apart&rdquo; to one shared map</h2>
             <p>No spreadsheets, no guessing when they&apos;ll land. Twofold does the tracking so you can just look forward to seeing each other.</p>
           </Reveal>
-          <div className="steps">
+          {/* Becomes a horizontally scrolling carousel below 860px (see marketing.css) —
+              tabindex makes that scroll region reachable by keyboard, which a plain div
+              with overflow-x wouldn't be. */}
+          <div className="steps" tabIndex={0} role="group" aria-label="How Twofold works, in three steps">
             <div className="step">
               {/* Rectangular placeholder for a real step screenshot. To swap in the real
                   image, replace this whole <div> with:
