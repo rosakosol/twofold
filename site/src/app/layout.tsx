@@ -18,10 +18,10 @@ const displayFont = Newsreader({
 
 export const metadata: Metadata = {
   title: {
-    default: "Twofold",
+    default: "Twofold - Long Distance Couples App",
     template: "%s | Twofold",
   },
-  description: "The living map for long-distance couples.",
+  description: "Twofold helps long distance couples stay connected - track flights, share memories and grow closer with games.",
 };
 
 // Deliberately minimal — no header/footer here. (marketing) and (board) each render

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type Status = "idle" | "sending" | "success" | "error";
 
@@ -20,6 +21,9 @@ const CATEGORIES = [
 export function SupportForm() {
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState("");
+  // The category picker is a Base UI Select rather than a native <select>, so its value
+  // isn't in the form's own FormData — it's held here and cleared alongside form.reset().
+  const [category, setCategory] = useState<string | null>(null);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -28,7 +32,7 @@ export function SupportForm() {
     const payload = {
       name: String(formData.get("name") ?? ""),
       email: String(formData.get("email") ?? ""),
-      category: String(formData.get("category") ?? ""),
+      category: category ?? "",
       message: String(formData.get("message") ?? ""),
       company: String(formData.get("company") ?? ""),
     };
@@ -46,6 +50,7 @@ export function SupportForm() {
         setStatus("success");
         setMessage("Message sent — we'll get back to you soon.");
         form.reset();
+        setCategory(null);
       } else {
         setStatus("error");
         setMessage(data.error || "Something went wrong. Please try again.");
@@ -76,16 +81,18 @@ export function SupportForm() {
       </div>
       <div className="support-field">
         <label htmlFor="support-category">Category</label>
-        <select id="support-category" name="category" required defaultValue="">
-          <option value="" disabled>
-            Select a category
-          </option>
-          {CATEGORIES.map((category) => (
-            <option key={category} value={category}>
-              {category}
-            </option>
-          ))}
-        </select>
+        <Select value={category} onValueChange={(value) => setCategory(value)}>
+          <SelectTrigger id="support-category" className="support-select">
+            <SelectValue placeholder="Select a category" />
+          </SelectTrigger>
+          <SelectContent className="support-select-popup">
+            {CATEGORIES.map((option) => (
+              <SelectItem key={option} value={option}>
+                {option}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <div className="support-field">
         <label htmlFor="support-message">Message</label>

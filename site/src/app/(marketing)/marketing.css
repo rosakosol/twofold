@@ -1412,7 +1412,6 @@ section {
   margin-bottom: 6px;
 }
 .support-field input,
-.support-field select,
 .support-field textarea {
   width: 100%;
   border: 1px solid var(--border-soft);
@@ -1431,13 +1430,67 @@ section {
   line-height: 1.5;
 }
 .support-field input:focus,
-.support-field select:focus,
-.support-field textarea:focus {
+.support-field textarea:focus,
+.support-field .support-select:focus-visible,
+.support-field .support-select[data-popup-open] {
   border-color: var(--sky-blue);
   box-shadow: 0 0 0 4px rgba(79, 169, 224, 0.14);
 }
 .support-form .btn {
   align-self: flex-start;
+}
+
+/* Category picker. It's the shared Base UI Select (src/components/ui/select.tsx) rather
+   than a native <select>, so the popup can be styled like every other dropdown on the
+   site instead of being drawn by the OS. The trigger has to look like a sibling input,
+   which means overriding the shared component's own Tailwind utilities — hence the
+   two-class / attribute-qualified selectors here, which outrank single-class ones. */
+.support-field .support-select {
+  /* Matches .support-field input above, field for field. `space-between` is what puts
+     the chevron's right edge on the same 16px inset as the inputs' text. */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--border-soft);
+  background: var(--card-bg-alt);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  text-align: left;
+  color: var(--ink);
+  cursor: pointer;
+}
+/* Base UI marks the trigger with data-placeholder until something is chosen — same
+   muted treatment the inputs' ::placeholder gets. */
+.support-field .support-select[data-placeholder] {
+  color: var(--subtle-ink);
+}
+.support-field .support-select svg {
+  width: 18px;
+  height: 18px;
+  color: var(--subtle-ink);
+  transition: transform 0.2s var(--ease);
+}
+.support-field .support-select[data-popup-open] svg {
+  transform: rotate(180deg);
+}
+
+/* The popup keeps the shared component's shape (radius, shadow, item padding, check
+   indicator) so it reads as the same control as the board's dropdowns — only the
+   surface colours and typography are pulled onto the marketing palette. */
+[data-slot="select-content"].support-select-popup {
+  background: var(--card-bg);
+  border: 1px solid var(--border-soft);
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  color: var(--ink);
+}
+.support-select-popup [data-slot="select-item"] {
+  padding-block: 8px;
 }
 
 /* ============================================================
@@ -1700,8 +1753,22 @@ html.is-desktop .hide-on-desktop { display: none !important; }
   font-size: 0.95rem;
   line-height: 1.7;
 }
+/* Long-form prose, unlike the rest of the marketing site — so it needs its own vertical
+   rhythm back: the global `p { margin: 0 }` above and Tailwind's preflight (which sets
+   `list-style: none` on every ul and zeroes all margins) between them leave the body
+   as one unbroken block with unmarked bullets. Applies to whatever Sanity renders
+   through PortableText as well as the in-code fallback bodies. */
+.legal-wrap p {
+  margin-top: 14px;
+}
 .legal-wrap ul {
-  padding-left: 20px;
+  list-style: disc outside;
+  padding-left: 22px;
+  margin-top: 14px;
+}
+.legal-wrap li {
+  margin-top: 6px;
+  padding-left: 4px;
 }
 
 /* ============================================================
