@@ -2,12 +2,18 @@
 // (the caller's own Supabase auth session) — deletes only the calling user's own account, never
 // anyone else's.
 //
+// Optional JSON body: `{ "deleteSharedData": true }` — additionally purges every shared archive
+// (trips, memories, photos, flights, games) for every couple this user belongs to. Off unless
+// explicitly asked for, since that data is the other partner's history too. See
+// 20260901001900_delete_own_account_shared_data.sql for why the option exists at all: after this
+// runs the user can never sign in again, so this is their last chance to make that choice.
+//
 // Two-step, in this order:
-//   1. `delete_own_account()` (security definer RPC, runs as the caller) scrubs this user's own
-//      identifying profile fields and storage objects, and dissolves any couple they're still
-//      actively part of — see that migration's own header comment for exactly why this doesn't
-//      just hard-delete the profile row outright (short version: the FK cascade from profiles to
-//      couples would wipe the *other* partner's shared trip/memory history too).
+//   1. `delete_own_account(p_delete_shared_data)` (security definer RPC, runs as the caller)
+//      scrubs this user's own identifying profile fields and storage objects, and dissolves any
+//      couple they're still actively part of — see that migration's own header comment for
+//      exactly why this doesn't just hard-delete the profile row outright (short version: the FK
+//      cascade from profiles to couples would wipe the *other* partner's shared history too).
 //   2. `auth.admin.deleteUser(id, shouldSoftDelete: true)` — soft-deletes the actual `auth.users`
 //      row: sign-in is permanently disabled and the account can never be recovered, but the row
 //      itself is left in place (`deleted_at` set, not actually removed), so it never triggers
@@ -37,7 +43,19 @@ Deno.serve(async (req) => {
     return Response.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const { error: rpcError } = await userClient.rpc("delete_own_account");
+  // Body is optional — an empty/absent/malformed one means "account only", the safe default.
+  // Only an explicit `true` opts into destroying shared content.
+  let deleteSharedData = false;
+  try {
+    const body = await req.json();
+    deleteSharedData = body?.deleteSharedData === true;
+  } catch {
+    // no body, or not JSON — keep the default
+  }
+
+  const { error: rpcError } = await userClient.rpc("delete_own_account", {
+    p_delete_shared_data: deleteSharedData,
+  });
   if (rpcError) {
     console.error("[delete-account] delete_own_account failed:", rpcError.message);
     return Response.json({ error: "Couldn't delete your account data. Please try again." }, { status: 500 });

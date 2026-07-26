@@ -409,9 +409,12 @@ final class AppModel {
     /// does — the account is gone either way, so the device needs to end up in the same signed-
     /// out state. Rethrows so the caller (the confirmation screen) can show a real error instead
     /// of silently doing nothing if the request fails.
-    func deleteAccount() async throws {
+    ///
+    /// - Parameter deleteSharedData: also permanently delete the shared archives (trips,
+    ///   memories, photos, flights) for both partners — see `BackendService.deleteAccount()`.
+    func deleteAccount(deleteSharedData: Bool = false) async throws {
         await stopFlightsRealtimeSubscription()
-        try await BackendService.deleteAccount()
+        try await BackendService.deleteAccount(deleteSharedData: deleteSharedData)
         await clearLocalSessionState()
     }
 
