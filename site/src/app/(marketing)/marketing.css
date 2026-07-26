@@ -111,7 +111,11 @@ h3 {
   width: 100%;
   max-width: var(--maxw);
   margin: 0 auto;
-  padding: 0 28px;
+  /* Exposed as a variable so a child can cancel it out and bleed to the screen edge — see
+     the .steps carousel, which needs to line its first slide up with this gutter while
+     letting the rest run off the edge. */
+  --wrap-pad: 28px;
+  padding: 0 var(--wrap-pad);
 }
 .wrap-narrow {
   width: 100%;
@@ -128,15 +132,18 @@ h1, h2, h3 {
   letter-spacing: -0.01em;
   text-wrap: balance;
 }
+/* The clamp floors are what phones actually get: below ~630px the vw term is smaller than
+   the minimum, so the minimum is the phone size. Keeping the vw term and cap unchanged means
+   tablet and desktop render exactly as before — only phones shrink. */
 h1 {
-  font-size: clamp(2.6rem, 5.2vw, 4rem);
-  line-height: 1.04;
+  font-size: clamp(2.05rem, 5.2vw, 4rem);
+  line-height: 1.06;
   margin: 0;
   font-weight: 500;
 }
 h2 {
-  font-size: clamp(2rem, 3.6vw, 2.9rem);
-  line-height: 1.08;
+  font-size: clamp(1.55rem, 3.6vw, 2.9rem);
+  line-height: 1.12;
   margin: 0;
   font-weight: 500;
 }
@@ -219,10 +226,23 @@ section {
 @media (max-width: 640px) {
   .wrap,
   .wrap-narrow {
-    padding: 0 20px;
+    --wrap-pad: 20px;
+    padding: 0 var(--wrap-pad);
   }
   section {
     padding: 60px 0;
+  }
+
+  /* iOS Safari auto-zooms the page whenever a focused field's font size is under 16px, and
+     doesn't zoom back out — leaving the layout scrolled sideways for the rest of the visit.
+     Every field on the site sits at 0.95rem (15.2px), just under the threshold, so they're
+     bumped to exactly 16px on phone-width screens. Desktop keeps the smaller size. */
+  .waitlist-form input,
+  .field-row input,
+  .support-field input,
+  .support-field textarea,
+  .support-field .support-select {
+    font-size: 16px;
   }
 }
 
@@ -743,8 +763,37 @@ section {
   margin: 0;
   color: var(--subtle-ink);
 }
+/* Swipeable carousel instead of a three-tall stack. The steps are a numbered sequence, and
+   scroll-snap preserves that reading order in one screen rather than three. Pure CSS — touch
+   swipe is native; the slide width leaves a sliver of the next card visible, which is what
+   signals there's more to swipe to. `.steps` carries tabindex in the markup so keyboard users
+   can scroll it too (WCAG 2.1.1). */
 @media (max-width: 860px) {
-  .steps { grid-template-columns: 1fr; }
+  .steps {
+    display: flex;
+    gap: 14px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    /* Cancel .wrap's gutter so slides bleed off the right edge, then re-apply it as padding
+       so the first slide still lines up with everything above it. */
+    margin-inline: calc(-1 * var(--wrap-pad, 20px));
+    padding-inline: var(--wrap-pad, 20px);
+    scroll-padding-inline: var(--wrap-pad, 20px);
+    padding-bottom: 6px;
+    scrollbar-width: none;
+  }
+  .steps::-webkit-scrollbar {
+    display: none;
+  }
+  .step {
+    scroll-snap-align: start;
+    flex: 0 0 min(76%, 320px);
+  }
+  .step-card {
+    padding: 22px;
+  }
 }
 
 /* ============================================================
@@ -782,8 +831,36 @@ section {
   margin: 0;
   color: var(--subtle-ink);
 }
+/* Stays three across at every width — six cards read as one glanceable block that way,
+   rather than a six-screen scroll. The cards compress to suit: below 560px there isn't
+   enough column width for the teaser sentence to be legible (roughly nine characters a
+   line), so each card falls back to icon + title, like an app grid. */
 @media (max-width: 860px) {
-  .feat-grid, .feature-grid { grid-template-columns: 1fr; }
+  .feat-grid { grid-template-columns: 1fr; }
+  .feature-grid { gap: 12px; }
+  .feature-card { padding: 18px 14px; }
+}
+@media (max-width: 560px) {
+  .feature-grid { gap: 8px; }
+  .feature-card {
+    padding: 14px 9px;
+    text-align: center;
+  }
+  .feature-card .feature-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 11px;
+    margin: 0 auto 10px;
+  }
+  .feature-card h3 {
+    font-size: 0.76rem;
+    line-height: 1.25;
+    margin-bottom: 0;
+    text-wrap: balance;
+  }
+  .feature-card p {
+    display: none;
+  }
 }
 
 .center-link {
@@ -1192,8 +1269,33 @@ section {
   border-bottom-color: var(--heart-red);
 }
 
+/* The two tiers stay side by side all the way down to the smallest phone rather than
+   stacking. Being able to compare Plus against Premium without scrolling is the whole point
+   of this page, and stacking puts the second card below the fold on every phone — so the
+   card's internals scale down instead of the grid collapsing to one column. */
 @media (max-width: 720px) {
-  .pricing-grid { grid-template-columns: 1fr; max-width: 420px; }
+  .pricing-grid { gap: 14px; max-width: 520px; }
+  .plan { padding: 28px 18px; }
+}
+/* Text is what drives the height here: at two-up each column is only ~105px wide, so every
+   feature bullet wraps two or three times and the card grows tall and cramped. Everything
+   below is sized down primarily to cut the number of wrapped lines, not just to fit. */
+@media (max-width: 480px) {
+  .pricing-grid { gap: 9px; }
+  .plan { padding: 20px 11px; }
+  .plan h3 { font-size: 0.92rem; line-height: 1.2; }
+  .plan .plan-sub { font-size: 0.7rem; line-height: 1.3; margin-bottom: 12px; }
+  .price-line .n { font-size: 1.55rem; }
+  .price-line .per { font-size: 0.68rem; }
+  .price-foot { font-size: 0.63rem; line-height: 1.3; margin: 4px 0 13px; }
+  .plan .check-list { gap: 6px; margin-bottom: 15px; }
+  .plan .check-list li { font-size: 0.7rem; line-height: 1.3; gap: 5px; }
+  .plan .check-list li .icon,
+  .plan .check-list li svg { width: 12px; height: 12px; margin-top: 2px; }
+  /* .btn is nowrap by default, which would push "Opening checkout…" straight out of a
+     ~105px-wide card and give the page a horizontal scrollbar mid-purchase. */
+  .plan .btn { padding: 9px 7px; font-size: 0.74rem; line-height: 1.25; white-space: normal; }
+  .plan-badge { font-size: 0.56rem; padding: 3px 8px; top: -10px; }
 }
 
 /* Auth / purchase status states (functionality the reference doesn't show, since it
@@ -1288,13 +1390,28 @@ section {
 .acc-item.open .acc-q svg {
   transform: rotate(180deg);
 }
+/* Animates on grid-template-rows rather than max-height. The old fixed 320px cap silently
+   clipped any answer taller than that — and FAQ answers are editor-written through the
+   Studio FAQ tool, so nobody would have found out until a long one shipped. 0fr → 1fr
+   transitions to the content's real height, whatever it turns out to be. */
+/* The open height is measured and set inline by FaqAccordionItem — see that component for
+   why it isn't a fixed cap here. This only owns the collapsed state and the transition.
+   `visibility` keeps the answer out of the accessibility tree while closed, held until the
+   collapse finishes so the text doesn't vanish the instant you press the question. */
 .acc-a {
   max-height: 0;
   overflow: hidden;
-  transition: max-height 0.35s var(--ease);
+  visibility: hidden;
+  transition: max-height 0.35s var(--ease), visibility 0s linear 0.35s;
 }
 .acc-item.open .acc-a {
-  max-height: 320px;
+  /* Pre-hydration only: the FAQ page renders its first item open, and without a height here
+     that answer would paint collapsed for a frame before the inline style lands. Generous
+     rather than exact because it's a stopgap — the measured inline value overrides it as soon
+     as the component mounts, so this never limits a real answer. */
+  max-height: 100vh;
+  visibility: visible;
+  transition: max-height 0.35s var(--ease), visibility 0s;
 }
 .acc-a p {
   margin: 0;
@@ -1326,20 +1443,22 @@ section {
   color: var(--subtle-ink);
 }
 
-/* Quiz teaser (home page, in place of the old pricing preview) — deliberately a
+/* Quiz start card (home page, in place of the old pricing preview) — deliberately a
    saturated gradient card (unlike .cta-band elsewhere, which is a plain white card on
    purpose) so it visually breaks from the rest of the page and reads as "a different
-   kind of decision than picking a plan." Mirrors .waitlist-wrap/.waitlist-card's own
-   structure just above. */
+   kind of decision than picking a plan."
+   No max-width of its own, unlike .waitlist-wrap just above: it runs the full content
+   width, so the gradient reads as a band across the page rather than a narrow panel
+   floating in the middle of it. Below ~600px the viewport is narrower than the old cap
+   was anyway, so this changes nothing on phones. */
 .quiz-teaser-wrap {
-  max-width: 560px;
   margin: 0 auto;
   text-align: center;
 }
 .quiz-teaser-card {
   background: linear-gradient(160deg, var(--heart-red), var(--heart-red-deep));
   border-color: rgba(255, 255, 255, 0.25);
-  padding: 44px;
+  padding: 56px 44px;
   text-align: center;
 }
 .quiz-teaser-card h2 {
@@ -1357,6 +1476,13 @@ section {
 .quiz-teaser-card .eyebrow::before {
   background: #fff;
   box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.25);
+}
+/* 44px of side padding leaves about 247px of usable width on a small phone — enough to
+   wrap the heading awkwardly on its own. */
+@media (max-width: 640px) {
+  .quiz-teaser-card {
+    padding: 36px 22px;
+  }
 }
 
 .waitlist-form,

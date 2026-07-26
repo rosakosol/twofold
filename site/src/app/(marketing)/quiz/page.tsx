@@ -36,5 +36,7 @@ export default async function QuizPage() {
   // No extra wrapper here — RelationshipQuiz renders its own top-level <section>, which
   // already gets the standard 84px vertical page padding from the generic `section` rule
   // in marketing.css; wrapping it again would double that spacing.
-  return <RelationshipQuiz questions={questions} results={results} />;
+  // autoStart: someone who navigated to /quiz has already chosen to take it, so the start
+  // card the home page shows would just be an extra click. On the home page it stays.
+  return <RelationshipQuiz questions={questions} results={results} autoStart />;
 }

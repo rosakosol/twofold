@@ -206,3 +206,19 @@
   font-size: 0.9375rem;
   line-height: 1.55;
 }
+
+/* iOS Safari auto-zooms the page whenever a focused field's font size is under 16px, and
+   never zooms back out — leaving the layout scrolled sideways for the rest of the session.
+   The board's fields are Tailwind `text-sm` (14px), comfortably under the threshold, so
+   they're bumped to exactly 16px on phone-width screens only; every larger screen keeps the
+   denser type this shell is built around. Deliberately unlayered so it outranks the
+   `text-sm` utility, which lives in Tailwind's `utilities` layer.
+   The marketing site's own fields get the same treatment in (marketing)/marketing.css. */
+@media (max-width: 640px) {
+  .board-shell input,
+  .board-shell textarea,
+  .board-shell select,
+  .board-shell [data-slot="select-trigger"] {
+    font-size: 16px;
+  }
+}

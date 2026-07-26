@@ -85,14 +85,25 @@ function SelectTrigger({
   )
 }
 
+/**
+ * Base UI ships `alignItemWithTrigger` on by default: the popup is positioned so the *selected*
+ * item lands on top of the trigger, macOS-style. That overlays the control it was opened from —
+ * on a form field it covers the field and its own label, and on a narrow trigger it hides
+ * whatever sits above. Defaulted to `false` here so a dropdown opens below its trigger like
+ * every other dropdown on the site; pass `alignItemWithTrigger` explicitly to opt back in.
+ *
+ * `align` only takes effect once that's off (item alignment governs position otherwise), so it
+ * defaults to "start" — with the popup already matching the anchor width, that only matters for
+ * triggers narrower than `min-w-36`, where centring would hang the popup off to one side.
+ */
 function SelectContent({
   className,
   children,
   side = "bottom",
   sideOffset = 4,
-  align = "center",
+  align = "start",
   alignOffset = 0,
-  alignItemWithTrigger = true,
+  alignItemWithTrigger = false,
   ...props
 }: SelectPrimitive.Popup.Props &
   Pick<
