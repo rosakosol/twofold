@@ -35,7 +35,7 @@ struct TripCarouselCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: Theme.Spacing.xs) {
                     Text(trip.origin.displayCity).lineLimit(1)
-                    Image(systemName: "arrow.right")
+                    Image(systemName: "arrow.right").accessibilityHidden(true)
                     Text(trip.destination.displayCity).lineLimit(1)
                 }
                 .font(.subheadline.weight(.semibold))
@@ -61,6 +61,7 @@ struct TripCarouselCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         .shadow(color: .black.opacity(0.15), radius: 12, y: 6)
+        .accessibilityElement(children: .combine)
     }
 
     /// Centered under `countdownBadge` (same fixed 38pt column) rather than floating at the
@@ -90,6 +91,7 @@ struct TripCarouselCard: View {
                 Image(systemName: "airplane")
                     .font(.subheadline)
                     .foregroundStyle(Theme.skyBlue)
+                    .accessibilityHidden(true)
                 Text("Now")
                     .font(.caption2)
                     .foregroundStyle(Theme.subtleInk)
@@ -97,6 +99,7 @@ struct TripCarouselCard: View {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.subheadline)
                     .foregroundStyle(Theme.leafGreen)
+                    .accessibilityHidden(true)
                 Text("Done")
                     .font(.caption2)
                     .foregroundStyle(Theme.subtleInk)
@@ -117,7 +120,7 @@ struct FlightCarouselCard: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: Theme.Spacing.xs) {
                         Text(flight.origin.displayCode)
-                        Image(systemName: "arrow.right")
+                        Image(systemName: "arrow.right").accessibilityHidden(true)
                         Text(flight.destination.displayCode)
                     }
                     .font(.subheadline.weight(.semibold))
@@ -149,6 +152,7 @@ struct FlightCarouselCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         .shadow(color: .black.opacity(0.15), radius: 12, y: 6)
+        .accessibilityElement(children: .combine)
     }
 }
 

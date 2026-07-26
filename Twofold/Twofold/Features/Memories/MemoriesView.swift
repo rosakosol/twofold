@@ -63,11 +63,13 @@ struct MemoriesView: View {
         } label: {
             Image(systemName: systemImage)
                 .font(.headline)
-                .frame(width: 44, height: 36)
+                .frame(width: 44, height: 44)
                 .foregroundStyle(mode == target ? .white : Theme.subtleInk)
                 .background(mode == target ? AnyShapeStyle(Theme.skyBlue) : AnyShapeStyle(.clear), in: Capsule())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(target == .list ? "List view" : "Map view")
+        .accessibilityAddTraits(mode == target ? .isSelected : [])
     }
 }
 

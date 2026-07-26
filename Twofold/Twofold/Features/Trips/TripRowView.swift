@@ -35,7 +35,7 @@ struct TripRowView: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: Theme.Spacing.xs) {
                     Text(trip.origin.displayCity).lineLimit(1)
-                    Image(systemName: "arrow.right")
+                    Image(systemName: "arrow.right").accessibilityHidden(true)
                     Text(trip.destination.displayCity).lineLimit(1)
                 }
                 .font(.subheadline.weight(.semibold))
@@ -54,6 +54,10 @@ struct TripRowView: View {
             }
         }
         .padding(Theme.Spacing.sm)
+        // One coherent VoiceOver read ("5 days, Sydney to Tokyo, 12–18 Aug · 6 nights") instead of
+        // the badge, avatars, cities, arrow icon, and date/duration line reading as five-plus
+        // separate disconnected swipes.
+        .accessibilityElement(children: .combine)
     }
 
     /// Centered under `countdownBadge` (same fixed-width column) rather than a separate row below
@@ -86,6 +90,7 @@ struct TripRowView: View {
                 Image(systemName: "airplane")
                     .font(.subheadline)
                     .foregroundStyle(Theme.skyBlue)
+                    .accessibilityHidden(true)
                 Text("Now")
                     .font(.caption2)
                     .foregroundStyle(Theme.subtleInk)
@@ -93,6 +98,7 @@ struct TripRowView: View {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.subheadline)
                     .foregroundStyle(Theme.leafGreen)
+                    .accessibilityHidden(true)
                 Text("Done")
                     .font(.caption2)
                     .foregroundStyle(Theme.subtleInk)

@@ -5,10 +5,14 @@
 
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { sendAPNs } from "./apns.ts";
+import { formatDelay } from "./flight-status.ts";
 
 export interface FlightEvent {
   type: string;
   newValue?: string | null;
+  // Set when a delay crossed its notify threshold in the same tick as this event — see
+  // flight-sync.ts's diffEvents for how the two get folded together.
+  delayLabel?: string;
 }
 
 // Event type -> flight_notification_preferences column. Event types with no entry here (e.g.
@@ -21,24 +25,10 @@ const PREFERENCE_COLUMN: Record<string, string> = {
   diverted: "delay_or_cancellation",
   departed: "departure",
   airborne: "departure",
-  arrival_time_change: "landing",
   landed: "landing",
   arrived_at_gate: "arrival_at_gate",
   baggage_claim: "baggage_claim_update",
 };
-
-// `newValue` for arrival_time_change is a raw ISO8601 instant from the server — format it as a
-// readable local time (destination airport's zone when known) rather than pushing the raw
-// timestamp string straight to someone's lock screen.
-function formatArrivalTime(iso: string, timeZone: string | null): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  try {
-    return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: timeZone ?? undefined }).format(date);
-  } catch {
-    return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(date);
-  }
-}
 
 // Mirrors `Flight.displayNumber` on the client — prefixes the airline code onto the number
 // unless it's already there (AeroAPI sometimes includes it, sometimes doesn't).
@@ -58,7 +48,7 @@ function flightLabel(travelerNames: string[], flightNumberIATA: string | null, a
   return travelerNames.length === 1 ? `${travelerNames[0]}'s ${number}` : number;
 }
 
-function buildMessage(event: FlightEvent, label: string, destinationTimezone: string | null): { title: string; body: string } {
+function buildMessage(event: FlightEvent, label: string): { title: string; body: string } {
   const v = event.newValue ?? undefined;
   switch (event.type) {
     case "gate_change":
@@ -72,15 +62,19 @@ function buildMessage(event: FlightEvent, label: string, destinationTimezone: st
     case "diverted":
       return { title: "Flight diverted", body: `${label} has been diverted.` };
     case "departed":
-      return { title: "Flight departed", body: `${label} has departed.` };
+      return event.delayLabel
+        ? { title: "Flight departed", body: `${label} is departing now, ${event.delayLabel} behind schedule.` }
+        : { title: "Flight departed", body: `${label} has departed.` };
     case "airborne":
       return { title: "Flight airborne", body: `${label} is now in the air.` };
-    case "arrival_time_change":
-      return { title: "Arrival time updated", body: v ? `New estimated arrival for ${label}: ${formatArrivalTime(v, destinationTimezone)}.` : `${label}: estimated arrival time changed.` };
     case "landed":
-      return { title: "Flight landed", body: `${label} has landed.` };
+      return event.delayLabel
+        ? { title: "Flight landed", body: `${label} has landed, ${event.delayLabel} behind schedule.` }
+        : { title: "Flight landed", body: `${label} has landed.` };
     case "arrived_at_gate":
-      return { title: "Arrived at gate", body: `${label} has arrived at the gate.` };
+      return event.delayLabel
+        ? { title: "Arrived at gate", body: `${label} has arrived at the gate, ${event.delayLabel} behind schedule.` }
+        : { title: "Arrived at gate", body: `${label} has arrived at the gate.` };
     case "baggage_claim":
       return { title: "Baggage claim assigned", body: v ? `${label}: baggage claim ${v}.` : `${label}: baggage claim has been assigned.` };
     default:
@@ -98,7 +92,7 @@ export async function notifyForEvent(
 
   const { data: flight, error: flightErr } = await serviceClient
     .from("flights")
-    .select("couple_id, destination_timezone, shared, created_by, traveler_ids, flight_number_iata, airline_code")
+    .select("couple_id, shared, created_by, traveler_ids, flight_number_iata, airline_code")
     .eq("id", flightId)
     .single();
   if (flightErr || !flight) return;
@@ -155,7 +149,7 @@ export async function notifyForEvent(
     .in("profile_id", allowedPartnerIds);
   if (!tokens || tokens.length === 0) return;
 
-  const { title, body } = buildMessage(event, label, (flight as { destination_timezone?: string | null }).destination_timezone ?? null);
+  const { title, body } = buildMessage(event, label);
 
   for (const token of tokens) {
     try {
@@ -241,6 +235,88 @@ export async function notifyPreDeparture(
       await sendAPNs(token.apns_token, token.environment, title, body);
     } catch (err) {
       console.error("[notify] sendAPNs threw (pre-departure):", (err as Error).message);
+    }
+  }
+}
+
+// Time-based reminder, same shape as notifyPreDeparture above but fired twice per flight — once
+// ~1 hour and once ~30 minutes before the current predicted arrival — instead of the old
+// "arrival_time_change" push that re-fired on every meaningful ETA re-estimate (see flight-sync.ts
+// diffEvents, which no longer emits that event type). Called from refresh-due-flights once a
+// flight enters each window; the one-shot/reschedule bookkeeping (arrival_1h_notified,
+// arrival_30m_notified, and their *_for timestamps) lives entirely on the caller's side. Goes to
+// *both* partners, unlike notifyPreDeparture — the traveler themselves benefits from a "landing
+// soon" nudge too (gather bags, etc.), not just the one picking them up.
+export async function notifyArrivalReminder(
+  serviceClient: SupabaseClient,
+  flightId: string,
+  window: "1h" | "30m",
+): Promise<void> {
+  const { data: flight, error: flightErr } = await serviceClient
+    .from("flights")
+    .select("couple_id, shared, created_by, traveler_ids, flight_number_iata, airline_code, arrival_delay_seconds")
+    .eq("id", flightId)
+    .single();
+  if (flightErr || !flight) return;
+
+  const travelerIds: string[] = flight.traveler_ids ?? [];
+  let travelerNames: string[] = [];
+  if (travelerIds.length > 0) {
+    const { data: travelers } = await serviceClient
+      .from("profiles")
+      .select("first_name")
+      .in("id", travelerIds);
+    travelerNames = (travelers ?? [])
+      .map((t: { first_name: string | null }) => t.first_name)
+      .filter((name: string | null): name is string => Boolean(name));
+  }
+  const label = flightLabel(travelerNames, flight.flight_number_iata ?? null, flight.airline_code ?? null);
+
+  let partnerIds: string[];
+  if (flight.shared === false) {
+    if (!flight.created_by) return;
+    partnerIds = [flight.created_by as string];
+  } else {
+    const { data: couple, error: coupleErr } = await serviceClient
+      .from("couples")
+      .select("partner_a_id, partner_b_id")
+      .eq("id", flight.couple_id)
+      .single();
+    if (coupleErr || !couple) return;
+    partnerIds = [couple.partner_a_id, couple.partner_b_id].filter((id): id is string => Boolean(id));
+  }
+  if (partnerIds.length === 0) return;
+
+  const { data: prefRows } = await serviceClient
+    .from("flight_notification_preferences")
+    .select("profile_id, landing")
+    .eq("flight_id", flightId)
+    .in("profile_id", partnerIds);
+
+  const prefByProfile = new Map<string, boolean>();
+  for (const row of prefRows ?? []) {
+    prefByProfile.set((row as any).profile_id, Boolean((row as any).landing));
+  }
+  const allowedPartnerIds = partnerIds.filter((id) => prefByProfile.get(id) ?? true);
+  if (allowedPartnerIds.length === 0) return;
+
+  const { data: tokens } = await serviceClient
+    .from("device_push_tokens")
+    .select("apns_token, environment")
+    .in("profile_id", allowedPartnerIds);
+  if (!tokens || tokens.length === 0) return;
+
+  const arrivalDelaySeconds = (flight as { arrival_delay_seconds?: number | null }).arrival_delay_seconds ?? 0;
+  const delaySuffix = arrivalDelaySeconds > 300 ? `, currently running ${formatDelay(arrivalDelaySeconds)} behind schedule` : "";
+  const windowLabel = window === "1h" ? "1 hour" : "30 minutes";
+  const title = window === "1h" ? "Landing in 1 hour" : "Landing in 30 minutes";
+  const body = `${label} is expected to land in about ${windowLabel}${delaySuffix}.`;
+
+  for (const token of tokens) {
+    try {
+      await sendAPNs(token.apns_token, token.environment, title, body);
+    } catch (err) {
+      console.error(`[notify] sendAPNs threw (arrival reminder ${window}):`, (err as Error).message);
     }
   }
 }

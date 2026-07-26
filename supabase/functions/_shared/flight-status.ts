@@ -41,6 +41,16 @@ export type FlightStatusInput = Pick<
   | "arrival_delay"
 >;
 
+// Shared by flight-sync.ts (event history/diffing) and notify.ts (push copy) — kept here rather
+// than in either of those to avoid a circular import between them.
+export function formatDelay(seconds: number): string {
+  const mins = Math.round(seconds / 60);
+  if (mins < 60) return `${mins} min`;
+  const hours = Math.floor(mins / 60);
+  const remMins = mins % 60;
+  return remMins > 0 ? `${hours}h ${remMins}m` : `${hours}h`;
+}
+
 export function deriveFlightStatus(f: FlightStatusInput, now: Date = new Date()): FlightStatus {
   if (f.cancelled) return "cancelled";
   if (f.diverted) return "diverted";

@@ -55,6 +55,7 @@ struct MemoriesMapView: View {
                                 .opacity(shownCityIDs.contains(city.id) ? 1 : 0)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel(memoryPinLabel(for: city))
                     }
                 }
             }

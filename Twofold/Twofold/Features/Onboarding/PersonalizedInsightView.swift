@@ -80,7 +80,7 @@ struct PersonalizedInsightView: View {
                 // Always visible (not staged like the reveal below it) — sets the emotional tone
                 // before the map/count-up animate in, the same way every other onboarding screen's
                 // title is already on screen before its own staged content plays.
-                Text("The distance is real!")
+                Text("The distance is real...")
                     .font(.system(.title, design: .rounded, weight: .bold))
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)

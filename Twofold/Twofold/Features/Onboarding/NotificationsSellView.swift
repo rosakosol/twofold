@@ -68,9 +68,9 @@ struct NotificationsSellView: View {
     }
 
     // Mirrors the real push-notification vocabulary from supabase/functions/_shared/notify.ts's
-    // buildMessage (departed/airborne, arrival_time_change, landed) — the real pushes are
-    // generic partner-to-partner text with no name, but onboarding's whole point is showing
-    // what it'll feel like with the actual partner's name in it.
+    // buildMessage (departed/airborne, landed) and notifyArrivalReminder (the fixed 1h/30m-before-
+    // arrival reminders) — the real pushes are generic partner-to-partner text with no name, but
+    // onboarding's whole point is showing what it'll feel like with the actual partner's name in it.
     private var previews: [NotificationPreview] {
         [
             NotificationPreview(
@@ -80,8 +80,8 @@ struct NotificationsSellView: View {
             ),
             NotificationPreview(
                 emoji: "🛬",
-                title: "Arrival time updated",
-                body: "\(partnerName)'s estimated arrival is in about an hour."
+                title: "Landing in 1 hour",
+                body: "\(partnerName)'s flight is expected to land in about 1 hour."
             ),
             NotificationPreview(
                 emoji: "🎉",

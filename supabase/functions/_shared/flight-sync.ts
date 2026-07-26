@@ -14,7 +14,7 @@ import {
 import { fetchLivePosition } from "./adsb.ts";
 import { fetchRouteFallback } from "./adsbdb.ts";
 import { lookupAirlineName } from "./airlines.ts";
-import { deriveFlightStatus, type FlightStatus } from "./flight-status.ts";
+import { deriveFlightStatus, formatDelay, type FlightStatus } from "./flight-status.ts";
 import { notifyForEvent } from "./notify.ts";
 import { sendLiveActivityUpdate, toCocoaTimestamp } from "./apns.ts";
 
@@ -82,6 +82,10 @@ export interface FlightRow {
   last_refreshed_at: string | null;
   tracking_enabled: boolean;
   pre_departure_notified: boolean;
+  arrival_1h_notified: boolean;
+  arrival_1h_notified_for: string | null;
+  arrival_30m_notified: boolean;
+  arrival_30m_notified_for: string | null;
 }
 
 // Fields sourced directly from an AeroFlight, shared by add-flight's initial insert and
@@ -325,7 +329,6 @@ interface PendingEvent {
     | "terminal_change"
     | "departed"
     | "airborne"
-    | "arrival_time_change"
     | "landed"
     | "arrived_at_gate"
     | "baggage_claim"
@@ -333,14 +336,10 @@ interface PendingEvent {
     | "diverted";
   previous_value: string | null;
   new_value: string | null;
-}
-
-function formatDelay(seconds: number): string {
-  const mins = Math.round(seconds / 60);
-  if (mins < 60) return `${mins} min`;
-  const hours = Math.floor(mins / 60);
-  const remMins = mins % 60;
-  return remMins > 0 ? `${hours}h ${remMins}m` : `${hours}h`;
+  // Set only when a delay crossed its notify threshold in the very same tick as this milestone
+  // event — lets the push fold both into one message ("departing now, 15 mins behind schedule")
+  // instead of firing a separate, confusingly-simultaneous "Flight delayed" push right after.
+  delay_label?: string | null;
 }
 
 // True when `next` differs from `previous` by at least `thresholdMs` — treats a still-unset
@@ -366,28 +365,6 @@ function diffEvents(existing: FlightRow, mapped: MappedAeroFields): PendingEvent
   if (!existing.fa_flight_id && mapped.fa_flight_id) {
     events.push({ type: "scheduled", previous_value: null, new_value: mapped.scheduled_out });
     return events;
-  }
-
-  // AeroAPI re-estimates arrival constantly — a raw inequality check fires on noise as small as
-  // a few seconds of re-estimation drift, spamming an event + push notification every single
-  // tick. This used to be a 1-minute threshold, which sounded reasonable but wasn't: near
-  // departure/arrival this app now polls every 1 minute (tightened after this comment was first
-  // written, see 20260826000000_flight_refresh_cron_every_minute.sql), so a routine few-minutes'
-  // ETA wobble between successive polls still cleared 60s and fired a push almost every tick —
-  // exactly the "why does this keep updating" complaint that prompted raising it to 10 minutes.
-  // Only treat it as a real change worth telling someone about once it's moved by at least that
-  // much, same threshold class as the delay check below. Also stops entirely once the flight has
-  // already landed — a confirmed arrival isn't going to move again, so any further "estimated
-  // arrival" drift AeroAPI reports past that point is noise, not something worth another push
-  // notification for.
-  const alreadyLanded = existing.status === "landed" || existing.status === "arrived" || existing.actual_in != null;
-  const ARRIVAL_CHANGE_THRESHOLD_MS = 10 * 60 * 1000;
-  if (!alreadyLanded) {
-    if (mapped.scheduled_in && hasMeaningfulTimeChange(existing.scheduled_in, mapped.scheduled_in, ARRIVAL_CHANGE_THRESHOLD_MS)) {
-      events.push({ type: "arrival_time_change", previous_value: existing.scheduled_in, new_value: mapped.scheduled_in });
-    } else if (mapped.estimated_in && hasMeaningfulTimeChange(existing.estimated_in, mapped.estimated_in, ARRIVAL_CHANGE_THRESHOLD_MS)) {
-      events.push({ type: "arrival_time_change", previous_value: existing.estimated_in, new_value: mapped.estimated_in });
-    }
   }
 
   if (mapped.gate_origin && mapped.gate_origin !== existing.gate_origin) {
@@ -430,15 +407,35 @@ function diffEvents(existing: FlightRow, mapped: MappedAeroFields): PendingEvent
 
   const prevDepDelay = existing.departure_delay_seconds ?? 0;
   const newDepDelay = mapped.departure_delay_seconds ?? 0;
-  if (newDepDelay > 300 && prevDepDelay <= 300) {
-    events.push({ type: "delay", previous_value: formatDelay(prevDepDelay), new_value: formatDelay(newDepDelay) });
-  }
   const prevArrDelay = existing.arrival_delay_seconds ?? 0;
   const newArrDelay = mapped.arrival_delay_seconds ?? 0;
-  if (newArrDelay > 300 && prevArrDelay <= 300 && newDepDelay <= 300) {
-    // Only emit a second delay event if it wasn't already covered by the departure-delay check
-    // above, to avoid double-notifying for what's effectively the same disruption.
-    events.push({ type: "delay", previous_value: formatDelay(prevArrDelay), new_value: formatDelay(newArrDelay) });
+  const depDelayJustStarted = newDepDelay > 300 && prevDepDelay <= 300;
+  // Only counts as its own thing if it wasn't already covered by the departure-delay check above
+  // — avoids double-notifying for what's effectively the same disruption.
+  const arrDelayJustStarted = newArrDelay > 300 && prevArrDelay <= 300 && newDepDelay <= 300;
+
+  // A delay crossing its notify threshold in the exact same poll as the matching milestone event
+  // (departing right as it also goes delayed; landing right as an arrival delay is confirmed) used
+  // to fire as two separate pushes back to back — "Flight departed" immediately followed by
+  // "Flight delayed", reporting what's really one fact twice. Fold the delay into that milestone's
+  // own message instead ("departing now, 15 mins behind schedule") and skip the standalone delay
+  // event entirely; only fall back to a standalone "delay" event when there's no milestone this
+  // tick to attach it to.
+  if (depDelayJustStarted) {
+    const departedEvent = events.find((e) => e.type === "departed");
+    if (departedEvent) {
+      departedEvent.delay_label = formatDelay(newDepDelay);
+    } else {
+      events.push({ type: "delay", previous_value: formatDelay(prevDepDelay), new_value: formatDelay(newDepDelay) });
+    }
+  }
+  if (arrDelayJustStarted) {
+    const arrivalEvent = events.find((e) => e.type === "landed" || e.type === "arrived_at_gate");
+    if (arrivalEvent) {
+      arrivalEvent.delay_label = formatDelay(newArrDelay);
+    } else {
+      events.push({ type: "delay", previous_value: formatDelay(prevArrDelay), new_value: formatDelay(newArrDelay) });
+    }
   }
 
   return events;
@@ -530,7 +527,11 @@ export async function syncFlight(
 
     for (const event of events) {
       try {
-        await notifyForEvent(serviceClient, flightRow.id, { type: event.type, newValue: event.new_value });
+        await notifyForEvent(serviceClient, flightRow.id, {
+          type: event.type,
+          newValue: event.new_value,
+          delayLabel: event.delay_label ?? undefined,
+        });
       } catch (err) {
         console.error(`[flight-sync] notifyForEvent threw for ${flightRow.id}:`, (err as Error).message);
       }

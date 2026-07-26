@@ -267,6 +267,16 @@ struct TripsListView: View {
                         }
                     }
             )
+            // The drag gesture above handles sighted tap-and-drag, but VoiceOver's double-tap
+            // doesn't reliably activate a bare `DragGesture` — this is the only way to reveal the
+            // full trip list, so it needs a real, gesture-independent activation path too.
+            .accessibilityElement()
+            .accessibilityLabel("Trip list")
+            .accessibilityValue(isExpanded ? "Expanded" : "Collapsed")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction {
+                withAnimation(panelAnimation) { isExpanded.toggle() }
+            }
     }
 
     private var browseHeader: some View {

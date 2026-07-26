@@ -72,6 +72,7 @@ struct TripDetailsView: View {
                     } label: {
                         Image(systemName: "ellipsis.circle")
                     }
+                    .accessibilityLabel("More options")
                     .disabled(isDeleting)
                 }
             }
@@ -157,6 +158,7 @@ struct TripDetailsView: View {
             .lineLimit(1)
             .minimumScaleFactor(0.7)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
 
             Divider()
 
@@ -166,12 +168,14 @@ struct TripDetailsView: View {
                     Text(trip.departureDate, format: .dateTime.day().month(.abbreviated).year())
                         .font(.subheadline.weight(.medium))
                 }
+                .accessibilityElement(children: .combine)
                 Spacer()
                 VStack(alignment: .trailing, spacing: 2) {
                     Text("End").font(.caption).foregroundStyle(Theme.subtleInk)
                     Text(trip.arrivalDate, format: .dateTime.day().month(.abbreviated).year())
                         .font(.subheadline.weight(.medium))
                 }
+                .accessibilityElement(children: .combine)
             }
 
             HStack {
@@ -179,6 +183,7 @@ struct TripDetailsView: View {
                 Spacer()
                 Text(MeasurementPreference.distanceLabel(km: trip.effectiveDistanceKm)).font(.subheadline.weight(.medium))
             }
+            .accessibilityElement(children: .combine)
         }
     }
 

@@ -21,7 +21,7 @@
 // Processes flights sequentially with a short delay between AeroAPI calls rather than in
 // parallel, to avoid bursting rate limits — this is a background job, latency doesn't matter.
 
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import {
   type FlightRow,
   maybeRefreshWeather,
@@ -29,7 +29,7 @@ import {
   refreshOneFlight,
   syncLivePositions,
 } from "../_shared/flight-sync.ts";
-import { notifyPreDeparture } from "../_shared/notify.ts";
+import { notifyArrivalReminder, notifyPreDeparture } from "../_shared/notify.ts";
 
 const TERMINAL_STATUSES = ["arrived", "landed", "cancelled", "diverted"];
 
@@ -79,6 +79,88 @@ function isDueForPreDepartureReminder(flight: FlightRow, now: number): boolean {
   const bestDeparture = flight.estimated_out ?? flight.scheduled_out;
   if (!bestDeparture) return false;
   return new Date(bestDeparture).getTime() - now <= PRE_DEPARTURE_WINDOW_MS;
+}
+
+// Fixed-offset arrival reminders — "Landing in 1 hour" / "Landing in 30 minutes" — replacing the
+// old "arrival_time_change" push that re-fired every time AeroAPI's ETA drifted by 10+ minutes
+// (see flight-sync.ts diffEvents, which no longer emits that event). One-shot per window, guarded
+// by arrival_1h_notified/arrival_30m_notified (see the accompanying migration), with the same
+// "near-arrival flights already refresh every ~1-2 min" simplification isDueForPreDepartureReminder
+// above relies on — only checked right after a due-refresh, not re-evaluated for skipped flights.
+const ARRIVAL_REMINDER_1H_WINDOW_MS = 60 * 60 * 1000;
+const ARRIVAL_REMINDER_30M_WINDOW_MS = 30 * 60 * 1000;
+
+// Same 10-minute noise floor flight-sync.ts uses for its own arrival-estimate diffing — only
+// reschedule (reset the notified flag so the reminder can fire again at the new time) once the
+// predicted arrival has actually moved meaningfully, not on routine AeroAPI re-estimation drift.
+const ARRIVAL_REMINDER_RESCHEDULE_THRESHOLD_MS = 10 * 60 * 1000;
+
+const ARRIVAL_TERMINAL_STATUSES = ["landed", "arrived", "cancelled", "diverted"];
+
+function bestKnownArrival(flight: FlightRow): string | null {
+  return flight.estimated_in ?? flight.scheduled_in;
+}
+
+function shouldResetArrivalReminder(notifiedFor: string | null, currentArrival: string | null): boolean {
+  if (!notifiedFor || !currentArrival) return false;
+  const prevMs = Date.parse(notifiedFor);
+  const currMs = Date.parse(currentArrival);
+  if (Number.isNaN(prevMs) || Number.isNaN(currMs)) return false;
+  return Math.abs(currMs - prevMs) >= ARRIVAL_REMINDER_RESCHEDULE_THRESHOLD_MS;
+}
+
+function isDueForArrivalReminder(flight: FlightRow, now: number, windowMs: number, notified: boolean): boolean {
+  if (notified || ARRIVAL_TERMINAL_STATUSES.includes(flight.status)) return false;
+  const arrival = bestKnownArrival(flight);
+  if (!arrival) return false;
+  const msToArrival = new Date(arrival).getTime() - now;
+  return msToArrival >= 0 && msToArrival <= windowMs;
+}
+
+async function maybeSendArrivalReminders(serviceClient: SupabaseClient, updated: FlightRow, now: number): Promise<void> {
+  const currentArrival = bestKnownArrival(updated);
+
+  let arrival1hNotified = updated.arrival_1h_notified;
+  let arrival30mNotified = updated.arrival_30m_notified;
+  const resetPatch: Record<string, unknown> = {};
+
+  if (arrival1hNotified && shouldResetArrivalReminder(updated.arrival_1h_notified_for, currentArrival)) {
+    arrival1hNotified = false;
+    resetPatch.arrival_1h_notified = false;
+    resetPatch.arrival_1h_notified_for = null;
+  }
+  if (arrival30mNotified && shouldResetArrivalReminder(updated.arrival_30m_notified_for, currentArrival)) {
+    arrival30mNotified = false;
+    resetPatch.arrival_30m_notified = false;
+    resetPatch.arrival_30m_notified_for = null;
+  }
+  if (Object.keys(resetPatch).length > 0) {
+    const { error } = await serviceClient.from("flights").update(resetPatch).eq("id", updated.id);
+    if (error) console.error(`[refresh-due-flights] failed to reset arrival reminder flags for ${updated.id}:`, error.message);
+  }
+
+  if (isDueForArrivalReminder(updated, now, ARRIVAL_REMINDER_1H_WINDOW_MS, arrival1hNotified)) {
+    try {
+      await notifyArrivalReminder(serviceClient, updated.id, "1h");
+      await serviceClient
+        .from("flights")
+        .update({ arrival_1h_notified: true, arrival_1h_notified_for: currentArrival })
+        .eq("id", updated.id);
+    } catch (err) {
+      console.error(`[refresh-due-flights] 1h arrival reminder failed for ${updated.id}:`, (err as Error).message);
+    }
+  }
+  if (isDueForArrivalReminder(updated, now, ARRIVAL_REMINDER_30M_WINDOW_MS, arrival30mNotified)) {
+    try {
+      await notifyArrivalReminder(serviceClient, updated.id, "30m");
+      await serviceClient
+        .from("flights")
+        .update({ arrival_30m_notified: true, arrival_30m_notified_for: currentArrival })
+        .eq("id", updated.id);
+    } catch (err) {
+      console.error(`[refresh-due-flights] 30m arrival reminder failed for ${updated.id}:`, (err as Error).message);
+    }
+  }
 }
 
 Deno.serve(async (req) => {
@@ -164,6 +246,14 @@ Deno.serve(async (req) => {
           // Left unmarked on failure so the next cron tick retries — same reasoning as everything
           // else in this loop being best-effort per flight.
           console.error(`[refresh-due-flights] pre-departure reminder failed for ${flight.id}:`, (err as Error).message);
+        }
+      }
+
+      if (updated) {
+        try {
+          await maybeSendArrivalReminders(serviceClient, updated, now);
+        } catch (err) {
+          console.error(`[refresh-due-flights] arrival reminder check failed for ${flight.id}:`, (err as Error).message);
         }
       }
     } catch (err) {
