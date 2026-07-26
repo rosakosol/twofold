@@ -85,7 +85,13 @@ struct RootView: View {
                 Task { await refreshPendingOutgoingConnectionRequestIfNeeded() }
                 refreshCurrentCityIfNeeded()
             } else if newPhase == .background {
-                appLock.lock()
+                // Only meaningful once signed in — locking behind Face ID/passcode while signed
+                // out (mid-onboarding, or after a sign-out on a device that had this enabled from
+                // a previous account) gated the sign-in/onboarding screens themselves behind a
+                // biometric prompt for no reason, since there's nothing sensitive to protect yet.
+                if appModel.hasCouple {
+                    appLock.lock()
+                }
             }
         }
         .onChange(of: currentCityService.state) { _, newState in
@@ -186,11 +192,14 @@ struct RootView: View {
                 .postHogScreenView("Partner Invite Nudge")
         }
 
-        // On top of everything above (including the loading spinner) rather than gated behind
-        // `hasCouple`/`isLoadingSession` — `appLock.isLocked` already starts pre-set from the
-        // persisted preference before this view's first render, so nothing sensitive ever has a
-        // frame to flash on screen before this covers it.
-        if appLock.isEnabled && appLock.isLocked {
+        // On top of everything above the loading spinner, but still gated on `hasCouple` — the
+        // lock exists to protect an already-signed-in account's content, not to gate sign-in/
+        // onboarding itself. `appLock.isLocked` starts pre-set from the persisted preference
+        // before this view's first render regardless of sign-in state (see its own doc comment),
+        // so without this check, a device that had the lock enabled from a previous account —
+        // or that simply cold-launches straight into onboarding after a sign-out — would demand
+        // Face ID/passcode just to reach the sign-in screen, with nothing sensitive to protect.
+        if appModel.hasCouple && appLock.isEnabled && appLock.isLocked {
             AppLockView(appLock: appLock)
                 .transition(.opacity)
                 .zIndex(1)

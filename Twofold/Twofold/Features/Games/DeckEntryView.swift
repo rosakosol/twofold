@@ -93,7 +93,6 @@ struct DeckEntryView: View {
                 let newSessionID = try await BackendService.startDeckSession(deckID: deck.id)
                 phase = .playing(sessionID: newSessionID)
                 Task { await appModel.refreshGameDecks() }
-                Task { await BackendService.notifyPartner(event: .gameStarted, detail: deck.title) }
             }
         } catch {
             errorMessage = error.localizedDescription

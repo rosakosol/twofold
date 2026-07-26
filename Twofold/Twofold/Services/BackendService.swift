@@ -1956,6 +1956,22 @@ enum BackendService {
             .execute()
     }
 
+    /// Called right before sign-out (while the session is still valid — `device_push_tokens`'
+    /// own `delete_own` RLS policy requires `profile_id = auth.uid()`, which stops resolving the
+    /// instant the session ends). Without this, the row stayed pointed at the signed-out account
+    /// indefinitely, since nothing else ever removes it — this device kept receiving that
+    /// account's push notifications (new trip/memory, flight updates, game turns...) even after
+    /// the app itself showed signed out, until a *different* account happened to sign in on the
+    /// same device and reassigned the row via `registerDeviceToken`'s own upsert.
+    static func unregisterDeviceToken(_ token: String) async throws {
+        guard currentUserID != nil else { return }
+        try await supabase
+            .from("device_push_tokens")
+            .delete()
+            .eq("apns_token", value: token)
+            .execute()
+    }
+
     private struct TripNotesUpdate: Encodable {
         var notes: String?
     }

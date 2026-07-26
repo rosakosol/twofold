@@ -11,6 +11,7 @@ import Observation
 import PostHog
 import RevenueCat
 import Supabase
+import UserNotifications
 import WidgetKit
 
 @Observable
@@ -400,6 +401,14 @@ final class AppModel {
     /// picks this up via `hasCouple` and routes back to `WelcomeView`.
     func signOut() async {
         await stopFlightsRealtimeSubscription()
+        // Must happen *before* `BackendService.signOut()` — unregistering relies on the
+        // `device_push_tokens` "delete own" RLS policy, which needs `auth.uid()` to still resolve
+        // to this account. Best-effort: a failure here just means this device keeps getting
+        // pushed to until a different account signs in and reassigns the token, same as before
+        // this existed — not worth blocking sign-out over.
+        if let lastRegisteredPushTokenHex {
+            try? await BackendService.unregisterDeviceToken(lastRegisteredPushTokenHex)
+        }
         try? await BackendService.signOut()
         await clearLocalSessionState()
     }
@@ -431,6 +440,12 @@ final class AppModel {
         WidgetSnapshot.clear()
         WidgetImageCache.clearAll()
         WidgetCenter.shared.reloadAllTimelines()
+        // Any push that already landed for the signed-out account (a trip/game update, a flight
+        // alert) otherwise sat in Notification Center indefinitely, and tapping it after sign-out
+        // routed into content that either no longer resolves or belongs to whoever signs in next.
+        UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+        lastRegisteredPushTokenHex = nil
         hasCouple = false
         partnerConnected = false
         inviteCode = nil
@@ -993,7 +1008,6 @@ final class AppModel {
         if let backendCoupleID {
             do {
                 try await BackendService.insertTrip(coupleID: backendCoupleID, trip: trip)
-                Task { await BackendService.notifyPartner(event: .tripAdded, detail: "\(origin.displayCity) to \(destination.displayCity)") }
                 // A schedule-only candidate (no faFlightId yet — see AeroFlightCandidate.canTrack)
                 // still gets persisted as a pending flight — add-flight accepts it without one and
                 // refresh-due-flights' cron backfills a real faFlightId (and starts live tracking)
@@ -1223,6 +1237,12 @@ final class AppModel {
     /// actually finish in.
     private var pendingPushTokenData: Data?
 
+    /// The hex token last successfully registered — kept around purely so `signOut()` has
+    /// something to unregister (see `BackendService.unregisterDeviceToken`'s own doc comment).
+    /// `pendingPushTokenData` isn't a substitute for this: it's cleared to `nil` the moment
+    /// registration succeeds, which is exactly when this needs to start holding a value.
+    private var lastRegisteredPushTokenHex: String?
+
     func registerPushToken(_ tokenData: Data) async {
         pendingPushTokenData = tokenData
         await retryPendingPushTokenRegistrationIfNeeded()
@@ -1239,6 +1259,7 @@ final class AppModel {
         do {
             try await BackendService.registerDeviceToken(token, environment: environment)
             pendingPushTokenData = nil
+            lastRegisteredPushTokenHex = token
         } catch {
             // Most likely still not authenticated yet — leave it cached so the next
             // `loadSignedInState()` (or another `registerPushToken` call) can retry.
@@ -1274,7 +1295,6 @@ final class AppModel {
             if let index = memories.firstIndex(where: { $0.id == memory.id }) {
                 memories[index].photos = photos
             }
-            Task { await BackendService.notifyPartner(event: .memoryAdded, detail: title, target: .selfDevice) }
             Task { await WidgetSnapshotWriter.refresh(appModel: self) }
         } catch {
             pendingMemoryIDs.insert(memory.id)

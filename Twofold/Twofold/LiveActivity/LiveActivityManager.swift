@@ -73,10 +73,15 @@ final class LiveActivityManager {
     /// Called on sign-out — ends every Live Activity this device is currently running, so the
     /// Lock Screen/Dynamic Island don't keep showing the signed-out account's flight after
     /// sign-out. Reuses `endActivity`'s own teardown (local end, bookkeeping cleanup, and
-    /// unregistering the server-side push token) for each one still running.
+    /// unregistering the server-side push token) for each one still running, but with
+    /// `dismissalPolicy: .immediate` — `endActivity`'s own default (`.default`) tells the system
+    /// to keep showing the activity's final content for up to 4 hours, which is exactly right for
+    /// "flight landed" but is precisely what must *not* happen here: sign-out needs the
+    /// signed-out account's Live Activity gone from the Lock Screen right away, not lingering for
+    /// hours after the person who tracked it is no longer signed in.
     func endAll() async {
         for (flightID, activity) in runningActivities {
-            await endActivity(activity, flightID: flightID)
+            await endActivity(activity, flightID: flightID, dismissalPolicy: .immediate)
         }
     }
 
@@ -94,8 +99,8 @@ final class LiveActivityManager {
         await activity.update(content)
     }
 
-    private func endActivity(_ activity: Activity<JourneyActivityAttributes>, flightID: UUID) async {
-        await activity.end(nil, dismissalPolicy: .default)
+    private func endActivity(_ activity: Activity<JourneyActivityAttributes>, flightID: UUID, dismissalPolicy: ActivityUIDismissalPolicy = .default) async {
+        await activity.end(nil, dismissalPolicy: dismissalPolicy)
         runningActivities.removeValue(forKey: flightID)
         tokenObservationTasks[flightID]?.cancel()
         tokenObservationTasks.removeValue(forKey: flightID)

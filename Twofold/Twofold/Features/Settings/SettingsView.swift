@@ -33,6 +33,8 @@ struct SettingsView: View {
     @State private var showingExportHistory = false
     @State private var showingExportPremiumGate = false
     @State private var appLock = AppLockService()
+    @State private var isAuthenticatingLockToggle = false
+    @State private var showingLockEnabledConfirmation = false
 
     var body: some View {
         NavigationStack {
@@ -127,13 +129,21 @@ struct SettingsView: View {
                             Spacer()
                             Toggle(
                                 "",
+                                // Never writes `appLock.isEnabled` directly — turning this on *or*
+                                // off now requires actually passing Face ID/Touch ID/passcode
+                                // first (previously either direction was a bare toggle flip, so
+                                // anyone holding the unlocked phone could disable the lock without
+                                // proving anything). The binding's `get` always reflects the real,
+                                // unchanged `isEnabled` until `requestLockToggle` authenticates and
+                                // applies it, so a cancelled/failed prompt just springs the switch
+                                // back to where it was.
                                 isOn: Binding(
                                     get: { appLock.isEnabled },
-                                    set: { appLock.isEnabled = $0 }
+                                    set: { requestLockToggle($0) }
                                 )
                             )
                             .labelsHidden()
-                            .disabled(!appLock.isAvailableOnDevice)
+                            .disabled(!appLock.isAvailableOnDevice || isAuthenticatingLockToggle)
                             .accessibilityLabel("Require \(appLock.methodName)")
                         }
                         // Same reasoning as `AboutYouView`'s account-scoped rows: this is a
@@ -256,6 +266,28 @@ struct SettingsView: View {
                     title: "Export Your Story",
                     description: "Turn your trips, memories, and flights into a beautiful, formatted keepsake PDF. Upgrade to Premium to export your story."
                 )
+            }
+            .sheet(isPresented: $showingLockEnabledConfirmation) {
+                AppLockEnabledConfirmationView(methodName: appLock.methodName)
+                    .presentationDetents([.medium])
+            }
+        }
+    }
+
+    /// Shared by both directions of the toggle — enabling and disabling each need their own
+    /// fresh authentication (see the toggle's own comment). Only ever applies the new value to
+    /// `appLock.isEnabled` after that succeeds; a cancelled or failed prompt leaves the setting
+    /// exactly as it was.
+    private func requestLockToggle(_ newValue: Bool) {
+        guard !isAuthenticatingLockToggle else { return }
+        isAuthenticatingLockToggle = true
+        Task {
+            let success = await appLock.authenticate()
+            isAuthenticatingLockToggle = false
+            guard success else { return }
+            appLock.isEnabled = newValue
+            if newValue {
+                showingLockEnabledConfirmation = true
             }
         }
     }
