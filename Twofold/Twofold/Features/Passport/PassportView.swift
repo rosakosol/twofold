@@ -289,6 +289,7 @@ private struct FullStatsView: View {
                         .font(.subheadline)
                         .foregroundStyle(Theme.subtleInk)
                 }
+                .accessibilityLabel("Share \(title)")
             }
 
             rows()

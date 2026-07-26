@@ -68,11 +68,12 @@ struct FlightConfirmationView: View {
                         }
                         HStack(spacing: Theme.Spacing.xs) {
                             Text(candidate.origin?.city ?? candidate.origin?.iata ?? "—")
-                            Image(systemName: "arrow.right")
+                            Image(systemName: "arrow.right").accessibilityHidden(true)
                             Text(candidate.destination?.city ?? candidate.destination?.iata ?? "—")
                         }
                         .font(.subheadline)
                         .foregroundStyle(Theme.subtleInk)
+                        .accessibilityElement(children: .combine)
                     }
 
                     VStack(alignment: .leading, spacing: Theme.Spacing.xs) {

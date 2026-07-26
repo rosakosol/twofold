@@ -69,6 +69,7 @@ struct MemoryDetailView: View {
                         } label: {
                             Image(systemName: "ellipsis.circle")
                         }
+                        .accessibilityLabel("More options")
                     }
                 }
                 .confirmationDialog("Delete this memory?", isPresented: $confirmingDelete, titleVisibility: .visible) {

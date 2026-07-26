@@ -77,7 +77,7 @@ struct AllDecksBrowseView: View {
         ScrollView {
             VStack(spacing: Theme.Spacing.md) {
                 HStack(spacing: Theme.Spacing.sm) {
-                    Image(systemName: "magnifyingglass").foregroundStyle(Theme.subtleInk)
+                    Image(systemName: "magnifyingglass").foregroundStyle(Theme.subtleInk).accessibilityHidden(true)
                     TextField("Search games", text: $searchText)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()

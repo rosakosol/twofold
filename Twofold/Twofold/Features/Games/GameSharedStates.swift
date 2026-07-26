@@ -114,6 +114,10 @@ struct GameBackButton: View {
         Button(action: action) {
             Image(systemName: "chevron.backward")
         }
+        // Shared by all four game types (DeepConversations, ThisOrThat, TriviaBattle,
+        // WhosMoreLikely) — one label fixes VoiceOver reading a bare "chevron backward" on every
+        // one of them, since `.navigationBarBackButtonHidden` means this is the only way back.
+        .accessibilityLabel("Back")
     }
 }
 

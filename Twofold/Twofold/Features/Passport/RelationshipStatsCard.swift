@@ -92,6 +92,7 @@ struct RelationshipStatsCard: View {
                             .padding(8)
                             .background(Theme.backgroundGradient, in: Circle())
                     }
+                    .accessibilityLabel("Share relationship stats")
                 }
             }
         }
@@ -121,6 +122,7 @@ struct RelationshipStatsCard: View {
                         .padding(6)
                         .background(Theme.cardBackground, in: Circle())
                 }
+                .accessibilityHidden(true)
 
             AvatarView(person: couple.partnerB, size: 44, showsRing: true)
 
@@ -144,6 +146,7 @@ struct RelationshipStatsCard: View {
                 .minimumScaleFactor(0.6)
         }
         .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
     }
 
     private func milestoneTile(icon: String, label: String, value: String, detail: String? = nil, tint: Color) -> some View {
@@ -153,6 +156,7 @@ struct RelationshipStatsCard: View {
                 Image(systemName: icon).font(.subheadline).foregroundStyle(tint)
             }
             .frame(width: 36, height: 36)
+            .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(label)
@@ -174,6 +178,7 @@ struct RelationshipStatsCard: View {
         }
         .padding(Theme.Spacing.sm)
         .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .accessibilityElement(children: .combine)
     }
 }
 

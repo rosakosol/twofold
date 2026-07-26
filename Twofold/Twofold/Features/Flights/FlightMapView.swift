@@ -711,6 +711,12 @@ private struct MapKitRouteView: UIViewRepresentable {
             annotation.positionHeading = heading
             annotation.travelers = route.travelers
             annotation.currentUserID = route.currentUserID
+            // Unlike the origin/destination endpoints (which set `.title` above), this marker was
+            // never labeled at all — the one VoiceOver couldn't identify despite being the map's
+            // most important pin (live position, not a fixed airport).
+            annotation.title = route.travelers.isEmpty
+                ? "Current flight position"
+                : "\(route.travelers.map(\.name).joined(separator: " & ")) — current position"
             mapView.addAnnotation(annotation)
             positionAnnotation = annotation
         }

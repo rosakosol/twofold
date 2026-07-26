@@ -111,6 +111,11 @@ struct MemoriesMapView: View {
     /// Most recent memory's own photo, so the pin shows something real about that place
     /// instead of a generic icon — falls back to `MemoryPhotoView`'s own gradient+icon
     /// placeholder when that memory has no photo yet.
+    private func memoryPinLabel(for city: Place) -> String {
+        let count = appModel.memories(in: city).count
+        return "\(city.displayCity), \(count) \(count == 1 ? "memory" : "memories")"
+    }
+
     private func memoryPin(for city: Place) -> some View {
         let cityMemories = appModel.memories(in: city)
         let mostRecent = cityMemories.max { $0.date < $1.date }

@@ -150,6 +150,7 @@ struct FlightTrackingView: View {
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
+                .accessibilityLabel("More options")
             }
         }
         .task { await loadEverything() }
@@ -469,6 +470,7 @@ struct FlightTrackingView: View {
                 Image(systemName: "airplane").font(.caption).foregroundStyle(Theme.skyBlue)
             }
             .frame(width: 32, height: 32)
+            .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(code) · \(city)").font(.headline).lineLimit(1).minimumScaleFactor(0.85)
@@ -487,6 +489,9 @@ struct FlightTrackingView: View {
             }
             Spacer(minLength: 0)
         }
+        // One coherent read ("LAX, Los Angeles, 12 Aug 10:45 AM, Terminal 4 · Gate 22, Departs in
+        // 2 hours") instead of four separate swipes for what's a single journey leg.
+        .accessibilityElement(children: .combine)
     }
 
     private static func terminalGateLine(terminal: String?, gate: String?) -> String {
@@ -720,6 +725,7 @@ struct FlightTrackingView: View {
                             Image(systemName: event.type.icon).font(.caption).foregroundStyle(event.type.isUrgent ? Theme.heartRed : Theme.skyBlue)
                         }
                         .frame(width: 28, height: 28)
+                        .accessibilityHidden(true)
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text(event.label(timeZone: flight.destination.timeZone)).font(.subheadline.weight(.medium))
@@ -729,6 +735,7 @@ struct FlightTrackingView: View {
                         }
                         Spacer(minLength: 0)
                     }
+                    .accessibilityElement(children: .combine)
                 }
             }
         }

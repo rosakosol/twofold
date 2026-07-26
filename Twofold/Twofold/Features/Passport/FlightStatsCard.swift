@@ -80,6 +80,7 @@ struct FlightStatsCard: View {
                             .padding(8)
                             .background(Theme.backgroundGradient, in: Circle())
                     }
+                    .accessibilityLabel("Share flight stats")
                 }
             }
         }
@@ -100,6 +101,7 @@ struct FlightStatsCard: View {
                 .minimumScaleFactor(0.6)
         }
         .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
     }
 
     private func milestoneTile(icon: String, label: String, value: String, tint: Color) -> some View {
@@ -109,6 +111,7 @@ struct FlightStatsCard: View {
                 Image(systemName: icon).font(.subheadline).foregroundStyle(tint)
             }
             .frame(width: 36, height: 36)
+            .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(label)
@@ -124,6 +127,9 @@ struct FlightStatsCard: View {
         }
         .padding(Theme.Spacing.sm)
         .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        // Repeated 6-8× per card — without this, each tile reads as two separate VoiceOver swipes
+        // ("Longest trip", then "14 days") instead of one ("Longest trip: 14 days").
+        .accessibilityElement(children: .combine)
     }
 }
 

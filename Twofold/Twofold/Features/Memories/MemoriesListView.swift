@@ -218,6 +218,7 @@ struct MemoriesListView: View {
         .padding(.vertical, 6)
         .foregroundStyle(Theme.ink)
         .background(Theme.cardBackground, in: Capsule())
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Year scrubber

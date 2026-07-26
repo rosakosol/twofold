@@ -62,6 +62,7 @@ struct GamesHubView: View {
                     } label: {
                         Image(systemName: "magnifyingglass")
                     }
+                    .accessibilityLabel("Browse all decks")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink {
@@ -69,6 +70,7 @@ struct GamesHubView: View {
                     } label: {
                         Image(systemName: "clock.arrow.circlepath")
                     }
+                    .accessibilityLabel("Game history")
                 }
             }
             .navigationDestination(item: $browseRoute) { route in

@@ -77,6 +77,18 @@ struct RelationshipStatsPhotoPickerView: View {
                 selectedIDs.insert(memory.id)
             }
         }
+        // `.onTapGesture` alone doesn't reliably activate on VoiceOver's double-tap, and gives no
+        // label/selected-state at all for what's otherwise-unlabeled photo content — these photos
+        // are the actual content being selected, not decoration.
+        .accessibilityLabel(memory.title.isEmpty ? "Memory photo" : memory.title)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+        .accessibilityAction {
+            if isSelected {
+                selectedIDs.remove(memory.id)
+            } else if selectedIDs.count < RelationshipStatsShareCard.maxStoryPhotos {
+                selectedIDs.insert(memory.id)
+            }
+        }
     }
 }
 
