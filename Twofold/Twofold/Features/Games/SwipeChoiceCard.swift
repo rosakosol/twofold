@@ -38,6 +38,7 @@ struct SwipeChoiceCard<Content: View>: View {
     /// because this needs to latch immediately to block a second drag on the same card while
     /// it's still flying off-screen, before the caller's own state even has a chance to update.
     @State private var hasCommitted = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let threshold: CGFloat = 110
 
@@ -92,6 +93,21 @@ struct SwipeChoiceCard<Content: View>: View {
                             }
                         }
                 )
+                // A VoiceOver-driven action runs through the accessibility tree, not a second
+                // UIKit gesture recognizer — unlike the tap-fallback approach this file's own
+                // header comment explains was removed for conflicting with the drag gesture,
+                // this can't compete with it. `.combine` reads the question content (from
+                // `content`) as one phrase; the two actions are reachable via VoiceOver's
+                // actions rotor as a swipe-free way to answer.
+                .accessibilityElement(children: .combine)
+                .accessibilityAction(named: Text(leftLabel)) {
+                    guard !isDisabled, !hasCommitted else { return }
+                    fly(direction: -1, action: onChooseLeft)
+                }
+                .accessibilityAction(named: Text(rightLabel)) {
+                    guard !isDisabled, !hasCommitted else { return }
+                    fly(direction: 1, action: onChooseRight)
+                }
         }
     }
 
@@ -119,6 +135,11 @@ struct SwipeChoiceCard<Content: View>: View {
     /// glitchy flash.
     private func fly(direction: CGFloat, action: @escaping () -> Void) {
         hasCommitted = true
+        guard !reduceMotion else {
+            // No animation to wait out, so no reason to defer the actual answer submission.
+            action()
+            return
+        }
         withAnimation(.easeOut(duration: swipeCardFlyDuration)) {
             offset = CGSize(width: direction * 600, height: offset.height)
         }

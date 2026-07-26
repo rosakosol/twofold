@@ -12,6 +12,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 extension Color {
     init(hex: String) {
@@ -21,6 +22,16 @@ extension Color {
         let g = Double((hexValue & 0x00FF00) >> 8) / 255
         let b = Double(hexValue & 0x0000FF) / 255
         self.init(red: r, green: g, blue: b)
+    }
+
+    /// Same hex-string convention as `init(hex:)` above, but picks between two of them at draw
+    /// time based on the system appearance — a `UIColor` dynamic provider re-evaluates on every
+    /// trait change, so this stays correct across light/dark switches without needing an Asset
+    /// Catalog color set.
+    init(light: String, dark: String) {
+        self.init(uiColor: UIColor { traits in
+            traits.userInterfaceStyle == .dark ? UIColor(Color(hex: dark)) : UIColor(Color(hex: light))
+        })
     }
 
     /// Component-wise blend toward `other`, used for the timezone card's continuous day/night gradient.

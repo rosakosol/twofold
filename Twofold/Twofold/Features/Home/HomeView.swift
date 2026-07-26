@@ -103,6 +103,7 @@ struct HomeView: View {
                             .font(.title2)
                             .foregroundStyle(Theme.ink)
                     }
+                    .accessibilityLabel("Settings")
                 }
                 ToolbarItem(placement: .principal) {
                     HStack(spacing: Theme.Spacing.sm) {
@@ -110,6 +111,8 @@ struct HomeView: View {
                         Image(systemName: "heart.fill").foregroundStyle(Theme.heartRed).font(.caption)
                         AvatarView(person: appModel.partner, size: 30)
                     }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(appModel.partnerConnected ? "\(appModel.currentUser.name) and \(appModel.partner.name)" : appModel.currentUser.name)
                 }
             }
             .sheet(item: $reviewingShare, onDismiss: refreshPendingShares) { share in
@@ -207,6 +210,7 @@ struct HomeView: View {
                             .foregroundStyle(Theme.subtleInk.opacity(0.5))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Dismiss")
                 }
 
                 if appModel.partnerConnected, appModel.needsFirstTrip {
@@ -487,6 +491,7 @@ struct HomeView: View {
                         .font(.largeTitle)
                         .foregroundStyle(Theme.skyBlue)
                 }
+                .accessibilityLabel("Share distance")
             }
             Text("That's \(Geo.percentOfEarthCircumference(distanceKm), format: .number.precision(.fractionLength(1)))% of the way around the earth 🌍")
                 .font(.caption)

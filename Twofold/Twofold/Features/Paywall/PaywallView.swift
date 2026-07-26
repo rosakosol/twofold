@@ -207,6 +207,7 @@ struct PaywallView: View {
                             HStack(alignment: .top, spacing: Theme.Spacing.xs) {
                                 Image(systemName: "checkmark.circle.fill")
                                     .foregroundStyle(Theme.leafGreen)
+                                    .accessibilityHidden(true)
                                 Text(feature)
                                     .foregroundStyle(Theme.ink)
                             }
@@ -423,6 +424,8 @@ private struct PeriodCard: View {
     let isSelected: Bool
     let action: () -> Void
 
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
@@ -460,10 +463,16 @@ private struct PeriodCard: View {
             .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                    .strokeBorder(isSelected ? Theme.skyBlue : .clear, lineWidth: 2)
+                    .strokeBorder(
+                        isSelected ? Theme.skyBlue : (colorScheme == .dark ? Color.white.opacity(0.22) : Theme.subtleInk.opacity(0.25)),
+                        lineWidth: isSelected ? 2 : 1.25
+                    )
             )
         }
         .buttonStyle(.plain)
+        // The selected/unselected checkmark-vs-circle icon is purely visual — without this,
+        // VoiceOver never announces which billing period is actually chosen.
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 

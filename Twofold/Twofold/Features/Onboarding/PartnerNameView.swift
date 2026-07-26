@@ -30,7 +30,7 @@ struct PartnerNameView: View {
                         TextField("Their first name", text: $name)
                             .textContentType(.givenName)
                             .padding()
-                            .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                            .onboardingFieldBackground()
                             .onChange(of: name) { _, _ in errorMessage = nil }
 
                         if let errorMessage {

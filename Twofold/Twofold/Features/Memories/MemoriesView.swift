@@ -53,7 +53,7 @@ struct MemoriesView: View {
             toggleButton(mode: .map, systemImage: "map")
         }
         .padding(4)
-        .background(.white, in: Capsule())
+        .background(Theme.cardBackground, in: Capsule())
         .shadow(color: .black.opacity(0.15), radius: 10, y: 4)
     }
 

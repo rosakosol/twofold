@@ -22,6 +22,7 @@ struct GameResultsView: View {
     var title: String? = nil
 
     @Environment(AppModel.self) private var appModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var revealedCount = 0
     @State private var isMarkingDiscussion = false
     @State private var confettiTrigger = false
@@ -368,6 +369,10 @@ struct GameResultsView: View {
         Label(label, systemImage: isCorrect == true ? "checkmark.circle.fill" : "xmark.circle.fill")
             .font(.caption2.weight(.medium))
             .foregroundStyle(isCorrect == true ? Theme.leafGreen : Theme.heartRed)
+            // `Label`'s default accessibility reading is just its text ("You"/partner's name) —
+            // the icon alone doesn't carry "correct" vs "incorrect" to VoiceOver, so it's spelled
+            // out explicitly here instead.
+            .accessibilityLabel("\(label): \(isCorrect == true ? "correct" : "incorrect")")
     }
 
     private func responseBlock(name: String, text: String?, placeholder: String = "Skipped this one") -> some View {
@@ -532,6 +537,17 @@ struct GameResultsView: View {
     }
 
     private func animateReveal() {
+        // The stagger is a presentational flourish, not informational — every round's content is
+        // available immediately regardless of when it animates in, so Reduce Motion just shows
+        // everything at once instead of a shortened/instant version of the same stagger.
+        guard !reduceMotion else {
+            revealedCount = store.rounds.count
+            if let matchPercent, matchPercent >= 80 {
+                confettiTrigger = true
+            }
+            return
+        }
+
         // A brief beat before the first round card, so it doesn't feel like it's fading in
         // simultaneously with the header text above it. The header itself is plain static text
         // now (no entrance animation of its own to wait out).

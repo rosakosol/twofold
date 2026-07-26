@@ -30,7 +30,7 @@ struct CityMenuPicker: View {
                     .foregroundStyle(Theme.subtleInk)
             }
             .padding()
-            .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+            .onboardingFieldBackground()
         }
         .buttonStyle(.plain)
         .sheet(isPresented: $showingSearch) {

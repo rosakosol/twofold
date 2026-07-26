@@ -54,17 +54,17 @@ struct SaveAccountView: View {
                                 .keyboardType(.emailAddress)
                                 .textInputAutocapitalization(.never)
                                 .padding()
-                                .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                                .onboardingFieldBackground()
 
                             SecureField("Password", text: $password)
                                 .textContentType(.newPassword)
                                 .padding()
-                                .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                                .onboardingFieldBackground()
 
                             SecureField("Confirm password", text: $confirmPassword)
                                 .textContentType(.newPassword)
                                 .padding()
-                                .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                                .onboardingFieldBackground()
 
                             if passwordsMismatch {
                                 Text("Passwords don't match")

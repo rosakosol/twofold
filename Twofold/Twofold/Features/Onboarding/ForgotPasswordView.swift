@@ -42,7 +42,7 @@ struct ForgotPasswordView: View {
                             .keyboardType(.emailAddress)
                             .textInputAutocapitalization(.never)
                             .padding()
-                            .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                            .onboardingFieldBackground()
 
                         if let errorMessage {
                             Text(errorMessage)

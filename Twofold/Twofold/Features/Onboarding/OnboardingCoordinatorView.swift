@@ -87,7 +87,8 @@ struct OnboardingCoordinatorView: View {
                     guard let mine = onboarding.homeCity, let theirs = onboarding.partnerCity else { return false }
                     return mine.city == theirs.city && mine.country == theirs.country
                 }()
-                onboarding.path.append(sameCity ? .notificationsSell : .personalizedInsight)
+                // Memory screens now come before the notification/Live Activity sell screens.
+                onboarding.path.append(sameCity ? .memoriesSell : .personalizedInsight)
             }
         case .personalizedInsight:
             PersonalizedInsightView()

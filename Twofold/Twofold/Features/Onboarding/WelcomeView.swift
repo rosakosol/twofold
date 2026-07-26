@@ -9,6 +9,7 @@ import MapKit
 struct WelcomeView: View {
     @Environment(OnboardingModel.self) private var onboarding
     @Environment(AppModel.self) private var appModel
+    @Environment(\.colorScheme) private var colorScheme
 
     @State private var showingSignIn = false
     @State private var iconPulsing = false
@@ -42,6 +43,7 @@ struct WelcomeView: View {
                 .imagery(elevation: .realistic)
             )
             .allowsHitTesting(false)
+            .accessibilityHidden(true)
             .ignoresSafeArea()
             .padding(.bottom, -80)
 
@@ -108,8 +110,14 @@ struct WelcomeView: View {
                             .font(.headline)
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(.white, in: Capsule())
-                            .foregroundStyle(Theme.ink)
+                            // The screen behind this is a fixed brand gradient regardless of
+                            // theme, but the button itself still inverts in dark mode like any
+                            // ordinary "white" button would — a dark-filled, white-text pill —
+                            // rather than looking identical to its light-mode self. Fixed colors
+                            // on both sides (not `Theme.ink`, which would go near-white in dark
+                            // mode and wash out against either fill).
+                            .background(colorScheme == .dark ? Color(hex: "1C2A38") : .white, in: Capsule())
+                            .foregroundStyle(colorScheme == .dark ? .white : Color(hex: "1C2A38"))
                     }
 
                     Button {

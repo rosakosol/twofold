@@ -51,7 +51,10 @@ struct LiveActivitySellView: View {
                     }
             },
             primaryTitle: "Continue",
-            primaryAction: { onboarding.path.append(.memoriesSell) }
+            // Last of the two sell screens now — the memory screens (`memoriesSell`/`mapSell`/
+            // `firstMemoryIntro`/`firstMemory`) moved ahead of both notification/Live Activity
+            // sell screens, so this is what actually follows them.
+            primaryAction: { onboarding.path.append(.twofoldPreview) }
         )
     }
 

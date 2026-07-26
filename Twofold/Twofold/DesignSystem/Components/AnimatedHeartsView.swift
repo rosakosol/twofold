@@ -12,6 +12,7 @@ import SwiftUI
 
 struct AnimatedHeartsView: View {
     @State private var animate = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private struct Heart {
         let xFraction: CGFloat
@@ -39,9 +40,15 @@ struct AnimatedHeartsView: View {
                     Image(systemName: "heart.fill")
                         .font(.system(size: heart.size))
                         .foregroundStyle(.white.opacity(heart.opacity))
-                        .position(x: heart.xFraction * geo.size.width, y: animate ? -40 : geo.size.height + 40)
+                        // Ambient decoration only, no information in the motion itself — under
+                        // Reduce Motion the hearts stay put at a fixed spot instead of
+                        // continuously drifting/looping.
+                        .position(
+                            x: heart.xFraction * geo.size.width,
+                            y: reduceMotion ? geo.size.height * 0.5 : (animate ? -40 : geo.size.height + 40)
+                        )
                         .animation(
-                            .linear(duration: heart.duration).repeatForever(autoreverses: false).delay(heart.delay),
+                            reduceMotion ? nil : .linear(duration: heart.duration).repeatForever(autoreverses: false).delay(heart.delay),
                             value: animate
                         )
                 }

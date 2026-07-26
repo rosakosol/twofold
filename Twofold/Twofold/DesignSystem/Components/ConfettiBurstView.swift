@@ -22,6 +22,7 @@ struct ConfettiBurstView: View {
     // on every real trigger, so this only changes what shows up before the first (or with no)
     // trigger.
     @State private var animate = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private struct Particle {
         let dx: CGFloat
@@ -59,6 +60,9 @@ struct ConfettiBurstView: View {
         }
         .allowsHitTesting(false)
         .onChange(of: trigger) {
+            // Purely celebratory, no information conveyed by the motion itself — skip the burst
+            // entirely under Reduce Motion rather than trying to tone it down.
+            guard !reduceMotion else { return }
             animate = false
             withAnimation(.easeOut(duration: 0.9)) {
                 animate = true

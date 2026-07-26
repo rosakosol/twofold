@@ -76,6 +76,7 @@ struct DeleteAccountView: View {
             Image(systemName: icon)
                 .foregroundStyle(Theme.subtleInk)
                 .frame(width: 20)
+                .accessibilityHidden(true)
             Text(text)
                 .font(.subheadline)
                 .foregroundStyle(Theme.subtleInk)

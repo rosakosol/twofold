@@ -728,15 +728,20 @@ private struct MapKitRouteView: UIViewRepresentable {
 
         private static func endpointMarker(code: String, hasOverlappingMarker: Bool) -> some View {
             let size = endpointMarkerSize(hasOverlappingMarker: hasOverlappingMarker)
+            // Fixed dark color, not `Theme.ink` — this is a pin label floating on live map
+            // imagery, which never adapts to the app's own theme, so the pin shouldn't either.
+            // `Theme.ink` now flips to near-white in dark mode, which made this white-on-white
+            // against the pin's always-white pill (same bug as `WelcomeView`'s "Get started").
+            let pinInk = Color(hex: "1C2A38")
             return VStack(spacing: hasOverlappingMarker ? 20 : 6) {
                 Circle()
-                    .fill(Theme.ink)
+                    .fill(pinInk)
                     .frame(width: 10, height: 10)
                     .overlay(Circle().strokeBorder(.white, lineWidth: 2))
                     .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
                 Text(code)
                     .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(pinInk)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3)
                     .background(.white, in: Capsule())

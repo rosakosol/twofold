@@ -80,7 +80,7 @@ struct RedeemPartnerCodeView: View {
                 .multilineTextAlignment(.center)
                 .font(.system(size: 28, weight: .bold, design: .rounded))
                 .padding()
-                .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                .onboardingFieldBackground()
                 .padding(.horizontal, Theme.Spacing.lg)
                 .onChange(of: code) { oldValue, newValue in
                     let formatted = InviteCode.autoFormat(newValue, isDeleting: newValue.count < oldValue.count)

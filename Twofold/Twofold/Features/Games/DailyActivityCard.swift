@@ -165,6 +165,7 @@ struct DailyActivityCard: View {
 /// periodic glint rather than competing for attention with the text next to it.
 private struct ShimmeringGlobeHeart: View {
     @State private var sweepIsAcross = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Image("GlobeHeart")
@@ -184,6 +185,9 @@ private struct ShimmeringGlobeHeart: View {
                 .mask(Image("GlobeHeart").resizable().scaledToFit())
             }
             .task {
+                // Purely decorative, no information in the sweep itself — skip the repeating
+                // loop entirely under Reduce Motion, leaving the static mark.
+                guard !reduceMotion else { return }
                 while !Task.isCancelled {
                     withAnimation(.easeInOut(duration: 1.1)) {
                         sweepIsAcross = true

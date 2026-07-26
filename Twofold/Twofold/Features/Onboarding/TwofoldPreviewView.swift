@@ -18,6 +18,7 @@ struct TwofoldPreviewView: View {
     @Environment(AppModel.self) private var appModel
     @State private var didCelebrate = false
     @State private var heartScale: CGFloat = 0.6
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var trip: Trip? { appModel.upcomingTrips.first }
 
@@ -54,8 +55,12 @@ struct TwofoldPreviewView: View {
                             ConfettiBurstView(trigger: didCelebrate)
                         }
                         .onAppear {
-                            withAnimation(.spring(response: 0.5, dampingFraction: 0.5)) {
+                            if reduceMotion {
                                 heartScale = 1.0
+                            } else {
+                                withAnimation(.spring(response: 0.5, dampingFraction: 0.5)) {
+                                    heartScale = 1.0
+                                }
                             }
                             didCelebrate = true
                         }

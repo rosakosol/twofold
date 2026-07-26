@@ -24,12 +24,15 @@ struct AppleGoogleSignInButtons: View {
     var onAccountDeleted: () -> Void = {}
     @Binding var isSubmitting: Bool
 
+    @Environment(\.colorScheme) private var colorScheme
     @State private var currentAppleNonce: String = ""
 
     var body: some View {
         VStack(spacing: Theme.Spacing.md) {
             SignInWithAppleButton(.continue, onRequest: configureAppleRequest, onCompletion: handleAppleCompletion)
-                .signInWithAppleButtonStyle(.black)
+                // Apple's own HIG requires this adapt to whatever it's presented on — a `.black`
+                // button on a now-possible dark background would be unreadable.
+                .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
                 .frame(height: 50)
                 .clipShape(Capsule())
                 .disabled(isSubmitting)

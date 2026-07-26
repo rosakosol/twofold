@@ -18,6 +18,7 @@ struct PartnerConnectedView: View {
 
     @State private var didCelebrate = false
     @State private var avatarsAppeared = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: Theme.Spacing.xl) {
@@ -77,8 +78,12 @@ struct PartnerConnectedView: View {
         .background(Theme.backgroundGradient.ignoresSafeArea())
         .interactiveDismissDisabled()
         .onAppear {
-            withAnimation(.spring(response: 0.55, dampingFraction: 0.62)) {
+            if reduceMotion {
                 avatarsAppeared = true
+            } else {
+                withAnimation(.spring(response: 0.55, dampingFraction: 0.62)) {
+                    avatarsAppeared = true
+                }
             }
             didCelebrate = true
         }

@@ -134,6 +134,7 @@ struct SettingsView: View {
                             )
                             .labelsHidden()
                             .disabled(!appLock.isAvailableOnDevice)
+                            .accessibilityLabel("Require \(appLock.methodName)")
                         }
                         // Same reasoning as `AboutYouView`'s account-scoped rows: this is a
                         // device preference (UserDefaults, not synced), so it's fine to live

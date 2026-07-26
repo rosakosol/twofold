@@ -38,21 +38,21 @@ struct CreateAccountView: View {
                 VStack(spacing: Theme.Spacing.md) {
                     TextField("First name", text: $firstName)
                         .textContentType(.givenName)
-                        .textFieldStyle()
+                        .onboardingFieldBackground()
 
                     TextField("Email", text: $email)
                         .textContentType(.emailAddress)
                         .keyboardType(.emailAddress)
                         .textInputAutocapitalization(.never)
-                        .textFieldStyle()
+                        .onboardingFieldBackground()
 
                     SecureField("Password", text: $password)
                         .textContentType(.newPassword)
-                        .textFieldStyle()
+                        .onboardingFieldBackground()
 
                     SecureField("Confirm password", text: $confirmPassword)
                         .textContentType(.newPassword)
-                        .textFieldStyle()
+                        .onboardingFieldBackground()
 
                     if passwordsMismatch {
                         Text("Passwords don't match")
@@ -137,14 +137,6 @@ struct CreateAccountView: View {
         onboarding.firstName = resolvedName
         onboarding.hasAccount = true
         onboarding.path.append(.homeCity)
-    }
-}
-
-private extension View {
-    func textFieldStyle() -> some View {
-        self
-            .padding()
-            .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
     }
 }
 

@@ -15,7 +15,6 @@ struct TwofoldApp: App {
         WindowGroup {
             RootView()
                 .environment(appModel)
-                .preferredColorScheme(.light)
                 .onReceive(NotificationCenter.default.publisher(for: .didRegisterForRemoteNotifications)) { notification in
                     guard let tokenData = notification.object as? Data else { return }
                     Task { await appModel.registerPushToken(tokenData) }

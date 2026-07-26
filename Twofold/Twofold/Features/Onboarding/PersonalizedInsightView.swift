@@ -5,8 +5,9 @@
 //  The distance-reveal moment — the first emotional payoff of onboarding. Staged entrance
 //  animations with haptics, a fast rolling count-up of the distance, a real 2D map with
 //  both partners as markers joined by a geodesic path, a real-world comparison for the
-//  number, and a shareable snapshot card (pure SwiftUI — ImageRenderer can't rasterize
-//  MapKit views, so the card re-draws the moment instead of embedding the live map).
+//  number, and a "Save this moment" button opening `DistanceRevealShareView` — a paged,
+//  multi-layout share screen (see `DistanceShareLayout`) mirroring `GameResultsShareView`,
+//  rather than a single fixed `ShareLink` snapshot.
 //  Real distance/timezone math only (`Geo.distanceKm`, `Place.timeZone`), never a
 //  fabricated number. Couples in the same city get adapted copy instead of an awkward
 //  "0 km apart".
@@ -18,12 +19,12 @@ import UIKit
 
 struct PersonalizedInsightView: View {
     @Environment(OnboardingModel.self) private var onboarding
-    @Environment(\.displayScale) private var displayScale
 
     /// Drives the staged reveal: 1 = map, 2 = distance count-up, 3 = comparison line,
     /// 4 = stat tiles + buttons. Also the trigger for the per-stage haptics.
     @State private var stage = 0
     @State private var displayedKm: Double = 0
+    @State private var showingShare = false
 
     // PartnerNameView requires a non-empty name before you can advance, so by the time any
     // later onboarding screen runs, this is always the real name — no fallback needed.
@@ -63,7 +64,8 @@ struct PersonalizedInsightView: View {
             subtitle: "When \(partnerName) is away, Twofold helps you keep up with \(onboarding.partnerPossessive) journey home.",
             content: { EmptyView() },
             primaryTitle: "Continue",
-            primaryAction: { onboarding.path.append(.notificationsSell) }
+            // Memory screens now come before the notification/Live Activity sell screens.
+            primaryAction: { onboarding.path.append(.memoriesSell) }
         )
     }
 
@@ -244,7 +246,8 @@ struct PersonalizedInsightView: View {
     private func bottomBar(distanceKm: Double, myCity: Place, partnerCity: Place) -> some View {
         VStack(spacing: Theme.Spacing.sm) {
             Button {
-                onboarding.path.append(.notificationsSell)
+                // Memory screens now come before the notification/Live Activity sell screens.
+                onboarding.path.append(.memoriesSell)
             } label: {
                 Text("Continue")
                     .font(.headline)
@@ -254,13 +257,9 @@ struct PersonalizedInsightView: View {
             .background(Theme.primaryButtonGradient, in: Capsule())
             .foregroundStyle(.white)
 
-            ShareLink(
-                item: renderSnapshot(distanceKm: distanceKm, myCity: myCity, partnerCity: partnerCity),
-                preview: SharePreview(
-                    "\(MeasurementPreference.distanceLabel(km: distanceKm)) apart",
-                    image: renderSnapshot(distanceKm: distanceKm, myCity: myCity, partnerCity: partnerCity)
-                )
-            ) {
+            Button {
+                showingShare = true
+            } label: {
                 Label("Save this moment", systemImage: "square.and.arrow.up")
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(Theme.subtleInk)
@@ -280,25 +279,17 @@ struct PersonalizedInsightView: View {
             .ignoresSafeArea()
         )
         .opacity(stage >= 4 ? 1 : 0)
-    }
-
-    @MainActor
-    private func renderSnapshot(distanceKm: Double, myCity: Place, partnerCity: Place) -> Image {
-        let renderer = ImageRenderer(
-            content: DistanceSnapshotCard(
+        .sheet(isPresented: $showingShare) {
+            DistanceRevealShareView(
                 distanceKm: distanceKm,
                 comparison: DistanceSnapshotCard.comparison(for: distanceKm),
                 myCity: myCity,
                 partnerCity: partnerCity,
                 selfPhoto: onboarding.selfPhotoData.flatMap(UIImage.init(data:)),
-                partnerPhoto: onboarding.partnerPhotoData.flatMap(UIImage.init(data:))
+                partnerPhoto: onboarding.partnerPhotoData.flatMap(UIImage.init(data:)),
+                hoursApart: hoursApart
             )
-        )
-        renderer.scale = displayScale
-        if let uiImage = renderer.uiImage {
-            return Image(uiImage: uiImage)
         }
-        return Image(systemName: "photo")
     }
 }
 

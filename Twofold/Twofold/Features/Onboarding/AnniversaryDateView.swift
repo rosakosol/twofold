@@ -59,7 +59,7 @@ struct AnniversaryDateView: View {
                     .labelsHidden()
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, Theme.Spacing.sm)
-                    .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                    .onboardingFieldBackground()
             },
             primaryTitle: "Continue",
             primaryAction: {
@@ -67,7 +67,8 @@ struct AnniversaryDateView: View {
                 if isAnniversaryToday {
                     onboarding.path.append(.happyAnniversary)
                 } else {
-                    onboarding.path.append(sameCity ? .notificationsSell : .personalizedInsight)
+                    // Memory screens now come before the notification/Live Activity sell screens.
+                    onboarding.path.append(sameCity ? .memoriesSell : .personalizedInsight)
                 }
             }
         )

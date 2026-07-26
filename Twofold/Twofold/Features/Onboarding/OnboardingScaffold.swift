@@ -139,6 +139,11 @@ struct OnboardingScaffold<Content: View>: View {
                 )
                 .foregroundStyle(.white)
                 .disabled(primaryDisabled)
+                // A bare `ProgressView()` (the loading state above) has no default accessible
+                // label of its own — without this, VoiceOver announces nothing while a purchase/
+                // sign-in/save is actually in progress, on what's usually this screen's single
+                // most important action.
+                .accessibilityLabel(primaryLoading ? "\(primaryTitle), in progress" : primaryTitle)
                 if let primaryCaption {
                     Text(primaryCaption)
                         .font(.caption)
@@ -205,6 +210,8 @@ struct OnboardingCard: View {
     let isSelected: Bool
     let action: () -> Void
 
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: Theme.Spacing.md) {
@@ -231,7 +238,10 @@ struct OnboardingCard: View {
             .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                    .strokeBorder(isSelected ? Theme.skyBlue : .clear, lineWidth: 2)
+                    .strokeBorder(
+                        isSelected ? AnyShapeStyle(Theme.selectionGradient) : AnyShapeStyle(unselectedBorderColor(colorScheme)),
+                        lineWidth: isSelected ? 2 : 1.25
+                    )
             )
         }
         .buttonStyle(.plain)
@@ -243,6 +253,8 @@ struct OnboardingOptionRow: View {
     let title: String
     let isSelected: Bool
     let action: () -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         Button(action: action) {
@@ -259,9 +271,23 @@ struct OnboardingOptionRow: View {
             .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                    .strokeBorder(isSelected ? Theme.skyBlue : .clear, lineWidth: 2)
+                    .strokeBorder(
+                        isSelected ? AnyShapeStyle(Theme.selectionGradient) : AnyShapeStyle(unselectedBorderColor(colorScheme)),
+                        lineWidth: isSelected ? 2 : 1.25
+                    )
             )
         }
         .buttonStyle(.plain)
     }
+}
+
+/// Shared by `OnboardingCard`/`OnboardingOptionRow` (and mirrors `SectionCard`'s own border) —
+/// an *unselected* card used to render with a `.clear` border, meaning it had literally no edge
+/// at all against `Theme.cardBackground`. That was invisible-but-tolerable in light mode (the
+/// card's own fill already reads as distinct from the page), but in dark mode, with
+/// `Theme.backgroundGradient` now a deep gradient, every unselected card blended into both the
+/// background and each other. A light-on-dark stroke is needed there specifically — the same
+/// `Theme.subtleInk` tint used in light mode is too washed out to register against a dark fill.
+private func unselectedBorderColor(_ colorScheme: ColorScheme) -> Color {
+    colorScheme == .dark ? Color.white.opacity(0.22) : Theme.subtleInk.opacity(0.25)
 }

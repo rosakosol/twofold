@@ -19,6 +19,7 @@ struct HappyAnniversaryView: View {
     var years: Int
     var onContinue: () -> Void
     @State private var contentVisible = false
+    @Environment(\.colorScheme) private var colorScheme
 
     private var subtitle: String {
         switch years {
@@ -64,8 +65,10 @@ struct HappyAnniversaryView: View {
                         .frame(maxWidth: .infinity)
                         .padding()
                 }
-                .background(.white, in: Capsule())
-                .foregroundStyle(Theme.heartRed)
+                // Same "white button inverts in dark mode" treatment as WelcomeView's "Get
+                // started" — a dark-filled, white-text pill instead of an always-white one.
+                .background(colorScheme == .dark ? Color(hex: "5A1B23") : .white, in: Capsule())
+                .foregroundStyle(colorScheme == .dark ? .white : Theme.heartRed)
             }
             .padding(Theme.Spacing.lg)
         }

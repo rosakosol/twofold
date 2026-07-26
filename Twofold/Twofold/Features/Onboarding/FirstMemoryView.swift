@@ -8,9 +8,12 @@
 //  onboarding's NavigationStack (pushing a view that owns its own stack crashes with
 //  AnyNavigationPath.Error.comparisonTypeMismatch).
 //
-//  `isDismissable: false` — adding a first memory is mandatory here, not optional like every
-//  other `AddMemoryView` call site. `onDismiss` below only fires once `save()` itself calls
-//  `dismiss()`, so advancing onboarding here really does mean a memory was saved.
+//  `isDismissable: false` — no swipe-to-dismiss and no Cancel button, unlike every other
+//  `AddMemoryView` call site (both would leave onboarding with nowhere to go, since nothing
+//  else here advances `onboarding.path`). Still skippable, though: `AddMemoryView`'s own
+//  bottomBar shows a text-only Skip button whenever `isDismissable` is false, which just calls
+//  `dismiss()` with nothing saved. `onDismiss` below fires either way — real save or Skip — so
+//  onboarding always advances once this sheet closes, whether or not a memory actually exists.
 //
 
 import SwiftUI
@@ -24,7 +27,10 @@ struct FirstMemoryView: View {
             .ignoresSafeArea()
             .onAppear { showingForm = true }
             .sheet(isPresented: $showingForm, onDismiss: {
-                onboarding.path.append(.twofoldPreview)
+                // Notification/Live Activity sell screens now follow the memory screens —
+                // fires identically whether the sheet closed via a real save or the new
+                // Skip button (see `AddMemoryView`'s `bottomBar`).
+                onboarding.path.append(.notificationsSell)
             }) {
                 AddMemoryView(isDismissable: false)
             }

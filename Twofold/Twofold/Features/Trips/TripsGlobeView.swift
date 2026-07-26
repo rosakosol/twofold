@@ -86,6 +86,7 @@ struct TripsGlobeView: View {
             ForEach(endpoints) { place in
                 Annotation(place.displayCity, coordinate: place.coordinate) {
                     Circle().fill(Theme.skyBlue).frame(width: 10, height: 10)
+                        .accessibilityLabel(place.displayCity)
                 }
             }
         }

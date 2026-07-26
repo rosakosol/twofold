@@ -253,7 +253,13 @@ struct AddMemoryView: View {
                 .foregroundStyle(.white, .black.opacity(0.6))
                 .font(.title3)
         }
-        .padding(4)
+        // The icon itself stays visually pinned to the corner (both this frame and the
+        // `photoThumbnail` ZStack it sits in align `.topTrailing`) — only the tappable area
+        // grows to Apple's 44x44pt minimum, extending inward over the thumbnail rather than
+        // making the icon itself look oversized.
+        .frame(width: 44, height: 44, alignment: .topTrailing)
+        .contentShape(Rectangle())
+        .accessibilityLabel("Remove photo")
     }
 
     private var bottomBar: some View {
@@ -276,6 +282,17 @@ struct AddMemoryView: View {
             }
 
             Spacer()
+
+            // Onboarding's mandatory first-memory step only — every other call site already has
+            // a Cancel button in the toolbar (see `isDismissable` above), so a second way out
+            // here would be redundant. Plain `dismiss()`, no save — `FirstMemoryView`'s own
+            // `onDismiss` fires on any dismissal regardless of cause, so onboarding advances
+            // exactly the same way it would after a real save, just without a memory to show for it.
+            if !isDismissable {
+                Button("Skip") { dismiss() }
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(Theme.subtleInk)
+            }
 
             Button(action: save) {
                 Group {

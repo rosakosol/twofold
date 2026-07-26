@@ -12,6 +12,7 @@ import SwiftUI
 
 struct GenderView: View {
     @Environment(OnboardingModel.self) private var onboarding
+    @Environment(\.colorScheme) private var colorScheme
     @State private var userGender: Gender?
     @State private var partnerGender: Gender?
 
@@ -73,7 +74,12 @@ struct GenderView: View {
             .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                    .strokeBorder(isSelected ? Theme.skyBlue : .clear, lineWidth: 2)
+                    .strokeBorder(
+                        isSelected
+                            ? AnyShapeStyle(Theme.selectionGradient)
+                            : AnyShapeStyle(colorScheme == .dark ? Color.white.opacity(0.22) : Theme.subtleInk.opacity(0.25)),
+                        lineWidth: isSelected ? 2 : 1.25
+                    )
             )
         }
         .buttonStyle(.plain)

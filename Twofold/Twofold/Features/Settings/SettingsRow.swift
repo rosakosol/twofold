@@ -38,6 +38,7 @@ struct SettingsRow: View {
                     }
                     if showsChevron {
                         Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
+                            .accessibilityHidden(true)
                     }
                 }
             }
@@ -49,5 +50,9 @@ struct SettingsRow: View {
         // nothing. Since every NavigationLink/Button across Settings uses this as its label,
         // fixing it once here covers every row at once.
         .contentShape(Rectangle())
+        // Same one-fix-covers-every-row reasoning as `.contentShape` above — without this, a row
+        // with a trailing `value` (e.g. "Measurements" + "Metric") or `unavailableBadge` read as
+        // two or three separate VoiceOver stops instead of one coherent "Measurements, Metric".
+        .accessibilityElement(children: .combine)
     }
 }

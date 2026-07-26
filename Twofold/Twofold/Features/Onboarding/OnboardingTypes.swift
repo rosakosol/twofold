@@ -18,12 +18,12 @@ enum OnboardingStep: Hashable {
     case anniversaryDate
     case happyAnniversary
     case personalizedInsight
-    case notificationsSell
-    case liveActivitySell
     case memoriesSell
     case mapSell
     case firstMemoryIntro
     case firstMemory
+    case notificationsSell
+    case liveActivitySell
     case twofoldPreview
     case saveAccount
     case invitePartner

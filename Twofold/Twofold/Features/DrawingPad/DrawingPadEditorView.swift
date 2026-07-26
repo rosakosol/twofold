@@ -95,9 +95,9 @@ struct DrawingPadEditorView: View {
 
     private var bottomToolbar: some View {
         HStack(spacing: Theme.Spacing.xl) {
-            toolButton(systemImage: "arrow.uturn.backward", isDisabled: elements.isEmpty, action: undo)
-            toolButton(systemImage: "arrow.uturn.forward", isDisabled: redoStack.isEmpty, action: redo)
-            toolButton(systemImage: "eraser", isActive: tool == .eraser) { tool = .eraser }
+            toolButton(systemImage: "arrow.uturn.backward", label: "Undo", isDisabled: elements.isEmpty, action: undo)
+            toolButton(systemImage: "arrow.uturn.forward", label: "Redo", isDisabled: redoStack.isEmpty, action: redo)
+            toolButton(systemImage: "eraser", label: "Eraser", isActive: tool == .eraser) { tool = .eraser }
 
             Menu {
                 ForEach([DrawingTool.pen, .rectangle, .ellipse, .line], id: \.self) { option in
@@ -114,6 +114,8 @@ struct DrawingPadEditorView: View {
                     .frame(width: 44, height: 44)
                     .background(Theme.cardBackground, in: Circle())
             }
+            .accessibilityLabel("Shape")
+            .accessibilityValue(isShapeTool ? tool.label : "Pen")
 
             Menu {
                 ForEach(Self.penColorPalette, id: \.name) { swatch in
@@ -132,10 +134,12 @@ struct DrawingPadEditorView: View {
                     .frame(width: 44, height: 44)
                     .background(Theme.cardBackground, in: Circle())
             }
+            .accessibilityLabel("Pen color")
+            .accessibilityValue(Self.penColorPalette.first { $0.color == penColor }?.name ?? "Custom")
         }
         .padding(Theme.Spacing.md)
         .frame(maxWidth: .infinity)
-        .background(.white)
+        .background(Theme.cardBackground)
     }
 
     private var isShapeTool: Bool {
@@ -146,7 +150,7 @@ struct DrawingPadEditorView: View {
         isShapeTool ? tool.systemImage : "square.on.circle"
     }
 
-    private func toolButton(systemImage: String, isDisabled: Bool = false, isActive: Bool = false, action: @escaping () -> Void) -> some View {
+    private func toolButton(systemImage: String, label: String, isDisabled: Bool = false, isActive: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: systemImage)
                 .font(.title2)
@@ -155,6 +159,8 @@ struct DrawingPadEditorView: View {
                 .background(Theme.cardBackground, in: Circle())
         }
         .disabled(isDisabled)
+        .accessibilityLabel(label)
+        .accessibilityAddTraits(isActive ? .isSelected : [])
     }
 
     private func undo() {
