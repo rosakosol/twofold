@@ -66,20 +66,23 @@ struct TwofoldPreviewView: View {
                         }
 
                     // Same avatar-pair design ConnectedRevealView's "You're connected" moment
-                    // uses (64pt ring'd circles either side of a "+"), reused here rather than
-                    // this screen inventing its own card-wrapped, heart-divided layout — self on
-                    // the left, partner on the right (this screen's own convention; unlike
-                    // ConnectedRevealView's partner-then-self order).
+                    // uses (ring'd circles either side of a "+"), reused here rather than this
+                    // screen inventing its own card-wrapped, heart-divided layout — self on the
+                    // left, partner on the right (this screen's own convention; unlike
+                    // ConnectedRevealView's partner-then-self order). Sized to match
+                    // `PartnerConnectedView`'s own post-pairing celebration (128pt), not the
+                    // smaller 64pt this used before — this is as big a celebration moment as
+                    // that one.
                     HStack(spacing: Theme.Spacing.lg) {
                         VStack(spacing: Theme.Spacing.xs) {
-                            avatarCircle(selfImage, size: 64)
+                            avatarCircle(selfImage, size: 128)
                             Text(onboarding.firstName.isEmpty ? "You" : onboarding.firstName)
                                 .font(.subheadline)
                         }
                         Image(systemName: "plus")
                             .foregroundStyle(Theme.subtleInk)
                         VStack(spacing: Theme.Spacing.xs) {
-                            avatarCircle(partnerImage, size: 64)
+                            avatarCircle(partnerImage, size: 128)
                             Text(onboarding.partnerName.isEmpty ? "Partner" : onboarding.partnerName)
                                 .font(.subheadline)
                         }
@@ -163,7 +166,11 @@ struct TwofoldPreviewView: View {
                 image.resizable().scaledToFill()
             } else {
                 Circle().fill(Theme.cardBackground)
-                Image(systemName: "person.fill").foregroundStyle(Theme.subtleInk)
+                // Scales with the circle itself — at 128pt (this screen's size since the avatar
+                // bump), the previous fixed default-body-size icon looked lost in the middle.
+                Image(systemName: "person.fill")
+                    .font(.system(size: size * 0.4))
+                    .foregroundStyle(Theme.subtleInk)
             }
         }
         .frame(width: size, height: size)

@@ -2,19 +2,10 @@
 //  DistanceSnapshotCard.swift
 //  Twofold
 //
-//  Pure-SwiftUI rendering of the distance-reveal moment, deliberately mirroring everything
-//  `PersonalizedInsightView`'s live reveal shows — a real map with both avatars pinned and the
-//  geodesic route between them, the rolling distance number, the real-world comparison, and the
-//  same time-difference/around-the-Earth stat tiles the live screen's stage 4 shows.
-//
-//  The map is a pre-fetched `MKMapSnapshotter` image, not a live `Map` — `ImageRenderer` can't
-//  reliably rasterize a live MapKit-backed `Map` (same constraint `DistanceShareCard`/
-//  `RouteMapShareCard` already work around). `DistanceRevealShareView` fetches it and passes it
-//  in; this view just draws the route/pins on top at the exact pixel positions
-//  `MKMapSnapshotter.Snapshot.point(for:)` projects each city's real coordinate to. The camera
-//  framing both cities is altitude-based (`MKMapCamera(fromDistance:)`), the same fix
-//  `PersonalizedInsightView.camera(containing:_:)` already uses for its own live map — region/
-//  span-based fitting silently caps out well short of what a genuinely distant pair can need.
+//  Pure-SwiftUI rendering of the distance-reveal moment for the share screen — the map layer is
+//  `DistanceMapView`, the exact same view (and technique — see its own doc comment) Home's
+//  `DistanceShareCard` uses and `PersonalizedInsightView` (this moment's live screen) now also
+//  uses, so all three stay visually identical rather than three separately-tuned renderings.
 //
 
 import SwiftUI
@@ -29,14 +20,19 @@ struct DistanceSnapshotCard: View {
     let partnerPhoto: UIImage?
     /// Nil (same timezone) just omits that one stat tile, matching the live reveal screen.
     var hoursApart: Int? = nil
-    /// Pre-fetched by `DistanceRevealShareView` — nil shows a loading placeholder in its place.
+    /// Pre-fetched by `DistanceRevealShareView` via `DistanceMapView.loadMapSnapshot`.
     var mapSnapshot: MKMapSnapshotter.Snapshot? = nil
-
-    static let mapSize = CGSize(width: 292, height: 200)
 
     var body: some View {
         VStack(spacing: Theme.Spacing.lg) {
-            mapLayer
+            DistanceMapView(
+                myCity: myCity,
+                partnerCity: partnerCity,
+                distanceKm: distanceKm,
+                selfPhoto: selfPhoto,
+                partnerPhoto: partnerPhoto,
+                mapSnapshot: mapSnapshot
+            )
 
             VStack(spacing: Theme.Spacing.xs) {
                 Text("\(MeasurementPreference.distanceLabel(km: distanceKm)) apart")
@@ -75,92 +71,24 @@ struct DistanceSnapshotCard: View {
         )
     }
 
-    // MARK: - Map
-
-    @ViewBuilder
-    private var mapLayer: some View {
-        if let mapSnapshot {
-            ZStack {
-                Image(uiImage: mapSnapshot.image)
-                routePath(mapSnapshot)
-                pin(mapSnapshot.point(for: myCity.coordinate), photo: selfPhoto, tint: Theme.skyBlue, city: myCity)
-                pin(mapSnapshot.point(for: partnerCity.coordinate), photo: partnerPhoto, tint: Theme.heartRed, city: partnerCity)
-            }
-            .frame(width: Self.mapSize.width, height: Self.mapSize.height)
-            .clipped()
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-        } else {
-            RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                .fill(.white.opacity(0.12))
-                .frame(width: Self.mapSize.width, height: Self.mapSize.height)
-                .overlay { ProgressView().tint(.white) }
-        }
-    }
-
-    /// Many short chords between closely-spaced great-circle samples, same technique
-    /// `RouteMapShareCard`/`DistanceShareCard` use — a straight line pin-to-pin would cut the
-    /// true geodesic arc rather than follow it, and matches the live map's own
-    /// `MapPolyline(contourStyle: .geodesic)`.
-    private func routePath(_ snapshot: MKMapSnapshotter.Snapshot) -> some View {
-        Path { path in
-            let sampleCount = 48
-            let samples = (0...sampleCount).map { i in
-                Geo.intermediateGreatCirclePoint(myCity.coordinate, partnerCity.coordinate, fraction: Double(i) / Double(sampleCount))
-            }
-            guard let first = samples.first else { return }
-            path.move(to: snapshot.point(for: first))
-            for coordinate in samples.dropFirst() {
-                path.addLine(to: snapshot.point(for: coordinate))
-            }
-        }
-        .stroke(Theme.skyBlue, style: StrokeStyle(lineWidth: 3, lineCap: .round))
-    }
-
-    private func pin(_ point: CGPoint, photo: UIImage?, tint: Color, city: Place) -> some View {
-        VStack(spacing: 4) {
-            avatar(photo, tint: tint)
-            Text(city.displayCity)
-                .font(.system(size: 9, weight: .semibold))
-                .foregroundStyle(.white)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-                .padding(.horizontal, 5)
-                .padding(.vertical, 2)
-                .background(.black.opacity(0.55), in: Capsule())
-        }
-        .position(x: point.x, y: point.y - 20)
-    }
+    // MARK: - Stats
 
     private func statTile(icon: String, value: String, label: String) -> some View {
         VStack(spacing: 4) {
             Image(systemName: icon)
                 .font(.subheadline)
-                .foregroundStyle(.white.opacity(0.85))
+                .foregroundStyle(.white.opacity(0.95))
             Text(value)
                 .font(.title3.weight(.bold))
                 .foregroundStyle(.white)
+            // Was .opacity(0.7) — unreadable against the card gradient's light green bottom edge
+            // (`cardGradient`'s "6FBF8B"), which the icon/value above never sit low enough to
+            // touch.
             Text(label)
-                .font(.caption2)
-                .foregroundStyle(.white.opacity(0.7))
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.white.opacity(0.95))
                 .multilineTextAlignment(.center)
         }
-    }
-
-    private func avatar(_ photo: UIImage?, tint: Color) -> some View {
-        ZStack {
-            if let photo {
-                Image(uiImage: photo).resizable().scaledToFill()
-            } else {
-                Circle().fill(tint)
-                Image(systemName: "person.fill")
-                    .font(.caption)
-                    .foregroundStyle(.white)
-            }
-        }
-        .frame(width: 32, height: 32)
-        .clipShape(Circle())
-        .overlay(Circle().strokeBorder(.white, lineWidth: 2))
-        .shadow(color: .black.opacity(0.2), radius: 4, y: 2)
     }
 
     private var wordmark: some View {

@@ -25,6 +25,9 @@ struct PersonalizedInsightView: View {
     @State private var stage = 0
     @State private var displayedKm: Double = 0
     @State private var showingShare = false
+    /// Pre-fetched once per city pair via `DistanceMapView.loadMapSnapshot` — nil shows that
+    /// view's own loading placeholder.
+    @State private var mapSnapshot: MKMapSnapshotter.Snapshot?
 
     // PartnerNameView requires a non-empty name before you can advance, so by the time any
     // later onboarding screen runs, this is always the real name — no fallback needed.
@@ -135,6 +138,9 @@ struct PersonalizedInsightView: View {
             }
         }
         .task {
+            if mapSnapshot == nil {
+                mapSnapshot = await DistanceMapView.loadMapSnapshot(from: myCity.coordinate, to: partnerCity.coordinate, distanceKm: distanceKm)
+            }
             // Re-appearing (e.g. navigating back) skips the theatrics and shows the
             // finished state immediately.
             guard stage == 0 else {
@@ -167,78 +173,21 @@ struct PersonalizedInsightView: View {
 
     // MARK: - Map
 
+    /// The exact same globe/flat-map technique Home's own `DistanceShareCard` uses (see
+    /// `DistanceMapView`'s own doc comment) — a static `MKMapSnapshotter` render, not a live
+    /// interactive `Map`. Also what `DistanceSnapshotCard` (this screen's own "Save this moment"
+    /// share card) renders, so the live reveal and the share card are now, deliberately, the same
+    /// view.
     private func mapCard(myCity: Place, partnerCity: Place) -> some View {
-        Map(
-            initialPosition: .camera(Self.camera(containing: myCity.coordinate, partnerCity.coordinate)),
-            interactionModes: []
-        ) {
-            Annotation(myCity.displayCity, coordinate: myCity.coordinate) {
-                avatarMarker(onboarding.selfPhotoData, tint: Theme.skyBlue)
-            }
-            Annotation(partnerCity.displayCity, coordinate: partnerCity.coordinate) {
-                avatarMarker(onboarding.partnerPhotoData, tint: Theme.heartRed)
-            }
-            MapPolyline(coordinates: [myCity.coordinate, partnerCity.coordinate], contourStyle: .geodesic)
-                .stroke(Theme.skyBlue, style: StrokeStyle(lineWidth: 3, lineCap: .round))
-        }
-        .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
-        .allowsHitTesting(false)
-        .frame(height: 260)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-    }
-
-    private func avatarMarker(_ photoData: Data?, tint: Color) -> some View {
-        ZStack {
-            if let uiImage = photoData.flatMap(UIImage.init(data:)) {
-                Image(uiImage: uiImage).resizable().scaledToFill()
-            } else {
-                Circle().fill(tint)
-                Image(systemName: "person.fill")
-                    .font(.caption)
-                    .foregroundStyle(.white)
-            }
-        }
-        .frame(width: 36, height: 36)
-        .clipShape(Circle())
-        .overlay(Circle().strokeBorder(.white, lineWidth: 2))
-        .shadow(color: .black.opacity(0.2), radius: 4, y: 2)
-    }
-
-    /// A camera framing both cities with breathing room — set by *altitude* (`MapCamera.distance`),
-    /// not by coordinate span (`MKCoordinateRegion`), which is the same fix `FlightMapView` already
-    /// uses for its route-fitting and for the identical reason: `MKCoordinateRegion`-based fitting
-    /// (tried first here too, several ways — see git history) silently caps how wide a region's
-    /// span in *degrees* can be at a given center latitude, well short of what a genuinely distant
-    /// pair can need. Oslo (60°N) and Cape Town (34°S) are ~94° of raw latitude apart; every
-    /// region-based attempt topped out somewhere around 70–80° regardless of how much span or
-    /// padding was requested beyond that, silently rendering a smaller, off-center crop instead
-    /// that left one or both avatar markers off-screen. `MapCamera(distance:)` isn't subject to
-    /// that ceiling, so it correctly zooms out for arbitrarily distant pairs, up to near-antipodal.
-    private static func camera(containing a: CLLocationCoordinate2D, _ b: CLLocationCoordinate2D) -> MapCamera {
-        // Antimeridian-safe center: shift `b`'s longitude by a full turn whenever that shortens
-        // the delta, so two cities straddling the 180th meridian (e.g. Auckland +174.8°, Los
-        // Angeles −118.2°) resolve to the true ~67° apart the short way, not ~293° the long way.
-        var bLongitude = b.longitude
-        let deltaLongitude = bLongitude - a.longitude
-        if deltaLongitude > 180 {
-            bLongitude -= 360
-        } else if deltaLongitude < -180 {
-            bLongitude += 360
-        }
-        var centerLongitude = (a.longitude + bLongitude) / 2
-        while centerLongitude > 180 { centerLongitude -= 360 }
-        while centerLongitude < -180 { centerLongitude += 360 }
-        let center = CLLocationCoordinate2D(latitude: (a.latitude + b.latitude) / 2, longitude: centerLongitude)
-
-        // A generous multiple of the real point-to-point distance, floored so two very close (but
-        // not identical-city) coordinates don't produce a near-zero distance that zooms in
-        // absurdly. `FlightMapView` iteratively refines its own initial guess against the live
-        // `MKMapView`'s actual projected pixels (`mapView.convert`) — not available from plain
-        // SwiftUI `Map`, so this uses a single, more generous fixed multiplier instead of
-        // iterating: comfortably enough headroom for two point markers (no route curve or label
-        // capsules to clear, unlike `FlightMapView`'s case) without needing per-frame refinement.
-        let distanceMeters = max(Geo.distanceKm(a, b) * 1000, 200_000)
-        return MapCamera(centerCoordinate: center, distance: distanceMeters * 3.0, heading: 0, pitch: 0)
+        DistanceMapView(
+            myCity: myCity,
+            partnerCity: partnerCity,
+            distanceKm: Geo.distanceKm(myCity.coordinate, partnerCity.coordinate),
+            selfPhoto: onboarding.selfPhotoData.flatMap(UIImage.init(data:)),
+            partnerPhoto: onboarding.partnerPhotoData.flatMap(UIImage.init(data:)),
+            mapSnapshot: mapSnapshot
+        )
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Bottom bar + snapshot

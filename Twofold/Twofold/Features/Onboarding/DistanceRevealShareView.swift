@@ -52,7 +52,7 @@ struct DistanceRevealShareView: View {
             }
             .task {
                 guard mapSnapshot == nil else { return }
-                mapSnapshot = await Self.loadMapSnapshot(from: myCity.coordinate, to: partnerCity.coordinate)
+                mapSnapshot = await DistanceMapView.loadMapSnapshot(from: myCity.coordinate, to: partnerCity.coordinate, distanceKm: distanceKm)
             }
         }
         .postHogScreenView("Onboarding: Distance Reveal Share")
@@ -69,43 +69,6 @@ struct DistanceRevealShareView: View {
             hoursApart: hoursApart,
             mapSnapshot: mapSnapshot
         )
-    }
-
-    /// Camera framed by *altitude* (`MKMapCamera(fromDistance:)`), not coordinate span — the
-    /// same fix `PersonalizedInsightView.camera(containing:_:)` uses for its own live map.
-    /// Region/span-based fitting silently caps out well short of what a genuinely distant pair
-    /// can need, so this mirrors that math rather than `DistanceShareCard`'s separate
-    /// near/far-branching globe approach.
-    private static func loadMapSnapshot(from a: CLLocationCoordinate2D, to b: CLLocationCoordinate2D) async -> MKMapSnapshotter.Snapshot? {
-        var bLongitude = b.longitude
-        let deltaLongitude = bLongitude - a.longitude
-        if deltaLongitude > 180 {
-            bLongitude -= 360
-        } else if deltaLongitude < -180 {
-            bLongitude += 360
-        }
-        var centerLongitude = (a.longitude + bLongitude) / 2
-        while centerLongitude > 180 { centerLongitude -= 360 }
-        while centerLongitude < -180 { centerLongitude += 360 }
-        let center = CLLocationCoordinate2D(latitude: (a.latitude + b.latitude) / 2, longitude: centerLongitude)
-        let distanceMeters = max(Geo.distanceKm(a, b) * 1000, 300_000)
-
-        let options = MKMapSnapshotter.Options()
-        options.preferredConfiguration = MKStandardMapConfiguration(elevationStyle: .flat)
-        options.pointOfInterestFilter = .excludingAll
-        // `mapSize` is landscape (292×200), not square — a pair separated mostly in latitude
-        // gets less vertical headroom than the same distance separated mostly in longitude, at
-        // the same altitude. `* 5.0` (was `3.0`) is generous enough to cover that skew plus the
-        // pin marker/label's own ~50pt visual footprint, which otherwise clipped against the
-        // frame edge for pairs that landed close to it.
-        options.camera = MKMapCamera(lookingAtCenter: center, fromDistance: distanceMeters * 5.0, pitch: 0, heading: 0)
-        options.size = DistanceSnapshotCard.mapSize
-
-        do {
-            return try await MKMapSnapshotter(options: options).start()
-        } catch {
-            return nil
-        }
     }
 
     // MARK: - CTA row
@@ -154,6 +117,7 @@ struct DistanceRevealShareView: View {
     private func renderImage<V: View>(_ view: V) -> UIImage? {
         // Fixed width regardless of the device's actual screen width — the on-screen preview is
         // responsive, but the exported PNG should always come out the same deliberate size.
+        // Matches `DistanceSnapshotCard`'s own outer frame width.
         let renderer = ImageRenderer(content: view.frame(width: 340))
         renderer.scale = displayScale
         return renderer.uiImage
