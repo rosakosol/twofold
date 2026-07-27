@@ -48,7 +48,7 @@ struct RelationshipMilestoneStats {
         tripCount = trips.count
         memoryCount = memories.count
 
-        let reunions = trips.filter { $0.isReunionTrip }
+        let reunions = trips.filter { $0.category == .reunion }
         reunionCount = reunions.count
 
         var currentDistanceKm: Double?

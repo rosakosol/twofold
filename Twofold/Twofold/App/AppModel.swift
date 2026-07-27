@@ -218,7 +218,7 @@ final class AppModel {
         // flight regardless of reason" figure shown in the Flight Distance breakdown.
         // `effectiveDistanceKm` (not the raw `distanceKm`) so a connecting itinerary's real
         // flown distance counts, not just the trip's direct origin→destination distance.
-        let totalDistance = trips.filter { $0.isReunionTrip }.reduce(0) { $0 + $1.effectiveDistanceKm }
+        let totalDistance = trips.filter { $0.category == .reunion }.reduce(0) { $0 + $1.effectiveDistanceKm }
         let daysTogether = max(0, Calendar.current.dateComponents([.day], from: couple.startedDatingOn, to: .now).day ?? 0)
         return MockData.RelationshipStats(
             totalDistanceKm: totalDistance,
@@ -1008,7 +1008,7 @@ final class AppModel {
     /// in `pendingFlightCandidates`, so `performAdopt(_:)` can attach it once the trip is
     /// actually inserted — previously it was just silently dropped.
     @discardableResult
-    func addTrip(origin: Place, destination: Place, departureDate: Date, arrivalDate: Date, traveler: TripTraveler, isReunionTrip: Bool, flightCandidate: AeroFlightCandidate? = nil) async -> Trip {
+    func addTrip(origin: Place, destination: Place, departureDate: Date, arrivalDate: Date, traveler: TripTraveler, category: TripCategory, flightCandidate: AeroFlightCandidate? = nil) async -> Trip {
         let travelerIDs: [Person.ID] = {
             switch traveler {
             case .you: return [currentUser.id]
@@ -1024,13 +1024,13 @@ final class AppModel {
             destination: destination,
             departureDate: departureDate,
             arrivalDate: arrivalDate,
-            isReunionTrip: isReunionTrip,
+            category: category,
             distanceKm: distance
         )
 
         trips.append(trip)
         checkReviewMilestones()
-        Analytics.capture(Analytics.Event.tripCreate, properties: ["trip_category": isReunionTrip ? "reunion" : "personal"])
+        Analytics.capture(Analytics.Event.tripCreate, properties: ["trip_category": category.analyticsValue])
 
         if let backendCoupleID {
             do {

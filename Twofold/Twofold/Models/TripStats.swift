@@ -25,7 +25,8 @@ struct TripStats {
     let longestTrip: Trip?
     let shortestTrip: Trip?
     let reunionCount: Int
-    let personalCount: Int
+    let togetherCount: Int
+    let soloCount: Int
     let upcomingCount: Int
     let pastCount: Int
     /// The single most-visited destination city, by trip count — nil only when there are no
@@ -46,8 +47,9 @@ struct TripStats {
         longestTrip = withDuration.max { $0.arrivalDate.timeIntervalSince($0.departureDate) < $1.arrivalDate.timeIntervalSince($1.departureDate) }
         shortestTrip = withDuration.min { $0.arrivalDate.timeIntervalSince($0.departureDate) < $1.arrivalDate.timeIntervalSince($1.departureDate) }
 
-        reunionCount = trips.count { $0.isReunionTrip }
-        personalCount = totalTrips - reunionCount
+        reunionCount = trips.count { $0.category == .reunion }
+        togetherCount = trips.count { $0.category == .together }
+        soloCount = trips.count { $0.category == .solo }
         upcomingCount = trips.count { $0.isUpcoming }
         pastCount = totalTrips - upcomingCount
 

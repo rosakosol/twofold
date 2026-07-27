@@ -22,7 +22,7 @@ enum PendingTripStore {
         var destination: Place
         var departureDate: Date
         var arrivalDate: Date
-        var isReunionTrip: Bool
+        var category: TripCategory
         var distanceKm: Double
         var notes: String?
 
@@ -33,7 +33,7 @@ enum PendingTripStore {
             destination = trip.destination
             departureDate = trip.departureDate
             arrivalDate = trip.arrivalDate
-            isReunionTrip = trip.isReunionTrip
+            category = trip.category
             distanceKm = trip.distanceKm
             notes = trip.notes
         }
@@ -46,7 +46,7 @@ enum PendingTripStore {
                 destination: destination,
                 departureDate: departureDate,
                 arrivalDate: arrivalDate,
-                isReunionTrip: isReunionTrip,
+                category: category,
                 distanceKm: distanceKm,
                 notes: notes
             )

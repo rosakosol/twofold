@@ -78,8 +78,8 @@ struct TripsGlobeView: View {
                 // trip.
                 MapPolyline(coordinates: [trip.origin.coordinate, trip.destination.coordinate], contourStyle: .geodesic)
                     .stroke(
-                        Theme.skyBlue.opacity(trip.isReunionTrip ? 0.9 : 0.55),
-                        style: StrokeStyle(lineWidth: trip.isReunionTrip ? 3 : 2, lineCap: .round, dash: [1, 9])
+                        Theme.skyBlue.opacity(trip.category == .reunion ? 0.9 : 0.55),
+                        style: StrokeStyle(lineWidth: trip.category == .reunion ? 3 : 2, lineCap: .round, dash: [1, 9])
                     )
             }
 

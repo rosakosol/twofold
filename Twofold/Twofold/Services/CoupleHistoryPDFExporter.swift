@@ -342,7 +342,13 @@ private struct TripPageView: View {
 
     var body: some View {
         StoryPageChrome(
-            kindLabel: trip.isReunionTrip ? "Reunion Trip" : "Trip",
+            kindLabel: {
+                switch trip.category {
+                case .reunion: "Reunion Trip"
+                case .together: "Trip Together"
+                case .solo: "Trip"
+                }
+            }(),
             kindIcon: "airplane",
             dateText: coupleHistoryDateFormatter.string(from: trip.departureDate),
             title: "\(trip.origin.displayCity) → \(trip.destination.displayCity)"

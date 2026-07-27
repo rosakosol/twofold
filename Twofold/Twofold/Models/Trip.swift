@@ -5,6 +5,41 @@
 
 import Foundation
 
+/// Why this trip happened — restores the three-way distinction the app used to collapse into a
+/// single `isReunionTrip` boolean. `.reunion` is specifically the trip that closes the distance
+/// between the couple (crossing to see each other); a trip taken together *after* that — while
+/// already in the same place, whether that's because they share a home city or because a
+/// `.reunion` trip already closed the gap — is `.together`, not a second reunion. `.solo` is an
+/// individual trip unrelated to the relationship. Raw values match the `trips.category` Postgres
+/// enum exactly (`seeing_each_other` / `together` / `personal`).
+enum TripCategory: String, Codable, CaseIterable, Identifiable, Hashable {
+    case reunion = "seeing_each_other"
+    case together = "together"
+    case solo = "personal"
+
+    var id: String { rawValue }
+
+    /// Trip badges, the Add/Edit Trip category picker.
+    var displayName: String {
+        switch self {
+        case .reunion: "Reunion"
+        case .together: "Together"
+        case .solo: "Solo"
+        }
+    }
+
+    /// The `trip_category` PostHog property this app has always sent — kept distinct from
+    /// `rawValue` (the DB's own column values) and `displayName` (UI label) so existing funnels
+    /// keyed on "reunion"/"personal" keep working; "together" is a genuinely new value.
+    var analyticsValue: String {
+        switch self {
+        case .reunion: "reunion"
+        case .together: "together"
+        case .solo: "personal"
+        }
+    }
+}
+
 struct Trip: Identifiable, Hashable {
     let id: UUID
     /// 0, 1, or 2 of the couple's members — mirrors `Flight.travelerIDs`. Almost always 1, but
@@ -15,11 +50,7 @@ struct Trip: Identifiable, Hashable {
     var destination: Place
     var departureDate: Date
     var arrivalDate: Date
-    /// Replaces the old three-way "reason for travel" (Reunion/Together/Personal) category —
-    /// simplified to the one distinction that actually mattered for how a trip reads elsewhere
-    /// in the app (the reunion card, trip badges): is this trip about seeing your partner, or
-    /// not.
-    var isReunionTrip: Bool
+    var category: TripCategory
     /// Direct great-circle distance between `origin`/`destination` — the trip's *stated*
     /// endpoints, not necessarily the real distance actually flown. See `effectiveDistanceKm`.
     var distanceKm: Double
@@ -37,7 +68,7 @@ struct Trip: Identifiable, Hashable {
         destination: Place,
         departureDate: Date,
         arrivalDate: Date,
-        isReunionTrip: Bool,
+        category: TripCategory,
         distanceKm: Double,
         flights: [Flight] = [],
         notes: String? = nil
@@ -48,7 +79,7 @@ struct Trip: Identifiable, Hashable {
         self.destination = destination
         self.departureDate = departureDate
         self.arrivalDate = arrivalDate
-        self.isReunionTrip = isReunionTrip
+        self.category = category
         self.distanceKm = distanceKm
         self.flights = flights
         self.notes = notes

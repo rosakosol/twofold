@@ -21,7 +21,7 @@ struct EditTripView: View {
     @State private var destination: Place?
     @State private var departureDate: Date
     @State private var arrivalDate: Date
-    @State private var isReunionTrip: Bool
+    @State private var category: TripCategory
     @State private var traveler: TripTraveler
     @State private var notes: String
     @State private var isSaving = false
@@ -32,7 +32,7 @@ struct EditTripView: View {
         _destination = State(initialValue: trip.destination)
         _departureDate = State(initialValue: trip.departureDate)
         _arrivalDate = State(initialValue: trip.arrivalDate)
-        _isReunionTrip = State(initialValue: trip.isReunionTrip)
+        _category = State(initialValue: trip.category)
         _notes = State(initialValue: trip.notes ?? "")
         _traveler = State(initialValue: .you)
     }
@@ -66,7 +66,12 @@ struct EditTripView: View {
                     Text("Both").tag(TripTraveler.both)
                 }
                 .pickerStyle(.segmented)
-                Toggle("Is this a reunion trip?", isOn: $isReunionTrip)
+                Picker("Trip category", selection: $category) {
+                    ForEach(TripCategory.allCases) { category in
+                        Text(category.displayName).tag(category)
+                    }
+                }
+                .pickerStyle(.segmented)
             }
 
             Section("Notes") {
@@ -112,7 +117,7 @@ struct EditTripView: View {
         updated.destination = destination
         updated.departureDate = departureDate
         updated.arrivalDate = arrivalDate
-        updated.isReunionTrip = isReunionTrip
+        updated.category = category
         updated.travelerIDs = {
             switch traveler {
             case .you: return [appModel.currentUser.id]

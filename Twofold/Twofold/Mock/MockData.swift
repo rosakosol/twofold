@@ -55,7 +55,7 @@ enum MockData {
         destination: melbourne,
         departureDate: activeFlight.scheduledDeparture,
         arrivalDate: activeFlight.scheduledArrival,
-        isReunionTrip: true,
+        category: .reunion,
         distanceKm: 6060,
         flights: [activeFlight]
     )
@@ -81,7 +81,7 @@ enum MockData {
         destination: singapore,
         departureDate: pastLandedFlight.scheduledDeparture,
         arrivalDate: pastLandedFlight.scheduledArrival,
-        isReunionTrip: true,
+        category: .reunion,
         distanceKm: 6060,
         flights: [pastLandedFlight],
         notes: "You flew to Dara"
@@ -93,7 +93,7 @@ enum MockData {
         destination: bangkok,
         departureDate: DateComponents(calendar: .current, year: 2024, month: 3, day: 2).date ?? .now,
         arrivalDate: DateComponents(calendar: .current, year: 2024, month: 3, day: 6).date ?? .now,
-        isReunionTrip: false,
+        category: .together,
         distanceKm: 1435,
         notes: "Weekend together"
     )
@@ -104,7 +104,7 @@ enum MockData {
         destination: tokyo,
         departureDate: Calendar.current.date(byAdding: .day, value: -160, to: .now) ?? .now,
         arrivalDate: Calendar.current.date(byAdding: .day, value: -158, to: .now) ?? .now,
-        isReunionTrip: false,
+        category: .solo,
         distanceKm: 5300,
         notes: "Business trip"
     )

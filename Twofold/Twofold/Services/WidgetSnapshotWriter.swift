@@ -62,7 +62,7 @@ enum WidgetSnapshotWriter {
             reunionInfo = WidgetSnapshot.ReunionInfo(
                 departureDate: trip.departureDate,
                 destinationCity: trip.destination.displayCity,
-                isReunionTrip: trip.isReunionTrip
+                isReunionTrip: trip.category == .reunion
             )
         }
 

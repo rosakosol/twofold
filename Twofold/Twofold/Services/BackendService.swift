@@ -1300,7 +1300,7 @@ enum BackendService {
                 destination: destination,
                 departureDate: row.departureAt,
                 arrivalDate: row.arrivalAt,
-                isReunionTrip: isReunionCategory(row.category),
+                category: row.category,
                 distanceKm: row.distanceKm,
                 flights: flightsByTrip[row.id] ?? [],
                 notes: row.notes
@@ -1392,7 +1392,7 @@ enum BackendService {
         var destinationId: UUID
         var departureAt: Date
         var arrivalAt: Date
-        var category: String
+        var category: TripCategory
         var distanceKm: Double
         var notes: String?
 
@@ -1415,7 +1415,7 @@ enum BackendService {
         var destinationId: UUID
         var departureAt: Date
         var arrivalAt: Date
-        var category: String
+        var category: TripCategory
         var distanceKm: Double
 
         enum CodingKeys: String, CodingKey {
@@ -1648,7 +1648,7 @@ enum BackendService {
                 destination: destination,
                 departureDate: row.departureAt,
                 arrivalDate: row.arrivalAt,
-                isReunionTrip: isReunionCategory(row.category),
+                category: row.category,
                 distanceKm: row.distanceKm,
                 notes: row.notes
             )
@@ -2008,7 +2008,7 @@ enum BackendService {
                     destinationId: destinationID,
                     departureAt: trip.departureDate,
                     arrivalAt: trip.arrivalDate,
-                    category: categoryDBValue(isReunion: trip.isReunionTrip),
+                    category: trip.category,
                     distanceKm: trip.distanceKm
                 )
             )
@@ -2021,7 +2021,7 @@ enum BackendService {
         var destinationId: UUID
         var departureAt: Date
         var arrivalAt: Date
-        var category: String
+        var category: TripCategory
         var distanceKm: Double
         var notes: String?
 
@@ -2051,7 +2051,7 @@ enum BackendService {
                     destinationId: destinationID,
                     departureAt: trip.departureDate,
                     arrivalAt: trip.arrivalDate,
-                    category: categoryDBValue(isReunion: trip.isReunionTrip),
+                    category: trip.category,
                     distanceKm: trip.distanceKm,
                     notes: trip.notes
                 )
@@ -2923,17 +2923,4 @@ enum BackendService {
             .upsert(row, onConflict: "profile_id")
             .execute()
     }
-}
-
-/// `trips.category` is still the underlying TEXT column from when trips had a three-way
-/// "reason for travel" (Reunion/Together/Personal) — kept as-is rather than migrating the
-/// schema for what's now just a yes/no distinction, since it's a free-text column with no
-/// database-level enum constraint to fight. Any row written before this simplification (holding
-/// "together" or "personal") reads back as `false`, same as a fresh non-reunion trip would.
-private func isReunionCategory(_ raw: String) -> Bool {
-    raw == "seeing_each_other"
-}
-
-private func categoryDBValue(isReunion: Bool) -> String {
-    isReunion ? "seeing_each_other" : "personal"
 }

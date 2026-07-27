@@ -39,7 +39,7 @@ struct AddTripDetailsView: View {
     @State private var departureDate: Date
     @State private var returnDate: Date
     @State private var traveler: TripTraveler = .you
-    @State private var isReunionTrip: Bool = true
+    @State private var category: TripCategory = .reunion
     @State private var flightNumberHint: String
     @State private var selectedFlightCandidate: AeroFlightCandidate?
     @State private var showingAddFlightFlow = false
@@ -110,9 +110,17 @@ struct AddTripDetailsView: View {
                         .pickerStyle(.segmented)
                     }
 
-                    Toggle("Is this a reunion trip?", isOn: $isReunionTrip)
-                        .padding(Theme.Spacing.md)
-                        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                    VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                        Text("What kind of trip is this?").font(.caption).foregroundStyle(Theme.subtleInk)
+                        Picker("Trip category", selection: $category) {
+                            ForEach(TripCategory.allCases) { category in
+                                Text(category.displayName).tag(category)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                    }
+                    .padding(Theme.Spacing.md)
+                    .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                 }
             },
             primaryTitle: "Save trip",
@@ -205,7 +213,7 @@ struct AddTripDetailsView: View {
                 departureDate: departureDate,
                 arrivalDate: returnDate,
                 traveler: traveler,
-                isReunionTrip: isReunionTrip,
+                category: category,
                 flightCandidate: selectedFlightCandidate
             )
             isSaving = false

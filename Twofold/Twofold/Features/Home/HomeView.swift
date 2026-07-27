@@ -680,7 +680,7 @@ struct HomeView: View {
 
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(trip.isReunionTrip ? "Your trip together" : "\(travelerNames(trip.travelerIDs)) \(trip.travelerIDs.count > 1 ? "fly" : "flies") to you")
+                    Text(trip.category == .solo ? "\(travelerNames(trip.travelerIDs)) \(trip.travelerIDs.count > 1 ? "fly" : "flies") to you" : "Your trip together")
                         .font(.subheadline)
                         .foregroundStyle(Theme.subtleInk)
                         .lineLimit(1)
