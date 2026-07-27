@@ -5,9 +5,9 @@
 //  A second "Distance Apart" Lock Screen widget option, registered as its own Widget/kind so it
 //  shows up as a separate, independently-selectable choice in the widget gallery alongside
 //  DistanceWidget's big-circles-and-heart layout. Reuses that file's DistanceProvider/
-//  DistanceEntry directly — both widgets need identical data, just laid out differently: small
-//  overlapping initial circles beside the distance (rather than big circles above it), with both
-//  cities on their own line underneath.
+//  DistanceEntry directly — both widgets need identical data, just laid out differently: both
+//  initials together inside one heart (CoupleHeartInitials) beside the distance (rather than big
+//  separate circles above it), with both cities on their own line underneath.
 //
 
 import SwiftUI
@@ -16,14 +16,10 @@ import WidgetKit
 struct DistanceCompactWidgetView: View {
     let entry: DistanceEntry
 
-    /// Same "you and your partner" overlapping pairing AvatarView's own treatment uses elsewhere
-    /// in the app, just text-only — unlike DistanceWidget's big non-overlapping pair, this sits
-    /// beside the distance rather than above it, so it stays small.
-    private var smallOverlappingPair: some View {
-        HStack(spacing: -6) {
-            PersonInitialBadge(letter: personInitial(entry.myName))
-            PersonInitialBadge(letter: personInitial(entry.partnerName))
-        }
+    /// Both initials together inside one heart, rather than two separate circles — sits beside
+    /// the distance rather than above it, so it stays small.
+    private var heartPair: some View {
+        CoupleHeartInitials(myInitial: personInitial(entry.myName), partnerInitial: personInitial(entry.partnerName))
     }
 
     /// Second line under the circles+distance row — a single city when together (pairs with
@@ -43,13 +39,13 @@ struct DistanceCompactWidgetView: View {
         Group {
             if entry.myCity == nil || entry.partnerCity == nil {
                 HStack(spacing: 4) {
-                    smallOverlappingPair
+                    heartPair
                     Text("Add your home cities")
                 }
             } else {
                 VStack(alignment: .leading, spacing: 1) {
                     HStack(spacing: 4) {
-                        smallOverlappingPair
+                        heartPair
                         if entry.isSameCity {
                             Text("We're together!").font(.headline)
                         } else if let distanceLabel = entry.distanceLabel {

@@ -2,11 +2,11 @@
 //  PersonInitialBadge.swift
 //  LiveActivities
 //
-//  Shared by DistanceWidget and DistanceCompactWidget's two different initial-circle treatments
-//  (big + heart vs. small + overlapping) — same badge, just a different size/arrangement, rather
-//  than two hand-rolled copies. Accessory Lock Screen widgets render in a single system-applied
-//  tint (`.accessory` widget rendering mode ignores custom colors), so this reads as an outline +
-//  letter rather than anything resembling the real colored AvatarView circles elsewhere in the app.
+//  DistanceWidget's big non-overlapping pair either side of a heart. (DistanceCompactWidget uses
+//  CoupleHeartInitials instead — both initials together inside one heart, not separate circles.)
+//  Accessory Lock Screen widgets render in a single system-applied tint (`.accessory` widget
+//  rendering mode ignores custom colors), so this reads as an outline + letter rather than
+//  anything resembling the real colored AvatarView circles elsewhere in the app.
 //
 
 import SwiftUI

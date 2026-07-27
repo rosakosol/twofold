@@ -35,6 +35,16 @@ struct TripsListView: View {
     /// explicit `withAnimation` block as the `isExpanded` flip below makes both changes land in
     /// one animated step instead of two.
     @State private var dragOffset: CGFloat = 0
+    /// Which content the panel shows — a real `@State`, not a value re-derived fresh from
+    /// `panelHeight` on every render, specifically so it can have hysteresis (see the `.onChange`
+    /// that updates it, below). A single "> peekHeight + 60" cutoff recomputed every frame could
+    /// flip back and forth repeatedly if a drag paused or jittered near that exact height (normal
+    /// for a real finger, not a deliberate gesture) — each flip swaps this panel's entire content
+    /// between the peek carousel and the full `List`, which is expensive enough, and `List`-owned
+    /// enough (its own internal scroll/selection gesture recognizers mounting mid-touch), that
+    /// repeated swaps within one continuous drag is what actually read as "glitchy"/stuck, not
+    /// the drag itself.
+    @State private var showingExpandedContent = false
     @State private var selectedTrip: Trip?
     @State private var selectedFlight: Flight?
 
