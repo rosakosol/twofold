@@ -35,6 +35,15 @@ struct TripsListView: View {
     /// explicit `withAnimation` block as the `isExpanded` flip below makes both changes land in
     /// one animated step instead of two.
     @State private var dragOffset: CGFloat = 0
+    /// True for the exact duration of an active drag (set in `onChanged`, cleared in `onEnded`)
+    /// — guards the `.onChange(of: panelHeight)` swap below so it only ever fires once the
+    /// finger has actually lifted, never mid-gesture. A *fast* swipe crossed the threshold and
+    /// settled before the finger lifted anyway, so it never surfaced this; a slow, deliberate
+    /// drag lingers well past the threshold while still actively tracking touches, which used to
+    /// mount the full `List` (its own internal scroll/selection gesture recognizers included)
+    /// while this same gesture was still mid-flight — that collision, not the swap itself, is
+    /// what actually read as "glitchy."
+    @State private var isDragging = false
     /// Which content the panel shows — a real `@State`, not a value re-derived fresh from
     /// `panelHeight` on every render, specifically so it can have hysteresis (see the `.onChange`
     /// that updates it, below). A single "> peekHeight + 60" cutoff recomputed every frame could
@@ -147,8 +156,12 @@ struct TripsListView: View {
                 // own doc comment for why that repeated swapping was the real "glitchy" culprit).
                 // `.onChange`, not a direct assignment in `body`, since mutating `@State` during a
                 // view's own render pass is unsafe — this runs safely just after, whenever
-                // `panelHeight` actually changes.
+                // `panelHeight` actually changes. Skipped entirely while `isDragging` — this is
+                // now purely a post-release/animation-settle path (`panelDragGesture`'s own
+                // `onEnded` already sets `showingExpandedContent` explicitly); see `isDragging`'s
+                // doc comment for why a live mid-drag flip was the actual glitch.
                 .onChange(of: panelHeight) { _, newHeight in
+                    guard !isDragging else { return }
                     if newHeight > peekHeight + 100 {
                         showingExpandedContent = true
                     } else if newHeight < peekHeight + 40 {
@@ -261,6 +274,7 @@ struct TripsListView: View {
     private func panelDragGesture(minimumDistance: CGFloat) -> some Gesture {
         DragGesture(minimumDistance: minimumDistance)
             .onChanged { value in
+                isDragging = true
                 dragOffset = value.translation.height
             }
             .onEnded { value in
@@ -290,6 +304,7 @@ struct TripsListView: View {
                     // peek carousel inside it.
                     showingExpandedContent = isExpanded
                     dragOffset = 0
+                    isDragging = false
                 }
             }
     }
