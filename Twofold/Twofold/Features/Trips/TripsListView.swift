@@ -116,16 +116,6 @@ struct TripsListView: View {
                 let restingHeight = isExpanded ? expandedHeight : peekHeight
                 let panelHeight = min(expandedHeight, max(peekHeight, restingHeight - dragOffset))
                 let panelWidth = max(0, proxy.size.width - horizontalInset * 2)
-                // Which content the panel shows tracks the *live* dragged height, not just the
-                // settled `isExpanded` state — previously the panel's height grew smoothly in
-                // real time as you dragged (following `panelHeight` above) while still showing
-                // the single peek card the whole way, only swapping to the full list at the very
-                // end once `isExpanded` flipped in the drag's `.onEnded`. That mismatch (a smooth
-                // height animation the entire gesture, then a hard content pop right as your
-                // finger lifts) is what read as glitchy. Crossing this partway through the drag
-                // instead means the list is already showing well before release, so the swap
-                // blends into the motion rather than landing as a jarring finishing move.
-                let showingExpandedContent = panelHeight > peekHeight + 60
 
                 ZStack(alignment: .bottom) {
                     // `TripsGlobeView` shrinks its own rendered content below its layout frame
@@ -151,6 +141,20 @@ struct TripsListView: View {
                     .padding(.bottom, 12)
                 }
                 .ignoresSafeArea()
+                // Hysteresis, not a single cutoff — a wide gap between the two thresholds means a
+                // drag has to clearly commit past one side before the content actually swaps, so
+                // jitter near the middle can't flip it back and forth (see `showingExpandedContent`'s
+                // own doc comment for why that repeated swapping was the real "glitchy" culprit).
+                // `.onChange`, not a direct assignment in `body`, since mutating `@State` during a
+                // view's own render pass is unsafe — this runs safely just after, whenever
+                // `panelHeight` actually changes.
+                .onChange(of: panelHeight) { _, newHeight in
+                    if newHeight > peekHeight + 100 {
+                        showingExpandedContent = true
+                    } else if newHeight < peekHeight + 40 {
+                        showingExpandedContent = false
+                    }
+                }
             }
             .ignoresSafeArea()
             // Pushed onto this same `NavigationStack` (not presented as a sheet) — tapping a trip
@@ -279,6 +283,14 @@ struct TripsListView: View {
                                 // expand/collapse threshold.
                                 isExpanded.toggle()
                             }
+                            // Explicitly synced to the settled `isExpanded`, not left to the live
+                            // hysteresis in `panelHeight`'s `.onChange` alone — that hysteresis
+                            // uses a deliberately wide/stricter threshold (see its own comment),
+                            // which a short, quick drag can clear `draggedUp`/`draggedDown`'s own
+                            // looser 40pt threshold without ever crossing. Without this, a quick
+                            // flick could settle the panel at full height while still showing the
+                            // peek carousel inside it.
+                            showingExpandedContent = isExpanded
                             dragOffset = 0
                         }
                     }

@@ -38,6 +38,16 @@ final class GameSessionStore {
     /// hasn't removed yet.
     private var isSyncingPendingResponses = false
 
+    /// Answers whose network submit is still in flight (online path only — the offline queue in
+    /// `PendingGameResponseStore` covers the disconnected case). `refresh()` can run concurrently
+    /// with `performSubmit` — it's also driven by `subscribeRealtime`'s own independent loop,
+    /// which reacts to realtime pushes with no ordering guarantee relative to a submit still
+    /// awaiting its own network round trip. Without this, a `refresh()` landing in that window
+    /// fetches server state that doesn't include the write yet and overwrites the optimistic
+    /// `responses` entry, making the just-answered round reappear as unanswered — the swiped
+    /// card would seem to "come back," forcing the same swipe again.
+    private var inFlightSubmissions: [PendingGameResponse] = []
+
     /// True once BOTH partners have answered every round — the single moment everything in
     /// `responses` becomes visible at once (see the RLS policy on `game_responses`), replacing
     /// the old per-round pairwise reveal.
@@ -183,6 +193,11 @@ final class GameSessionStore {
             self.rounds = detail.rounds
             self.roundContent = detail.content
             self.responses = detail.responses
+            // Re-assert anything still mid-submit — see `inFlightSubmissions`'s doc comment for
+            // why this fetch can legitimately be missing a write that's still in flight.
+            for item in inFlightSubmissions {
+                applyOptimistic(item)
+            }
         }
     }
 
@@ -212,8 +227,17 @@ final class GameSessionStore {
         // card's fly-off animation was completing well before the network calls did, leaving a
         // visible stall between the old card leaving and the next one appearing. `refresh()`
         // still runs afterward and reconciles with the server's actual state.
+        var inFlight: PendingGameResponse?
         if let myID {
-            applyOptimistic(PendingGameResponse(sessionID: session.id, roundNumber: roundNumber, responderID: myID, answerValue: answerValue, isCorrect: isCorrect))
+            let pending = PendingGameResponse(sessionID: session.id, roundNumber: roundNumber, responderID: myID, answerValue: answerValue, isCorrect: isCorrect)
+            applyOptimistic(pending)
+            inFlightSubmissions.append(pending)
+            inFlight = pending
+        }
+        defer {
+            if let inFlight {
+                inFlightSubmissions.removeAll { $0.id == inFlight.id }
+            }
         }
 
         let wasRevealed = isRevealed
