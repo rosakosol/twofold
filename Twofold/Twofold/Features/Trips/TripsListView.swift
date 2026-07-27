@@ -217,14 +217,26 @@ struct TripsListView: View {
 
     private func browsePanel(showingExpandedContent: Bool) -> some View {
         VStack(spacing: 0) {
-            dragHandle
-            browseHeader
+            // Everything above the full list — handle, header, and (while collapsed) the peek
+            // card — shares one whole-area drag-to-resize gesture, rather than just the handle.
+            // `expandedContent`'s `List` deliberately sits *outside* this group: dragging inside
+            // a real `List` still has to be its own scroll gesture, not compete with a panel-
+            // resize gesture layered on top of it (see `panelDragGesture`'s own comment on why
+            // that fight is what actually read as "glitchy").
+            VStack(spacing: 0) {
+                dragHandle
+                browseHeader
+
+                if !showingExpandedContent {
+                    peekContent
+                        .transition(.opacity)
+                }
+            }
+            .contentShape(Rectangle())
+            .gesture(panelDragGesture(minimumDistance: 10))
 
             if showingExpandedContent {
                 expandedContent
-                    .transition(.opacity)
-            } else {
-                peekContent
                     .transition(.opacity)
             }
         }
@@ -238,9 +250,55 @@ struct TripsListView: View {
         .animation(.easeInOut(duration: 0.2), value: showingExpandedContent)
     }
 
-    /// The only part of the panel a drag gesture attaches to — restricting it to this small,
-    /// generously-hit-tested handle (rather than the whole panel) avoids fighting the expanded
-    /// state's own `List` for scroll-vs-resize gestures.
+    /// Shared by the handle's own zero-distance gesture and the whole-panel gesture above it —
+    /// same expand/collapse thresholds and animation either way, just a different
+    /// `minimumDistance` (0 for the handle, so it stays the snappiest possible target; a real
+    /// double-digit distance for the rest of the panel, so a plain tap on the Picker/"+"
+    /// button/peek card still reaches its own `Button` instead of being swallowed by this
+    /// gesture — SwiftUI only lets an ancestor `DragGesture` claim a touch once it's actually
+    /// moved past its `minimumDistance`, so a real tap that never moves that far falls straight
+    /// through to whatever was tapped).
+    private func panelDragGesture(minimumDistance: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: minimumDistance)
+            .onChanged { value in
+                dragOffset = value.translation.height
+            }
+            .onEnded { value in
+                let draggedUp = value.translation.height < -40 || value.predictedEndTranslation.height < -80
+                let draggedDown = value.translation.height > 40 || value.predictedEndTranslation.height > 80
+                // Both changes land inside the same explicit animation so the panel
+                // animates directly from wherever the drag left it to the final target
+                // height in one motion — letting `dragOffset` reset via an implicit/
+                // `@GestureState`-driven reset outside this block is what caused the old
+                // "snap back, then animate" glitch.
+                withAnimation(panelAnimation) {
+                    if draggedUp {
+                        isExpanded = true
+                    } else if draggedDown {
+                        isExpanded = false
+                    } else if abs(value.translation.height) < 10 {
+                        // Barely moved at all — a tap, not a drag that fell short of the
+                        // expand/collapse threshold.
+                        isExpanded.toggle()
+                    }
+                    // Explicitly synced to the settled `isExpanded`, not left to the live
+                    // hysteresis in `panelHeight`'s `.onChange` alone — that hysteresis
+                    // uses a deliberately wide/stricter threshold (see its own comment),
+                    // which a short, quick drag can clear `draggedUp`/`draggedDown`'s own
+                    // looser 40pt threshold without ever crossing. Without this, a quick
+                    // flick could settle the panel at full height while still showing the
+                    // peek carousel inside it.
+                    showingExpandedContent = isExpanded
+                    dragOffset = 0
+                }
+            }
+    }
+
+    /// A generously-hit-tested handle above the rest of the panel's own whole-area drag gesture
+    /// (see `browsePanel`) — kept around for its `minimumDistance: 0` snappiness (touch-down
+    /// tracks immediately, no need to clear the rest of the panel's larger minimum distance
+    /// first) and as VoiceOver's only real activation path, not because it's the only draggable
+    /// part of the panel anymore.
     private var dragHandle: some View {
         Capsule()
             .fill(Theme.subtleInk.opacity(0.35))
@@ -253,48 +311,7 @@ struct TripsListView: View {
             // only the tappable/draggable area grows.
             .frame(height: 44)
             .contentShape(Rectangle())
-            .gesture(
-                // One gesture handles both tap-to-toggle and drag-to-resize, rather than a
-                // separate `.onTapGesture` alongside this `DragGesture` — two simultaneous
-                // gesture recognizers on the same view have to disambiguate a quick tap from
-                // the start of a drag, which was its own source of dropped/ignored taps.
-                // `minimumDistance: 0` makes the drag start tracking immediately on touch-down
-                // (rather than waiting for ~10pt of movement before `onChanged` fires at all),
-                // which is what made the whole gesture feel unresponsive/laggy to begin with.
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        dragOffset = value.translation.height
-                    }
-                    .onEnded { value in
-                        let draggedUp = value.translation.height < -40 || value.predictedEndTranslation.height < -80
-                        let draggedDown = value.translation.height > 40 || value.predictedEndTranslation.height > 80
-                        // Both changes land inside the same explicit animation so the panel
-                        // animates directly from wherever the drag left it to the final target
-                        // height in one motion — letting `dragOffset` reset via an implicit/
-                        // `@GestureState`-driven reset outside this block is what caused the old
-                        // "snap back, then animate" glitch.
-                        withAnimation(panelAnimation) {
-                            if draggedUp {
-                                isExpanded = true
-                            } else if draggedDown {
-                                isExpanded = false
-                            } else if abs(value.translation.height) < 10 {
-                                // Barely moved at all — a tap, not a drag that fell short of the
-                                // expand/collapse threshold.
-                                isExpanded.toggle()
-                            }
-                            // Explicitly synced to the settled `isExpanded`, not left to the live
-                            // hysteresis in `panelHeight`'s `.onChange` alone — that hysteresis
-                            // uses a deliberately wide/stricter threshold (see its own comment),
-                            // which a short, quick drag can clear `draggedUp`/`draggedDown`'s own
-                            // looser 40pt threshold without ever crossing. Without this, a quick
-                            // flick could settle the panel at full height while still showing the
-                            // peek carousel inside it.
-                            showingExpandedContent = isExpanded
-                            dragOffset = 0
-                        }
-                    }
-            )
+            .gesture(panelDragGesture(minimumDistance: 0))
             // The drag gesture above handles sighted tap-and-drag, but VoiceOver's double-tap
             // doesn't reliably activate a bare `DragGesture` — this is the only way to reveal the
             // full trip list, so it needs a real, gesture-independent activation path too.
@@ -457,7 +474,19 @@ struct TripsListView: View {
         }
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
+        // This whole screen deliberately ignores the safe area (see the header comment) so the
+        // panel's rounded corners can sit behind the floating tab bar — which also means this
+        // `List` never gets the automatic bottom clearance a normal screen's scroll content would
+        // get from that tab bar. Without this, the last row of "Past flights"/"Past" (whichever
+        // one happens to be the final section) renders right under the floating tab bar instead
+        // of above it.
+        .safeAreaInset(edge: .bottom) { Color.clear.frame(height: bottomListClearance) }
     }
+
+    /// Clears the floating tab bar's own height plus a little breathing room below the last row —
+    /// there's no shared constant for the system tab bar's height to reference, so this is a
+    /// calibrated literal, same as `peekHeight`/`topBreathingRoom` above.
+    private let bottomListClearance: CGFloat = 100
 
     @ViewBuilder
     private var tripSections: some View {
