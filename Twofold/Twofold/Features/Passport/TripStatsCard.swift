@@ -83,6 +83,9 @@ struct TripStatsCard: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        // Forces the light-mode look regardless of system appearance — see
+        // `RelationshipStatsCard`'s identical `.colorScheme(.light)` for why.
+        .colorScheme(.light)
     }
 
     private func heroStat(label: String, value: String) -> some View {
@@ -130,7 +133,7 @@ struct TripStatsCard: View {
             Spacer(minLength: 0)
         }
         .padding(Theme.Spacing.sm)
-        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .themedCardBackground(cornerRadius: 14)
         .accessibilityElement(children: .combine)
     }
 }

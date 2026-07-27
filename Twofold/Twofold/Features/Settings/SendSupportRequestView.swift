@@ -68,7 +68,7 @@ struct SendSupportRequestView: View {
                             }
                             .padding()
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                            .themedCardBackground(cornerRadius: Theme.Radius.card)
                         }
                         .buttonStyle(.plain)
                     }
@@ -84,7 +84,7 @@ struct SendSupportRequestView: View {
                         .foregroundStyle(Theme.subtleInk)
                         .padding(Theme.Spacing.sm)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                        .themedCardBackground(cornerRadius: Theme.Radius.card)
                     }
 
                     VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
@@ -97,7 +97,7 @@ struct SendSupportRequestView: View {
                             .padding(.horizontal, Theme.Spacing.md)
                             .padding(.vertical, Theme.Spacing.sm)
                             .frame(maxWidth: .infinity, alignment: .topLeading)
-                            .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                            .themedCardBackground(cornerRadius: Theme.Radius.card)
                     }
 
                     if let errorMessage {

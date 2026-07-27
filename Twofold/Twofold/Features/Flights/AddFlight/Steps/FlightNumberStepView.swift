@@ -23,7 +23,7 @@ struct FlightNumberStepView: View {
                             .foregroundStyle(model.airlineEntry == nil ? Theme.subtleInk.opacity(0.5) : Theme.ink)
                             .frame(minWidth: 56)
                             .padding()
-                            .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                            .themedCardBackground(cornerRadius: Theme.Radius.card)
                     }
                     .buttonStyle(.plain)
 
@@ -31,7 +31,7 @@ struct FlightNumberStepView: View {
                         .keyboardType(.numberPad)
                         .font(.title3)
                         .padding()
-                        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                        .themedCardBackground(cornerRadius: Theme.Radius.card)
                 }
 
                 HStack(alignment: .top, spacing: Theme.Spacing.sm) {
@@ -63,7 +63,7 @@ struct FlightNumberStepView: View {
                                 .foregroundStyle(Theme.subtleInk)
                         }
                         .padding()
-                        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                        .themedCardBackground(cornerRadius: Theme.Radius.card)
                     }
                     .buttonStyle(.plain)
                 }

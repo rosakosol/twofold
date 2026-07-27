@@ -109,7 +109,7 @@ struct FlightConfirmationView: View {
                             .pickerStyle(.menu)
                             .padding()
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                            .themedCardBackground(cornerRadius: Theme.Radius.card)
                         }
                     }
 
@@ -145,7 +145,7 @@ struct FlightConfirmationView: View {
                         }
                         .padding(Theme.Spacing.sm)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                        .themedCardBackground(cornerRadius: Theme.Radius.card)
                     }
 
                     if let errorMessage {

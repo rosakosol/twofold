@@ -13,6 +13,7 @@ import SwiftUI
 
 struct TopicsSection: View {
     @Environment(AppModel.self) private var appModel
+    @Environment(\.colorScheme) private var colorScheme
     @State private var selectedTopic: GameTopic?
 
     var body: some View {
@@ -75,7 +76,7 @@ struct TopicsSection: View {
             Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
         }
         .padding(Theme.Spacing.sm)
-        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+        .background { rowBackground(topic) }
         .contentShape(Rectangle())
     }
 
@@ -100,7 +101,26 @@ struct TopicsSection: View {
             Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk.opacity(0.3))
         }
         .padding(Theme.Spacing.sm)
-        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+        .background { rowBackground(topic) }
+    }
+
+    /// Flat `Theme.cardBackground` in light mode; in dark mode, a translucent wash of the topic's
+    /// *own* color instead of the generic blue-to-green `Theme.cardGradientDark` every other card
+    /// uses — each row already carries that same color on its icon circle/progress bar, so
+    /// letting the row itself pick it up too is what actually differentiates one topic from the
+    /// next in a long list, rather than every row reading as the same flat dark-gray slab.
+    private func rowBackground(_ topic: GameTopic) -> some View {
+        ZStack {
+            Theme.cardBackground
+            if colorScheme == .dark {
+                LinearGradient(
+                    colors: [topic.color.opacity(0.4), topic.color.opacity(0.16)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
     }
 }
 

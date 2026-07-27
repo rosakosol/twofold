@@ -34,14 +34,6 @@ struct GameCompletionView: View {
     @Environment(AppModel.self) private var appModel
     @State private var showingReminderSentConfirmation = false
 
-    private var progressStage: Int {
-        switch partnerProgress {
-        case .notStarted: 0
-        case .inProgress: 1
-        case .finished: 2
-        }
-    }
-
     var body: some View {
         VStack(spacing: 0) {
             ScrollView {
@@ -61,19 +53,6 @@ struct GameCompletionView: View {
                     if pendingSyncCount > 0 {
                         offlineSyncCard
                     }
-
-                    VStack(spacing: Theme.Spacing.md) {
-                        Text("Waiting for \(partnerName)")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(Theme.subtleInk)
-                        HStack(spacing: Theme.Spacing.lg) {
-                            stepDot(title: "Started", filled: progressStage >= 1)
-                            stepDot(title: "In Progress", filled: progressStage >= 1)
-                            stepDot(title: "Finished", filled: progressStage >= 2)
-                        }
-                    }
-                    .padding(Theme.Spacing.md)
-                    .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
 
                     if !myAnswersRecap.isEmpty {
                         recapSection
@@ -164,7 +143,7 @@ struct GameCompletionView: View {
         }
         .padding(Theme.Spacing.md)
         .frame(maxWidth: .infinity)
-        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+        .themedCardBackground(cornerRadius: Theme.Radius.card)
     }
 
     private var recapSection: some View {
@@ -185,21 +164,11 @@ struct GameCompletionView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(Theme.Spacing.sm)
-                .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                .themedCardBackground(cornerRadius: Theme.Radius.card)
             }
         }
     }
 
-    private func stepDot(title: String, filled: Bool) -> some View {
-        VStack(spacing: 4) {
-            Circle()
-                .fill(filled ? Theme.skyBlue : Theme.subtleInk.opacity(0.25))
-                .frame(width: 10, height: 10)
-            Text(title)
-                .font(.caption2)
-                .foregroundStyle(filled ? Theme.ink : Theme.subtleInk)
-        }
-    }
 }
 
 #Preview {

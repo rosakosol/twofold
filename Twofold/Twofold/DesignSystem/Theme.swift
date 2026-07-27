@@ -21,10 +21,12 @@ enum Theme {
     // was tuned against a flat gray card fill and read as too dim/gray once cards and other dark
     // backgrounds got busier (`Theme.cardGradientDark`'s wash, `backgroundGradient`, etc.):
     // alpha-blended white stays legible against any of them instead of needing a fresh hex tuned
-    // per background. Light mode is untouched.
+    // per background. Bumped from 0.72 to 0.82 — against the busier gradient cards (this wash,
+    // the game-badge-colored card/row gradients, etc.) 0.72 still read as noticeably dim/gray
+    // rather than a true "subtle white." Light mode is untouched.
     static let subtleInk = Color(uiColor: UIColor { traits in
         traits.userInterfaceStyle == .dark
-            ? UIColor.white.withAlphaComponent(0.72)
+            ? UIColor.white.withAlphaComponent(0.82)
             : UIColor(Color(hex: "5B6B7A"))
     })
 
@@ -88,6 +90,36 @@ enum Theme {
     enum Radius {
         static let card: CGFloat = 20
         static let pill: CGFloat = 999
+    }
+}
+
+extension View {
+    /// The flat `Theme.cardBackground` fill in light mode, `Theme.cardGradientDark`-washed in
+    /// dark mode — the exact treatment `SectionCard`/`OnboardingFieldBackground`/
+    /// `OnboardingScaffold`'s card surface already give their own content, pulled out so the many
+    /// *other* flat card/row/input backgrounds across the app (pickers, list-style rows, form
+    /// fields) can share it instead of staying a flat gray slab in dark mode. Prefer `SectionCard`
+    /// itself when starting a new screen from scratch; this is for spots that already have their
+    /// own bespoke layout and just need the same fill treatment.
+    func themedCardBackground(cornerRadius: CGFloat = Theme.Radius.card) -> some View {
+        modifier(ThemedCardBackgroundModifier(cornerRadius: cornerRadius))
+    }
+}
+
+private struct ThemedCardBackgroundModifier: ViewModifier {
+    let cornerRadius: CGFloat
+    @Environment(\.colorScheme) private var colorScheme
+
+    func body(content: Content) -> some View {
+        content.background {
+            ZStack {
+                Theme.cardBackground
+                if colorScheme == .dark {
+                    Theme.cardGradientDark
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        }
     }
 }
 

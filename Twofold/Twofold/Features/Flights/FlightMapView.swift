@@ -78,11 +78,16 @@ struct FlightMapView: View {
         }
     }
 
+    @Environment(\.colorScheme) private var colorScheme
+
     /// Scheduled flights (or self-reported ones) may not have airport coordinates yet — a
     /// calm placeholder rather than an empty map or a crash.
     private var fallback: some View {
         ZStack {
             Theme.cardBackground
+            if colorScheme == .dark {
+                Theme.cardGradientDark
+            }
             VStack(spacing: Theme.Spacing.sm) {
                 Image(systemName: "map")
                     .font(.title2)

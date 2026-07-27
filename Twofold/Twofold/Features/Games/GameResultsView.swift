@@ -24,7 +24,6 @@ struct GameResultsView: View {
     @Environment(AppModel.self) private var appModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var revealedCount = 0
-    @State private var isMarkingDiscussion = false
     @State private var confettiTrigger = false
     @State private var isResettingDeck = false
     @State private var resetRoute: SessionRoute?
@@ -93,6 +92,17 @@ struct GameResultsView: View {
         .navigationTitle(title ?? gameType.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            // A custom `.principal` item, not just relying on `.navigationTitle` above — an
+            // inline nav title is always clamped to one line with a trailing ellipsis, which cut
+            // off longer deck titles. This wraps to 2 lines instead; `.navigationTitle` stays
+            // (unused visually while this is present) purely so a screen pushed from here still
+            // gets a sensible back-button label.
+            ToolbarItem(placement: .principal) {
+                Text(title ?? gameType.displayName)
+                    .font(.headline)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+            }
             if isFullyRevealed {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Share", systemImage: "square.and.arrow.up") {
@@ -311,7 +321,6 @@ struct GameResultsView: View {
             if gameType == .deepConversations {
                 responseBlock(name: "You", text: mine?.answerValue)
                 responseBlock(name: partnerName, text: partner?.answerValue, placeholder: isSolo ? "Hasn't joined yet" : "Skipped this one")
-                discussionMarkers(round)
             } else {
                 HStack {
                     answerChip(name: "You", text: answerText(mine?.answerValue, for: round), tint: matched ? Theme.leafGreen : Theme.ink)
@@ -340,13 +349,19 @@ struct GameResultsView: View {
         }
         .padding(Theme.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(matched ? Theme.leafGreen.opacity(0.14) : Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+        // Same 10%-green fill `DeckCardRow` uses for its own "both completed" state — one
+        // consistent "you're both done here" look across Games, not two subtly different greens.
+        // Flat `Theme.cardBackground` (no dark-mode wash) for a non-matching round, same as
+        // `DeckCardRow`'s own incomplete-card fill.
+        .background(matched ? Theme.leafGreen.opacity(0.1) : Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         .overlay {
-            // The matched tint alone (14% green over the card background) reads as barely
-            // different from an unmatched card against the screen's own pale gradient — a
-            // visible edge gives it real separation instead of relying on a subtle fill alone.
+            // The matched tint alone reads as barely different from an unmatched card against
+            // the screen's own pale gradient — a visible edge gives it real separation instead of
+            // relying on a subtle fill alone. A non-matching card's border is the same blue-to-
+            // green `Theme.selectionGradient` the "Your turn"/"Answered"/"New" filter pills and
+            // `DeckCardRow`'s own incomplete-card border use.
             RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                .strokeBorder(matched ? Theme.leafGreen.opacity(0.5) : .clear, lineWidth: 1.5)
+                .strokeBorder(matched ? AnyShapeStyle(Theme.leafGreen.opacity(0.5)) : AnyShapeStyle(Theme.selectionGradient.opacity(0.6)), lineWidth: matched ? 1.5 : 1.25)
         }
         .animation(.easeOut(duration: 0.4), value: matched)
         .overlay(alignment: .topTrailing) {
@@ -384,39 +399,6 @@ struct GameResultsView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    @ViewBuilder
-    private func discussionMarkers(_ round: GameSessionRound) -> some View {
-        if let status = round.discussionStatus {
-            Label(status == .talkedAbout ? "Talked about" : "Come back later", systemImage: status == .talkedAbout ? "checkmark.circle.fill" : "clock.fill")
-                .font(.caption.weight(.medium))
-                .foregroundStyle(status == .talkedAbout ? Theme.leafGreen : Theme.subtleInk)
-        } else {
-            HStack(spacing: Theme.Spacing.sm) {
-                Button {
-                    mark(round, status: .comeBackLater)
-                } label: {
-                    Text("Come back later")
-                        .font(.caption.weight(.medium))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, Theme.Spacing.xs)
-                        .foregroundStyle(Theme.ink)
-                        .background(Theme.backgroundGradient, in: Capsule())
-                }
-                Button {
-                    mark(round, status: .talkedAbout)
-                } label: {
-                    Text("Talked about")
-                        .font(.caption.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, Theme.Spacing.xs)
-                        .foregroundStyle(.white)
-                        .background(Theme.leafGreen, in: Capsule())
-                }
-            }
-            .disabled(isMarkingDiscussion)
-        }
-    }
-
     // MARK: - Summary
 
     @ViewBuilder
@@ -445,19 +427,7 @@ struct GameResultsView: View {
                 }
             }
         case .deepConversations:
-            let talkedAbout = store.rounds.filter { $0.discussionStatus == .talkedAbout }.count
-            let comeBackLater = store.rounds.filter { $0.discussionStatus == .comeBackLater }.count
-            if talkedAbout + comeBackLater < store.rounds.count {
-                Text("Mark each topic above as you talk through it.")
-                    .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
-            } else {
-                Text(comeBackLater > 0
-                    ? "Talked about \(talkedAbout) of \(store.rounds.count) topics, with \(comeBackLater) to revisit later."
-                    : "You talked through all \(store.rounds.count) topics.")
-                    .font(.subheadline)
-                    .foregroundStyle(Theme.subtleInk)
-            }
+            EmptyView()
         }
     }
 
@@ -470,7 +440,7 @@ struct GameResultsView: View {
         }
         .padding(Theme.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+        .themedCardBackground(cornerRadius: Theme.Radius.card)
     }
 
 
@@ -512,14 +482,6 @@ struct GameResultsView: View {
     }
 
     // MARK: - Actions
-
-    private func mark(_ round: GameSessionRound, status: DiscussionRoundStatus) {
-        isMarkingDiscussion = true
-        Task {
-            await store.markDiscussionRound(round, status: status)
-            isMarkingDiscussion = false
-        }
-    }
 
     /// Only ever offered when this session came from a deck (see the toolbar Menu) — abandons
     /// the completed session and starts a fresh one for the same deck, jumping straight into it.

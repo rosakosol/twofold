@@ -139,8 +139,11 @@ struct DeckCardRow: View {
             // A completed deck's pale green fill barely reads as different from the page
             // background on its own — a green edge (instead of the generic neutral one) gives
             // it real separation and doubles as a second "done" cue alongside the checkmark tick.
+            // An incomplete card's border is the same blue-to-green `Theme.selectionGradient` the
+            // "Your turn"/"Answered"/"New" filter pills use, rather than a color tied to this
+            // specific deck's own topic/game type.
             RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                .strokeBorder(bothCompleted ? Theme.leafGreen.opacity(0.5) : Theme.subtleInk.opacity(0.12), lineWidth: bothCompleted ? 1.5 : 1)
+                .strokeBorder(bothCompleted ? AnyShapeStyle(Theme.leafGreen.opacity(0.5)) : AnyShapeStyle(Theme.selectionGradient.opacity(0.6)), lineWidth: bothCompleted ? 1.5 : 1.25)
         }
         // Same scrim + corner lock badge + "Partner required" capsule `GameCard` already uses
         // for its own locked state — one visual vocabulary for "needs a partner" everywhere in

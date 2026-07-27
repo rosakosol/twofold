@@ -23,7 +23,7 @@ struct AirlinePickerStepView: View {
                     .textInputAutocapitalization(.words)
                     .autocorrectionDisabled()
                     .padding()
-                    .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                    .themedCardBackground(cornerRadius: Theme.Radius.card)
 
                 if isSearching {
                     ProgressView().frame(maxWidth: .infinity).padding(Theme.Spacing.lg)
@@ -47,7 +47,7 @@ struct AirlinePickerStepView: View {
                                     Spacer(minLength: 0)
                                 }
                                 .padding()
-                                .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                                .themedCardBackground(cornerRadius: Theme.Radius.card)
                             }
                             .buttonStyle(.plain)
                         }

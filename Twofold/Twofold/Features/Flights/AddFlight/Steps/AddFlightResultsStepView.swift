@@ -179,7 +179,7 @@ struct AddFlightResultsStepView: View {
             }
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+            .themedCardBackground(cornerRadius: Theme.Radius.card)
         }
         .buttonStyle(.plain)
     }

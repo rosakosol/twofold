@@ -47,7 +47,7 @@ struct AddFlightEntryStepView: View {
                     .textInputAutocapitalization(.characters)
                     .autocorrectionDisabled()
                     .padding()
-                    .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                    .themedCardBackground(cornerRadius: Theme.Radius.card)
                     .onSubmit(routeFromQuery)
 
                 if looksLikeFlightNumberQuery {
@@ -106,7 +106,7 @@ struct AddFlightEntryStepView: View {
                         .foregroundStyle(Theme.subtleInk)
                 }
                 .padding()
-                .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                .themedCardBackground(cornerRadius: Theme.Radius.card)
             }
             .buttonStyle(.plain)
         }
@@ -142,7 +142,7 @@ struct AddFlightEntryStepView: View {
                                 Spacer(minLength: 0)
                             }
                             .padding()
-                            .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                            .themedCardBackground(cornerRadius: Theme.Radius.card)
                         }
                         .buttonStyle(.plain)
                     }
@@ -211,7 +211,7 @@ struct AddFlightEntryStepView: View {
                     .foregroundStyle(Theme.subtleInk)
             }
             .padding()
-            .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+            .themedCardBackground(cornerRadius: Theme.Radius.card)
         }
         .buttonStyle(.plain)
     }

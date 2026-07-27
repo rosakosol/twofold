@@ -8,6 +8,11 @@ import SwiftUI
 /// Rounded white card container used across the Globe, Trips, and Stats screens.
 struct SectionCard<Content: View>: View {
     @ViewBuilder var content: Content
+    /// `false` only for cards that sit directly over their own busy blue/green content (e.g. the
+    /// Memories map's "Add your first memory" hint, floating over the map itself) — the dark-mode
+    /// wash below is the same blue-to-green tint as the map, so it disappeared into it instead of
+    /// reading as a card. Everywhere else keeps the wash (the default).
+    var appliesDarkWash: Bool = true
 
     @Environment(\.colorScheme) private var colorScheme
 
@@ -25,7 +30,7 @@ struct SectionCard<Content: View>: View {
         .background {
             ZStack {
                 Theme.cardBackground
-                if colorScheme == .dark {
+                if colorScheme == .dark && appliesDarkWash {
                     Theme.cardGradientDark
                 }
             }

@@ -5,11 +5,6 @@
 
 import SwiftUI
 
-enum GameCategory: String, CaseIterable, Hashable {
-    case compete = "Compete"
-    case connect = "Connect"
-}
-
 /// Cross-game content grouping, independent of `GameType` — a single topic (e.g. "Travel") spans
 /// content rows across all 4 content tables, powering the Games hub's topic-browsing section.
 /// Backed by each content table's `category` column (a plain string, not a DB enum, so a
@@ -98,13 +93,6 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
         case .moreLikely: "Who knows your relationship best?"
         case .thisOrThat: "Choose, reveal, and see where you match."
         case .deepConversations: "Talk through the things that matter, together."
-        }
-    }
-
-    var category: GameCategory {
-        switch self {
-        case .triviaBattle, .moreLikely: .compete
-        case .thisOrThat, .deepConversations: .connect
         }
     }
 

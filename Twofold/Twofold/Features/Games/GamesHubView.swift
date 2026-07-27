@@ -2,13 +2,11 @@
 //  GamesHubView.swift
 //  Twofold
 //
-//  Reachable both as the Games tab's root and as a sheet from the Globe homepage's
-//  "See all games". Travel leads (it's the app's namesake topic) and shows its own real curated
-//  decks directly — not the generic game-type cards Compete/Connect use — so someone lands on
-//  actual playable content, not another layer of picking a mechanic first. Compete/Connect below
-//  it group the 4 game types by category; tapping one opens `GameTypeDecksView` (every deck of
-//  that type, across every topic) rather than jumping straight into a random session — decks are
-//  the real playable unit now, see TopicsSection.
+//  Reachable both as the Games tab's root and via "See all games" from the Globe homepage. Game
+//  types (one swipeable row, no more Compete/Connect split) lead, then Travel — the app's
+//  namesake topic — shows its own real curated decks directly. Tapping a game type opens
+//  `GameTypeDecksView` (every deck of that type, across every topic) rather than jumping straight
+//  into a random session — decks are the real playable unit now, see TopicsSection.
 //
 
 import SwiftUI
@@ -29,8 +27,6 @@ struct GamesHubView: View {
     /// editor — the user's already told us they want to unlock something, not edit a profile.
     @State private var showingPartnerGate = false
 
-    private var competeGames: [GameType] { GameType.allCases.filter { $0.category == .compete } }
-    private var connectGames: [GameType] { GameType.allCases.filter { $0.category == .connect } }
     /// Once both partners have finished a Travel deck it drops off this carousel — Travel is
     /// the app's front-door showcase, so it stays focused on what's still playable rather than
     /// accumulating finished decks the way the full topic/browse lists intentionally do (those
@@ -46,9 +42,8 @@ struct GamesHubView: View {
                 VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
                     searchAndFilterBar
                     DailyActivityCard()
+                    gameTypesSection
                     travelSection
-                    section(title: "Compete", games: competeGames)
-                    section(title: "Connect", games: connectGames)
                     TopicsSection()
                 }
                 .padding(Theme.Spacing.md)
@@ -99,6 +94,12 @@ struct GamesHubView: View {
                         .frame(maxWidth: .infinity)
                         .foregroundStyle(Theme.ink)
                         .background(Theme.cardBackground, in: Capsule())
+                        // Same blue-to-green accent pair as `Theme.selectionGradient` — a plain
+                        // flat fill left these three pills with no edge of their own at all,
+                        // reading as one undifferentiated bar rather than three distinct filters.
+                        .overlay {
+                            Capsule().strokeBorder(Theme.selectionGradient.opacity(0.6), lineWidth: 1.25)
+                        }
                 }
                 .buttonStyle(.plain)
                 // Floating badge (hovering over the pill's corner) rather than sitting inline
@@ -133,15 +134,17 @@ struct GamesHubView: View {
         return counts
     }
 
-    private func section(title: String, games: [GameType]) -> some View {
+    /// All 4 game types in one swipeable row — replaces the old Compete/Connect split, which
+    /// grouped them by a category nobody outside this screen ever saw or needed.
+    private var gameTypesSection: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-            Text(title)
+            Text("Game Types")
                 .font(.title3.weight(.bold))
                 .foregroundStyle(Theme.ink)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: Theme.Spacing.sm) {
-                    ForEach(games) { gameType in
+                    ForEach(GameType.allCases) { gameType in
                         if appModel.partnerConnected || !gameType.requiresPartner {
                             NavigationLink {
                                 GameTypeDecksView(gameType: gameType)

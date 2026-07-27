@@ -23,7 +23,7 @@ struct MainTabView: View {
     var body: some View {
         TabView(selection: $selection) {
             Tab("Home", systemImage: "globe.americas.fill", value: .home) {
-                HomeView()
+                HomeView(onSeeAllGames: { selection = .games })
                     .postHogScreenView("Home")
             }
             Tab("Travel", systemImage: "airplane", value: .trips) {

@@ -97,6 +97,10 @@ struct RelationshipStatsCard: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        // Opts out of dark mode entirely for now (forces the light-mode look regardless of
+        // system appearance) rather than reworking this card's own dark-mode styling — same for
+        // `TripStatsCard`/`FlightStatsCard` and their share-card counterparts.
+        .colorScheme(.light)
     }
 
     /// Both avatars joined by a line with a heart at its center — the same "two people, one
@@ -180,7 +184,7 @@ struct RelationshipStatsCard: View {
             Spacer(minLength: 0)
         }
         .padding(Theme.Spacing.sm)
-        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .themedCardBackground(cornerRadius: 14)
         .accessibilityElement(children: .combine)
     }
 }

@@ -2596,18 +2596,6 @@ enum BackendService {
         try await supabase.rpc("abandon_game_session", params: Params(pSessionId: id)).execute()
     }
 
-    static func markDiscussionRound(roundID: UUID, status: DiscussionRoundStatus) async throws {
-        struct Params: Encodable {
-            var pRoundId: UUID
-            var pStatus: String
-            enum CodingKeys: String, CodingKey {
-                case pRoundId = "p_round_id"
-                case pStatus = "p_status"
-            }
-        }
-        try await supabase.rpc("mark_discussion_round", params: Params(pRoundId: roundID, pStatus: status.rawValue)).execute()
-    }
-
     /// Returns today's Daily Activity session id, creating it server-side on first call each day
     /// — see `get_daily_question_session` (an ordinary 1-round `deep_conversations`
     /// session flagged `is_daily`, so it plays through the exact same `GameSessionStore` flow as

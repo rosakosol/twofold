@@ -216,7 +216,7 @@ struct PaywallView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(Theme.Spacing.md)
-                    .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                    .themedCardBackground(cornerRadius: Theme.Radius.card)
 
                     VStack(spacing: Theme.Spacing.sm) {
                         ForEach(BillingPeriod.allCases, id: \.self) { period in

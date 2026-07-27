@@ -28,7 +28,7 @@ struct OfflineGameBanner: View {
         .padding(.horizontal, Theme.Spacing.md)
         .padding(.vertical, Theme.Spacing.sm)
         .frame(maxWidth: .infinity)
-        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+        .themedCardBackground(cornerRadius: Theme.Radius.card)
         .padding(.horizontal, Theme.Spacing.lg)
         .padding(.top, Theme.Spacing.sm)
     }

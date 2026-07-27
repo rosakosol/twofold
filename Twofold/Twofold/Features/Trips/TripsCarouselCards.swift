@@ -59,7 +59,7 @@ struct TripCarouselCard: View {
         }
         .padding(Theme.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+        .themedCardBackground(cornerRadius: Theme.Radius.card)
         .shadow(color: .black.opacity(0.15), radius: 12, y: 6)
         .accessibilityElement(children: .combine)
     }
@@ -150,7 +150,7 @@ struct FlightCarouselCard: View {
         }
         .padding(Theme.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+        .themedCardBackground(cornerRadius: Theme.Radius.card)
         .shadow(color: .black.opacity(0.15), radius: 12, y: 6)
         .accessibilityElement(children: .combine)
     }

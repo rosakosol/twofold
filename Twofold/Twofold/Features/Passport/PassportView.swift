@@ -307,7 +307,7 @@ private struct FullStatsView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, Theme.Spacing.sm)
-        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .themedCardBackground(cornerRadius: 12)
         .accessibilityElement(children: .combine)
     }
 

@@ -20,12 +20,8 @@ import SwiftUI
 /// static stored properties on a generic type.
 private let swipeCardFlyDuration: Double = 0.3
 
-/// Card background — deliberately the same sky-blue-to-leaf-green gradient Trivia Battle uses
-/// (`GameType.triviaBattle.iconGradient`) so every game's cards read as one consistent family
-/// rather than This or That/More Likely looking like a different, plainer app.
-private let swipeCardGradient = LinearGradient(colors: [Theme.skyBlue, Theme.leafGreen], startPoint: .topLeading, endPoint: .bottomTrailing)
-
 struct SwipeChoiceCard<Content: View>: View {
+    let gameType: GameType
     let leftLabel: String
     let rightLabel: String
     var isDisabled: Bool = false
@@ -39,8 +35,20 @@ struct SwipeChoiceCard<Content: View>: View {
     /// it's still flying off-screen, before the caller's own state even has a chance to update.
     @State private var hasCommitted = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
 
     private let threshold: CGFloat = 110
+
+    /// Light mode: the same sky-blue-to-leaf-green gradient Trivia Battle uses
+    /// (`GameType.triviaBattle.iconGradient`) so every game's cards read as one consistent family
+    /// rather than This or That/More Likely looking like a different, plainer app. Dark mode:
+    /// each game's own `iconGradient` instead (the same colors its badge/icon use everywhere
+    /// else) — the shared blue-green wash read as too generic/samey once cards elsewhere in dark
+    /// mode started picking up badge-colored washes of their own (see `TopicsSection`).
+    private var cardGradient: LinearGradient {
+        let colors = colorScheme == .dark ? gameType.iconGradient : [Theme.skyBlue, Theme.leafGreen]
+        return LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
 
     private var leftStampOpacity: Double { Double(max(0, min(1, -offset.width / threshold))) }
     private var rightStampOpacity: Double { Double(max(0, min(1, offset.width / threshold))) }
@@ -53,7 +61,7 @@ struct SwipeChoiceCard<Content: View>: View {
             content
                 .frame(maxWidth: .infinity, minHeight: 240)
                 .padding(Theme.Spacing.lg)
-                .background(swipeCardGradient, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                .background(cardGradient, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                 .overlay {
                     RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
                         .fill(.white)
@@ -118,7 +126,7 @@ struct SwipeChoiceCard<Content: View>: View {
     /// plain white ones.
     private func ghostCard(scale: CGFloat, yOffset: CGFloat, opacity: Double) -> some View {
         RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-            .fill(swipeCardGradient)
+            .fill(cardGradient)
             .frame(maxWidth: .infinity, minHeight: 240)
             .shadow(color: .black.opacity(0.1), radius: 8, y: 4)
             .scaleEffect(scale)

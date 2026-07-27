@@ -100,6 +100,17 @@ struct DeepConversationsGameView: View {
         .navigationTitle(title ?? GameType.deepConversations.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            // A custom `.principal` item, not just relying on `.navigationTitle` above — an
+            // inline nav title is always clamped to one line with a trailing ellipsis, which cut
+            // off longer deck titles. This wraps to 2 lines instead; `.navigationTitle` stays
+            // (unused visually while this is present) purely so a screen pushed from here still
+            // gets a sensible back-button label.
+            ToolbarItem(placement: .principal) {
+                Text(title ?? GameType.deepConversations.displayName)
+                    .font(.headline)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+            }
             if isActivelyPlaying {
                 ToolbarItem(placement: .topBarLeading) {
                     GameBackButton(action: handleBack)
@@ -171,7 +182,7 @@ struct DeepConversationsGameView: View {
                 .frame(height: 120)
                 .scrollContentBackground(.hidden)
                 .padding(Theme.Spacing.sm)
-                .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                .themedCardBackground(cornerRadius: Theme.Radius.card)
 
             Button {
                 submit(round: round, value: responseText.trimmingCharacters(in: .whitespacesAndNewlines))

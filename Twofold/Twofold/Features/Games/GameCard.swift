@@ -17,88 +17,66 @@ struct GameCard: View {
     /// tease/preview of what's waiting for them once they do.
     var isLocked: Bool = false
 
+    @Environment(\.colorScheme) private var colorScheme
+
+    /// This game type's own accent — same value `DeckCardRow` falls back to for a non-topic
+    /// badge tint, reused here for the card's dark-mode wash (see `cardBackground`).
+    private var accentColor: Color { gameType.iconGradient.first ?? Theme.skyBlue }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-            HStack(alignment: .top, spacing: Theme.Spacing.sm) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(LinearGradient(colors: gameType.iconGradient, startPoint: .topLeading, endPoint: .bottomTrailing))
-                    Image(systemName: gameType.icon)
-                        .font(.title2)
-                        .foregroundStyle(.white)
-                }
-                .frame(width: 44, height: 44)
-
-                PillBadge(
-                    text: gameType.category.rawValue,
-                    tint: gameType.category == .compete ? Theme.heartRed : Theme.skyBlue
-                )
-
-                Spacer(minLength: 0)
-            }
-
-            Text(gameType.displayName)
-                .font(.headline)
-                .foregroundStyle(Theme.ink)
-                .multilineTextAlignment(.leading)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Text(gameType.tagline)
-                .font(.caption)
-                .foregroundStyle(Theme.subtleInk)
-                .multilineTextAlignment(.leading)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Spacer(minLength: 0)
-
-            HStack {
-                Label(gameType.durationLabel, systemImage: "clock")
-                    .font(.caption2)
-                    .foregroundStyle(Theme.subtleInk)
-                Spacer()
-                Text(gameType.ctaTitle)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(Theme.skyBlue)
-            }
-        }
-        .padding(Theme.Spacing.md)
-        .frame(width: width, height: 170, alignment: .leading)
-        .frame(maxWidth: width == nil ? .infinity : nil, alignment: .leading)
-        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-        // Cards share Theme.cardBackground with their own container (SectionCard) — without
-        // this, adjacent cards in the Recommended Games carousel had no visible boundary at all
-        // and just blended into one continuous surface.
-        .overlay {
-            RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                .strokeBorder(Theme.subtleInk.opacity(0.15), lineWidth: 1)
-        }
-        .shadow(color: .black.opacity(0.06), radius: 6, y: 3)
-        .overlay {
-            if isLocked {
-                RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                    .fill(.black.opacity(0.4))
-                    .overlay(alignment: .topTrailing) {
-                        ZStack {
-                            Circle().fill(.white)
-                            Image(systemName: "lock.fill")
-                                .font(.caption)
-                                .foregroundStyle(Theme.ink)
+        Text(gameType.displayName)
+            .font(.headline)
+            .foregroundStyle(Theme.ink)
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(Theme.Spacing.md)
+            .frame(width: width, height: 170, alignment: .center)
+            .frame(maxWidth: width == nil ? .infinity : nil, alignment: .center)
+            .background { cardBackground }
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+            .shadow(color: .black.opacity(0.06), radius: 6, y: 3)
+            .overlay {
+                if isLocked {
+                    RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+                        .fill(.black.opacity(0.4))
+                        .overlay(alignment: .topTrailing) {
+                            ZStack {
+                                Circle().fill(.white)
+                                Image(systemName: "lock.fill")
+                                    .font(.caption)
+                                    .foregroundStyle(Theme.ink)
+                            }
+                            .frame(width: 26, height: 26)
+                            .padding(Theme.Spacing.sm)
                         }
-                        .frame(width: 26, height: 26)
-                        .padding(Theme.Spacing.sm)
-                    }
-                    .overlay(alignment: .bottom) {
-                        Text("Partner required")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, Theme.Spacing.sm)
-                            .padding(.vertical, 6)
-                            .background(.black.opacity(0.3), in: Capsule())
-                            .padding(.bottom, Theme.Spacing.sm)
-                    }
+                        .overlay(alignment: .bottom) {
+                            Text("Partner required")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, Theme.Spacing.sm)
+                                .padding(.vertical, 6)
+                                .background(.black.opacity(0.3), in: Capsule())
+                                .padding(.bottom, Theme.Spacing.sm)
+                        }
+                }
+            }
+    }
+
+    /// Same treatment `TopicsSection`'s own rows use: flat `Theme.cardBackground` in light mode,
+    /// a translucent wash of this game type's own accent color in dark mode instead of the
+    /// generic blue-to-green `Theme.cardGradientDark` every other card uses.
+    private var cardBackground: some View {
+        ZStack {
+            Theme.cardBackground
+            if colorScheme == .dark {
+                LinearGradient(
+                    colors: [accentColor.opacity(0.4), accentColor.opacity(0.16)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
             }
         }
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
     }
 }
 

@@ -90,7 +90,7 @@ struct AddTripDetailsView: View {
                             }
                     }
                     .padding(Theme.Spacing.md)
-                    .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                    .themedCardBackground(cornerRadius: Theme.Radius.card)
 
                     VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                         Text("Who's travelling?").font(.caption).foregroundStyle(Theme.subtleInk)
@@ -119,8 +119,6 @@ struct AddTripDetailsView: View {
                         }
                         .pickerStyle(.segmented)
                     }
-                    .padding(Theme.Spacing.md)
-                    .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                 }
             },
             primaryTitle: "Save trip",
@@ -194,7 +192,7 @@ struct AddTripDetailsView: View {
                 }
             }
             .padding()
-            .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+            .themedCardBackground(cornerRadius: Theme.Radius.card)
         }
         .buttonStyle(.plain)
     }

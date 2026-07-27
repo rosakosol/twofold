@@ -866,7 +866,7 @@ struct FlightTrackingView: View {
                     }
                     .padding(Theme.Spacing.sm)
                     .frame(maxWidth: .infinity)
-                    .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                    .themedCardBackground(cornerRadius: Theme.Radius.card)
                 }
                 .buttonStyle(.plain)
             }
@@ -974,10 +974,7 @@ struct FlightTrackingView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(Theme.Spacing.sm)
-        .background(
-            Theme.cardBackground,
-            in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-        )
+        .themedCardBackground(cornerRadius: Theme.Radius.card)
     }
 
     private var tripNotesSheet: some View {

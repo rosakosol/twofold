@@ -336,11 +336,6 @@ final class GameSessionStore {
         }
     }
 
-    func markDiscussionRound(_ round: GameSessionRound, status: DiscussionRoundStatus) async {
-        try? await BackendService.markDiscussionRound(roundID: round.id, status: status)
-        await refresh()
-    }
-
     /// Re-enters round 1 without touching any saved data — every round's existing answer is
     /// still intact (`submitGameResponse` is an upsert), so revisiting a round shows exactly
     /// what was previously picked (see each typed game view's `previousAnswer`-style UI) and

@@ -213,9 +213,9 @@ struct AddMemoryView: View {
     private var noteField: some View {
         TextField("Write a few words about this memory", text: $note, axis: .vertical)
             .lineLimit(6...12)
-            .padding(Theme.Spacing.sm)
+            .padding(Theme.Spacing.md)
             .frame(maxWidth: .infinity, alignment: .topLeading)
-            .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+            .themedCardBackground(cornerRadius: Theme.Radius.card)
             .focused($focusedField, equals: .note)
     }
 

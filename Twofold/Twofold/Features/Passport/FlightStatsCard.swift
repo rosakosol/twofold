@@ -85,6 +85,9 @@ struct FlightStatsCard: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        // Forces the light-mode look regardless of system appearance — see
+        // `RelationshipStatsCard`'s identical `.colorScheme(.light)` for why.
+        .colorScheme(.light)
     }
 
     private func heroStat(label: String, value: String) -> some View {
@@ -126,7 +129,7 @@ struct FlightStatsCard: View {
             Spacer(minLength: 0)
         }
         .padding(Theme.Spacing.sm)
-        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .themedCardBackground(cornerRadius: 14)
         // Repeated 6-8× per card — without this, each tile reads as two separate VoiceOver swipes
         // ("Longest trip", then "14 days") instead of one ("Longest trip: 14 days").
         .accessibilityElement(children: .combine)

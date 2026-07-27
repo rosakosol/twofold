@@ -21,6 +21,11 @@ struct TripStatsShareCard: View {
         .padding(Theme.Spacing.sm)
         .background(Theme.backgroundGradient)
         .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
+        // Forces the light-mode look for the whole shareable image (brand mark, background
+        // gradient, and the embedded `TripStatsCard`) regardless of system appearance — same
+        // as `TripStatsCard`'s own `.colorScheme(.light)`, applied here too so this card's own
+        // background/brand mark don't stay dark while the card floating on them goes light.
+        .colorScheme(.light)
     }
 }
 

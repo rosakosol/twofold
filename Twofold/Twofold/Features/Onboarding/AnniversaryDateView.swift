@@ -65,7 +65,7 @@ struct AnniversaryDateView: View {
                     // (found via visual testing: "27 July 2025") looking dim/translucent instead
                     // of fully opaque white. A flat fill doesn't have that problem — confirmed
                     // testing plain black first, then this, with near-identical crisp results.
-                    .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                    .themedCardBackground(cornerRadius: Theme.Radius.card)
             },
             primaryTitle: "Continue",
             primaryAction: {

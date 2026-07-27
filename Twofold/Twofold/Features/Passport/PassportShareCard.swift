@@ -22,6 +22,9 @@ struct PassportShareCard: View {
         .padding(Theme.Spacing.sm)
         .background(Theme.backgroundGradient)
         .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
+        // Forces the light-mode look for the whole shareable image — see
+        // `TripStatsShareCard`'s identical `.colorScheme(.light)` for why.
+        .colorScheme(.light)
     }
 }
 

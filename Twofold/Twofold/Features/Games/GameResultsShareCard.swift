@@ -189,6 +189,14 @@ struct GameResultsShareCard: View {
         VStack(spacing: Theme.Spacing.lg) {
             TwofoldBrandMark(color: Theme.ink, size: 20, textStyle: .subheadline)
 
+            // Every other layout (score snapshot, daily streak, names & answer) shows
+            // `data.title` — this one was the odd one out, showing only the brand mark and
+            // question with no indication of which deck/game it came from.
+            Text(data.title.uppercased())
+                .font(.caption2.weight(.semibold))
+                .tracking(1.5)
+                .foregroundStyle(Theme.subtleInk)
+
             if let question = data.singleRoundQuestion {
                 Text(question)
                     .font(.subheadline.weight(.semibold))

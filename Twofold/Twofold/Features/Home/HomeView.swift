@@ -15,6 +15,11 @@ private struct DistanceShareContext: Identifiable {
 }
 
 struct HomeView: View {
+    /// Set by `MainTabView` to flip its own tab selection to Games, passed straight through to
+    /// `RecommendedGamesSection`'s "See all games" — defaults to a no-op so the preview below
+    /// still compiles.
+    var onSeeAllGames: () -> Void = {}
+
     @Environment(AppModel.self) private var appModel
     @Environment(\.scenePhase) private var scenePhase
     @State private var showingSnapshot = false
@@ -87,7 +92,7 @@ struct HomeView: View {
                     if appModel.partnerConnected {
                         DrawingPadCard()
                     }
-                    RecommendedGamesSection()
+                    RecommendedGamesSection(onSeeAllGames: onSeeAllGames)
                 }
                 .padding(Theme.Spacing.md)
             }
@@ -467,7 +472,7 @@ struct HomeView: View {
                     .font(.title2)
                     .foregroundStyle(Theme.heartRed)
             }
-            Text("No distance to close right now 💛")
+            Text("No distance to close right now")
                 .font(.caption)
                 .foregroundStyle(Theme.subtleInk)
         }
