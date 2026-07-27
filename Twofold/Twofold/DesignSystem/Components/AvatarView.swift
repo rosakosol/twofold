@@ -12,11 +12,36 @@ import SwiftUI
 @MainActor
 private final class AvatarImageCache {
     static let shared = AvatarImageCache()
-    private let cache = NSCache<NSURL, UIImage>()
+    private let cache = NSCache<NSString, UIImage>()
     private init() {}
 
-    func image(for url: URL) -> UIImage? { cache.object(forKey: url as NSURL) }
-    func store(_ image: UIImage, for url: URL) { cache.setObject(image, forKey: url as NSURL) }
+    /// Keyed on the URL's path alone, not the full URL — `avatarURL` is a *signed* URL
+    /// (`BackendService.avatarSignedURL`), and per that function's own doc comment "each signed
+    /// URL embeds its own unique token/expiry, so it's never the same string twice." Caching by
+    /// the full URL therefore missed on every single couple-state refresh (every screen
+    /// navigation that re-fetches it), even for a photo already downloaded seconds earlier —
+    /// exactly what read as the avatar flickering back to its placeholder while navigating
+    /// around the app. The storage path itself is stable across re-signs, so that's the real
+    /// cache key.
+    private func cacheKey(for url: URL) -> NSString { url.path as NSString }
+
+    func image(for url: URL) -> UIImage? { cache.object(forKey: cacheKey(for: url)) }
+    func store(_ image: UIImage, for url: URL) { cache.setObject(image, forKey: cacheKey(for: url)) }
+}
+
+extension AvatarView {
+    /// Called right after a successful avatar upload (`AppModel.updateAvatar`/
+    /// `updatePartnerAvatar`) — re-uploading overwrites the same deterministic storage path (see
+    /// `BackendService.uploadAvatar`'s doc comment), and the cache above is now keyed on that
+    /// same stable path (not the fresh signed URL) so navigating around the app doesn't keep
+    /// re-fetching an already-downloaded photo. Without this, that same path-keyed cache would
+    /// otherwise keep serving the *previous* photo under this path until some `AvatarView`
+    /// happened to load the new signed URL fresh from the network.
+    @MainActor
+    static func preloadCache(imageData: Data, url: URL) {
+        guard let image = UIImage(data: imageData) else { return }
+        AvatarImageCache.shared.store(image, for: url)
+    }
 }
 
 /// Shows the person's uploaded photo when they have one, falling back to an

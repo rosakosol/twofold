@@ -2650,6 +2650,7 @@ enum BackendService {
         var totalRounds: Int
         var myAnswered: Int
         var partnerAnswered: Int
+        var completedAt: Date?
 
         enum CodingKeys: String, CodingKey {
             case deckId = "deck_id"
@@ -2658,6 +2659,7 @@ enum BackendService {
             case totalRounds = "total_rounds"
             case myAnswered = "my_answered"
             case partnerAnswered = "partner_answered"
+            case completedAt = "completed_at"
         }
     }
 
@@ -2670,7 +2672,7 @@ enum BackendService {
         for row in rows {
             result[row.deckId] = DeckProgress(
                 sessionID: row.sessionId, status: row.status, totalRounds: row.totalRounds,
-                myAnswered: row.myAnswered, partnerAnswered: row.partnerAnswered
+                myAnswered: row.myAnswered, partnerAnswered: row.partnerAnswered, completedAt: row.completedAt
             )
         }
         return result

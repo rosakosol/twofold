@@ -513,6 +513,7 @@ final class AppModel {
 
     func updateAvatar(imageData: Data) async throws {
         let url = try await BackendService.uploadAvatar(imageData: imageData)
+        AvatarView.preloadCache(imageData: imageData, url: url)
         couple.partnerA.avatarURL = url
     }
 
@@ -541,6 +542,7 @@ final class AppModel {
     /// `BackendService.uploadPartnerAvatar`).
     func updatePartnerAvatar(imageData: Data) async throws {
         let url = try await BackendService.uploadPartnerAvatar(imageData: imageData)
+        AvatarView.preloadCache(imageData: imageData, url: url)
         couple.partnerB.avatarURL = url
     }
 
@@ -963,10 +965,12 @@ final class AppModel {
 
         if let selfPhotoData = onboarding.selfPhotoData,
            let url = try? await BackendService.uploadAvatar(imageData: selfPhotoData) {
+            AvatarView.preloadCache(imageData: selfPhotoData, url: url)
             couple.partnerA.avatarURL = url
         }
         if let partnerPhotoData = onboarding.partnerPhotoData,
            let url = try? await BackendService.uploadPartnerAvatar(imageData: partnerPhotoData) {
+            AvatarView.preloadCache(imageData: partnerPhotoData, url: url)
             couple.partnerB.avatarURL = url
         }
 

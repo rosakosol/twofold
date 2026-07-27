@@ -134,32 +134,30 @@ struct GamesHubView: View {
         return counts
     }
 
-    /// All 4 game types in one swipeable row — replaces the old Compete/Connect split, which
-    /// grouped them by a category nobody outside this screen ever saw or needed.
+    /// All 4 game types in a 2x2 grid — replaces the old Compete/Connect split, which grouped
+    /// them by a category nobody outside this screen ever saw or needed.
     private var gameTypesSection: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             Text("Game Types")
                 .font(.title3.weight(.bold))
                 .foregroundStyle(Theme.ink)
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: Theme.Spacing.sm) {
-                    ForEach(GameType.allCases) { gameType in
-                        if appModel.partnerConnected || !gameType.requiresPartner {
-                            NavigationLink {
-                                GameTypeDecksView(gameType: gameType)
-                            } label: {
-                                GameCard(gameType: gameType, width: 220)
-                            }
-                            .buttonStyle(.plain)
-                        } else {
-                            Button {
-                                showingPartnerGate = true
-                            } label: {
-                                GameCard(gameType: gameType, width: 220, isLocked: true)
-                            }
-                            .buttonStyle(.plain)
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: Theme.Spacing.sm), GridItem(.flexible())], spacing: Theme.Spacing.sm) {
+                ForEach(GameType.allCases) { gameType in
+                    if appModel.partnerConnected || !gameType.requiresPartner {
+                        NavigationLink {
+                            GameTypeDecksView(gameType: gameType)
+                        } label: {
+                            GameCard(gameType: gameType)
                         }
+                        .buttonStyle(.plain)
+                    } else {
+                        Button {
+                            showingPartnerGate = true
+                        } label: {
+                            GameCard(gameType: gameType, isLocked: true)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
             }

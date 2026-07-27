@@ -196,6 +196,10 @@ struct DeckProgress: Hashable {
     var totalRounds: Int
     var myAnswered: Int
     var partnerAnswered: Int
+    /// When both partners finished — `completed_at` if the session's own row has it, else
+    /// `updated_at` (same fallback `GameHistoryView.completionDate(for:)` uses for the
+    /// equivalent case on the History screen). Only meaningful once `bothCompleted`.
+    var completedAt: Date?
 
     var myCompleted: Bool { myAnswered >= totalRounds }
     var partnerCompleted: Bool { partnerAnswered >= totalRounds }

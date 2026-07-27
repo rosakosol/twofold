@@ -101,6 +101,15 @@ struct SettingsView: View {
 
                     SectionCard {
                         NavigationLink {
+                            AppearanceSettingsView()
+                        } label: {
+                            SettingsRow(title: "Appearance", systemImage: "circle.righthalf.filled", value: AppearancePreference.current.displayName)
+                        }
+                        .buttonStyle(.plain)
+
+                        Divider()
+
+                        NavigationLink {
                             MeasurementsSettingsView()
                         } label: {
                             SettingsRow(title: "Measurements", systemImage: "ruler.fill", value: MeasurementPreference.current.displayName)
@@ -225,15 +234,6 @@ struct SettingsView: View {
                             }
                             Button("Cancel", role: .cancel) {}
                         }
-
-                        Divider()
-
-                        NavigationLink {
-                            DeleteAccountView()
-                        } label: {
-                            SettingsRow(title: "Delete Account", systemImage: "trash.fill", isDestructive: true)
-                        }
-                        .buttonStyle(.plain)
                     }
 
                     SettingsFooterView()

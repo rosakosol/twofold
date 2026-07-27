@@ -370,7 +370,10 @@ struct FlightTrackingView: View {
                 // receiver coverage) just means this overlay doesn't render — the map's own plane
                 // marker keeps moving via progress-based interpolation regardless (see
                 // `FlightMapView`'s own `markerCoordinate(for:)`), so nothing looks broken.
-                if flight.positionGroundspeed != nil || flight.positionAltitude != nil {
+                // Also gated on `isCurrentlyRelevant` — once a flight is truly past, its last
+                // known speed/altitude are stale readings from before landing, not something
+                // still worth surfacing as if it were live.
+                if flight.isCurrentlyRelevant, flight.positionGroundspeed != nil || flight.positionAltitude != nil {
                     liveStatsOverlay
                 }
             }

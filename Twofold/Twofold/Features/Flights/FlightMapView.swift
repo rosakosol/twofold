@@ -799,7 +799,11 @@ private struct MapKitRouteView: UIViewRepresentable {
                     // orientation (east) is already bearing 90, the rotation needed to reach
                     // `heading` is `heading - 90`, not `90 - heading` (which mirrors every
                     // heading except due east/west, e.g. sends a northbound plane pointing south).
-                    .rotationEffect(.degrees((heading ?? 0) - 90))
+                    // No heading (typically an arrived flight — live position/heading stops
+                    // updating once landed) defaults to bearing 90 (east), not 0 (north): the
+                    // glyph's own rest orientation is already east, so this keeps a headingless
+                    // plane sitting horizontal instead of rotating it 90° to point north/vertical.
+                    .rotationEffect(.degrees((heading ?? 90) - 90))
             }
             .frame(width: 30, height: 30)
             .shadow(color: .black.opacity(0.22), radius: 4, y: 2)

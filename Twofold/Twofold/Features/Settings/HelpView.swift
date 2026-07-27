@@ -34,6 +34,18 @@ struct HelpView: View {
                         }
                         .buttonStyle(.plain)
                     }
+
+                    Divider()
+
+                    // Moved here from the main Settings screen's own destructive-actions card —
+                    // deleting your account is a support-adjacent, rarely-needed action, not
+                    // something that should sit as prominently as Sign Out.
+                    NavigationLink {
+                        DeleteAccountView()
+                    } label: {
+                        SettingsRow(title: "Delete Account", systemImage: "trash.fill", isDestructive: true)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
             .padding(Theme.Spacing.md)

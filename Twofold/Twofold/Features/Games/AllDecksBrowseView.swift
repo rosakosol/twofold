@@ -39,6 +39,7 @@ enum DeckBrowseFilter: String, CaseIterable, Identifiable {
 
 struct AllDecksBrowseView: View {
     @Environment(AppModel.self) private var appModel
+    @Environment(\.colorScheme) private var colorScheme
     @State private var searchText = ""
     @State private var selectedFilter: DeckBrowseFilter?
 
@@ -83,7 +84,15 @@ struct AllDecksBrowseView: View {
                         .autocorrectionDisabled()
                 }
                 .padding(Theme.Spacing.sm)
-                .background(Theme.cardBackground, in: Capsule())
+                .background {
+                    ZStack {
+                        Theme.cardBackground
+                        if colorScheme == .dark {
+                            Theme.cardGradientDark
+                        }
+                    }
+                    .clipShape(Capsule())
+                }
 
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: Theme.Spacing.sm) {
@@ -117,18 +126,36 @@ struct AllDecksBrowseView: View {
     }
 
     private func filterPill(_ filter: DeckBrowseFilter?, label: String) -> some View {
-        Button {
+        let isSelected = selectedFilter == filter
+        return Button {
             selectedFilter = filter
         } label: {
             Text(label)
                 .font(.caption.weight(.semibold))
                 .padding(.horizontal, Theme.Spacing.md)
                 .padding(.vertical, Theme.Spacing.xs)
-                .foregroundStyle(selectedFilter == filter ? .white : Theme.ink)
-                .background(
-                    selectedFilter == filter ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.cardBackground),
-                    in: Capsule()
-                )
+                // The solid blue `Theme.primaryButtonGradient` fill read fine in light mode, but
+                // sitting next to dark mode's now-washed unselected pills it looked like a
+                // completely different control — dark mode keeps both selected and unselected on
+                // the same dark-wash fill/`Theme.ink` text, distinguishing selected only by a
+                // bolder, fully-opaque border instead of a different fill treatment.
+                .foregroundStyle(isSelected && colorScheme != .dark ? .white : Theme.ink)
+                .background {
+                    if colorScheme == .dark {
+                        ZStack {
+                            Theme.cardBackground
+                            Theme.cardGradientDark
+                        }
+                        .clipShape(Capsule())
+                    } else {
+                        Capsule().fill(isSelected ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.cardBackground))
+                    }
+                }
+                .overlay {
+                    if colorScheme == .dark {
+                        Capsule().strokeBorder(Theme.selectionGradient.opacity(isSelected ? 1 : 0.6), lineWidth: isSelected ? 1.75 : 1.25)
+                    }
+                }
         }
         .buttonStyle(.plain)
     }

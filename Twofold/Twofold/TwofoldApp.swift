@@ -15,6 +15,10 @@ struct TwofoldApp: App {
         WindowGroup {
             RootView()
                 .environment(appModel)
+                // Device-local override (Settings → Appearance) — `nil` for the default
+                // "System" choice, which `.preferredColorScheme` already treats as "follow the
+                // system setting," so this is a no-op until someone actually picks Light/Dark.
+                .preferredColorScheme(AppearancePreference.current.colorScheme)
                 .onReceive(NotificationCenter.default.publisher(for: .didRegisterForRemoteNotifications)) { notification in
                     guard let tokenData = notification.object as? Data else { return }
                     Task { await appModel.registerPushToken(tokenData) }

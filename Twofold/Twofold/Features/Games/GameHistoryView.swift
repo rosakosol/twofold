@@ -13,6 +13,7 @@ import SwiftUI
 
 struct GameHistoryView: View {
     @Environment(AppModel.self) private var appModel
+    @Environment(\.colorScheme) private var colorScheme
     @State private var sessions: [GameSession] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
@@ -140,6 +141,13 @@ struct GameHistoryView: View {
                     isSelected ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.cardBackground),
                     in: Capsule()
                 )
+                // Unselected pills had no edge of their own in dark mode — same blue-to-green
+                // `Theme.selectionGradient` border the Games hub's own filter pills use.
+                .overlay {
+                    if !isSelected && colorScheme == .dark {
+                        Capsule().strokeBorder(Theme.selectionGradient.opacity(0.6), lineWidth: 1.25)
+                    }
+                }
         }
         .buttonStyle(.plain)
     }
@@ -149,13 +157,6 @@ struct GameHistoryView: View {
         let topic = deck.flatMap { GameTopic(rawValue: $0.topic) }
         return SectionCard {
             HStack {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(LinearGradient(colors: session.gameType.iconGradient, startPoint: .topLeading, endPoint: .bottomTrailing))
-                    Image(systemName: session.gameType.icon).foregroundStyle(.white)
-                }
-                .frame(width: 36, height: 36)
-
                 VStack(alignment: .leading, spacing: 4) {
                     if session.isDaily {
                         PillBadge(text: "Daily Deep Question", tint: Theme.heartRed)
@@ -189,6 +190,12 @@ struct GameHistoryView: View {
                     }
                 }
                 Spacer()
+                // The deck's own emoji instead of the generic game-type symbol — a daily
+                // question has no deck to pull one from, so it just falls back to showing
+                // nothing here rather than a placeholder glyph.
+                if let emoji = deck?.emoji {
+                    Text(emoji).font(.title2)
+                }
                 Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
             }
         }

@@ -43,5 +43,11 @@ struct FlightRowView: View {
             }
         }
         .padding(Theme.Spacing.sm)
+        // Without this, the row's own `Spacer()` and other empty space don't count as part of
+        // the tappable area when this is wrapped in a plain-style `Button` (`TripsListView`'s
+        // `flightRow(_:)`) — only the actually-rendered content (logo/text/badge) responded to a
+        // tap, so pressing anywhere else in the row (e.g. the blank stretch next to the badge)
+        // silently did nothing.
+        .contentShape(Rectangle())
     }
 }

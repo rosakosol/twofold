@@ -41,6 +41,15 @@ struct DeckCardRow: View {
     private var bothCompleted: Bool { progress?.bothCompleted ?? false }
     private var needsPartnerGate: Bool { !appModel.partnerConnected && deck.gameType.requiresPartner }
 
+    /// "Completed" alone once read as a status with no sense of *when* — falls back to the bare
+    /// word only if `completedAt` somehow never resolved (a pre-migration session row, say).
+    /// Day + month only (no year, unlike `GameHistoryView`'s equivalent date) — this card has far
+    /// less width to work with than that screen's full-width row.
+    private var completedLabel: String {
+        guard let completedAt = progress?.completedAt else { return "Completed" }
+        return "Completed \(completedAt.formatted(.dateTime.day().month(.abbreviated)))"
+    }
+
     var body: some View {
         Group {
             if isLocked {
@@ -87,7 +96,7 @@ struct DeckCardRow: View {
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                     if bothCompleted {
-                        Label("Completed", systemImage: "checkmark.seal.fill")
+                        Label(completedLabel, systemImage: "checkmark.seal.fill")
                             .font(.caption2.weight(.semibold))
                             .foregroundStyle(Theme.leafGreen)
                     } else {

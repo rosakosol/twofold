@@ -104,10 +104,15 @@ struct TripCountdownWidgetView: View {
     private var accessoryRectangular: some View {
         if let daysToGo = entry.daysToGo {
             VStack(alignment: .leading, spacing: 1) {
-                Label(daysToGo == 0 ? "Today" : "\(daysToGo) days", systemImage: "heart.fill")
-                    .font(.headline)
+                // Explicit icon + text (not a single `Label`) so the heart can be sized up on its
+                // own — matches `DistanceWidget`'s bigger, more prominent icon treatment instead
+                // of the smaller glyph a `Label`'s default icon sizing gave this row.
+                HStack(spacing: 4) {
+                    Image(systemName: "heart.fill").font(.system(size: 15, weight: .semibold))
+                    Text(daysToGo == 0 ? "Today" : "\(daysToGo) days").font(.headline)
+                }
                 Text(caption)
-                    .font(.caption2)
+                    .font(.caption)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }

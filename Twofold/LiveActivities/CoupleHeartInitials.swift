@@ -26,9 +26,10 @@ struct CoupleHeartInitials: View {
                 Text(partnerInitial)
             }
             .font(.system(size: size * 0.32, weight: .bold))
-            // Nudged down slightly — a heart glyph's widest, roundest area sits just below the
-            // cleft between its two top lobes, not at the shape's true vertical center.
-            .offset(y: size * 0.1)
+            // Nudged up slightly to sit centered within the heart glyph's rounded body — a
+            // downward offset here previously left the initials looking low/off-center within
+            // the shape.
+            .offset(y: -size * 0.06)
         }
         .frame(width: size, height: size)
     }

@@ -207,10 +207,15 @@ struct FlightCountdownWidgetView: View {
     private var accessoryRectangular: some View {
         if entry.targetDate != nil {
             VStack(alignment: .leading, spacing: 1) {
-                Label("\(entry.flightNumber ?? "Flight") · \(remainingLabel)", systemImage: "airplane")
-                    .font(.headline)
+                // Explicit icon + text (not a single `Label`) so the airplane glyph can be sized
+                // up on its own — matches `DistanceWidget`'s bigger, more prominent icon treatment
+                // instead of the smaller glyph a `Label`'s default icon sizing gave this row.
+                HStack(spacing: 4) {
+                    Image(systemName: "airplane").font(.system(size: 15, weight: .semibold))
+                    Text("\(entry.flightNumber ?? "Flight") · \(remainingLabel)").font(.headline)
+                }
                 Text(caption)
-                    .font(.caption2)
+                    .font(.caption)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }

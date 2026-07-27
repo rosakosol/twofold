@@ -107,10 +107,15 @@ struct DaysTogetherWidgetView: View {
         Group {
             if let days = entry.days {
                 VStack(alignment: .leading, spacing: 1) {
-                    Label("\(days) days", systemImage: "heart.fill")
-                        .font(.headline)
+                    // Explicit icon + text (not a single `Label`) so the heart can be sized up on
+                    // its own — matches `DistanceWidget`'s bigger, more prominent icon treatment
+                    // instead of the smaller glyph a `Label`'s default icon sizing gave this row.
+                    HStack(spacing: 4) {
+                        Image(systemName: "heart.fill").font(.system(size: 15, weight: .semibold))
+                        Text("\(days) days").font(.headline)
+                    }
                     Text("together")
-                        .font(.caption2)
+                        .font(.caption)
                 }
             } else {
                 Label("Set anniversary date", systemImage: "heart.fill")
