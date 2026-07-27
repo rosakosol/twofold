@@ -27,6 +27,13 @@ struct TriviaBattleGameView: View {
     @State private var hapticTrigger = false
     @State private var showingReportSheet = false
     @State private var showingLeaveConfirm = false
+    /// The option just tapped, shown via local state rather than waiting on
+    /// `store.myResponse(...)` to reflect it — `store.submit` synchronously updates
+    /// `GameSessionStore.responses`, which is also what `displayedRound(myID:)` (and so this
+    /// round's `.id()`) is derived from, so without this the round-advance transition would tear
+    /// this view down before the tapped option's checkmark/highlight below ever got a frame to
+    /// render. Mirrors `SwipeChoiceCard.fly()`'s deferred-action pattern, same underlying reason.
+    @State private var chosenOption: String?
 
     private var myID: UUID { appModel.currentUser.id }
     private var partnerID: UUID { appModel.partner.id }
@@ -201,11 +208,15 @@ struct TriviaBattleGameView: View {
                 ForEach(Array(orderedOptions(round: round, question: question).enumerated()), id: \.offset) { index, option in
                     let style = Self.optionStyles[index % Self.optionStyles.count]
                     let previousAnswer = store.myResponse(for: round, myID: myID)?.answerValue
-                    let wasPreviouslyChosen = previousAnswer == option
+                    // `chosenOption` wins while a submit is being held (see its own doc comment)
+                    // — `previousAnswer` only catches up once the deferred `store.submit` below
+                    // actually runs.
+                    let effectiveAnswer = chosenOption ?? previousAnswer
+                    let wasPreviouslyChosen = effectiveAnswer == option
                     // Revisiting an already-answered question via the back button — every other
                     // option desaturates so the one actually picked stands out clearly, instead
                     // of all four looking equally "live" the way a fresh, unanswered question does.
-                    let shouldDim = previousAnswer != nil && !wasPreviouslyChosen
+                    let shouldDim = effectiveAnswer != nil && !wasPreviouslyChosen
                     Button {
                         submit(round: round, value: option, isCorrect: option == question.correctAnswer)
                     } label: {
@@ -257,9 +268,16 @@ struct TriviaBattleGameView: View {
     private func submit(round: GameSessionRound, value: String, isCorrect: Bool) {
         hapticTrigger.toggle()
         isSubmitting = true
+        chosenOption = value
         Task {
+            // Held briefly so the tapped option's checkmark/highlight actually gets a frame on
+            // screen before `store.submit`'s optimistic update advances `displayedRound` and
+            // tears this view down via its `.id(round.id)` transition — see `chosenOption`'s doc
+            // comment.
+            try? await Task.sleep(for: .seconds(0.35))
             await store.submit(roundNumber: round.roundNumber, answerValue: value, isCorrect: isCorrect)
             isSubmitting = false
+            chosenOption = nil
         }
     }
 

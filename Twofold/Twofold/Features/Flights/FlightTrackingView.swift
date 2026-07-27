@@ -34,6 +34,11 @@ struct FlightTrackingView: View {
     @State private var isRefreshing = false
     @State private var eventsChannel: RealtimeChannelV2?
     @State private var flightChannel: RealtimeChannelV2?
+    /// Stored so `.onDisappear` can cancel these directly rather than relying solely on
+    /// `unsubscribe(_:)` ending the underlying `AsyncStream` — these are bare `Task { }`s (not
+    /// `.task {}`), so nothing cancels them automatically on disappear otherwise.
+    @State private var eventsTask: Task<Void, Never>?
+    @State private var flightUpdateTask: Task<Void, Never>?
     /// Incremented to explicitly re-trigger the map's camera fit/follow — see
     /// `FlightMapView.recenterNonce`/`Coordinator.apply`.
     @State private var mapRecenterNonce = 0
@@ -157,6 +162,10 @@ struct FlightTrackingView: View {
         .onDisappear {
             if let eventsChannel { Task { await BackendService.unsubscribe(eventsChannel) } }
             if let flightChannel { Task { await BackendService.unsubscribe(flightChannel) } }
+            // Belt-and-suspenders alongside the unsubscribes above: cancelling directly doesn't
+            // depend on `unsubscribe(_:)` actually closing the stream to end these loops.
+            eventsTask?.cancel()
+            flightUpdateTask?.cancel()
         }
         // Pushed onto this screen's own NavigationStack rather than presented as a second sheet
         // on top of Flight Details — same reasoning as TripDetailsView's edit flow.
@@ -1050,7 +1059,7 @@ struct FlightTrackingView: View {
 
         let (channel, stream) = BackendService.subscribeToFlightStatusEvents(flightID: flight.id)
         eventsChannel = channel
-        Task {
+        eventsTask = Task {
             for await event in stream where !events.contains(where: { $0.id == event.id }) {
                 withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
                     events.insert(event, at: 0)
@@ -1062,7 +1071,7 @@ struct FlightTrackingView: View {
         // is open, instead of only ever refreshing on initial load or an explicit pull-to-refresh.
         let (flightUpdateChannel, flightUpdateStream) = BackendService.subscribeToFlightRefresh(flightID: flight.id)
         flightChannel = flightUpdateChannel
-        Task {
+        flightUpdateTask = Task {
             for await _ in flightUpdateStream {
                 if let fresh = try? await BackendService.fetchFlight(id: flight.id) {
                     withAnimation(.easeInOut(duration: 0.3)) { flight = fresh }

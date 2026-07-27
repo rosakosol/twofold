@@ -172,11 +172,21 @@ struct GamesHubView: View {
                 .font(.title3.weight(.bold))
                 .foregroundStyle(Theme.ink)
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: Theme.Spacing.sm) {
-                    ForEach(travelDecks) { deck in
-                        DeckCardRow(deck: deck, progress: appModel.deckProgress?[deck.id])
-                            .frame(width: 260)
+            if appModel.gameDecks == nil {
+                // `loadGameDecksIfNeeded()` (below) hasn't resolved yet — `travelDecks` reads as
+                // empty either way, so without this a returning user with real decks would see
+                // an empty carousel flash before their actual cards pop in. Sized to roughly
+                // match a real `DeckCardRow` so the swap-in doesn't visibly jump.
+                ProgressView()
+                    .frame(height: 150)
+                    .frame(maxWidth: .infinity)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: Theme.Spacing.sm) {
+                        ForEach(travelDecks) { deck in
+                            DeckCardRow(deck: deck, progress: appModel.deckProgress?[deck.id])
+                                .frame(width: 260)
+                        }
                     }
                 }
             }

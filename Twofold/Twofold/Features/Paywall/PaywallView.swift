@@ -263,8 +263,17 @@ struct PaywallView: View {
 
     private var legalFooter: some View {
         HStack(spacing: Theme.Spacing.sm) {
-            Button("Restore Purchases") {
+            Button {
                 Task { await performRestore() }
+            } label: {
+                if isRestoring {
+                    // Otherwise this button just goes unresponsive with no visible change while
+                    // tapped — easy to mistake for broken and tap again, unlike the primary CTA
+                    // right above it which already shows its own spinner via `primaryLoading`.
+                    ProgressView().scaleEffect(0.7)
+                } else {
+                    Text("Restore Purchases")
+                }
             }
             .disabled(isPurchasing || isRestoring)
             Text("·").foregroundStyle(Theme.subtleInk)

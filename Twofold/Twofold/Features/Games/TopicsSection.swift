@@ -22,13 +22,22 @@ struct TopicsSection: View {
                 .foregroundStyle(Theme.ink)
 
             VStack(spacing: Theme.Spacing.sm) {
-                ForEach(GameTopic.allCases) { topic in
-                    Button {
-                        selectedTopic = topic
-                    } label: {
-                        topicRow(topic)
+                if appModel.gameDecks == nil {
+                    // Every row's progress would otherwise read as a real, played-nothing 0%
+                    // until `loadGameDecksIfNeeded()` (below) resolves — misleading for a
+                    // returning couple who's actually made progress on most topics.
+                    ForEach(GameTopic.allCases) { topic in
+                        topicRowPlaceholder(topic)
                     }
-                    .buttonStyle(.plain)
+                } else {
+                    ForEach(GameTopic.allCases) { topic in
+                        Button {
+                            selectedTopic = topic
+                        } label: {
+                            topicRow(topic)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
             }
         }
@@ -68,6 +77,30 @@ struct TopicsSection: View {
         .padding(Theme.Spacing.sm)
         .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         .contentShape(Rectangle())
+    }
+
+    /// Same layout as `topicRow(_:)` but with no real progress to show yet — a plain placeholder
+    /// bar instead of a `ProgressView(value: 0)`, which would otherwise look like a real "you've
+    /// played nothing here" result rather than "still loading."
+    private func topicRowPlaceholder(_ topic: GameTopic) -> some View {
+        HStack(spacing: Theme.Spacing.sm) {
+            ZStack {
+                Circle().fill(topic.color.opacity(0.18))
+                Image(systemName: topic.icon).foregroundStyle(topic.color)
+            }
+            .frame(width: 36, height: 36)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(topic.displayName).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.ink)
+                Capsule()
+                    .fill(Theme.subtleInk.opacity(0.15))
+                    .frame(height: 4)
+            }
+
+            Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk.opacity(0.3))
+        }
+        .padding(Theme.Spacing.sm)
+        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
     }
 }
 
