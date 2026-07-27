@@ -31,7 +31,6 @@ extension Flight {
         JourneyActivityAttributes.ContentState(
             status: status.rawValue,
             progress: progress,
-            timeRemainingLabel: countdownSummary,
             isReunion: isReunion,
             // Raw optionals, not the fabricating `scheduledDeparture`/`scheduledArrival`
             // computed properties (those fall back to `.now` when unknown) — see

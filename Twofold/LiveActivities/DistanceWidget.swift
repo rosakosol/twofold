@@ -15,6 +15,7 @@ import WidgetKit
 struct DistanceEntry: TimelineEntry {
     let date: Date
     let distanceLabel: String?
+    let isSameCity: Bool
     let myCity: String?
     let partnerCity: String?
     let myName: String
@@ -23,7 +24,7 @@ struct DistanceEntry: TimelineEntry {
 
 struct DistanceProvider: TimelineProvider {
     func placeholder(in context: Context) -> DistanceEntry {
-        DistanceEntry(date: .now, distanceLabel: "6,060 km", myCity: "Melbourne", partnerCity: "Singapore", myName: "You", partnerName: "Partner")
+        DistanceEntry(date: .now, distanceLabel: "6,060 km", isSameCity: false, myCity: "Melbourne", partnerCity: "Singapore", myName: "You", partnerName: "Partner")
     }
 
     func getSnapshot(in context: Context, completion: @escaping (DistanceEntry) -> Void) {
@@ -43,6 +44,7 @@ struct DistanceProvider: TimelineProvider {
         DistanceEntry(
             date: .now,
             distanceLabel: snapshot?.distanceLabel,
+            isSameCity: snapshot?.isSameCity ?? false,
             myCity: snapshot?.myCity,
             partnerCity: snapshot?.partnerCity,
             myName: snapshot?.myName ?? "You",
@@ -56,28 +58,31 @@ struct DistanceWidgetView: View {
 
     @Environment(\.widgetFamily) private var family
 
-    private func initial(_ name: String) -> String {
-        name.trimmingCharacters(in: .whitespaces).first.map { String($0).uppercased() } ?? "?"
-    }
-
-    /// Two overlapping bordered circles, each holding one person's initial — the same "you and
-    /// your partner" pairing AvatarView's overlap treatment shows elsewhere in the app, just
-    /// text-only. Accessory Lock Screen widgets render in a single system-applied tint
-    /// (`.accessory` widget rendering mode ignores custom colors), so this reads as an outline +
-    /// letter rather than anything resembling the real colored avatars.
-    private var initialsPair: some View {
-        HStack(spacing: -6) {
-            initialBadge(initial(entry.myName))
-            initialBadge(initial(entry.partnerName))
+    /// Big, non-overlapping circles either side of a heart — deliberately not the small
+    /// overlapping-avatar pairing `DistanceCompactWidget` uses; this is the whole content of the
+    /// widget's top row, not a compact accessory to some other primary element.
+    private var bigPairWithHeart: some View {
+        HStack(spacing: 6) {
+            PersonInitialBadge(letter: personInitial(entry.myName), size: 28)
+            Image(systemName: "heart.fill")
+                .font(.system(size: 11))
+            PersonInitialBadge(letter: personInitial(entry.partnerName), size: 28)
         }
     }
 
-    private func initialBadge(_ letter: String) -> some View {
-        ZStack {
-            Circle().strokeBorder(lineWidth: 1)
-            Text(letter).font(.system(size: 9, weight: .bold))
+    /// Distinguishes three states, not two: cities never set at all ("Add your home cities"),
+    /// set but identical ("We're together!" — `entry.isSameCity`, not just a near-zero distance),
+    /// and set with a real distance between them. `distanceLabel` alone can't tell the first two
+    /// apart — `WidgetSnapshotWriter` deliberately leaves it nil for a same-city couple too.
+    @ViewBuilder
+    private var distanceOrTogetherText: some View {
+        if entry.myCity == nil || entry.partnerCity == nil {
+            Text("Add your home cities")
+        } else if entry.isSameCity {
+            Text("We're together!")
+        } else if let distanceLabel = entry.distanceLabel {
+            Text(distanceLabel)
         }
-        .frame(width: 16, height: 16)
     }
 
     var body: some View {
@@ -90,37 +95,26 @@ struct DistanceWidgetView: View {
         .widgetURL(URL(string: "twofold://home"))
     }
 
-    @ViewBuilder
     private var accessoryRectangular: some View {
-        if let distanceLabel = entry.distanceLabel {
-            VStack(alignment: .leading, spacing: 1) {
-                HStack(spacing: 4) {
-                    initialsPair
-                    Text(distanceLabel).font(.headline)
-                }
-                if let myCity = entry.myCity, let partnerCity = entry.partnerCity {
-                    Text("\(myCity) ↔ \(partnerCity)")
-                        .font(.caption2)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                }
-            }
-        } else {
-            HStack(spacing: 4) {
-                initialsPair
-                Text("Add your home cities")
-            }
+        VStack(spacing: 2) {
+            bigPairWithHeart
+            distanceOrTogetherText
+                .font(.headline)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
         }
     }
 
-    /// The Lock Screen's single text-line slot — no room for the initials pair or the city
-    /// names, just the distance itself.
+    /// The Lock Screen's single text-line slot — no room for the initial badges, just the
+    /// distance/together text itself.
     @ViewBuilder
     private var accessoryInline: some View {
-        if let distanceLabel = entry.distanceLabel {
-            Label("\(distanceLabel) apart", systemImage: "arrow.left.and.right")
-        } else {
+        if entry.myCity == nil || entry.partnerCity == nil {
             Label("Add your home cities", systemImage: "arrow.left.and.right")
+        } else if entry.isSameCity {
+            Label("We're together!", systemImage: "heart.fill")
+        } else if let distanceLabel = entry.distanceLabel {
+            Label("\(distanceLabel) apart", systemImage: "arrow.left.and.right")
         }
     }
 }
@@ -143,11 +137,17 @@ struct DistanceWidget: Widget {
 #Preview(as: .accessoryRectangular) {
     DistanceWidget()
 } timeline: {
-    DistanceEntry(date: .now, distanceLabel: "6,060 km", myCity: "Melbourne", partnerCity: "Singapore", myName: "Rosa", partnerName: "Dara")
+    DistanceEntry(date: .now, distanceLabel: "6,060 km", isSameCity: false, myCity: "Melbourne", partnerCity: "Singapore", myName: "Rosa", partnerName: "Dara")
 }
 
 #Preview(as: .accessoryInline) {
     DistanceWidget()
 } timeline: {
-    DistanceEntry(date: .now, distanceLabel: "6,060 km", myCity: "Melbourne", partnerCity: "Singapore", myName: "Rosa", partnerName: "Dara")
+    DistanceEntry(date: .now, distanceLabel: "6,060 km", isSameCity: false, myCity: "Melbourne", partnerCity: "Singapore", myName: "Rosa", partnerName: "Dara")
+}
+
+#Preview("Same city", as: .accessoryRectangular) {
+    DistanceWidget()
+} timeline: {
+    DistanceEntry(date: .now, distanceLabel: nil, isSameCity: true, myCity: "Melbourne", partnerCity: "Melbourne", myName: "Rosa", partnerName: "Dara")
 }

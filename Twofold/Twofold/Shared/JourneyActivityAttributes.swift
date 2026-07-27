@@ -23,7 +23,6 @@ struct JourneyActivityAttributes: ActivityAttributes {
     public struct ContentState: Codable, Hashable {
         var status: FlightStatus.RawValue
         var progress: Double
-        var timeRemainingLabel: String
         var isReunion: Bool
 
         // Optional, not fabricated to `.now()` when unknown — a flight the provider hasn't

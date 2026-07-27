@@ -609,46 +609,6 @@ function computeProgress(row: FlightRow): number {
   return Math.min(1, Math.max(0, elapsed / (arr - dep)));
 }
 
-function formatRemaining(ms: number): string {
-  const totalSeconds = Math.max(0, Math.round(ms / 1000));
-  const days = Math.floor(totalSeconds / 86_400);
-  const hours = Math.floor((totalSeconds % 86_400) / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  if (days > 0) return `${days}d ${hours}h`;
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  return `${minutes}m`;
-}
-
-// Mirrors `Flight.countdownSummary` (Swift, in Twofold/Twofold/Models/Flight.swift) — a
-// deliberate small duplication so the server can push a label without a round-trip to the
-// client; keep the two formulas numerically consistent if either changes.
-function computeTimeRemainingLabel(row: FlightRow): string {
-  const now = Date.now();
-  if (row.status === "cancelled") return "Cancelled";
-  if (row.status === "diverted") return "Diverted";
-
-  const arrival = row.actual_in ?? row.estimated_in ?? row.scheduled_in;
-  if (row.status === "arrived" || row.status === "landed") {
-    return arrival ? `Arrived ${formatRemaining(now - new Date(arrival).getTime())} ago` : "Arrived";
-  }
-
-  // "boarding" deliberately excluded here — it means still at the gate, not yet departed, so
-  // it falls through to the departure countdown below instead of showing "Arrives in…" for a
-  // flight that hasn't taken off yet (same bug/fix as Flight.countdownSummary's Swift mirror).
-  if (["landing_soon", "in_air", "departed"].includes(row.status) && arrival) {
-    const arrivalMs = new Date(arrival).getTime();
-    if (arrivalMs > now) return `Arrives in ${formatRemaining(arrivalMs - now)}`;
-  }
-
-  const departure = row.actual_out ?? row.estimated_out ?? row.scheduled_out;
-  if (departure) {
-    const departureMs = new Date(departure).getTime();
-    return departureMs > now ? `Departs in ${formatRemaining(departureMs - now)}` : "Departing shortly";
-  }
-
-  return row.status;
-}
-
 // Must match JourneyActivityAttributes.ContentState's Swift property names verbatim (default
 // Codable camelCase, no CodingKeys) — every Date field goes through toCocoaTimestamp, since
 // that's what Swift's default JSONDecoder expects, NOT Unix epoch.
@@ -656,7 +616,6 @@ function computeLiveActivityContentState(row: FlightRow, isReunion: boolean): Re
   return {
     status: row.status,
     progress: computeProgress(row),
-    timeRemainingLabel: computeTimeRemainingLabel(row),
     isReunion,
     // null (not a fabricated `new Date()`) when the provider hasn't supplied any schedule data
     // yet — matches every other optional time field below, and lets the client render "not
@@ -992,7 +951,14 @@ export async function refreshOneFlight(serviceClient: SupabaseClient, flightRow:
 // 5-minute cron tick) — deriveFlightStatus() only ever reaches "landed"/"arrived" from actual_on/
 // actual_in, so without this fallback a flight the provider goes quiet on is stuck forever,
 // visibly wrong (still says "Landing soon") and never eligible to archive.
-const ARRIVAL_STATUS_OVERDUE_MS = 90 * 60 * 1000;
+//
+// Was 90 min — still long enough to read as "stuck for ages" on its own (a Live Activity showing
+// wrong "landing soon" content for up to an hour and a half past actual arrival). Now that
+// isDue() polls every 1 minute once a flight is past its best-known arrival with no confirmation
+// (see its own isOverdueForArrival branch), a *genuine* AeroAPI confirmation almost always lands
+// well before this fires — this is now purely the last-resort backstop for AeroAPI going quiet
+// forever on this flight, not the everyday path, so it can afford to be much tighter.
+const ARRIVAL_STATUS_OVERDUE_MS = 20 * 60 * 1000;
 
 function bestKnownArrivalMs(flight: FlightRow): number | null {
   const arrival = flight.actual_in ?? flight.estimated_in ?? flight.scheduled_in;

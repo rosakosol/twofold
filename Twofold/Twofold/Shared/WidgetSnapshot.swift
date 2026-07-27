@@ -92,6 +92,12 @@ struct WidgetSnapshot: Codable {
     /// extension's process, so the label has to be built app-side (WidgetSnapshotWriter) rather
     /// than recomputed here from a raw distance.
     var distanceLabel: String?
+    /// Same "same city" check `PersonalizedInsightView.sameCity` uses (city + country match) —
+    /// distinct from `distanceLabel == nil`, which instead means a home city isn't set at all.
+    /// The Distance widgets need to tell those two states apart: "add your home cities" vs.
+    /// "We're together!" are different messages for a couple who share a city, not just missing
+    /// data.
+    var isSameCity: Bool = false
     var anniversaryDate: Date?
     /// "plus"/"premium"/nil — nil means no active subscription at all (never locked out of
     /// free-tier widgets, same "plus is the safe default" rule as AppModel.subscriptionTier).
@@ -124,10 +130,10 @@ struct WidgetSnapshot: Codable {
 
     private static let suiteName = "group.com.orangefinch.Twofold"
     /// Bumped from v1 when isSubscriptionActive was replaced by subscriptionTier, from v2 when
-    /// trackedFlights was added, and from v3 when the drawing-pad public URLs were replaced by
-    /// signed ones — the key is versioned specifically so a shape change like this can't crash an
-    /// old cached read.
-    private static let key = "widgetSnapshot.v4"
+    /// trackedFlights was added, from v3 when the drawing-pad public URLs were replaced by
+    /// signed ones, and from v4 when isSameCity was added — the key is versioned specifically so
+    /// a shape change like this can't crash an old cached read.
+    private static let key = "widgetSnapshot.v5"
 
     private static var defaults: UserDefaults? {
         UserDefaults(suiteName: suiteName)

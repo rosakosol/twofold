@@ -21,5 +21,6 @@ struct LiveActivitiesBundle: WidgetBundle {
         DrawingPadWidget()
         SmartRotatingWidget()
         DistanceWidget()
+        DistanceCompactWidget()
     }
 }

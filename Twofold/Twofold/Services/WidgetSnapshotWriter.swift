@@ -47,8 +47,13 @@ enum WidgetSnapshotWriter {
         let myCity = appModel.currentUser.homeCity
         let partnerCity = appModel.partner.homeCity
 
+        // Mirrors `PersonalizedInsightView.sameCity`'s own check — city + country match, not
+        // just near-zero distance (two suburbs of the same city shouldn't misfire this, and a
+        // coordinate-only check would).
+        let isSameCity = myCity != nil && myCity?.city == partnerCity?.city && myCity?.country == partnerCity?.country
+
         var distanceLabel: String?
-        if let mine = myCity?.coordinate, let theirs = partnerCity?.coordinate {
+        if let mine = myCity?.coordinate, let theirs = partnerCity?.coordinate, !isSameCity {
             distanceLabel = MeasurementPreference.distanceLabel(km: Geo.distanceKm(mine, theirs))
         }
 
@@ -130,6 +135,7 @@ enum WidgetSnapshotWriter {
                 partnerCity: partnerCity?.displayCity,
                 partnerTimeZoneIdentifier: partnerCity?.timeZoneIdentifier,
                 distanceLabel: distanceLabel,
+                isSameCity: isSameCity,
                 anniversaryDate: appModel.couple.startedDatingOn,
                 subscriptionTier: appModel.subscriptionTier,
                 nextFlight: flightInfo,

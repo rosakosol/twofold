@@ -5,8 +5,9 @@
 // mass AeroAPI-billing run.
 //
 // Cadence (checked in TS against each row's scheduled_out/last_refreshed_at):
-//   - in the 10 minutes leading up to best-known departure, or leading up to best-known
-//     arrival: refresh if stale >1 min (the cron itself now fires every minute — see
+//   - in the 10 minutes leading up to best-known departure, leading up to best-known arrival, OR
+//     already past best-known arrival with no landed/arrived confirmation yet: refresh if stale
+//     >1 min (the cron itself now fires every minute — see
 //     20260826000000_flight_refresh_cron_every_minute.sql — specifically so this tier can
 //     actually act that fast; a 5-minute cron can't poll faster than every 5 minutes no
 //     matter how tight this threshold is)
@@ -60,15 +61,27 @@ function isDue(flight: FlightRow, now: number): boolean {
   const msToArrival = bestArrival ? new Date(bestArrival).getTime() - now : null;
   const isNearDeparture = msToDeparture >= 0 && msToDeparture <= NEAR_EVENT_WINDOW_MS;
   const isNearArrival = msToArrival !== null && msToArrival >= 0 && msToArrival <= NEAR_EVENT_WINDOW_MS;
-  if (isNearDeparture || isNearArrival) {
+  // Best-known arrival has already passed but AeroAPI hasn't confirmed landed/arrived yet — this
+  // is exactly the moment a "landed" transition (and the Live Activity "end" push it triggers) is
+  // imminent, so it needs the same tight cadence as the near-arrival window above, not whatever
+  // slower tier a non-terminal status would otherwise fall into. Without this, a flight that
+  // overran its ETA dropped out of isNearArrival (which requires msToArrival >= 0) right when it
+  // mattered most, and — after the isActive tier below was widened to 12 minutes — could sit
+  // showing stale "arriving soon" content for a while past actual touchdown before the next poll
+  // even looked for a status change. `reconcileOverdueArrival`'s own 20-minute force-correct is
+  // the hard backstop if AeroAPI itself never confirms; this is what makes catching a *timely*
+  // real confirmation likely well before that backstop ever has to fire.
+  const isOverdueForArrival = msToArrival !== null && msToArrival < 0;
+  if (isNearDeparture || isNearArrival || isOverdueForArrival) {
     return staleMs > 1 * 60 * 1000;
   }
 
-  // Reaching here means !isNearDeparture && !isNearArrival already (that branch returned above)
-  // — so an active flight at this point is genuinely mid-cruise (or boarding well before its own
-  // 10-minute near-departure window), not the moments right around takeoff/landing. AeroAPI's own
-  // answer barely moves between polls in this state (ETA/progress percent drift slowly), so this
-  // tier can afford to be far less aggressive than the near-event one above.
+  // Reaching here means !isNearDeparture && !isNearArrival && !isOverdueForArrival already (those
+  // branches returned above) — so an active flight at this point is genuinely mid-cruise (or
+  // boarding well before its own 10-minute near-departure window), not the moments right around
+  // takeoff/landing. AeroAPI's own answer barely moves between polls in this state (ETA/progress
+  // percent drift slowly), so this tier can afford to be far less aggressive than the near-event
+  // one above.
   const isActive = ACTIVE_STATUSES.includes(flight.status);
   if (isActive) {
     return staleMs > 12 * 60 * 1000;

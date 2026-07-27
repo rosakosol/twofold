@@ -38,7 +38,7 @@ struct JourneyLockScreenView: View {
             }
 
             VStack(alignment: .center, spacing: 2) {
-                Text(context.state.timeRemainingLabel)
+                journeyTimeRemainingText(context.state)
                     .font(.system(size: 24, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
                     .lineLimit(1)

@@ -37,7 +37,7 @@ struct JourneyLiveActivityWidget: Widget {
             } compactLeading: {
                 FlightIconWithProgressArc(icon: status?.icon ?? "airplane", status: status, progress: context.state.progress, size: 20)
             } compactTrailing: {
-                Text(context.state.timeRemainingLabel)
+                journeyTimeRemainingText(context.state)
                     .font(.caption2.monospacedDigit())
                     .minimumScaleFactor(0.8)
                     .lineLimit(1)
@@ -114,7 +114,6 @@ extension JourneyActivityAttributes.ContentState {
         JourneyActivityAttributes.ContentState(
             status: FlightStatus.inAir.rawValue,
             progress: 0.42,
-            timeRemainingLabel: "Arrives in 3h 20m",
             isReunion: true,
             scheduledDeparture: .now.addingTimeInterval(-3600 * 3),
             scheduledArrival: .now.addingTimeInterval(3600 * 4),
@@ -127,7 +126,6 @@ extension JourneyActivityAttributes.ContentState {
         JourneyActivityAttributes.ContentState(
             status: FlightStatus.landingSoon.rawValue,
             progress: 0.92,
-            timeRemainingLabel: "Arrives in 22m",
             isReunion: true,
             scheduledDeparture: .now.addingTimeInterval(-3600 * 6),
             scheduledArrival: .now.addingTimeInterval(60 * 22),
