@@ -227,14 +227,44 @@ Deno.serve(async (req) => {
   // "scheduled" is nothing further to derive.
   const status = aeroFlight ? deriveFlightStatus(aeroFlight) : mapped.status;
 
+  // Neither AeroAPI's /flights response nor a pending candidate carries a country — resolved
+  // instead against our own `airports` reference table (already the source of truth the in-app
+  // airport search uses, and already how resolveAirportCity prefers a curated city over AeroAPI's
+  // own). Flight-level so domestic/international/countries stats work for every tracked flight,
+  // not only ones linked to a Trip. Best-effort: a failed/missing lookup just leaves it null.
+  let originCountry: string | null = null;
+  let destinationCountry: string | null = null;
+  try {
+    const originCode = mapped.origin_iata ?? mapped.origin_icao;
+    if (originCode) {
+      const { data } = await serviceClient.from("airports").select("country").or(`iata.eq.${originCode},icao.eq.${originCode}`).limit(1)
+        .maybeSingle();
+      originCountry = data?.country ?? null;
+    }
+  } catch (err) {
+    console.error("[add-flight] origin country lookup threw:", (err as Error).message);
+  }
+  try {
+    const destCode = mapped.destination_iata ?? mapped.destination_icao;
+    if (destCode) {
+      const { data } = await serviceClient.from("airports").select("country").or(`iata.eq.${destCode},icao.eq.${destCode}`).limit(1)
+        .maybeSingle();
+      destinationCountry = data?.country ?? null;
+    }
+  } catch (err) {
+    console.error("[add-flight] destination country lookup threw:", (err as Error).message);
+  }
+
   const { data: inserted, error: insertErr } = await serviceClient
     .from("flights")
     .insert({
       ...mapped,
       origin_latitude: originLatitude,
       origin_longitude: originLongitude,
+      origin_country: originCountry,
       destination_latitude: destinationLatitude,
       destination_longitude: destinationLongitude,
+      destination_country: destinationCountry,
       status,
       couple_id: couple.id,
       trip_id: input.tripId ?? null,

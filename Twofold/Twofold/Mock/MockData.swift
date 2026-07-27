@@ -32,8 +32,8 @@ enum MockData {
             flightNumberIATA: "QF35",
             airlineName: "Qantas",
             airlineCode: "QF",
-            origin: FlightAirport(iata: singapore.iataCode, name: nil, city: singapore.city, timezone: singapore.timeZoneIdentifier, latitude: singapore.latitude, longitude: singapore.longitude),
-            destination: FlightAirport(iata: melbourne.iataCode, name: nil, city: melbourne.city, timezone: melbourne.timeZoneIdentifier, latitude: melbourne.latitude, longitude: melbourne.longitude),
+            origin: FlightAirport(iata: singapore.iataCode, name: nil, city: singapore.city, timezone: singapore.timeZoneIdentifier, latitude: singapore.latitude, longitude: singapore.longitude, country: singapore.country),
+            destination: FlightAirport(iata: melbourne.iataCode, name: nil, city: melbourne.city, timezone: melbourne.timeZoneIdentifier, latitude: melbourne.latitude, longitude: melbourne.longitude, country: melbourne.country),
             scheduledOut: departure,
             scheduledIn: arrival,
             actualOut: departure,
@@ -64,8 +64,8 @@ enum MockData {
         let day = Calendar.current.date(byAdding: .day, value: -80, to: .now) ?? .now
         return Flight(
             flightNumberIATA: "QF34",
-            origin: FlightAirport(iata: melbourne.iataCode, name: nil, city: melbourne.city, timezone: melbourne.timeZoneIdentifier, latitude: melbourne.latitude, longitude: melbourne.longitude),
-            destination: FlightAirport(iata: singapore.iataCode, name: nil, city: singapore.city, timezone: singapore.timeZoneIdentifier, latitude: singapore.latitude, longitude: singapore.longitude),
+            origin: FlightAirport(iata: melbourne.iataCode, name: nil, city: melbourne.city, timezone: melbourne.timeZoneIdentifier, latitude: melbourne.latitude, longitude: melbourne.longitude, country: melbourne.country),
+            destination: FlightAirport(iata: singapore.iataCode, name: nil, city: singapore.city, timezone: singapore.timeZoneIdentifier, latitude: singapore.latitude, longitude: singapore.longitude, country: singapore.country),
             scheduledOut: day,
             scheduledIn: day,
             actualOut: day,

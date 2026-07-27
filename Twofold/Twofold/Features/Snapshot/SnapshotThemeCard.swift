@@ -20,7 +20,7 @@ struct SnapshotThemeCard: View {
     var earthGlobeImage: UIImage? = nil
 
     private var flightStats: FlightStats {
-        FlightStats(flights: flights, trips: trips, couple: couple)
+        FlightStats(flights: flights, couple: couple)
     }
 
     var body: some View {

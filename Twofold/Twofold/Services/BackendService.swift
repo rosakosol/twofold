@@ -1452,6 +1452,7 @@ enum BackendService {
         var originTimezone: String?
         var originLatitude: Double?
         var originLongitude: Double?
+        var originCountry: String?
         var destinationIata: String?
         var destinationIcao: String?
         var destinationName: String?
@@ -1459,6 +1460,7 @@ enum BackendService {
         var destinationTimezone: String?
         var destinationLatitude: Double?
         var destinationLongitude: Double?
+        var destinationCountry: String?
         var aircraftType: String?
         var registration: String?
         var route: String?
@@ -1514,6 +1516,7 @@ enum BackendService {
             case originTimezone = "origin_timezone"
             case originLatitude = "origin_latitude"
             case originLongitude = "origin_longitude"
+            case originCountry = "origin_country"
             case destinationIata = "destination_iata"
             case destinationIcao = "destination_icao"
             case destinationName = "destination_name"
@@ -1521,6 +1524,7 @@ enum BackendService {
             case destinationTimezone = "destination_timezone"
             case destinationLatitude = "destination_latitude"
             case destinationLongitude = "destination_longitude"
+            case destinationCountry = "destination_country"
             case aircraftType = "aircraft_type"
             case scheduledOut = "scheduled_out"
             case scheduledOff = "scheduled_off"
@@ -1567,8 +1571,8 @@ enum BackendService {
             airlineName: row.airlineName,
             airlineCode: row.airlineCode,
             airlineLogoURL: row.airlineLogoUrl.flatMap(URL.init(string:)),
-            origin: FlightAirport(iata: row.originIata, icao: row.originIcao, name: row.originName, city: row.originCity, timezone: row.originTimezone, latitude: row.originLatitude, longitude: row.originLongitude),
-            destination: FlightAirport(iata: row.destinationIata, icao: row.destinationIcao, name: row.destinationName, city: row.destinationCity, timezone: row.destinationTimezone, latitude: row.destinationLatitude, longitude: row.destinationLongitude),
+            origin: FlightAirport(iata: row.originIata, icao: row.originIcao, name: row.originName, city: row.originCity, timezone: row.originTimezone, latitude: row.originLatitude, longitude: row.originLongitude, country: row.originCountry),
+            destination: FlightAirport(iata: row.destinationIata, icao: row.destinationIcao, name: row.destinationName, city: row.destinationCity, timezone: row.destinationTimezone, latitude: row.destinationLatitude, longitude: row.destinationLongitude, country: row.destinationCountry),
             aircraftType: row.aircraftType,
             registration: row.registration,
             route: row.route,

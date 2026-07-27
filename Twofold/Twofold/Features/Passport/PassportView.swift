@@ -35,7 +35,6 @@ struct PassportView: View {
     private var flightStats: FlightStats {
         FlightStats(
             flights: appModel.flights.filter { $0.travelerIDs.contains(appModel.currentUser.id) },
-            trips: appModel.trips,
             couple: appModel.couple
         )
     }
@@ -107,16 +106,7 @@ private struct FullStatsView: View {
     @Environment(AppModel.self) private var appModel
     @Environment(\.displayScale) private var displayScale
     @State private var scope: StatScope = .all
-
-    /// Only for `hero`'s reunion-distance figure below, which is genuinely a trip-level concept
-    /// ("reunion trip") — `stats` itself is scoped by `scopedFlights`, not this.
-    private var scopedTrips: [Trip] {
-        switch scope {
-        case .all: appModel.trips
-        case .user: appModel.trips.filter { $0.travelerIDs.contains(appModel.currentUser.id) }
-        case .partner: appModel.trips.filter { $0.travelerIDs.contains(appModel.partner.id) }
-        }
-    }
+    @State private var showAllCountries = false
 
     /// Scoped by each flight's own `travelerIDs` — independent of whether that flight has a
     /// linked trip, or what that trip's own (separate) `travelerIDs` says.
@@ -129,7 +119,7 @@ private struct FullStatsView: View {
     }
 
     private var stats: FlightStats {
-        FlightStats(flights: scopedFlights, trips: appModel.trips, couple: appModel.couple)
+        FlightStats(flights: scopedFlights, couple: appModel.couple)
     }
 
     var body: some View {
@@ -164,12 +154,7 @@ private struct FullStatsView: View {
                     unit: "total routes",
                     ranked: stats.routes
                 )
-                rankedSection(
-                    title: "Countries & Territories",
-                    total: stats.countries.count,
-                    unit: "total",
-                    ranked: stats.countries
-                )
+                countriesSection
             }
             .padding(Theme.Spacing.md)
         }
@@ -193,12 +178,10 @@ private struct FullStatsView: View {
                 .font(.headline)
                 .foregroundStyle(Theme.subtleInk)
 
-            // Reunion-only, same as AppModel.stats.totalDistanceKm — see that property's comment.
-            // Kept reunion-scoped across all three Who tabs (not just "All"), so switching scope
-            // only changes *whose* reunion travel is being measured, never what's being measured.
-            // `effectiveDistanceKm`, not the raw `distanceKm`, so a connecting itinerary's real
-            // flown distance counts.
-            Text("\(Text(MeasurementPreference.convertedValue(km: scopedTrips.filter { $0.isReunionTrip }.reduce(0) { $0 + $1.effectiveDistanceKm }), format: .number.precision(.fractionLength(0))).font(.system(size: 44, weight: .bold, design: .rounded)).foregroundStyle(Theme.skyBlue))\(Text(" \(MeasurementPreference.unitSuffix())").font(.title.weight(.bold)).foregroundStyle(Theme.leafGreen))")
+            // Flight-based (same figure as `distanceSection` below), not trip/reunion-based — a
+            // tracked flight should count toward "how far you've travelled" whether or not it's
+            // linked to a Trip at all (most aren't; see `FlightStats.init`'s own comment).
+            Text("\(Text(MeasurementPreference.convertedValue(km: stats.totalDistanceKm), format: .number.precision(.fractionLength(0))).font(.system(size: 44, weight: .bold, design: .rounded)).foregroundStyle(Theme.skyBlue))\(Text(" \(MeasurementPreference.unitSuffix())").font(.title.weight(.bold)).foregroundStyle(Theme.leafGreen))")
 
             if scope == .all {
                 Text(appModel.couple.sharesHomeCity ? "together" : "for each other")
@@ -265,6 +248,67 @@ private struct FullStatsView: View {
                 }
             }
         }
+    }
+
+    /// Number of distinct countries visited per `CountryRegion` — always all nine regions, in
+    /// `CountryRegion.allCases`'s order, zero-filled for a region with nothing visited yet so the
+    /// grid below never reflows around a missing tile.
+    private var regionCounts: [(region: CountryRegion, count: Int)] {
+        var counts: [CountryRegion: Int] = [:]
+        for country in stats.countries {
+            guard let region = CountryRegion.region(for: country.name) else { continue }
+            counts[region, default: 0] += 1
+        }
+        return CountryRegion.allCases.map { ($0, counts[$0] ?? 0) }
+    }
+
+    /// Unlike the other `rankedSection`s (always top-3), the country list shows up to 5 with a
+    /// "Show more" toggle, plus a fixed 3x3 region grid underneath — countries are the one
+    /// breakdown worth seeing in full, not just a top-N taste.
+    private var countriesSection: some View {
+        shareableCard(title: "Countries & Territories", value: "\(stats.countries.count)", unit: "total") {
+            if !stats.countries.isEmpty {
+                VStack(spacing: Theme.Spacing.sm) {
+                    ForEach(stats.countries.prefix(showAllCountries ? stats.countries.count : 5)) { entry in
+                        breakdownRow(label: entry.name, value: "×\(entry.count)")
+                    }
+                    if stats.countries.count > 5 {
+                        Button(showAllCountries ? "Show less" : "Show more") {
+                            withAnimation { showAllCountries.toggle() }
+                        }
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Theme.skyBlue)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+
+                Divider()
+
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: Theme.Spacing.sm), count: 3), spacing: Theme.Spacing.sm) {
+                    ForEach(regionCounts, id: \.region) { entry in
+                        regionTile(region: entry.region, count: entry.count)
+                    }
+                }
+            }
+        }
+    }
+
+    private func regionTile(region: CountryRegion, count: Int) -> some View {
+        VStack(spacing: 2) {
+            Text("\(count)")
+                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .foregroundStyle(count > 0 ? Theme.ink : Theme.subtleInk.opacity(0.4))
+            Text(region.rawValue)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(Theme.subtleInk)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.8)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, Theme.Spacing.sm)
+        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: Card scaffolding + sharing
@@ -420,30 +464,24 @@ struct FlightStats {
     /// Flights longer than this count as long haul.
     private static let longHaulKm = 4_000.0
 
-    /// `flights` drives every stat except domestic/international/countries — a tracked flight
-    /// counts here whether or not it's linked to a trip, and regardless of that trip's own
-    /// `travelerIDs` (this used to be built from `trips` alone, which meant a standalone flight
-    /// never counted at all, and a trip-linked one silently didn't count for whichever partner
-    /// wasn't marked as a *trip* traveler even if they were correctly marked as a *flight*
-    /// traveler — two independent fields that were never kept in sync). `trips` is passed
-    /// separately purely as a lookup table: domestic/international/countries need a real country,
-    /// which a raw `Flight`/`FlightAirport` (an AeroAPI or self-reported snapshot) never carries —
-    /// only a linked trip's own curated `Place` does. A flight with no trip, or whose trip isn't
-    /// in `trips`, simply doesn't contribute to those three specific breakdowns; every other stat
-    /// below still counts it fully.
-    init(flights: [Flight], trips: [Trip], couple: Couple) {
+    /// Every stat here — including domestic/international/countries — is computed straight from
+    /// `flights` alone, whether or not any of them are linked to a Trip. Country comes from each
+    /// flight's own `FlightAirport.country`, resolved server-side against the `airports`
+    /// reference table when the flight was tracked (see add-flight/index.ts) — never from a
+    /// linked trip's `Place`. A flight whose airport(s) aren't in that reference table (rare)
+    /// just doesn't contribute to these three breakdowns; every other stat below still counts it.
+    init(flights: [Flight], couple: Couple) {
         flightCount = flights.count
         userFlightCount = flights.count { $0.travelerIDs.contains(couple.partnerA.id) }
         partnerFlightCount = flights.count { $0.travelerIDs.contains(couple.partnerB.id) }
 
-        // Each linked trip counted once (not once per leg) — matches how a trip's own stated
-        // origin/destination represents the *overall* journey, same granularity `hero`'s
-        // reunion-distance figure elsewhere in this file uses.
-        let tripsByID = Dictionary(uniqueKeysWithValues: trips.map { ($0.id, $0) })
-        let linkedTrips = Set(flights.compactMap(\.tripID)).compactMap { tripsByID[$0] }
-        domesticCount = linkedTrips.count { $0.origin.country == $0.destination.country }
-        internationalCount = linkedTrips.count { $0.origin.country != $0.destination.country }
-        countries = Self.ranked(linkedTrips.flatMap { [$0.origin.country, $0.destination.country] })
+        let flightCountries = flights.compactMap { flight -> (String, String)? in
+            guard let origin = flight.origin.country, let destination = flight.destination.country else { return nil }
+            return (origin, destination)
+        }
+        domesticCount = flightCountries.count { $0.0 == $0.1 }
+        internationalCount = flightCountries.count { $0.0 != $0.1 }
+        countries = Self.ranked(flightCountries.flatMap { [$0.0, $0.1] })
 
         // Each flight's own great-circle distance, not a trip's `effectiveDistanceKm` — "long
         // haul" is naturally about a single flight, and a standalone long flight with no trip

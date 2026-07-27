@@ -167,12 +167,15 @@ struct RelationshipStatsCard: View {
                     .foregroundStyle(Theme.ink)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
-                if let detail {
-                    Text(detail)
-                        .font(.caption2)
-                        .foregroundStyle(Theme.subtleInk)
-                        .lineLimit(1)
-                }
+                // Always reserve the detail line's height (even when there's no detail) so every
+                // tile in the grid ends up the same height — some milestones (reunions, longest
+                // separation) never have a detail string, which otherwise made their tiles shorter
+                // than their row neighbors.
+                Text(detail ?? " ")
+                    .font(.caption2)
+                    .foregroundStyle(Theme.subtleInk)
+                    .lineLimit(1)
+                    .opacity(detail == nil ? 0 : 1)
             }
             Spacer(minLength: 0)
         }

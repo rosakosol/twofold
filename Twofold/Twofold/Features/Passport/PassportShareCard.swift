@@ -26,7 +26,7 @@ struct PassportShareCard: View {
 }
 
 #Preview {
-    PassportShareCard(stats: FlightStats(flights: MockData.trips.flatMap(\.flights), trips: MockData.trips, couple: MockData.couple))
+    PassportShareCard(stats: FlightStats(flights: MockData.trips.flatMap(\.flights), couple: MockData.couple))
         .padding()
         .background(Color.black)
 }

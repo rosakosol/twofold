@@ -134,7 +134,7 @@ struct FlightStatsCard: View {
 }
 
 #Preview {
-    FlightStatsCard(stats: FlightStats(flights: MockData.trips.flatMap(\.flights), trips: MockData.trips, couple: MockData.couple)) {}
+    FlightStatsCard(stats: FlightStats(flights: MockData.trips.flatMap(\.flights), couple: MockData.couple)) {}
         .padding()
         .background(Theme.backgroundGradient)
 }

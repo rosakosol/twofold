@@ -23,6 +23,10 @@ struct FlightAirport: Hashable, Codable {
     var timezone: String?
     var latitude: Double?
     var longitude: Double?
+    /// Resolved server-side against the `airports` reference table at flight-creation time (see
+    /// add-flight/index.ts) — never provided by AeroAPI itself. Lets flight stats compute
+    /// domestic/international/countries directly per flight, with no dependency on a linked Trip.
+    var country: String?
 
     var coordinate: CLLocationCoordinate2D? {
         guard let latitude, let longitude else { return nil }
