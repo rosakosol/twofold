@@ -23,6 +23,7 @@ struct GameResultsView: View {
 
     @Environment(AppModel.self) private var appModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
     @State private var revealedCount = 0
     @State private var confettiTrigger = false
     @State private var isResettingDeck = false
@@ -359,9 +360,15 @@ struct GameResultsView: View {
             // the screen's own pale gradient — a visible edge gives it real separation instead of
             // relying on a subtle fill alone. A non-matching card's border is the same blue-to-
             // green `Theme.selectionGradient` the "Your turn"/"Answered"/"New" filter pills and
-            // `DeckCardRow`'s own incomplete-card border use.
+            // `DeckCardRow`'s own incomplete-card border use, but only in dark mode — light mode
+            // keeps the original plain neutral edge, same reasoning as `DeckCardRow`'s.
             RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                .strokeBorder(matched ? AnyShapeStyle(Theme.leafGreen.opacity(0.5)) : AnyShapeStyle(Theme.selectionGradient.opacity(0.6)), lineWidth: matched ? 1.5 : 1.25)
+                .strokeBorder(
+                    matched
+                        ? AnyShapeStyle(Theme.leafGreen.opacity(0.5))
+                        : (colorScheme == .dark ? AnyShapeStyle(Theme.selectionGradient.opacity(0.6)) : AnyShapeStyle(Theme.subtleInk.opacity(0.25))),
+                    lineWidth: matched ? 1.5 : 1.25
+                )
         }
         .animation(.easeOut(duration: 0.4), value: matched)
         .overlay(alignment: .topTrailing) {

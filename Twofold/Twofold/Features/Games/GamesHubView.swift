@@ -20,6 +20,7 @@ private struct BrowseRoute: Identifiable, Hashable {
 
 struct GamesHubView: View {
     @Environment(AppModel.self) private var appModel
+    @Environment(\.colorScheme) private var colorScheme
     @State private var browseRoute: BrowseRoute?
     /// Tapping a locked (partner-required) card opens this rather than doing nothing — a lock
     /// badge with no tap action just teaches people the card is broken. Goes straight to
@@ -95,10 +96,14 @@ struct GamesHubView: View {
                         .foregroundStyle(Theme.ink)
                         .background(Theme.cardBackground, in: Capsule())
                         // Same blue-to-green accent pair as `Theme.selectionGradient` — a plain
-                        // flat fill left these three pills with no edge of their own at all,
-                        // reading as one undifferentiated bar rather than three distinct filters.
+                        // flat fill left these three pills with no edge of their own at all in
+                        // dark mode, reading as one undifferentiated bar rather than three
+                        // distinct filters. Light mode already reads fine against its own pale
+                        // background without a border, so this stays dark-mode-only.
                         .overlay {
-                            Capsule().strokeBorder(Theme.selectionGradient.opacity(0.6), lineWidth: 1.25)
+                            if colorScheme == .dark {
+                                Capsule().strokeBorder(Theme.selectionGradient.opacity(0.6), lineWidth: 1.25)
+                            }
                         }
                 }
                 .buttonStyle(.plain)
@@ -134,30 +139,32 @@ struct GamesHubView: View {
         return counts
     }
 
-    /// All 4 game types in a 2x2 grid — replaces the old Compete/Connect split, which grouped
-    /// them by a category nobody outside this screen ever saw or needed.
+    /// All 4 game types in one swipeable row — replaces the old Compete/Connect split, which
+    /// grouped them by a category nobody outside this screen ever saw or needed.
     private var gameTypesSection: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             Text("Game Types")
                 .font(.title3.weight(.bold))
                 .foregroundStyle(Theme.ink)
 
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: Theme.Spacing.sm), GridItem(.flexible())], spacing: Theme.Spacing.sm) {
-                ForEach(GameType.allCases) { gameType in
-                    if appModel.partnerConnected || !gameType.requiresPartner {
-                        NavigationLink {
-                            GameTypeDecksView(gameType: gameType)
-                        } label: {
-                            GameCard(gameType: gameType)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: Theme.Spacing.sm) {
+                    ForEach(GameType.allCases) { gameType in
+                        if appModel.partnerConnected || !gameType.requiresPartner {
+                            NavigationLink {
+                                GameTypeDecksView(gameType: gameType)
+                            } label: {
+                                GameCard(gameType: gameType, width: 220)
+                            }
+                            .buttonStyle(.plain)
+                        } else {
+                            Button {
+                                showingPartnerGate = true
+                            } label: {
+                                GameCard(gameType: gameType, width: 220, isLocked: true)
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
-                    } else {
-                        Button {
-                            showingPartnerGate = true
-                        } label: {
-                            GameCard(gameType: gameType, isLocked: true)
-                        }
-                        .buttonStyle(.plain)
                     }
                 }
             }

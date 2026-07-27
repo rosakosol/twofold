@@ -135,13 +135,14 @@ struct AllDecksBrowseView: View {
                 .padding(.horizontal, Theme.Spacing.md)
                 .padding(.vertical, Theme.Spacing.xs)
                 // The solid blue `Theme.primaryButtonGradient` fill read fine in light mode, but
-                // sitting next to dark mode's now-washed unselected pills it looked like a
-                // completely different control — dark mode keeps both selected and unselected on
-                // the same dark-wash fill/`Theme.ink` text, distinguishing selected only by a
-                // bolder, fully-opaque border instead of a different fill treatment.
+                // sitting next to dark mode's other washed cards it looked like a completely
+                // different control — dark mode gives selected the same dark-wash fill those use
+                // instead, distinguished by a bolder, fully-opaque border. Unselected stays flat
+                // dark gray (`Theme.cardBackground`, no wash) in both appearances — only the
+                // border below is dark-mode-specific.
                 .foregroundStyle(isSelected && colorScheme != .dark ? .white : Theme.ink)
                 .background {
-                    if colorScheme == .dark {
+                    if isSelected && colorScheme == .dark {
                         ZStack {
                             Theme.cardBackground
                             Theme.cardGradientDark

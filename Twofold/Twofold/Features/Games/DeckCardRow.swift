@@ -30,6 +30,7 @@ struct DeckCardRow: View {
     var showsTopicPill = false
 
     @Environment(AppModel.self) private var appModel
+    @Environment(\.colorScheme) private var colorScheme
     @State private var showingPremiumGate = false
     /// Tapping a locked (partner-required) card opens this rather than doing nothing — a lock
     /// badge with no tap action just teaches people the card is broken. Premium-lock keeps
@@ -149,10 +150,16 @@ struct DeckCardRow: View {
             // background on its own — a green edge (instead of the generic neutral one) gives
             // it real separation and doubles as a second "done" cue alongside the checkmark tick.
             // An incomplete card's border is the same blue-to-green `Theme.selectionGradient` the
-            // "Your turn"/"Answered"/"New" filter pills use, rather than a color tied to this
-            // specific deck's own topic/game type.
+            // "Your turn"/"Answered"/"New" filter pills use, but only in dark mode — light mode
+            // already reads fine against its own pale background with the original plain neutral
+            // edge, and the gradient there just looked like stray color with no real purpose.
             RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                .strokeBorder(bothCompleted ? AnyShapeStyle(Theme.leafGreen.opacity(0.5)) : AnyShapeStyle(Theme.selectionGradient.opacity(0.6)), lineWidth: bothCompleted ? 1.5 : 1.25)
+                .strokeBorder(
+                    bothCompleted
+                        ? AnyShapeStyle(Theme.leafGreen.opacity(0.5))
+                        : (colorScheme == .dark ? AnyShapeStyle(Theme.selectionGradient.opacity(0.6)) : AnyShapeStyle(Theme.subtleInk.opacity(0.12))),
+                    lineWidth: bothCompleted ? 1.5 : 1.25
+                )
         }
         // Same scrim + corner lock badge + "Partner required" capsule `GameCard` already uses
         // for its own locked state — one visual vocabulary for "needs a partner" everywhere in

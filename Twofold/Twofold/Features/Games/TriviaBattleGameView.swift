@@ -33,7 +33,15 @@ struct TriviaBattleGameView: View {
     /// round's `.id()`) is derived from, so without this the round-advance transition would tear
     /// this view down before the tapped option's checkmark/highlight below ever got a frame to
     /// render. Mirrors `SwipeChoiceCard.fly()`'s deferred-action pattern, same underlying reason.
-    @State private var chosenOption: String?
+    ///
+    /// Tagged with the round it was chosen for — this is held for a beat *after* `store.submit`
+    /// has already advanced `displayedRound` to the *next* round (see `submit(round:value:isCorrect:)`),
+    /// so a bare `String?` briefly compared the previous round's chosen text against the new
+    /// round's completely different options: never equal, so every option in the fresh round
+    /// evaluated as "answered, but not this one" and dimmed for a frame before snapping back to
+    /// full color once this cleared. Checking the round id too means a stale value from the
+    /// previous round is simply ignored once the new one mounts.
+    @State private var chosenOption: (roundID: UUID, value: String)?
 
     private var myID: UUID { appModel.currentUser.id }
     private var partnerID: UUID { appModel.partner.id }
@@ -219,10 +227,11 @@ struct TriviaBattleGameView: View {
                 ForEach(Array(orderedOptions(round: round, question: question).enumerated()), id: \.offset) { index, option in
                     let style = Self.optionStyles[index % Self.optionStyles.count]
                     let previousAnswer = store.myResponse(for: round, myID: myID)?.answerValue
-                    // `chosenOption` wins while a submit is being held (see its own doc comment)
-                    // — `previousAnswer` only catches up once the deferred `store.submit` below
-                    // actually runs.
-                    let effectiveAnswer = chosenOption ?? previousAnswer
+                    // `chosenOption` wins while a submit is being held for *this* round (see its
+                    // own doc comment) — `previousAnswer` only catches up once the deferred
+                    // `store.submit` below actually runs, and is also what applies once a stale
+                    // `chosenOption` from the *previous* round no longer matches `round.id`.
+                    let effectiveAnswer = (chosenOption?.roundID == round.id ? chosenOption?.value : nil) ?? previousAnswer
                     let wasPreviouslyChosen = effectiveAnswer == option
                     // Revisiting an already-answered question via the back button — every other
                     // option desaturates so the one actually picked stands out clearly, instead
@@ -279,7 +288,7 @@ struct TriviaBattleGameView: View {
     private func submit(round: GameSessionRound, value: String, isCorrect: Bool) {
         hapticTrigger.toggle()
         isSubmitting = true
-        chosenOption = value
+        chosenOption = (round.id, value)
         Task {
             // Held briefly so the tapped option's checkmark/highlight actually gets a frame on
             // screen before `store.submit`'s optimistic update advances `displayedRound` and
