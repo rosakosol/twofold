@@ -35,6 +35,10 @@ struct SettingsView: View {
     @State private var appLock = AppLockService()
     @State private var isAuthenticatingLockToggle = false
     @State private var showingLockEnabledConfirmation = false
+    /// `PartnerSetupView` owns its own `NavigationStack` (it's shared with Home's pre-connection
+    /// entry point, which presents it as a sheet) — pushing it via `NavigationLink` onto this
+    /// screen's stack would nest two `NavigationStack`s, which SwiftUI doesn't support.
+    @State private var showingPartnerSetup = false
 
     var body: some View {
         NavigationStack {
@@ -59,8 +63,8 @@ struct SettingsView: View {
 
                         Divider()
 
-                        NavigationLink {
-                            PartnerSetupView()
+                        Button {
+                            showingPartnerSetup = true
                         } label: {
                             SettingsRow(
                                 title: appModel.partnerConnected ? "About your partner" : "Connect with your partner",
@@ -270,6 +274,10 @@ struct SettingsView: View {
             .sheet(isPresented: $showingLockEnabledConfirmation) {
                 AppLockEnabledConfirmationView(methodName: appLock.methodName)
                     .presentationDetents([.medium])
+            }
+            .sheet(isPresented: $showingPartnerSetup) {
+                PartnerSetupView()
+                    .postHogScreenView("Settings: Partner Setup")
             }
         }
     }

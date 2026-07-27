@@ -142,6 +142,33 @@ final class AppModel {
     /// double-inserting it server-side and leaving a duplicate local copy.
     private var inFlightAdopt: Task<Void, Never>?
 
+    /// Optimistic edits to `flights`/`trips`/`memories` still awaiting their network write.
+    /// `refreshFlights()`/`refreshTrips()`/`refreshMemories()` each do a full overwrite of their
+    /// array from the server — and any of them can run concurrently with one of these writes,
+    /// since they're also triggered independently by the couple-wide flights realtime
+    /// subscription and by Home's own tab-switch/foreground refresh. A refresh landing in that
+    /// window fetches server state that doesn't reflect the write yet, silently reverting the
+    /// edit (e.g. an unlinked flight looking linked again) until the next refresh happens to
+    /// catch up. Re-applied after every full-array overwrite until the write they belong to
+    /// finishes — same fix as the one already in `GameSessionStore.refresh()`.
+    private var inFlightMutations: [UUID: () -> Void] = [:]
+
+    private func trackInFlightMutation(_ reapply: @escaping () -> Void) -> UUID {
+        let id = UUID()
+        inFlightMutations[id] = reapply
+        return id
+    }
+
+    private func clearInFlightMutation(_ id: UUID) {
+        inFlightMutations.removeValue(forKey: id)
+    }
+
+    private func reapplyInFlightMutations() {
+        for reapply in inFlightMutations.values {
+            reapply()
+        }
+    }
+
     var currentUser: Person { couple.partnerA }
     var partner: Person { couple.partnerB }
 
@@ -1048,6 +1075,7 @@ final class AppModel {
             for index in trips.indices {
                 trips[index].flights = fresh.filter { $0.tripID == trips[index].id }
             }
+            reapplyInFlightMutations()
             await LiveActivityManager.shared.reconcileOnLaunch(with: fresh)
             await LiveActivityManager.shared.syncActivities(
                 for: fresh,
@@ -1070,6 +1098,7 @@ final class AppModel {
         guard let backendCoupleID else { return }
         if let fresh = try? await BackendService.fetchMemories(coupleID: backendCoupleID) {
             memories = fresh
+            reapplyInFlightMutations()
         }
     }
 
@@ -1085,6 +1114,7 @@ final class AppModel {
                 fresh[index].flights = flights.filter { $0.tripID == fresh[index].id }
             }
             trips = fresh
+            reapplyInFlightMutations()
         }
     }
 
@@ -1129,6 +1159,11 @@ final class AppModel {
     func updateTripNotes(_ trip: Trip) async {
         guard let index = trips.firstIndex(where: { $0.id == trip.id }) else { return }
         trips[index].notes = trip.notes
+        let mutationID = trackInFlightMutation { [weak self] in
+            guard let self, let index = self.trips.firstIndex(where: { $0.id == trip.id }) else { return }
+            self.trips[index].notes = trip.notes
+        }
+        defer { clearInFlightMutation(mutationID) }
         try? await BackendService.updateTripNotes(tripID: trip.id, notes: trip.notes)
     }
 
@@ -1142,10 +1177,21 @@ final class AppModel {
         updated.distanceKm = Geo.distanceKm(trip.origin.coordinate, trip.destination.coordinate)
         updated.flights = trips[index].flights
         trips[index] = updated
+        let mutationID = trackInFlightMutation { [weak self] in
+            guard let self, let index = self.trips.firstIndex(where: { $0.id == trip.id }) else { return }
+            var reapplied = updated
+            reapplied.flights = self.trips[index].flights
+            self.trips[index] = reapplied
+        }
+        defer { clearInFlightMutation(mutationID) }
         try? await BackendService.updateTrip(updated)
     }
 
     func deleteTrip(_ trip: Trip) async {
+        // Captured before the removal below so a failed delete can put both back exactly as
+        // they were, rather than leaving the trip permanently gone from the UI while the row
+        // still exists server-side.
+        let affectedFlightIDs = Set(flights.filter { $0.tripID == trip.id }.map(\.id))
         trips.removeAll { $0.id == trip.id }
         pendingTripIDs.remove(trip.id)
         PendingTripStore.remove(id: trip.id)
@@ -1158,7 +1204,17 @@ final class AppModel {
             flights[index].tripID = nil
         }
         guard backendCoupleID != nil else { return }
-        try? await BackendService.deleteTrip(id: trip.id)
+        do {
+            try await BackendService.deleteTrip(id: trip.id)
+        } catch {
+            // The delete didn't actually happen — restore rather than leave the user believing
+            // it succeeded while the trip (and its flights' linkage) still exists server-side.
+            trips.append(trip)
+            for index in flights.indices where affectedFlightIDs.contains(flights[index].id) {
+                flights[index].tripID = trip.id
+            }
+            syncTripFlights(tripID: trip.id)
+        }
     }
 
     /// Bulk-delete entry point for the Trips tab's trip multi-select mode — same sequential
@@ -1185,6 +1241,12 @@ final class AppModel {
         guard let flightIndex = flights.firstIndex(where: { $0.id == flight.id }) else { return }
         flights[flightIndex].tripID = trip.id
         syncTripFlights(tripID: trip.id)
+        let mutationID = trackInFlightMutation { [weak self] in
+            guard let self, let index = self.flights.firstIndex(where: { $0.id == flight.id }) else { return }
+            self.flights[index].tripID = trip.id
+            self.syncTripFlights(tripID: trip.id)
+        }
+        defer { clearInFlightMutation(mutationID) }
         try? await BackendService.setFlightTrip(flightID: flight.id, tripID: trip.id)
     }
 
@@ -1193,6 +1255,12 @@ final class AppModel {
         let tripID = flights[flightIndex].tripID
         flights[flightIndex].tripID = nil
         if let tripID { syncTripFlights(tripID: tripID) }
+        let mutationID = trackInFlightMutation { [weak self] in
+            guard let self, let index = self.flights.firstIndex(where: { $0.id == flight.id }) else { return }
+            self.flights[index].tripID = nil
+            if let tripID { self.syncTripFlights(tripID: tripID) }
+        }
+        defer { clearInFlightMutation(mutationID) }
         try? await BackendService.setFlightTrip(flightID: flight.id, tripID: nil)
     }
 
@@ -1204,6 +1272,12 @@ final class AppModel {
         guard let index = flights.firstIndex(where: { $0.id == flight.id }) else { return }
         flights[index].travelerIDs = travelerIDs
         if let tripID = flights[index].tripID { syncTripFlights(tripID: tripID) }
+        let mutationID = trackInFlightMutation { [weak self] in
+            guard let self, let index = self.flights.firstIndex(where: { $0.id == flight.id }) else { return }
+            self.flights[index].travelerIDs = travelerIDs
+            if let tripID = self.flights[index].tripID { self.syncTripFlights(tripID: tripID) }
+        }
+        defer { clearInFlightMutation(mutationID) }
         try? await BackendService.setFlightTravelers(flightID: flight.id, travelerIDs: travelerIDs)
     }
 
@@ -1212,12 +1286,22 @@ final class AppModel {
     func linkMemory(_ memory: Memory, to trip: Trip) async {
         guard let index = memories.firstIndex(where: { $0.id == memory.id }) else { return }
         memories[index].tripID = trip.id
+        let mutationID = trackInFlightMutation { [weak self] in
+            guard let self, let index = self.memories.firstIndex(where: { $0.id == memory.id }) else { return }
+            self.memories[index].tripID = trip.id
+        }
+        defer { clearInFlightMutation(mutationID) }
         try? await BackendService.setMemoryTrip(memoryID: memory.id, tripID: trip.id)
     }
 
     func unlinkMemory(_ memory: Memory) async {
         guard let index = memories.firstIndex(where: { $0.id == memory.id }) else { return }
         memories[index].tripID = nil
+        let mutationID = trackInFlightMutation { [weak self] in
+            guard let self, let index = self.memories.firstIndex(where: { $0.id == memory.id }) else { return }
+            self.memories[index].tripID = nil
+        }
+        defer { clearInFlightMutation(mutationID) }
         try? await BackendService.setMemoryTrip(memoryID: memory.id, tripID: nil)
     }
 
@@ -1367,7 +1451,13 @@ final class AppModel {
         PendingMemoryStore.remove(id: memory.id)
         Analytics.capture(Analytics.Event.memoryDelete)
         guard backendCoupleID != nil else { return }
-        try? await BackendService.deleteMemory(id: memory.id, photoPaths: memory.photos.map(\.path))
+        do {
+            try await BackendService.deleteMemory(id: memory.id, photoPaths: memory.photos.map(\.path))
+        } catch {
+            // The delete didn't actually happen — restore rather than leave the user believing
+            // it succeeded while the memory still exists server-side.
+            memories.append(memory)
+        }
     }
 
     /// Bulk-delete entry point for Memories' multi-select mode — sequential, not concurrent:
