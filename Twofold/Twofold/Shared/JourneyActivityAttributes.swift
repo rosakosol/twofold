@@ -45,8 +45,6 @@ struct JourneyActivityAttributes: ActivityAttributes {
 
         var departureDelayMinutes: Int?
         var arrivalDelayMinutes: Int?
-
-        var lastUpdatedAt: Date
     }
 
     var flightID: UUID

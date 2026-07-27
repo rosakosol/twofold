@@ -59,7 +59,13 @@ struct AnniversaryDateView: View {
                     .labelsHidden()
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, Theme.Spacing.sm)
-                    .onboardingFieldBackground()
+                    // Deliberately not `.onboardingFieldBackground()` — `UIDatePicker`'s wheel
+                    // rows render with a vibrancy-style blend against whatever's behind them, and
+                    // the shared modifier's `Theme.cardGradientDark` wash left the selected row
+                    // (found via visual testing: "27 July 2025") looking dim/translucent instead
+                    // of fully opaque white. A flat fill doesn't have that problem — confirmed
+                    // testing plain black first, then this, with near-identical crisp results.
+                    .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
             },
             primaryTitle: "Continue",
             primaryAction: {

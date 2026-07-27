@@ -15,9 +15,6 @@ struct JourneyExpandedFooterView: View {
             Text(context.attributes.flightNumber)
                 .font(.caption.weight(.semibold))
             Spacer()
-            Text("Updated \(context.state.lastUpdatedAt, style: .relative) ago")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 16)
         .padding(.top, 2)

@@ -15,6 +15,7 @@
 //  exactly the case system sheets are fine for.
 //
 
+import PostHog
 import SwiftUI
 
 struct TripsListView: View {
@@ -164,6 +165,11 @@ struct TripsListView: View {
                     }
                 }
             }
+            // `AddTripDetailsView` itself has no screen-view tag of its own — the onboarding
+            // path only gets tagged because `OnboardingCoordinatorView`'s own choke point wraps
+            // it externally. This is the *other* real caller (adding a trip post-onboarding, from
+            // the Travel tab), and until now it fired with no screen event at all.
+            .postHogScreenView("Travel: Add Trip")
         }
         .sheet(isPresented: $showingAddFlight) {
             AddFlightView()

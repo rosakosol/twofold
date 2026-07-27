@@ -163,7 +163,7 @@ struct GameLogicTests {
 
     @Test func completedSessionsOnlyExcludesActiveAndAbandoned() {
         func session(status: GameSessionStatus) -> GameSession {
-            GameSession(id: UUID(), coupleID: UUID(), gameType: .travelTrivia, initiatorID: UUID(), status: status, totalRounds: 5, isDaily: false, deckID: nil, startedAt: nil, completedAt: nil, createdAt: .now, updatedAt: .now)
+            GameSession(id: UUID(), coupleID: UUID(), gameType: .triviaBattle, initiatorID: UUID(), status: status, totalRounds: 5, isDaily: false, deckID: nil, startedAt: nil, completedAt: nil, createdAt: .now, updatedAt: .now)
         }
         let sessions = [session(status: .active), session(status: .completed), session(status: .abandoned), session(status: .waitingForPartner)]
         let completed = GameLogic.completedSessionsOnly(sessions)

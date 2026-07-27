@@ -597,18 +597,19 @@ struct HomeView: View {
                 }
             }
 
-            HStack(alignment: .firstTextBaseline) {
+            HStack(alignment: .center) {
                 Text(flight.countdownSummary)
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(Theme.skyBlue)
+                    .lineLimit(1)
 
                 Spacer(minLength: Theme.Spacing.sm)
 
-                // Port + local time for each end, side by side — departure in the origin's
-                // timezone, arrival in the destination's, same convention FlightTrackingView's
-                // journey rows use. A small departure/arrival glyph ahead of each so the two
-                // reads unambiguously even out of context (not just "two airport codes").
-                HStack(spacing: Theme.Spacing.sm) {
+                // Port + local time for each end, stacked (not side by side) — a long-format
+                // arrival time was pushing departure onto a second row when both fought for the
+                // same line. Departure in the origin's timezone, arrival in the destination's,
+                // same convention FlightTrackingView's journey rows use.
+                VStack(alignment: .trailing, spacing: 3) {
                     portTimeRow(icon: "airplane.departure", code: flight.origin.displayCode, time: flight.bestDeparture, timeZone: flight.origin.timeZone)
                     portTimeRow(icon: "airplane.arrival", code: flight.destination.displayCode, time: flight.bestArrival, timeZone: flight.destination.timeZone)
                 }
@@ -641,10 +642,11 @@ struct HomeView: View {
     private func portTimeRow(icon: String, code: String, time: Date?, timeZone: TimeZone?) -> some View {
         HStack(spacing: 3) {
             Image(systemName: icon).font(.caption2).foregroundStyle(Theme.subtleInk)
-            Text(code).font(.caption.weight(.semibold))
+            Text(code).font(.caption.weight(.semibold)).lineLimit(1)
             Text(time.map { $0.formatted(Date.FormatStyle(timeZone: timeZone ?? .current).hour().minute()) } ?? "—")
                 .font(.caption)
                 .foregroundStyle(Theme.subtleInk)
+                .lineLimit(1)
         }
     }
 

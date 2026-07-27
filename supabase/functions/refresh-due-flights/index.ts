@@ -10,8 +10,16 @@
 //     20260826000000_flight_refresh_cron_every_minute.sql — specifically so this tier can
 //     actually act that fast; a 5-minute cron can't poll faster than every 5 minutes no
 //     matter how tight this threshold is)
-//   - within 2h of departure, or currently boarding/departed/in_air/landing_soon: refresh if
-//     stale >2 min
+//   - currently boarding/departed/in_air/landing_soon, but *not* within either 10-minute window
+//     above (i.e. genuine mid-cruise, or an early boarding call well before departure): refresh
+//     if stale >12 min. Was 2 min — cost data showed this tier alone was responsible for most of
+//     the /flights/{ident} bill (291 calls/$1.46 in 24h), since it applied for a flight's entire
+//     multi-hour cruise segment, not just the moments around takeoff/landing that actually need
+//     near-real-time freshness. The on-map/Live-Activity marker's own movement doesn't depend on
+//     this cadence at all (see FlightMapView's markerCoordinate — pure elapsed-time
+//     interpolation), so this only trades off how quickly a mid-flight ETA/delay correction
+//     shows up, not how smoothly the plane appears to move.
+//   - within 2h of departure but not yet active: refresh if stale >2 min
 //   - 2h-24h to departure: refresh if stale >15 min
 //   - more than 24h to departure: refresh only if last_refreshed_at is null or >6h old
 //   - tracking_enabled = false: never selected (query excludes it)
@@ -56,8 +64,16 @@ function isDue(flight: FlightRow, now: number): boolean {
     return staleMs > 1 * 60 * 1000;
   }
 
+  // Reaching here means !isNearDeparture && !isNearArrival already (that branch returned above)
+  // — so an active flight at this point is genuinely mid-cruise (or boarding well before its own
+  // 10-minute near-departure window), not the moments right around takeoff/landing. AeroAPI's own
+  // answer barely moves between polls in this state (ETA/progress percent drift slowly), so this
+  // tier can afford to be far less aggressive than the near-event one above.
   const isActive = ACTIVE_STATUSES.includes(flight.status);
-  if (isActive || msToDeparture <= 2 * 60 * 60 * 1000) {
+  if (isActive) {
+    return staleMs > 12 * 60 * 1000;
+  }
+  if (msToDeparture <= 2 * 60 * 60 * 1000) {
     return staleMs > 2 * 60 * 1000;
   }
   if (msToDeparture <= 24 * 60 * 60 * 1000) {

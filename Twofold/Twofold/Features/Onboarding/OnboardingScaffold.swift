@@ -235,14 +235,9 @@ struct OnboardingCard: View {
                     .foregroundStyle(isSelected ? Theme.leafGreen : Theme.subtleInk.opacity(0.3))
             }
             .padding(Theme.Spacing.md)
-            .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                    .strokeBorder(
-                        isSelected ? AnyShapeStyle(Theme.selectionGradient) : AnyShapeStyle(unselectedBorderColor(colorScheme)),
-                        lineWidth: isSelected ? 2 : 1.25
-                    )
-            )
+            .background { cardSurface(isSelected: isSelected, colorScheme: colorScheme) }
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+            .overlay { cardBorder(isSelected: isSelected, colorScheme: colorScheme) }
         }
         .buttonStyle(.plain)
     }
@@ -268,26 +263,43 @@ struct OnboardingOptionRow: View {
                     .foregroundStyle(isSelected ? Theme.leafGreen : Theme.subtleInk.opacity(0.3))
             }
             .padding(Theme.Spacing.md)
-            .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                    .strokeBorder(
-                        isSelected ? AnyShapeStyle(Theme.selectionGradient) : AnyShapeStyle(unselectedBorderColor(colorScheme)),
-                        lineWidth: isSelected ? 2 : 1.25
-                    )
-            )
+            .background { cardSurface(isSelected: isSelected, colorScheme: colorScheme) }
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+            .overlay { cardBorder(isSelected: isSelected, colorScheme: colorScheme) }
         }
         .buttonStyle(.plain)
     }
 }
 
-/// Shared by `OnboardingCard`/`OnboardingOptionRow` (and mirrors `SectionCard`'s own border) —
-/// an *unselected* card used to render with a `.clear` border, meaning it had literally no edge
-/// at all against `Theme.cardBackground`. That was invisible-but-tolerable in light mode (the
+/// Shared by `OnboardingCard`/`OnboardingOptionRow`/`GenderView`/`PaywallView`'s plan card — an
+/// *unselected* card used to render with a `.clear` border, meaning it had literally no edge at
+/// all against `Theme.cardBackground`. That was invisible-but-tolerable in light mode (the
 /// card's own fill already reads as distinct from the page), but in dark mode, with
 /// `Theme.backgroundGradient` now a deep gradient, every unselected card blended into both the
-/// background and each other. A light-on-dark stroke is needed there specifically — the same
-/// `Theme.subtleInk` tint used in light mode is too washed out to register against a dark fill.
-private func unselectedBorderColor(_ colorScheme: ColorScheme) -> Color {
-    colorScheme == .dark ? Color.white.opacity(0.22) : Theme.subtleInk.opacity(0.25)
+/// background and each other. Rather than a light-on-dark stroke there, unselected dark-mode
+/// cards instead get `Theme.cardGradientDark`'s translucent wash on top of the fill — same
+/// treatment as `SectionCard` — so the card itself reads as raised without an outline. Applied
+/// regardless of `isSelected`: an earlier version only washed *unselected* cards, leaving a
+/// selected card's own accent border sitting on the same flat dark-gray fill it was meant to
+/// replace. Selected cards keep their accent-colored border in both appearances; it's a selection
+/// indicator, not a page-contrast fix, so it doesn't need the dark-mode-only swap.
+@ViewBuilder
+private func cardSurface(isSelected: Bool, colorScheme: ColorScheme) -> some View {
+    ZStack {
+        Theme.cardBackground
+        if colorScheme == .dark {
+            Theme.cardGradientDark
+        }
+    }
+}
+
+@ViewBuilder
+private func cardBorder(isSelected: Bool, colorScheme: ColorScheme) -> some View {
+    if isSelected {
+        RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+            .strokeBorder(Theme.selectionGradient, lineWidth: 2)
+    } else if colorScheme != .dark {
+        RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+            .strokeBorder(Theme.subtleInk.opacity(0.25), lineWidth: 1.25)
+    }
 }

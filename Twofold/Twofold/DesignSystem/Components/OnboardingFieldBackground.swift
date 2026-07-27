@@ -20,14 +20,24 @@ private struct OnboardingFieldBackground: ViewModifier {
         // No `.padding()` here — every call site already applies its own immediately before
         // this modifier, so adding a second one here would double it up.
         content
-            .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                    // Same dark-mode-aware strength as `SectionCard`'s own border — a flat
-                    // `Theme.subtleInk` tint alone is too washed out to actually register
-                    // against a dark field fill.
-                    .strokeBorder(colorScheme == .dark ? Color.white.opacity(0.22) : Theme.subtleInk.opacity(0.25), lineWidth: 1.25)
-            )
+            // Same dark-mode treatment as `SectionCard`: a translucent `Theme.cardGradientDark`
+            // wash lifts the field a shade brighter than the page instead of relying on a
+            // hairline border to separate it. Light mode keeps the plain fill + border.
+            .background {
+                ZStack {
+                    Theme.cardBackground
+                    if colorScheme == .dark {
+                        Theme.cardGradientDark
+                    }
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+            .overlay {
+                if colorScheme != .dark {
+                    RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+                        .strokeBorder(Theme.subtleInk.opacity(0.25), lineWidth: 1.25)
+                }
+            }
     }
 }
 

@@ -2,7 +2,7 @@
 //  PassportShareCard.swift
 //  Twofold
 //
-//  The shareable Flight Stats image — reuses `FlightStatsCard` directly (same white
+//  The shareable Flight Stats image — reuses `FlightStatsCard` directly (same
 //  `SectionCard` look the in-app Stats tab shows) with a brand mark on top, mirroring how
 //  `RelationshipStatsShareCard`'s classic layout reuses `RelationshipStatsCard`. Replaces the old
 //  holographic "passport" cover-page treatment, which read as a different app design language
@@ -20,7 +20,7 @@ struct PassportShareCard: View {
             FlightStatsCard(stats: stats)
         }
         .padding(Theme.Spacing.sm)
-        .background(Color.white)
+        .background(Theme.backgroundGradient)
         .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
     }
 }

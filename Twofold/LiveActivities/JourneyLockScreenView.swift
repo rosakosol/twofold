@@ -5,7 +5,7 @@
 //  Riffs on the onboarding mockup's visual language (LiveActivitySellView.swift, in the main
 //  app — a hand-drawn preview, not real ActivityKit) for a consistent look, now backed by real
 //  ContentState: airline logo + flight number + Twofold mark up top, a countdown, origin/
-//  destination either side of a progress rail, "updated" footer.
+//  destination either side of a progress rail.
 //
 
 import ActivityKit
@@ -34,10 +34,6 @@ struct JourneyLockScreenView: View {
                     }
                 }
                 Spacer()
-                Text("Updated \(context.state.lastUpdatedAt, style: .relative) ago")
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.5))
-                    .frame(maxWidth: .infinity)
                 brandMark
             }
 

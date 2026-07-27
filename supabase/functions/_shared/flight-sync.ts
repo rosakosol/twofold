@@ -8,7 +8,6 @@ import {
   fetchAirportCoordinates,
   fetchAirportWeather,
   fetchFlightByFaId,
-  fetchPosition,
   fetchScheduledFlights,
 } from "./aeroapi.ts";
 import { fetchLivePosition } from "./adsb.ts";
@@ -676,7 +675,6 @@ function computeLiveActivityContentState(row: FlightRow, isReunion: boolean): Re
     baggageClaim: row.baggage_claim,
     departureDelayMinutes: row.departure_delay_seconds != null ? Math.round(row.departure_delay_seconds / 60) : null,
     arrivalDelayMinutes: row.arrival_delay_seconds != null ? Math.round(row.arrival_delay_seconds / 60) : null,
-    lastUpdatedAt: toCocoaTimestamp(new Date()),
   };
 }
 
@@ -738,8 +736,6 @@ export const AIRBORNE_STATUSES: FlightStatus[] = ["departed", "in_air", "landing
 // ---------------------------------------------------------------------------
 
 const LIVE_POSITION_CACHE_TTL_MS = 55_000; // just under the 1-minute cron cadence
-const ADSB_FAILURE_FALLBACK_THRESHOLD = 5; // consecutive misses before trying the paid AeroAPI fallback
-const AEROAPI_FALLBACK_TTL_MS = 2 * 60 * 1000; // don't hammer the paid endpoint even as a fallback
 
 interface FlightLivePositionRow {
   fa_flight_id: string;
@@ -758,8 +754,9 @@ interface FlightLivePositionRow {
 }
 
 // Deduped by fa_flight_id, not by couple/flight-row id — this is the actual dedup payoff. Never
-// throws: an ADS-B (or even AeroAPI-fallback) failure here must never block the caller's own
-// AeroAPI schedule/status refresh, which is what notifications/Live Activity actually depend on.
+// throws: an ADS-B failure here must never block the caller's own AeroAPI schedule/status
+// refresh, which is what notifications/Live Activity actually depend on. No paid AeroAPI
+// fallback for a coverage gap — see the miss-handling branch below for why.
 export async function syncLivePositionForFaFlightId(
   serviceClient: SupabaseClient,
   faFlightId: string,
@@ -810,64 +807,23 @@ export async function syncLivePositionForFaFlightId(
         row = upserted as FlightLivePositionRow;
       }
     } else {
-      // Every mirror/candidate missed this cycle. Track consecutive misses so a flight that's
-      // genuinely gone dark (e.g. an oceanic leg outside terrestrial ADS-B receiver coverage) can
-      // fall back to AeroAPI's paid position endpoint — rate-limited, and still funneled through
-      // this same fa_flight_id-deduped cache, so it stays a strict improvement over the old
-      // zero-dedup baseline even in the fallback case.
+      // Every mirror/candidate missed this cycle — e.g. an oceanic leg outside terrestrial ADS-B
+      // receiver coverage, which for this app's international long-haul routes can mean *hours*,
+      // not a rare blip. This used to fall back to AeroAPI's paid position endpoint once misses
+      // hit a threshold, rate-limited to once per 2 minutes — but "rate-limited" still meant every
+      // 2 minutes for the entire dark stretch of a transpacific/transatlantic leg, which is what
+      // was actually driving the position-endpoint bill (confirmed: 138 calls/$1.38 in 24h despite
+      // this being framed as a rare fallback). No AeroAPI fallback at all now — a coverage gap
+      // just leaves the last-known position showing (still the best data available) until ADS-B
+      // picks the flight back up, same as it already did while accumulating toward the old
+      // threshold, just without ever spending money to bridge the gap.
       const failures = (cachedRow?.consecutive_failures ?? 0) + 1;
-      const aeroApiFallbackStale = !cachedRow?.fetched_at || cachedRow.source !== "aeroapi_fallback" ||
-        Date.now() - new Date(cachedRow.fetched_at).getTime() >= AEROAPI_FALLBACK_TTL_MS;
-
-      let fallbackRow: FlightLivePositionRow | null = null;
-      if (failures >= ADSB_FAILURE_FALLBACK_THRESHOLD && aeroApiFallbackStale) {
-        try {
-          const position = await fetchPosition(faFlightId);
-          if (position) {
-            const { data: upserted, error } = await serviceClient
-              .from("flight_live_positions")
-              .upsert(
-                {
-                  fa_flight_id: faFlightId,
-                  hex: null,
-                  query_key: "aeroapi_fallback",
-                  source: "aeroapi_fallback",
-                  latitude: position.latitude,
-                  longitude: position.longitude,
-                  altitude: position.altitude ?? null,
-                  groundspeed: position.groundspeed ?? null,
-                  heading: position.heading ?? null,
-                  consecutive_failures: 0,
-                  fetched_at: new Date().toISOString(),
-                  updated_at: new Date().toISOString(),
-                },
-                { onConflict: "fa_flight_id" },
-              )
-              .select()
-              .single();
-            if (error) {
-              console.error(`[adsb] failed to upsert AeroAPI fallback position for ${faFlightId}:`, error.message);
-            } else {
-              fallbackRow = upserted as FlightLivePositionRow;
-            }
-          }
-        } catch (err) {
-          console.error(`[adsb] AeroAPI position fallback threw for ${faFlightId}:`, (err as Error).message);
-        }
-      }
-
-      if (fallbackRow) {
-        row = fallbackRow;
-      } else {
-        // Record the miss so consecutive_failures accumulates toward the fallback threshold,
-        // without touching the last-known position — still the best data available to show.
-        await serviceClient
-          .from("flight_live_positions")
-          .upsert(
-            { fa_flight_id: faFlightId, consecutive_failures: failures, updated_at: new Date().toISOString() },
-            { onConflict: "fa_flight_id" },
-          );
-      }
+      await serviceClient
+        .from("flight_live_positions")
+        .upsert(
+          { fa_flight_id: faFlightId, consecutive_failures: failures, updated_at: new Date().toISOString() },
+          { onConflict: "fa_flight_id" },
+        );
     }
   }
 

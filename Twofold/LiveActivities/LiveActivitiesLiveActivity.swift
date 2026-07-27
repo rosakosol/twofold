@@ -119,8 +119,7 @@ extension JourneyActivityAttributes.ContentState {
             scheduledDeparture: .now.addingTimeInterval(-3600 * 3),
             scheduledArrival: .now.addingTimeInterval(3600 * 4),
             gateOrigin: "42",
-            gateDestination: nil,
-            lastUpdatedAt: .now
+            gateDestination: nil
         )
     }
 
@@ -132,8 +131,7 @@ extension JourneyActivityAttributes.ContentState {
             isReunion: true,
             scheduledDeparture: .now.addingTimeInterval(-3600 * 6),
             scheduledArrival: .now.addingTimeInterval(60 * 22),
-            gateDestination: "B14",
-            lastUpdatedAt: .now
+            gateDestination: "B14"
         )
     }
 }

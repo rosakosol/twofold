@@ -17,7 +17,16 @@ enum Theme {
     static let leafGreen = Color(light: "6FBF8B", dark: "7DD1A0")
     static let heartRed = Color(light: "E85C6B", dark: "F1727F")
     static let ink = Color(light: "1C2A38", dark: "ECF1F5")
-    static let subtleInk = Color(light: "5B6B7A", dark: "94A3B3")
+    // Dark mode uses translucent white rather than a flat muted hex — the old solid `94A3B3`
+    // was tuned against a flat gray card fill and read as too dim/gray once cards and other dark
+    // backgrounds got busier (`Theme.cardGradientDark`'s wash, `backgroundGradient`, etc.):
+    // alpha-blended white stays legible against any of them instead of needing a fresh hex tuned
+    // per background. Light mode is untouched.
+    static let subtleInk = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor.white.withAlphaComponent(0.72)
+            : UIColor(Color(hex: "5B6B7A"))
+    })
 
     /// Bottom color of `backgroundGradient`, exposed so pinned bottom bars can fade
     /// scrolled content into the exact color the screen background ends on.
@@ -46,6 +55,16 @@ enum Theme {
     /// core accent colors rather than a flat single-color highlight.
     static let selectionGradient = LinearGradient(
         colors: [skyBlue, leafGreen],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+
+    /// Dark-mode-only card/input surface tint — a translucent wash of the same blue-to-green
+    /// accent pair as `selectionGradient`, layered over `cardBackground` so cards read as raised
+    /// (a bit brighter than `backgroundGradient`'s deep navy-to-green-black) without needing a
+    /// hairline `strokeBorder` to separate them from the page.
+    static let cardGradientDark = LinearGradient(
+        colors: [skyBlue.opacity(0.38), leafGreen.opacity(0.30)],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )

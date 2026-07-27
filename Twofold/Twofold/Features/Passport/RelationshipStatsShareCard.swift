@@ -111,7 +111,7 @@ struct RelationshipStatsShareCard: View {
         .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
     }
 
-    /// The default — a white card that mirrors the in-app `RelationshipStatsCard` almost exactly
+    /// The default — a card that mirrors the in-app `RelationshipStatsCard` almost exactly
     /// (same couple header, hero row, and milestone tiles with matching icons), rather than the
     /// photo-story/gradient treatment every other background option uses. Reuses
     /// `RelationshipStatsCard` directly instead of re-implementing its layout — this view exists
@@ -133,7 +133,7 @@ struct RelationshipStatsShareCard: View {
         // second full padding pass stacked on top of that (which was making the card's own
         // bottom-half stats look over-padded specifically on this share screen, not in-app).
         .padding(Theme.Spacing.sm)
-        .background(Color.white)
+        .background(Theme.backgroundGradient)
         .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
     }
 

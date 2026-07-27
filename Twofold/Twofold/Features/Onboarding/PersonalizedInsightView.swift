@@ -76,7 +76,11 @@ struct PersonalizedInsightView: View {
 
     private func distanceReveal(distanceKm: Double, myCity: Place, partnerCity: Place) -> some View {
         ScrollView {
-            VStack(spacing: Theme.Spacing.lg) {
+            // `.md`, not `.lg` — this screen's whole point is fitting title, map, count-up,
+            // comparison line, and stat tiles on one screen without scrolling on most devices;
+            // the tighter rhythm plus the shrunk `DistanceGlobeView.mapSize`/`globeSize` together
+            // free up enough vertical room for that.
+            VStack(spacing: Theme.Spacing.md) {
                 // Always visible (not staged like the reveal below it) — sets the emotional tone
                 // before the map/count-up animate in, the same way every other onboarding screen's
                 // title is already on screen before its own staged content plays.
@@ -123,7 +127,8 @@ struct PersonalizedInsightView: View {
                 .opacity(stage >= 4 ? 1 : 0)
                 .offset(y: stage >= 4 ? 0 : 10)
             }
-            .padding(Theme.Spacing.lg)
+            .padding(.horizontal, Theme.Spacing.lg)
+            .padding(.vertical, Theme.Spacing.md)
         }
         .safeAreaInset(edge: .bottom) { bottomBar(distanceKm: distanceKm, myCity: myCity, partnerCity: partnerCity) }
         .background(Theme.backgroundGradient.ignoresSafeArea())

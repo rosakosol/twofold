@@ -30,13 +30,23 @@ struct DistanceFlatMapView: View {
 
     private static let pinAvatarRadius: CGFloat = 16
 
-    /// Reserved on every edge for the avatar+label stack — an endpoint's true coordinate needs to
-    /// land this far inside the frame, not just anywhere inside it, or the label still clips even
-    /// though the pin itself is technically "in frame." Shared between the fetch-time fit check
-    /// (`loadMapSnapshot`) and this view's own render-time check, which must agree exactly, or a
-    /// snapshot the loader considered "fits" could still get rendered in fallback mode, or vice
-    /// versa.
-    private static let inset: CGFloat = 46
+    /// How far a pin's true coordinate must land inside the frame edge before `content(_:)`
+    /// accepts it as-is rather than clamping. Shared between the fetch-time fit check
+    /// (`loadMapSnapshot`'s retry loop) and this view's own render-time clamp
+    /// (`clampToSafeArea`), so a pin that just barely didn't "fit" at fetch time still clamps to
+    /// the exact same safe boundary at render time instead of two slightly different margins
+    /// compounding. Deliberately tight — just past `pinAvatarRadius` — not sized to also keep the
+    /// *label* clear of the edge: found via testing that pairs whose longitude separation
+    /// approaches the geometric limit (Melbourne↔Buenos Aires, 156.7°; Mexico City↔Singapore,
+    /// 157.0°) overshoot *any* generous margin by roughly the same ~26pt regardless of how far
+    /// `loadMapSnapshot` zooms out — a single north-up region showing that much longitude is
+    /// mathematically forced close to the frame edge, full stop. A larger inset (46, tuned assuming
+    /// this was avoidable) was clamping both cities' real positions noticeably off their true spot
+    /// for exactly these pairs; occasionally letting a long city name's label edge get cropped is a
+    /// smaller visual cost than the avatar itself reading as being in the wrong place. Scaled with
+    /// `mapSize` (originally 20 against a 328pt-wide frame, briefly 17 at 280pt) to keep the same
+    /// relative margin as the card's own size changes.
+    private static let inset: CGFloat = 18
 
     var body: some View {
         ZStack {
@@ -52,91 +62,46 @@ struct DistanceFlatMapView: View {
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 
-    /// Even after `loadMapSnapshot`'s own retry loop, some pairs genuinely can't both appear in one
-    /// flat top-down camera view at *any* zoom — either close to true antipodes (~70km short of
-    /// Earth's ~20,015km maximum, e.g. Córdoba↔Hamilton), or, less obviously, a pair whose
-    /// *longitude* separation alone sits close to the 180° maximum even though their great-circle
-    /// distance isn't extreme (Bangkok↔New York, 13,948km but 174.5° of longitude) — either way, a
-    /// hard fact about the geometry, not a bug to keep chasing with a bigger span cap. This checks
-    /// the same way the loader did (partner's real point against the same `inset`) and, if it
-    /// still doesn't fit, switches to a self-centered layout: myCity's real pin plus a straight
-    /// line (not the full curved geodesic, which would arc off toward a destination that was never
-    /// going to be on screen) to where that line exits the frame — partner's own pin sits right
-    /// there, always inside the frame by construction.
-    @ViewBuilder
+    /// Even after `loadMapSnapshot`'s own retry loop, some pairs genuinely can't both land inside
+    /// the safe inset margin at *any* north-up zoom — either close to true antipodes (~70km short
+    /// of Earth's ~20,015km maximum, e.g. Córdoba↔Hamilton), or a pair whose *longitude* separation
+    /// alone sits close to the 180° maximum even though their great-circle distance isn't extreme
+    /// (Bangkok↔New York, 13,948km but 174.5° of longitude) — either way, a hard fact about the
+    /// geometry, not a bug to keep chasing with a bigger span cap. `loadMapSnapshot` always returns
+    /// its widest attempt regardless, so this always draws both cities' *real* coordinates — an
+    /// earlier version swapped in a self-centered camera with a decorative line to a synthetic
+    /// "exit point" for this case, which read as an actual (very wrong) pin placement once it sat
+    /// on real, recognizable terrain (found via testing: Singapore's fictional exit-point pin
+    /// landed in the Pacific off Mexico's coast) rather than the "stylized direction indicator" it
+    /// was meant to be. Each pin instead clamps orthogonally toward the inset-safe rectangle —
+    /// nudged the minimum distance needed to stay in frame, not walked arbitrarily far along the
+    /// route toward the other city (tried first: kept the pin *on* the route, but for a pair this
+    /// extreme dragged it noticeably away from its own true position). A single straight chord
+    /// between the two (possibly clamped) points, not the full curved geodesic — a curve whose
+    /// endpoints get clamped independently kinks into an unnaturally flat-bottomed box shape near
+    /// an edge, and a real geodesic arc isn't especially meaningful over a crop already zoomed out
+    /// to its absolute limit for this pair anyway.
     private func content(_ mapSnapshot: MKMapSnapshotter.Snapshot) -> some View {
-        let myPoint = mapSnapshot.point(for: myCity.coordinate)
-        let partnerPoint = mapSnapshot.point(for: partnerCity.coordinate)
-        let partnerFits = partnerPoint.x >= Self.inset && partnerPoint.x <= Self.mapSize.width - Self.inset
-            && partnerPoint.y >= Self.inset && partnerPoint.y <= Self.mapSize.height - Self.inset
+        let myPoint = Self.clampToSafeArea(mapSnapshot.point(for: myCity.coordinate))
+        let partnerPoint = Self.clampToSafeArea(mapSnapshot.point(for: partnerCity.coordinate))
 
-        ZStack {
+        return ZStack {
             Image(uiImage: mapSnapshot.image)
-            if partnerFits {
-                routePath(mapSnapshot)
-                pin(myPoint, photo: selfPhoto, tint: Theme.skyBlue, city: myCity)
-                pin(partnerPoint, photo: partnerPhoto, tint: Theme.heartRed, city: partnerCity)
-            } else {
-                // Both ends of this decorative line are placed from frame geometry, not from
-                // `myPoint` itself — the self-centered camera this branch's snapshot comes from
-                // always renders `myCity` at (or extremely near) the exact frame center by
-                // construction (`MKMapCamera(lookingAtCenter: myCity.coordinate, ...)`), so a ray
-                // drawn from `myPoint` only ever used *half* the frame (center to one edge).
-                // Drawing a full chord through the center instead — exiting the inset-safe
-                // rectangle in *both* the bearing direction and its reverse — uses the frame's
-                // entire width/diagonal, roughly doubling how much of the card the pins and route
-                // actually span. This also decouples the pins' layout from the self-centered
-                // camera's own zoom level entirely (found via testing: changing camera distance
-                // alone visibly changed only the background terrain, never the fixed edge-to-edge
-                // ray, which is exactly why "zoom in more" wasn't fixed by camera tuning alone).
-                let center = CGPoint(x: Self.mapSize.width / 2, y: Self.mapSize.height / 2)
-                let bearing = Self.rhumbBearing(from: myCity.coordinate, to: partnerCity.coordinate) * .pi / 180
-                let direction = CGPoint(x: sin(bearing), y: -cos(bearing))
-                let origin = Self.rectExitPoint(from: center, direction: CGPoint(x: -direction.x, y: -direction.y), size: Self.mapSize, inset: Self.inset)
-                let exit = Self.rectExitPoint(from: center, direction: direction, size: Self.mapSize, inset: Self.inset)
-                Path { path in
-                    path.move(to: origin)
-                    path.addLine(to: exit)
-                }
-                .stroke(Theme.skyBlue, style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                pin(origin, photo: selfPhoto, tint: Theme.skyBlue, city: myCity)
-                pin(exit, photo: partnerPhoto, tint: Theme.heartRed, city: partnerCity)
+            Path { path in
+                path.move(to: myPoint)
+                path.addLine(to: partnerPoint)
             }
+            .stroke(Theme.skyBlue, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+            pin(myPoint, photo: selfPhoto, tint: Theme.skyBlue, city: myCity)
+            pin(partnerPoint, photo: partnerPhoto, tint: Theme.heartRed, city: partnerCity)
         }
     }
 
-    /// Where a ray from `start` heading in `direction` exits the inset-safe rectangle — the
-    /// standard slab/parametric ray-box intersection, solved per axis and taking whichever edge
-    /// it reaches first.
-    private static func rectExitPoint(from start: CGPoint, direction: CGPoint, size: CGSize, inset: CGFloat) -> CGPoint {
-        let minX = inset, maxX = size.width - inset
-        let minY = inset, maxY = size.height - inset
-        var t = CGFloat.greatestFiniteMagnitude
-        if direction.x > 0.0001 { t = min(t, (maxX - start.x) / direction.x) }
-        if direction.x < -0.0001 { t = min(t, (minX - start.x) / direction.x) }
-        if direction.y > 0.0001 { t = min(t, (maxY - start.y) / direction.y) }
-        if direction.y < -0.0001 { t = min(t, (minY - start.y) / direction.y) }
-        if !t.isFinite || t < 0 { t = 0 }
-        return CGPoint(x: start.x + t * direction.x, y: start.y + t * direction.y)
-    }
-
-    /// The *rhumb line* bearing (constant compass heading — the direction of a straight line on a
-    /// flat Mercator map) rather than the great circle's own initial bearing, deliberately, for
-    /// this one decorative fallback line: a great circle's initial bearing points toward wherever
-    /// the *shortest path* first heads, which for a route that bows toward a pole (Bangkok↔New
-    /// York, whose true shortest path initially heads almost due north) reads as "myCity's partner
-    /// is up that way" — geometrically correct, but exactly backwards from how a couple actually
-    /// pictures being "that far apart," which is much more about the huge east-west gulf between
-    /// them (174.5° of longitude, most of the total distance) than the modest latitude change. The
-    /// rhumb bearing points in the direction that actually dominates the separation instead.
-    private static func rhumbBearing(from a: CLLocationCoordinate2D, to b: CLLocationCoordinate2D) -> Double {
-        let φ1 = a.latitude * .pi / 180, φ2 = b.latitude * .pi / 180
-        var Δλ = (b.longitude - a.longitude) * .pi / 180
-        if Δλ > .pi { Δλ -= 2 * .pi }
-        if Δλ < -.pi { Δλ += 2 * .pi }
-        let Δψ = log(tan(.pi / 4 + φ2 / 2) / tan(.pi / 4 + φ1 / 2))
-        let θ = atan2(Δλ, Δψ) * 180 / .pi
-        return θ.truncatingRemainder(dividingBy: 360) + (θ < 0 ? 360 : 0)
+    private static func clampToSafeArea(_ point: CGPoint) -> CGPoint {
+        CGPoint(
+            x: min(max(point.x, inset), mapSize.width - inset),
+            y: min(max(point.y, inset), mapSize.height - inset)
+        )
     }
 
     /// `.imagery` satellite photography with `.flat` elevation (not the truly plain `.standard`
@@ -145,11 +110,8 @@ struct DistanceFlatMapView: View {
     /// what actually renders at the extreme zoom-out this file needs (this whole view only exists
     /// because a pair is too far apart for `DistanceGlobeView`'s own snapshot, which never needed
     /// anywhere near this range) — `.hybrid` bakes Apple's own city-name labels into the raster
-    /// image, which caused two confusions: real labels duplicating near our own pin at close zoom,
-    /// and, worse, in the self-centered fallback below, real nearby city names (Ho Chi Minh City,
-    /// Manila...) sitting right next to our fictional exit-point pin for a city that was never
-    /// really there, undermining the "this is a stylized direction indicator, not a real position"
-    /// read the fallback depends on. `.imagery` has the identical photography with no text at all.
+    /// image, which caused real labels duplicating near our own pin at close zoom. `.imagery` has
+    /// the identical photography with no text at all.
     ///
     /// Region-based framing (`options.region`, an `MKCoordinateSpan` in real degrees) — the same
     /// technique `DistanceGlobeView` already uses successfully up to 110°, grown further here (up
@@ -162,10 +124,10 @@ struct DistanceFlatMapView: View {
     /// macOS: `MKMapSnapshotter` scales a region smoothly all the way to 178° with no clamping).
     /// The real, honest finding underneath that confusion: some pairs (Melbourne↔New York, ~150°
     /// apart) genuinely don't both fit in this card's `mapSize` even at the true maximum useful
-    /// span, with real margin left over for their labels — not a bug to keep chasing, the reason
-    /// `content(_:)` below has its own self-centered fallback layout.
+    /// span, with real margin left over for their labels — not a bug to keep chasing. Rather than
+    /// switching to a self-centered fallback for those, this just returns its widest attempt as-is;
+    /// `content(_:)` clamps both real coordinates into the safe-inset rectangle itself.
     static func loadMapSnapshot(from a: CLLocationCoordinate2D, to b: CLLocationCoordinate2D) async -> MKMapSnapshotter.Snapshot? {
-        let distanceKm = Geo.distanceKm(a, b)
         let samples = routeSamples(from: a, to: b)
         let points = unwrappedMapPoints(for: samples)
         let worldWidth = MKMapSize.world.width
@@ -238,77 +200,40 @@ struct DistanceFlatMapView: View {
                     && point.y >= inset && point.y <= mapSize.height - inset
             }
             if fits { return snapshot }
-            span = MKCoordinateSpan(
+            let grownSpan = MKCoordinateSpan(
                 latitudeDelta: min(span.latitudeDelta * 1.4, maxLatSpanForCenter),
                 longitudeDelta: min(span.longitudeDelta * 1.4, maxSpan)
             )
+            // Both axes already at their caps (`maxLatSpanForCenter`/`maxSpan`) — another
+            // identical request would just refetch the same non-fitting snapshot. Found via
+            // London↔Melbourne (16,898km, 145.1° of longitude): its span hits both caps on the
+            // very first retry, so without this the remaining 4 attempts were pure wasted
+            // MKMapSnapshotter round-trips (each real network+render latency) before returning
+            // that same widest-attempt snapshot regardless.
+            if grownSpan.latitudeDelta == span.latitudeDelta && grownSpan.longitudeDelta == span.longitudeDelta {
+                break
+            }
+            span = grownSpan
         }
 
-        // Never converged in a north-up `MKCoordinateRegion` — not always a near-antipodal pair
-        // (see `content(_:)`'s own comment for that case); a pair whose *longitude* separation
-        // alone sits close to the 180° maximum hits this too (Bangkok↔New York, 174.5°), because a
-        // roughly-square frame showing that much longitude is forced (Mercator being isotropic) to
-        // also show a huge, mostly-empty *latitude* range to match — no amount of span/buffer
-        // tuning fixes that, it's the geometry of a north-up rectangle. So `content(_:)` draws
-        // myCity's real pin plus a straight decorative line to wherever it exits the frame, and
-        // this just needs one more snapshot centered on myCity to draw that over.
-        //
-        // How far to zoom that self-centered camera out scales with the pair's own real
-        // `distanceKm`, not a flat constant — found via testing both a genuinely far pair
-        // (Bangkok↔New York, 13,948km, where `20_000_000m` read as deliberate "here's your side of
-        // the world" context) and a much closer one that still lands here for the same longitude
-        // reason (Reykjavik↔Tokyo, 8,820km, confirmed via a temporary debug overlay that the real
-        // Tokyo point never fits even at that same `20_000_000m` — so it was *always* the ray
-        // fallback for this pair too, just with the same wide, mostly-empty framing as the much
-        // further-apart Bangkok↔New York, which is exactly why "zoom in more" read as correct
-        // feedback here despite `20_000_000m` being right for that other pair).
-        //
-        // Squared, not linear, against the `13,948km` (Bangkok↔New York) reference point that
-        // `20_000_000m` was tuned against — a first attempt scaled linearly (`distanceKm * 1_434`),
-        // which only pulled Reykjavik↔Tokyo in to `12.65M` (a 37% cut) and user-tested as barely
-        // perceptible, reading as the camera merely panning rather than zooming. Squaring the ratio
-        // keeps the top of the curve anchored at the same proven `20_000_000m` for pairs actually
-        // near that reference distance, while falling off much faster below it — the same
-        // `8,820km` pair now lands at `8.0M` (a 60% cut), a difference big enough to actually read
-        // as "zoomed in" rather than noise.
-        let baseDistance = min(max(20_000_000 * pow(distanceKm / 13_948, 2), 4_000_000), 20_000_000)
-        let candidateDistances: [CLLocationDistance] = [0.3, 0.5, 0.7, 1.0].map { $0 * baseDistance }
-        var widestSnapshot: MKMapSnapshotter.Snapshot?
-        for distance in candidateDistances {
-            let selfCenteredOptions = MKMapSnapshotter.Options()
-            selfCenteredOptions.size = mapSize
-            selfCenteredOptions.camera = MKMapCamera(lookingAtCenter: a, fromDistance: distance, pitch: 0, heading: 0)
-            guard let snapshot = try? await MKMapSnapshotter(options: selfCenteredOptions).start() else { continue }
-            widestSnapshot = snapshot
-            // A tighter candidate that happens to also catch the partner's real point (rare, but
-            // possible for a pair close to the threshold) beats the ray fallback outright —
-            // `content(_:)` already renders whichever one the returned snapshot supports.
-            let partnerPoint = snapshot.point(for: b)
-            let partnerFits = partnerPoint.x >= inset && partnerPoint.x <= mapSize.width - inset
-                && partnerPoint.y >= inset && partnerPoint.y <= mapSize.height - inset
-            if partnerFits { return snapshot }
-        }
-        return widestSnapshot ?? lastSnapshot
-    }
-
-    /// Many short chords between closely-spaced great-circle samples — a straight line pin-to-pin
-    /// would cut the true geodesic arc (and for a long route, visibly so) rather than follow it.
-    private func routePath(_ snapshot: MKMapSnapshotter.Snapshot) -> some View {
-        Path { path in
-            let sampleCount = 96
-            let samples = (0...sampleCount).map { i in
-                Geo.intermediateGreatCirclePoint(myCity.coordinate, partnerCity.coordinate, fraction: Double(i) / Double(sampleCount))
-            }
-            guard let first = samples.first else { return }
-            path.move(to: snapshot.point(for: first))
-            for coordinate in samples.dropFirst() {
-                path.addLine(to: snapshot.point(for: coordinate))
-            }
-        }
-        .stroke(Theme.skyBlue, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+        // Never converged within the safe-inset margin at any north-up span — not always a
+        // near-antipodal pair; a pair whose *longitude* separation alone sits close to the 180°
+        // maximum hits this too (Bangkok↔New York, 174.5°), because a roughly-square frame showing
+        // that much longitude is forced (Mercator being isotropic) to also show a huge, mostly-empty
+        // *latitude* range to match — no amount of span/buffer tuning fixes that, it's the geometry
+        // of a north-up rectangle. `lastSnapshot` is still the widest (most zoomed-out) attempt
+        // reached, real coordinates and all — `content(_:)` clamps both pins into frame from here
+        // rather than this function switching to a fabricated position for one of them.
+        return lastSnapshot
     }
 
     private static let pinLabelOffset: CGFloat = 30
+
+    /// Conservative half-width for the label pill's own edge-avoidance below — real width varies
+    /// with the city name (`.minimumScaleFactor` lets long ones shrink rather than clip), but this
+    /// covers a name as long as "Buenos Aires" at this font comfortably without needing to measure
+    /// the actual rendered text.
+    private static let labelHalfWidth: CGFloat = 40
 
     /// Avatar and label are positioned independently, not as one `VStack` shifted as a group —
     /// an earlier version centered the whole avatar+label group on `point` via a single hand-tuned
@@ -317,9 +242,15 @@ struct DistanceFlatMapView: View {
     /// label existed in the group and never revisited. The route line, which always draws to the
     /// real `point`, then visibly touched the label pill instead of the avatar it belongs to.
     /// Positioning the avatar directly at `point` (matching `DistanceGlobeView.pin`'s own approach)
-    /// makes that connection correct by construction.
+    /// makes that connection correct by construction. The label's *x* is independently clamped
+    /// in from `point.x` when needed — `inset` (20pt) is deliberately tight around the avatar
+    /// alone (see its own doc comment) and too small to also keep a ~70pt-wide label from clipping
+    /// at the rounded-rect edge for a pin that sits right at that boundary; shifting just the label
+    /// keeps the avatar circle exactly on its true/clamped position while the name next to it stays
+    /// fully on-screen.
     private func pin(_ point: CGPoint, photo: UIImage?, tint: Color, city: Place) -> some View {
-        Group {
+        let labelX = min(max(point.x, Self.labelHalfWidth), Self.mapSize.width - Self.labelHalfWidth)
+        return Group {
             avatarCircle(photo, tint: tint)
                 .position(point)
             Text(city.displayCity)
@@ -330,7 +261,7 @@ struct DistanceFlatMapView: View {
                 .padding(.horizontal, 5)
                 .padding(.vertical, 2)
                 .background(.black.opacity(0.55), in: Capsule())
-                .position(x: point.x, y: point.y + Self.pinLabelOffset)
+                .position(x: labelX, y: point.y + Self.pinLabelOffset)
         }
     }
 

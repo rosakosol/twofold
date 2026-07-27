@@ -48,8 +48,7 @@ extension Flight {
             terminalDestination: terminalDestination,
             baggageClaim: baggageClaim,
             departureDelayMinutes: departureDelaySeconds.map { $0 / 60 },
-            arrivalDelayMinutes: arrivalDelaySeconds.map { $0 / 60 },
-            lastUpdatedAt: .now
+            arrivalDelayMinutes: arrivalDelaySeconds.map { $0 / 60 }
         )
     }
 }

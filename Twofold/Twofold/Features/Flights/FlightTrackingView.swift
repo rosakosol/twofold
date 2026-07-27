@@ -354,11 +354,13 @@ struct FlightTrackingView: View {
             .frame(height: 260)
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
             .overlay(alignment: .bottomTrailing) {
-                // `hasLivePosition` only checks lat/lon — AeroAPI's own position fallback (used
-                // when the free ADS-B mirrors haven't picked up this aircraft yet, e.g. an
-                // oceanic leg outside terrestrial receiver coverage) can return a fix with no
-                // altitude/groundspeed at all, which rendered as an empty capsule with nothing
-                // inside it. Only show the overlay once there's actually something to put in it.
+                // `hasLivePosition` only checks lat/lon — a fresh ADS-B fix can arrive with no
+                // altitude/groundspeed reported at all, which rendered as an empty capsule with
+                // nothing inside it. Only show the overlay once there's actually something to put
+                // in it. No position data at all (e.g. an oceanic leg outside terrestrial ADS-B
+                // receiver coverage) just means this overlay doesn't render — the map's own plane
+                // marker keeps moving via progress-based interpolation regardless (see
+                // `FlightMapView`'s own `markerCoordinate(for:)`), so nothing looks broken.
                 if flight.positionGroundspeed != nil || flight.positionAltitude != nil {
                     liveStatsOverlay
                 }

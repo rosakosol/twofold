@@ -67,18 +67,6 @@ export interface AeroFlight {
   baggage_claim?: string | null;
 }
 
-export interface AeroPosition {
-  fa_flight_id: string;
-  altitude?: number | null;
-  altitude_change?: string | null;
-  groundspeed?: number | null;
-  heading?: number | null;
-  latitude: number;
-  longitude: number;
-  timestamp: string;
-  update_type?: string | null;
-}
-
 export interface FlightWeather {
   conditions?: string;
   temperatureC?: number;
@@ -269,11 +257,6 @@ export async function fetchFlightByFaId(faFlightId: string): Promise<AeroFlight 
   });
   const flights: AeroFlight[] = json?.flights ?? [];
   return flights[0] ?? null;
-}
-
-export async function fetchPosition(faFlightId: string): Promise<AeroPosition | null> {
-  const json = await aeroRequest(`/flights/${encodeURIComponent(faFlightId)}/position`);
-  return json ?? null;
 }
 
 // Simplified-syntax route search. Filtering to a specific date is left to the caller (the

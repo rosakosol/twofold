@@ -30,8 +30,12 @@ struct DistanceGlobeView: View {
     /// Pre-fetched by the caller via `Self.loadMapSnapshot` — nil shows a loading placeholder.
     let mapSnapshot: MKMapSnapshotter.Snapshot?
 
-    static let mapSize = CGSize(width: 328, height: 300)
-    static let globeSize: CGFloat = 280
+    // Shrunk from (328, 300)/280 (then nudged back up slightly) — the onboarding distance-reveal
+    // screen needed to fit without scrolling on most devices; every pin/label margin below is a
+    // formula derived from these two constants (not a hand-picked pixel value), so they scale
+    // safely with them.
+    static let mapSize = CGSize(width: 300, height: 258)
+    static let globeSize: CGFloat = 238
 
     /// MapKit's globe-mode renderer always leaves some black space/limb margin around the sphere
     /// regardless of how tight the snapshot's region span is — scaling the whole composited image
@@ -70,6 +74,63 @@ struct DistanceGlobeView: View {
     /// endpoints' own latitudes instead keeps the center near the cities' actual latitudes, clear
     /// of that problem, at the cost of not being the mathematically "true" arc midpoint — a
     /// trade worth making since it's what keeps both real cities recognizably in frame at all.
+    /// The largest span `loadMapSnapshot` will ever request — past this, a pair needs
+    /// `DistanceFlatMapView` instead. `DistanceMapView.isFlat` calls `requiredSpanDegrees` below
+    /// and compares it against this same constant, so the routing decision and what the globe can
+    /// actually render can never disagree (an earlier version used a cheap independent heuristic —
+    /// longitude + latitude separation over some threshold — approximating this same boundary, but
+    /// found via testing Helsinki↔Montreal it could still let through pairs whose real requirement
+    /// (225°, driven by 98.5° of longitude alone) was nowhere close).
+    static let maxSpan: CGFloat = 145
+
+    /// Solves for the region span each axis actually needs to keep a real coordinate inside
+    /// `pinMargin`/`pinMinY`/`pinMaxY` — sized off the larger of the two coordinate-space extents,
+    /// not straight-line distance. Found via testing Melbourne↔Wellington (2,578km, but 29.8° of
+    /// longitude vs only 3.5° of latitude): an earlier version scaled span off
+    /// `Geo.distanceKm(a, b) / 111.2` (roughly the km-per-degree straight-line separation), which
+    /// for this pair produced a ~31° square span — nowhere near enough to keep *either* real city
+    /// inside the safe zone, since nearly all of that 31° was consumed by the longitude gap between
+    /// two points that a straight-line/great-circle metric under-counts for a pair this asymmetric.
+    /// Both real pins landed outside the safe area, so `safeGlobePoint`'s "walk toward the other
+    /// city" fallback fired for *both* — not the rare edge case it was designed for — dragging both
+    /// avatars off their real position into the Tasman Sea between them. The `1.15`, not `1.1`,
+    /// headroom is deliberately a bit more generous than the strict solve — this is a linear
+    /// approximation of a real 3D globe camera's projection, which found via testing (Accra↔Vienna)
+    /// slightly *under*-estimates the true requirement for some pairs; `1.1` left that one pair's
+    /// pin about a pixel outside `pinMaxY`.
+    static func requiredSpanDegrees(from a: CLLocationCoordinate2D, to b: CLLocationCoordinate2D) -> Double {
+        var lonDelta = b.longitude - a.longitude
+        if lonDelta > 180 { lonDelta -= 360 }
+        if lonDelta < -180 { lonDelta += 360 }
+        let latDelta = abs(a.latitude - b.latitude)
+        let safeHalfWidth = globeSize / 2 - pinMargin
+        let safeHalfHeight = min(globeSize / 2 - pinMinY, pinMaxY - globeSize / 2)
+        let requiredSpanForLon = abs(lonDelta) / 2 * (globeSize / safeHalfWidth)
+        let requiredSpanForLat = latDelta / 2 * (globeSize / safeHalfHeight)
+        return max(requiredSpanForLon, requiredSpanForLat) * 1.15
+    }
+
+    /// `requiredSpanDegrees` alone isn't sufficient to predict whether the globe can actually
+    /// render a pair safely — found via testing Saint Petersburg↔Riyadh (only 136° required, under
+    /// `maxSpan`) and Barcelona↔Longyearbyen (143° required): both still failed, because
+    /// `MKCoordinateRegion` silently stops growing (not just crops — the returned image is
+    /// pixel-identical across a wide range of *larger* requested spans) once
+    /// `center.latitude ± span / 2` would cross ±90°, the same pole-proximity break `loadMapSnapshot`
+    /// already works around when *centering* the region (see that comment) — but centering around
+    /// it doesn't prevent a large enough *span* from crossing a pole anyway. Both failing pairs had
+    /// a real center latitude — 42.3°, 59.8° — that reads as unremarkable on its own; it only
+    /// matters combined with how much span the longitude/latitude gap separately demands. This is
+    /// the single source of truth `DistanceMapView.isFlat` calls — a pair fails either by needing
+    /// more span than the globe crop has pixels for, or by needing more span than its own center
+    /// latitude can support before crossing a pole, whichever comes first.
+    static func fitsOnGlobe(from a: CLLocationCoordinate2D, to b: CLLocationCoordinate2D) -> Bool {
+        let required = requiredSpanDegrees(from: a, to: b)
+        guard required <= maxSpan else { return false }
+        let centerLatitude = (a.latitude + b.latitude) / 2
+        let maxSpanForCenter = 2 * min(90 - centerLatitude, 90 + centerLatitude)
+        return required <= maxSpanForCenter
+    }
+
     static func loadMapSnapshot(from a: CLLocationCoordinate2D, to b: CLLocationCoordinate2D) async -> MKMapSnapshotter.Snapshot? {
         var lonDelta = b.longitude - a.longitude
         if lonDelta > 180 { lonDelta -= 360 }
@@ -79,15 +140,7 @@ struct DistanceGlobeView: View {
         if centerLongitude < -180 { centerLongitude += 360 }
         let center = CLLocationCoordinate2D(latitude: (a.latitude + b.latitude) / 2, longitude: centerLongitude)
 
-        // Was a flat 120° regardless of how far apart the pair actually is — fine for pairs near
-        // the globe's own upper range (close to `DistanceMapView.flatMapThresholdKm`), but for a
-        // genuinely close pair (Melbourne↔Sydney, 714km) it zoomed out so far past their real
-        // separation that both pins landed almost on top of each other. Scaling the span with the
-        // real angular separation (roughly km / 111.2, the km-per-degree of a great circle) keeps
-        // close pairs meaningfully zoomed in, while `min(…, 120)` preserves the exact framing
-        // already verified to work for pairs near the globe's own distance ceiling.
-        let separationDegrees = Geo.distanceKm(a, b) / 111.2
-        let span = min(max(separationDegrees * 1.35, 14), 120)
+        let span = min(max(requiredSpanDegrees(from: a, to: b), 14), maxSpan)
 
         let options = MKMapSnapshotter.Options()
         // `.imagery`, not `.hybrid` — hybrid overlays Apple's own city-name labels on top of the

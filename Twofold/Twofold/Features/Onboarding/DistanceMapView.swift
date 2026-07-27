@@ -28,24 +28,25 @@ struct DistanceMapView: View {
 
     /// Great-circle *distance* alone isn't a reliable proxy for "small enough to crop onto one
     /// globe" — found via testing Vancouver↔Dubai (11,731km, under `flatMapThresholdKm`, so
-    /// routed to the globe) which rendered a completely blank card, no pins or route at all. Both
-    /// cities sit at moderate-to-high latitude on nearly opposite sides of the planet by
-    /// longitude (178.4°), so their shortest path bows up almost over the pole — short in real
-    /// km, but needing to span nearly the full globe left-to-right to show both endpoints, far
-    /// past what `DistanceGlobeView`'s own 120°-capped span (tuned for pairs that actually need
-    /// only that much) can hold. `DistanceFlatMapView` already has the retry-with-growing-span
-    /// logic (up to 178°) and a graceful self-centered fallback for pairs that still don't fit —
-    /// exactly what a wide-longitude pair like this needs, regardless of how short the real
-    /// distance between them is.
-    private static func longitudeSeparationDegrees(_ a: CLLocationCoordinate2D, _ b: CLLocationCoordinate2D) -> Double {
-        var delta = b.longitude - a.longitude
-        if delta > 180 { delta -= 360 }
-        if delta < -180 { delta += 360 }
-        return abs(delta)
-    }
-
+    /// originally routed to the globe) which rendered a completely blank card, no pins or route at
+    /// all. Both cities sit at moderate-to-high latitude on nearly opposite sides of the planet by
+    /// longitude (178.4°), so their shortest path bows up almost over the pole — short in real km,
+    /// but needing to span nearly the full globe left-to-right to show both endpoints.
+    ///
+    /// Delegates the actual "does it fit" question to `DistanceGlobeView.fitsOnGlobe` itself rather
+    /// than an independent approximation of the same boundary — three earlier attempts at a cheap
+    /// standalone heuristic (pure longitude separation alone, then longitude+latitude summed, then
+    /// `requiredSpanDegrees` alone without also checking pole proximity) each caught some but not
+    /// all of the pairs that actually break the globe: Bogotá↔Vienna (a genuinely diagonal case, not
+    /// extreme on either single axis), Helsinki↔Montreal (high-latitude center silently breaking
+    /// `MKCoordinateRegion` once span pushes it near a pole), and Saint Petersburg↔Riyadh /
+    /// Barcelona↔Longyearbyen (well under the span cap by itself, but still pole-broken combined
+    /// with their own center latitude) all slipped through one version or another. Calling the real
+    /// formula means routing can never disagree with what `DistanceGlobeView` can actually render,
+    /// by construction.
     private static func isFlat(distanceKm: Double, myCoordinate: CLLocationCoordinate2D, partnerCoordinate: CLLocationCoordinate2D) -> Bool {
-        distanceKm > flatMapThresholdKm || longitudeSeparationDegrees(myCoordinate, partnerCoordinate) > 100
+        distanceKm > flatMapThresholdKm
+            || !DistanceGlobeView.fitsOnGlobe(from: myCoordinate, to: partnerCoordinate)
     }
 
     private var isFlat: Bool { Self.isFlat(distanceKm: distanceKm, myCoordinate: myCity.coordinate, partnerCoordinate: partnerCity.coordinate) }
