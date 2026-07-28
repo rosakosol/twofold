@@ -84,9 +84,13 @@ struct FlightMapView: View {
     /// calm placeholder rather than an empty map or a crash.
     private var fallback: some View {
         ZStack {
-            Theme.cardBackground
+            // Aurora's dedicated `Surface.map` in dark mode — deliberately darker than any card
+            // surface, not the same card wash this file's other content uses, since this stands
+            // in for the map/globe canvas itself, not a content card sitting on top of one.
             if colorScheme == .dark {
-                Theme.cardGradientDark
+                TwofoldDark.Surface.map
+            } else {
+                Theme.cardBackground
             }
             VStack(spacing: Theme.Spacing.sm) {
                 Image(systemName: "map")

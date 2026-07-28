@@ -13,63 +13,77 @@ enum Theme {
     // `Shared/TimeMath.swift`) rather than a flat hex literal, so the whole app adapts to system
     // appearance from this one file — see the ~162 feature files that already draw from `Theme.*`
     // instead of defining their own colors.
-    static let skyBlue = Color(light: "4FA9E0", dark: "63B8EA")
-    static let leafGreen = Color(light: "6FBF8B", dark: "7DD1A0")
-    static let heartRed = Color(light: "E85C6B", dark: "F1727F")
-    static let ink = Color(light: "1C2A38", dark: "ECF1F5")
-    // Dark mode uses translucent white rather than a flat muted hex — the old solid `94A3B3`
-    // was tuned against a flat gray card fill and read as too dim/gray once cards and other dark
-    // backgrounds got busier (`Theme.cardGradientDark`'s wash, `backgroundGradient`, etc.):
-    // alpha-blended white stays legible against any of them instead of needing a fresh hex tuned
-    // per background. Bumped from 0.72 to 0.82 — against the busier gradient cards (this wash,
-    // the game-badge-colored card/row gradients, etc.) 0.72 still read as noticeably dim/gray
-    // rather than a true "subtle white." Light mode is untouched.
+    //
+    // Dark-mode values throughout this file are the "Aurora" palette (see TwofoldDarkTheme.swift)
+    // — light mode is untouched. Per that file's own rules, `skyBlue`/`leafGreen`/`heartRed` map
+    // to the *text*-safe accent (`Accent.*Text`), not the fill one (`Accent.*Fill`): this token
+    // is used for both text/icons and fills throughout the app, and text legibility is the
+    // stricter constraint of the two (4.5:1 minimum). A handful of specific full-bleed fill
+    // usages (game cards, badge backgrounds) reference `TwofoldDark.Accent.*Fill`/`*Chip`
+    // directly where that distinction actually matters.
+    static let skyBlue = Color(light: "4FA9E0", dark: "8ACFF5")
+    static let leafGreen = Color(light: "6FBF8B", dark: "88DFA9")
+    static let heartRed = Color(light: "E85C6B", dark: "FF9BA3")
+    static let ink = Color(light: "1C2A38", dark: "F3F7FA")
+    // Aurora's own measured `Text.secondary` (≈8.5:1 against `Surface.cardFlat`) rather than the
+    // old translucent-white approximation — a real hex tuned against this exact palette's card
+    // surfaces instead of a generic alpha blend meant to survive against anything.
     static let subtleInk = Color(uiColor: UIColor { traits in
         traits.userInterfaceStyle == .dark
-            ? UIColor.white.withAlphaComponent(0.82)
+            ? UIColor(Color(hex: "AEC0CD"))
             : UIColor(Color(hex: "5B6B7A"))
     })
 
     /// Bottom color of `backgroundGradient`, exposed so pinned bottom bars can fade
     /// scrolled content into the exact color the screen background ends on.
-    static let backgroundBottom = Color(light: "E4F4E6", dark: "16241D")
+    static let backgroundBottom = Color(light: "E4F4E6", dark: "070E15")
 
-    /// Dark mode is deliberately its own deep gradient (blue-slate down to green-black), not just
-    /// a darkened version of the light gradient's pale pastel — that would read as washed out
-    /// rather than a genuine dark background.
+    /// Light mode keeps its own pale pastel gradient. Dark mode is Aurora's `Surface.base` —
+    /// both stops are the *same* hex, collapsing this to a genuinely flat background: rule #3
+    /// ("one gradient per screen") reserves a real gradient for the screen's own hero object, so
+    /// the page behind it has to be flat, not a second competing gradient.
     static let backgroundGradient = LinearGradient(
-        colors: [Color(light: "D9EEF9", dark: "13202B"), backgroundBottom],
+        colors: [Color(light: "D9EEF9", dark: "070E15"), backgroundBottom],
         startPoint: .top,
         endPoint: .bottom
     )
 
     /// Blue gradient for primary action buttons — lighter at the top, deeper at the
-    /// bottom (centered on `skyBlue`) to give the capsule a subtle sense of depth.
+    /// bottom (centered on `skyBlue`) to give the capsule a subtle sense of depth. Dark mode uses
+    /// Aurora's actual fill blue (`Accent.blueFill`, brand sky blue) at both stops rather than a
+    /// lighter/darker pair of it — a button fill always carries white content per rule #1, so it
+    /// doesn't need the text-safe lightening `skyBlue`'s own dark value gets.
     static let primaryButtonGradient = LinearGradient(
-        colors: [Color(light: "6EC1F0", dark: "72C6F2"), Color(light: "3D8FC9", dark: "4696CE")],
+        colors: [Color(light: "6EC1F0", dark: "4FA9E0"), Color(light: "3D8FC9", dark: "3D8FC9")],
         startPoint: .top,
         endPoint: .bottom
     )
 
-    static let cardBackground = Color(.secondarySystemGroupedBackground)
+    /// Light mode: system grouped-background gray, unchanged. Dark mode: Aurora's `Surface.cardFlat`
+    /// — a deliberate flat navy tint, not the system's own near-black gray.
+    static let cardBackground = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(Color(hex: "14222D"))
+            : UIColor.secondarySystemGroupedBackground
+    })
 
     /// Selected-state border for onboarding's option cards — blue-to-green, echoing the two
-    /// core accent colors rather than a flat single-color highlight.
+    /// core accent colors rather than a flat single-color highlight. Genuinely a *selection*
+    /// state (not decorative), so this stays a two-hue gradient in both appearances; anywhere
+    /// else this got reused purely for visual interest (not a real selected/unselected state)
+    /// has been reverted to a neutral line instead — see Aurora rule #2, "a hue never appears
+    /// decoratively."
     static let selectionGradient = LinearGradient(
         colors: [skyBlue, leafGreen],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
 
-    /// Dark-mode-only card/input surface tint — a translucent wash of the same blue-to-green
-    /// accent pair as `selectionGradient`, layered over `cardBackground` so cards read as raised
-    /// (a bit brighter than `backgroundGradient`'s deep navy-to-green-black) without needing a
-    /// hairline `strokeBorder` to separate them from the page.
-    static let cardGradientDark = LinearGradient(
-        colors: [skyBlue.opacity(0.38), leafGreen.opacity(0.30)],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
-    )
+    /// Dark-mode-only card surface tint — Aurora's own `Surface.card`, a subtle neutral navy
+    /// vertical tint (not a colored wash). Was a translucent blue-to-green wash of `skyBlue`/
+    /// `leafGreen`; that read as decorative color with no actual meaning behind it, which rule #2
+    /// explicitly rules out for a plain content surface.
+    static let cardGradientDark = TwofoldDark.Surface.card
 
     /// Day/night palette for the timezone card, blended continuously by hour-of-day.
     enum DayNight {
@@ -88,19 +102,24 @@ enum Theme {
     }
 
     enum Radius {
-        static let card: CGFloat = 20
+        // Aurora's own card radius (26) — a modest, both-appearances bump from the old 20 rather
+        // than a colorScheme-conditional value; a rounder card doesn't read as "wrong" in light
+        // mode, and threading a per-appearance radius through every call site for a difference
+        // this small wasn't worth the churn.
+        static let card: CGFloat = 26
         static let pill: CGFloat = 999
     }
 }
 
 extension View {
-    /// The flat `Theme.cardBackground` fill in light mode, `Theme.cardGradientDark`-washed in
-    /// dark mode — the exact treatment `SectionCard`/`OnboardingFieldBackground`/
-    /// `OnboardingScaffold`'s card surface already give their own content, pulled out so the many
-    /// *other* flat card/row/input backgrounds across the app (pickers, list-style rows, form
-    /// fields) can share it instead of staying a flat gray slab in dark mode. Prefer `SectionCard`
-    /// itself when starting a new screen from scratch; this is for spots that already have their
-    /// own bespoke layout and just need the same fill treatment.
+    /// The flat `Theme.cardBackground` fill in light mode, `Theme.cardGradientDark`-washed (plus
+    /// a hairline edge — Aurora rule #5, "depth = three surface steps + a 1px hairline") in dark
+    /// mode — the exact treatment `SectionCard`/`OnboardingFieldBackground`/`OnboardingScaffold`'s
+    /// card surface already give their own content, pulled out so the many *other* flat card/row/
+    /// input backgrounds across the app (pickers, list-style rows, form fields) can share it
+    /// instead of staying a flat gray slab in dark mode. Prefer `SectionCard` itself when starting
+    /// a new screen from scratch; this is for spots that already have their own bespoke layout and
+    /// just need the same fill treatment.
     func themedCardBackground(cornerRadius: CGFloat = Theme.Radius.card) -> some View {
         modifier(ThemedCardBackgroundModifier(cornerRadius: cornerRadius))
     }
@@ -111,15 +130,22 @@ private struct ThemedCardBackgroundModifier: ViewModifier {
     @Environment(\.colorScheme) private var colorScheme
 
     func body(content: Content) -> some View {
-        content.background {
-            ZStack {
-                Theme.cardBackground
+        content
+            .background {
+                ZStack {
+                    Theme.cardBackground
+                    if colorScheme == .dark {
+                        Theme.cardGradientDark
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            }
+            .overlay {
                 if colorScheme == .dark {
-                    Theme.cardGradientDark
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .stroke(TwofoldDark.Line.hairline, lineWidth: 1)
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-        }
     }
 }
 

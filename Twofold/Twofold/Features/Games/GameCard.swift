@@ -17,10 +17,10 @@ struct GameCard: View {
     /// tease/preview of what's waiting for them once they do.
     var isLocked: Bool = false
 
-    @Environment(\.colorScheme) private var colorScheme
-
     /// This game type's own accent — same value `DeckCardRow` falls back to for a non-topic
-    /// badge tint, reused here for the card's dark-mode wash (see `cardBackground`).
+    /// badge tint, used here for just the icon glyph. The card surface itself stays neutral (see
+    /// `themedCardBackground`) — a game *type* isn't itself a blue/green/red state, so per Aurora
+    /// rule #2 it doesn't get a colored card wash, just this one colored accent on the icon.
     private var accentColor: Color { gameType.iconGradient.first ?? Theme.skyBlue }
 
     var body: some View {
@@ -37,7 +37,7 @@ struct GameCard: View {
         .padding(Theme.Spacing.md)
         .frame(width: width, height: 170, alignment: .center)
         .frame(maxWidth: width == nil ? .infinity : nil, alignment: .center)
-        .background { cardBackground }
+        .themedCardBackground(cornerRadius: Theme.Radius.card)
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         .shadow(color: .black.opacity(0.06), radius: 6, y: 3)
         .overlay {
@@ -65,25 +65,6 @@ struct GameCard: View {
                     }
             }
         }
-    }
-
-    /// Same treatment `TopicsSection`'s own rows use: flat `Theme.cardBackground` in light mode,
-    /// a translucent wash of this game type's own accent color in dark mode instead of the
-    /// generic blue-to-green `Theme.cardGradientDark` every other card uses. Brighter/less
-    /// opaque than a first pass at this (0.4/0.16) — that read as a dark, muddy tint rather than
-    /// a genuinely colored card.
-    private var cardBackground: some View {
-        ZStack {
-            Theme.cardBackground
-            if colorScheme == .dark {
-                LinearGradient(
-                    colors: [accentColor.opacity(0.6), accentColor.opacity(0.32)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
     }
 }
 

@@ -17,6 +17,7 @@ import UniformTypeIdentifiers
 struct FlightTrackingView: View {
     @Environment(AppModel.self) private var appModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
 
     @State private var flight: Flight
     @State private var events: [FlightStatusEvent] = []
@@ -97,11 +98,19 @@ struct FlightTrackingView: View {
         VStack(spacing: 0) {
             // Fixed/sticky — deliberately outside the ScrollView below, so it never scrolls with
             // the rest of the screen. Route, airline, status, and countdown are the things worth
-            // always having on screen regardless of how far down you've scrolled.
-            header
-                .padding(.horizontal, Theme.Spacing.md)
-                .padding(.top, Theme.Spacing.sm)
-                .padding(.bottom, Theme.Spacing.md)
+            // always having on screen regardless of how far down you've scrolled. In dark mode
+            // this is the screen's one Aurora "hero" object (rule #3, one gradient per screen) —
+            // everything below it (journeyCard, departureCard, ...) stays flat `SectionCard`.
+            Group {
+                if colorScheme == .dark {
+                    header.twofoldHeroCard(padding: Theme.Spacing.md)
+                } else {
+                    header
+                }
+            }
+            .padding(.horizontal, Theme.Spacing.md)
+            .padding(.top, Theme.Spacing.sm)
+            .padding(.bottom, Theme.Spacing.md)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.Spacing.lg) {

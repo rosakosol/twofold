@@ -18,6 +18,7 @@ struct MainTabView: View {
 
     init(selection: Binding<MainTab> = .constant(.home)) {
         _selection = selection
+        Self.configureTabBarAppearance()
     }
 
     var body: some View {
@@ -44,6 +45,33 @@ struct MainTabView: View {
             }
         }
         .tint(Theme.skyBlue)
+    }
+
+    /// Applied once via `UITabBar.appearance()` — SwiftUI's `TabView` has no direct modifier for
+    /// the bar's own background/border/unselected-item color, only `.tint()` for the selected
+    /// state. Dark-mode branches carry the Aurora `TwofoldDark.TabBar` tokens; light-mode branches
+    /// return the system's own defaults so light mode is visually untouched, mirroring the
+    /// dynamic-`UIColor` pattern `Theme.cardBackground`/`Theme.subtleInk` already use.
+    private static func configureTabBarAppearance() {
+        let appearance = UITabBarAppearance()
+        appearance.configureWithDefaultBackground()
+        appearance.backgroundColor = UIColor { traits in
+            traits.userInterfaceStyle == .dark ? UIColor(TwofoldDark.TabBar.background) : .clear
+        }
+        appearance.shadowColor = UIColor { traits in
+            traits.userInterfaceStyle == .dark ? UIColor(TwofoldDark.TabBar.border) : .separator
+        }
+
+        let unselected = UIColor { traits in
+            traits.userInterfaceStyle == .dark ? UIColor(TwofoldDark.TabBar.itemForeground) : .secondaryLabel
+        }
+        for itemAppearance in [appearance.stackedLayoutAppearance, appearance.inlineLayoutAppearance, appearance.compactInlineLayoutAppearance] {
+            itemAppearance.normal.iconColor = unselected
+            itemAppearance.normal.titleTextAttributes = [.foregroundColor: unselected]
+        }
+
+        UITabBar.appearance().standardAppearance = appearance
+        UITabBar.appearance().scrollEdgeAppearance = appearance
     }
 }
 

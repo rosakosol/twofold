@@ -16,7 +16,9 @@ struct DailyActivityCard: View {
     @Environment(AppModel.self) private var appModel
 
     var body: some View {
-        SectionCard {
+        // The Games hub's one Aurora hero object (rule #3) — the couple's daily streak sits at
+        // the very top of the tab, above every flat deck/topic card below it.
+        SectionCard(isHeroInDark: true) {
             HStack(spacing: Theme.Spacing.sm) {
                 ZStack {
                     Circle().fill(Theme.primaryButtonGradient)

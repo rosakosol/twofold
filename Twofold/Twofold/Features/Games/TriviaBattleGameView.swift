@@ -182,7 +182,7 @@ struct TriviaBattleGameView: View {
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(Theme.subtleInk)
                         if let resolvedTopic {
-                            PillBadge(text: resolvedTopic.displayName, tint: resolvedTopic.color)
+                            PillBadge(text: resolvedTopic.displayName, tint: resolvedTopic.color, isNeutral: true)
                         }
                         Text(question.question)
                             .font(.title3.weight(.bold))

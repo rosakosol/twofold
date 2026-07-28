@@ -82,9 +82,9 @@ struct DeckCardRow: View {
             HStack(alignment: .top, spacing: Theme.Spacing.sm) {
                 VStack(alignment: .leading, spacing: 4) {
                     if showsTopicPill, let topic = GameTopic(rawValue: deck.topic) {
-                        PillBadge(text: topic.displayName, tint: topic.color)
+                        PillBadge(text: topic.displayName, tint: topic.color, isNeutral: true)
                     } else {
-                        PillBadge(text: deck.gameType.shortLabel, tint: deck.gameType.iconGradient.first ?? Theme.skyBlue)
+                        PillBadge(text: deck.gameType.shortLabel, tint: deck.gameType.iconGradient.first ?? Theme.skyBlue, isNeutral: true)
                     }
                     Text(deck.title)
                         .font(.subheadline.weight(.bold))
@@ -148,16 +148,16 @@ struct DeckCardRow: View {
         .overlay {
             // A completed deck's pale green fill barely reads as different from the page
             // background on its own — a green edge (instead of the generic neutral one) gives
-            // it real separation and doubles as a second "done" cue alongside the checkmark tick.
-            // An incomplete card's border is the same blue-to-green `Theme.selectionGradient` the
-            // "Your turn"/"Answered"/"New" filter pills use, but only in dark mode — light mode
-            // already reads fine against its own pale background with the original plain neutral
-            // edge, and the gradient there just looked like stray color with no real purpose.
+            // it real separation and doubles as a second "done" cue alongside the checkmark tick:
+            // green genuinely means "completed" here (Aurora rule #2), so it keeps its own accent
+            // line in both appearances. An incomplete card has no state of its own to signal, so
+            // it gets a plain neutral hairline instead — not a colored gradient, which used to
+            // show here with no real meaning behind it.
             RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
                 .strokeBorder(
                     bothCompleted
                         ? AnyShapeStyle(Theme.leafGreen.opacity(0.5))
-                        : (colorScheme == .dark ? AnyShapeStyle(Theme.selectionGradient.opacity(0.6)) : AnyShapeStyle(Theme.subtleInk.opacity(0.12))),
+                        : (colorScheme == .dark ? AnyShapeStyle(TwofoldDark.Line.hairline) : AnyShapeStyle(Theme.subtleInk.opacity(0.12))),
                     lineWidth: bothCompleted ? 1.5 : 1.25
                 )
         }

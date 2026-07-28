@@ -134,31 +134,33 @@ struct AllDecksBrowseView: View {
                 .font(.caption.weight(.semibold))
                 .padding(.horizontal, Theme.Spacing.md)
                 .padding(.vertical, Theme.Spacing.xs)
-                // The solid blue `Theme.primaryButtonGradient` fill read fine in light mode, but
-                // sitting next to dark mode's other washed cards it looked like a completely
-                // different control — dark mode gives selected the same dark-wash fill those use
-                // instead, distinguished by a bolder, fully-opaque border. Unselected stays flat
-                // dark gray (`Theme.cardBackground`, no wash) in both appearances — only the
-                // border below is dark-mode-specific.
-                .foregroundStyle(isSelected && colorScheme != .dark ? .white : Theme.ink)
-                .background {
-                    if isSelected && colorScheme == .dark {
-                        ZStack {
-                            Theme.cardBackground
-                            Theme.cardGradientDark
-                        }
-                        .clipShape(Capsule())
-                    } else {
-                        Capsule().fill(isSelected ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.cardBackground))
-                    }
-                }
+                // Dark mode's selected pill now carries a real blue chip fill + text (blue =
+                // interactive/selected, Aurora rule #2) instead of the same neutral card wash
+                // every unselected pill also had — that read as barely distinguishable next to
+                // its unselected neighbors. Light mode is untouched (solid blue gradient fill).
+                .foregroundStyle(foregroundColor(isSelected: isSelected))
+                .background(backgroundStyle(isSelected: isSelected), in: Capsule())
                 .overlay {
                     if colorScheme == .dark {
-                        Capsule().strokeBorder(Theme.selectionGradient.opacity(isSelected ? 1 : 0.6), lineWidth: isSelected ? 1.75 : 1.25)
+                        Capsule().strokeBorder(isSelected ? TwofoldDark.Accent.blueChipLine : TwofoldDark.Line.strong, lineWidth: isSelected ? 1.5 : 1.25)
                     }
                 }
         }
         .buttonStyle(.plain)
+    }
+
+    private func foregroundColor(isSelected: Bool) -> Color {
+        if colorScheme == .dark {
+            return isSelected ? TwofoldDark.Accent.blueText : Theme.subtleInk
+        }
+        return isSelected ? .white : Theme.ink
+    }
+
+    private func backgroundStyle(isSelected: Bool) -> AnyShapeStyle {
+        if colorScheme == .dark {
+            return isSelected ? AnyShapeStyle(TwofoldDark.Accent.blueChip) : AnyShapeStyle(Theme.cardBackground)
+        }
+        return isSelected ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.cardBackground)
     }
 }
 

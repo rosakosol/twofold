@@ -229,15 +229,26 @@ struct GameResultsView: View {
 
     /// Plain, large percentage — replaced the earlier half-circle gauge (`AnswerSimilarityGauge`),
     /// which read as visually noisy/misaligned against the rest of this screen; the number itself
-    /// is the thing worth making big, not an arc around it.
+    /// is the thing worth making big, not an arc around it. In dark mode this is the one Aurora
+    /// "hero" moment on the results screen (rule #3) — the single number the whole reveal builds
+    /// up to — so it gets the hero card treatment; every round row above it stays flat.
     private func similarityPercent(_ percent: Int) -> some View {
-        VStack(spacing: 2) {
+        let content = VStack(spacing: 2) {
             Text("\(percent)%")
                 .font(.system(size: 64, weight: .bold, design: .rounded))
                 .foregroundStyle(similarityTint(percent))
             Text("answer similarity")
                 .font(.caption)
                 .foregroundStyle(Theme.subtleInk)
+        }
+        .frame(maxWidth: .infinity)
+
+        return Group {
+            if colorScheme == .dark {
+                content.twofoldHeroCard(padding: Theme.Spacing.lg)
+            } else {
+                content
+            }
         }
     }
 
@@ -358,15 +369,15 @@ struct GameResultsView: View {
         .overlay {
             // The matched tint alone reads as barely different from an unmatched card against
             // the screen's own pale gradient — a visible edge gives it real separation instead of
-            // relying on a subtle fill alone. A non-matching card's border is the same blue-to-
-            // green `Theme.selectionGradient` the "Your turn"/"Answered"/"New" filter pills and
-            // `DeckCardRow`'s own incomplete-card border use, but only in dark mode — light mode
-            // keeps the original plain neutral edge, same reasoning as `DeckCardRow`'s.
+            // relying on a subtle fill alone: green genuinely means "matched" (Aurora rule #2), so
+            // it keeps its own accent line in both appearances, same as `DeckCardRow`'s completed
+            // state. A non-matching card has no state of its own to signal, so it gets a plain
+            // neutral hairline instead — not a colored gradient with no real meaning behind it.
             RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
                 .strokeBorder(
                     matched
                         ? AnyShapeStyle(Theme.leafGreen.opacity(0.5))
-                        : (colorScheme == .dark ? AnyShapeStyle(Theme.selectionGradient.opacity(0.6)) : AnyShapeStyle(Theme.subtleInk.opacity(0.25))),
+                        : (colorScheme == .dark ? AnyShapeStyle(TwofoldDark.Line.hairline) : AnyShapeStyle(Theme.subtleInk.opacity(0.25))),
                     lineWidth: matched ? 1.5 : 1.25
                 )
         }

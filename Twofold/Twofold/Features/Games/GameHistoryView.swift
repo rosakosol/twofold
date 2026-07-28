@@ -141,11 +141,12 @@ struct GameHistoryView: View {
                     isSelected ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.cardBackground),
                     in: Capsule()
                 )
-                // Unselected pills had no edge of their own in dark mode — same blue-to-green
-                // `Theme.selectionGradient` border the Games hub's own filter pills use.
+                // Unselected pills had no edge of their own in dark mode — plain neutral
+                // hairline, same as the Games hub's own filter pills (this is a filter choice,
+                // not a blue/green/red state, so no colored gradient here).
                 .overlay {
                     if !isSelected && colorScheme == .dark {
-                        Capsule().strokeBorder(Theme.selectionGradient.opacity(0.6), lineWidth: 1.25)
+                        Capsule().strokeBorder(TwofoldDark.Line.strong, lineWidth: 1.25)
                     }
                 }
         }
@@ -161,7 +162,7 @@ struct GameHistoryView: View {
                     if session.isDaily {
                         PillBadge(text: "Daily Deep Question", tint: Theme.heartRed)
                     } else if let topic {
-                        PillBadge(text: topic.displayName, tint: topic.color)
+                        PillBadge(text: topic.displayName, tint: topic.color, isNeutral: true)
                     }
                     // The daily question's own text takes priority over the deck's own title
                     // (e.g. "How Well Do You Know European History?") — a daily session has no

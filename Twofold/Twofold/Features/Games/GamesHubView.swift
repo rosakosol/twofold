@@ -95,14 +95,15 @@ struct GamesHubView: View {
                         .frame(maxWidth: .infinity)
                         .foregroundStyle(Theme.ink)
                         .background(Theme.cardBackground, in: Capsule())
-                        // Same blue-to-green accent pair as `Theme.selectionGradient` — a plain
-                        // flat fill left these three pills with no edge of their own at all in
-                        // dark mode, reading as one undifferentiated bar rather than three
-                        // distinct filters. Light mode already reads fine against its own pale
-                        // background without a border, so this stays dark-mode-only.
+                        // A plain flat fill left these three pills with no edge of their own at
+                        // all in dark mode, reading as one undifferentiated bar rather than three
+                        // distinct filters. Neutral hairline (not a colored gradient — these pills
+                        // don't represent a blue/green/red state, just a filter choice, and Aurora
+                        // rule #2 keeps color meaningful rather than decorative). Light mode
+                        // already reads fine against its own pale background without a border.
                         .overlay {
                             if colorScheme == .dark {
-                                Capsule().strokeBorder(Theme.selectionGradient.opacity(0.6), lineWidth: 1.25)
+                                Capsule().strokeBorder(TwofoldDark.Line.strong, lineWidth: 1.25)
                             }
                         }
                 }
