@@ -24,10 +24,23 @@ struct RouteMapShareCard: View {
     /// Region padded well beyond the two endpoints so both pins and their labels land safely
     /// inside frame, with a sensible floor so a short domestic hop doesn't render as an
     /// unreadably tight zoom.
+    ///
+    /// Confirmed live crash: a naive `abs(origin.longitude - destination.longitude)` breaks across
+    /// the antimeridian exactly like `Geo.sphericalMidpoint`'s own doc comment warns against for
+    /// the *center* — SFO (-122.38°) to Taipei (121.23°) raw-diffed to 243.6°, ×1.7 ≈ 414°, and
+    /// `MKMapSnapshotOptions.setRegion:` throws an uncaught `NSInvalidArgumentException` on a span
+    /// that wide, which crashes the whole process (Share sheet's `.task` calls this synchronously,
+    /// no do/catch boundary to contain an Objective-C exception even if there were one). Wrapping
+    /// through the shorter way around the antimeridian fixes the common case; both deltas are also
+    /// clamped to a hard ceiling since even the wrapped diff can still exceed what a single
+    /// non-wrapping region can sanely represent for a near-antipodal route — the map just ends up
+    /// zoomed out further than usual rather than crashing.
     static func region(for origin: CLLocationCoordinate2D, _ destination: CLLocationCoordinate2D) -> MKCoordinateRegion {
         let center = Geo.sphericalMidpoint(origin, destination)
-        let latDelta = max(abs(origin.latitude - destination.latitude) * 1.7, 10)
-        let lonDelta = max(abs(origin.longitude - destination.longitude) * 1.7, 10)
+        let rawLonDiff = abs(origin.longitude - destination.longitude)
+        let lonDiff = min(rawLonDiff, 360 - rawLonDiff)
+        let latDelta = min(max(abs(origin.latitude - destination.latitude) * 1.7, 10), 170)
+        let lonDelta = min(max(lonDiff * 1.7, 10), 170)
         return MKCoordinateRegion(center: center, span: MKCoordinateSpan(latitudeDelta: latDelta, longitudeDelta: lonDelta))
     }
 

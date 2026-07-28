@@ -167,6 +167,34 @@ function isSameLocalDay(iso: string | null | undefined, date: string, timeZone: 
   }
 }
 
+// Same-day checks need *some* timestamp to compare against, but a flight already in the air can
+// come back from AeroAPI with scheduled_out/estimated_out/actual_out *all* null (confirmed live:
+// CI5175, en route, had every out-side field null in the raw /flights/{ident} response — not just
+// scheduled_out) — falls back through every timestamp field AeroAPI might have populated, out-side
+// first, then in-side, rather than treating the flight as dateless and dropping it. AeroScheduledFlight
+// rows only ever have scheduled_out/scheduled_in, so this is a no-op there beyond the original fallback.
+function referenceOut(f: {
+  scheduled_out?: string | null; estimated_out?: string | null; actual_out?: string | null;
+  actual_off?: string | null; estimated_off?: string | null; scheduled_off?: string | null;
+  scheduled_in?: string | null; estimated_in?: string | null; actual_in?: string | null;
+}): string | null | undefined {
+  return f.scheduled_out ?? f.estimated_out ?? f.actual_out ?? f.actual_off ?? f.estimated_off ??
+    f.scheduled_off ?? f.scheduled_in ?? f.estimated_in ?? f.actual_in;
+}
+
+// A flight that has genuinely departed and not yet arrived needs no same-day disambiguation at
+// all — "in progress right now" is unambiguous regardless of which calendar date its own
+// timestamps land on. Confirmed live: FJ810 (a daily service) returned three near-identical
+// instances for one designator search — yesterday's (departed ~3h late, so its actual_out crossed
+// into a different local calendar day than its schedule said), today's (still 12h from
+// departure), and tomorrow's — and the currently-en-route one lost the same-day comparison to the
+// not-yet-departed one purely on that date-string technicality, hiding the flight the caller was
+// actually trying to add. AeroScheduledFlight rows never have actual_out/actual_in (schedule-only
+// data), so this is always false there — same-day filtering still applies to /schedules results.
+function isFlightInProgress(f: { actual_out?: string | null; actual_in?: string | null }): boolean {
+  return Boolean(f.actual_out) && !f.actual_in;
+}
+
 // `date` is computed as "today"/"tomorrow" in the *device's* own timezone (see
 // AddFlightDateStepView.swift) — meaning "departing today" is meant, and should be checked, in
 // the sense the caller actually means it: today where *they* are, not today at whatever airport
@@ -190,16 +218,18 @@ function isSameLocalDay(iso: string | null | undefined, date: string, timeZone: 
 // fallback: it used to also mask "the true requested-day flight got clamped out of the /flights
 // window," making a real bug look like an ordinary empty result. /schedules never has that
 // problem (no future cap), so a same-day miss there really does mean "no matching flight."
-function filterPreferringSameDay<T extends { scheduled_out?: string | null }>(
+function filterPreferringSameDay<T extends { scheduled_out?: string | null; estimated_out?: string | null; actual_out?: string | null; actual_in?: string | null }>(
   results: T[],
   date: string,
   timeZone: (f: T) => string | null | undefined,
 ): T[] {
-  const sameDay = results.filter((f) => isSameLocalDay(f.scheduled_out, date, timeZone(f)));
+  const sameDay = results.filter((f) => isFlightInProgress(f) || isSameLocalDay(referenceOut(f), date, timeZone(f)));
   const chosen = sameDay.length > 0 ? sameDay : results;
   return [...chosen].sort((a, b) => {
-    const aTime = a.scheduled_out ? new Date(a.scheduled_out).getTime() : Number.MAX_SAFE_INTEGER;
-    const bTime = b.scheduled_out ? new Date(b.scheduled_out).getTime() : Number.MAX_SAFE_INTEGER;
+    const aOut = referenceOut(a);
+    const bOut = referenceOut(b);
+    const aTime = aOut ? new Date(aOut).getTime() : Number.MAX_SAFE_INTEGER;
+    const bTime = bOut ? new Date(bOut).getTime() : Number.MAX_SAFE_INTEGER;
     return aTime - bTime;
   });
 }
@@ -387,9 +417,19 @@ Deno.serve(async (req) => {
       // fall back to an unfiltered result if its own same-day filter comes up empty.
       let liveCandidates: Candidate[];
       if (wasClamped) {
-        const sameDay = operatingFlights.filter((f) =>
-          isSameLocalDay(f.scheduled_out, input.date, input.deviceTimeZone ?? f.origin?.timezone)
-        );
+        // A flight with zero populated timestamp fields at all (confirmed live: CI5175, genuinely
+        // in the air, every out/off/in field null) can't be judged against `input.date` one way or
+        // the other — keep it rather than reject on missing data. This doesn't reintroduce the old
+        // "fall back to unfiltered results" bug: that discarded real date information (an adjacent
+        // day's flight always has a timestamp, it just didn't match); this only ever fires when
+        // there is literally no timestamp to compare, which the operator filter above has already
+        // narrowed to flights AeroAPI itself considers this ident's operating carrier.
+        const sameDay = operatingFlights.filter((f) => {
+          if (isFlightInProgress(f)) return true;
+          const ref = referenceOut(f);
+          if (!ref) return true;
+          return isSameLocalDay(ref, input.date, input.deviceTimeZone ?? f.origin?.timezone);
+        });
         liveCandidates = sameDay.map(fromLiveFlight);
       } else {
         const liveFlights = filterPreferringSameDay(operatingFlights, input.date, (f) => input.deviceTimeZone ?? f.origin?.timezone);
@@ -431,7 +471,13 @@ Deno.serve(async (req) => {
         `[resolve-flight] number ${input.flightNumber} on ${input.date}: live window=[${startISO},${endISO}] ` +
           `wasClamped=${wasClamped}, aeroapi returned ${results.length} live, ${operatingFlights.length} after operator filter, ` +
           `${liveCandidates.length} after same-day; schedules ${scheduledLog}; ${candidates.length} candidates after merge. ` +
-          `raw=${JSON.stringify(results.map((f) => ({ ident: f.ident_iata ?? f.ident_icao ?? f.ident, operator: f.operator_iata ?? f.operator_icao ?? f.operator, out: f.scheduled_out, originTz: f.origin?.timezone })))}`,
+          `raw=${JSON.stringify(results.map((f) => ({
+            ident: f.ident_iata ?? f.ident_icao ?? f.ident, operator: f.operator_iata ?? f.operator_icao ?? f.operator,
+            out: f.scheduled_out, estOut: f.estimated_out, actOut: f.actual_out,
+            off: f.scheduled_off, estOff: f.estimated_off, actOff: f.actual_off,
+            in: f.scheduled_in, estIn: f.estimated_in, actIn: f.actual_in,
+            originTz: f.origin?.timezone,
+          })))}`,
       );
     } else {
       const results = await searchRoute(input.originIata, input.destinationIata);

@@ -262,8 +262,16 @@ struct Flight: Identifiable, Hashable {
         return flightNumberIATA
     }
 
-    var bestDeparture: Date? { actualOut ?? estimatedOut ?? scheduledOut }
-    var bestArrival: Date? { actualIn ?? estimatedIn ?? scheduledIn }
+    /// Confirmed live: CI5175 had `actual_off` (wheels up) populated by AeroAPI but no
+    /// `actual_out`/`estimated_out`/`scheduled_out` at all (a gate-pushback report gap, not
+    /// uncommon for some airline/airport combinations) — falling back to the off/on milestones
+    /// once the out/in family is entirely empty means `progress` (which guards on `bestDeparture
+    /// == nil`) stops silently reporting 0% for a flight that's genuinely mid-air, and the map's
+    /// progress-interpolated fallback marker (used whenever `positionCoordinate` has no live
+    /// ADS-B fix) stops rendering frozen at the origin. `timeline` below already prefers
+    /// `actualOff ?? actualOut` for exactly this reason — this mirrors that same convention.
+    var bestDeparture: Date? { actualOut ?? estimatedOut ?? scheduledOut ?? actualOff ?? estimatedOff ?? scheduledOff }
+    var bestArrival: Date? { actualIn ?? estimatedIn ?? scheduledIn ?? actualOn ?? estimatedOn ?? scheduledOn }
 
     /// True while actively in progress, or within a 15-minute grace window after actual/
     /// estimated/scheduled arrival — long enough that a flight doesn't vanish out of "active/

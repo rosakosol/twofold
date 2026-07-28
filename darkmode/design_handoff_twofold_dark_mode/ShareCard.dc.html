@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/twofold-design-tokens-2755dc26-ae41-450e-96e7-92f167979f40/styles.css">
+</helmet>
+<div style="width:320px;height:400px;border-radius:28px;overflow:hidden;position:relative;background:{{canvas}};font-family:var(--font-body);color:{{fg}};display:flex;flex-direction:column;padding:22px;box-sizing:border-box">
+  <div style="position:absolute;inset:0;background:{{glow}}"></div>
+
+  <div style="position:relative;display:flex;align-items:center;justify-content:space-between;gap:10px">
+    <div style="display:flex;align-items:center;gap:7px;flex:none">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="{{accent}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20.5s-7.4-4.6-7.4-9.7A4.1 4.1 0 0112 7.1a4.1 4.1 0 017.4 3.7c0 5.1-7.4 9.7-7.4 9.7M4.9 11h14.2M12 7.1c2.3 3.4 2.3 10 0 13.4M12 7.1c-2.3 3.4-2.3 10 0 13.4"></path></svg>
+      <div style="font-family:var(--font-display);font-size:16px;font-weight:500;letter-spacing:.01em">twofold</div>
+    </div>
+    <sc-if value="{{showChip}}" hint-placeholder-val="{{ true }}">
+      <div style="font-size:10px;font-weight:600;letter-spacing:.12em;color:{{accent}};background:{{accentChip}};border:1px solid {{accentLine}};border-radius:999px;padding:4px 9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{game}}</div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{isQuote}}" hint-placeholder-val="{{ true }}">
+    <div style="position:relative;flex:1;display:flex;flex-direction:column;justify-content:center;gap:18px;padding:16px 0 4px">
+      <div style="font-family:var(--font-display);font-size:23px;font-weight:500;line-height:1.24;letter-spacing:-.01em;text-wrap:pretty">{{question}}</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <sc-for list="{{answers}}" as="a" hint-placeholder-count="2">
+          <div style="background:{{surface}};border:1px solid {{surfaceLine}};border-radius:16px;padding:11px 14px">
+            <div style="display:flex;align-items:center;gap:7px">
+              <div style="width:18px;height:18px;border-radius:999px;background:{{a.avatar}};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#10202C">{{a.initial}}</div>
+              <div style="font-size:10px;font-weight:600;letter-spacing:.1em;opacity:.72">{{a.name}}</div>
+            </div>
+            <div style="font-size:15px;line-height:1.35;margin-top:5px">{{a.text}}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{isChat}}" hint-placeholder-val="{{ true }}">
+    <div style="position:relative;flex:1;display:flex;flex-direction:column;justify-content:center;gap:16px;padding:14px 0 4px">
+      <div style="font-family:var(--font-display);font-size:20px;font-weight:500;line-height:1.25;text-align:center;text-wrap:pretty">{{question}}</div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;align-items:flex-end;gap:8px">
+          <div style="width:24px;height:24px;border-radius:999px;background:#E07B3A;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#10202C;flex:none">R</div>
+          <div style="background:{{bubbleBg}};color:{{bubbleFg}};border-radius:18px 18px 18px 6px;padding:10px 14px;font-size:15px;line-height:1.35;max-width:224px">{{answerA}}</div>
+        </div>
+        <div style="display:flex;align-items:flex-end;justify-content:flex-end;gap:8px">
+          <div style="background:{{surface}};border:1px solid {{surfaceLine}};border-radius:18px 18px 6px 18px;padding:10px 14px;font-size:15px;line-height:1.35;max-width:224px">{{answerB}}</div>
+          <div style="width:24px;height:24px;border-radius:999px;background:#6E92A4;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#08131C;flex:none">E</div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{isScore}}" hint-placeholder-val="{{ true }}">
+    <div style="position:relative;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center">
+      <div style="font-size:15px;line-height:1.35;opacity:.9;max-width:250px;text-wrap:pretty">{{question}}</div>
+      <div style="font-family:var(--font-display);font-size:80px;font-weight:600;line-height:.9;letter-spacing:-.03em">{{score}}</div>
+      <div style="font-size:12px;font-weight:600;letter-spacing:.14em;color:{{accent}}">{{scoreCaption}}</div>
+      <div style="width:180px;height:6px;border-radius:999px;background:{{track}};overflow:hidden">
+        <div style="width:{{scorePct}};height:100%;border-radius:999px;background:{{fill}}"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:-6px;margin-top:2px">
+        <div style="width:28px;height:28px;border-radius:999px;background:#E07B3A;border:2px solid {{ringColor}};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#10202C">R</div>
+        <div style="width:28px;height:28px;border-radius:999px;background:#6E92A4;border:2px solid {{ringColor}};margin-left:-8px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#08131C">E</div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{isTally}}" hint-placeholder-val="{{ true }}">
+    <div style="position:relative;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center">
+      <div style="font-size:15px;line-height:1.35;opacity:.9;max-width:250px;text-wrap:pretty">{{question}}</div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:20px">
+        <div style="flex:none;display:flex;flex-direction:column;align-items:center;gap:6px">
+          <div style="width:36px;height:36px;border-radius:999px;background:#E07B3A;border:2px solid {{ringColor}};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#10202C">R</div>
+          <div style="font-family:var(--font-display);font-size:44px;font-weight:600;line-height:.9;letter-spacing:-.02em">{{tallyA}}</div>
+          <div style="font-size:10px;font-weight:600;letter-spacing:.12em;opacity:.72;white-space:nowrap">ROSA</div>
+        </div>
+        <div style="flex:none;font-size:14px;font-weight:600;color:{{accent}};padding-bottom:20px;white-space:nowrap">of {{tallyOf}}</div>
+        <div style="flex:none;display:flex;flex-direction:column;align-items:center;gap:6px">
+          <div style="width:36px;height:36px;border-radius:999px;background:#6E92A4;border:2px solid {{ringColor}};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#08131C">E</div>
+          <div style="font-family:var(--font-display);font-size:44px;font-weight:600;line-height:.9;letter-spacing:-.02em">{{tallyB}}</div>
+          <div style="font-size:10px;font-weight:600;letter-spacing:.12em;opacity:.72;white-space:nowrap">EWIN</div>
+        </div>
+      </div>
+      <div style="font-size:11px;font-weight:600;letter-spacing:.12em;color:{{accent}}">{{tallyCaption}}</div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{isDistance}}" hint-placeholder-val="{{ true }}">
+    <div style="position:relative;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding-top:8px">
+      <div style="font-size:10px;font-weight:600;letter-spacing:.14em;opacity:.72">THE DISTANCE BETWEEN YOU</div>
+      <div style="font-family:var(--font-display);font-size:44px;font-weight:600;line-height:1.05;letter-spacing:-.02em;white-space:nowrap">{{distance}}</div>
+      <div style="font-size:12px;font-weight:600;color:{{accent}}">{{distanceNote}}</div>
+
+      <div style="position:relative;width:186px;height:186px;margin-top:6px">
+        <svg viewBox="0 0 200 200" width="186" height="186" style="position:absolute;inset:0">
+          <circle cx="100" cy="100" r="91" fill="{{globeFill}}" stroke="{{globeLine}}" stroke-width="1.5"></circle>
+          <ellipse cx="100" cy="100" rx="91" ry="30" fill="none" stroke="{{globeLine}}" stroke-width="1"></ellipse>
+          <ellipse cx="100" cy="100" rx="91" ry="62" fill="none" stroke="{{globeLine}}" stroke-width="1"></ellipse>
+          <ellipse cx="100" cy="100" rx="30" ry="91" fill="none" stroke="{{globeLine}}" stroke-width="1"></ellipse>
+          <ellipse cx="100" cy="100" rx="62" ry="91" fill="none" stroke="{{globeLine}}" stroke-width="1"></ellipse>
+          <line x1="9" y1="100" x2="191" y2="100" stroke="{{globeLine}}" stroke-width="1"></line>
+          <path d="M42 148 Q104 92 158 44" fill="none" stroke="{{accent}}" stroke-width="3" stroke-linecap="round" stroke-dasharray="1 9"></path>
+        </svg>
+        <div style="position:absolute;right:0;top:8px;display:flex;align-items:center;gap:6px">
+          <div style="font-size:11px;font-weight:600;background:{{surface}};border:1px solid {{surfaceLine}};border-radius:999px;padding:3px 9px;white-space:nowrap">{{cityA}}</div>
+          <div style="width:34px;height:34px;border-radius:999px;background:#E07B3A;border:2.5px solid {{ringColor}};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#10202C;flex:none">R</div>
+        </div>
+        <div style="position:absolute;left:0;bottom:14px;display:flex;align-items:center;gap:6px">
+          <div style="width:34px;height:34px;border-radius:999px;background:#6E92A4;border:2.5px solid {{ringColor}};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#08131C;flex:none">E</div>
+          <div style="font-size:11px;font-weight:600;background:{{surface}};border:1px solid {{surfaceLine}};border-radius:999px;padding:3px 9px;white-space:nowrap">{{cityB}}</div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <div style="position:relative;display:flex;align-items:center;justify-content:space-between;padding-top:14px;border-top:1px solid {{rule}}">
+    <div style="font-size:11px;opacity:.66">{{footnote}}</div>
+    <div style="font-size:11px;font-weight:600;opacity:.66">twofold.app</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:320,&quot;height&quot;:400},&quot;variant&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Quote&quot;,&quot;Chat&quot;,&quot;Score&quot;,&quot;Tally&quot;,&quot;Distance&quot;],&quot;default&quot;:&quot;Quote&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;accent&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;sky&quot;,&quot;leaf&quot;,&quot;heart&quot;],&quot;default&quot;:&quot;sky&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;game&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;DEEP CONVERSATION&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;question&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;What's something about blending families that excites you?&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;answerA&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;I don't have family nearby&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;answerB&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Seeing Rosie's baby pics&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;score&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;86%&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;scoreCaption&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;ANSWER SIMILARITY&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;tallyA&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;9&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;tallyB&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;11&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;tallyOf&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;12&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;tallyCaption&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;CORRECT ANSWERS&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;distance&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;12,771 km&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;distanceNote&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;31.9% of the way around the Earth&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;cityA&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Los Angeles&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;cityB&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Melbourne&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;footnote&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;28 Jul 2026&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const variant = this.props.variant || "Quote";
+    const light = (this.props.theme || "dark") === "light";
+
+    const dark = {
+      sky:   { canvas: "linear-gradient(158deg,#123045 0%,#0C2233 56%,#08161F 100%)", glow: "radial-gradient(120% 80% at 78% 6%, rgba(79,169,224,.3), transparent 62%)",
+               accent: "#8ACFF5", chip: "rgba(79,169,224,.22)", line: "rgba(138,207,245,.4)", fill: "#8ACFF5", bubbleBg: "#8ACFF5", bubbleFg: "#08131C" },
+      leaf:  { canvas: "linear-gradient(158deg,#0F3229 0%,#0C2A2A 56%,#07171B 100%)", glow: "radial-gradient(120% 80% at 78% 6%, rgba(111,191,139,.3), transparent 62%)",
+               accent: "#8FE3AE", chip: "rgba(111,191,139,.22)", line: "rgba(143,227,174,.4)", fill: "#8FE3AE", bubbleBg: "#8FE3AE", bubbleFg: "#08131C" },
+      heart: { canvas: "linear-gradient(158deg,#331B26 0%,#2A1620 56%,#170D14 100%)", glow: "radial-gradient(120% 80% at 78% 6%, rgba(232,92,107,.28), transparent 62%)",
+               accent: "#FFA3AB", chip: "rgba(232,92,107,.22)", line: "rgba(255,163,171,.4)", fill: "#FFA3AB", bubbleBg: "#FFA3AB", bubbleFg: "#1B0D12" }
+    };
+    const pastel = {
+      sky:   { canvas: "linear-gradient(158deg,#E4F2FC 0%,#D3E9F8 56%,#DFF2EC 100%)", glow: "radial-gradient(120% 80% at 78% 6%, rgba(110,193,240,.4), transparent 62%)",
+               accent: "#1F6F9E", chip: "rgba(79,169,224,.18)", line: "rgba(61,143,201,.34)", fill: "#2F82BE", bubbleBg: "#2F82BE", bubbleFg: "#FFFFFF" },
+      leaf:  { canvas: "linear-gradient(158deg,#E3F5EA 0%,#D6EFE2 56%,#E7F5DE 100%)", glow: "radial-gradient(120% 80% at 78% 6%, rgba(111,191,139,.4), transparent 62%)",
+               accent: "#1E7A4B", chip: "rgba(111,191,139,.2)", line: "rgba(79,158,108,.34)", fill: "#3E8C5E", bubbleBg: "#3E8C5E", bubbleFg: "#FFFFFF" },
+      heart: { canvas: "linear-gradient(158deg,#FDEAEC 0%,#FBE0E4 56%,#F6E6EE 100%)", glow: "radial-gradient(120% 80% at 78% 6%, rgba(232,92,107,.32), transparent 62%)",
+               accent: "#C2334A", chip: "rgba(232,92,107,.16)", line: "rgba(209,70,90,.3)", fill: "#C93B50", bubbleBg: "#C93B50", bubbleFg: "#FFFFFF" }
+    };
+
+    const a = (light ? pastel : dark)[this.props.accent] || (light ? pastel : dark).sky;
+    const answers = [
+      { name: "ROSA", initial: "R", avatar: "#E07B3A", text: this.props.answerA ?? "I don't have family nearby" },
+      { name: "EWIN", initial: "E", avatar: "#6E92A4", text: this.props.answerB ?? "Seeing Rosie's baby pics" }
+    ];
+
+    return {
+      canvas: a.canvas, glow: a.glow, accent: a.accent, accentChip: a.chip, accentLine: a.line,
+      fill: a.fill, bubbleBg: a.bubbleBg, bubbleFg: a.bubbleFg,
+      fg: light ? "#16232F" : "#F4F9FC",
+      surface: light ? "rgba(255,255,255,.66)" : "rgba(255,255,255,.09)",
+      surfaceLine: light ? "rgba(28,42,56,.10)" : "rgba(255,255,255,.14)",
+      track: light ? "rgba(28,42,56,.14)" : "rgba(255,255,255,.16)",
+      rule: light ? "rgba(28,42,56,.12)" : "rgba(255,255,255,.12)",
+      ringColor: light ? "rgba(28,42,56,.22)" : "rgba(255,255,255,.9)",
+      isQuote: variant === "Quote", isChat: variant === "Chat",
+      isScore: variant === "Score", isTally: variant === "Tally",
+      isDistance: variant === "Distance",
+      globeFill: light ? "rgba(28,42,56,.07)" : "rgba(255,255,255,.05)",
+      globeLine: light ? "rgba(28,42,56,.20)" : "rgba(255,255,255,.22)",
+      distance: this.props.distance ?? "12,771 km",
+      distanceNote: this.props.distanceNote ?? "31.9% of the way around the Earth",
+      cityA: this.props.cityA ?? "Los Angeles",
+      cityB: this.props.cityB ?? "Melbourne",
+      showChip: variant !== "Distance",
+      game: this.props.game ?? "DEEP CONVERSATION",
+      question: this.props.question ?? "What's something about blending families that excites you?",
+      answers, answerA: answers[0].text, answerB: answers[1].text,
+      score: this.props.score ?? "86%",
+      scorePct: this.props.score ?? "86%",
+      scoreCaption: this.props.scoreCaption ?? "ANSWER SIMILARITY",
+      tallyA: this.props.tallyA ?? "9",
+      tallyB: this.props.tallyB ?? "11",
+      tallyOf: this.props.tallyOf ?? "12",
+      tallyCaption: this.props.tallyCaption ?? "CORRECT ANSWERS",
+      footnote: this.props.footnote ?? "28 Jul 2026"
+    };
+  }
+}
+</script>
+</body>
+</html>

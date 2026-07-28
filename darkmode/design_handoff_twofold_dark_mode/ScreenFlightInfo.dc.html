@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/twofold-design-tokens-2755dc26-ae41-450e-96e7-92f167979f40/styles.css">
+</helmet>
+<div style="position:relative;width:390px;height:844px;border-radius:46px;overflow:hidden;background:var(--bg-base);border:1px solid var(--frame-line);font-family:var(--font-body);color:var(--text-1)">
+  <dc-import name="StatusBar" hint-size="390px,54px"></dc-import>
+  <div style="padding:4px 18px 0">
+    <div style="display:flex;align-items:center;justify-content:space-between;height:44px">
+      <div style="width:40px;height:40px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--text-1)" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 5L8 12l6.5 7"></path></svg>
+      </div>
+      <div style="font-size:17px;font-weight:600">Rosa's journey</div>
+      <div style="width:40px;height:40px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;gap:3px">
+        <div style="width:3.5px;height:3.5px;border-radius:999px;background:var(--text-1)"></div>
+        <div style="width:3.5px;height:3.5px;border-radius:999px;background:var(--text-1)"></div>
+        <div style="width:3.5px;height:3.5px;border-radius:999px;background:var(--text-1)"></div>
+      </div>
+    </div>
+
+    <div style="margin-top:10px;padding-bottom:12px;border-bottom:1px solid var(--line)">
+      <div style="display:flex;align-items:center;gap:9px">
+        <div style="width:24px;height:24px;border-radius:6px;background:#e21c26;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff">Q</div>
+        <div style="font-size:15px;color:var(--text-2)">Qantas · QF93</div>
+      </div>
+      <div style="font-family:var(--title-font);font-size:24px;font-weight:600;letter-spacing:-.015em;margin-top:8px">Melbourne → Los Angeles</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:10px">
+        <div style="font-size:13px;font-weight:600;color:var(--blue-text);background:var(--blue-chip);border:1px solid var(--blue-chip-line);border-radius:999px;padding:5px 12px">En route</div>
+        <div style="font-size:18px;font-weight:600">Arrives in 2h 33m</div>
+      </div>
+      <div style="font-size:14px;color:var(--text-2);margin-top:6px">28 Jul at 12:10 am · West Footscray, UTC+10</div>
+    </div>
+
+    <div style="margin-top:16px;background:var(--surface-1);border:1px solid var(--line);border-radius:var(--radius-card);padding:16px 18px">
+      <div style="font-size:16px;font-weight:600">Flight information</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px">
+        <div style="font-size:15px;color:var(--text-2)">Aircraft</div>
+        <div style="font-size:16px;font-weight:600;font-variant-numeric:tabular-nums">A388</div>
+      </div>
+      <div style="height:1px;background:var(--line);margin:12px 0"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="font-size:15px;color:var(--text-2)">Registration</div>
+        <div style="font-size:16px;font-weight:600;font-variant-numeric:tabular-nums">VH-OQC</div>
+      </div>
+    </div>
+
+    <div style="margin-top:14px;background:var(--surface-1);border:1px solid var(--line);border-radius:var(--radius-card);padding:16px 18px 6px">
+      <div style="font-size:16px;font-weight:600">Notify me about</div>
+      <div style="margin-top:6px">
+        <sc-for list="{{rows}}" as="row" hint-placeholder-count="6">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-top:1px solid var(--line)">
+            <div style="font-size:15px;color:var(--text-1)">{{row.label}}</div>
+            <div style="width:46px;height:28px;border-radius:999px;background:var(--toggle-on);padding:2.5px;display:flex;justify-content:flex-end;align-items:center;box-shadow:inset 0 0 0 1px var(--toggle-on-line)">
+              <div style="width:23px;height:23px;border-radius:999px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.5)"></div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+  <dc-import name="TabBar" active="Travel" style="position:absolute;left:16px;right:16px;bottom:16px" hint-size="358px,70px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844}}">
+class Component extends DCLogic {
+  renderVals() {
+    return { rows: ["Gate & terminal changes", "Delays & cancellations", "Departure", "Landing", "Arrival at gate", "Baggage claim"].map(label => ({ label })) };
+  }
+}
+</script>
+</body>
+</html>

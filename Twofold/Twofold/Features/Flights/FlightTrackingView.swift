@@ -134,13 +134,16 @@ struct FlightTrackingView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showingShare = true
+                } label: {
+                    Image(systemName: "square.and.arrow.up")
+                }
+                .accessibilityLabel("Share")
+            }
+            ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    Button {
-                        showingShare = true
-                    } label: {
-                        Label("Share", systemImage: "square.and.arrow.up")
-                    }
-                    Menu {
+                    Section("Edit Travellers") {
                         Button {
                             toggleTraveler(appModel.currentUser.id)
                         } label: {
@@ -158,8 +161,6 @@ struct FlightTrackingView: View {
                                 Label("Clear", systemImage: "xmark.circle")
                             }
                         }
-                    } label: {
-                        Label("Edit Travellers", systemImage: "person.crop.circle")
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
@@ -475,7 +476,11 @@ struct FlightTrackingView: View {
     }
 
     private var departureStatusLine: String {
-        if flight.actualOut != nil { return "Departed \(Self.relativeShort(flight.actualOut!)) ago" }
+        // `actualOff` (wheels up) alone, without `actualOut` (gate pushback), still means this
+        // flight has genuinely left — see `Flight.bestDeparture`'s doc comment. Without this,
+        // that case fell through to the `bestDeparture` branch below with a past timestamp,
+        // reading as "Departing shortly" for a flight that's actually been airborne for hours.
+        if let departed = flight.actualOut ?? flight.actualOff { return "Departed \(Self.relativeShort(departed)) ago" }
         if let scheduled = flight.bestDeparture { return scheduled > .now ? "Departs \(Self.relativeShort(scheduled))" : "Departing shortly" }
         return "Not available"
     }

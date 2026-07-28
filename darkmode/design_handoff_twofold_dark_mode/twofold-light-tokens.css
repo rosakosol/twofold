@@ -1,0 +1,87 @@
+/* ============================================================
+   Twofold — light mode tokens, direction "Daylight"
+   Companion to twofold-dark-tokens.css. Same token names under
+   the alias layer, retuned for a pale canvas. Import after the
+   brand tokens (_ds_bundle.css).
+
+   Rules these tokens encode (mirror of the dark set):
+     1. Two blues — --tf-blue-fill is a FILL only (white content on
+        top); --tf-blue-text is the only blue allowed on text/icons.
+        On light, fill is DEEPENED (#2F82BE) so white passes on it.
+     2. Color means state: blue = interactive/live, green =
+        matched/completed, red = destructive/love/unread.
+     3. One gradient per screen: --tf-surface-hero and nothing else.
+     4. No text below 4.5:1 against --tf-surface-card-flat (#FFFFFF).
+     5. Depth = white card on tinted canvas + a 1px ink hairline.
+        Shadows only under the hero card and the tab bar.
+   ============================================================ */
+
+:root[data-theme="light"],
+.tf-light {
+  /* Surfaces */
+  --tf-bg-base: linear-gradient(180deg, #DDEFF9, #E6F5EA);
+  --tf-surface-card: #FFFFFF;
+  --tf-surface-card-flat: #FFFFFF;
+  --tf-surface-control: #E9F4FB;
+  --tf-surface-raised: #D8E9F3;
+  --tf-surface-hero: linear-gradient(150deg, #FFFFFF 0%, #F4FAFF 54%, #F1FBF4 100%);
+  --tf-surface-map: #D6E8F2;
+  --tf-surface-sheet: rgba(233, 244, 251, 0.95);
+  --tf-segment-on: #FFFFFF;
+  --tf-track: rgba(28, 42, 56, 0.10);
+
+  /* Text — ratios against #FFFFFF */
+  --tf-text-1: #16232F; /* titles, values, list labels · 14.6:1 */
+  --tf-text-2: #52657A; /* supporting copy, row labels · 7.1:1  */
+  --tf-text-3: #6C7F8D; /* eyebrow + metadata only · 4.8:1      */
+  --tf-text-disabled: rgba(82, 101, 122, 0.5);
+  --tf-text-on-fill: #FFFFFF;
+
+  /* Lines */
+  --tf-line: rgba(28, 42, 56, 0.10);
+  --tf-line-strong: rgba(28, 42, 56, 0.16);
+  --tf-line-hero: rgba(61, 143, 201, 0.26);
+
+  /* Accents */
+  --tf-blue-text: #1F6F9E;
+  --tf-blue-fill: #2F82BE;
+  --tf-blue-chip: rgba(79, 169, 224, 0.14);
+  --tf-blue-chip-line: rgba(61, 143, 201, 0.30);
+  --tf-green-text: #1E7A4B;
+  --tf-green-fill: #3E8C5E;
+  --tf-green-chip: rgba(111, 191, 139, 0.18);
+  --tf-green-chip-line: rgba(79, 158, 108, 0.32);
+  --tf-red-text: #C2334A;
+  --tf-red-fill: #C93B50;
+  --tf-red-chip: rgba(232, 92, 107, 0.14);
+  --tf-red-chip-line: rgba(209, 70, 90, 0.28);
+  --tf-neutral-chip: rgba(28, 42, 56, 0.06);
+
+  /* Composed treatments */
+  --tf-prompt-bg: linear-gradient(118deg, rgba(79, 169, 224, 0.18), rgba(111, 191, 139, 0.16));
+  --tf-prompt-line: rgba(61, 143, 201, 0.26);
+  --tf-pressed-overlay: rgba(28, 42, 56, 0.05);
+  --tf-focus-ring: #1F6F9E;
+
+  /* Tab bar */
+  --tf-tabbar-bg: rgba(255, 255, 255, 0.93);
+  --tf-tabbar-line: rgba(28, 42, 56, 0.10);
+  --tf-tab-fg: #52657A;
+  --tf-tab-active-fg: #1F6F9E;
+  --tf-tab-active-bg: rgba(79, 169, 224, 0.16);
+  --tf-tabbar-content-inset: 110px;
+
+  /* Shape — identical to dark */
+  --tf-radius-inner: 16px;
+  --tf-radius-card: 26px;
+  --tf-radius-sheet: 32px;
+  --tf-radius-pill: 999px;
+
+  /* Elevation — hero card and tab bar only */
+  --tf-shadow-hero: 0 10px 30px rgba(28, 42, 56, 0.10);
+  --tf-shadow-bar: 0 -2px 20px rgba(28, 42, 56, 0.10);
+
+  /* Type */
+  --tf-font-display: var(--font-display);
+  --tf-font-body: var(--font-body);
+}

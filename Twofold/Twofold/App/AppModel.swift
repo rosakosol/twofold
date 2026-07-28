@@ -183,11 +183,20 @@ final class AppModel {
 
     /// The couple's relevant tracked flights for the Home carousel — whichever are currently in
     /// progress, haven't departed yet, or landed within the last 15 minutes (see
-    /// `Flight.isCurrentlyRelevant`), soonest departure first. Cancelled flights are excluded
-    /// (nothing useful to show live for those).
+    /// `Flight.isCurrentlyRelevant`), in-progress flights first, then soonest departure first.
+    /// Cancelled flights are excluded (nothing useful to show live for those). In-progress always
+    /// wins the primary sort (not just a `bestDeparture` tiebreak) since `bestDeparture` prefers
+    /// `actualOut`, which can lag null for a flight that has genuinely already left (confirmed
+    /// live server-side for FJ810 — see resolve-flight's `isFlightInProgress`) — falling back to a
+    /// stale future `scheduledOut` would otherwise sort that flight after one merely upcoming.
     var activeOrUpcomingFlights: [Flight] {
         let relevant = flights.filter { !$0.cancelled && $0.isCurrentlyRelevant }
-        return relevant.sorted { ($0.bestDeparture ?? .distantFuture) < ($1.bestDeparture ?? .distantFuture) }
+        return relevant.sorted { lhs, rhs in
+            if lhs.status.isActivelyTracked != rhs.status.isActivelyTracked {
+                return lhs.status.isActivelyTracked
+            }
+            return (lhs.bestDeparture ?? .distantFuture) < (rhs.bestDeparture ?? .distantFuture)
+        }
     }
 
     /// Convenience for call sites that only ever cared about the single most relevant flight.
