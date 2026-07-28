@@ -142,12 +142,7 @@ private struct FullStatsView: View {
                     unit: "total airports",
                     ranked: stats.airports
                 )
-                rankedSection(
-                    title: "Top Airlines",
-                    total: stats.airlines.count,
-                    unit: "total airlines",
-                    ranked: stats.airlines
-                )
+                airlinesSection
                 rankedSection(
                     title: "Top Routes",
                     total: stats.routes.count,
@@ -206,6 +201,7 @@ private struct FullStatsView: View {
                 }
                 breakdownRow(label: "Domestic", value: "\(stats.domesticCount)")
                 breakdownRow(label: "International", value: "\(stats.internationalCount)")
+                breakdownRow(label: "Short haul", value: "\(stats.shortHaulCount)")
                 breakdownRow(label: "Long haul", value: "\(stats.longHaulCount)")
             }
         }
@@ -233,9 +229,46 @@ private struct FullStatsView: View {
         shareableCard(title: "Flight Time", value: FlightStats.duration(stats.totalFlightTime), unit: nil) {
             VStack(spacing: Theme.Spacing.sm) {
                 breakdownRow(label: "Avg. flight time", value: FlightStats.duration(stats.averageFlightTime))
-                breakdownRow(label: "Longest flight", value: FlightStats.duration(stats.longestFlightTime))
+                breakdownRow(
+                    label: "Longest flight",
+                    value: stats.longestFlightRoute.map { "\($0) · \(FlightStats.duration(stats.longestFlightTime))" }
+                        ?? FlightStats.duration(stats.longestFlightTime)
+                )
             }
         }
+    }
+
+    /// Unlike the other `rankedSection`s, each row here carries the operator's own tailfin logo
+    /// (`entry.name` is already the IATA/operator code `FlightStats` extracted from the flight
+    /// number prefix) — same `AirlineLogoView`/`AirlineLogo.url(forIATACode:)` pairing
+    /// `FlightTrackingView`'s header uses, just keyed off the ranked code instead of a live flight.
+    private var airlinesSection: some View {
+        shareableCard(title: "Top Airlines", value: "\(stats.airlines.count)", unit: "total airlines") {
+            if !stats.airlines.isEmpty {
+                VStack(spacing: Theme.Spacing.sm) {
+                    ForEach(stats.airlines.prefix(3)) { entry in
+                        airlineRow(entry)
+                    }
+                }
+            }
+        }
+    }
+
+    private func airlineRow(_ entry: FlightStats.Ranked) -> some View {
+        HStack(spacing: Theme.Spacing.sm) {
+            AirlineLogoView(url: AirlineLogo.url(forIATACode: entry.name), width: 28, height: 16)
+            Text(entry.name)
+                .font(.subheadline)
+                .foregroundStyle(Theme.subtleInk)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+            Spacer()
+            Text("×\(entry.count)")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Theme.ink)
+                .monospacedDigit()
+        }
+        .accessibilityElement(children: .combine)
     }
 
     private func rankedSection(title: String, total: Int, unit: String, ranked: [FlightStats.Ranked]) -> some View {
@@ -295,7 +328,7 @@ private struct FullStatsView: View {
 
     private func regionTile(region: CountryRegion, count: Int) -> some View {
         VStack(spacing: 2) {
-            Text("\(count)")
+            Text("\(count)x")
                 .font(.system(size: 20, weight: .bold, design: .rounded))
                 .foregroundStyle(count > 0 ? Theme.ink : Theme.subtleInk.opacity(0.4))
             Text(region.rawValue)
@@ -447,11 +480,16 @@ struct FlightStats {
     let domesticCount: Int
     let internationalCount: Int
     let longHaulCount: Int
+    let shortHaulCount: Int
     let totalDistanceKm: Double
     let averageDistanceKm: Double
     let totalFlightTime: TimeInterval
     let averageFlightTime: TimeInterval
     let longestFlightTime: TimeInterval
+    /// e.g. "LAX-MEL" — the specific flight behind `longestFlightTime`, in that flight's own
+    /// origin→destination order (unlike `routes` below, which is direction-agnostic for
+    /// counting purposes). Nil only when no flight has a resolvable departure/arrival pair.
+    let longestFlightRoute: String?
     let airports: [Ranked]
     let airlines: [Ranked]
     let routes: [Ranked]
@@ -491,19 +529,22 @@ struct FlightStats {
             return Geo.distanceKm(origin, destination)
         }
         longHaulCount = flightDistances.count { $0 > Self.longHaulKm }
+        shortHaulCount = flightDistances.count { $0 <= Self.longHaulKm }
         totalDistanceKm = flightDistances.reduce(0, +)
         averageDistanceKm = flightDistances.isEmpty ? 0 : totalDistanceKm / Double(flightDistances.count)
 
         // From each flight's own scheduled/actual times — a trip's `departureDate`/`arrivalDate`
         // span the whole vacation (e.g. a 14-day trip), not how long any single flight was
         // actually in the air, which is what "Flight time" is supposed to mean.
-        let durations = flights.compactMap { flight -> TimeInterval? in
+        let durations = flights.compactMap { flight -> (time: TimeInterval, route: String)? in
             guard let departure = flight.bestDeparture, let arrival = flight.bestArrival, arrival > departure else { return nil }
-            return arrival.timeIntervalSince(departure)
+            return (arrival.timeIntervalSince(departure), "\(flight.origin.displayCode)-\(flight.destination.displayCode)")
         }
-        totalFlightTime = durations.reduce(0, +)
+        totalFlightTime = durations.map(\.time).reduce(0, +)
         averageFlightTime = durations.isEmpty ? 0 : totalFlightTime / Double(durations.count)
-        longestFlightTime = durations.max() ?? 0
+        let longest = durations.max { $0.time < $1.time }
+        longestFlightTime = longest?.time ?? 0
+        longestFlightRoute = longest?.route
 
         airports = Self.ranked(flights.flatMap { [$0.origin.displayCode, $0.destination.displayCode] })
         airlines = Self.ranked(flights.compactMap { flight -> String? in
