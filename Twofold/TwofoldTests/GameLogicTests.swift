@@ -171,22 +171,13 @@ struct GameLogicTests {
         #expect(completed.first?.status == .completed)
     }
 
-    // MARK: - Game metadata / Globe homepage card wiring
+    // MARK: - Game metadata
 
-    @Test func fourGamesAreRecommendedOnTheHomeHomepage() {
-        #expect(Set(RecommendedGamesSection.recommended) == Set(GameType.allCases))
-        #expect(RecommendedGamesSection.recommended.count == 4)
-    }
-
-    @Test func eachGameHasTheSpecifiedTypeLabelAndDuration() {
-        #expect(GameType.travelTrivia.category == .compete)
-        #expect(GameType.travelTrivia.durationMinutes == 12)
-        #expect(GameType.moreLikely.category == .compete)
+    @Test func eachGameHasTheSpecifiedDuration() {
+        #expect(GameType.triviaBattle.durationMinutes == 12)
         #expect(GameType.moreLikely.durationMinutes == 8)
-        #expect(GameType.thisOrThat.category == .connect)
         #expect(GameType.thisOrThat.durationMinutes == 6)
-        #expect(GameType.discussBeforeTravelling.category == .connect)
-        #expect(GameType.discussBeforeTravelling.durationMinutes == 15)
+        #expect(GameType.deepConversations.durationMinutes == 15)
     }
 
     @Test func everyGameTypeHasAUniqueDisplayName() {
