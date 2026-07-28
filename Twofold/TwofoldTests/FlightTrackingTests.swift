@@ -134,6 +134,19 @@ struct FlightTrackingTests {
         #expect(flight.progress > 0 && flight.progress < 1)
     }
 
+    // Confirmed live: CI5175 had `actual_off` (wheels up) populated by AeroAPI but no scheduled/
+    // estimated/actual `out` (gate pushback) at all — `bestDeparture` used to only check the out
+    // family, so `progress` (which requires a non-nil `bestDeparture`) silently reported 0% for a
+    // flight that was genuinely mid-air, and the map fell back to rendering the marker frozen at
+    // the origin. See `Flight.bestDeparture`'s doc comment.
+    @Test func progressUsesOffFallbackWhenOutFamilyIsEntirelyMissing() {
+        let departure = Date.now.addingTimeInterval(-3600)
+        let arrival = Date.now.addingTimeInterval(3600)
+        let flight = makeFlight(status: .inAir, scheduledIn: arrival, actualOff: departure)
+        #expect(flight.bestDeparture == departure)
+        #expect(flight.progress > 0 && flight.progress < 1)
+    }
+
     // MARK: - Timeline derivation
 
     @Test func timelineForPurelyScheduledFlightHasIncompleteDepartedEvent() {
