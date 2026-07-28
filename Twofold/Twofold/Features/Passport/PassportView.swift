@@ -256,7 +256,7 @@ private struct FullStatsView: View {
 
     private func airlineRow(_ entry: FlightStats.Ranked) -> some View {
         HStack(spacing: Theme.Spacing.sm) {
-            AirlineLogoView(url: AirlineLogo.url(forIATACode: entry.name), width: 28, height: 16)
+            AirlineLogoView(url: AirlineLogo.url(forIATACode: entry.name), size: 22)
             Text(entry.name)
                 .font(.subheadline)
                 .foregroundStyle(Theme.subtleInk)
