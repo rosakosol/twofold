@@ -24,10 +24,13 @@ enum FlightStickerStyle: String, CaseIterable, Identifiable {
         }
     }
 
+    /// `.dark`'s flat fill and `.accentColor` are the dark-mode/Daylight handoff's own dark-"sky"
+    /// canvas base tone and accent hex (`ShareCardPalette`'s dark `.sky` values) — this card is a
+    /// fixed-appearance pick (like `DistanceShareTheme.dark`), not tied to system light/dark.
     var backgroundColor: Color {
         switch self {
         case .light: .white
-        case .dark: Color(hex: "10161F")
+        case .dark: Color(hex: "0C2233")
         case .brand: Theme.skyBlue
         }
     }
@@ -35,7 +38,7 @@ enum FlightStickerStyle: String, CaseIterable, Identifiable {
     var accentColor: Color {
         switch self {
         case .light: Theme.skyBlue
-        case .dark: Color(hex: "6FD3FF")
+        case .dark: Color(hex: "8ACFF5")
         case .brand: .white
         }
     }
@@ -43,7 +46,7 @@ enum FlightStickerStyle: String, CaseIterable, Identifiable {
     var primaryTextColor: Color {
         switch self {
         case .light: Theme.ink
-        case .dark: .white
+        case .dark: Color(hex: "F4F9FC")
         case .brand: .white
         }
     }
@@ -51,17 +54,19 @@ enum FlightStickerStyle: String, CaseIterable, Identifiable {
     var secondaryTextColor: Color {
         switch self {
         case .light: Theme.subtleInk
-        case .dark: .white.opacity(0.6)
+        case .dark: Color(hex: "F4F9FC").opacity(0.6)
         case .brand: .white.opacity(0.75)
         }
     }
 
     /// The accent block's own text/icon color — the accent block is a solid fill of
     /// `accentColor`, so this needs to read against *that*, not the card's own background.
+    /// `.brand`'s block is a white fill, so its text needs the text-safe deepened blue
+    /// (`skyBlueText`), not the brand fill blue, to clear a real contrast floor against white.
     var onAccentColor: Color {
         switch self {
         case .light, .dark: .white
-        case .brand: Theme.skyBlue
+        case .brand: Theme.skyBlueText
         }
     }
 }

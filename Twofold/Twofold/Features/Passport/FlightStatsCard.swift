@@ -26,8 +26,8 @@ struct FlightStatsCard: View {
                 VStack(spacing: Theme.Spacing.md) {
                     HStack(spacing: Theme.Spacing.sm) {
                         ZStack {
-                            Circle().fill(Theme.skyBlue.opacity(0.15))
-                            Image(systemName: "airplane").font(.subheadline).foregroundStyle(Theme.skyBlue)
+                            Circle().fill(Theme.skyBlueText.opacity(0.15))
+                            Image(systemName: "airplane").font(.subheadline).foregroundStyle(Theme.skyBlueText)
                         }
                         .frame(width: 32, height: 32)
                         Text("Flight Stats")
@@ -46,12 +46,12 @@ struct FlightStatsCard: View {
                     Divider()
 
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: Theme.Spacing.sm), GridItem(.flexible())], spacing: Theme.Spacing.sm) {
-                        milestoneTile(icon: "building.2.fill", label: "Airports", value: "\(stats.airports.count)", tint: Theme.skyBlue)
-                        milestoneTile(icon: "airplane.circle.fill", label: "Airlines", value: "\(stats.airlines.count)", tint: Theme.skyBlue)
-                        milestoneTile(icon: "globe.americas.fill", label: "Countries", value: "\(stats.countries.count)", tint: Theme.leafGreen)
+                        milestoneTile(icon: "building.2.fill", label: "Airports", value: "\(stats.airports.count)", tint: Theme.skyBlueText)
+                        milestoneTile(icon: "airplane.circle.fill", label: "Airlines", value: "\(stats.airlines.count)", tint: Theme.skyBlueText)
+                        milestoneTile(icon: "globe.americas.fill", label: "Countries", value: "\(stats.countries.count)", tint: Theme.leafGreenText)
                         milestoneTile(icon: "globe.desk.fill", label: "Long Haul", value: "\(stats.longHaulCount)", tint: .orange)
                         milestoneTile(icon: "house.fill", label: "Domestic", value: "\(stats.domesticCount)", tint: .purple)
-                        milestoneTile(icon: "airplane.departure", label: "International", value: "\(stats.internationalCount)", tint: Theme.heartRed)
+                        milestoneTile(icon: "airplane.departure", label: "International", value: "\(stats.internationalCount)", tint: Theme.heartRedText)
                     }
 
                     if let onShowAllStats {
@@ -63,10 +63,10 @@ struct FlightStatsCard: View {
                                 Image(systemName: "chevron.right")
                                     .font(.caption.weight(.bold))
                             }
-                            .foregroundStyle(Theme.skyBlue)
+                            .foregroundStyle(Theme.skyBlueText)
                             .padding(.horizontal, Theme.Spacing.md)
                             .padding(.vertical, 12)
-                            .background(Theme.skyBlue.opacity(0.1), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .background(Theme.skyBlueText.opacity(0.1), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                         }
                         .buttonStyle(.plain)
                     }
@@ -85,9 +85,6 @@ struct FlightStatsCard: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        // Forces the light-mode look regardless of system appearance — see
-        // `RelationshipStatsCard`'s identical `.colorScheme(.light)` for why.
-        .colorScheme(.light)
     }
 
     private func heroStat(label: String, value: String) -> some View {

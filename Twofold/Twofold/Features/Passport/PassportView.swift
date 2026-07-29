@@ -104,9 +104,13 @@ private struct FullStatsView: View {
     }
 
     @Environment(AppModel.self) private var appModel
-    @Environment(\.displayScale) private var displayScale
     @State private var scope: StatScope = .all
     @State private var showAllCountries = false
+    /// Set by a section's share button (see `shareableCard`) to open that section's own
+    /// full-screen preview — the same "see the card before you send it" flow `PassportShareView`
+    /// already gives the summary Flight Stats card, rather than firing a `ShareLink` straight to
+    /// the system sheet with no preview.
+    @State private var sharingStat: StatCardSpec?
 
     /// Scoped by each flight's own `travelerIDs` — independent of whether that flight has a
     /// linked trip, or what that trip's own (separate) `travelerIDs` says.
@@ -137,6 +141,7 @@ private struct FullStatsView: View {
                 distanceSection
                 timeSection
                 rankedSection(
+                    icon: "building.2.fill",
                     title: "Top Visited Airports",
                     total: stats.airports.count,
                     unit: "total airports",
@@ -144,6 +149,7 @@ private struct FullStatsView: View {
                 )
                 airlinesSection
                 rankedSection(
+                    icon: "arrow.triangle.swap",
                     title: "Top Routes",
                     total: stats.routes.count,
                     unit: "total routes",
@@ -157,6 +163,9 @@ private struct FullStatsView: View {
         .navigationTitle("Flight Stats")
         .navigationBarTitleDisplayMode(.inline)
         .postHogScreenView("Passport: Full Stats")
+        .sheet(item: $sharingStat) { stat in
+            StatShareView(stat: stat)
+        }
     }
 
     private var heroName: String {
@@ -191,7 +200,7 @@ private struct FullStatsView: View {
     // MARK: Sections
 
     private var flightsSection: some View {
-        shareableCard(title: "Flights", value: "\(stats.flightCount)", unit: "total") {
+        shareableCard(icon: "airplane", title: "Flights", value: "\(stats.flightCount)", unit: "total") {
             VStack(spacing: Theme.Spacing.sm) {
                 // Per-partner split only makes sense when looking at the couple as a whole.
                 if scope == .all {
@@ -209,6 +218,7 @@ private struct FullStatsView: View {
 
     private var distanceSection: some View {
         shareableCard(
+            icon: "ruler.fill",
             title: "Flight Distance",
             value: Int(MeasurementPreference.convertedValue(km: stats.totalDistanceKm).rounded()).formatted(),
             unit: MeasurementPreference.unitSuffix()
@@ -226,7 +236,7 @@ private struct FullStatsView: View {
     }
 
     private var timeSection: some View {
-        shareableCard(title: "Flight Time", value: FlightStats.duration(stats.totalFlightTime), unit: nil) {
+        shareableCard(icon: "clock.fill", title: "Flight Time", value: FlightStats.duration(stats.totalFlightTime), unit: nil) {
             VStack(spacing: Theme.Spacing.sm) {
                 breakdownRow(label: "Avg. flight time", value: FlightStats.duration(stats.averageFlightTime))
                 breakdownRow(
@@ -243,7 +253,7 @@ private struct FullStatsView: View {
     /// number prefix) — same `AirlineLogoView`/`AirlineLogo.url(forIATACode:)` pairing
     /// `FlightTrackingView`'s header uses, just keyed off the ranked code instead of a live flight.
     private var airlinesSection: some View {
-        shareableCard(title: "Top Airlines", value: "\(stats.airlines.count)", unit: "total airlines") {
+        shareableCard(icon: "airplane.circle.fill", title: "Top Airlines", value: "\(stats.airlines.count)", unit: "total airlines") {
             if !stats.airlines.isEmpty {
                 VStack(spacing: Theme.Spacing.sm) {
                     ForEach(stats.airlines.prefix(3)) { entry in
@@ -271,8 +281,8 @@ private struct FullStatsView: View {
         .accessibilityElement(children: .combine)
     }
 
-    private func rankedSection(title: String, total: Int, unit: String, ranked: [FlightStats.Ranked]) -> some View {
-        shareableCard(title: title, value: "\(total)", unit: unit) {
+    private func rankedSection(icon: String, title: String, total: Int, unit: String, ranked: [FlightStats.Ranked]) -> some View {
+        shareableCard(icon: icon, title: title, value: "\(total)", unit: unit) {
             if !ranked.isEmpty {
                 VStack(spacing: Theme.Spacing.sm) {
                     ForEach(ranked.prefix(3)) { entry in
@@ -299,7 +309,7 @@ private struct FullStatsView: View {
     /// "Show more" toggle, plus a fixed 3x3 region grid underneath — countries are the one
     /// breakdown worth seeing in full, not just a top-N taste.
     private var countriesSection: some View {
-        shareableCard(title: "Countries & Territories", value: "\(stats.countries.count)", unit: "total") {
+        shareableCard(icon: "globe.americas.fill", title: "Countries & Territories", value: "\(stats.countries.count)", unit: "total") {
             if !stats.countries.isEmpty {
                 VStack(spacing: Theme.Spacing.sm) {
                     ForEach(stats.countries.prefix(showAllCountries ? stats.countries.count : 5)) { entry in
@@ -310,7 +320,7 @@ private struct FullStatsView: View {
                             withAnimation { showAllCountries.toggle() }
                         }
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Theme.skyBlue)
+                        .foregroundStyle(Theme.skyBlueText)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
@@ -346,9 +356,12 @@ private struct FullStatsView: View {
 
     // MARK: Card scaffolding + sharing
 
-    /// A stats card with a share button in its header — the shared image re-renders the same
-    /// header and rows (minus the button) on the app background, with a small brand mark.
+    /// A stats card with a share button in its header — icon + title mirror `FlightStatsCard`'s
+    /// own header row exactly, so this reads as the same card family. The share button doesn't
+    /// fire a `ShareLink` directly; it opens `StatShareView`, the same "see the card before you
+    /// send it" preview screen `PassportShareView` gives the summary Flight Stats card.
     private func shareableCard<Rows: View>(
+        icon: String,
         title: String,
         value: String,
         unit: String?,
@@ -356,12 +369,11 @@ private struct FullStatsView: View {
     ) -> some View {
         SectionCard {
             HStack(alignment: .top) {
-                sectionHeader(title: title, value: value, unit: unit)
+                statHeaderView(icon: icon, title: title, value: value, unit: unit)
                 Spacer()
-                ShareLink(
-                    item: renderedCard(title: title, value: value, unit: unit, rows: rows),
-                    preview: SharePreview(title, image: renderedCard(title: title, value: value, unit: unit, rows: rows))
-                ) {
+                Button {
+                    sharingStat = StatCardSpec(icon: icon, title: title, value: value, unit: unit, rows: AnyView(rows()))
+                } label: {
                     Image(systemName: "square.and.arrow.up")
                         .font(.subheadline)
                         .foregroundStyle(Theme.subtleInk)
@@ -372,48 +384,6 @@ private struct FullStatsView: View {
             rows()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    /// Matches `SnapshotThemeCard`'s format exactly (brand mark up top, single rounded gradient
-    /// card, same corner radius/width) so every image Twofold generates — the Snapshot card and
-    /// each individual Full Flight Stats card — reads as the same shareable format.
-    @MainActor
-    private func renderedCard<Rows: View>(
-        title: String,
-        value: String,
-        unit: String?,
-        @ViewBuilder rows: () -> Rows
-    ) -> Image {
-        let card = VStack(spacing: Theme.Spacing.lg) {
-            TwofoldBrandMark(color: Theme.ink, size: 28, textStyle: .title3)
-                .padding(.top, Theme.Spacing.lg)
-
-            VStack(alignment: .leading, spacing: Theme.Spacing.md) {
-                sectionHeader(title: title, value: value, unit: unit)
-                rows()
-            }
-            .padding(.bottom, Theme.Spacing.lg)
-        }
-        .padding(.horizontal, Theme.Spacing.lg)
-        .frame(width: 360)
-        .background(Theme.backgroundGradient)
-        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-
-        let renderer = ImageRenderer(content: card)
-        renderer.scale = displayScale
-        if let uiImage = renderer.uiImage {
-            return Image(uiImage: uiImage)
-        }
-        return Image(systemName: "photo")
-    }
-
-    private func sectionHeader(title: String, value: String, unit: String?) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.headline)
-                .foregroundStyle(Theme.ink)
-            Text("\(Text(value).font(.system(size: 34, weight: .bold, design: .rounded)).foregroundStyle(Theme.skyBlue))\(Text(unit.map { " \($0)" } ?? "").font(.title3.weight(.semibold)).foregroundStyle(Theme.subtleInk))")
-        }
     }
 
     private func breakdownRow(label: String, value: String) -> some View {
@@ -459,6 +429,109 @@ private struct FullStatsView: View {
                 .frame(height: 6)
             }
         }
+    }
+}
+
+/// The icon-circle + title row every `FlightStatsCard`-family card leads with, followed by the
+/// big colored value/unit line — same visual role as `FlightStatsCard.heroStat`, just a single
+/// value instead of three across. Free function (not a method on either view) so both
+/// `FullStatsView`'s in-app card and `StatShareView`'s full-screen preview render an identical
+/// header from the same source.
+private func statHeaderView(icon: String, title: String, value: String, unit: String?) -> some View {
+    VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+        HStack(spacing: Theme.Spacing.sm) {
+            ZStack {
+                Circle().fill(Theme.skyBlueText.opacity(0.15))
+                Image(systemName: icon).font(.subheadline).foregroundStyle(Theme.skyBlueText)
+            }
+            .frame(width: 32, height: 32)
+            Text(title)
+                .font(.headline)
+                .foregroundStyle(Theme.ink)
+        }
+        Text("\(Text(value).font(.system(size: 34, weight: .bold, design: .rounded)).foregroundStyle(Theme.skyBlueText))\(Text(unit.map { " \($0)" } ?? "").font(.title3.weight(.semibold)).foregroundStyle(Theme.subtleInk))")
+    }
+}
+
+/// Everything `StatShareView` needs to re-render one `FullStatsView` section standalone — captured
+/// once when its share button is tapped (see `FullStatsView.shareableCard`), since `rows` closures
+/// only read already-available `stats`/`scope` state, not anything that changes while the sheet
+/// is open.
+private struct StatCardSpec: Identifiable {
+    let id = UUID()
+    let icon: String
+    let title: String
+    let value: String
+    let unit: String?
+    let rows: AnyView
+}
+
+/// The full-screen "see it before you send it" preview for one Full Flight Stats card — same
+/// flow `PassportShareView` already gives the summary Flight Stats card (card preview, Close,
+/// and a `ShareLink` in the toolbar), just for a single section's card instead of the whole thing.
+private struct StatShareView: View {
+    let stat: StatCardSpec
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.displayScale) private var displayScale
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                cardView
+                    .padding(.top, Theme.Spacing.lg)
+                    .padding(.horizontal, Theme.Spacing.lg)
+                    .padding(.bottom, Theme.Spacing.xl)
+                    .shadow(color: .black.opacity(0.25), radius: 24, y: 12)
+            }
+            .background(Theme.backgroundGradient.ignoresSafeArea())
+            .navigationTitle(stat.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Close", systemImage: "xmark") { dismiss() }
+                        .labelStyle(.iconOnly)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    ShareLink(
+                        item: renderCardImage(),
+                        preview: SharePreview(stat.title, image: renderCardImage())
+                    ) {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                }
+            }
+        }
+        .postHogScreenView("Passport: Stat Share")
+    }
+
+    /// Same card format `PassportShareCard` uses for the summary Flight Stats card (brand mark up
+    /// top, the card in `FlightStatsCard`'s own `SectionCard` chrome underneath, same corner
+    /// radius/width) so this reads as a smaller sibling of that same share image.
+    private var cardView: some View {
+        VStack(spacing: Theme.Spacing.sm) {
+            TwofoldBrandMark(color: Theme.ink, size: 24, textStyle: .title3)
+
+            SectionCard {
+                statHeaderView(icon: stat.icon, title: stat.title, value: stat.value, unit: stat.unit)
+                stat.rows
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(Theme.Spacing.sm)
+        .frame(width: 360)
+        .background(Theme.backgroundGradient)
+        .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
+    }
+
+    @MainActor
+    private func renderCardImage() -> Image {
+        let renderer = ImageRenderer(content: cardView)
+        renderer.scale = displayScale
+        if let uiImage = renderer.uiImage {
+            return Image(uiImage: uiImage)
+        }
+        return Image(systemName: "photo")
     }
 }
 

@@ -20,65 +20,64 @@ enum DistanceShareTheme: String, CaseIterable, Identifiable {
         }
     }
 
-    /// `.classic` reuses the app's own `Theme.backgroundGradient` (light sky blue into leaf
-    /// green) rather than inventing a new palette — it's the default, so it should read as
-    /// unmistakably "Twofold," not a separate design language. `.dark` is the deep, atmospheric
-    /// alternative; `.pink` is a bright pastel pink-into-blue one, so the three read as
-    /// genuinely distinct choices rather than three shades of moody.
+    /// Colors drawn straight from the dark-mode/Daylight handoff's `ShareCard` canvas table
+    /// (`sky` accent, dark "Aurora" canvas / light "Daylight" pastel canvas). `.classic` follows
+    /// system appearance — it's the default, so it should read as unmistakably "Twofold," not a
+    /// separate design language — while `.dark` and `.pink` are explicit, appearance-independent
+    /// picks (the same handoff's dark-sky and light-heart canvases), so choosing one always looks
+    /// the same regardless of the system's own light/dark setting.
     var backgroundGradient: LinearGradient {
         switch self {
         case .classic:
-            Theme.backgroundGradient
-        case .dark:
-            LinearGradient(colors: [Color(hex: "060B18"), Color(hex: "0E2A52"), Color(hex: "12406E")], startPoint: .top, endPoint: .bottom)
-        case .pink:
-            // Explicit stop locations (not evenly spaced) so the blue takes over well before
-            // the bottom edge, rather than only arriving right at the very end.
             LinearGradient(
-                gradient: Gradient(stops: [
-                    .init(color: Color(hex: "FFC0CB"), location: 0),
-                    .init(color: Color(hex: "E8C6E0"), location: 0.3),
-                    .init(color: Color(hex: "C6D6FF"), location: 0.6),
-                    .init(color: Color(hex: "B8DFFF"), location: 1),
-                ]),
-                startPoint: .top,
-                endPoint: .bottom
+                colors: [
+                    Color(light: "E4F2FC", dark: "123045"),
+                    Color(light: "D3E9F8", dark: "0C2233"),
+                    Color(light: "DFF2EC", dark: "08161F"),
+                ],
+                startPoint: .top, endPoint: .bottom
             )
+        case .dark:
+            LinearGradient(colors: [Color(hex: "123045"), Color(hex: "0C2233"), Color(hex: "08161F")], startPoint: .top, endPoint: .bottom)
+        case .pink:
+            LinearGradient(colors: [Color(hex: "FDEAEC"), Color(hex: "FBE0E4"), Color(hex: "F6E6EE")], startPoint: .top, endPoint: .bottom)
         }
     }
 
-    /// The soft radial highlight glow layered over the background gradient's top.
+    /// The soft radial highlight glow layered over the background gradient's top — the accent's
+    /// own base hue (`DistanceShareCard` applies the opacity).
     var glowColor: Color {
         switch self {
-        case .classic: Color(hex: "9BD4FF")
-        case .dark: Color(hex: "2E6FA8")
-        case .pink: Color(hex: "FFF3FB")
+        case .classic: Color(light: "6EC1F0", dark: "4FA9E0")
+        case .dark: Color(hex: "4FA9E0")
+        case .pink: Color(hex: "E85C6B")
         }
     }
 
     var primaryTextColor: Color {
         switch self {
-        case .classic: Theme.ink
-        case .dark: .white
-        case .pink: Color(hex: "4A1259")
+        case .classic: Color(light: "16232F", dark: "F4F9FC")
+        case .dark: Color(hex: "F4F9FC")
+        case .pink: Color(hex: "16232F")
         }
     }
 
     var secondaryTextColor: Color {
         switch self {
-        case .classic: Theme.subtleInk
-        case .dark: .white.opacity(0.65)
-        case .pink: Color(hex: "4A1259").opacity(0.65)
+        case .classic: Color(light: "52657A", dark: "AEC0CD")
+        case .dark: Color(hex: "AEC0CD")
+        case .pink: Color(hex: "16232F").opacity(0.65)
         }
     }
 
-    /// The comparison-stat line's color — needs to read clearly against its own background,
-    /// not just be "the accent color" in the abstract.
+    /// The comparison-stat line's color — the accent's own text-safe tone (never the fill tone),
+    /// needs to read clearly against its own background, not just be "the accent color" in the
+    /// abstract.
     var accentTextColor: Color {
         switch self {
-        case .classic: Color(hex: "2E86C1")
-        case .dark: Color(hex: "9BD4FF")
-        case .pink: Color(hex: "AD1477")
+        case .classic: Color(light: "1F6F9E", dark: "8ACFF5")
+        case .dark: Color(hex: "8ACFF5")
+        case .pink: Color(hex: "C2334A")
         }
     }
 }

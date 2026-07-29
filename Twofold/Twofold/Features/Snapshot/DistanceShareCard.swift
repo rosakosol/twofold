@@ -134,7 +134,7 @@ struct DistanceShareCard: View {
                         path.addLine(to: mapSnapshot.point(for: coordinate))
                     }
                 }
-                .stroke(Color(hex: "6FD3FF"), style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [2, 11]))
+                .stroke(theme.accentTextColor, style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [2, 11]))
             }
             .frame(width: Self.normalGlobeSize, height: Self.normalGlobeSize)
             .scaleEffect(Self.globeOverscan)
@@ -230,7 +230,7 @@ struct DistanceShareCard: View {
                 path.move(to: Self.offGlobeCenter)
                 path.addLine(to: offGlobeExitPoint)
             }
-            .stroke(Color(hex: "6FD3FF"), style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [2, 11]))
+            .stroke(theme.accentTextColor, style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [2, 11]))
 
             offGlobeCurve
 
@@ -271,7 +271,7 @@ struct DistanceShareCard: View {
             path.move(to: exit)
             path.addQuadCurve(to: target, control: control)
         }
-        .stroke(Color(hex: "6FD3FF"), style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [2, 11]))
+        .stroke(theme.accentTextColor, style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [2, 11]))
     }
 
     /// Partner's real city isn't visible on this smaller, you-centered globe — their card floats

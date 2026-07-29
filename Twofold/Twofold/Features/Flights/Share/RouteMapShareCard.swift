@@ -72,7 +72,7 @@ struct RouteMapShareCard: View {
             .frame(width: Self.cardSize.width, height: Self.cardSize.height)
             .clipped()
         } else {
-            Color(hex: "0E2A52")
+            Color(hex: "0C2233")
             ProgressView().tint(.white)
         }
     }

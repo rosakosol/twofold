@@ -23,8 +23,8 @@ struct TripStatsCard: View {
                 VStack(spacing: Theme.Spacing.md) {
                     HStack(spacing: Theme.Spacing.sm) {
                         ZStack {
-                            Circle().fill(Theme.skyBlue.opacity(0.15))
-                            Image(systemName: "suitcase.fill").font(.subheadline).foregroundStyle(Theme.skyBlue)
+                            Circle().fill(Theme.skyBlueText.opacity(0.15))
+                            Image(systemName: "suitcase.fill").font(.subheadline).foregroundStyle(Theme.skyBlueText)
                         }
                         .frame(width: 32, height: 32)
                         Text("Trip Stats")
@@ -48,23 +48,23 @@ struct TripStatsCard: View {
                             label: "Longest Trip",
                             value: stats.longestTrip.map { RelationshipMilestoneStats.tripDuration($0) } ?? "—",
                             detail: stats.longestTrip?.destination.displayCity,
-                            tint: Theme.leafGreen
+                            tint: Theme.leafGreenText
                         )
                         milestoneTile(
                             icon: "arrow.down.left",
                             label: "Shortest Trip",
                             value: stats.shortestTrip.map { RelationshipMilestoneStats.tripDuration($0) } ?? "—",
                             detail: stats.shortestTrip?.destination.displayCity,
-                            tint: Theme.leafGreen
+                            tint: Theme.leafGreenText
                         )
                         milestoneTile(
                             icon: "mappin.and.ellipse",
                             label: "Top Destination",
                             value: stats.topDestination?.name ?? "—",
                             detail: stats.topDestination.map { $0.count == 1 ? "1 trip" : "\($0.count) trips" },
-                            tint: Theme.skyBlue
+                            tint: Theme.skyBlueText
                         )
-                        milestoneTile(icon: "heart.fill", label: "Reunion Trips", value: "\(stats.reunionCount)", tint: Theme.heartRed)
+                        milestoneTile(icon: "heart.fill", label: "Reunion Trips", value: "\(stats.reunionCount)", tint: Theme.heartRedText)
                         milestoneTile(icon: "calendar.badge.clock", label: "Upcoming", value: "\(stats.upcomingCount)", tint: .orange)
                         milestoneTile(icon: "checkmark.circle.fill", label: "Completed", value: "\(stats.pastCount)", tint: .purple)
                     }
@@ -83,9 +83,6 @@ struct TripStatsCard: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        // Forces the light-mode look regardless of system appearance — see
-        // `RelationshipStatsCard`'s identical `.colorScheme(.light)` for why.
-        .colorScheme(.light)
     }
 
     private func heroStat(label: String, value: String) -> some View {

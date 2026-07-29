@@ -24,6 +24,15 @@ enum Theme {
     static let skyBlue = Color(light: "4FA9E0", dark: "8ACFF5")
     static let leafGreen = Color(light: "6FBF8B", dark: "88DFA9")
     static let heartRed = Color(light: "E85C6B", dark: "FF9BA3")
+    /// Text-safe counterparts of the three tokens above, for wherever the hue lands on an icon,
+    /// value, or stroke rather than a solid white-content fill. `skyBlue`/etc.'s own light value
+    /// is the *fill* blue (brand `#4FA9E0`) reused for text too, which the Daylight direction
+    /// calls out as a sub-4.5:1 pairing to fix (rule #1: only the deepened tone is licensed for
+    /// text/icons/strokes). Dark mode is unchanged — Aurora's `Accent.*Text` already equals
+    /// `skyBlue`/etc.'s existing dark value — so swapping to these only affects light mode.
+    static let skyBlueText = Color(light: "1F6F9E", dark: "8ACFF5")
+    static let leafGreenText = Color(light: "1E7A4B", dark: "88DFA9")
+    static let heartRedText = Color(light: "C2334A", dark: "FF9BA3")
     static let ink = Color(light: "1C2A38", dark: "F3F7FA")
     // Aurora's own measured `Text.secondary` (≈8.5:1 against `Surface.cardFlat`) rather than the
     // old translucent-white approximation — a real hex tuned against this exact palette's card

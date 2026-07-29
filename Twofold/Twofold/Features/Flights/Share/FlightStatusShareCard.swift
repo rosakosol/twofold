@@ -23,16 +23,16 @@ struct FlightStatusShareCard: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.md) {
             header
             columnHeaders
-            Divider().background(Color.white.opacity(0.15))
+            Divider().background(Color.white.opacity(0.17))
             row
         }
         .padding(Theme.Spacing.lg)
         .frame(width: 340)
-        .background(Color(hex: "10161F"))
+        .background(Color(hex: "0C2233"))
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .strokeBorder(.white.opacity(0.15), lineWidth: 1)
+                .strokeBorder(.white.opacity(0.17), lineWidth: 1)
         }
         .shadow(color: .black.opacity(0.25), radius: 16, y: 8)
     }

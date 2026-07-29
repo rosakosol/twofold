@@ -51,22 +51,22 @@ struct RelationshipStatsCard: View {
 
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: Theme.Spacing.sm), GridItem(.flexible())], spacing: Theme.Spacing.sm) {
                         if showReunionsStat {
-                            milestoneTile(icon: "heart.fill", label: "Total Reunions", value: "\(stats.reunionCount)", tint: Theme.heartRed)
+                            milestoneTile(icon: "heart.fill", label: "Total Reunions", value: "\(stats.reunionCount)", tint: Theme.heartRedText)
                         }
-                        milestoneTile(icon: "airplane", label: "Longest Distance Apart", value: MeasurementPreference.distanceLabel(km: stats.longestDistanceKm), tint: Theme.skyBlue)
+                        milestoneTile(icon: "airplane", label: "Longest Distance Apart", value: MeasurementPreference.distanceLabel(km: stats.longestDistanceKm), tint: Theme.skyBlueText)
                         milestoneTile(
                             icon: "arrow.up.right",
                             label: "Longest Trip",
                             value: stats.longestTrip.map { RelationshipMilestoneStats.tripDuration($0) } ?? "—",
                             detail: stats.longestTrip?.destination.displayCity,
-                            tint: Theme.leafGreen
+                            tint: Theme.leafGreenText
                         )
                         milestoneTile(
                             icon: "arrow.down.left",
                             label: "Shortest Trip",
                             value: stats.shortestTrip.map { RelationshipMilestoneStats.tripDuration($0) } ?? "—",
                             detail: stats.shortestTrip?.destination.displayCity,
-                            tint: Theme.leafGreen
+                            tint: Theme.leafGreenText
                         )
                         milestoneTile(
                             icon: "hourglass",
@@ -97,10 +97,6 @@ struct RelationshipStatsCard: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        // Opts out of dark mode entirely for now (forces the light-mode look regardless of
-        // system appearance) rather than reworking this card's own dark-mode styling — same for
-        // `TripStatsCard`/`FlightStatsCard` and their share-card counterparts.
-        .colorScheme(.light)
     }
 
     /// Both avatars joined by a line with a heart at its center — the same "two people, one
@@ -117,12 +113,12 @@ struct RelationshipStatsCard: View {
             AvatarView(person: couple.partnerA, size: 44, showsRing: true)
 
             Rectangle()
-                .fill(Theme.heartRed.opacity(0.4))
+                .fill(Theme.heartRedText.opacity(0.4))
                 .frame(width: 56, height: 2)
                 .overlay {
                     Image(systemName: "heart.fill")
                         .font(.subheadline)
-                        .foregroundStyle(Theme.heartRed)
+                        .foregroundStyle(Theme.heartRedText)
                         .padding(6)
                         .background(Theme.cardBackground, in: Circle())
                 }

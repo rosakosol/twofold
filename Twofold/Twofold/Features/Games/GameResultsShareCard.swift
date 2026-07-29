@@ -6,12 +6,23 @@
 //  `GameResultShareLayout`. Each owns its own visual identity so swiping through them in
 //  `GameResultsShareView` reads as distinct cards/stickers, not one card with a palette swap.
 //
+//  Colors come from `ShareCardPalette` (the dark-mode/Daylight handoff's own sky/leaf/heart
+//  canvas system for exportable cards) rather than the app's `Theme.*` tokens — this card is an
+//  image that leaves the app, so it needs its own dark-canvas/light-pastel look regardless of
+//  in-app chrome, the same way `ShareCard.dc.html`'s Quote/Chat/Score/Tally layouts do.
+//
 
 import SwiftUI
 
 struct GameResultsShareCard: View {
     let data: GameResultShareData
     let layout: GameResultShareLayout
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    private func palette(_ accent: ShareCardAccent) -> ShareCardPalette {
+        .resolve(accent, for: colorScheme)
+    }
 
     var body: some View {
         switch layout {
@@ -22,22 +33,42 @@ struct GameResultsShareCard: View {
         }
     }
 
+    private func canvasBackground(_ palette: ShareCardPalette) -> some View {
+        ZStack {
+            palette.canvasGradient
+            palette.glowOverlay
+        }
+    }
+
     // MARK: - Score snapshot
 
+    /// Tinted by the actual result for the match games (matches `GameResultsView.similarityTint`);
+    /// falls back to `.sky` for Trivia, which has no single "how well did we do" color to react to.
+    /// Deep Conversations never reaches `scoreSnapshot` at all (see `GameResultShareData.availableLayouts`).
+    private var scoreAccent: ShareCardAccent {
+        guard let matchPercent = data.matchPercent else { return .sky }
+        switch matchPercent {
+        case 80...: return .leaf
+        case 50..<80: return .sky
+        default: return .heart
+        }
+    }
+
     private var scoreSnapshotBody: some View {
-        cardChrome(background: scoreGradient, textColor: .white, brandMark: .top) {
+        let palette = palette(scoreAccent)
+        return cardChrome(background: canvasBackground(palette), textColor: palette.foreground, brandMark: .top) {
             VStack(spacing: 4) {
                 Image(systemName: data.gameType.icon)
                     .font(.caption)
-                    .foregroundStyle(.white.opacity(0.8))
+                    .foregroundStyle(palette.foreground.opacity(0.8))
                 Text(data.title.uppercased())
                     .font(.caption2.weight(.semibold))
                     .tracking(1.5)
-                    .foregroundStyle(.white.opacity(0.8))
+                    .foregroundStyle(palette.foreground.opacity(0.8))
                     .multilineTextAlignment(.center)
             }
 
-            scoreHeadline
+            scoreHeadline(palette)
 
             HStack(spacing: Theme.Spacing.md) {
                 AvatarView(person: data.me, size: 40, showsRing: true)
@@ -47,100 +78,88 @@ struct GameResultsShareCard: View {
     }
 
     @ViewBuilder
-    private var scoreHeadline: some View {
+    private func scoreHeadline(_ palette: ShareCardPalette) -> some View {
         if let matchPercent = data.matchPercent {
             VStack(spacing: 2) {
                 Text("\(matchPercent)%")
                     .font(.system(size: 64, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(palette.foreground)
                 Text("answer similarity")
                     .font(.subheadline)
-                    .foregroundStyle(.white.opacity(0.85))
+                    .foregroundStyle(palette.foreground.opacity(0.85))
             }
         } else if let myScore = data.triviaMyScore, let partnerScore = data.triviaPartnerScore, let total = data.triviaTotalRounds {
             HStack(spacing: Theme.Spacing.xl) {
-                scoreColumn(value: "\(myScore)", label: "You")
+                scoreColumn(value: "\(myScore)", label: "You", palette: palette)
                 Text("/\(total)")
                     .font(.title2.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.7))
-                scoreColumn(value: "\(partnerScore)", label: data.partner.name)
+                    .foregroundStyle(palette.foreground.opacity(0.7))
+                scoreColumn(value: "\(partnerScore)", label: data.partner.name, palette: palette)
             }
         }
     }
 
-    private func scoreColumn(value: String, label: String) -> some View {
+    private func scoreColumn(value: String, label: String, palette: ShareCardPalette) -> some View {
         VStack(spacing: 2) {
             Text(value)
                 .font(.system(size: 48, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
+                .foregroundStyle(palette.foreground)
             Text(label.uppercased())
                 .font(.caption2.weight(.semibold))
                 .tracking(0.5)
-                .foregroundStyle(.white.opacity(0.75))
+                .foregroundStyle(palette.foreground.opacity(0.75))
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
     }
 
-    /// Tinted by the actual result for the match games (matches `GameResultsView.similarityTint`);
-    /// falls back to the game type's own brand gradient for Trivia, which has no single "how well
-    /// did we do" color to react to. Deep Conversations never reaches `scoreSnapshot` at all (see
-    /// `GameResultShareData.availableLayouts`), so this fallback is Trivia-only in practice.
-    private var scoreGradient: LinearGradient {
-        if let matchPercent = data.matchPercent {
-            let tint: Color = switch matchPercent {
-            case 80...: Theme.leafGreen
-            case 50..<80: Theme.skyBlue
-            default: Theme.heartRed
-            }
-            return LinearGradient(colors: [tint, tint.opacity(0.75)], startPoint: .topLeading, endPoint: .bottomTrailing)
-        }
-        return LinearGradient(colors: data.gameType.iconGradient, startPoint: .topLeading, endPoint: .bottomTrailing)
-    }
-
     // MARK: - Daily streak
 
-    private var dailyStreakGradient: LinearGradient {
-        LinearGradient(colors: [Color(hex: "FF9A56"), Color(hex: "E84C3D")], startPoint: .topLeading, endPoint: .bottomTrailing)
-    }
-
     private var dailyStreakBody: some View {
-        cardChrome(background: dailyStreakGradient, textColor: .white, brandMark: .top) {
+        let palette = palette(.heart)
+        return cardChrome(background: canvasBackground(palette), textColor: palette.foreground, brandMark: .top) {
             Text(data.title.uppercased())
                 .font(.caption2.weight(.semibold))
                 .tracking(1.5)
-                .foregroundStyle(.white.opacity(0.8))
+                .foregroundStyle(palette.foreground.opacity(0.8))
 
             if let question = data.singleRoundQuestion {
                 Text(question)
                     .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.white.opacity(0.9))
+                    .foregroundStyle(palette.foreground.opacity(0.9))
                     .multilineTextAlignment(.center)
             }
 
             VStack(spacing: Theme.Spacing.sm) {
-                messageBubble(name: "You", text: data.myAnswer, alignment: .leading)
-                messageBubble(name: data.partner.name, text: data.partnerAnswer, alignment: .trailing)
+                messageBubble(name: "You", text: data.myAnswer, alignment: .leading, palette: palette, isMine: true)
+                messageBubble(name: data.partner.name, text: data.partnerAnswer, alignment: .trailing, palette: palette, isMine: false)
             }
         }
     }
 
     /// A little chat-style exchange — mine on the left, partner's underneath on the right — rather
-    /// than two stacked left-aligned lines, so the two answers read as a back-and-forth.
-    private func messageBubble(name: String, text: String?, alignment: HorizontalAlignment) -> some View {
+    /// than two stacked left-aligned lines, so the two answers read as a back-and-forth. Mine is
+    /// the accent-filled bubble, partner's a neutral surface — the same "Player A bubble = accent
+    /// fill" rule the handoff's Chat card uses.
+    private func messageBubble(name: String, text: String?, alignment: HorizontalAlignment, palette: ShareCardPalette, isMine: Bool) -> some View {
         VStack(alignment: alignment, spacing: 4) {
             Text(name.uppercased())
                 .font(.caption2.weight(.semibold))
                 .tracking(0.5)
-                .foregroundStyle(.white.opacity(0.75))
+                .foregroundStyle(palette.foreground.opacity(0.75))
             Text(text?.isEmpty == false ? text! : "Skipped this one")
                 .font(.subheadline)
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(isMine ? palette.bubbleForeground : palette.foreground)
                 .multilineTextAlignment(.leading)
                 .frame(maxWidth: 210, alignment: .leading)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .background(.white, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .background(isMine ? AnyShapeStyle(palette.fill) : AnyShapeStyle(palette.surface), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .overlay {
+                    if !isMine {
+                        RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(palette.surfaceLine, lineWidth: 1)
+                    }
+                }
         }
         .frame(maxWidth: .infinity, alignment: alignment == .leading ? .leading : .trailing)
     }
@@ -148,36 +167,43 @@ struct GameResultsShareCard: View {
     // MARK: - Names & answer
 
     private var namesAndAnswerBody: some View {
-        cardChrome(background: LinearGradient(colors: [.white, Color(hex: "F4F4F4")], startPoint: .top, endPoint: .bottom), textColor: Theme.ink, brandMark: .bottom) {
+        let palette = palette(.sky)
+        return cardChrome(background: canvasBackground(palette), textColor: palette.foreground, brandMark: .bottom) {
             Text(data.title.uppercased())
                 .font(.caption2.weight(.semibold))
                 .tracking(1.5)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(palette.foreground.opacity(0.72))
 
             if let question = data.singleRoundQuestion {
                 Text(question)
                     .font(.title3.weight(.bold))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(palette.foreground)
                     .multilineTextAlignment(.center)
             }
 
             VStack(spacing: Theme.Spacing.md) {
-                plainAnswerLine(name: data.me.name, text: data.myAnswer)
-                plainAnswerLine(name: data.partner.name, text: data.partnerAnswer)
+                plainAnswerLine(name: data.me.name, text: data.myAnswer, palette: palette)
+                plainAnswerLine(name: data.partner.name, text: data.partnerAnswer, palette: palette)
             }
         }
     }
 
-    private func plainAnswerLine(name: String, text: String?) -> some View {
+    private func plainAnswerLine(name: String, text: String?, palette: ShareCardPalette) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(name)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(palette.foreground.opacity(0.72))
             Text(text?.isEmpty == false ? text! : "Skipped this one")
                 .font(.subheadline)
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(palette.foreground)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+        .background(palette.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(palette.surfaceLine, lineWidth: 1)
+        }
     }
 
     // MARK: - Speech bubble
@@ -186,8 +212,9 @@ struct GameResultsShareCard: View {
     /// tailed chat bubble per side, unlike `messageBubble`'s plain rounded rectangle above) is
     /// meant to be the whole visual, not one element inside a bigger composed card.
     private var speechBubbleBody: some View {
-        VStack(spacing: Theme.Spacing.lg) {
-            TwofoldBrandMark(color: Theme.ink, size: 20, textStyle: .subheadline)
+        let palette = palette(.sky)
+        return VStack(spacing: Theme.Spacing.lg) {
+            TwofoldBrandMark(color: palette.foreground, size: 20, textStyle: .subheadline)
 
             // Every other layout (score snapshot, daily streak, names & answer) shows
             // `data.title` — this one was the odd one out, showing only the brand mark and
@@ -195,39 +222,39 @@ struct GameResultsShareCard: View {
             Text(data.title.uppercased())
                 .font(.caption2.weight(.semibold))
                 .tracking(1.5)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(palette.foreground.opacity(0.72))
 
             if let question = data.singleRoundQuestion {
                 Text(question)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(palette.foreground.opacity(0.9))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, Theme.Spacing.lg)
             }
 
             VStack(spacing: Theme.Spacing.md) {
-                speechBubble(name: "You", text: data.myAnswer, tailOnRight: false)
-                speechBubble(name: data.partner.name, text: data.partnerAnswer, tailOnRight: true)
+                speechBubble(name: "You", text: data.myAnswer, tailOnRight: false, palette: palette, isMine: true)
+                speechBubble(name: data.partner.name, text: data.partnerAnswer, tailOnRight: true, palette: palette, isMine: false)
             }
             .padding(.horizontal, Theme.Spacing.lg)
         }
         .padding(.vertical, Theme.Spacing.xl)
         .frame(maxWidth: .infinity)
-        .background(Theme.backgroundGradient)
+        .background(canvasBackground(palette))
         .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
     }
 
-    private func speechBubble(name: String, text: String?, tailOnRight: Bool) -> some View {
+    private func speechBubble(name: String, text: String?, tailOnRight: Bool, palette: ShareCardPalette, isMine: Bool) -> some View {
         HStack {
             if tailOnRight { Spacer(minLength: 32) }
             VStack(alignment: tailOnRight ? .trailing : .leading, spacing: 4) {
                 Text(name.uppercased())
                     .font(.caption2.weight(.semibold))
                     .tracking(0.5)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(palette.foreground.opacity(0.72))
                 Text(text?.isEmpty == false ? text! : "Skipped this one")
                     .font(.subheadline.weight(.medium))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(isMine ? palette.bubbleForeground : palette.foreground)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: 220, alignment: .leading)
                     // `SpeechBubbleShape` carves its rounded body out of the *top* `height -
@@ -241,8 +268,8 @@ struct GameResultsShareCard: View {
                     .padding(.horizontal, 18)
                     .padding(.top, 18)
                     .padding(.bottom, 18 + SpeechBubbleShape.defaultTailHeight)
-                    .background(SpeechBubbleShape(tailOnRight: tailOnRight).fill(.white))
-                    .overlay(SpeechBubbleShape(tailOnRight: tailOnRight).stroke(Theme.subtleInk.opacity(0.15), lineWidth: 1))
+                    .background(SpeechBubbleShape(tailOnRight: tailOnRight).fill(isMine ? AnyShapeStyle(palette.fill) : AnyShapeStyle(palette.surface)))
+                    .overlay(SpeechBubbleShape(tailOnRight: tailOnRight).stroke(isMine ? Color.clear : palette.surfaceLine, lineWidth: 1))
             }
             if !tailOnRight { Spacer(minLength: 32) }
         }
