@@ -35,6 +35,17 @@ struct TripsListView: View {
     /// explicit `withAnimation` block as the `isExpanded` flip below makes both changes land in
     /// one animated step instead of two.
     @State private var dragOffset: CGFloat = 0
+    /// The gesture's own `translation` at the moment the *first* `onChanged` fires for a given
+    /// drag — nil whenever no drag is in progress. `DragGesture(minimumDistance:)` measures
+    /// `translation` from the original touch-down point, but doesn't deliver `onChanged` at all
+    /// until the finger has already moved past `minimumDistance` — so that first callback already
+    /// reports whatever distance the finger covered *before* recognition kicked in (at least
+    /// `minimumDistance`, often more depending on swipe speed), and applying it directly made the
+    /// panel jump to "catch up" to that already-traveled distance in one frame instead of
+    /// tracking smoothly from zero. Subtracting this baseline from every subsequent translation
+    /// (see `panelDragGesture`'s `onChanged`) makes the panel start tracking from wherever the
+    /// finger actually is once the gesture is recognized, not from the touch-down point.
+    @State private var dragStartTranslation: CGFloat?
     /// True for the exact duration of an active drag (set in `onChanged`, cleared in `onEnded`)
     /// — guards the `.onChange(of: panelHeight)` swap below so it only ever fires once the
     /// finger has actually lifted, never mid-gesture. A *fast* swipe crossed the threshold and
@@ -137,10 +148,15 @@ struct TripsListView: View {
                     // layouts, of this `Color.black` not actually reaching full screen width.
                     Color.black
 
+                    // `.equatable()` skips re-running this view's `body` (which rebuilds `Map`'s
+                    // whole content builder) on every parent re-render that doesn't actually
+                    // change `trips`/`fallbackCenter` — see `TripsGlobeView`'s own `==` doc
+                    // comment for why that matters while the panel below is being dragged.
                     TripsGlobeView(
                         trips: appModel.upcomingTrips,
                         fallbackCenter: appModel.currentUser.homeCity?.coordinate
                     )
+                    .equatable()
 
                 browsePanel(showingExpandedContent: showingExpandedContent, expandedHeight: expandedHeight)
                     .frame(width: panelWidth, height: panelHeight, alignment: .top)
@@ -229,36 +245,30 @@ struct TripsListView: View {
     // MARK: - Browse panel
 
     private func browsePanel(showingExpandedContent: Bool, expandedHeight: CGFloat) -> some View {
-        // VStack(spacing: 0) {
-        //     // Everything above the full list — handle, header, and (while collapsed) the peek
-        //     // card — shares one whole-area drag-to-resize gesture, rather than just the handle.
-        //     // `expandedContent`'s `List` deliberately sits *outside* this group: dragging inside
-        //     // a real `List` still has to be its own scroll gesture, not compete with a panel-
-        //     // resize gesture layered on top of it (see `panelDragGesture`'s own comment on why
-        //     // that fight is what actually read as "glitchy").
-        //     VStack(spacing: 0) {
-        //         dragHandle(expandedHeight: expandedHeight)
-        //         browseHeader
+        VStack(spacing: 0) {
+            // Everything above the full list — handle, header, and (while collapsed) the peek
+            // card — shares one whole-area drag-to-resize gesture, rather than just the handle.
+            // `expandedContent`'s `List` deliberately sits *outside* this group: dragging inside
+            // a real `List` still has to be its own scroll gesture, not compete with a panel-
+            // resize gesture layered on top of it (see `panelDragGesture`'s own comment on why
+            // that fight is what actually read as "glitchy").
+            VStack(spacing: 0) {
+                dragHandle(expandedHeight: expandedHeight)
+                browseHeader
 
-        //         if !showingExpandedContent {
-        //             peekContent
-        //                 .transition(.opacity)
-        //         }
-        //     }
-        //     .contentShape(Rectangle())
-        //     .highPriorityGesture(panelDragGesture(minimumDistance: 10, expandedHeight: expandedHeight))
+                if !showingExpandedContent {
+                    peekContent
+                        .transition(.opacity)
+                }
+            }
+            .contentShape(Rectangle())
+            .gesture(panelDragGesture(minimumDistance: 10, expandedHeight: expandedHeight))
 
-        //     if showingExpandedContent {
-        //         expandedContent
-        //             .transition(.opacity)
-        //     }
-        // }
-
-        RoundedRectangle(cornerRadius: 40)
-            .fill(.blue)
-            .frame(width: panelWidth, height: panelHeight)
-            .highPriorityGesture(panelDragGesture(minimumDistance: 10,
-                                                expandedHeight: expandedHeight))
+            if showingExpandedContent {
+                expandedContent
+                    .transition(.opacity)
+            }
+        }
         // Explicit, so the peek-card/full-list swap always cross-fades — including when
         // `showingExpandedContent` flips mid-drag from a slow, continuous `.onChanged` update
         // (those aren't wrapped in `withAnimation` themselves, only the drag's `.onEnded` settle
@@ -289,6 +299,14 @@ struct TripsListView: View {
         return DragGesture(minimumDistance: minimumDistance)
             .onChanged { value in
                 isDragging = true
+                // See `dragStartTranslation`'s own doc comment — this cancels out the "already
+                // traveled `minimumDistance`-plus distance" `DragGesture` bakes into its very
+                // first reported `translation`, which otherwise made the panel jump on every
+                // drag's first frame instead of tracking smoothly from zero.
+                if dragStartTranslation == nil {
+                    dragStartTranslation = value.translation.height
+                }
+                let adjustedTranslation = value.translation.height - (dragStartTranslation ?? 0)
                 // Clamping `dragOffset` itself here — not just leaving it to `body`'s own
                 // `min`/`max` around `panelHeight` — matters because that outer clamp only
                 // bounds the *rendered* height, not the raw offset feeding it. Without this,
@@ -298,7 +316,7 @@ struct TripsListView: View {
                 // before the panel moved at all. A fast flick never lingers past the limit long
                 // enough to notice; a slow, deliberate drag that overshoots and doubles back is
                 // exactly when that dead zone showed up as "glitchy"/unresponsive.
-                dragOffset = min(max(value.translation.height, minOffset), maxOffset)
+                dragOffset = min(max(adjustedTranslation, minOffset), maxOffset)
             }
             .onEnded { value in
                 let draggedUp = value.translation.height < -40 || value.predictedEndTranslation.height < -80
@@ -318,6 +336,7 @@ struct TripsListView: View {
                         // expand/collapse threshold.
                         isExpanded.toggle()
                     }
+                    dragStartTranslation = nil
                     // Explicitly synced to the settled `isExpanded`, not left to the live
                     // hysteresis in `panelHeight`'s `.onChange` alone — that hysteresis
                     // uses a deliberately wide/stricter threshold (see its own comment),

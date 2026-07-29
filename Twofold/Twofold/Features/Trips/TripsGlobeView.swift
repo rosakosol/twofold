@@ -26,13 +26,28 @@ import CoreLocation
 import MapKit
 import SwiftUI
 
-struct TripsGlobeView: View {
+struct TripsGlobeView: View, Equatable {
     let trips: [Trip]
     /// Falls back to this for the initial camera framing when there are no trips yet (e.g. the
     /// current user's own home city) — nil renders a generic wide-world view instead.
     var fallbackCenter: CLLocationCoordinate2D?
 
     @State private var cameraPosition: MapCameraPosition
+
+    /// Lets `.equatable()` at the call site skip re-running this view's `body` — which rebuilds
+    /// `Map`'s whole content builder (`ForEach` over trips, polylines, annotations) — on every
+    /// parent re-render that doesn't actually change `trips`/`fallbackCenter`. `TripsListView`'s
+    /// Travel-panel drag state lives in the same `GeometryReader` closure this view is
+    /// constructed in, so without this, every single touch-move event during a panel drag was
+    /// re-invoking this expensive MapKit body purely because a sibling's unrelated state changed
+    /// — a real, visible source of dropped frames/stutter during the drag, independent of
+    /// anything the panel itself does. `CLLocationCoordinate2D` isn't reliably `Equatable` across
+    /// SDK versions, so its two components are compared directly instead of relying on that.
+    static func == (lhs: TripsGlobeView, rhs: TripsGlobeView) -> Bool {
+        lhs.trips == rhs.trips
+            && lhs.fallbackCenter?.latitude == rhs.fallbackCenter?.latitude
+            && lhs.fallbackCenter?.longitude == rhs.fallbackCenter?.longitude
+    }
 
     init(trips: [Trip], fallbackCenter: CLLocationCoordinate2D? = nil) {
         self.trips = trips
