@@ -2,15 +2,14 @@
 //  FlightShareView.swift
 //  Twofold
 //
-//  The flight tracking screen's Share sheet — a swipeable 4-page picker (Plain Text, Route Map,
-//  Boarding Pass, Flight Status), replacing the old single `ShareLink(item: shareText)` menu item
-//  in `FlightTrackingView`. `TabView(.page)` is new to this app (every other share flow —
-//  Distance, Passport, Relationship Stats — presents one card at a time with at most a flat theme
-//  picker), introduced here specifically because the reference design swipes between genuinely
-//  different card layouts, not just palette variants of one layout.
+//  The flight tracking screen's Share sheet — a swipeable 3-page picker (Plain Text, Boarding
+//  Pass, Flight Status), replacing the old single `ShareLink(item: shareText)` menu item in
+//  `FlightTrackingView`. `TabView(.page)` is new to this app (every other share flow — Distance,
+//  Passport, Relationship Stats — presents one card at a time with at most a flat theme picker),
+//  introduced here specifically because the reference design swipes between genuinely different
+//  card layouts, not just palette variants of one layout.
 //
 
-import MapKit
 import PostHog
 import SwiftUI
 
@@ -23,17 +22,12 @@ struct FlightShareView: View {
 
     @State private var page = 0
     @State private var stickerStyle: FlightStickerStyle = .light
-    @State private var mapSnapshot: MKMapSnapshotter.Snapshot?
     @State private var airlineLogo: UIImage?
 
-    private static let pageCount = 4
-
-    private var travelerNames: [String] {
-        [appModel.currentUser, appModel.partner].filter { flight.travelerIDs.contains($0.id) }.map(\.name)
-    }
+    private static let pageCount = 3
 
     private var shareText: String {
-        "\(flight.displayNumber) · \(flight.origin.displayCode) → \(flight.destination.displayCode) — \(flight.countdownSummary)"
+        "\(flight.displayNumber) · \(flight.origin.displayCode) → \(flight.destination.displayCode) — \(flight.totalDurationSummary ?? "—")"
     }
 
     var body: some View {
@@ -41,9 +35,8 @@ struct FlightShareView: View {
             VStack(spacing: Theme.Spacing.md) {
                 TabView(selection: $page) {
                     plainTextPage.tag(0)
-                    routeMapPage.tag(1)
-                    boardingPassPage.tag(2)
-                    flightStatusPage.tag(3)
+                    boardingPassPage.tag(1)
+                    flightStatusPage.tag(2)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
 
@@ -61,10 +54,6 @@ struct FlightShareView: View {
                     Button("Close", systemImage: "xmark") { dismiss() }
                         .labelStyle(.iconOnly)
                 }
-            }
-            .task {
-                guard mapSnapshot == nil, let origin = flight.origin.coordinate, let destination = flight.destination.coordinate else { return }
-                mapSnapshot = await Self.loadMapSnapshot(origin: origin, destination: destination)
             }
             .task {
                 guard airlineLogo == nil, let url = flight.displayLogoURL else { return }
@@ -93,17 +82,10 @@ struct FlightShareView: View {
         .padding(.horizontal, Theme.Spacing.lg)
     }
 
-    private var routeMapPage: some View {
-        VStack(spacing: Theme.Spacing.md) {
-            RouteMapShareCard(flight: flight, mapSnapshot: mapSnapshot, stickerStyle: stickerStyle, airlineLogo: airlineLogo, travelerNames: travelerNames)
-            FlightStickerStylePicker(selection: $stickerStyle)
-        }
-    }
-
     private var boardingPassPage: some View {
         VStack(spacing: Theme.Spacing.md) {
             Spacer(minLength: 0)
-            BoardingPassShareCard(flight: flight, style: stickerStyle, airlineLogo: airlineLogo, travelerNames: travelerNames)
+            BoardingPassShareCard(flight: flight, style: stickerStyle, airlineLogo: airlineLogo)
             FlightStickerStylePicker(selection: $stickerStyle)
             Spacer(minLength: 0)
         }
@@ -112,7 +94,7 @@ struct FlightShareView: View {
     private var flightStatusPage: some View {
         VStack {
             Spacer(minLength: 0)
-            FlightStatusShareCard(flight: flight)
+            FlightStatusShareCard(flight: flight, airlineLogo: airlineLogo)
             Spacer(minLength: 0)
         }
     }
@@ -183,9 +165,8 @@ struct FlightShareView: View {
     @MainActor
     private func currentPageImage() -> UIImage? {
         switch page {
-        case 1: renderImage(RouteMapShareCard(flight: flight, mapSnapshot: mapSnapshot, stickerStyle: stickerStyle, airlineLogo: airlineLogo, travelerNames: travelerNames))
-        case 2: renderImage(BoardingPassShareCard(flight: flight, style: stickerStyle, airlineLogo: airlineLogo, travelerNames: travelerNames))
-        case 3: renderImage(FlightStatusShareCard(flight: flight))
+        case 1: renderImage(BoardingPassShareCard(flight: flight, style: stickerStyle, airlineLogo: airlineLogo))
+        case 2: renderImage(FlightStatusShareCard(flight: flight, airlineLogo: airlineLogo))
         default: nil
         }
     }
@@ -195,22 +176,6 @@ struct FlightShareView: View {
         let renderer = ImageRenderer(content: view)
         renderer.scale = displayScale
         return renderer.uiImage
-    }
-
-    // MARK: - Map snapshot
-
-    private static func loadMapSnapshot(origin: CLLocationCoordinate2D, destination: CLLocationCoordinate2D) async -> MKMapSnapshotter.Snapshot? {
-        let options = MKMapSnapshotter.Options()
-        options.preferredConfiguration = MKHybridMapConfiguration(elevationStyle: .flat)
-        options.showsBuildings = false
-        options.region = RouteMapShareCard.region(for: origin, destination)
-        options.size = RouteMapShareCard.cardSize
-
-        do {
-            return try await MKMapSnapshotter(options: options).start()
-        } catch {
-            return nil
-        }
     }
 }
 

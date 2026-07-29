@@ -229,30 +229,36 @@ struct TripsListView: View {
     // MARK: - Browse panel
 
     private func browsePanel(showingExpandedContent: Bool, expandedHeight: CGFloat) -> some View {
-        VStack(spacing: 0) {
-            // Everything above the full list — handle, header, and (while collapsed) the peek
-            // card — shares one whole-area drag-to-resize gesture, rather than just the handle.
-            // `expandedContent`'s `List` deliberately sits *outside* this group: dragging inside
-            // a real `List` still has to be its own scroll gesture, not compete with a panel-
-            // resize gesture layered on top of it (see `panelDragGesture`'s own comment on why
-            // that fight is what actually read as "glitchy").
-            VStack(spacing: 0) {
-                dragHandle(expandedHeight: expandedHeight)
-                browseHeader
+        // VStack(spacing: 0) {
+        //     // Everything above the full list — handle, header, and (while collapsed) the peek
+        //     // card — shares one whole-area drag-to-resize gesture, rather than just the handle.
+        //     // `expandedContent`'s `List` deliberately sits *outside* this group: dragging inside
+        //     // a real `List` still has to be its own scroll gesture, not compete with a panel-
+        //     // resize gesture layered on top of it (see `panelDragGesture`'s own comment on why
+        //     // that fight is what actually read as "glitchy").
+        //     VStack(spacing: 0) {
+        //         dragHandle(expandedHeight: expandedHeight)
+        //         browseHeader
 
-                if !showingExpandedContent {
-                    peekContent
-                        .transition(.opacity)
-                }
-            }
-            .contentShape(Rectangle())
-            .gesture(panelDragGesture(minimumDistance: 10, expandedHeight: expandedHeight))
+        //         if !showingExpandedContent {
+        //             peekContent
+        //                 .transition(.opacity)
+        //         }
+        //     }
+        //     .contentShape(Rectangle())
+        //     .highPriorityGesture(panelDragGesture(minimumDistance: 10, expandedHeight: expandedHeight))
 
-            if showingExpandedContent {
-                expandedContent
-                    .transition(.opacity)
-            }
-        }
+        //     if showingExpandedContent {
+        //         expandedContent
+        //             .transition(.opacity)
+        //     }
+        // }
+
+        RoundedRectangle(cornerRadius: 40)
+            .fill(.blue)
+            .frame(width: panelWidth, height: panelHeight)
+            .highPriorityGesture(panelDragGesture(minimumDistance: 10,
+                                                expandedHeight: expandedHeight))
         // Explicit, so the peek-card/full-list swap always cross-fades — including when
         // `showingExpandedContent` flips mid-drag from a slow, continuous `.onChanged` update
         // (those aren't wrapped in `withAnimation` themselves, only the drag's `.onEnded` settle
@@ -718,7 +724,12 @@ struct TripsListView: View {
             Button {
                 showingAddFlight = true
             } label: {
-                emptyHintCard(icon: "airplane.circle.fill", title: "Add your first flight", subtitle: "Track a flight to see it here.")
+                // Not "Add your first flight" — this shows whenever there's nothing *currently*
+                // tracked (see `flightSections`/`peekContent`'s own gating on
+                // `activeOrUpcomingFlights`), which a couple with only past/completed flights
+                // hits again after their last tracked flight lands. "First" would be actively
+                // wrong for them.
+                emptyHintCard(icon: "airplane.circle.fill", title: "Add a flight", subtitle: "Track a flight to see it here.")
             }
             .buttonStyle(.plain)
             .padding(.top, Theme.Spacing.xs)

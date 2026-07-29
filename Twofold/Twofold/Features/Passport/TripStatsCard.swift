@@ -120,12 +120,16 @@ struct TripStatsCard: View {
                     .foregroundStyle(Theme.ink)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
-                if let detail {
-                    Text(detail)
-                        .font(.caption2)
-                        .foregroundStyle(Theme.subtleInk)
-                        .lineLimit(1)
-                }
+                // Always reserve the detail line's height (even when there's no detail) so every
+                // tile in the grid ends up the same height — same fix `RelationshipStatsCard`'s
+                // own `milestoneTile` already applies. Without this, a tile with a detail (e.g.
+                // "Top Destination") is a line taller than its row-sibling without one (e.g.
+                // "Reunion Trips"), so the two don't line up.
+                Text(detail ?? " ")
+                    .font(.caption2)
+                    .foregroundStyle(Theme.subtleInk)
+                    .lineLimit(1)
+                    .opacity(detail == nil ? 0 : 1)
             }
             Spacer(minLength: 0)
         }
