@@ -142,7 +142,7 @@ struct TripsListView: View {
                         fallbackCenter: appModel.currentUser.homeCity?.coordinate
                     )
 
-                browsePanel(showingExpandedContent: showingExpandedContent)
+                browsePanel(showingExpandedContent: showingExpandedContent, expandedHeight: expandedHeight)
                     .frame(width: panelWidth, height: panelHeight, alignment: .top)
                     .background(Theme.backgroundGradient)
                     .clipShape(RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous))
@@ -228,7 +228,7 @@ struct TripsListView: View {
 
     // MARK: - Browse panel
 
-    private func browsePanel(showingExpandedContent: Bool) -> some View {
+    private func browsePanel(showingExpandedContent: Bool, expandedHeight: CGFloat) -> some View {
         VStack(spacing: 0) {
             // Everything above the full list — handle, header, and (while collapsed) the peek
             // card — shares one whole-area drag-to-resize gesture, rather than just the handle.
@@ -237,7 +237,7 @@ struct TripsListView: View {
             // resize gesture layered on top of it (see `panelDragGesture`'s own comment on why
             // that fight is what actually read as "glitchy").
             VStack(spacing: 0) {
-                dragHandle
+                dragHandle(expandedHeight: expandedHeight)
                 browseHeader
 
                 if !showingExpandedContent {
@@ -246,7 +246,7 @@ struct TripsListView: View {
                 }
             }
             .contentShape(Rectangle())
-            .gesture(panelDragGesture(minimumDistance: 10))
+            .gesture(panelDragGesture(minimumDistance: 10, expandedHeight: expandedHeight))
 
             if showingExpandedContent {
                 expandedContent
@@ -271,11 +271,28 @@ struct TripsListView: View {
     /// gesture — SwiftUI only lets an ancestor `DragGesture` claim a touch once it's actually
     /// moved past its `minimumDistance`, so a real tap that never moves that far falls straight
     /// through to whatever was tapped).
-    private func panelDragGesture(minimumDistance: CGFloat) -> some Gesture {
-        DragGesture(minimumDistance: minimumDistance)
+    private func panelDragGesture(minimumDistance: CGFloat, expandedHeight: CGFloat) -> some Gesture {
+        // Captured once at gesture-build time, matching `isExpanded` at the moment the drag
+        // starts — same value `body`'s own `restingHeight` local computes, since `isExpanded`
+        // itself never changes mid-drag (only `onEnded` below flips it).
+        let restingHeight = isExpanded ? expandedHeight : peekHeight
+        // The same `[peekHeight, expandedHeight]` range `body`'s `panelHeight` clamps
+        // `restingHeight - dragOffset` into, solved for `dragOffset` itself.
+        let minOffset = restingHeight - expandedHeight
+        let maxOffset = restingHeight - peekHeight
+        return DragGesture(minimumDistance: minimumDistance)
             .onChanged { value in
                 isDragging = true
-                dragOffset = value.translation.height
+                // Clamping `dragOffset` itself here — not just leaving it to `body`'s own
+                // `min`/`max` around `panelHeight` — matters because that outer clamp only
+                // bounds the *rendered* height, not the raw offset feeding it. Without this,
+                // dragging past either limit let `dragOffset` keep accumulating unbounded while
+                // the panel sat visually still at its clamped height; reversing direction after
+                // such an overshoot then had to "wind back" through that same dead distance
+                // before the panel moved at all. A fast flick never lingers past the limit long
+                // enough to notice; a slow, deliberate drag that overshoots and doubles back is
+                // exactly when that dead zone showed up as "glitchy"/unresponsive.
+                dragOffset = min(max(value.translation.height, minOffset), maxOffset)
             }
             .onEnded { value in
                 let draggedUp = value.translation.height < -40 || value.predictedEndTranslation.height < -80
@@ -314,7 +331,7 @@ struct TripsListView: View {
     /// tracks immediately, no need to clear the rest of the panel's larger minimum distance
     /// first) and as VoiceOver's only real activation path, not because it's the only draggable
     /// part of the panel anymore.
-    private var dragHandle: some View {
+    private func dragHandle(expandedHeight: CGFloat) -> some View {
         Capsule()
             .fill(Theme.subtleInk.opacity(0.35))
             .frame(width: 36, height: 5)
@@ -326,7 +343,7 @@ struct TripsListView: View {
             // only the tappable/draggable area grows.
             .frame(height: 44)
             .contentShape(Rectangle())
-            .gesture(panelDragGesture(minimumDistance: 0))
+            .gesture(panelDragGesture(minimumDistance: 0, expandedHeight: expandedHeight))
             // The drag gesture above handles sighted tap-and-drag, but VoiceOver's double-tap
             // doesn't reliably activate a bare `DragGesture` — this is the only way to reveal the
             // full trip list, so it needs a real, gesture-independent activation path too.
