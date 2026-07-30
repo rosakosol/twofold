@@ -260,6 +260,17 @@ struct SettingsView: View {
                 CustomerCenterView()
                     .postHogScreenView("Settings: Manage Subscription")
             }
+            // A plan change made *inside* the Customer Center (e.g. Plus → Premium) never reaches
+            // `AppModel.subscriptionTier` the way a fresh `PaywallView` purchase does — that path
+            // calls `markSubscriptionActive(tier:)` directly; this one only updates RevenueCat's
+            // own entitlement state, which otherwise doesn't reach `AppModel` until the next full
+            // profile fetch (a server-side RevenueCat-webhook-to-Supabase round trip this device
+            // doesn't control the timing of). Left stale, that's exactly "upgraded to Premium but
+            // tier-gated UI — this device's own widgets included — still reads Plus."
+            .onChange(of: showingCustomerCenter) { wasShowing, isShowing in
+                guard wasShowing, !isShowing else { return }
+                Task { await syncSubscriptionAfterCustomerCenter() }
+            }
             .sheet(isPresented: $showingPartnerManagesSubscription) {
                 PartnerManagesSubscriptionView(partnerName: appModel.partner.name) {
                     showingPartnerManagesSubscription = false
@@ -313,6 +324,17 @@ struct SettingsView: View {
     private func requestReview() {
         guard let scene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene else { return }
         AppStore.requestReview(in: scene)
+    }
+
+    /// Re-checks RevenueCat's own entitlement state right after the Customer Center closes and
+    /// bridges any change into `AppModel` immediately, the same way `PaywallView` already does
+    /// right after a fresh purchase — see this call site's own comment for why a Customer-Center-
+    /// made plan change doesn't otherwise reach `AppModel.subscriptionTier` (and therefore this
+    /// device's own widgets) until some later relaunch happens to refresh it.
+    private func syncSubscriptionAfterCustomerCenter() async {
+        await subscriptionStore.refreshEntitlementsOnly()
+        guard let tier = subscriptionStore.subscribedTier, tier.dbValue != appModel.subscriptionTier else { return }
+        appModel.markSubscriptionActive(tier: tier.dbValue)
     }
 }
 

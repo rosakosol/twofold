@@ -203,25 +203,29 @@ struct FlightCountdownWidgetView: View {
     /// Lock Screen widgets are never tier-gated in this app (a blur+lock overlay doesn't render
     /// sensibly in the system's monochrome accessory rendering mode) — same as every other
     /// Lock Screen widget here (Distance, Days Together, Trip Countdown).
-    @ViewBuilder
     private var accessoryRectangular: some View {
-        if entry.targetDate != nil {
-            VStack(alignment: .leading, spacing: 1) {
-                // Explicit icon + text (not a single `Label`) so the airplane glyph can be sized
-                // up on its own — matches `DistanceWidget`'s bigger, more prominent icon treatment
-                // instead of the smaller glyph a `Label`'s default icon sizing gave this row.
-                HStack(spacing: 4) {
-                    Image(systemName: "airplane").font(.system(size: 15, weight: .semibold))
-                    Text("\(entry.flightNumber ?? "Flight") · \(remainingLabel)").font(.headline)
+        Group {
+            if entry.targetDate != nil {
+                VStack(alignment: .leading, spacing: 1) {
+                    // Explicit icon + text (not a single `Label`) so the airplane glyph can be sized
+                    // up on its own — matches `DistanceWidget`'s bigger, more prominent icon treatment
+                    // instead of the smaller glyph a `Label`'s default icon sizing gave this row.
+                    HStack(spacing: 4) {
+                        Image(systemName: "airplane").font(.system(size: 15, weight: .semibold))
+                        Text("\(entry.flightNumber ?? "Flight") · \(remainingLabel)").font(.headline)
+                    }
+                    Text(caption)
+                        .font(.caption)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                 }
-                Text(caption)
-                    .font(.caption)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+            } else {
+                Label("No tracked flight", systemImage: "airplane")
             }
-        } else {
-            Label("No tracked flight", systemImage: "airplane")
         }
+        // Neither branch expanded to fill the widget's own slot on its own — see
+        // `DaysTogetherWidget.accessoryRectangular`'s identical fix.
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     }
 
     @ViewBuilder

@@ -100,25 +100,29 @@ struct TripCountdownWidgetView: View {
         .widgetBranded()
     }
 
-    @ViewBuilder
     private var accessoryRectangular: some View {
-        if let daysToGo = entry.daysToGo {
-            VStack(alignment: .leading, spacing: 1) {
-                // Explicit icon + text (not a single `Label`) so the heart can be sized up on its
-                // own — matches `DistanceWidget`'s bigger, more prominent icon treatment instead
-                // of the smaller glyph a `Label`'s default icon sizing gave this row.
-                HStack(spacing: 4) {
-                    Image(systemName: "heart.fill").font(.system(size: 15, weight: .semibold))
-                    Text(daysToGo == 0 ? "Today" : "\(daysToGo) days").font(.headline)
+        Group {
+            if let daysToGo = entry.daysToGo {
+                VStack(alignment: .leading, spacing: 1) {
+                    // Explicit icon + text (not a single `Label`) so the heart can be sized up on its
+                    // own — matches `DistanceWidget`'s bigger, more prominent icon treatment instead
+                    // of the smaller glyph a `Label`'s default icon sizing gave this row.
+                    HStack(spacing: 4) {
+                        Image(systemName: "heart.fill").font(.system(size: 15, weight: .semibold))
+                        Text(daysToGo == 0 ? "Today" : "\(daysToGo) days").font(.headline)
+                    }
+                    Text(caption)
+                        .font(.caption)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                 }
-                Text(caption)
-                    .font(.caption)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+            } else {
+                Label("No trip planned yet", systemImage: "heart.fill")
             }
-        } else {
-            Label("No trip planned yet", systemImage: "heart.fill")
         }
+        // Neither branch expanded to fill the widget's own slot on its own — see
+        // `DaysTogetherWidget.accessoryRectangular`'s identical fix.
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     }
 
     /// The Lock Screen's single text-line slot — same "Today"/celebratory-glyph treatment as

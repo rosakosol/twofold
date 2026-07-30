@@ -39,7 +39,14 @@ struct GameResultsView: View {
     /// `advance_game_session`'s solo branch) — there's no partner response to ever show, so the
     /// header/summary/per-round chips all need a "your partner hasn't joined yet" framing instead
     /// of a real comparison. More Likely can't reach this at all (blocked server-side solo).
-    private var isSolo: Bool { !appModel.partnerConnected }
+    ///
+    /// Checked against this session's own `responses`, not `appModel.partnerConnected` — that
+    /// flag is an account-level "are we paired at all" state, not "did my partner actually play
+    /// this session," and any transient staleness in it (a refresh landing right as this screen
+    /// appears, say) flipped an otherwise-real, both-answered session into showing the solo
+    /// "invite your partner" framing even though the partner's answers were sitting right there
+    /// in `responses`. A real partner response for this session is a strictly more direct signal.
+    private var isSolo: Bool { !store.responses.contains { $0.responderID == partnerID } }
 
     /// 0...100 — only meaningful for the two match-style games.
     private var matchPercent: Int? {

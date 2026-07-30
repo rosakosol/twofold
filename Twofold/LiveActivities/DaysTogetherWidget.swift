@@ -121,6 +121,11 @@ struct DaysTogetherWidgetView: View {
                 Label("Set anniversary date", systemImage: "heart.fill")
             }
         }
+        // Neither branch expanded to fill the widget's own slot on its own — the content just
+        // sized to its own intrinsic width/height, leaving the rest of the (now margin-free,
+        // `.contentMarginsDisabled()`) rectangular slot empty instead of the row actually filling
+        // it edge to edge.
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     }
 
     /// Small Lock Screen slot — same auto-tinted, no-branding treatment as `accessoryRectangular`,

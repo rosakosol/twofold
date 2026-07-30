@@ -59,6 +59,10 @@ struct DistanceCompactWidgetView: View {
                 }
             }
         }
+        // Content sized to its own intrinsic width/height by default, leaving the rest of the
+        // (margin-free, `.contentMarginsDisabled()`) rectangular slot empty instead of the row
+        // actually filling it edge to edge.
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .widgetURL(URL(string: "twofold://home"))
     }
 }

@@ -103,6 +103,10 @@ struct DistanceWidgetView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
+        // Content sized to its own intrinsic width/height by default, leaving the rest of the
+        // (margin-free, `.contentMarginsDisabled()`) rectangular slot empty instead of the row
+        // actually filling it edge to edge.
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     /// The Lock Screen's single text-line slot — no room for the initial badges, just the
