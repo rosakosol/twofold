@@ -36,19 +36,17 @@ enum SubscriptionTier: String, CaseIterable {
         switch self {
         case .plus:
             [
-                "Everything you need for long-distance love",
                 "Unlimited trips & memories",
                 "Track up to 5 flights each month",
                 "500+ questions and games",
-                "Home Screen & Lock Screen widgets",
+                "Basic Home Screen & Lock Screen widgets",
             ]
         case .premium:
             [
                 "Everything in Twofold Plus",
                 "Track up to 20 flights each month",
                 "2000+ questions and games",
-                "Interactive 3D globe & premium widgets",
-                "Relationship Record PDF export",
+                "Premium widgets",
             ]
         }
     }
