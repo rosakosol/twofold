@@ -112,9 +112,16 @@ struct TripStatsCard: View {
             .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 1) {
+                // `.lineLimit(1)` here matters as much as the value/detail reservation below —
+                // without it, a longer label ("Top Destination") wraps to 2 lines while a shorter
+                // row-neighbor ("Reunion Trips") stays on 1, leaving the two tiles in that row
+                // different heights despite the value/detail lines already being reserved
+                // consistently (see `RelationshipStatsCard.milestoneTile`'s identical fix).
                 Text(label)
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(Theme.subtleInk)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
                 Text(value)
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(Theme.ink)

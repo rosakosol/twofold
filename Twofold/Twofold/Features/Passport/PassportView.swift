@@ -78,7 +78,7 @@ struct PassportView: View {
             .background(Theme.backgroundGradient.ignoresSafeArea())
             .navigationTitle("Stats")
             .sheet(isPresented: $showingSnapshot) {
-                RelationshipStatsShareView(couple: appModel.couple, trips: appModel.trips, memories: appModel.memories, stats: relationshipStats)
+                RelationshipStatsShareView(couple: appModel.couple, stats: relationshipStats)
             }
             .sheet(isPresented: $showingTripShare) {
                 TripStatsShareView(stats: tripStats)

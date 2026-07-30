@@ -481,7 +481,7 @@ struct TripsListView: View {
         switch tab {
         case .trips:
             if appModel.trips.isEmpty {
-                emptyTripsHint.padding(.horizontal, Theme.Spacing.md)
+                emptyTripsHint
                 Spacer(minLength: 0)
             } else if let trip = appModel.upcomingTrips.first {
                 Button {
@@ -498,7 +498,7 @@ struct TripsListView: View {
             // with only past/completed flights and nothing currently tracked should still see
             // the "add a flight" hint here, not an empty carousel with nothing to tap.
             if appModel.activeOrUpcomingFlights.isEmpty {
-                emptyFlightsHint.padding(.horizontal, Theme.Spacing.md)
+                emptyFlightsHint
                 Spacer(minLength: 0)
             } else if let flight = appModel.activeOrUpcomingFlights.first {
                 Button {
@@ -520,6 +520,7 @@ struct TripsListView: View {
                 emptyTripsHint
                     .listRowSeparator(.hidden)
                     .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
             }
 
             switch tab {
@@ -531,6 +532,13 @@ struct TripsListView: View {
         }
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
+        // `.insetGrouped`'s own built-in top inset used to stack with `browseHeader`'s own
+        // `.padding(.bottom, lg)` right above it, leaving a much bigger gap between the tabs and
+        // whatever's first in the list (typically the "Add a trip/flight" hint) than the same
+        // header has above the peek carousel in the collapsed state. Zeroing this out makes
+        // `browseHeader`'s own bottom padding the only gap either way, so expanded and collapsed
+        // read with the same rhythm.
+        .contentMargins(.top, 0, for: .scrollContent)
         // This whole screen deliberately ignores the safe area (see the header comment) so the
         // panel's rounded corners can sit behind the floating tab bar — which also means this
         // `List` never gets the automatic bottom clearance a normal screen's scroll content would
@@ -627,6 +635,7 @@ struct TripsListView: View {
             emptyFlightsHint
                 .listRowSeparator(.hidden)
                 .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
         }
 
         let completed = appModel.completedFlights
@@ -734,6 +743,10 @@ struct TripsListView: View {
             emptyHintCard(icon: "airplane.circle.fill", title: "Add your first trip", subtitle: "Tap to plan a reunion or a trip of your own.")
         }
         .buttonStyle(.plain)
+        // Horizontal inset lives here (not at each call site) so both the peek carousel's and the
+        // expanded list's zero-inset row (`.listRowInsets(EdgeInsets())`) get exactly one
+        // application of it, rather than either doubling up or going edge-to-edge.
+        .padding(.horizontal, Theme.Spacing.md)
         .padding(.top, Theme.Spacing.xs)
     }
 
@@ -751,6 +764,9 @@ struct TripsListView: View {
                 emptyHintCard(icon: "airplane.circle.fill", title: "Add a flight", subtitle: "Track a flight to see it here.")
             }
             .buttonStyle(.plain)
+            // See `emptyTripsHint`'s identical padding for why this lives here rather than at
+            // each call site.
+            .padding(.horizontal, Theme.Spacing.md)
             .padding(.top, Theme.Spacing.xs)
         } else {
             Button {
@@ -759,6 +775,7 @@ struct TripsListView: View {
                 emptyHintCard(icon: "person.2.fill", title: "Invite your partner to share your first tracked flight", subtitle: "Track flights together once you're connected.")
             }
             .buttonStyle(.plain)
+            .padding(.horizontal, Theme.Spacing.md)
             .padding(.top, Theme.Spacing.xs)
         }
     }

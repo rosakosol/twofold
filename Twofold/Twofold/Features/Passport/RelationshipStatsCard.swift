@@ -159,9 +159,16 @@ struct RelationshipStatsCard: View {
             .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 1) {
+                // `.lineLimit(1)` here matters as much as the value/detail reservation below —
+                // without it, a longer label ("Longest Distance Apart", "Longest Separation")
+                // wraps to 2 lines while its shorter row-neighbor ("Total Reunions", "Next
+                // Reunion") stays on 1, so the two tiles in that row end up different heights
+                // despite the value/detail lines already being reserved consistently.
                 Text(label)
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(Theme.subtleInk)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
                 Text(value)
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(Theme.ink)

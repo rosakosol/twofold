@@ -114,9 +114,15 @@ struct FlightStatsCard: View {
             .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 1) {
+                // `.lineLimit(1)` here matters for row-height consistency — without it, a longer
+                // label ("International") can wrap to 2 lines while a shorter one ("Airports")
+                // stays on 1, leaving tiles at different heights (see
+                // `RelationshipStatsCard.milestoneTile`'s identical fix).
                 Text(label)
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(Theme.subtleInk)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
                 Text(value)
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(Theme.ink)
