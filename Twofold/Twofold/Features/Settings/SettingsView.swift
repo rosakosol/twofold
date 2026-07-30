@@ -86,18 +86,23 @@ struct SettingsView: View {
                         }
                     }
 
-                    SectionCard {
-                        Button {
-                            if appModel.isPremiumLocked {
-                                showingExportPremiumGate = true
-                            } else {
-                                showingExportHistory = true
-                            }
-                        } label: {
-                            SettingsRow(title: "Export your story", systemImage: "square.and.arrow.up.on.square")
-                        }
-                        .buttonStyle(.plain)
-                    }
+                    // TEMP: "Export your story" pulled from Settings for the first release —
+                    // the feature itself (`ExportHistoryView`/`CoupleHistoryPDFExporter`, the
+                    // `showingExportHistory`/`showingExportPremiumGate` state below, and their
+                    // `.navigationDestination`/`.sheet` further down) is untouched, so restoring
+                    // this row is the only thing needed to bring it back.
+                    // SectionCard {
+                    //     Button {
+                    //         if appModel.isPremiumLocked {
+                    //             showingExportPremiumGate = true
+                    //         } else {
+                    //             showingExportHistory = true
+                    //         }
+                    //     } label: {
+                    //         SettingsRow(title: "Export your story", systemImage: "square.and.arrow.up.on.square")
+                    //     }
+                    //     .buttonStyle(.plain)
+                    // }
 
                     SectionCard {
                         NavigationLink {
