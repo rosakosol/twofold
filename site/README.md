@@ -21,12 +21,15 @@ database.
 
 ## Structure
 
-- `src/app/(marketing)/` — home, features, pricing, FAQ, privacy, terms
+- `src/app/(marketing)/` — home, features, pricing, quiz, FAQ, support, privacy, terms
+- `src/app/api/{support,waitlist}/` — form handlers; send mail via `src/lib/mail/`
+- `src/lib/mail/` — Zoho SMTP transport + the HTML email templates it renders
 - `src/app/studio/` — embedded Sanity Studio (`next-sanity`), incl. the custom FAQ tool
 - `src/sanity/` — Sanity config/schema (hero, features, legal pages, quiz, plans — FAQ
   is intentionally not a Sanity document type, see `src/sanity/tools/FaqTool.tsx`)
-- `src/app/(board)/feedback/` — the feedback board (list, filters, search, submit)
-- `src/app/(board)/feedback/[slug]/` — feature detail (vote, comments, dev updates)
+- `src/app/(board)/feedback/` — the feedback board (list, filters, search, submit) and
+  `feedback/bookmarks/`. There is no per-feature detail route: a request is read and
+  voted on from the list row itself
 - `src/app/(board)/admin/` — gated by `is_feedback_admin()`
 - `src/app/(board)/auth/` — feedback board sign-in (magic link + Google) + callback route
 - `src/components/feedback/`, `src/components/admin/`, `src/components/marketing/`, `src/components/layout/`
@@ -57,9 +60,24 @@ page grid and `/features` render whatever is published. The one piece still in c
 per-feature illustration on `/features` (`FeatureArt`, keyed by the feature's slug); a
 feature whose slug has no `case` there falls back to a generic mock card.
 
-`scripts/seed-sanity.mjs` seeded the feature and legal-page documents from the in-code copy
-(create-only; `--replace` to overwrite). Studio is the source of truth now — the fallbacks
-above only apply when a document is missing entirely.
+### Seed scripts
+
+Studio is the source of truth for everything above — the fallbacks only apply when a
+document is missing entirely. The scripts in `scripts/` exist to author or re-author a
+document from code; each one overwrites, so re-read `/studio` before running any of them.
+
+| Script | Writes | Flags |
+| --- | --- | --- |
+| `seed-sanity.mjs` | the feature cards | create-only; `--replace` to overwrite |
+| `seed-privacy-policy.mjs` | `legalPage-privacy` | dry-run by default; `--write` to publish |
+| `seed-terms.mjs` | `legalPage-terms` | dry-run by default; `--write` to publish |
+
+`scripts/lib/` holds the shared Sanity write client (resolves a token from
+`SANITY_AUTH_TOKEN`, else the one `sanity login` stored) and the Portable Text builders the
+two legal-page scripts use.
+
+House style for copy in Sanity, in `faq_entries`, and in the in-code fallbacks: a plain
+hyphen, never an em or en dash.
 
 ## Local development
 
