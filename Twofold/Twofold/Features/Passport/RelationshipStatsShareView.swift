@@ -12,17 +12,22 @@ struct RelationshipStatsShareView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.displayScale) private var displayScale
-    @State private var showingCustomization = false
-    @State private var showTripsChip = true
-    @State private var showReunionsChip = true
-    @State private var showMemoriesChip = true
+    @Environment(\.colorScheme) private var systemColorScheme
+    @State private var appearance: ColorScheme?
+
+    private var resolvedAppearance: ColorScheme { appearance ?? systemColorScheme }
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                card
-                    .padding(Theme.Spacing.lg)
-                    .shadow(color: .black.opacity(0.25), radius: 24, y: 12)
+            VStack(spacing: Theme.Spacing.lg) {
+                ScrollView {
+                    card
+                        .padding(Theme.Spacing.lg)
+                        .shadow(color: .black.opacity(0.25), radius: 24, y: 12)
+                }
+
+                ShareCardAppearancePicker(selection: Binding(get: { resolvedAppearance }, set: { appearance = $0 }))
+                    .padding(.bottom, Theme.Spacing.md)
             }
             .background(Theme.backgroundGradient.ignoresSafeArea())
             .navigationTitle("Relationship Stats")
@@ -33,40 +38,21 @@ struct RelationshipStatsShareView: View {
                         .labelStyle(.iconOnly)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    HStack(spacing: Theme.Spacing.sm) {
-                        Button("Customize", systemImage: "slider.horizontal.3") {
-                            showingCustomization = true
-                        }
-                        .labelStyle(.iconOnly)
-
-                        ShareLink(
-                            item: renderCardImage(),
-                            preview: SharePreview("Relationship stats", image: renderCardImage())
-                        ) {
-                            Image(systemName: "square.and.arrow.up")
-                        }
+                    ShareLink(
+                        item: renderCardImage(),
+                        preview: SharePreview("Relationship stats", image: renderCardImage())
+                    ) {
+                        Image(systemName: "square.and.arrow.up")
                     }
                 }
-            }
-            .sheet(isPresented: $showingCustomization) {
-                RelationshipStatsCustomizationView(
-                    showTripsChip: $showTripsChip,
-                    showReunionsChip: $showReunionsChip,
-                    showMemoriesChip: $showMemoriesChip
-                )
             }
         }
         .postHogScreenView("Passport: Share Our Story")
     }
 
     private var card: some View {
-        RelationshipStatsShareCard(
-            couple: couple,
-            stats: stats,
-            showTripsChip: showTripsChip,
-            showReunionsChip: showReunionsChip,
-            showMemoriesChip: showMemoriesChip
-        )
+        RelationshipStatsShareCard(couple: couple, stats: stats)
+            .environment(\.colorScheme, resolvedAppearance)
     }
 
     @MainActor

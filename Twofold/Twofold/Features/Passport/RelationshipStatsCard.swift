@@ -53,7 +53,7 @@ struct RelationshipStatsCard: View {
                         if showReunionsStat {
                             milestoneTile(icon: "heart.fill", label: "Total Reunions", value: "\(stats.reunionCount)", tint: Theme.heartRedText)
                         }
-                        milestoneTile(icon: "airplane", label: "Longest Distance Apart", value: MeasurementPreference.distanceLabel(km: stats.longestDistanceKm), tint: Theme.skyBlueText)
+                        milestoneTile(icon: "airplane", label: "Furthest Apart", value: MeasurementPreference.distanceLabel(km: stats.longestDistanceKm), tint: Theme.skyBlueText)
                         milestoneTile(
                             icon: "arrow.up.right",
                             label: "Longest Trip",
@@ -160,7 +160,7 @@ struct RelationshipStatsCard: View {
 
             VStack(alignment: .leading, spacing: 1) {
                 // `.lineLimit(1)` here matters as much as the value/detail reservation below —
-                // without it, a longer label ("Longest Distance Apart", "Longest Separation")
+                // without it, a longer label ("Furthest Apart", "Longest Separation")
                 // wraps to 2 lines while its shorter row-neighbor ("Total Reunions", "Next
                 // Reunion") stays on 1, so the two tiles in that row end up different heights
                 // despite the value/detail lines already being reserved consistently.

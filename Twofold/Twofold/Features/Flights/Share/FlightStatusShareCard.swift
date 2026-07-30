@@ -22,11 +22,12 @@ struct FlightStatusShareCard: View {
         return departure.formatted(style)
     }
 
-    /// The destination's own port (airport) name — `FlightAirport.displayName` prefers the city,
-    /// which is what a boarding pass wants but not what a departures board shows in its "TO"
-    /// column; this flips that priority back to the airport name first, falling back the same way.
-    private var destinationPortName: String {
-        flight.destination.name ?? flight.destination.displayName
+    /// The destination's IATA/ICAO code (`FlightAirport.displayCode`) rather than the full port
+    /// name — a real departures board's "TO" column is always a code, and using one here frees up
+    /// enough width in the flexible "TO" column for the TIME column to widen and show the full
+    /// time (e.g. "2:32 PM") without clipping, instead of needing to abbreviate.
+    private var destinationCode: String {
+        flight.destination.displayCode
     }
 
     var body: some View {
@@ -63,19 +64,19 @@ struct FlightStatusShareCard: View {
     private var columnHeaders: some View {
         HStack {
             columnLabel("TIME", width: Self.timeWidth)
-            columnLabel("TO", width: nil)
-            columnLabel("FLIGHT", width: Self.flightWidth)
+            columnLabel("TO", width: Self.toWidth)
+            columnLabel("FLIGHT", width: nil)
             columnLabel("STATUS", width: Self.statusWidth)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// `width: nil` means "flexible" (the "TO" column) — it has to expand to fill the same
-    /// remaining space `row`'s own destination text expands into via `maxWidth: .infinity`,
-    /// otherwise this label sits at its own short intrinsic width while the row's FLIGHT/STATUS
-    /// cells (pushed out by the destination text actually expanding) land further right — the
-    /// exact "header doesn't line up with its column" bug a flexible label needs the same
-    /// expansion behavior to avoid.
+    /// `width: nil` means "flexible" (the "FLIGHT" column, the one remaining spacer once TIME/TO
+    /// are both fixed-width) — it has to expand to fill the same remaining space `row`'s own
+    /// flight-number group expands into via `maxWidth: .infinity`, otherwise this label sits at
+    /// its own short intrinsic width while the row's STATUS cell (pushed out by that group
+    /// actually expanding) lands further right — the exact "header doesn't line up with its
+    /// column" bug a flexible label needs the same expansion behavior to avoid.
     @ViewBuilder
     private func columnLabel(_ text: String, width: CGFloat?) -> some View {
         let label = Text(text)
@@ -88,15 +89,15 @@ struct FlightStatusShareCard: View {
         }
     }
 
-    // Column widths shared between the header labels and the row itself, so they line up. Kept
-    // deliberately narrow so the flexible "TO" column has room for a full port name (e.g. "Sydney
-    // Kingsford Smith Airport") without wrapping — `row`'s own `lineLimit(1)`/`minimumScaleFactor`
-    // are the fallback for names too long even for that.
-    private static let timeWidth: CGFloat = 48
-    private static let flightWidth: CGFloat = 82
+    // Column widths shared between the header labels and the row itself, so they line up. TO is a
+    // fixed narrow width since it's always a 3-4 character port code now (not a full port name),
+    // which freed up enough space to widen TIME so the full departure time (e.g. "2:32 PM") never
+    // needs to abbreviate or clip.
+    private static let timeWidth: CGFloat = 68
+    private static let toWidth: CGFloat = 44
     private static let statusWidth: CGFloat = 82
 
-    /// TIME, destination port name, airline logo + flight number, then status — the airline logo
+    /// TIME, destination port code, airline logo + flight number, then status — the airline logo
     /// sits directly beside its own flight number rather than getting a separate column, the same
     /// way a real departure board pairs a carrier's logo with its flight code.
     private var row: some View {
@@ -105,14 +106,15 @@ struct FlightStatusShareCard: View {
                 .font(.system(size: 14, weight: .semibold, design: .monospaced))
                 .foregroundStyle(.white)
                 .lineLimit(1)
+                .minimumScaleFactor(0.8)
                 .frame(width: Self.timeWidth, alignment: .leading)
 
-            Text(destinationPortName)
-                .font(.subheadline.weight(.medium))
+            Text(destinationCode)
+                .font(.system(size: 14, weight: .semibold, design: .monospaced))
                 .foregroundStyle(.white)
                 .lineLimit(1)
-                .minimumScaleFactor(0.6)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .minimumScaleFactor(0.8)
+                .frame(width: Self.toWidth, alignment: .leading)
 
             HStack(spacing: 4) {
                 if let airlineLogo {
@@ -127,7 +129,7 @@ struct FlightStatusShareCard: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
             }
-            .frame(width: Self.flightWidth, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             Text(flight.status.displayLabel.uppercased())
                 .font(.system(size: 11, weight: .bold))

@@ -16,20 +16,11 @@ import SwiftUI
 struct RelationshipStatsShareCard: View {
     let couple: Couple
     let stats: RelationshipMilestoneStats
-    var showTripsChip = true
-    var showReunionsChip = true
-    var showMemoriesChip = true
 
     var body: some View {
         VStack(spacing: Theme.Spacing.sm) {
             TwofoldBrandMark(color: Theme.ink, size: 24, textStyle: .title3)
-            RelationshipStatsCard(
-                couple: couple,
-                stats: stats,
-                showTripsStat: showTripsChip,
-                showReunionsStat: showReunionsChip,
-                showMemoriesStat: showMemoriesChip
-            )
+            RelationshipStatsCard(couple: couple, stats: stats)
         }
         // `RelationshipStatsCard` already carries its own `SectionCard` padding — this only
         // needs enough outer margin for the brand mark and the rounded-corner clip below, not a

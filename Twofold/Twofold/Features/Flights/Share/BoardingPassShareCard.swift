@@ -14,15 +14,19 @@ struct BoardingPassShareCard: View {
     var style: FlightStickerStyle = .light
     var airlineLogo: UIImage? = nil
 
+    /// Always the scheduled time, not `bestDeparture`/`bestArrival`'s actual/estimated-preferring
+    /// chain — a boarding pass is printed at check-in against the *scheduled* timetable, and
+    /// showing a live-updating actual/estimated time here would make an already-shared/exported
+    /// image silently go stale as the flight's real-time status changes after the fact.
     private var departureText: String {
-        guard let departure = flight.bestDeparture else { return "—" }
+        guard let departure = flight.scheduledOut else { return "—" }
         let style = Date.FormatStyle(timeZone: flight.origin.timeZone ?? .autoupdatingCurrent)
             .day().month(.abbreviated).year(.twoDigits).hour().minute()
         return departure.formatted(style)
     }
 
     private var arrivalText: String {
-        guard let arrival = flight.bestArrival else { return "—" }
+        guard let arrival = flight.scheduledIn else { return "—" }
         let style = Date.FormatStyle(timeZone: flight.destination.timeZone ?? .autoupdatingCurrent)
             .day().month(.abbreviated).year(.twoDigits).hour().minute()
         return arrival.formatted(style)
@@ -61,16 +65,17 @@ struct BoardingPassShareCard: View {
     /// The card's own headline row — no passenger name (a card that always either said "Twofold
     /// Traveler" or listed real names had no real information to add over the flight itself), so
     /// the flight number/route line is promoted to the size and weight the passenger line used
-    /// to carry. The airline logo anchors this row's trailing edge.
+    /// to carry. The airline logo anchors this row's leading edge, same order a real boarding
+    /// pass reads in (carrier mark first, then the flight/route it belongs to).
     private var flightRow: some View {
         HStack(alignment: .center, spacing: Theme.Spacing.sm) {
+            airlineMark
+            Spacer(minLength: Theme.Spacing.sm)
             Text("\(flight.displayNumber) · \(flight.origin.displayName) → \(flight.destination.displayName)")
                 .font(.system(size: 16, weight: .bold, design: .rounded))
                 .foregroundStyle(style.primaryTextColor)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
-            Spacer(minLength: Theme.Spacing.sm)
-            airlineMark
         }
     }
 

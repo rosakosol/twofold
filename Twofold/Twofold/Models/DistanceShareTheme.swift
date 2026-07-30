@@ -6,7 +6,7 @@
 import SwiftUI
 
 enum DistanceShareTheme: String, CaseIterable, Identifiable {
-    case classic = "Classic"
+    case classic = "Light"
     case dark = "Dark"
     case pink = "Pink"
 
@@ -21,11 +21,11 @@ enum DistanceShareTheme: String, CaseIterable, Identifiable {
     }
 
     /// Colors drawn straight from the dark-mode/Daylight handoff's `ShareCard` canvas table
-    /// (`sky` accent, dark "Aurora" canvas / light "Daylight" pastel canvas). `.classic` follows
-    /// system appearance — it's the default, so it should read as unmistakably "Twofold," not a
-    /// separate design language — while `.dark` and `.pink` are explicit, appearance-independent
-    /// picks (the same handoff's dark-sky and light-heart canvases), so choosing one always looks
-    /// the same regardless of the system's own light/dark setting.
+    /// (`sky` accent, dark "Aurora" canvas / light "Daylight" pastel canvas). `.classic` ("Light")
+    /// follows system appearance — it's the default, so it should read as unmistakably "Twofold,"
+    /// not a separate design language — while `.dark` and `.pink` are explicit, appearance-
+    /// independent picks (the same handoff's dark-sky and light-heart canvases), so choosing one
+    /// always looks the same regardless of the system's own light/dark setting.
     var backgroundGradient: LinearGradient {
         switch self {
         case .classic:
