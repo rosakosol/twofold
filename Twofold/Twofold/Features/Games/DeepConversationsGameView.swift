@@ -139,7 +139,7 @@ struct DeepConversationsGameView: View {
             store.gameIssueContext(gameType: .deepConversations, deckTitle: title, myID: myID)
         }
         .gameLeaveConfirmation(isPresented: $showingLeaveConfirm) { Task { await leaveGame() } }
-        .task { await store.load(sessionID: sessionID) }
+        .task { await store.load(sessionID: sessionID, deckTitle: title) }
         .task { await store.subscribeRealtime(sessionID: sessionID) }
         .onDisappear { store.stopRealtime() }
         .onChange(of: NetworkMonitor.shared.isConnected) { wasConnected, isConnected in
@@ -204,9 +204,15 @@ struct DeepConversationsGameView: View {
             // both of you — every other Discuss deck stays skippable (content-safety
             // requirement, see SkipButton), this is the one deliberate exception.
             if store.session?.isDaily != true {
-                SkipButton(isDisabled: isSubmitting) {
-                    submit(round: round, value: "")
-                }
+                GameRoundNavRow(
+                    isDisabled: isSubmitting,
+                    showsPrevNext: store.viewingRoundNumber != nil && store.hasAnsweredAllRounds(myID: myID),
+                    canGoBack: store.canGoBack(myID: myID),
+                    canGoForward: store.canGoForward(myID: myID),
+                    onPrev: { store.goBack(myID: myID) },
+                    onNext: { store.goForward(myID: myID) },
+                    onSkip: { submit(round: round, value: "") }
+                )
             }
         }
     }
@@ -225,7 +231,7 @@ struct DeepConversationsGameView: View {
 
     private func sendReminder() async {
         isSendingReminder = true
-        await BackendService.notifyPartner(event: .gameReminder, detail: GameType.deepConversations.displayName, sessionID: sessionID, gameType: .deepConversations)
+        await BackendService.notifyPartner(event: .gameReminder, detail: title ?? GameType.deepConversations.displayName, sessionID: sessionID, gameType: .deepConversations)
         isSendingReminder = false
     }
 

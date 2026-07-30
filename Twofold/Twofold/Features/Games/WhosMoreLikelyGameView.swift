@@ -129,7 +129,7 @@ struct WhosMoreLikelyGameView: View {
             store.gameIssueContext(gameType: .moreLikely, deckTitle: title, myID: myID)
         }
         .gameLeaveConfirmation(isPresented: $showingLeaveConfirm) { Task { await leaveGame() } }
-        .task { await store.load(sessionID: sessionID) }
+        .task { await store.load(sessionID: sessionID, deckTitle: title) }
         .task { await store.subscribeRealtime(sessionID: sessionID) }
         .onDisappear { store.stopRealtime() }
         .onChange(of: NetworkMonitor.shared.isConnected) { wasConnected, isConnected in
@@ -227,9 +227,15 @@ struct WhosMoreLikelyGameView: View {
                         .font(.caption)
                         .foregroundStyle(Theme.subtleInk)
 
-                    SkipButton(isDisabled: isSubmitting) {
-                        submit(round: round, value: "")
-                    }
+                    GameRoundNavRow(
+                        isDisabled: isSubmitting,
+                        showsPrevNext: store.viewingRoundNumber != nil && store.hasAnsweredAllRounds(myID: myID),
+                        canGoBack: store.canGoBack(myID: myID),
+                        canGoForward: store.canGoForward(myID: myID),
+                        onPrev: { store.goBack(myID: myID) },
+                        onNext: { store.goForward(myID: myID) },
+                        onSkip: { submit(round: round, value: "") }
+                    )
                 }
             }
             .padding(Theme.Spacing.lg)
@@ -260,7 +266,7 @@ struct WhosMoreLikelyGameView: View {
 
     private func sendReminder() async {
         isSendingReminder = true
-        await BackendService.notifyPartner(event: .gameReminder, detail: GameType.moreLikely.displayName, sessionID: sessionID, gameType: .moreLikely)
+        await BackendService.notifyPartner(event: .gameReminder, detail: title ?? GameType.moreLikely.displayName, sessionID: sessionID, gameType: .moreLikely)
         isSendingReminder = false
     }
 

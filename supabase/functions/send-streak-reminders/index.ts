@@ -1,6 +1,12 @@
 // Daily nudge: reminds couples who haven't answered today's Daily Activity question yet, so
-// their streak doesn't lapse. Cron-triggered only (see
-// supabase/migrations/20260713090000_streak_reminder_cron.sql).
+// their streak doesn't lapse. Cron-triggered only — two schedules call this same function with
+// different bodies:
+//   - 18:00 UTC, `{}` (see supabase/migrations/20260713090000_streak_reminder_cron.sql): the
+//     original early nudge, gated on `daily_streak_reminder`.
+//   - 23:00 UTC, `{"final": true}` (see
+//     supabase/migrations/20260902000000_streak_ending_reminder_pref.sql): a last-chance "1 hour
+//     left" nudge, gated on the separate `streak_ending_reminder` column so a couple can turn
+//     this one off independently of the earlier one.
 //
 // Requires the service-role key as a bearer token, same explicit check refresh-due-flights
 // already uses — without this, any authenticated app user could invoke it directly and force a
@@ -9,11 +15,26 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { sendAPNs } from "../_shared/apns.ts";
 
+interface Input {
+  final?: boolean;
+}
+
 Deno.serve(async (req) => {
   const expected = `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`;
   if (req.headers.get("Authorization") !== expected) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  let input: Input = {};
+  try {
+    const text = await req.text();
+    if (text) input = JSON.parse(text);
+  } catch {
+    // Malformed body falls back to the original early-reminder behavior rather than failing
+    // the whole cron run over it.
+  }
+  const isFinal = input.final === true;
+  const prefColumn = isFinal ? "streak_ending_reminder" : "daily_streak_reminder";
 
   const serviceClient = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -63,12 +84,12 @@ Deno.serve(async (req) => {
 
     const { data: prefRows } = await serviceClient
       .from("notification_preferences")
-      .select("profile_id, daily_streak_reminder")
+      .select(`profile_id, ${prefColumn}`)
       .in("profile_id", partnerIds);
 
     const prefByProfile = new Map<string, boolean>();
     for (const row of prefRows ?? []) {
-      prefByProfile.set(row.profile_id, Boolean(row.daily_streak_reminder));
+      prefByProfile.set(row.profile_id, Boolean((row as Record<string, unknown>)[prefColumn]));
     }
     // No preference row yet defaults to "notify" (matches the table's own column default).
     const allowedPartnerIds = partnerIds.filter((id) => prefByProfile.get(id) ?? true);
@@ -92,16 +113,21 @@ Deno.serve(async (req) => {
       .maybeSingle();
     const currentStreak = streakRow?.current_streak ?? 0;
 
-    const body = currentStreak > 0
-      ? `You're on a ${currentStreak} day streak — answer today's question to keep it going 🔥`
-      : "Today's question is waiting — answer it before the day ends.";
+    const title = isFinal ? "1 hour left!" : "Keep your streak going";
+    const body = isFinal
+      ? (currentStreak > 0
+        ? `Only 1 hour left to keep your ${currentStreak} day streak — answer today's question now 🔥`
+        : "Only 1 hour left today — answer now before the day ends.")
+      : (currentStreak > 0
+        ? `You're on a ${currentStreak} day streak — answer today's question to keep it going 🔥`
+        : "Today's question is waiting — answer it before the day ends.");
 
     for (const token of tokens) {
       try {
         await sendAPNs(
           token.apns_token,
           token.environment,
-          "Keep your streak going",
+          title,
           body,
         );
       } catch (err) {
@@ -111,6 +137,6 @@ Deno.serve(async (req) => {
     remindedCount++;
   }
 
-  console.log(`[send-streak-reminders] reminded ${remindedCount} of ${couples.length} couple(s)`);
+  console.log(`[send-streak-reminders] reminded ${remindedCount} of ${couples.length} couple(s) (final=${isFinal})`);
   return Response.json({ reminded: remindedCount });
 });

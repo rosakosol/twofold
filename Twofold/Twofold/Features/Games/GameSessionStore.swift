@@ -29,6 +29,12 @@ final class GameSessionStore {
     /// participates in `@Observable` change tracking; the on-disk queue itself has no observation
     /// of its own.
     var pendingSyncCount = 0
+    /// The deck's own title (when this session came from a curated deck, not the shared pool) —
+    /// set once by `load(sessionID:deckTitle:)`. Rides along in the `.gameResultsReady`/
+    /// `.gamePartnerFinished` pushes this store fires automatically after a submit, so those
+    /// notifications name the actual deck ("Getting to Know You Better") instead of just the
+    /// generic game type every deck of that type shares.
+    private(set) var deckTitle: String?
 
     private var channel: RealtimeChannelV2?
     /// Guards `syncPendingResponses()` against overlapping runs — `load(sessionID:)` and each
@@ -100,20 +106,49 @@ final class GameSessionStore {
         viewingRoundNumber = current - 1
     }
 
+    /// True while reviewing an already-fully-answered deck (`beginEditingAnswers()`) and there's
+    /// a later round to page to — only meaningful there: during live play the forward direction
+    /// is always "answer or skip this round," never a free-standing "Next" that moves on without
+    /// recording anything.
+    func canGoForward(myID: UUID) -> Bool {
+        guard let viewingRoundNumber, hasAnsweredAllRounds(myID: myID) else { return false }
+        return rounds.contains { $0.roundNumber == viewingRoundNumber + 1 }
+    }
+
+    /// The `goBack(myID:)` counterpart for the same review flow — pages the viewing cursor
+    /// forward one round without requiring a fresh submit first.
+    func goForward(myID: UUID) {
+        guard let viewingRoundNumber, canGoForward(myID: myID) else { return }
+        self.viewingRoundNumber = viewingRoundNumber + 1
+    }
+
     /// Called after every successful submit — if the player was revisiting a past round (not
-    /// live-playing at the edge), steps the viewing cursor forward by one, so editing a past
-    /// answer feels like the same forward motion as answering it the first time. Naturally
-    /// resumes the live "next unanswered" edge once it steps past the last previously-answered
-    /// round.
+    /// live-playing at the edge), decides what happens to the viewing cursor next.
     ///
-    /// Must only advance if the cursor still points at the round this submit actually belongs
+    /// `wasEditingCompletedDeck` (the deck was already fully answered *before* this submit, i.e.
+    /// real `beginEditingAnswers()` review) steps the cursor forward by one, so editing a past
+    /// answer feels like the same forward motion as answering it the first time — naturally
+    /// resuming the live "next unanswered" edge once it steps past the last round.
+    ///
+    /// Otherwise (mid-game: the deck wasn't fully answered yet, so this was a single "hit back to
+    /// fix one round, then keep playing" detour) the cursor clears immediately instead, resuming
+    /// live play at the true next-unanswered round directly. Without this distinction, fixing one
+    /// round N rounds back forced walking forward through all N of those already-answered rounds
+    /// one at a time before reaching new territory — each one correctly, but pointlessly, showing
+    /// its own "You chose ___" pill for an answer the player wasn't trying to revisit at all.
+    ///
+    /// Must only touch the cursor if it still points at the round this submit actually belongs
     /// to — a swipe's answer doesn't reach here until its fly-off animation (and then the
     /// network round trip) finishes, and `goBack(myID:)` can run in that gap if the player taps
-    /// back before this fires. Advancing unconditionally on `!= nil` used to blindly overwrite
+    /// back before this fires. Acting unconditionally on `!= nil` used to blindly overwrite
     /// wherever that back tap had just rewound the cursor to, making back-during-a-swipe look
     /// like it silently did nothing.
-    private func advanceViewingCursorIfNeeded(afterSubmittingRound roundNumber: Int) {
+    private func advanceViewingCursorIfNeeded(afterSubmittingRound roundNumber: Int, wasEditingCompletedDeck: Bool) {
         guard viewingRoundNumber == roundNumber else { return }
+        guard wasEditingCompletedDeck else {
+            viewingRoundNumber = nil
+            return
+        }
         let next = roundNumber + 1
         viewingRoundNumber = rounds.contains(where: { $0.roundNumber == next }) ? next : nil
     }
@@ -159,7 +194,8 @@ final class GameSessionStore {
         self.channel = nil
     }
 
-    func load(sessionID: UUID) async {
+    func load(sessionID: UUID, deckTitle: String? = nil) async {
+        self.deckTitle = deckTitle
         isLoading = true
         errorMessage = nil
         do {
@@ -203,9 +239,15 @@ final class GameSessionStore {
 
     @discardableResult
     func submit(roundNumber: Int, answerValue: String, isCorrect: Bool? = nil) async -> Bool {
+        // Captured *before* the submit — distinguishes "reviewing an already-fully-answered deck"
+        // (real `beginEditingAnswers()` editing, where every remaining round already has a prior
+        // answer and walking forward one at a time is exactly the intended review flow) from
+        // "mid-game, hit back to fix one round" (where it isn't — see
+        // `advanceViewingCursorIfNeeded`'s own doc comment for what this changes).
+        let wasEditingCompletedDeck = BackendService.currentUserID.map { hasAnsweredAllRounds(myID: $0) } ?? false
         let didSubmit = await performSubmit(roundNumber: roundNumber, answerValue: answerValue, isCorrect: isCorrect)
         if didSubmit {
-            advanceViewingCursorIfNeeded(afterSubmittingRound: roundNumber)
+            advanceViewingCursorIfNeeded(afterSubmittingRound: roundNumber, wasEditingCompletedDeck: wasEditingCompletedDeck)
         }
         return didSubmit
     }
@@ -250,14 +292,14 @@ final class GameSessionStore {
             // per session, from whoever's answer was the couple's last one.
             if !wasRevealed, isRevealed {
                 Analytics.capture(Analytics.Event.sessionComplete, properties: ["game_type": session.gameType.rawValue])
-                await BackendService.notifyPartner(event: .gameResultsReady, sessionID: session.id, gameType: session.gameType)
+                await BackendService.notifyPartner(event: .gameResultsReady, detail: deckTitle, sessionID: session.id, gameType: session.gameType)
             } else if !wasAllMineAnsweredBefore, !isRevealed, let myID, hasAnsweredAllRounds(myID: myID) {
                 // I just answered my own last round, but the session isn't fully complete (my
                 // partner hasn't finished theirs yet) — let them know it's their turn, distinct
                 // from `.gameResultsReady` above which only fires once *both* sides are done.
                 // Never fires while re-editing an already-completed session: in that case
                 // `wasAllMineAnsweredBefore` is already true going in, since nothing was deleted.
-                await BackendService.notifyPartner(event: .gamePartnerFinished, sessionID: session.id, gameType: session.gameType)
+                await BackendService.notifyPartner(event: .gamePartnerFinished, detail: deckTitle, sessionID: session.id, gameType: session.gameType)
             }
             return true
         } catch {
@@ -328,11 +370,11 @@ final class GameSessionStore {
             applyOptimistic(item)
         }
         if !wasRevealed, isRevealed {
-            await BackendService.notifyPartner(event: .gameResultsReady, sessionID: session.id, gameType: session.gameType)
+            await BackendService.notifyPartner(event: .gameResultsReady, detail: deckTitle, sessionID: session.id, gameType: session.gameType)
         } else if !wasAllMineAnsweredBefore, !isRevealed, let myID, hasAnsweredAllRounds(myID: myID) {
             // Mirrors the same detection in `performSubmit` — the offline queue just finished
             // flushing my last unanswered round.
-            await BackendService.notifyPartner(event: .gamePartnerFinished, sessionID: session.id, gameType: session.gameType)
+            await BackendService.notifyPartner(event: .gamePartnerFinished, detail: deckTitle, sessionID: session.id, gameType: session.gameType)
         }
     }
 

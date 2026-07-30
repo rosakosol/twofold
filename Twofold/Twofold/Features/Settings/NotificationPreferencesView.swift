@@ -21,6 +21,7 @@ struct NotificationPreferencesView: View {
     @State private var partnerGameResultsReady = true
     @State private var partnerGamePartnerFinished = true
     @State private var dailyStreakReminder = true
+    @State private var streakEndingReminder = true
     @State private var partnerInviteReminder = true
     @State private var isLoaded = false
     @State private var loadFailed = false
@@ -91,6 +92,11 @@ struct NotificationPreferencesView: View {
                         isOn: $dailyStreakReminder,
                         caption: "A nudge if today's question hasn't been answered yet."
                     )
+                    toggleRow(
+                        "Streak ending soon",
+                        isOn: $streakEndingReminder,
+                        caption: "A last-chance nudge about 1 hour before today's streak runs out."
+                    )
                 }
             }
             .padding(Theme.Spacing.md)
@@ -113,6 +119,7 @@ struct NotificationPreferencesView: View {
         .onChange(of: partnerGameResultsReady) { _, _ in saveIfLoaded() }
         .onChange(of: partnerGamePartnerFinished) { _, _ in saveIfLoaded() }
         .onChange(of: dailyStreakReminder) { _, _ in saveIfLoaded() }
+        .onChange(of: streakEndingReminder) { _, _ in saveIfLoaded() }
         .onChange(of: partnerInviteReminder) { _, _ in saveIfLoaded() }
         .postHogScreenView("Settings: Notification Preferences")
     }
@@ -208,10 +215,11 @@ struct NotificationPreferencesView: View {
             partnerGameResultsReady = prefs.partnerGameResultsReady
             partnerGamePartnerFinished = prefs.partnerGamePartnerFinished
             dailyStreakReminder = prefs.dailyStreakReminder
+            streakEndingReminder = prefs.streakEndingReminder
             partnerInviteReminder = prefs.partnerInviteReminder
             // Only set once real preferences are actually in hand — otherwise the next single
-            // toggle flip's `saveIfLoaded()` would upsert all 8 fields at their hardcoded `true`
-            // defaults, silently reverting any previously-saved `false` preference on the
+            // toggle flip's `saveIfLoaded()` would upsert every field at its hardcoded `true`
+            // default, silently reverting any previously-saved `false` preference on the
             // backend.
             isLoaded = true
         } else {
@@ -232,6 +240,7 @@ struct NotificationPreferencesView: View {
             partnerGameResultsReady: partnerGameResultsReady,
             partnerGamePartnerFinished: partnerGamePartnerFinished,
             dailyStreakReminder: dailyStreakReminder,
+            streakEndingReminder: streakEndingReminder,
             partnerInviteReminder: partnerInviteReminder
         )
         Task { try? await BackendService.upsertCoupleNotificationPreferences(prefs) }

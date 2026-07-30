@@ -2838,12 +2838,16 @@ enum BackendService {
         var partnerGameResultsReady: Bool
         var partnerGamePartnerFinished: Bool
         var dailyStreakReminder: Bool
+        /// The separate "1 hour left" last-chance nudge (23:00 UTC) — distinct from
+        /// `dailyStreakReminder`'s own end-of-day-ish (18:00 UTC) one, so either can be turned
+        /// off independently. See `send-streak-reminders`'s `final` mode.
+        var streakEndingReminder: Bool
         var partnerInviteReminder: Bool
 
         static let allEnabled = CoupleNotificationPreferences(
             partnerDrawingSaved: true, partnerTripAdded: true, partnerMemoryAdded: true,
             partnerGameStarted: true, partnerGameResultsReady: true, partnerGamePartnerFinished: true,
-            dailyStreakReminder: true, partnerInviteReminder: true
+            dailyStreakReminder: true, streakEndingReminder: true, partnerInviteReminder: true
         )
     }
 
@@ -2856,6 +2860,7 @@ enum BackendService {
         var partnerGameResultsReady: Bool
         var partnerGamePartnerFinished: Bool
         var dailyStreakReminder: Bool
+        var streakEndingReminder: Bool
         var partnerInviteReminder: Bool
 
         enum CodingKeys: String, CodingKey {
@@ -2867,6 +2872,7 @@ enum BackendService {
             case partnerGameResultsReady = "partner_game_results_ready"
             case partnerGamePartnerFinished = "partner_game_partner_finished"
             case dailyStreakReminder = "daily_streak_reminder"
+            case streakEndingReminder = "streak_ending_reminder"
             case partnerInviteReminder = "partner_invite_reminder"
         }
     }
@@ -2891,6 +2897,7 @@ enum BackendService {
             partnerGameResultsReady: row.partnerGameResultsReady,
             partnerGamePartnerFinished: row.partnerGamePartnerFinished,
             dailyStreakReminder: row.dailyStreakReminder,
+            streakEndingReminder: row.streakEndingReminder,
             partnerInviteReminder: row.partnerInviteReminder
         )
     }
@@ -2906,6 +2913,7 @@ enum BackendService {
             partnerGameResultsReady: prefs.partnerGameResultsReady,
             partnerGamePartnerFinished: prefs.partnerGamePartnerFinished,
             dailyStreakReminder: prefs.dailyStreakReminder,
+            streakEndingReminder: prefs.streakEndingReminder,
             partnerInviteReminder: prefs.partnerInviteReminder
         )
         try await supabase

@@ -183,8 +183,23 @@ struct GameResultsView: View {
 
     // MARK: - Header
 
-    @ViewBuilder
     private var header: some View {
+        VStack(spacing: Theme.Spacing.xs) {
+            // The deck's own curated title (e.g. "Getting to Know You Better") — distinct from
+            // `title ?? gameType.displayName`'s nav-bar fallback, this only ever shows a *real*
+            // deck title, never the generic game-type name again right underneath itself.
+            if let title {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Theme.subtleInk)
+                    .multilineTextAlignment(.center)
+            }
+            gameTypeHeader
+        }
+    }
+
+    @ViewBuilder
+    private var gameTypeHeader: some View {
         switch gameType {
         case .triviaBattle:
             let myScore = GameLogic.triviaScore(responses: store.responses, responderID: myID)

@@ -23,6 +23,39 @@ struct SkipButton: View {
     }
 }
 
+/// The bottom-of-card control row during a round — plain `SkipButton` during live play; once
+/// reviewing an already-fully-answered deck (`GameSessionStore.beginEditingAnswers()`), flanked
+/// by "Prev"/"Next" so paging through past answers doesn't require resubmitting (or skipping)
+/// each one just to move the cursor.
+struct GameRoundNavRow: View {
+    var isDisabled = false
+    var showsPrevNext = false
+    var canGoBack = false
+    var canGoForward = false
+    let onPrev: () -> Void
+    let onNext: () -> Void
+    let onSkip: () -> Void
+
+    var body: some View {
+        HStack(spacing: Theme.Spacing.xl) {
+            if showsPrevNext {
+                navButton("Prev", isEnabled: canGoBack, action: onPrev)
+            }
+            SkipButton(isDisabled: isDisabled, action: onSkip)
+            if showsPrevNext {
+                navButton("Next", isEnabled: canGoForward, action: onNext)
+            }
+        }
+    }
+
+    private func navButton(_ title: String, isEnabled: Bool, action: @escaping () -> Void) -> some View {
+        Button(title, action: action)
+            .font(.subheadline)
+            .foregroundStyle(isEnabled ? Theme.subtleInk : Theme.subtleInk.opacity(0.35))
+            .disabled(!isEnabled || isDisabled)
+    }
+}
+
 struct GameAbandonedState: View {
     var body: some View {
         VStack(spacing: Theme.Spacing.sm) {

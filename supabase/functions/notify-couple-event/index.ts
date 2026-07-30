@@ -62,11 +62,21 @@ function buildMessage(eventType: EventType, actorName: string, detail?: string):
     case "game_started":
       return { title: "Game time", body: detail ? `${actorName} started a game: ${detail}.` : `${actorName} started a game.` };
     case "game_results_ready":
-      return { title: "Results are ready!", body: `You and ${actorName} both finished - see how you matched.` };
+      return {
+        title: "Results are ready!",
+        body: detail
+          ? `You and ${actorName} both finished "${detail}" - see how you matched.`
+          : `You and ${actorName} both finished - see how you matched.`,
+      };
     case "game_partner_finished":
-      return { title: "Your turn!", body: `${actorName} finished their answers - it's your turn to play.` };
+      return {
+        title: "Your turn!",
+        body: detail
+          ? `${actorName} finished "${detail}" - it's your turn to play.`
+          : `${actorName} finished their answers - it's your turn to play.`,
+      };
     case "game_reminder":
-      return { title: "Reminder", body: detail ? `${actorName} wants you to to complete "${detail}".` : `${actorName} sent you a reminder to complete your game.` };
+      return { title: "Reminder", body: detail ? `${actorName} wants you to complete "${detail}".` : `${actorName} sent you a reminder to complete your game.` };
   }
 }
 
@@ -83,11 +93,17 @@ function buildSelfMessage(eventType: EventType, detail?: string): { title: strin
     case "game_started":
       return { title: "Game started", body: detail ? `You started "${detail}".` : "You started a new game." };
     case "game_results_ready":
-      return { title: "Results are ready!", body: "See how you and your partner matched." };
+      return {
+        title: "Results are ready!",
+        body: detail ? `See how you and your partner matched on "${detail}".` : "See how you and your partner matched.",
+      };
     case "game_partner_finished":
-      return { title: "Your turn!", body: "It's your turn to play." };
+      return {
+        title: "Your turn!",
+        body: detail ? `It's your turn to play "${detail}".` : "It's your turn to play.",
+      };
     case "game_reminder":
-      return { title: "Reminder", body: "Complete your game." };
+      return { title: "Reminder", body: detail ? `Complete "${detail}".` : "Complete your game." };
   }
 }
 

@@ -152,7 +152,7 @@ struct TriviaBattleGameView: View {
             store.gameIssueContext(gameType: .triviaBattle, deckTitle: title, myID: myID)
         }
         .gameLeaveConfirmation(isPresented: $showingLeaveConfirm) { Task { await leaveGame() } }
-        .task { await store.load(sessionID: sessionID) }
+        .task { await store.load(sessionID: sessionID, deckTitle: title) }
         .task { await store.subscribeRealtime(sessionID: sessionID) }
         .onDisappear { store.stopRealtime() }
         .onChange(of: NetworkMonitor.shared.isConnected) { wasConnected, isConnected in
@@ -278,9 +278,15 @@ struct TriviaBattleGameView: View {
                 }
             }
 
-            SkipButton(isDisabled: isSubmitting) {
-                submit(round: round, value: "", isCorrect: false)
-            }
+            GameRoundNavRow(
+                isDisabled: isSubmitting,
+                showsPrevNext: store.viewingRoundNumber != nil && store.hasAnsweredAllRounds(myID: myID),
+                canGoBack: store.canGoBack(myID: myID),
+                canGoForward: store.canGoForward(myID: myID),
+                onPrev: { store.goBack(myID: myID) },
+                onNext: { store.goForward(myID: myID) },
+                onSkip: { submit(round: round, value: "", isCorrect: false) }
+            )
         }
     }
 
@@ -304,7 +310,7 @@ struct TriviaBattleGameView: View {
 
     private func sendReminder() async {
         isSendingReminder = true
-        await BackendService.notifyPartner(event: .gameReminder, detail: GameType.triviaBattle.displayName, sessionID: sessionID, gameType: .triviaBattle)
+        await BackendService.notifyPartner(event: .gameReminder, detail: title ?? GameType.triviaBattle.displayName, sessionID: sessionID, gameType: .triviaBattle)
         isSendingReminder = false
     }
 
