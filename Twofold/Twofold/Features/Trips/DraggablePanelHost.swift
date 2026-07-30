@@ -103,6 +103,11 @@ struct DraggablePanelHost<Content: View>: UIViewRepresentable {
 
             hostingController.view.backgroundColor = .clear
             hostingController.view.clipsToBounds = true
+            // Without this, `UIHostingController` adds its own automatic safe-area accounting on
+            // top of `expandedHeight` already having `proxy.safeAreaInsets.top` subtracted out in
+            // `TripsListView` — the double-counted inset showed up as extra empty space above the
+            // drag handle/title, most visible in the expanded (tallest) state.
+            hostingController.safeAreaRegions = []
             addSubview(hostingController.view)
         }
 

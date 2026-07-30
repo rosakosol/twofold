@@ -27,6 +27,7 @@ struct MemoriesListView: View {
     @State private var locationFilter: Place?
     @State private var yearFilter: Int?
     @State private var currentVisibleYear: Int?
+    @State private var selectedMemory: Memory?
 
     /// Long-press any row to enter this — every row grows a selection circle, tapping toggles
     /// membership instead of navigating, and a toolbar offers bulk delete. Swipe-to-delete
@@ -104,7 +105,13 @@ struct MemoriesListView: View {
                 emptyState
             } else {
                 VStack(spacing: 0) {
-                    filterBar
+                    // Only the tab-mode full list offers location/year filters — the map-pin
+                    // peek panel (`initialLocationFilter` set) is already scoped to one city by
+                    // the pin you tapped, so a filter bar there was redundant controls on top of
+                    // a screen that's already filtered.
+                    if initialLocationFilter == nil {
+                        filterBar
+                    }
                     ScrollViewReader { proxy in
                         List {
                             if monthGroups.isEmpty {
@@ -175,6 +182,9 @@ struct MemoriesListView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This can't be undone.")
+        }
+        .navigationDestination(item: $selectedMemory) { memory in
+            MemoryDetailView(memory: memory)
         }
         .postHogScreenView("Memories: List")
     }
@@ -259,8 +269,12 @@ struct MemoriesListView: View {
                 }
                 .buttonStyle(.plain)
             } else {
-                NavigationLink {
-                    MemoryDetailView(memory: memory)
+                // Plain `Button` + `.navigationDestination(item:)` (see `content`), not
+                // `NavigationLink` — a `NavigationLink` row in a `List` gets an automatic
+                // trailing disclosure chevron regardless of button style, which read as visual
+                // clutter this row didn't need.
+                Button {
+                    selectedMemory = memory
                 } label: {
                     memoryRow(memory)
                 }

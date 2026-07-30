@@ -684,6 +684,10 @@ struct TripsListView: View {
                 Spacer(minLength: 0)
             }
         }
+        // Without this, the card had nothing proposing a specific width to stretch the `Spacer`
+        // above into, so it just hugged its own icon+text content instead of spanning the same
+        // full row width a real trip/flight row does.
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
