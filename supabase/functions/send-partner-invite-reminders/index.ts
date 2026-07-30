@@ -1,14 +1,14 @@
 // Daily nudge for still-solo users (a profile with no active `couples` row referencing it) to
-// invite their partner — two stages, day 1 and day 3 after signup. Cron-triggered only (see
+// invite their partner - two stages, day 1 and day 3 after signup. Cron-triggered only (see
 // supabase/migrations/20260717020000_partner_invite_reminder_cron.sql).
 //
 // Requires the service-role key as a bearer token, same explicit check refresh-due-flights
-// already uses — without this, any authenticated app user could invoke it directly and force a
+// already uses - without this, any authenticated app user could invoke it directly and force a
 // push blast to every solo user in the app on demand.
 //
 // Idempotency: each stage is bucketed by UTC calendar day (a profile created "yesterday" only
 // ever matches the day-1 window on exactly one cron run, since the window shifts forward a full
-// day between runs) rather than a precise 24h/72h offset — same simplicity tradeoff
+// day between runs) rather than a precise 24h/72h offset - same simplicity tradeoff
 // send-streak-reminders already makes with `todayStart`, and avoids needing to persist "already
 // reminded" state anywhere.
 
@@ -24,7 +24,7 @@ const MESSAGES: Record<Stage, { title: string; body: string }> = {
   },
   day3: {
     title: "Still solo on Twofold?",
-    body: "Invite your partner — it only takes a code to connect.",
+    body: "Invite your partner - it only takes a code to connect.",
   },
 };
 
