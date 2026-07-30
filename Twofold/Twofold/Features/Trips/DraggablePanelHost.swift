@@ -175,16 +175,16 @@ struct DraggablePanelHost<Content: View>: UIViewRepresentable {
                 CATransaction.commit()
 
             case .ended, .cancelled:
-                let translation = gesture.translation(in: superview).y
-                let velocity = gesture.velocity(in: superview).y
-                // Approximates `DragGesture.predictedEndTranslation`'s "where would this land if
-                // it decelerated naturally" — same 40pt/80pt thresholds the old SwiftUI version
-                // used, so the feel of what counts as a committed swipe is unchanged.
-                let predicted = translation + velocity * 0.2
+                // Baseline-adjusted the same way `.changed` is — using the raw, unadjusted
+                // `gesture.translation` here (as an earlier version of this did) silently made
+                // the commit threshold a few points more sensitive than what `.changed` had
+                // actually been live-tracking, since the "already traveled before `.began`
+                // fired" baseline was still baked into it.
+                let translation = translationY - (startTranslation ?? translationY)
                 var newExpanded = parent.isExpanded
-                if translation < -40 || predicted < -80 {
+                if translation < -40 {
                     newExpanded = true
-                } else if translation > 40 || predicted > 80 {
+                } else if translation > 40 {
                     newExpanded = false
                 }
                 startTranslation = nil
