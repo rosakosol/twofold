@@ -27,43 +27,16 @@ struct TripsListView: View {
     /// sheet — there's a real partner-required blocker before either of those would even work.
     @State private var showingPartnerGate = false
     @State private var isExpanded = false
-    /// Live finger position while dragging the handle, folded into the panel's rendered height so
-    /// it tracks the gesture 1:1. Plain `@State`, not `@GestureState` — `@GestureState` resets to
-    /// 0 the instant the gesture ends, *before* `.onEnded`'s own state mutation lands, which
-    /// visibly snapped the panel back to its pre-drag height for a frame before animating to the
-    /// real target (the "glitchy" jump). Driving this from `@State` and clearing it in the same
-    /// explicit `withAnimation` block as the `isExpanded` flip below makes both changes land in
-    /// one animated step instead of two.
-    @State private var dragOffset: CGFloat = 0
-    /// The gesture's own `translation` at the moment the *first* `onChanged` fires for a given
-    /// drag — nil whenever no drag is in progress. `DragGesture(minimumDistance:)` measures
-    /// `translation` from the original touch-down point, but doesn't deliver `onChanged` at all
-    /// until the finger has already moved past `minimumDistance` — so that first callback already
-    /// reports whatever distance the finger covered *before* recognition kicked in (at least
-    /// `minimumDistance`, often more depending on swipe speed), and applying it directly made the
-    /// panel jump to "catch up" to that already-traveled distance in one frame instead of
-    /// tracking smoothly from zero. Subtracting this baseline from every subsequent translation
-    /// (see `panelDragGesture`'s `onChanged`) makes the panel start tracking from wherever the
-    /// finger actually is once the gesture is recognized, not from the touch-down point.
-    @State private var dragStartTranslation: CGFloat?
-    /// True for the exact duration of an active drag (set in `onChanged`, cleared in `onEnded`)
-    /// — guards the `.onChange(of: panelHeight)` swap below so it only ever fires once the
-    /// finger has actually lifted, never mid-gesture. A *fast* swipe crossed the threshold and
-    /// settled before the finger lifted anyway, so it never surfaced this; a slow, deliberate
-    /// drag lingers well past the threshold while still actively tracking touches, which used to
-    /// mount the full `List` (its own internal scroll/selection gesture recognizers included)
-    /// while this same gesture was still mid-flight — that collision, not the swap itself, is
-    /// what actually read as "glitchy."
+    /// True for the exact duration of an active drag — set/cleared by `DraggablePanelHost`'s
+    /// `UIPanGestureRecognizer`, entirely outside SwiftUI's own state-mutation/body-recompute
+    /// pipeline (see that file's own header comment for why: every purely-SwiftUI-composed
+    /// version of this drag glitched on slow/paused drags, regardless of how the gesture/state
+    /// code was arranged). Still used the same way it always was — a guard against anything
+    /// reacting to `showingExpandedContent`/`isExpanded` mid-gesture instead of only at rest.
     @State private var isDragging = false
-    /// Which content the panel shows — a real `@State`, not a value re-derived fresh from
-    /// `panelHeight` on every render, specifically so it can have hysteresis (see the `.onChange`
-    /// that updates it, below). A single "> peekHeight + 60" cutoff recomputed every frame could
-    /// flip back and forth repeatedly if a drag paused or jittered near that exact height (normal
-    /// for a real finger, not a deliberate gesture) — each flip swaps this panel's entire content
-    /// between the peek carousel and the full `List`, which is expensive enough, and `List`-owned
-    /// enough (its own internal scroll/selection gesture recognizers mounting mid-touch), that
-    /// repeated swaps within one continuous drag is what actually read as "glitchy"/stuck, not
-    /// the drag itself.
+    /// Which content the panel shows — only ever changed at rest, in `DraggablePanelHost`'s
+    /// `onSettle` callback, alongside `isExpanded` — never mid-drag, since the live-tracking phase
+    /// no longer touches SwiftUI state at all.
     @State private var showingExpandedContent = false
     @State private var selectedTrip: Trip?
     @State private var selectedFlight: Flight?
@@ -133,8 +106,6 @@ struct TripsListView: View {
                 // the screen.
                 let topBreathingRoom: CGFloat = 64
                 let expandedHeight = proxy.size.height - proxy.safeAreaInsets.top - topBreathingRoom
-                let restingHeight = isExpanded ? expandedHeight : peekHeight
-                let panelHeight = min(expandedHeight, max(peekHeight, restingHeight - dragOffset))
                 let panelWidth = max(0, proxy.size.width - horizontalInset * 2)
 
                 ZStack(alignment: .bottom) {
@@ -158,32 +129,29 @@ struct TripsListView: View {
                     )
                     .equatable()
 
-                browsePanel(showingExpandedContent: showingExpandedContent, expandedHeight: expandedHeight)
-                    .frame(width: panelWidth, height: panelHeight, alignment: .top)
-                    .background(Theme.backgroundGradient)
-                    .clipShape(RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous))
-                    .shadow(color: .black.opacity(0.15), radius: 16, y: -4)
+                    // Live height (during an active drag) and settled height (peek/expanded, at
+                    // rest) are both owned by `DraggablePanelHost` itself now — see that file's
+                    // own header comment for why the drag specifically has to escape SwiftUI's
+                    // own diffing/layout pipeline, not just be reorganized within it.
+                    DraggablePanelHost(
+                        content: browsePanelContent(showingExpandedContent: showingExpandedContent, expandedHeight: expandedHeight)
+                            .background(Theme.backgroundGradient),
+                        peekHeight: peekHeight,
+                        expandedHeight: expandedHeight,
+                        cornerRadius: panelCornerRadius,
+                        isExpanded: $isExpanded,
+                        isDragging: $isDragging,
+                        onSettle: { newExpanded in
+                            withAnimation(panelAnimation) {
+                                isExpanded = newExpanded
+                                showingExpandedContent = newExpanded
+                            }
+                        }
+                    )
+                    .frame(width: panelWidth, alignment: .top)
                     .padding(.bottom, 12)
                 }
                 .ignoresSafeArea()
-                // Hysteresis, not a single cutoff — a wide gap between the two thresholds means a
-                // drag has to clearly commit past one side before the content actually swaps, so
-                // jitter near the middle can't flip it back and forth (see `showingExpandedContent`'s
-                // own doc comment for why that repeated swapping was the real "glitchy" culprit).
-                // `.onChange`, not a direct assignment in `body`, since mutating `@State` during a
-                // view's own render pass is unsafe — this runs safely just after, whenever
-                // `panelHeight` actually changes. Skipped entirely while `isDragging` — this is
-                // now purely a post-release/animation-settle path (`panelDragGesture`'s own
-                // `onEnded` already sets `showingExpandedContent` explicitly); see `isDragging`'s
-                // doc comment for why a live mid-drag flip was the actual glitch.
-                .onChange(of: panelHeight) { _, newHeight in
-                    guard !isDragging else { return }
-                    if newHeight > peekHeight + 100 {
-                        showingExpandedContent = true
-                    } else if newHeight < peekHeight + 40 {
-                        showingExpandedContent = false
-                    }
-                }
             }
             .ignoresSafeArea()
             // Pushed onto this same `NavigationStack` (not presented as a sheet) — tapping a trip
@@ -244,140 +212,59 @@ struct TripsListView: View {
 
     // MARK: - Browse panel
 
-    private func browsePanel(showingExpandedContent: Bool, expandedHeight: CGFloat) -> some View {
+    /// Everything the panel ever shows, as one plain SwiftUI view — no gesture attached here at
+    /// all anymore. `DraggablePanelHost` hosts this and owns both the live drag-tracking and the
+    /// settled peek/expanded height entirely in UIKit; this function only has to describe what
+    /// the content looks like, the same as it always did.
+    ///
+    /// The `List` in `expandedContent` used to sit outside the gesture-attached view specifically
+    /// so its own internal scroll gesture wouldn't fight a SwiftUI `DragGesture` layered on top of
+    /// it. That's no longer a SwiftUI-vs-SwiftUI gesture conflict — `UIScrollView` (what `List` is
+    /// backed by) and an ancestor `UIPanGestureRecognizer` coexisting correctly is a long-settled,
+    /// heavily-used UIKit capability (this is exactly how e.g. Apple Maps' own bottom sheet nests
+    /// a scrollable list inside a pannable card), not the ad-hoc arbitration two independent
+    /// SwiftUI `DragGesture`s were stuck with.
+    private func browsePanelContent(showingExpandedContent: Bool, expandedHeight: CGFloat) -> some View {
         VStack(spacing: 0) {
-            // Everything above the full list — handle, header, and (while collapsed) the peek
-            // card — shares one whole-area drag-to-resize gesture, rather than just the handle.
-            // `expandedContent`'s `List` deliberately sits *outside* this group: dragging inside
-            // a real `List` still has to be its own scroll gesture, not compete with a panel-
-            // resize gesture layered on top of it (see `panelDragGesture`'s own comment on why
-            // that fight is what actually read as "glitchy").
-            VStack(spacing: 0) {
-                dragHandle(expandedHeight: expandedHeight)
-                browseHeader
+            dragHandle
+            browseHeader
 
-                if !showingExpandedContent {
-                    peekContent
-                        .transition(.opacity)
-                }
+            if !showingExpandedContent {
+                peekContent
+                    .transition(.opacity)
             }
-            .contentShape(Rectangle())
-            .gesture(panelDragGesture(minimumDistance: 10, expandedHeight: expandedHeight))
 
             if showingExpandedContent {
                 expandedContent
                     .transition(.opacity)
             }
         }
-        // Explicit, so the peek-card/full-list swap always cross-fades — including when
-        // `showingExpandedContent` flips mid-drag from a slow, continuous `.onChanged` update
-        // (those aren't wrapped in `withAnimation` themselves, only the drag's `.onEnded` settle
-        // is), which is exactly when the swap used to pop with no transition at all. A fast
-        // swipe never showed this: it crosses the threshold as part of `.onEnded`'s own animated
-        // settle, so the pop just happened to ride along with that animation instead of standing
-        // out on its own.
+        // Explicit, so the peek-card/full-list swap always cross-fades rather than popping —
+        // `showingExpandedContent` now only ever changes once, at rest (`DraggablePanelHost`'s
+        // `onSettle`), but this still keeps that one transition smooth.
         .animation(.easeInOut(duration: 0.2), value: showingExpandedContent)
     }
 
-    /// Shared by the handle's own zero-distance gesture and the whole-panel gesture above it —
-    /// same expand/collapse thresholds and animation either way, just a different
-    /// `minimumDistance` (0 for the handle, so it stays the snappiest possible target; a real
-    /// double-digit distance for the rest of the panel, so a plain tap on the Picker/"+"
-    /// button/peek card still reaches its own `Button` instead of being swallowed by this
-    /// gesture — SwiftUI only lets an ancestor `DragGesture` claim a touch once it's actually
-    /// moved past its `minimumDistance`, so a real tap that never moves that far falls straight
-    /// through to whatever was tapped).
-    private func panelDragGesture(minimumDistance: CGFloat, expandedHeight: CGFloat) -> some Gesture {
-        // Captured once at gesture-build time, matching `isExpanded` at the moment the drag
-        // starts — same value `body`'s own `restingHeight` local computes, since `isExpanded`
-        // itself never changes mid-drag (only `onEnded` below flips it).
-        let restingHeight = isExpanded ? expandedHeight : peekHeight
-        // The same `[peekHeight, expandedHeight]` range `body`'s `panelHeight` clamps
-        // `restingHeight - dragOffset` into, solved for `dragOffset` itself.
-        let minOffset = restingHeight - expandedHeight
-        let maxOffset = restingHeight - peekHeight
-        return DragGesture(minimumDistance: minimumDistance)
-            .onChanged { value in
-                isDragging = true
-                // See `dragStartTranslation`'s own doc comment — this cancels out the "already
-                // traveled `minimumDistance`-plus distance" `DragGesture` bakes into its very
-                // first reported `translation`, which otherwise made the panel jump on every
-                // drag's first frame instead of tracking smoothly from zero.
-                if dragStartTranslation == nil {
-                    dragStartTranslation = value.translation.height
-                }
-                let adjustedTranslation = value.translation.height - (dragStartTranslation ?? 0)
-                // Clamping `dragOffset` itself here — not just leaving it to `body`'s own
-                // `min`/`max` around `panelHeight` — matters because that outer clamp only
-                // bounds the *rendered* height, not the raw offset feeding it. Without this,
-                // dragging past either limit let `dragOffset` keep accumulating unbounded while
-                // the panel sat visually still at its clamped height; reversing direction after
-                // such an overshoot then had to "wind back" through that same dead distance
-                // before the panel moved at all. A fast flick never lingers past the limit long
-                // enough to notice; a slow, deliberate drag that overshoots and doubles back is
-                // exactly when that dead zone showed up as "glitchy"/unresponsive.
-                dragOffset = min(max(adjustedTranslation, minOffset), maxOffset)
-            }
-            .onEnded { value in
-                let draggedUp = value.translation.height < -40 || value.predictedEndTranslation.height < -80
-                let draggedDown = value.translation.height > 40 || value.predictedEndTranslation.height > 80
-                // Both changes land inside the same explicit animation so the panel
-                // animates directly from wherever the drag left it to the final target
-                // height in one motion — letting `dragOffset` reset via an implicit/
-                // `@GestureState`-driven reset outside this block is what caused the old
-                // "snap back, then animate" glitch.
-                withAnimation(panelAnimation) {
-                    if draggedUp {
-                        isExpanded = true
-                    } else if draggedDown {
-                        isExpanded = false
-                    } else if abs(value.translation.height) < 10 {
-                        // Barely moved at all — a tap, not a drag that fell short of the
-                        // expand/collapse threshold.
-                        isExpanded.toggle()
-                    }
-                    dragStartTranslation = nil
-                    // Explicitly synced to the settled `isExpanded`, not left to the live
-                    // hysteresis in `panelHeight`'s `.onChange` alone — that hysteresis
-                    // uses a deliberately wide/stricter threshold (see its own comment),
-                    // which a short, quick drag can clear `draggedUp`/`draggedDown`'s own
-                    // looser 40pt threshold without ever crossing. Without this, a quick
-                    // flick could settle the panel at full height while still showing the
-                    // peek carousel inside it.
-                    showingExpandedContent = isExpanded
-                    dragOffset = 0
-                    isDragging = false
-                }
-            }
-    }
-
-    /// A generously-hit-tested handle above the rest of the panel's own whole-area drag gesture
-    /// (see `browsePanel`) — kept around for its `minimumDistance: 0` snappiness (touch-down
-    /// tracks immediately, no need to clear the rest of the panel's larger minimum distance
-    /// first) and as VoiceOver's only real activation path, not because it's the only draggable
-    /// part of the panel anymore.
-    private func dragHandle(expandedHeight: CGFloat) -> some View {
+    /// Purely a visual affordance now — the drag itself is recognized across the whole panel
+    /// (`DraggablePanelHost`'s `UIPanGestureRecognizer`, attached to the panel as a whole), not
+    /// just this capsule. Still carries the VoiceOver activation path, since a bare pan gesture
+    /// doesn't reliably respond to VoiceOver's double-tap.
+    private var dragHandle: some View {
         Capsule()
             .fill(Theme.subtleInk.opacity(0.35))
             .frame(width: 36, height: 5)
             .frame(maxWidth: .infinity)
-            // Fixed 44pt hit region — this used to be just the capsule's own 5pt height plus
-            // `Theme.Spacing.sm` (8pt) padding on each side, a 21pt-tall target well under
-            // Apple's 44pt minimum recommended touch target, which is exactly why the drag so
-            // often failed to register at all. The capsule glyph itself stays visually small;
-            // only the tappable/draggable area grows.
             .frame(height: 44)
             .contentShape(Rectangle())
-            .gesture(panelDragGesture(minimumDistance: 0, expandedHeight: expandedHeight))
-            // The drag gesture above handles sighted tap-and-drag, but VoiceOver's double-tap
-            // doesn't reliably activate a bare `DragGesture` — this is the only way to reveal the
-            // full trip list, so it needs a real, gesture-independent activation path too.
             .accessibilityElement()
             .accessibilityLabel("Trip list")
             .accessibilityValue(isExpanded ? "Expanded" : "Collapsed")
             .accessibilityAddTraits(.isButton)
             .accessibilityAction {
-                withAnimation(panelAnimation) { isExpanded.toggle() }
+                withAnimation(panelAnimation) {
+                    isExpanded.toggle()
+                    showingExpandedContent = isExpanded
+                }
             }
     }
 
