@@ -44,9 +44,20 @@ struct HomeView: View {
         return Geo.distanceKm(mine, theirs)
     }
 
+    /// City + country name match — not a distance/coordinate threshold (a coordinate-only check
+    /// would misfire for two different, merely nearby suburbs; see `WidgetSnapshotWriter`'s
+    /// identical check for the same reasoning). Case/whitespace-insensitive: since home cities
+    /// can come from live device location now (not just the manual city picker — see
+    /// `live_location` in the codebase history), the same real city can reverse-geocode to
+    /// strings that only differ in case or incidental whitespace between the two partners'
+    /// devices, which a strict `==` treated as two different cities — showing the redundant
+    /// two-line "It's X for them / It's X for you" `TimeZoneCard` (with two weather readings)
+    /// for a couple who are, in fact, in the exact same city with a real but small distance
+    /// between their two device-reported coordinates.
     private var sameCity: Bool {
         guard let mine = appModel.currentUser.homeCity, let theirs = appModel.partner.homeCity else { return false }
-        return mine.city == theirs.city && mine.country == theirs.country
+        return mine.city.caseInsensitiveCompare(theirs.city) == .orderedSame
+            && mine.country.caseInsensitiveCompare(theirs.country) == .orderedSame
     }
 
     private var soonestTrip: Trip? {
@@ -498,9 +509,15 @@ struct HomeView: View {
                 }
                 .accessibilityLabel("Share distance")
             }
-            Text("That's \(Geo.percentOfEarthCircumference(distanceKm), format: .number.precision(.fractionLength(1)))% of the way around the earth 🌍")
-                .font(.caption)
-                .foregroundStyle(Theme.subtleInk)
+            // Hidden below 0.05% — anything less rounds to a deadpan, uninformative "0.0%" at
+            // this line's own one-decimal precision (nearby but not exactly the same city, e.g.,
+            // still shows the real km figure above just fine, but "that's 0.0% of the way around
+            // the earth" reads as a bug, not a fact).
+            if Geo.percentOfEarthCircumference(distanceKm) >= 0.05 {
+                Text("That's \(Geo.percentOfEarthCircumference(distanceKm), format: .number.precision(.fractionLength(1)))% of the way around the earth 🌍")
+                    .font(.caption)
+                    .foregroundStyle(Theme.subtleInk)
+            }
 
             RelationshipGlobeView(couple: appModel.couple, partnerACity: myCity, partnerBCity: partnerCity, activeTrip: appModel.activeTrip)
                 .frame(height: 260)
