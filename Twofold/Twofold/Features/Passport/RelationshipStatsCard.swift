@@ -70,7 +70,7 @@ struct RelationshipStatsCard: View {
                         )
                         milestoneTile(
                             icon: "hourglass",
-                            label: "Longest Separation",
+                            label: "Longest Gap",
                             value: stats.longestSeparationDays.map { "\($0) days" } ?? "—",
                             tint: .purple
                         )
