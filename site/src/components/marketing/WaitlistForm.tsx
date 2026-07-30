@@ -26,7 +26,7 @@ export function WaitlistForm() {
       const data = await res.json();
       if (res.ok) {
         setStatus("success");
-        setMessage("You're on the list — we'll email you when Android is ready.");
+        setMessage("You're on the list - we'll email you when Android is ready.");
         form.reset();
       } else if (res.status === 409) {
         setStatus("success");

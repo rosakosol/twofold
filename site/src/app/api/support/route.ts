@@ -5,7 +5,7 @@ import { escapeHtml } from "@/lib/mail/escapeHtml";
 import { SUPPORT_EMAIL, SITE_URL } from "@/lib/mail/companyInfo";
 
 // Web counterpart to the iOS app's submit-help-message edge function
-// (supabase/functions/submit-help-message) — same category list and same recipient
+// (supabase/functions/submit-help-message) - same category list and same recipient
 // (support@twofoldapp.com.au), sent via the same Zoho Mail SMTP account (see
 // lib/mail/zoho.ts for the transport + required env vars). This one has to work for an
 // anonymous site visitor with no Supabase session, so it can't reuse that function's
@@ -72,7 +72,7 @@ export async function POST(request: Request) {
   return NextResponse.json({ ok: true });
 }
 
-/** Not a real ticketing system (see the "what are my free options" conversation) — just a
+/** Not a real ticketing system (see the "what are my free options" conversation) - just a
  * short reference so a reply-thread subject line stays stable and the two emails below
  * visibly refer to the same submission. */
 function generateTicketId(): string {
@@ -84,7 +84,7 @@ function formatDateTime(date: Date): string {
 }
 
 /** Sync/tracking issues get the two concrete troubleshooting steps; everything else (Feature
- * Request, Feedback, etc.) gets a generic pointer instead — those tips would look wrong under
+ * Request, Feedback, etc.) gets a generic pointer instead - those tips would look wrong under
  * a category they don't apply to. */
 function waitTipsHtml(category: string): string {
   if (category === "Bug Report" || category === "Flight Tracking") {
@@ -98,7 +98,7 @@ function waitTipsHtml(category: string): string {
         </tr>
         <tr>
           <td width="26" valign="top" style="width:26px;font-family:Georgia,'Times New Roman',serif;font-size:16px;color:#6fbf8b;mso-line-height-rule:exactly;line-height:26px;">2.</td>
-          <td valign="top" style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:26px;mso-line-height-rule:exactly;color:#5b6b7a;">Turn background app refresh back on for Twofold in iOS Settings — it can switch off after a big update.</td>
+          <td valign="top" style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:26px;mso-line-height-rule:exactly;color:#5b6b7a;">Turn background app refresh back on for Twofold in iOS Settings - it can switch off after a big update.</td>
         </tr>
       </table>`;
   }
@@ -113,11 +113,11 @@ async function sendSupportEmails(input: { name: string; email: string; category:
   const escapedMessage = escapeHtml(input.message).replace(/\n/g, "<br>");
 
   const internalHtml = renderTemplate("support-internal-alert", {
-    subject: `[${input.category}] Website support request — #${ticketId}`,
+    subject: `[${input.category}] Website support request - #${ticketId}`,
     preheader: `${input.name || "Someone"} · ${input.category} · ${input.message.slice(0, 90)}`,
     ticket_category: escapeHtml(input.category),
     ticket_id: ticketId,
-    ticket_subject: escapeHtml(`${input.category} — website support request`),
+    ticket_subject: escapeHtml(`${input.category} - website support request`),
     user_name: escapeHtml(input.name || "(no name given)"),
     user_email: escapeHtml(input.email),
     received_at: receivedAt,
@@ -126,8 +126,8 @@ async function sendSupportEmails(input: { name: string; email: string; category:
   });
 
   const receivedHtml = renderTemplate("support-received", {
-    subject: `We got your message — #${ticketId}`,
-    preheader: "Thanks for writing in — here's a copy of what you sent us.",
+    subject: `We got your message - #${ticketId}`,
+    preheader: "Thanks for writing in - here's a copy of what you sent us.",
     first_name: escapeHtml(firstName),
     response_time: "1-2 business days",
     ticket_id: ticketId,
@@ -146,7 +146,7 @@ async function sendSupportEmails(input: { name: string; email: string; category:
       replyTo: input.email,
       subject: extractSubject(internalHtml),
       html: internalHtml,
-      text: `Category: ${input.category}\nFrom: ${input.name || "(no name given)"} — ${input.email}\n\n${input.message}`,
+      text: `Category: ${input.category}\nFrom: ${input.name || "(no name given)"} - ${input.email}\n\n${input.message}`,
     });
     await transport.sendMail({
       from,

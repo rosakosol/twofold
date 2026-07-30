@@ -1,13 +1,13 @@
 /**
  * Replaces the `legalPage-terms` document in Sanity with the long-form terms below.
  *
- *   node scripts/seed-terms.mjs           # dry run — prints a summary, writes nothing
+ *   node scripts/seed-terms.mjs           # dry run - prints a summary, writes nothing
  *   node scripts/seed-terms.mjs --write   # overwrite legalPage-terms
  *
  * Same deal as seed-privacy-policy.mjs: Studio is the source of truth, so this is a deliberate
  * overwrite rather than a sync, and it touches no other document.
  *
- * Written against how Twofold actually works — the two subscription tiers and both purchase
+ * Written against how Twofold actually works - the two subscription tiers and both purchase
  * channels, 14-day invite codes, what removing a partner and deleting an account really do,
  * which third parties supply flight and weather data. Where a fact isn't knowable from the
  * code (legal entity, minimum age, governing state) the text says [TO CONFIRM].
@@ -43,14 +43,14 @@ const body = [
   // ------------------------------------------------------------- eligibility
   h2('Who can use Twofold'),
   ptext(
-    `You need to be at least [TO CONFIRM: minimum age] to use Twofold, and old enough to enter a binding agreement where you live. Twofold is built for two people in a relationship — it isn't a social network, a dating app, or a way to monitor somebody.`
+    `You need to be at least [TO CONFIRM: minimum age] to use Twofold, and old enough to enter a binding agreement where you live. Twofold is built for two people in a relationship - it isn't a social network, a dating app, or a way to monitor somebody.`
   ),
   ptext(`You can't use Twofold if we've previously terminated your account.`),
 
   // ---------------------------------------------------------------- account
   h2('Your account'),
   bullet(
-    `You sign in with Apple or Google. Keeping that account secure is your responsibility — anyone who can sign in as you can see everything you and your partner have shared.`
+    `You sign in with Apple or Google. Keeping that account secure is your responsibility - anyone who can sign in as you can see everything you and your partner have shared.`
   ),
   bullet(`Give us accurate information, and keep it up to date.`),
   bullet(`One account per person. Don't share it, and don't sign in as someone else.`),
@@ -81,7 +81,7 @@ const body = [
     `App Store subscriptions renew automatically at the end of each billing period unless cancelled at least 24 hours before renewal, and are managed from your device's Settings → Apple ID → Subscriptions, under Apple's standard terms.`
   ),
   bullet(
-    `Web subscriptions renew automatically at the end of each billing period and can be cancelled at any time. Payment is processed by Stripe via RevenueCat — we never see or store your card details.`
+    `Web subscriptions renew automatically at the end of each billing period and can be cancelled at any time. Payment is processed by Stripe via RevenueCat - we never see or store your card details.`
   ),
   bullet(
     `A subscription started on the web is tied to the Apple ID you sign in with at checkout. Sign in with that same Apple ID in the app to get what you've paid for.`
@@ -97,7 +97,7 @@ const body = [
     `Cancel any time. You keep access until the end of the period you've already paid for, and we don't pro-rate a partial period.`
   ),
   bullet(
-    `Refunds for App Store purchases are handled by Apple under their own policies — we can't issue them.`
+    `Refunds for App Store purchases are handled by Apple under their own policies - we can't issue them.`
   ),
   bullet(`For web purchases, email us and we'll consider it case by case.`),
   p(
@@ -108,10 +108,10 @@ const body = [
   // -------------------------------------------------------------- content
   h2('Your content'),
   ptext(
-    `You keep ownership of everything you add — your photos, memories, notes, drawings and answers. We don't claim it.`
+    `You keep ownership of everything you add - your photos, memories, notes, drawings and answers. We don't claim it.`
   ),
   ptext(
-    `To actually run the app, we need your permission to store, copy, back up and display that content — to you, and to the partner you're connected to. That permission is limited to operating and improving Twofold, lasts only as long as we're hosting your content, and doesn't let us publish it, sell it, or show it to anyone else.`
+    `To actually run the app, we need your permission to store, copy, back up and display that content - to you, and to the partner you're connected to. That permission is limited to operating and improving Twofold, lasts only as long as we're hosting your content, and doesn't let us publish it, sell it, or show it to anyone else.`
   ),
   ptext(`You're responsible for what you add. By adding it, you're confirming you have the right to.`),
 
@@ -128,7 +128,7 @@ const body = [
     `Either of you can then permanently delete the entire shared archive from Settings → Archived Data. That deletes it for both of you, without needing the other's agreement, and it can't be undone.`
   ),
   bullet(
-    `Deleting your account doesn't delete shared content by default, because it's your partner's history too — but the deletion screen offers to delete it at the same time, and that's your last chance to do so, since you won't be able to sign in afterwards.`
+    `Deleting your account doesn't delete shared content by default, because it's your partner's history too - but the deletion screen offers to delete it at the same time, and that's your last chance to do so, since you won't be able to sign in afterwards.`
   ),
   ptext(
     `By using Twofold with a partner, you accept that they have this same ability over content you both contributed to. If that isn't what you want, don't share it here.`
@@ -137,7 +137,7 @@ const body = [
   // ---------------------------------------------------------- acceptable use
   h2('What you can and can’t do'),
   ptext(`Use Twofold for your own relationship, lawfully, and don't:`),
-  bullet(`Use it to harass, threaten, monitor, coerce or harm anyone — including your partner.`),
+  bullet(`Use it to harass, threaten, monitor, coerce or harm anyone - including your partner.`),
   bullet(`Connect to someone under false pretences, or pressure someone into connecting.`),
   bullet(`Upload anything unlawful, abusive, or that infringes somebody else's rights.`),
   bullet(`Upload someone else's personal information without their agreement.`),
@@ -147,19 +147,19 @@ const body = [
   bullet(`Resell or commercialise access, or use Twofold on someone else's behalf as a service.`),
   bullet(`Interfere with the service, or with anyone else's use of it.`),
   ptext(
-    `Twofold shows your partner the city you've set — not your live position. Don't use it, or ask a partner to use it, as a surveillance tool.`
+    `Twofold shows your partner the city you've set - not your live position. Don't use it, or ask a partner to use it, as a surveillance tool.`
   ),
 
   // --------------------------------------------------------- our content
   h2('Our content and intellectual property'),
   ptext(
-    `Twofold — the app, the site, the design, the name and logo, and the questions, prompts, games and trivia inside it — belongs to us or our licensors. You get a personal, limited, non-exclusive, revocable licence to use it while these terms apply. Nothing here transfers ownership of any of it to you.`
+    `Twofold - the app, the site, the design, the name and logo, and the questions, prompts, games and trivia inside it - belongs to us or our licensors. You get a personal, limited, non-exclusive, revocable licence to use it while these terms apply. Nothing here transfers ownership of any of it to you.`
   ),
 
   // --------------------------------------------- third-party information
   h2('Flight, weather and other third-party information'),
   ptext(
-    `Flight schedules and status come from FlightAware, and weather from Apple WeatherKit. We pass that information on as we receive it — we don't verify it and can't guarantee it's accurate, complete or on time.`
+    `Flight schedules and status come from FlightAware, and weather from Apple WeatherKit. We pass that information on as we receive it - we don't verify it and can't guarantee it's accurate, complete or on time.`
   ),
   p(
     span(`Don't rely on Twofold for anything that matters. `, 'strong'),
@@ -185,19 +185,19 @@ const body = [
     `We may suspend or terminate an account that breaches these terms, that we reasonably believe is being used to harm someone, or where we're required to by law. Where it's reasonable and lawful to do so, we'll tell you why and give you a chance to put it right first.`
   ),
   ptext(
-    `If we terminate your account, the sections of these terms that are meant to survive — your content licence to the extent we still hold content, intellectual property, disclaimers, liability and governing law — continue to apply.`
+    `If we terminate your account, the sections of these terms that are meant to survive - your content licence to the extent we still hold content, intellectual property, disclaimers, liability and governing law - continue to apply.`
   ),
 
   // -------------------------------------------------------------- feedback
   h2('Feedback and the feedback board'),
   ptext(
-    `Anything you post on our feedback board is visible to other users, so don't put anything private in it. If you send us an idea or suggestion — there or by email — you're giving us permission to use it without owing you anything for it. We're not agreeing to build it.`
+    `Anything you post on our feedback board is visible to other users, so don't put anything private in it. If you send us an idea or suggestion - there or by email - you're giving us permission to use it without owing you anything for it. We're not agreeing to build it.`
   ),
 
   // ------------------------------------------------------------ disclaimers
   h2('Disclaimers'),
   ptext(
-    `Except for the guarantees that can't legally be excluded, Twofold is provided "as is" and "as available", without warranties of any kind — including that it will meet your needs, be uninterrupted, or be free of faults.`
+    `Except for the guarantees that can't legally be excluded, Twofold is provided "as is" and "as available", without warranties of any kind - including that it will meet your needs, be uninterrupted, or be free of faults.`
   ),
   ptext(
     `Twofold is not a safety, security, emergency or medical service, and it isn't relationship advice or counselling.`
@@ -228,7 +228,7 @@ const body = [
   // ------------------------------------------------------------- indemnity
   h2('Indemnity'),
   ptext(
-    `If someone brings a claim against us because of how you used Twofold — content you uploaded, a law you broke, or a term here you didn't keep — you agree to cover the reasonable costs of dealing with it.`
+    `If someone brings a claim against us because of how you used Twofold - content you uploaded, a law you broke, or a term here you didn't keep - you agree to cover the reasonable costs of dealing with it.`
   ),
 
   // --------------------------------------------------------------- privacy
@@ -242,7 +242,7 @@ const body = [
   // --------------------------------------------------------------- changes
   h2('Changes to these terms'),
   ptext(
-    `We'll update these terms as Twofold changes, and revise the date at the top. If a change materially affects your rights, we'll tell you in the app or by email before it takes effect. If you don't agree with a change, stop using Twofold and delete your account — continuing to use it means you accept the updated terms.`
+    `We'll update these terms as Twofold changes, and revise the date at the top. If a change materially affects your rights, we'll tell you in the app or by email before it takes effect. If you don't agree with a change, stop using Twofold and delete your account - continuing to use it means you accept the updated terms.`
   ),
 
   // ---------------------------------------------------------- governing law
@@ -251,7 +251,7 @@ const body = [
     `These terms are governed by the laws of [TO CONFIRM: Australian state or territory], Australia, and you and we submit to the non-exclusive jurisdiction of the courts there. If you're a consumer somewhere else, you keep the benefit of any mandatory protections your local law gives you.`
   ),
   ptext(
-    `If there's a problem, contact us first — we'd much rather sort it out directly than have either of us go anywhere near a court.`
+    `If there's a problem, contact us first - we'd much rather sort it out directly than have either of us go anywhere near a court.`
   ),
 
   // --------------------------------------------------------------- general
@@ -262,7 +262,7 @@ const body = [
   bullet(
     `These terms, together with the Privacy Policy, are the whole agreement between us about Twofold, and replace anything said before.`
   ),
-  bullet(`Section headings are there to help you find things — they don't change what the terms mean.`),
+  bullet(`Section headings are there to help you find things - they don't change what the terms mean.`),
 
   // --------------------------------------------------------------- contact
   h2('Contact us'),
@@ -277,7 +277,7 @@ const doc = {
   title: 'Terms of Use',
   lastUpdated: '2026-07-26',
   noticeText:
-    `Draft — pending legal review. These terms describe how Twofold actually works today, but they have not been reviewed by a lawyer, and the points marked [TO CONFIRM] still need a decision before Twofold is publicly released.`,
+    `Draft - pending legal review. These terms describe how Twofold actually works today, but they have not been reviewed by a lawyer, and the points marked [TO CONFIRM] still need a decision before Twofold is publicly released.`,
   body,
 }
 
@@ -285,7 +285,7 @@ const headings = body.filter((b) => b.style === 'h2').map((b) => b.children[0].t
 const toConfirm = body.filter((b) => JSON.stringify(b).includes('[TO CONFIRM')).length
 
 if (!WRITE) {
-  console.log(`Dry run — nothing written. Pass --write to publish.\n`)
+  console.log(`Dry run - nothing written. Pass --write to publish.\n`)
   console.log(`${body.length} blocks, ${headings.length} sections, ${toConfirm} still marked [TO CONFIRM]:`)
   for (const heading of headings) console.log('  - ' + heading)
   process.exit(0)
@@ -293,4 +293,4 @@ if (!WRITE) {
 
 const {client, projectId, dataset} = sanityWriteClient()
 await client.createOrReplace(doc)
-console.log(`Replaced legalPage-terms in ${projectId}/${dataset} — ${headings.length} sections, ${body.length} blocks.`)
+console.log(`Replaced legalPage-terms in ${projectId}/${dataset} - ${headings.length} sections, ${body.length} blocks.`)

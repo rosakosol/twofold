@@ -57,7 +57,7 @@ function PlanCard({
         <span className="per">/mo</span>
       </div>
       <p className="price-foot">
-        {period === "yearly" ? `Billed yearly — works out to ${plan.yearly.priceLabel}/yr` : "Billed monthly · cancel anytime"}
+        {period === "yearly" ? `Billed yearly - works out to ${plan.yearly.priceLabel}/yr` : "Billed monthly · cancel anytime"}
       </p>
       <ul className="check-list">
         {plan.features.map((feature) => (
@@ -112,7 +112,7 @@ function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: Resol
 
       if (!pkg) {
         // Web Billing not wired up yet (placeholder key / offering not published). Don't
-        // dead-end the funnel — steer to the App Store instead of failing silently.
+        // dead-end the funnel - steer to the App Store instead of failing silently.
         setBuyingKey(null);
         setShowFallback(true);
         return;
@@ -131,7 +131,7 @@ function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: Resol
       const message = err instanceof Error ? err.message : "";
       setPurchaseError(
         message.includes("available")
-          ? "Web checkout isn't live yet — download the app to subscribe on iOS for now."
+          ? "Web checkout isn't live yet - download the app to subscribe on iOS for now."
           : "Something went wrong with checkout. Please try again."
       );
     }
@@ -190,7 +190,7 @@ function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: Resol
 
   useEffect(() => {
     if (requestedPlan === "premium" || requestedPlan === "plus") {
-      // The referring page (e.g. the Home pricing preview) named a specific plan —
+      // The referring page (e.g. the Home pricing preview) named a specific plan -
       // scroll it into view rather than changing which cards render, since both
       // plans always render together now.
       document.getElementById(`plan-${requestedPlan}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -213,12 +213,12 @@ function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: Resol
             Pricing
           </span>
           <h1>One subscription, shared by both of you</h1>
-          <p className="lead">Subscribe here on the web or right inside the app — either partner&apos;s subscription unlocks the full experience for you both.</p>
+          <p className="lead">Subscribe here on the web or right inside the app - either partner&apos;s subscription unlocks the full experience for you both.</p>
           <div className="apple-note">
             <svg className="icon">
               <use href="/assets/icons.svg#icon-apple" />
             </svg>
-            You&apos;ll sign in with Apple at checkout — it&apos;s how we match your web purchase to your Twofold account.
+            You&apos;ll sign in with Apple at checkout - it&apos;s how we match your web purchase to your Twofold account.
           </div>
         </Reveal>
       </header>
@@ -247,7 +247,7 @@ function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: Resol
           {subscribedTier ? (
             <div className="card waitlist-card" style={{ marginTop: 12, maxWidth: 520, marginLeft: "auto", marginRight: "auto" }}>
               <h3 style={{ marginBottom: 16 }}>
-                You already have Twofold {subscribedTier} — open the app and sign in with the same Apple ID to use it.
+                You already have Twofold {subscribedTier} - open the app and sign in with the same Apple ID to use it.
               </h3>
               <AppStoreBadge label="Open on the" />
             </div>
@@ -255,7 +255,7 @@ function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: Resol
             <div ref={successRef} className="card waitlist-card" style={{ marginTop: 12, maxWidth: 560, marginLeft: "auto", marginRight: "auto" }}>
               <h2 style={{ marginBottom: 10 }}>You&apos;re all set 🎉</h2>
               <p style={{ marginBottom: 24 }}>
-                Download Twofold and sign in with the <strong>same Apple ID</strong> you just used — your subscription
+                Download Twofold and sign in with the <strong>same Apple ID</strong> you just used - your subscription
                 will already be active.
               </p>
               <AppStoreBadge />
@@ -289,7 +289,7 @@ function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: Resol
               {showFallback && (
                 <div className="card waitlist-card" style={{ marginTop: 28, maxWidth: 520, marginLeft: "auto", marginRight: "auto" }}>
                   <h3 style={{ marginBottom: 8 }}>Web checkout is being finalized</h3>
-                  <p style={{ marginBottom: 20 }}>You can subscribe right now from the iOS app instead — it&apos;ll be ready here shortly.</p>
+                  <p style={{ marginBottom: 20 }}>You can subscribe right now from the iOS app instead - it&apos;ll be ready here shortly.</p>
                   <AppStoreBadge />
                 </div>
               )}

@@ -4,7 +4,7 @@ import { getResolvedPlans } from "@/lib/marketing/sanity";
 
 export const metadata: Metadata = {
   title: "Pricing",
-  description: "Twofold Plus and Premium pricing. Subscribe on the web or in the app — either partner's subscription unlocks it for both of you.",
+  description: "Twofold Plus and Premium pricing. Subscribe on the web or in the app - either partner's subscription unlocks it for both of you.",
 };
 
 export default async function PricingPage() {
