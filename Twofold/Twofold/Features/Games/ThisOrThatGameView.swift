@@ -67,7 +67,8 @@ struct ThisOrThatGameView: View {
                     onSendReminder: { Task { await sendReminder() } },
                     onPlayAnother: { dismiss() },
                     onEditAnswers: { store.beginEditingAnswers() },
-                    pendingSyncCount: store.pendingSyncCount
+                    pendingSyncCount: store.pendingSyncCount,
+                    deckID: store.session?.deckID
                 )
             }
         }

@@ -30,6 +30,10 @@ struct GameCompletionView: View {
     /// its own reassurance card since "waiting for partner" alone would be misleading here (my
     /// own answers haven't even reached the server yet, regardless of what my partner's doing).
     var pendingSyncCount = 0
+    /// Passed through purely so `.onAppear` can flip this deck's own progress to "mine done"
+    /// instantly — nil for a shared-pool (non-deck) session, which `AppModel.deckProgress` never
+    /// tracks in the first place.
+    var deckID: UUID? = nil
 
     @Environment(AppModel.self) private var appModel
     @State private var showingReminderSentConfirmation = false
@@ -109,7 +113,10 @@ struct GameCompletionView: View {
             // `AppModel.gameDecks`/`deckProgress` are cached for the whole app session and only
             // ever refreshed explicitly — without this, the deck list's "you're done" checkmark
             // for my own side stayed stale until the app relaunched, even though I've just
-            // finished every round of the session backing this exact screen.
+            // finished every round of the session backing this exact screen. The instant local
+            // flip below covers "Your turn" the moment this screen appears, rather than however
+            // long this fetch takes to land.
+            appModel.markDeckProgressMineCompleted(deckID: deckID)
             Task { await appModel.refreshGameDecks() }
         }
         // `isSendingReminder` is owned by the caller (each typed game view runs its own

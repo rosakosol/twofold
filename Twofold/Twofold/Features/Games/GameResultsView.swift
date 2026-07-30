@@ -172,7 +172,9 @@ struct GameResultsView: View {
             // ever refreshed explicitly (see `loadGameDecksIfNeeded()`'s doc comment) — without
             // this, the deck list's "Completed" checkmark stayed stale (from whenever it was
             // first loaded) until the app relaunched, even though the session backing this exact
-            // screen just completed.
+            // screen just completed. The instant local flip below covers "Your turn" the moment
+            // this screen appears, rather than however long this fetch takes to land.
+            appModel.markDeckProgressMineCompleted(deckID: store.session?.deckID)
             Task { await appModel.refreshGameDecks() }
         }
         .sensoryFeedback(.success, trigger: confettiTrigger)

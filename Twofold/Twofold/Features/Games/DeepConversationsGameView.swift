@@ -79,7 +79,8 @@ struct DeepConversationsGameView: View {
                     onPlayAnother: { dismiss() },
                     myAnswersRecap: myAnswersRecap,
                     onEditAnswers: { store.beginEditingAnswers() },
-                    pendingSyncCount: store.pendingSyncCount
+                    pendingSyncCount: store.pendingSyncCount,
+                    deckID: store.session?.deckID
                 )
             }
         }

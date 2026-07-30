@@ -743,6 +743,18 @@ final class AppModel {
         deckProgress = try? await progress
     }
 
+    /// Flips this deck's own "Your turn" → "Answered" bucket instantly, without waiting on
+    /// `refreshGameDecks()`'s network round trip — called the moment `GameResultsView`/
+    /// `GameCompletionView` appear, alongside (not instead of) that same refresh, which still
+    /// runs to pick up the partner's own side. Without this, "Your turn" stayed stale for however
+    /// long that fetch took, which read as "finishing a game doesn't count" until the user left
+    /// and came back to the Games tab and the fetch had finally landed by then.
+    func markDeckProgressMineCompleted(deckID: UUID?) {
+        guard let deckID, var progress = deckProgress?[deckID] else { return }
+        progress.myAnswered = progress.totalRounds
+        deckProgress?[deckID] = progress
+    }
+
     /// All of this topic's decks, in curated order — Plus members see Premium-tier decks too now
     /// (they just show an unlock badge, see `isDeckLocked(_:)`), so this no longer filters by
     /// tier the way it originally did.
