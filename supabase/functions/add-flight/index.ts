@@ -296,6 +296,27 @@ Deno.serve(async (req) => {
     console.error("[add-flight] failed to insert baseline event:", eventErr.message);
   }
 
+  // A flight can already be cancelled/diverted at the moment it's added (AeroAPI already
+  // reported it that way before this app ever saw it) — `syncFlight`'s own diff logic only ever
+  // inserts a "cancelled"/"diverted" event on a *transition* it observes between two polls, so
+  // without this, a flight added already-cancelled got only the "scheduled" baseline event above
+  // (excluded from the client's own timeline via `isKeyUpdate`), leaving its "Flight updates"
+  // section permanently blank despite the flight genuinely being cancelled. Same event shape
+  // `syncFlight` uses for a live transition, just seeded directly for the same reason the
+  // baseline event above is.
+  if (status === "cancelled" || status === "diverted") {
+    const { error: terminalEventErr } = await serviceClient.from("flight_status_events").insert({
+      flight_id: flightId,
+      type: status,
+      previous_value: "false",
+      new_value: "true",
+      source: "poll",
+    });
+    if (terminalEventErr) {
+      console.error(`[add-flight] failed to insert baseline ${status} event:`, terminalEventErr.message);
+    }
+  }
+
   // Default notification preferences for both partners — unless this flight is being kept
   // private (shared: false), in which case only the caller gets a preference row at all; the
   // partner can't see this flight (RLS) and shouldn't be set up to be notified about it either.

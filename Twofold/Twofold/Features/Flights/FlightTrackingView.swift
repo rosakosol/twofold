@@ -123,7 +123,13 @@ struct FlightTrackingView: View {
                     delayAnalysisCard
                     goodToKnowCard
                     flightInfoCard
-                    notificationPreferencesCard
+                    // A cancelled/diverted flight can't be tracked any further — AeroAPI has
+                    // nothing left to poll toward gate/departure/landing/baggage milestones that
+                    // will ever actually fire, so offering toggles for them read as broken
+                    // promises rather than real settings.
+                    if flight.status != .cancelled, flight.status != .diverted {
+                        notificationPreferencesCard
+                    }
                 }
                 .padding(Theme.Spacing.md)
             }
@@ -476,6 +482,11 @@ struct FlightTrackingView: View {
     }
 
     private var departureStatusLine: String {
+        // Checked before anything else — a cancelled/diverted flight's `bestDeparture` is often
+        // still a real (now-past) scheduled timestamp, which fell through to the "Departing
+        // shortly" branch below and contradicted the "Cancelled" badge shown right above it.
+        if flight.status == .cancelled { return "Cancelled" }
+        if flight.status == .diverted { return "Diverted" }
         // `actualOff` (wheels up) alone, without `actualOut` (gate pushback), still means this
         // flight has genuinely left — see `Flight.bestDeparture`'s doc comment. Without this,
         // that case fell through to the `bestDeparture` branch below with a past timestamp,
@@ -486,6 +497,8 @@ struct FlightTrackingView: View {
     }
 
     private var arrivalStatusLine: String {
+        if flight.status == .cancelled { return "Cancelled" }
+        if flight.status == .diverted { return "Diverted" }
         if flight.actualIn != nil { return "Arrived \(Self.relativeShort(flight.actualIn!)) ago" }
         if let arrival = flight.bestArrival { return arrival > .now ? "Arrives in \(Self.relativeShort(arrival))" : "Arriving shortly" }
         return "Not available"
