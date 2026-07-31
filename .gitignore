@@ -44,3 +44,7 @@ out/
 site/design-system/
 
 site/design-system
+
+# Local-only content — dropped when this .gitignore got replaced by an incoming merge.
+itineraries/
+images/
