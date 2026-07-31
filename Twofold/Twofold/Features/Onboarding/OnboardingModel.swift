@@ -73,9 +73,6 @@ final class OnboardingModel {
     /// lets the app avoid ever re-prompting.
     var notificationsGranted: Bool?
 
-    var draftedFlightNumber: String?
-    var draftedFlightDate: Date?
-
     /// Cache backing `illustrativeOriginCity`, picked once and reused so the notifications
     /// and Live Activity sell screens show the same made-up departure city as each other.
     private var cachedIllustrativeOriginCity: Place?
@@ -136,9 +133,6 @@ final class OnboardingModel {
         partnerPhotoData = nil
 
         notificationsGranted = nil
-
-        draftedFlightNumber = nil
-        draftedFlightDate = nil
 
         cachedIllustrativeOriginCity = nil
     }

@@ -955,9 +955,10 @@ final class AppModel {
     /// Called once account creation succeeds — now happens *before* the paywall/trial screens
     /// rather than after, so a real account exists to tie the subscription to. Persists
     /// everything collected during the default onboarding flow (situation/frequency/
-    /// attribution/goals stay local to `OnboardingModel` for analytics-style use later; names/
-    /// cities/photos/drafted flight apply here) — nothing could be written to Supabase before
-    /// a session existed. Deliberately does **not** set `hasCouple = true`: `RootView` swaps
+    /// attribution/goals go to PostHog as person properties via `Analytics.setOnboardingTraits`,
+    /// not Supabase — they're analytics-segmentation traits, not app data anything else reads;
+    /// names/cities/photos/drafted flight apply here) — nothing could be written to Supabase
+    /// before a session existed. Deliberately does **not** set `hasCouple = true`: `RootView` swaps
     /// straight to `MainTabView` the instant that flips, which would skip the paywall/trial
     /// screens still left to show. `finishOnboarding()` does that final flip once they're done.
     ///
@@ -982,6 +983,15 @@ final class AppModel {
             // continuous onboarding session (no relaunch, no `SignInView`). Without this, that
             // device never gets a `device_push_tokens` row until the next cold launch.
             await retryPendingPushTokenRegistrationIfNeeded()
+            Analytics.setOnboardingTraits(
+                userID: userID,
+                attribution: onboarding.attribution,
+                situation: onboarding.situation,
+                frequency: onboarding.frequency,
+                goals: onboarding.goals,
+                userGender: onboarding.userGender,
+                partnerGender: onboarding.partnerGender
+            )
         }
 
         if let selfPhotoData = onboarding.selfPhotoData,

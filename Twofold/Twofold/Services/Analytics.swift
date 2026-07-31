@@ -52,4 +52,32 @@ enum Analytics {
     static func capture(_ event: String, properties: [String: Any]? = nil) {
         PostHogSDK.shared.capture(event, properties: properties)
     }
+
+    /// Onboarding's questionnaire answers (attribution/relationship situation/travel frequency/
+    /// goals), set as durable PostHog *person* properties rather than a one-off event payload —
+    /// these describe who the user is, not something that happened, so they belong on the
+    /// profile itself (segmentable in PostHog's UI, present on every later event automatically)
+    /// rather than needing to be re-derived from a single "account created" event every time.
+    /// Called once, from `AppModel.applyOnboardingAccount`, at the one point a real user id
+    /// exists and every answer has been collected — before this, `OnboardingModel`'s own answers
+    /// were held in memory for the length of onboarding and then simply discarded.
+    static func setOnboardingTraits(
+        userID: UUID,
+        attribution: AttributionSource?,
+        situation: RelationshipSituation?,
+        frequency: TravelFrequency?,
+        goals: Set<OnboardingGoal>,
+        userGender: Gender?,
+        partnerGender: Gender?
+    ) {
+        var properties: [String: Any] = [:]
+        if let attribution { properties["attribution_source"] = attribution.rawValue }
+        if let situation { properties["relationship_situation"] = situation.rawValue }
+        if let frequency { properties["travel_frequency"] = frequency.rawValue }
+        if !goals.isEmpty { properties["onboarding_goals"] = goals.map(\.rawValue).sorted() }
+        if let userGender { properties["gender"] = userGender.rawValue }
+        if let partnerGender { properties["partner_gender"] = partnerGender.rawValue }
+        guard !properties.isEmpty else { return }
+        PostHogSDK.shared.identify(userID.uuidString, userProperties: properties)
+    }
 }
