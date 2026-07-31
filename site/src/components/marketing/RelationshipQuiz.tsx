@@ -17,17 +17,20 @@ const LEAN_WEIGHTS: Record<string, number> = {
 const FALLBACK_RESULTS: Record<"plus" | "premium", QuizResultDoc> = {
   plus: {
     title: "Twofold Plus sounds like your fit",
-    description: "Unlimited trips and memories, up to 5 tracked flights a month, and 500+ questions and games — everything most long-distance couples need.",
+    description: "Unlimited trips and memories, up to 5 tracked flights a month, and 500+ questions and games - everything most long-distance couples need.",
     ctaLabel: "Get Twofold Plus",
   },
   premium: {
     title: "Twofold Premium sounds like your fit",
-    description: "The full relationship globe experience — more flight tracking, 2000+ questions and games, the interactive 3D globe, and the Relationship Record PDF export.",
+    // TEMP: the Relationship Record PDF export is dropped from this list while the feature is
+    // pulled from the first release - see featuresFallback.ts. The live copy is the
+    // `quizResult-premium` doc in Studio.
+    description: "The full relationship globe experience - more flight tracking, 2000+ questions and games, and the interactive 3D globe.",
     ctaLabel: "Get Twofold Premium",
   },
 };
 
-/** Port of the old site's assets/js/cms-quiz.js — same state machine (question index +
+/** Port of the old site's assets/js/cms-quiz.js - same state machine (question index +
  * answers array), just as React state instead of manual DOM rebuilds. Renders nothing
  * (matches the original's `hidden` section) if there aren't at least 2 published
  * questions with options, since there's no sensible hardcoded fallback for a quiz. */
@@ -88,7 +91,7 @@ export function RelationshipQuiz({
     setAnswers([]);
     setCurrentIndex(0);
     setShowResult(false);
-    // Back to whichever state this instance opened in — the start card on the home page,
+    // Back to whichever state this instance opened in - the start card on the home page,
     // question 1 on /quiz.
     setStarted(autoStart);
   }
@@ -98,7 +101,7 @@ export function RelationshipQuiz({
 
   // The red gradient start card. Self-contained (its own eyebrow and heading) rather than
   // sitting under the section-head the started states use, because that's the shape it had
-  // as the standalone "quiz isn't ready yet" teaser on the home page — see page.tsx, which
+  // as the standalone "quiz isn't ready yet" teaser on the home page - see page.tsx, which
   // still renders the same card for that case. Deliberately NOT wrapped in <Reveal>: its
   // "is-visible" class is added outside React's tracking by an IntersectionObserver, so
   // after the observer has already fired once, re-rendering this card on "Retake quiz"
@@ -145,13 +148,13 @@ export function RelationshipQuiz({
           <p>Answer a few quick questions and we&apos;ll point you to the plan that matches how you two do long distance.</p>
         </Reveal>
 
-        {/* Neither card below uses the scroll-triggered .reveal treatment — both are
+        {/* Neither card below uses the scroll-triggered .reveal treatment - both are
             driven directly by clicking an answer, not by scrolling down to discover
             them for the first time. They also sit at the same position in this ternary,
             so React reuses one underlying DOM node between the two; .reveal's manually-
             added "is-visible" class (added outside React's own tracking, by an
             IntersectionObserver callback) would otherwise get wiped the moment React
-            re-renders that reused node with the other branch's className — which reads
+            re-renders that reused node with the other branch's className - which reads
             as the result card fading back out right after it appears. */}
         {!showResult ? (
           <div className="quiz-card">

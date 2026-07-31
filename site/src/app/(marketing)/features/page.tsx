@@ -6,12 +6,15 @@ import { resolveFeatures, type ResolvedFeature } from "@/lib/marketing/featuresF
 
 export const metadata: Metadata = {
   title: "Features",
+  // TEMP: ", and a printable relationship record" dropped while that feature is pulled from the
+  // first release - see featuresFallback.ts. This is the page's SEO description, so it was
+  // advertising the feature to search engines even though no card renders for it any more.
   description:
-    "Everything Twofold gives long-distance couples: a shared 3D relationship globe, live flight tracking, memories tied to real places, couple games, widgets, and a printable relationship record.",
+    "Everything Twofold gives long-distance couples: a shared 3D relationship globe, live flight tracking, memories tied to real places, couple games, and widgets.",
 };
 
 // Hand-built illustration per feature, keyed by slug. Features themselves are editable in
-// Studio (add/remove/rename/reorder), but the artwork is bespoke JSX — so a feature added
+// Studio (add/remove/rename/reorder), but the artwork is bespoke JSX - so a feature added
 // there, or one whose slug was changed, renders the generic card at the bottom until
 // someone adds a matching `case` here.
 function FeatureArt({ feature }: { feature: ResolvedFeature }) {
@@ -105,27 +108,30 @@ function FeatureArt({ feature }: { feature: ResolvedFeature }) {
           </div>
         </div>
       );
-    case "relationship-record":
-      return (
-        <div className="mock-card" style={{ maxWidth: 220 }}>
-          <div className="mock-card-row">
-            <span className="icon-dot" style={{ background: "var(--sky-blue)" }}>
-              <svg className="icon">
-                <use href="/assets/icons.svg#icon-file-download" />
-              </svg>
-            </span>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 14 }}>Our Relationship Record</div>
-              <div style={{ fontSize: 12, color: "var(--subtle-ink)" }}>48 pages · PDF</div>
-            </div>
-          </div>
-          <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
-            <div className="mock-line" style={{ width: "90%" }} />
-            <div className="mock-line" style={{ width: "70%" }} />
-            <div className="mock-line" style={{ width: "80%" }} />
-          </div>
-        </div>
-      );
+    // TEMP: Relationship Record is pulled from the first release - see featuresFallback.ts.
+    // Unreachable regardless while no feature has this slug (the `default` branch below covers
+    // it), but kept commented rather than deleted so restoring the feature restores its art.
+    // case "relationship-record":
+    //   return (
+    //     <div className="mock-card" style={{ maxWidth: 220 }}>
+    //       <div className="mock-card-row">
+    //         <span className="icon-dot" style={{ background: "var(--sky-blue)" }}>
+    //           <svg className="icon">
+    //             <use href="/assets/icons.svg#icon-file-download" />
+    //           </svg>
+    //         </span>
+    //         <div>
+    //           <div style={{ fontWeight: 700, fontSize: 14 }}>Our Relationship Record</div>
+    //           <div style={{ fontSize: 12, color: "var(--subtle-ink)" }}>48 pages · PDF</div>
+    //         </div>
+    //       </div>
+    //       <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+    //         <div className="mock-line" style={{ width: "90%" }} />
+    //         <div className="mock-line" style={{ width: "70%" }} />
+    //         <div className="mock-line" style={{ width: "80%" }} />
+    //       </div>
+    //     </div>
+    //   );
     default:
       return (
         <div className="mock-card" style={{ maxWidth: 220 }}>
@@ -161,7 +167,7 @@ export default async function FeaturesPage() {
             Features
           </span>
           <h1>Everything your distance deserves</h1>
-          <p className="lead">Twofold isn&apos;t just a flight tracker — it&apos;s a shared home for your relationship, wherever in the world you both are.</p>
+          <p className="lead">Twofold isn&apos;t just a flight tracker - it&apos;s a shared home for your relationship, wherever in the world you both are.</p>
         </Reveal>
       </header>
 

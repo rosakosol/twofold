@@ -17,7 +17,7 @@ import { CATEGORY_LABELS, CATEGORY_VALUES, type FeatureCategory, type FeatureSta
 
 const ALL = "__all__";
 
-// Roadmap simplified to 4 quick-glance stages instead of the full 6-value status enum —
+// Roadmap simplified to 4 quick-glance stages instead of the full 6-value status enum -
 // "considering" folds into Requested (both mean "not committed to yet"), and "closed" is
 // excluded entirely (not a forward-looking state). Matches design_handoff_twofold_site/
 // feedback.html's 4-column board exactly.
@@ -99,7 +99,7 @@ function Board() {
         <EmptyState
           icon={TriangleAlert}
           title="Couldn't load feedback"
-          description="Something went wrong fetching requests — check your connection and try again."
+          description="Something went wrong fetching requests - check your connection and try again."
           action={
             <Button variant="outline" size="sm" onClick={() => refetch()}>
               Retry

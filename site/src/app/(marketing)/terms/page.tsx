@@ -14,7 +14,7 @@ export default async function TermsPage() {
       fallbackLastUpdated="12 July 2026"
       fallbackNotice={
         <>
-          <strong>Draft — pending legal review.</strong> This page is a placeholder so the app&apos;s
+          <strong>Draft - pending legal review.</strong> This page is a placeholder so the app&apos;s
           Terms of Use link works end-to-end. It has not been reviewed by a lawyer and should not be
           treated as final before Twofold is publicly released.
         </>
@@ -49,7 +49,7 @@ export default async function TermsPage() {
         <li>
           <strong>Web subscriptions</strong> (twofoldapp.com.au/pricing) renew automatically at the
           end of each billing period and can be cancelled at any time; you keep access until the
-          end of the period already paid for. Payment is processed by Stripe via RevenueCat —
+          end of the period already paid for. Payment is processed by Stripe via RevenueCat -
           Twofold does not store your card details. Prices are shown in USD and may be subject to
           applicable taxes.
         </li>
@@ -60,7 +60,7 @@ export default async function TermsPage() {
           a case-by-case basis.
         </li>
         <li>
-          A subscription started on the web is tied to the Apple ID used to sign in at checkout —
+          A subscription started on the web is tied to the Apple ID used to sign in at checkout -
           sign in with that same Apple ID in the app to access what you&apos;ve paid for.
         </li>
       </ul>
@@ -75,12 +75,12 @@ export default async function TermsPage() {
       <h2>Removing a partner</h2>
       <p>
         Either partner can end a connection at any time. Doing so archives shared data rather than
-        deleting it immediately — either of you can permanently delete it afterward from Settings.
+        deleting it immediately - either of you can permanently delete it afterward from Settings.
       </p>
 
       <h2>Disclaimer</h2>
       <p>
-        Flight tracking and weather data are provided by third parties and shown for convenience —
+        Flight tracking and weather data are provided by third parties and shown for convenience -
         Twofold doesn&apos;t guarantee their accuracy and isn&apos;t liable for decisions made based on them.
       </p>
 

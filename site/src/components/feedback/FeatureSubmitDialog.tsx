@@ -45,7 +45,7 @@ export function FeatureSubmitDialog() {
     return () => clearTimeout(timeout);
   }, [title]);
 
-  // Changing the title after already confirming should re-check for duplicates —
+  // Changing the title after already confirming should re-check for duplicates -
   // don't let a stale confirmation carry over to a materially different title.
   useEffect(() => {
     setConfirmedNotDuplicate(false);
@@ -107,7 +107,7 @@ export function FeatureSubmitDialog() {
       setOpen(false);
       reset();
     } catch {
-      toast.error("Something went wrong — try again.");
+      toast.error("Something went wrong - try again.");
     }
   }
 
@@ -126,7 +126,7 @@ export function FeatureSubmitDialog() {
           <DialogHeader>
             <DialogTitle>Request a feature</DialogTitle>
             <DialogDescription>
-              What would make Twofold better? Be specific — it helps other couples find and
+              What would make Twofold better? Be specific - it helps other couples find and
               upvote the same idea instead of creating a duplicate.
             </DialogDescription>
           </DialogHeader>

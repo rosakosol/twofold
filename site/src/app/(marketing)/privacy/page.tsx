@@ -14,7 +14,7 @@ export default async function PrivacyPage() {
       fallbackLastUpdated="12 July 2026"
       fallbackNotice={
         <>
-          <strong>Draft — pending legal review.</strong> This page is a placeholder so the app&apos;s
+          <strong>Draft - pending legal review.</strong> This page is a placeholder so the app&apos;s
           Privacy Policy link works end-to-end. It has not been reviewed by a lawyer and should not
           be treated as final before Twofold is publicly released.
         </>
@@ -31,7 +31,7 @@ export default async function PrivacyPage() {
       <h2>How it&apos;s shared with your partner</h2>
       <p>
         Once you&apos;re connected, your home city, trips, memories, flights, and shared activity are
-        visible to your partner — that&apos;s the core purpose of the app. Personal notes (like your
+        visible to your partner - that&apos;s the core purpose of the app. Personal notes (like your
         nickname for your partner) stay private to you unless you choose to share them.
       </p>
 
@@ -48,7 +48,7 @@ export default async function PrivacyPage() {
         Twofold uses Supabase for data storage and authentication, Apple WeatherKit for weather
         data, AeroAPI for flight tracking, and Apple Push Notification service for notifications.
         Subscription purchases are processed by Apple (App Store) or by Stripe via RevenueCat
-        (web) — Twofold never sees or stores your payment card details. Each of these providers
+        (web) - Twofold never sees or stores your payment card details. Each of these providers
         processes data only as needed to power the relevant feature.
       </p>
 

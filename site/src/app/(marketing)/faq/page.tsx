@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getFaqEntries, groupFaqEntriesByCategory } from "@/lib/marketing/faq";
-import { FAQ_FALLBACK, FAQ_CATEGORY_LABELS } from "@/lib/marketing/faqFallback";
+import { FAQ_FALLBACK, FAQ_CATEGORY_LABELS, FAQ_FALLBACK_CATEGORY_ORDER } from "@/lib/marketing/faqFallback";
 import { FaqAccordionItem } from "@/components/marketing/FaqAccordionItem";
 import { Reveal } from "@/components/marketing/Reveal";
 
@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   description: "Answers to common questions about Twofold: platforms, subscriptions, billing, privacy, and how partner connections work.",
 };
 
-// Deep-link anchor for the subscriptions/billing FAQ group — matched by category label, not a
+// Deep-link anchor for the subscriptions/billing FAQ group - matched by category label, not a
 // fixed category id, since faq_entries' category column is free text rather than a Sanity-style
 // fixed enum.
 const SUBSCRIPTIONS_ANCHOR_LABEL = "Subscriptions & billing";
@@ -17,13 +17,13 @@ const SUBSCRIPTIONS_ANCHOR_LABEL = "Subscriptions & billing";
 export default async function FaqPage() {
   const entries = await getFaqEntries();
 
-  // Empty means the Supabase fetch failed outright (see getFaqEntries's own doc comment) —
+  // Empty means the Supabase fetch failed outright (see getFaqEntries's own doc comment) -
   // fall back to the same static copy the old Sanity-backed page used for the equivalent case,
   // rather than rendering a blank FAQ page.
   const groups =
     entries.length > 0
       ? groupFaqEntriesByCategory(entries)
-      : (["getting-started", "subscriptions", "privacy"] as const).map((category) => ({
+      : FAQ_FALLBACK_CATEGORY_ORDER.map((category) => ({
           category: FAQ_CATEGORY_LABELS[category],
           items: FAQ_FALLBACK.filter((item) => item.category === category).map((item) => ({
             id: `${category}-${item.order}`,
@@ -50,7 +50,7 @@ export default async function FaqPage() {
             <a className="text-link" href="mailto:hello@twofoldapp.com.au" style={{ display: "inline-flex" }}>
               Email us
             </a>{" "}
-            — a real person will get back to you.
+            - a real person will get back to you.
           </p>
         </Reveal>
       </header>

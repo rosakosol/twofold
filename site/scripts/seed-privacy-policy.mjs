@@ -1,17 +1,17 @@
 /**
  * Replaces the `legalPage-privacy` document in Sanity with the long-form policy below.
  *
- *   node scripts/seed-privacy-policy.mjs           # dry run — prints a summary, writes nothing
+ *   node scripts/seed-privacy-policy.mjs           # dry run - prints a summary, writes nothing
  *   node scripts/seed-privacy-policy.mjs --write   # overwrite legalPage-privacy
  *
  * Studio is the source of truth for this document, so this is a deliberate overwrite of
- * whatever is published, not a sync — hence the explicit --write flag. It touches no other
+ * whatever is published, not a sync - hence the explicit --write flag. It touches no other
  * document. Anything an editor has changed in Studio since the last run is lost, so re-read
  * /studio before running it again.
  *
  * The copy is written to match how Twofold actually behaves (RLS policies, delete_own_account,
  * delete_dissolved_couple_data, the third-party services actually called). Where a fact isn't
- * knowable from the code — legal entity, hosting regions, retention windows, minimum age — the
+ * knowable from the code - legal entity, hosting regions, retention windows, minimum age - the
  * text says [TO CONFIRM] rather than inventing something.
  */
 import {sanityWriteClient} from './lib/sanity-write-client.mjs'
@@ -32,19 +32,19 @@ const body = [
   p(
     span(`Twofold is operated by [TO CONFIRM: legal entity name and registered address]. If anything here is unclear, email `),
     mailto(),
-    span(` — we'd rather explain it than have you guess.`)
+    span(` - we'd rather explain it than have you guess.`)
   ),
 
   // ------------------------------------------------------- what you give us
   h2('Information you give us'),
   bullet(
-    `Account details. You sign in with Apple or Google, and we receive an email address and a unique identifier from them. We never receive your password — Twofold has no password of its own to store.`
+    `Account details. You sign in with Apple or Google, and we receive an email address and a unique identifier from them. We never receive your password - Twofold has no password of its own to store.`
   ),
   bullet(
     `Your profile. Your first name, a profile photo, an accent colour, the city you call home, and the date you started dating.`
   ),
   bullet(
-    `Notes about your partner. A nickname and photo you can set for your partner. These are yours alone — your partner never sees what you've chosen.`
+    `Notes about your partner. A nickname and photo you can set for your partner. These are yours alone - your partner never sees what you've chosen.`
   ),
   bullet(
     `Things you create. Trips, memories (a title, note, emoji, date, place and photos), flights (flight numbers and dates, plus any boarding passes or travel documents you add), drawings, and your answers to games and discussion prompts.`
@@ -63,32 +63,37 @@ const body = [
   ),
   bullet(`Subscription status. RevenueCat tells us whether you have an active Plus or Premium subscription.`),
   bullet(
-    `Technical logs. Our servers record standard request information — IP address, timestamps, error details — needed to operate and secure the service.`
+    `Technical logs. Our servers record standard request information - IP address, timestamps, error details - needed to operate and secure the service.`
   ),
 
   // ------------------------------------------------------------- location
   h2('Location'),
   ptext(
-    `Location is optional, and only ever requested as "while using the app". If you allow it, we use it once to work out which city you're in so we can fill in your home city for you.`
+    `Location is optional, and only ever requested as "while using the app". Twofold never has access to your location in the background, or while the app is closed.`
   ),
   ptext(
-    `We store that city — its name, country and coordinates — not your device's position. We don't track where you are, and we keep no location history. You can decline and type your city instead, and change the permission at any time in iOS Settings.`
+    `If you allow it, Twofold uses your location to work out which city you're in - when you first set your home city, and then again automatically each time you open the app, at most once an hour. If you've moved to a different city, your home city is updated to match.`
   ),
   p(
-    span(`Twofold is not a location-sharing app. `, 'strong'),
-    span(`Your partner sees the city you've set, not where you are.`)
+    span(`That means the city you're in is shared with your partner, and keeps up with you as you travel. `, 'strong'),
+    span(
+      `What we don't do is follow your position: each check is resolved to a city and nothing finer, a new city replaces the last rather than building up a history of where you've been, and there is no live or continuous tracking at any point.`
+    )
+  ),
+  ptext(
+    `You can decline the permission and type your city in by hand instead, and you can change it at any time in iOS Settings. With location declined, your home city only ever changes when you change it yourself.`
   ),
 
   // -------------------------------------------------- camera, photos, FaceID
   h2('Camera, photos and Face ID'),
   ptext(
-    `The camera is used only when you capture a boarding pass or travel document. Photos you attach to a memory are uploaded to your shared album. If you turn on the app lock, Face ID is handled entirely by iOS on your device — we never see it and it is never sent anywhere.`
+    `The camera is used only when you capture a boarding pass or travel document. Photos you attach to a memory are uploaded to your shared album. If you turn on the app lock, Face ID is handled entirely by iOS on your device - we never see it and it is never sent anywhere.`
   ),
 
   // ---------------------------------------------------------- how we use it
   h2('How we use your information'),
   bullet(`To run the core features: the globe, distance, trips, memories, flight tracking, games and widgets.`),
-  bullet(`To send the notifications you've asked for — partner activity, flight updates, streaks and reminders.`),
+  bullet(`To send the notifications you've asked for - partner activity, flight updates, streaks and reminders.`),
   bullet(`To process and restore subscriptions, whether bought in the app or on this website.`),
   bullet(`To answer your support requests.`),
   bullet(`To diagnose faults, prevent abuse, and keep accounts secure.`),
@@ -98,7 +103,9 @@ const body = [
   // ------------------------------------------------- what your partner sees
   h2('What your partner can see'),
   ptext(`Sharing with your partner is the point of the app, so once you're connected they can see:`),
-  bullet(`Your home city, and the distance between you.`),
+  bullet(
+    `The city you're in - either set by you, or updated automatically as you travel if you've allowed location access - and the distance between you.`
+  ),
   bullet(`Your trips, and the flights you're tracking, including live status.`),
   bullet(`Your memories, including their photos, notes and places.`),
   bullet(`Your answers to games and prompts, and your shared streaks.`),
@@ -121,17 +128,17 @@ const body = [
     `Either of you can then permanently delete the entire shared archive from Settings → Archived Data. That deletes it for both of you, and it can't be undone.`
   ),
   ptext(
-    `We designed it this way so that one person can't quietly erase a shared history the other person also lived — and so neither person is locked out of it.`
+    `We designed it this way so that one person can't quietly erase a shared history the other person also lived - and so neither person is locked out of it.`
   ),
 
   // -------------------------------------------------------- deleting account
   h2('Deleting your account'),
   ptext(`You can delete your account at any time from Settings → Delete Account. When you do:`),
   bullet(`Your name, photo, home city and login are removed, and you won't be able to sign back in.`),
-  bullet(`Any active connection ends, and your partner is told you've left — the same as if you'd removed them.`),
+  bullet(`Any active connection ends, and your partner is told you've left - the same as if you'd removed them.`),
   bullet(`Your own uploads (your profile photo, your drawings) and all your notification tokens are deleted.`),
   bullet(
-    `Shared content — trips, memories, photos, flights — is not deleted by default, because it is your partner's history too.`
+    `Shared content - trips, memories, photos, flights - is not deleted by default, because it is your partner's history too.`
   ),
   p(
     span(`Because you won't be able to sign in afterwards, `, 'strong'),
@@ -142,7 +149,7 @@ const body = [
   p(
     span(`If you've already deleted your account and want the shared content removed, email `),
     mailto(),
-    span(` and we'll deal with it — see Your rights below.`)
+    span(` and we'll deal with it - see Your rights below.`)
   ),
 
   // -------------------------------------------------------------- sharing
@@ -150,27 +157,27 @@ const body = [
   ptext(
     `We do not sell your personal information, and never have. We share it only with the providers that make Twofold work:`
   ),
-  bullet(`Supabase — database, authentication and file storage.`),
-  bullet(`Apple — push notifications and Live Activities, weather data, and App Store purchases.`),
-  bullet(`FlightAware (AeroAPI) — schedules and live status for the flights you track.`),
-  bullet(`RevenueCat — subscription management across the app and the website.`),
-  bullet(`Stripe — payment processing for subscriptions bought on the website.`),
-  bullet(`PostHog — product analytics.`),
-  bullet(`Zoho Mail — sending and receiving support and account email.`),
-  bullet(`Vercel — hosting for twofoldapp.com.au.`),
-  bullet(`Sanity — content management for the website's marketing pages.`),
+  bullet(`Supabase - database, authentication and file storage.`),
+  bullet(`Apple - push notifications and Live Activities, weather data, and App Store purchases.`),
+  bullet(`FlightAware (AeroAPI) - schedules and live status for the flights you track.`),
+  bullet(`RevenueCat - subscription management across the app and the website.`),
+  bullet(`Stripe - payment processing for subscriptions bought on the website.`),
+  bullet(`PostHog - product analytics.`),
+  bullet(`Zoho Mail - sending and receiving support and account email.`),
+  bullet(`Vercel - hosting for twofoldapp.com.au.`),
+  bullet(`Sanity - content management for the website's marketing pages.`),
   ptext(
-    `Each of these processes data only as needed for that purpose. We may also disclose information where the law requires it, or to protect someone's safety — and we'll tell you when that happens unless we're legally prevented from doing so.`
+    `Each of these processes data only as needed for that purpose. We may also disclose information where the law requires it, or to protect someone's safety - and we'll tell you when that happens unless we're legally prevented from doing so.`
   ),
   ptext(`Twofold never sees or stores your card details. Those go directly to Apple or to Stripe.`),
 
   // --------------------------------------------------------- lawful basis
   h2('Our legal bases for using your information'),
   ptext(`If you're in the EEA or the UK, we rely on the following bases:`),
-  bullet(`Performing our contract with you — running the app and your subscription.`),
-  bullet(`Legitimate interests — keeping the service secure, fixing faults, and understanding how it's used.`),
-  bullet(`Consent — location, push notifications and marketing email. You can withdraw it at any time.`),
-  bullet(`Legal obligation — records we're required to keep, such as those relating to purchases.`),
+  bullet(`Performing our contract with you - running the app and your subscription.`),
+  bullet(`Legitimate interests - keeping the service secure, fixing faults, and understanding how it's used.`),
+  bullet(`Consent - location, push notifications and marketing email. You can withdraw it at any time.`),
+  bullet(`Legal obligation - records we're required to keep, such as those relating to purchases.`),
 
   // ------------------------------------------------------------- retention
   h2('How long we keep it'),
@@ -189,7 +196,7 @@ const body = [
   h2('How we protect it'),
   bullet(`Everything is encrypted in transit, and encrypted at rest by our hosting providers.`),
   bullet(
-    `Row-level security rules mean a request can only ever read data belonging to your own account or to your couple — this is enforced by the database itself, not just by the app.`
+    `Row-level security rules mean a request can only ever read data belonging to your own account or to your couple - this is enforced by the database itself, not just by the app.`
   ),
   bullet(`Uploaded files are namespaced per couple and per profile, under the same rules.`),
   bullet(`You can add a Face ID lock to the app.`),
@@ -223,7 +230,7 @@ const body = [
     ),
     link('oaic.gov.au', 'https://www.oaic.gov.au'),
     span(
-      `. If you're in California, you have the right to know what we collect, to have it deleted, and not to be treated differently for exercising those rights — and, as above, we don't sell personal information.`
+      `. If you're in California, you have the right to know what we collect, to have it deleted, and not to be treated differently for exercising those rights - and, as above, we don't sell personal information.`
     )
   ),
 
@@ -250,9 +257,9 @@ const doc = {
   _type: 'legalPage',
   pageId: 'privacy',
   title: 'Privacy Policy',
-  lastUpdated: '2026-07-26',
+  lastUpdated: '2026-07-31',
   noticeText:
-    `Draft — pending legal review. This policy describes how Twofold actually works today, but it has not been reviewed by a lawyer, and the points marked [TO CONFIRM] still need a decision before Twofold is publicly released.`,
+    `Draft - pending legal review. This policy describes how Twofold actually works today, but it has not been reviewed by a lawyer, and the points marked [TO CONFIRM] still need a decision before Twofold is publicly released.`,
   body,
 }
 
@@ -260,7 +267,7 @@ const headings = body.filter((b) => b.style === 'h2').map((b) => b.children[0].t
 const toConfirm = body.filter((b) => JSON.stringify(b).includes('[TO CONFIRM')).length
 
 if (!WRITE) {
-  console.log(`Dry run — nothing written. Pass --write to publish.\n`)
+  console.log(`Dry run - nothing written. Pass --write to publish.\n`)
   console.log(`${body.length} blocks, ${headings.length} sections, ${toConfirm} still marked [TO CONFIRM]:`)
   for (const heading of headings) console.log('  - ' + heading)
   process.exit(0)
@@ -268,4 +275,4 @@ if (!WRITE) {
 
 const {client, projectId, dataset} = sanityWriteClient()
 await client.createOrReplace(doc)
-console.log(`Replaced legalPage-privacy in ${projectId}/${dataset} — ${headings.length} sections, ${body.length} blocks.`)
+console.log(`Replaced legalPage-privacy in ${projectId}/${dataset} - ${headings.length} sections, ${body.length} blocks.`)

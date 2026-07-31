@@ -13,7 +13,7 @@ export default async function QuizPage() {
   const [questions, results] = await Promise.all([getQuizQuestions(), getQuizResults()]);
 
   // RelationshipQuiz itself renders nothing once there are fewer than 2 published
-  // questions (each with 2+ options) — deliberately so on the home page, where the quiz
+  // questions (each with 2+ options) - deliberately so on the home page, where the quiz
   // is just one of several sections. As this page's *entire* content, that would be a
   // blank page with no way to tell why, so show a real message instead.
   if (!isQuizPlayable(questions)) {
@@ -23,7 +23,7 @@ export default async function QuizPage() {
           <p className="eyebrow" style={{ justifyContent: "center" }}>Find your fit</p>
           <h1>The quiz is still being put together</h1>
           <p className="lede" style={{ margin: "0 auto 24px" }}>
-            Check back soon — or just compare plans directly.
+            Check back soon - or just compare plans directly.
           </p>
           <Link href="/pricing" className="btn btn-primary btn-lg">
             See pricing
@@ -33,7 +33,7 @@ export default async function QuizPage() {
     );
   }
 
-  // No extra wrapper here — RelationshipQuiz renders its own top-level <section>, which
+  // No extra wrapper here - RelationshipQuiz renders its own top-level <section>, which
   // already gets the standard 84px vertical page padding from the generic `section` rule
   // in marketing.css; wrapping it again would double that spacing.
   // autoStart: someone who navigated to /quiz has already chosen to take it, so the start

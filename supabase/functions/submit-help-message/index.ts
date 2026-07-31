@@ -1,34 +1,34 @@
-// Settings > Help > Support's "Contact Support" form submits here — sends an actual email via
+// Settings > Help > Support's "Contact Support" form submits here - sends an actual email via
 // Zoho Mail's SMTP rather than handing off to the device's Mail app. This is now the ONLY
 // in-app contact path: the separate "Send Feedback" screen and the in-game mailto: menus were
 // both folded into this one categorised form (Feedback and Game Issue are just categories now),
 // so Services/SupportMail.swift and its mailto: flow are gone.
 //
-// Requires a real signed-in user (`Authorization: Bearer <user access token>`) — same reasoning
+// Requires a real signed-in user (`Authorization: Bearer <user access token>`) - same reasoning
 // as parse-flight-email: this triggers an outbound third-party call with no other
 // rate-limiting, so it must never be reachable with just the publishable/anon key.
 //
-// Requires these Supabase secrets — sending fails with a 500 until they're set:
+// Requires these Supabase secrets - sending fails with a 500 until they're set:
 //   - ZOHO_SMTP_USER / ZOHO_SMTP_PASSWORD: the Zoho mailbox login and an **app-specific
 //     password** (Zoho > Security > App Passwords). Not the account's normal login password.
-//     This must be a real licensed mailbox (rosa@) — **never an alias**. support@/hello@/etc.
+//     This must be a real licensed mailbox (rosa@) - **never an alias**. support@/hello@/etc.
 //     are aliases on that mailbox and have no password of their own, so authenticating as one
 //     always fails with a bare `535 Authentication Failed` that looks exactly like a wrong
 //     password. Send *as* the alias via ZOHO_FROM_ADDRESS below, authenticate as the mailbox.
 //   - ZOHO_SMTP_HOST (optional, default "smtp.zoho.com"): use the host for the DC the account
-//     was created in — e.g. "smtp.zoho.com.au" for the AU DC. Wrong DC = auth failures.
+//     was created in - e.g. "smtp.zoho.com.au" for the AU DC. Wrong DC = auth failures.
 //   - ZOHO_SMTP_PORT (optional, default 465): 465 implicit TLS, or 587 for STARTTLS.
 //   - ZOHO_FROM_ADDRESS (optional, defaults to ZOHO_SMTP_USER): Zoho only permits sending as
-//     the authenticated mailbox or one of its verified aliases — an unverified From is rejected.
+//     the authenticated mailbox or one of its verified aliases - an unverified From is rejected.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
-// Every category now lands in one inbox — the old feedback@/support@ split went away with the
+// Every category now lands in one inbox - the old feedback@/support@ split went away with the
 // separate feedback form, since one categorised queue is simpler to actually monitor.
 const RECIPIENT = "support@twofoldapp.com.au";
 
-// Mirrored in Swift (Services/HelpService.swift's SupportRequestCategory) for the picker — no
+// Mirrored in Swift (Services/HelpService.swift's SupportRequestCategory) for the picker - no
 // shared codegen between the two, so keep both lists in sync by hand if this ever changes (same
 // duplication this codebase already accepts for FlightStatus, see _shared/flight-status.ts).
 const SUPPORT_CATEGORIES = [
@@ -49,7 +49,7 @@ function isSupportCategory(value: unknown): value is SupportCategory {
 
 const MAX_MESSAGE_LENGTH = 5000;
 
-/// Attached automatically when the report came from a game screen's "Report a Problem" — the
+/// Attached automatically when the report came from a game screen's "Report a Problem" - the
 /// IDs matter more than the labels: a deck title can be renamed or duplicated, so deckID and
 /// contentID are what actually pin a report to a specific row in the games admin tables.
 /// All fields optional: the results screen has no single "current" round, and daily-activity
@@ -95,7 +95,7 @@ function gameContextLines(game: GameContext): string[] {
   if (game.content) lines.push(`Content: ${game.content}`);
   if (game.contentID) lines.push(`Content ID: ${game.contentID}`);
   if (game.sessionID) lines.push(`Session ID: ${game.sessionID}`);
-  return lines.length ? ["— Game context —", ...lines, ""] : [];
+  return lines.length ? ["- Game context -", ...lines, ""] : [];
 }
 
 Deno.serve(async (req) => {
@@ -133,7 +133,7 @@ Deno.serve(async (req) => {
   const fromAddress = Deno.env.get("ZOHO_FROM_ADDRESS") ?? Deno.env.get("ZOHO_SMTP_USER");
   if (!fromAddress) {
     console.error("[submit-help-message] ZOHO_FROM_ADDRESS/ZOHO_SMTP_USER is not configured");
-    return Response.json({ error: "Email sending isn't set up yet — please try again later" }, { status: 500 });
+    return Response.json({ error: "Email sending isn't set up yet - please try again later" }, { status: 500 });
   }
 
   const trimmedSubject = input.subject?.trim();
@@ -141,12 +141,12 @@ Deno.serve(async (req) => {
     ? trimmedSubject
     : `[${input.category}] Twofold support request`;
 
-  // Reply-To is the caller's own account email (resolved server-side, never client-supplied) —
+  // Reply-To is the caller's own account email (resolved server-side, never client-supplied) -
   // so support@ can just hit "reply" to respond directly, without asking the person to type
   // their email into the form.
   const bodyLines = [
     `Category: ${input.category}`,
-    `Account: ${user.email ?? "(no email on file)"} — ${user.id}`,
+    `Account: ${user.email ?? "(no email on file)"} - ${user.id}`,
     "",
     ...(input.game ? gameContextLines(input.game) : []),
     input.message.trim(),
@@ -164,11 +164,11 @@ Deno.serve(async (req) => {
     });
   } catch (err) {
     console.error("[submit-help-message] Zoho SMTP send failed:", (err as Error).message);
-    return Response.json({ error: "Couldn't send your message — please try again" }, { status: 502 });
+    return Response.json({ error: "Couldn't send your message - please try again" }, { status: 502 });
   } finally {
     // denomailer holds the TCP connection open otherwise, which keeps the isolate alive until
     // it's forcibly reaped. Two hazards make this more delicate than it looks, and `finally`
-    // punishes both — whatever happens here supersedes the returns above, so a throw or a hang
+    // punishes both - whatever happens here supersedes the returns above, so a throw or a hang
     // is reported to the caller as a failure even though the mail has already gone out:
     //   - `close()` returns undefined rather than a promise when the connection never came up
     //     (an auth failure, say), so it can't be treated as a promise unconditionally.

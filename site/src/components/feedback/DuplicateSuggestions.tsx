@@ -28,7 +28,7 @@ export function DuplicateSuggestions({ items, onConfirmNotDuplicate }: Duplicate
         ))}
       </ul>
       <Button type="button" variant="outline" size="sm" className="w-full" onClick={onConfirmNotDuplicate}>
-        None of these — continue with my request
+        None of these - continue with my request
       </Button>
     </div>
   );

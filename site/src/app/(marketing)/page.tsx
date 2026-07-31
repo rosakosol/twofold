@@ -22,8 +22,8 @@ export default async function HomePage() {
   const eyebrow = hero?.eyebrow || "Built for long-distance couples";
   const subtext =
     hero?.subtext ||
-    "Twofold turns your long-distance relationship into a living map — track flights in real time, watch the distance between you close, and relive every trip you've taken just to be together.";
-  const heroNote = hero?.heroNote || "Private by default — only your partner ever sees your journeys.";
+    "Twofold turns your long-distance relationship into a living map - track flights in real time, watch the distance between you close, and relive every trip you've taken just to be together.";
+  const heroNote = hero?.heroNote || "Private by default - only your partner ever sees your journeys.";
 
   return (
     <>
@@ -87,7 +87,7 @@ export default async function HomePage() {
             {/* Rectangular placeholder for a real app-UI screenshot. To swap in the
                 real image, replace this whole <div> with:
                   <img src="/assets/hero-app-ui.png" alt="" className="art-shot" />
-                — the .art-shot styles (size, rounding, shadow, float) apply to both. */}
+                - the .art-shot styles (size, rounding, shadow, float) apply to both. */}
             <div className="art-shot art-shot-placeholder">
               <span>App&nbsp;UI</span>
             </div>
@@ -114,7 +114,7 @@ export default async function HomePage() {
       <section className="stat-strip">
         <div className="stat-strip-inner">
           <p>
-            <strong>84,392 km</strong> travelled for each other — that&apos;s more than twice around the Earth.
+            <strong>84,392 km</strong> travelled for each other - that&apos;s more than twice around the Earth.
           </p>
         </div>
       </section>
@@ -131,7 +131,7 @@ export default async function HomePage() {
             <h2 id="how-heading">From &ldquo;miles apart&rdquo; to one shared map</h2>
             <p>No spreadsheets, no guessing when they&apos;ll land. Twofold does the tracking so you can just look forward to seeing each other.</p>
           </Reveal>
-          {/* Becomes a horizontally scrolling carousel below 860px (see marketing.css) —
+          {/* Becomes a horizontally scrolling carousel below 860px (see marketing.css) -
               tabindex makes that scroll region reachable by keyboard, which a plain div
               with overflow-x wouldn't be. */}
           <div className="steps" tabIndex={0} role="group" aria-label="How Twofold works, in three steps">
@@ -139,7 +139,7 @@ export default async function HomePage() {
               {/* Rectangular placeholder for a real step screenshot. To swap in the real
                   image, replace this whole <div> with:
                     <img src="/assets/step-connect.png" alt="" className="step-art" />
-                  — the .step-art sizing (equal width, rounding) applies to both. */}
+                  - the .step-art sizing (equal width, rounding) applies to both. */}
               <div className="step-art step-art-placeholder">
                 <span>Connect</span>
               </div>
@@ -166,7 +166,7 @@ export default async function HomePage() {
               <Reveal className="step-card">
                 <span className="step-num">3</span>
                 <h3>Watch your globe grow</h3>
-                <p>Every journey to see each other draws a new line across your shared globe — a living record of your relationship.</p>
+                <p>Every journey to see each other draws a new line across your shared globe - a living record of your relationship.</p>
               </Reveal>
             </div>
           </div>
@@ -199,7 +199,7 @@ export default async function HomePage() {
             </p>
             <h2 style={{ margin: "16px 0 16px" }}>Your whole story, on one map</h2>
             <p className="lede" style={{ marginBottom: 24 }}>
-              Every reunion draws a new arc between you. Zoom into a city to revisit the memories you made there —
+              Every reunion draws a new arc between you. Zoom into a city to revisit the memories you made there -
               it&apos;s the centrepiece both of you open first.
             </p>
             <ul className="check-list">
@@ -253,7 +253,7 @@ export default async function HomePage() {
                 Find your fit
               </p>
               <h2 id="quiz-teaser-heading">Not sure which plan is right for you?</h2>
-              <p>Our quick quiz is almost ready — for now, take a look at what each plan includes.</p>
+              <p>Our quick quiz is almost ready - for now, take a look at what each plan includes.</p>
               <Link href="/pricing" className="btn btn-white btn-lg">
                 See pricing
               </Link>
@@ -272,7 +272,7 @@ export default async function HomePage() {
               Coming soon
             </p>
             <h2 id="waitlist-heading">Twofold for Android is coming</h2>
-            <p>We&apos;re building the Android version next. Leave your email and we&apos;ll let you know the moment it&apos;s ready — no spam, just one message when it ships.</p>
+            <p>We&apos;re building the Android version next. Leave your email and we&apos;ll let you know the moment it&apos;s ready - no spam, just one message when it ships.</p>
             <WaitlistForm />
           </Reveal>
         </div>

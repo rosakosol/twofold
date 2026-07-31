@@ -4,7 +4,7 @@ import { SupportForm } from "@/components/marketing/SupportForm";
 
 export const metadata: Metadata = {
   title: "Support",
-  description: "Get help with Twofold — questions about your account, a bug, or anything else. We read every message.",
+  description: "Get help with Twofold - questions about your account, a bug, or anything else. We read every message.",
 };
 
 export default function SupportPage() {
@@ -20,7 +20,7 @@ export default function SupportPage() {
           </span>
           <h1>We&apos;re here to help</h1>
           <p className="lead">
-            Tell us what&apos;s going on and we&apos;ll reply at the email you provide — usually within a day or two. Looking
+            Tell us what&apos;s going on and we&apos;ll reply at the email you provide - usually within a day or two. Looking
             for a quick answer instead? Check the <a className="text-link" href="/faq">FAQ</a>.
           </p>
         </Reveal>

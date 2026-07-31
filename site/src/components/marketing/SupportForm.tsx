@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 type Status = "idle" | "sending" | "success" | "error";
 
-// Same category list as the iOS app's own support form (HelpService.SupportRequestCategory) —
+// Same category list as the iOS app's own support form (HelpService.SupportRequestCategory) -
 // keep the two in sync if categories ever change there.
 const CATEGORIES = [
   "Account & Subscription",
@@ -22,7 +22,7 @@ export function SupportForm() {
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState("");
   // The category picker is a Base UI Select rather than a native <select>, so its value
-  // isn't in the form's own FormData — it's held here and cleared alongside form.reset().
+  // isn't in the form's own FormData - it's held here and cleared alongside form.reset().
   const [category, setCategory] = useState<string | null>(null);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -48,7 +48,7 @@ export function SupportForm() {
       const data = await res.json();
       if (res.ok) {
         setStatus("success");
-        setMessage("Message sent — we'll get back to you soon.");
+        setMessage("Message sent - we'll get back to you soon.");
         form.reset();
         setCategory(null);
       } else {
