@@ -1,12 +1,19 @@
 // Daily nudge: reminds couples who haven't answered today's Daily Activity question yet, so
 // their streak doesn't lapse. Cron-triggered only - two schedules call this same function with
-// different bodies:
-//   - 18:00 UTC, `{}` (see supabase/migrations/20260713090000_streak_reminder_cron.sql): the
-//     original early nudge, gated on `daily_streak_reminder`.
-//   - 23:00 UTC, `{"final": true}` (see
-//     supabase/migrations/20260902000000_streak_ending_reminder_pref.sql): a last-chance "1 hour
-//     left" nudge, gated on the separate `streak_ending_reminder` column so a couple can turn
-//     this one off independently of the earlier one.
+// different bodies, both now every 15 minutes:
+//   - `{}` (see supabase/migrations/20260713090000_streak_reminder_cron.sql,
+//     20260905000000_early_streak_reminder_per_couple_boundary.sql): the early nudge, gated on
+//     `daily_streak_reminder`, fired ~6 hours before each couple's own day boundary (originally a
+//     single fixed 18:00 UTC, back when every couple's boundary was a shared UTC midnight and
+//     18:00 really was "6 hours before the day ends" for everyone).
+//   - `{"final": true}` (see supabase/migrations/20260902000000_streak_ending_reminder_pref.sql,
+//     20260904000000_streak_ending_reminder_per_couple_boundary.sql): a last-chance "1 hour left"
+//     nudge, gated on `streak_ending_reminder`, fired ~1 hour before that same boundary.
+//
+// Both windows are computed per couple (see `coupleDayBoundary`) rather than assuming a shared
+// UTC boundary - 20260829000500_daily_streak_per_couple_boundary.sql moved the real streak/
+// daily-question day boundary to be relative to each couple's own `couples.created_at`, so a
+// single fixed send time for every couple could land anywhere from on-time to 23 hours off.
 //
 // Requires the service-role key as a bearer token, same explicit check refresh-due-flights
 // already uses - without this, any authenticated app user could invoke it directly and force a
@@ -17,6 +24,26 @@ import { sendAPNs } from "../_shared/apns.ts";
 
 interface Input {
   final?: boolean;
+}
+
+const DAY_SECONDS = 86_400;
+// The cron's own cadence - the "how long before the boundary" window below is exactly this wide,
+// so a couple's qualifying moment always falls inside exactly one run, never split across two or
+// skipped between them.
+const CRON_INTERVAL_MINUTES = 15;
+
+/// Each couple's own daily-question/streak "day" is a rolling 24h window anchored to
+/// `couples.created_at`'s time-of-day (see 20260829000500_daily_streak_per_couple_boundary.sql),
+/// not a shared calendar day - a couple who connected at 14:00 UTC has their day roll over at
+/// 14:00 UTC every day, not midnight. `dayIndex`/`dayStart`/`dayBoundary` mirror the exact
+/// `floor(extract(epoch from (now() - created_at)) / 86400)` math the database functions
+/// (advance_game_session, get_daily_question_session/_status) already use, so "today" here always
+/// means the same window those do.
+function coupleDayBoundary(createdAt: Date, now: Date) {
+  const dayIndex = Math.floor((now.getTime() - createdAt.getTime()) / 1000 / DAY_SECONDS);
+  const dayStart = new Date(createdAt.getTime() + dayIndex * DAY_SECONDS * 1000);
+  const dayBoundary = new Date(createdAt.getTime() + (dayIndex + 1) * DAY_SECONDS * 1000);
+  return { dayIndex, dayStart, dayBoundary };
 }
 
 Deno.serve(async (req) => {
@@ -35,18 +62,22 @@ Deno.serve(async (req) => {
   }
   const isFinal = input.final === true;
   const prefColumn = isFinal ? "streak_ending_reminder" : "daily_streak_reminder";
+  const dedupColumn = isFinal ? "final_reminder_sent_day_index" : "early_reminder_sent_day_index";
+  // "1 hour left" vs. the original 18:00-UTC-when-the-boundary-was-midnight-UTC nudge, which was
+  // always really "6 hours before the day ends" - same relationship, now measured against each
+  // couple's own boundary instead of assuming everyone's is midnight.
+  const windowMinutes = isFinal ? 60 : 360;
 
   const serviceClient = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
-  const todayStart = new Date();
-  todayStart.setUTCHours(0, 0, 0, 0);
+  const now = new Date();
 
   const { data: couples, error: couplesErr } = await serviceClient
     .from("couples")
-    .select("id, partner_a_id, partner_b_id")
+    .select("id, partner_a_id, partner_b_id, created_at")
     .eq("status", "active");
 
   if (couplesErr) {
@@ -60,12 +91,29 @@ Deno.serve(async (req) => {
   let remindedCount = 0;
 
   for (const couple of couples) {
+    const { dayIndex, dayStart, dayBoundary } = coupleDayBoundary(new Date(couple.created_at), now);
+
+    const { data: streakRow } = await serviceClient
+      .from("daily_streaks")
+      .select("current_streak, final_reminder_sent_day_index, early_reminder_sent_day_index")
+      .eq("couple_id", couple.id)
+      .maybeSingle();
+
+    // Fires once, in the ~15-minute slot where "about `windowMinutes` left" first becomes true -
+    // the window's width matches the cron's own cadence so no couple's boundary can slip through
+    // uncaught between two runs, and the relevant dedup column stops a couple still inside that
+    // window at the *next* run from being reminded twice for the same day.
+    const minutesUntilBoundary = (dayBoundary.getTime() - now.getTime()) / 60_000;
+    if (minutesUntilBoundary > windowMinutes || minutesUntilBoundary <= windowMinutes - CRON_INTERVAL_MINUTES) continue;
+    if ((streakRow as Record<string, unknown> | null)?.[dedupColumn] === dayIndex) continue;
+
     const { data: todaysSession } = await serviceClient
       .from("game_sessions")
       .select("id")
       .eq("couple_id", couple.id)
       .eq("is_daily", true)
-      .gte("created_at", todayStart.toISOString())
+      .gte("created_at", dayStart.toISOString())
+      .lt("created_at", dayBoundary.toISOString())
       .maybeSingle();
 
     if (todaysSession) {
@@ -106,11 +154,6 @@ Deno.serve(async (req) => {
     // still reflects the streak as of the couple's last answered day (advance_game_session
     // only resets it once a day is actually missed), so it's exactly "the streak they stand
     // to lose if they skip today."
-    const { data: streakRow } = await serviceClient
-      .from("daily_streaks")
-      .select("current_streak")
-      .eq("couple_id", couple.id)
-      .maybeSingle();
     const currentStreak = streakRow?.current_streak ?? 0;
 
     const title = isFinal ? "1 hour left!" : "Keep your streak going";
@@ -134,6 +177,11 @@ Deno.serve(async (req) => {
         console.error("[send-streak-reminders] sendAPNs threw:", (err as Error).message);
       }
     }
+
+    await serviceClient
+      .from("daily_streaks")
+      .upsert({ couple_id: couple.id, [dedupColumn]: dayIndex }, { onConflict: "couple_id" });
+
     remindedCount++;
   }
 
