@@ -29,6 +29,9 @@ struct DistanceShareView: View {
                 }
 
                 themePicker
+
+                ctaArea
+                    .padding(.horizontal, Theme.Spacing.lg)
                     .padding(.bottom, Theme.Spacing.md)
             }
             .background(Theme.backgroundGradient.ignoresSafeArea())
@@ -39,16 +42,6 @@ struct DistanceShareView: View {
                     Button("Close", systemImage: "xmark") { dismiss() }
                         .labelStyle(.iconOnly)
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    if mapSnapshot != nil {
-                        ShareLink(
-                            item: renderCardImage(),
-                            preview: SharePreview("The distance between us", image: renderCardImage())
-                        ) {
-                            Image(systemName: "square.and.arrow.up")
-                        }
-                    }
-                }
             }
             .task {
                 guard mapSnapshot == nil else { return }
@@ -56,6 +49,53 @@ struct DistanceShareView: View {
             }
         }
         .postHogScreenView("Snapshot: Distance Share")
+    }
+
+    // MARK: - CTA row
+
+    /// Bottom-of-panel Instagram Stories/Other row, same placement and styling as
+    /// `FlightShareView`'s sticker pages — replaces the old corner toolbar `ShareLink`, which was
+    /// this screen's own one-off pattern rather than matching the rest of the app's share flows.
+    @ViewBuilder
+    private var ctaArea: some View {
+        if mapSnapshot != nil {
+            ctaRow(image: renderCardImage())
+        }
+    }
+
+    private func ctaRow(image: UIImage?) -> some View {
+        HStack(spacing: Theme.Spacing.sm) {
+            if InstagramStoryShare.isAvailable, let image {
+                Button {
+                    InstagramStoryShare.shareSticker(image)
+                } label: {
+                    Label("Instagram Stories", systemImage: "square.and.arrow.up")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(
+                            LinearGradient(
+                                colors: [Color(hex: "F58529"), Color(hex: "DD2A7B"), Color(hex: "8134AF")],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            ),
+                            in: Capsule()
+                        )
+                        .foregroundStyle(.white)
+                }
+            }
+            if let image {
+                ShareLink(item: Image(uiImage: image), preview: SharePreview("The distance between us", image: Image(uiImage: image))) {
+                    Text("Other")
+                        .font(.headline)
+                        .frame(maxWidth: InstagramStoryShare.isAvailable ? nil : .infinity)
+                        .padding(.horizontal, Theme.Spacing.lg)
+                        .padding(.vertical, 14)
+                        .background(Theme.cardBackground, in: Capsule())
+                        .foregroundStyle(Theme.ink)
+                }
+            }
+        }
     }
 
     private var themePicker: some View {
@@ -108,7 +148,7 @@ struct DistanceShareView: View {
     }
 
     @MainActor
-    private func renderCardImage() -> Image {
+    private func renderCardImage() -> UIImage? {
         // Fixed width regardless of the device's actual screen width — the on-screen preview is
         // responsive, but the exported PNG should always come out the same deliberate size.
         let renderer = ImageRenderer(
@@ -116,10 +156,7 @@ struct DistanceShareView: View {
                 .frame(width: 360)
         )
         renderer.scale = displayScale
-        if let uiImage = renderer.uiImage {
-            return Image(uiImage: uiImage)
-        }
-        return Image(systemName: "photo")
+        return renderer.uiImage
     }
 }
 

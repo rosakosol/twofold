@@ -12,6 +12,7 @@
 //  once `AppModel.finishOnboarding()` runs, after the invite/paywall/trial screens that follow.
 //
 
+import Supabase
 import SwiftUI
 
 struct SaveAccountView: View {
@@ -23,13 +24,21 @@ struct SaveAccountView: View {
     @State private var confirmPassword = ""
     @State private var isSubmitting = false
     @State private var errorMessage: String?
+    /// Set when `signUp` fails specifically because this email already has an account — reveals
+    /// a "Sign In" button rather than silently retrying with whatever password was just typed
+    /// into *this* form, which almost always isn't that account's real password.
+    @State private var emailAlreadyExists = false
+    @State private var showingSignIn = false
 
     private var passwordsMismatch: Bool {
         !confirmPassword.isEmpty && confirmPassword != password
     }
 
     private var canContinueWithEmail: Bool {
-        !email.trimmingCharacters(in: .whitespaces).isEmpty && password.count >= 6 && confirmPassword == password
+        !email.trimmingCharacters(in: .whitespaces).isEmpty
+            && password.count >= 6
+            && confirmPassword == password
+            && PasswordStrength.evaluate(password) > .weak
     }
 
     var body: some View {
@@ -61,6 +70,8 @@ struct SaveAccountView: View {
                                 .padding()
                                 .onboardingFieldBackground()
 
+                            PasswordStrengthView(password: password)
+
                             SecureField("Confirm password", text: $confirmPassword)
                                 .textContentType(.newPassword)
                                 .padding()
@@ -83,6 +94,16 @@ struct SaveAccountView: View {
                             .background(canContinueWithEmail && !isSubmitting ? Theme.skyBlue : Theme.subtleInk.opacity(0.3), in: Capsule())
                             .foregroundStyle(.white)
                             .disabled(!canContinueWithEmail || isSubmitting)
+
+                            if emailAlreadyExists {
+                                Button {
+                                    showingSignIn = true
+                                } label: {
+                                    Text("Sign In")
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(Theme.skyBlue)
+                                }
+                            }
                         }
                     } else {
                         Button("Create an account with email") {
@@ -101,22 +122,28 @@ struct SaveAccountView: View {
                 }
             }
         )
+        .sheet(isPresented: $showingSignIn) {
+            SignInView(initialEmail: email)
+        }
     }
 
     private func continueWithEmail() {
         isSubmitting = true
         errorMessage = nil
+        emailAlreadyExists = false
         Task {
             do {
-                do {
-                    try await BackendService.signUp(firstName: onboarding.firstName, email: email, password: password)
-                } catch {
-                    // Resuming onboarding after the app was closed mid-flow — fall back to
-                    // signing in rather than dead-ending on "already registered".
-                    try await BackendService.signIn(email: email, password: password)
-                }
+                try await BackendService.signUp(firstName: onboarding.firstName, email: email, password: password)
                 guard let userID = BackendService.currentUserID else { throw BackendError.notAuthenticated }
                 await finish(userID: userID, providedFirstName: nil)
+            } catch let authError as AuthError where authError.errorCode == .emailExists {
+                // Don't silently retry as a sign-in — the password just typed into *this* form
+                // is almost never that existing account's real password, so that attempt would
+                // just fail again with a confusing "wrong password" error. Directing to a real
+                // sign-in screen (prefilled with the same email) lets them enter their actual
+                // credentials instead.
+                errorMessage = "An account with this email already exists."
+                emailAlreadyExists = true
             } catch {
                 if case BackendError.accountDeleted = error {
                     handleAccountDeleted()

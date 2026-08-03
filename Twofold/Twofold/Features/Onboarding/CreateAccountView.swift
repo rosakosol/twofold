@@ -6,6 +6,7 @@
 //  flow creates its account at the very end, via SaveAccountView.
 //
 
+import Supabase
 import SwiftUI
 
 struct CreateAccountView: View {
@@ -17,6 +18,11 @@ struct CreateAccountView: View {
     @State private var confirmPassword: String = ""
     @State private var isSubmitting = false
     @State private var errorMessage: String?
+    /// Set when `signUp` fails specifically because this email already has an account — reveals
+    /// a "Sign In" button rather than silently retrying with whatever password was just typed
+    /// into *this* form, which almost always isn't that account's real password.
+    @State private var emailAlreadyExists = false
+    @State private var showingSignIn = false
 
     private var isInvitee: Bool { onboarding.role == .invitee }
 
@@ -29,6 +35,7 @@ struct CreateAccountView: View {
             && !email.trimmingCharacters(in: .whitespaces).isEmpty
             && password.count >= 6
             && confirmPassword == password
+            && PasswordStrength.evaluate(password) > .weak
     }
 
     var body: some View {
@@ -38,20 +45,26 @@ struct CreateAccountView: View {
                 VStack(spacing: Theme.Spacing.md) {
                     TextField("First name", text: $firstName)
                         .textContentType(.givenName)
+                        .padding()
                         .onboardingFieldBackground()
 
                     TextField("Email", text: $email)
                         .textContentType(.emailAddress)
                         .keyboardType(.emailAddress)
                         .textInputAutocapitalization(.never)
+                        .padding()
                         .onboardingFieldBackground()
 
                     SecureField("Password", text: $password)
                         .textContentType(.newPassword)
+                        .padding()
                         .onboardingFieldBackground()
+
+                    PasswordStrengthView(password: password)
 
                     SecureField("Confirm password", text: $confirmPassword)
                         .textContentType(.newPassword)
+                        .padding()
                         .onboardingFieldBackground()
 
                     if passwordsMismatch {
@@ -64,6 +77,16 @@ struct CreateAccountView: View {
                         Text(errorMessage)
                             .font(.caption)
                             .foregroundStyle(Theme.heartRed)
+                    }
+
+                    if emailAlreadyExists {
+                        Button {
+                            showingSignIn = true
+                        } label: {
+                            Text("Sign In")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(Theme.skyBlue)
+                        }
                     }
 
                     HStack {
@@ -87,23 +110,28 @@ struct CreateAccountView: View {
             primaryAction: continueTapped,
             primaryDisabled: !canContinue || isSubmitting
         )
+        .sheet(isPresented: $showingSignIn) {
+            SignInView(initialEmail: email)
+        }
     }
 
     private func continueTapped() {
         isSubmitting = true
         errorMessage = nil
+        emailAlreadyExists = false
         Task {
             do {
-                do {
-                    try await BackendService.signUp(firstName: firstName, email: email, password: password)
-                } catch {
-                    // Most likely cause: this email already has an account — e.g. resuming
-                    // onboarding after the app was closed mid-flow. Fall back to signing in
-                    // rather than dead-ending on "already registered".
-                    try await BackendService.signIn(email: email, password: password)
-                }
+                try await BackendService.signUp(firstName: firstName, email: email, password: password)
                 guard let userID = BackendService.currentUserID else { throw BackendError.notAuthenticated }
                 await finishSignIn(userID: userID, providedFirstName: firstName)
+            } catch let authError as AuthError where authError.errorCode == .emailExists {
+                // Don't silently retry as a sign-in — the password just typed into *this* form
+                // is almost never that existing account's real password, so that attempt would
+                // just fail again with a confusing "wrong password" error. Directing to a real
+                // sign-in screen (prefilled with the same email) lets them enter their actual
+                // credentials instead.
+                errorMessage = "An account with this email already exists."
+                emailAlreadyExists = true
             } catch {
                 if case BackendError.accountDeleted = error {
                     handleAccountDeleted()

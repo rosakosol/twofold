@@ -22,11 +22,19 @@ struct SignInView: View {
     @Environment(OnboardingModel.self) private var onboarding
     @Environment(\.dismiss) private var dismiss
 
-    @State private var email = ""
+    @State private var email: String
     @State private var password = ""
     @State private var isSubmitting = false
     @State private var errorMessage: String?
     @State private var showingForgotPassword = false
+
+    /// Prefills the email field — used when a signup attempt elsewhere in onboarding discovers
+    /// the email already has an account and redirects here, so the user isn't asked to retype
+    /// what they just typed a moment ago.
+    init(initialEmail: String = "", onUseInvite: (() -> Void)? = nil) {
+        _email = State(initialValue: initialEmail)
+        self.onUseInvite = onUseInvite
+    }
 
     private var canSubmit: Bool {
         !email.trimmingCharacters(in: .whitespaces).isEmpty && !password.isEmpty && !isSubmitting

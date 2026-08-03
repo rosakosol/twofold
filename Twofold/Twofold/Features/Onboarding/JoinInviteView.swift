@@ -31,7 +31,7 @@ struct JoinInviteView: View {
                 onboarding.role = .invitee
                 onboarding.path.append(.createAccount)
             } label: {
-                Text("Join \(inviterName)")
+                Text("Join Twofold")
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding()
