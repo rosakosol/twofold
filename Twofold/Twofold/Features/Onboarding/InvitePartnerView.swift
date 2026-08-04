@@ -34,13 +34,22 @@ struct InvitePartnerView: View {
                     inviteCode: $onboarding.inviteCode,
                     onRedeemSuccess: {
                         Task {
-                            // Covers the rare case a couple already exists by the time we get
-                            // here (e.g. it was somehow already accepted) — otherwise this is a
-                            // no-op and onboarding just continues.
                             await appModel.applyOnboardingAccount(onboarding)
-                            if !appModel.hasCouple {
-                                onboarding.path.append(.trialTrust)
+                            if appModel.hasCouple {
+                                // Rare case a couple already existed by the time we get here
+                                // (e.g. it was somehow already accepted) — nothing left to do.
+                                return
                             }
+                            // Redeeming only ever creates a *pending* request now (the inviter
+                            // still has to accept it) — this used to continue straight to
+                            // `.trialTrust`/the paywall regardless, which meant paying for a
+                            // subscription before even knowing whether the other side will
+                            // accept. `.reveal` is the same "you're all set, we'll let you know
+                            // the moment you're connected" screen the manual-invite path already
+                            // uses for exactly this pending state, and skips the paywall
+                            // entirely — a couple only needs one subscription between them
+                            // anyway, decided once someone's actually confirmed connected.
+                            onboarding.path.append(.reveal)
                         }
                     }
                 )

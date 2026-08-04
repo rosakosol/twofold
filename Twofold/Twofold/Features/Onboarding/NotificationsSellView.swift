@@ -16,7 +16,6 @@ import UIKit
 import UserNotifications
 
 private struct NotificationPreview {
-    let emoji: String
     let title: String
     let body: String
 }
@@ -34,12 +33,6 @@ struct NotificationsSellView: View {
 
     private var partnerName: String {
         onboarding.partnerName
-    }
-
-    private var partnerImage: Image? {
-        onboarding.partnerPhotoData
-            .flatMap(UIImage.init(data:))
-            .map(Image.init(uiImage:))
     }
 
     private var originLabel: String {
@@ -74,17 +67,14 @@ struct NotificationsSellView: View {
     private var previews: [NotificationPreview] {
         [
             NotificationPreview(
-                emoji: "🛫",
                 title: "Flight departed",
                 body: "\(partnerName)'s flight has departed \(originLabel)."
             ),
             NotificationPreview(
-                emoji: "🛬",
                 title: "Landing in 1 hour",
                 body: "\(partnerName)'s flight is expected to land in about 1 hour."
             ),
             NotificationPreview(
-                emoji: "🎉",
                 title: "Flight landed",
                 body: "\(partnerName)'s flight has landed in \(destinationLabel) ❤️"
             ),
@@ -135,120 +125,70 @@ struct NotificationsSellView: View {
 
     // MARK: - Notification Banner
 
-    /// Matches the real iOS "communication notification" shape (large contact avatar + small
-    /// app-icon badge overlaid at its corner, app name + relative timestamp in a small caption
-    /// row above the title/body) — closer to what a real Twofold push actually looks like on a
-    /// Lock Screen than the earlier oversized, badge-less card was.
+    /// Measured pixel-for-pixel off an actual `xcrun simctl push` capture on the Lock Screen:
+    /// square app-icon badge (real Twofold pushes are plain `aps.alert` payloads with no
+    /// attached avatar, so there's no contact photo — this isn't a communication notification),
+    /// title and relative timestamp sharing one row, body directly beneath at the same near-
+    /// white brightness as the title, and no separate app-name caption line. The dark frosted
+    /// card, icon size/position, and type sizes all match that capture.
     private func notificationBanner(
         _ preview: NotificationPreview
     ) -> some View {
-        HStack(alignment: .top, spacing: 14) {
+        HStack(alignment: .center, spacing: 14) {
 
-            // MARK: Partner avatar + app-icon badge
+            // MARK: App icon
 
-            ZStack(alignment: .bottomTrailing) {
-                ZStack {
-                    if let partnerImage {
-                        partnerImage
-                            .resizable()
-                            .scaledToFill()
-                    } else {
-                        Circle()
-                            .fill(
-                                Theme.skyBlue.opacity(0.20)
-                            )
-
-                        Text(preview.emoji)
-                            .font(.system(size: 23))
-                    }
-                }
-                .frame(width: 48, height: 48)
-                .clipShape(Circle())
-
-                ZStack {
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(Theme.primaryButtonGradient)
-                    Image("GlobeHeart")
-                        .resizable()
-                        .scaledToFit()
-                        .padding(3.5)
-                }
-                .frame(width: 20, height: 20)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .strokeBorder(.white, lineWidth: 1.5)
-                }
-                .offset(x: 4, y: 4)
+            ZStack {
+                Theme.backgroundGradient
+                Image("GlobeHeart")
+                    .resizable()
+                    .scaledToFit()
+                    .padding(6)
             }
+            .frame(width: 36, height: 36)
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 
             // MARK: Notification copy
 
-            VStack(
-                alignment: .leading,
-                spacing: 3
-            ) {
-                HStack(spacing: 4) {
-                    Text("TWOFOLD")
-                        .font(.system(size: 12, weight: .semibold))
-                        .tracking(0.5)
-                    Text("·")
-                    Text("now")
-                }
-                .font(.system(size: 12))
-                .foregroundStyle(Color.black.opacity(0.45))
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(preview.title)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
 
-                Text(preview.title)
-                    .font(
-                        .system(
-                            size: 15,
-                            weight: .semibold
-                        )
-                    )
-                    .foregroundStyle(
-                        Color.black.opacity(0.85)
-                    )
-                    .lineLimit(1)
+                    Spacer(minLength: 8)
+
+                    Text("now")
+                        .font(.system(size: 15))
+                        .foregroundStyle(.white.opacity(0.55))
+                }
 
                 Text(preview.body)
-                    .font(
-                        .system(
-                            size: 15,
-                            weight: .regular
-                        )
-                    )
-                    .foregroundStyle(
-                        Color.black.opacity(0.55)
-                    )
+                    .font(.system(size: 15))
+                    .foregroundStyle(.white.opacity(0.9))
                     .lineLimit(2)
             }
-
-            Spacer(minLength: 0)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .frame(minHeight: 88, alignment: .top)
+        .padding(.leading, 13)
+        .padding(.trailing, 16)
+        .padding(.vertical, 16)
         .background {
-            RoundedRectangle(
-                cornerRadius: 16,
-                style: .continuous
-            )
-            .fill(Color.white.opacity(0.98))
-            .overlay {
-                RoundedRectangle(
-                    cornerRadius: 16,
-                    style: .continuous
-                )
-                .strokeBorder(
-                    Color.black.opacity(0.06),
-                    lineWidth: 1
-                )
-            }
-            .shadow(
-                color: Color.black.opacity(0.28),
-                radius: 18,
-                x: 0,
-                y: 10
-            )
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(.regularMaterial)
+                .environment(\.colorScheme, .dark)
+                .background {
+                    // The stacked preview cards overlap (see VStack spacing below) — a pure
+                    // ultraThinMaterial lets the card behind show through and read as clutter,
+                    // so an opaque scrim sits under the material to keep each card legible.
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(Color.black.opacity(0.4))
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                }
+                .shadow(color: .black.opacity(0.28), radius: 18, x: 0, y: 10)
         }
         // 10 (was 28) — same "pop out" margin the Live Activity card uses, so the banner
         // stretches wider than the phone chassis instead of sitting flush inside it.

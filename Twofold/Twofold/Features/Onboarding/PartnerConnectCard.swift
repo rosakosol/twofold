@@ -44,6 +44,13 @@ struct PartnerConnectCard: View {
                 HStack {
                     if isCreatingInvite {
                         ProgressView()
+                    } else if inviteCode != nil {
+                        // A code already exists — this isn't the first time through, so
+                        // "Share my invite code" (implying nothing's happened yet) read as if it
+                        // hadn't noticed. Still tappable, in case they want to re-share/re-copy
+                        // the same code.
+                        Label("I've already invited my partner", systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(Theme.ink)
                     } else {
                         Label("Share my invite code", systemImage: "square.and.arrow.up")
                             .foregroundStyle(Theme.ink)

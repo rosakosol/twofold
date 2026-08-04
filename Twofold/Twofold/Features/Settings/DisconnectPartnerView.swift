@@ -18,6 +18,16 @@ struct DisconnectPartnerView: View {
     @State private var showingRemovePartnerConfirm = false
     @State private var isRemovingPartner = false
     @State private var removePartnerError: String?
+    @State private var subscriptionStore = SubscriptionStore()
+
+    /// Same check `PartnerManagesSubscriptionView`'s call sites already use — the couple's active
+    /// tier is real, but not backed by *this* device's own RevenueCat entitlement, meaning it's
+    /// only here because the partner about to be disconnected is the one actually paying for it.
+    /// Without a warning, disconnecting silently drops this person back to the free tier with no
+    /// idea why their premium features just vanished.
+    private var wouldLosePaidAccess: Bool {
+        appModel.subscriptionTier != nil && subscriptionStore.subscribedTier == nil
+    }
 
     var body: some View {
         ScrollView {
@@ -59,6 +69,9 @@ struct DisconnectPartnerView: View {
         .background(Theme.backgroundGradient.ignoresSafeArea())
         .navigationTitle("Disconnect Partner")
         .navigationBarTitleDisplayMode(.inline)
+        .task {
+            await subscriptionStore.refreshEntitlementsOnly()
+        }
         .alert("Remove \(appModel.partner.name)?", isPresented: $showingRemovePartnerConfirm) {
             Button("Remove Partner", role: .destructive) {
                 Task {
@@ -75,9 +88,15 @@ struct DisconnectPartnerView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This will archive all your shared trips, memories, flights, game sessions, stats, and drawings with \(appModel.partner.name) — they'll only be visible afterward in Settings' Archived Data. You'll be able to connect with someone new right away.")
+            Text(disconnectWarningMessage)
         }
         .postHogScreenView("Settings: Disconnect Partner")
+    }
+
+    private var disconnectWarningMessage: String {
+        let base = "This will archive all your shared trips, memories, flights, game sessions, stats, and drawings with \(appModel.partner.name) — they'll only be visible afterward in Settings' Archived Data. You'll be able to connect with someone new right away."
+        guard wouldLosePaidAccess else { return base }
+        return base + "\n\n\(appModel.partner.name) is the one paying for your Twofold subscription — disconnecting will drop you back to the free plan, since you won't be covered by their purchase anymore."
     }
 }
 
