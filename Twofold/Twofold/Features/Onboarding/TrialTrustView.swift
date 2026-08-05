@@ -75,6 +75,7 @@ struct TrialTrustView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(label).font(.caption2.weight(.bold)).foregroundStyle(Theme.subtleInk)
                 Text(title).font(.subheadline.weight(.semibold))
+                    .fixedSize(horizontal: false, vertical: true)
                 Text(subtitle).font(.caption).foregroundStyle(Theme.subtleInk)
             }
             Spacer(minLength: 0)

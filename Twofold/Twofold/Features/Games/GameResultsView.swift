@@ -219,28 +219,30 @@ struct GameResultsView: View {
                         .multilineTextAlignment(.center)
                 }
             }
-        case .moreLikely, .thisOrThat where isSolo:
-            VStack(spacing: Theme.Spacing.sm) {
-                Image(systemName: "person.2.fill").font(.system(size: 40)).foregroundStyle(Theme.skyBlue)
-                Text("Your answers are saved")
-                    .font(.title3.weight(.bold))
-                Text("Invite your partner to see how you match up.")
-                    .font(.subheadline)
-                    .foregroundStyle(Theme.subtleInk)
-                    .multilineTextAlignment(.center)
-            }
         case .moreLikely, .thisOrThat:
-            let matches = GameLogic.matchCount(rounds: store.rounds, responses: store.responses, partnerAID: myID, partnerBID: partnerID)
-            // More breathing room here than the header's other two cases (`Theme.Spacing.md`,
-            // not `.xs`) — this is the one number the whole screen is building up to, so it gets
-            // real separation from the "You matched" line underneath it.
-            VStack(spacing: Theme.Spacing.md) {
-                if let matchPercent {
-                    similarityPercent(matchPercent)
+            if isSolo {
+                VStack(spacing: Theme.Spacing.sm) {
+                    Image(systemName: "person.2.fill").font(.system(size: 40)).foregroundStyle(Theme.skyBlue)
+                    Text("Your answers are saved")
+                        .font(.title3.weight(.bold))
+                    Text("Invite your partner to see how you match up.")
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.subtleInk)
+                        .multilineTextAlignment(.center)
                 }
-                Text("❤️ You matched \(matches) / \(store.rounds.count) answers!")
-                    .font(.title3.weight(.bold))
-                    .multilineTextAlignment(.center)
+            } else {
+                let matches = GameLogic.matchCount(rounds: store.rounds, responses: store.responses, partnerAID: myID, partnerBID: partnerID)
+                // More breathing room here than the header's other two cases (`Theme.Spacing.md`,
+                // not `.xs`) — this is the one number the whole screen is building up to, so it gets
+                // real separation from the "You matched" line underneath it.
+                VStack(spacing: Theme.Spacing.md) {
+                    if let matchPercent {
+                        similarityPercent(matchPercent)
+                    }
+                    Text("❤️ You matched \(matches) / \(store.rounds.count) answers!")
+                        .font(.title3.weight(.bold))
+                        .multilineTextAlignment(.center)
+                }
             }
         case .deepConversations:
             VStack(spacing: Theme.Spacing.xs) {
@@ -448,22 +450,24 @@ struct GameResultsView: View {
         switch gameType {
         case .triviaBattle:
             EmptyView()
-        case .moreLikely, .thisOrThat where isSolo:
-            summaryCard(title: "Invite your partner", emoji: "💌") {
-                Text("Once they join, you'll both be able to see how your answers compare.")
-                    .font(.subheadline)
-                    .foregroundStyle(Theme.subtleInk)
-            }
         case .moreLikely, .thisOrThat:
-            let mismatched = GameLogic.mismatchedRounds(rounds: store.rounds, responses: store.responses, partnerAID: myID, partnerBID: partnerID)
+            if isSolo {
+                summaryCard(title: "Invite your partner", emoji: "💌") {
+                    Text("Once they join, you'll both be able to see how your answers compare.")
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.subtleInk)
+                }
+            } else {
+                let mismatched = GameLogic.mismatchedRounds(rounds: store.rounds, responses: store.responses, partnerAID: myID, partnerBID: partnerID)
 
-            if !mismatched.isEmpty {
-                summaryCard(title: "Questions to discuss", emoji: nil) {
-                    VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                        ForEach(mismatched, id: \.id) { round in
-                            Text("•  \(questionText(for: round))")
-                                .font(.subheadline)
-                                .foregroundStyle(Theme.ink)
+                if !mismatched.isEmpty {
+                    summaryCard(title: "Questions to discuss", emoji: nil) {
+                        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                            ForEach(mismatched, id: \.id) { round in
+                                Text("•  \(questionText(for: round))")
+                                    .font(.subheadline)
+                                    .foregroundStyle(Theme.ink)
+                            }
                         }
                     }
                 }
