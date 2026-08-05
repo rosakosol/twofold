@@ -594,10 +594,21 @@ final class AppModel {
         pendingConnectionRequests = (try? await BackendService.fetchPendingConnectionRequests()) ?? []
     }
 
-    /// My own outgoing request (see `pendingOutgoingConnectionRequest`'s doc comment) — safe to
-    /// call any time, including while already connected (just returns nil, since it only ever
-    /// matches a still-`pending` row).
+    /// My own outgoing request (see `pendingOutgoingConnectionRequest`'s doc comment). Guarded on
+    /// `!partnerConnected` for two reasons: efficiency (this now runs on every foreground — see
+    /// `RootView.refreshPendingOutgoingConnectionRequestIfNeeded` — so a genuinely paired couple
+    /// shouldn't pay for a network round trip that can only ever come back empty for them), and
+    /// correctness. The "only" in the old version of this comment was wrong: nothing stops
+    /// redeeming a second code while a first request is still unresolved, so
+    /// `fetchMyOutgoingConnectionRequest()`'s "most recent pending" query can keep surfacing an
+    /// abandoned request from *before* pairing even after a different one got accepted — without
+    /// this guard, Home's pending-invite card would wrongly show for someone who's actually
+    /// already connected.
     func refreshPendingOutgoingConnectionRequest() async {
+        guard !partnerConnected else {
+            pendingOutgoingConnectionRequest = nil
+            return
+        }
         pendingOutgoingConnectionRequest = try? await BackendService.fetchMyOutgoingConnectionRequest()
     }
 

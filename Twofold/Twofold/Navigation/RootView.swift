@@ -314,7 +314,10 @@ struct RootView: View {
     /// Unlike most other `IfNeeded` refreshes here, this now needs to stay fresh continuously
     /// rather than stopping once subscribed — it drives Home's persistent "invite pending" card
     /// (and clears it once accepted/declined), not just the pre-subscription gate it used to be
-    /// the sole reason for. Still no point fetching before onboarding is done.
+    /// the sole reason for. Still no point fetching before onboarding is done; the (now more
+    /// consequential, since a truly connected couple would otherwise poll this every foreground
+    /// forever) `!partnerConnected` short-circuit lives in `AppModel.refreshPendingOutgoingConnectionRequest()`
+    /// itself, so `PendingConnectionApprovalView`'s own "Check again" call gets it too.
     private func refreshPendingOutgoingConnectionRequestIfNeeded() async {
         guard appModel.hasCouple else { return }
         await appModel.refreshPendingOutgoingConnectionRequest()
