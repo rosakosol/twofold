@@ -35,17 +35,24 @@ struct RootView: View {
                     BrandLoadingView()
                 }
             } else if appModel.hasCouple {
-                if appModel.isSubscriptionActive {
+                // Not really solo — redeemed a code and is waiting on the inviter's decision,
+                // with no subscription of their own to be asked for (Twofold subscriptions are
+                // shared; they'll inherit the couple's plan once accepted). The inviter always
+                // subscribes before ever inviting anyone, so someone will always be covering
+                // this — the forced paywall below would otherwise be a dead end for no reason.
+                // Home shows a persistent "invite pending" card (with a reminder nudge) in place
+                // of the old full-screen `PendingConnectionApprovalView` gate this used to be.
+                if appModel.isSubscriptionActive || appModel.pendingOutgoingConnectionRequest != nil {
                     MainTabView(selection: $selectedTab)
-                } else if let outgoingRequest = appModel.pendingOutgoingConnectionRequest {
-                    // Not really solo — redeemed a code and is waiting on the inviter's
-                    // decision, with no subscription of their own to be asked for (Twofold
-                    // subscriptions are shared; they'll inherit the couple's plan once
-                    // accepted). The forced paywall below would otherwise be a dead end.
+                } else if let lapsedPartnerName = appModel.partnerSubscriptionLapsedPartnerName {
+                    // The payer disconnected and this profile wasn't the one backing the
+                    // couple's access — see `leave_couple`'s partner_subscription_lapse_*
+                    // columns. Shown once instead of falling straight into the generic
+                    // "resubscribe" paywall with no context for why access just disappeared.
                     NavigationStack {
-                        PendingConnectionApprovalView(request: outgoingRequest)
+                        SubscriptionLapsedFromDisconnectView(partnerName: lapsedPartnerName)
                     }
-                    .postHogScreenView("Pending Connection Approval")
+                    .postHogScreenView("Paywall: Subscription Lapsed From Disconnect")
                 } else {
                     NavigationStack {
                         PaywallView(isDismissable: false)
@@ -304,10 +311,12 @@ struct RootView: View {
         await WidgetSnapshotWriter.refresh(appModel: appModel)
     }
 
-    /// Only meaningful in exactly the gap `PendingConnectionApprovalView` covers — no point
-    /// fetching once there's real couple/subscription access, or before onboarding is done.
+    /// Unlike most other `IfNeeded` refreshes here, this now needs to stay fresh continuously
+    /// rather than stopping once subscribed — it drives Home's persistent "invite pending" card
+    /// (and clears it once accepted/declined), not just the pre-subscription gate it used to be
+    /// the sole reason for. Still no point fetching before onboarding is done.
     private func refreshPendingOutgoingConnectionRequestIfNeeded() async {
-        guard appModel.hasCouple, !appModel.isSubscriptionActive else { return }
+        guard appModel.hasCouple else { return }
         await appModel.refreshPendingOutgoingConnectionRequest()
     }
 

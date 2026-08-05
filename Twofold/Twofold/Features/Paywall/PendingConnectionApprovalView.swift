@@ -2,15 +2,12 @@
 //  PendingConnectionApprovalView.swift
 //  Twofold
 //
-//  Shown by `RootView` in place of the forced re-subscribe paywall whenever `hasCouple` is true,
-//  there's no active subscription, but this user has a still-pending outgoing connection request
-//  — someone who redeemed a code and is waiting on the inviter's decision isn't really solo, and
-//  has no subscription of their own to be asked for; Twofold subscriptions are shared, so once
-//  accepted they'll simply inherit the couple's existing plan. Forcing a purchase in the
-//  meantime would be a dead end for no reason.
-//
-//  Same non-dismissable shape `PaywallView(isDismissable: false)` uses for the same root-level
-//  gate — Sign Out instead of a close button, since there's otherwise no way off this screen.
+//  Status sheet for a still-pending outgoing connection request — reached by tapping Home's
+//  "Invite pending with {name}" card. Used to be `RootView`'s non-dismissable root gate for
+//  someone who redeemed a code and had no subscription of their own; now that pending invites
+//  bypass the paywall straight into `MainTabView`, this is just a lightweight status check with
+//  the option to nudge the inviter, not a dead end — see `RootView`'s `pendingOutgoingConnectionRequest`
+//  branch and `HomeView`'s `pendingOutgoingInviteCard`.
 //
 
 import SwiftUI
@@ -19,9 +16,10 @@ struct PendingConnectionApprovalView: View {
     let request: BackendService.OutgoingConnectionRequest
 
     @Environment(AppModel.self) private var appModel
+    @Environment(\.dismiss) private var dismiss
     @State private var isRefreshing = false
-    @State private var showingSignOutConfirm = false
-    @State private var isSigningOut = false
+    @State private var isSendingReminder = false
+    @State private var reminderMessage: String?
 
     private var inviterPerson: Person {
         Person(
@@ -50,27 +48,58 @@ struct PendingConnectionApprovalView: View {
                         .padding(.horizontal, Theme.Spacing.lg)
                 }
 
+                if let reminderMessage {
+                    Text(reminderMessage)
+                        .font(.caption)
+                        .foregroundStyle(Theme.subtleInk)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, Theme.Spacing.lg)
+                }
+
                 Spacer()
 
-                Button {
-                    Task {
-                        isRefreshing = true
-                        await appModel.refreshCoupleStateIfNeeded()
-                        await appModel.refreshPendingOutgoingConnectionRequest()
-                        isRefreshing = false
+                VStack(spacing: Theme.Spacing.sm) {
+                    Button {
+                        Task {
+                            isRefreshing = true
+                            await appModel.refreshCoupleStateIfNeeded()
+                            await appModel.refreshPendingOutgoingConnectionRequest()
+                            isRefreshing = false
+                        }
+                    } label: {
+                        HStack {
+                            if isRefreshing { ProgressView() }
+                            Text(isRefreshing ? "Checking…" : "Check again")
+                        }
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Theme.cardBackground, in: Capsule())
+                        .foregroundStyle(Theme.ink)
                     }
-                } label: {
-                    HStack {
-                        if isRefreshing { ProgressView() }
-                        Text(isRefreshing ? "Checking…" : "Check again")
+                    .disabled(isRefreshing)
+
+                    Button {
+                        Task {
+                            isSendingReminder = true
+                            reminderMessage = nil
+                            let failureReason = await appModel.sendConnectionRequestReminder()
+                            isSendingReminder = false
+                            reminderMessage = failureReason ?? "Reminder sent."
+                        }
+                    } label: {
+                        HStack {
+                            if isSendingReminder { ProgressView() }
+                            Text(isSendingReminder ? "Sending…" : "Send a reminder")
+                        }
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Theme.primaryButtonGradient, in: Capsule())
+                        .foregroundStyle(.white)
                     }
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Theme.cardBackground, in: Capsule())
-                    .foregroundStyle(Theme.ink)
+                    .disabled(isSendingReminder)
                 }
-                .disabled(isRefreshing)
                 .padding(.horizontal, Theme.Spacing.lg)
                 .padding(.bottom, Theme.Spacing.xl)
             }
@@ -78,20 +107,8 @@ struct PendingConnectionApprovalView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Sign Out", role: .destructive) {
-                        showingSignOutConfirm = true
-                    }
-                    .disabled(isSigningOut)
+                    Button("Close") { dismiss() }
                 }
-            }
-            .confirmationDialog("Sign out of Twofold?", isPresented: $showingSignOutConfirm, titleVisibility: .visible) {
-                Button("Sign Out", role: .destructive) {
-                    Task {
-                        isSigningOut = true
-                        await appModel.signOut()
-                    }
-                }
-                Button("Cancel", role: .cancel) {}
             }
         }
     }

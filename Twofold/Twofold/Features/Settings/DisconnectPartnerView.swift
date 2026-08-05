@@ -9,6 +9,7 @@
 //
 
 import PostHog
+import RevenueCatUI
 import SwiftUI
 
 struct DisconnectPartnerView: View {
@@ -19,6 +20,8 @@ struct DisconnectPartnerView: View {
     @State private var isRemovingPartner = false
     @State private var removePartnerError: String?
     @State private var subscriptionStore = SubscriptionStore()
+    @State private var showingCancelSubscriptionOffer = false
+    @State private var showingCustomerCenter = false
 
     /// Same check `PartnerManagesSubscriptionView`'s call sites already use — the couple's active
     /// tier is real, but not backed by *this* device's own RevenueCat entitlement, meaning it's
@@ -27,6 +30,15 @@ struct DisconnectPartnerView: View {
     /// idea why their premium features just vanished.
     private var wouldLosePaidAccess: Bool {
         appModel.subscriptionTier != nil && subscriptionStore.subscribedTier == nil
+    }
+
+    /// The inverse of `wouldLosePaidAccess` — this device's own RevenueCat entitlement is what's
+    /// backing the couple's plan, i.e. this person is the one actually paying. Mutually exclusive
+    /// with `wouldLosePaidAccess` (can't be both the payer and not). Drives the post-disconnect
+    /// "manage your now-solo subscription" offer, since `appModel.partner`'s access disappears
+    /// immediately on disconnect regardless of what happens to this device's own billing.
+    private var isPayer: Bool {
+        appModel.isSubscriptionActive && subscriptionStore.isSubscribed
     }
 
     var body: some View {
@@ -81,6 +93,8 @@ struct DisconnectPartnerView: View {
                     isRemovingPartner = false
                     if let failureReason {
                         removePartnerError = failureReason
+                    } else if isPayer {
+                        showingCancelSubscriptionOffer = true
                     } else {
                         dismiss()
                     }
@@ -90,13 +104,34 @@ struct DisconnectPartnerView: View {
         } message: {
             Text(disconnectWarningMessage)
         }
+        .sheet(isPresented: $showingCancelSubscriptionOffer) {
+            CancelSubscriptionOfferView(
+                onManage: {
+                    showingCancelSubscriptionOffer = false
+                    showingCustomerCenter = true
+                },
+                onNotNow: {
+                    showingCancelSubscriptionOffer = false
+                    dismiss()
+                }
+            )
+        }
+        .sheet(isPresented: $showingCustomerCenter, onDismiss: { dismiss() }) {
+            CustomerCenterView()
+                .postHogScreenView("Disconnect: Manage Subscription")
+        }
         .postHogScreenView("Settings: Disconnect Partner")
     }
 
     private var disconnectWarningMessage: String {
         let base = "This will archive all your shared trips, memories, flights, game sessions, stats, and drawings with \(appModel.partner.name) — they'll only be visible afterward in Settings' Archived Data. You'll be able to connect with someone new right away."
-        guard wouldLosePaidAccess else { return base }
-        return base + "\n\n\(appModel.partner.name) is the one paying for your Twofold subscription — disconnecting will drop you back to the free plan, since you won't be covered by their purchase anymore."
+        if wouldLosePaidAccess {
+            return base + "\n\n\(appModel.partner.name) is the one paying for your Twofold subscription — disconnecting will drop you back to the free plan, since you won't be covered by their purchase anymore."
+        }
+        if isPayer {
+            return base + "\n\n\(appModel.partner.name) will lose premium access right away, since they're covered by your subscription. Your own subscription keeps going afterward — you can cancel it separately once you've disconnected, if you'd rather not keep paying."
+        }
+        return base
     }
 }
 

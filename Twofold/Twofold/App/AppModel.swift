@@ -91,10 +91,18 @@ final class AppModel {
     /// each of these) — see `refreshPendingConnectionRequests()`/`respondToConnectionRequest(_:accept:)`.
     var pendingConnectionRequests: [BackendService.PendingConnectionRequest] = []
     /// My own outgoing request, if I redeemed a code and I'm still waiting on the inviter's
-    /// decision — see `refreshPendingOutgoingConnectionRequest()`. `RootView` checks this to
-    /// show a "waiting" screen instead of the forced re-subscribe paywall for someone who isn't
-    /// really solo, just not accepted yet.
+    /// decision — see `refreshPendingOutgoingConnectionRequest()`. `RootView` lets this bypass
+    /// the forced re-subscribe paywall entirely (straight into `MainTabView`) for someone who
+    /// isn't really solo, just not accepted yet; `HomeView` shows a persistent card for it, with
+    /// the option to nudge the inviter — see `sendConnectionRequestReminder()`.
     var pendingOutgoingConnectionRequest: BackendService.OutgoingConnectionRequest?
+
+    /// Non-nil only while there's an unacknowledged "your subscription lapsed because {name}
+    /// left" notice — set by `adoptSoloProfile(_:)` from `leave_couple`'s server-captured
+    /// snapshot (the ex-partner's name is already gone from `partner_name` by the time this
+    /// loads). `RootView` shows `SubscriptionLapsedFromDisconnectView` in place of the generic
+    /// non-dismissable paywall while this is set — see `markPartnerSubscriptionLapseAcknowledged()`.
+    var partnerSubscriptionLapsedPartnerName: String?
 
     /// Set whenever a newly-crossed, not-yet-shown review milestone is detected — RootView
     /// presents `ReviewPromptView` as a sheet whenever this is non-nil. See
@@ -378,6 +386,7 @@ final class AppModel {
         subscriptionTier = profile.subscriptionTier
         partnerConnectedCelebrationShown = profile.partnerConnectedCelebrationShown
         setupChecklistDismissed = profile.setupChecklistDismissed
+        partnerSubscriptionLapsedPartnerName = profile.partnerSubscriptionLapseShown ? nil : profile.partnerSubscriptionLapsePartnerName
     }
 
     /// A device's own successful purchase/restore, applied instantly and locally (no network
@@ -401,6 +410,16 @@ final class AppModel {
         guard !partnerConnectedCelebrationShown else { return }
         partnerConnectedCelebrationShown = true
         Task { await BackendService.markPartnerConnectedCelebrationShown() }
+    }
+
+    /// Same pattern as `markPartnerConnectedCelebrationShown()` — instant local flip (so
+    /// `SubscriptionLapsedFromDisconnectView` never shows twice in one session), persisted
+    /// server-side in the background. Re-armable: `leave_couple` can set the underlying flag back
+    /// to `false` again later, for a different relationship's same non-payer outcome.
+    func markPartnerSubscriptionLapseAcknowledged() {
+        guard partnerSubscriptionLapsedPartnerName != nil else { return }
+        partnerSubscriptionLapsedPartnerName = nil
+        Task { await BackendService.markPartnerSubscriptionLapseShown() }
     }
 
     /// Same pattern as `markPartnerConnectedCelebrationShown()` — instant local flip, persisted
@@ -582,6 +601,20 @@ final class AppModel {
         pendingOutgoingConnectionRequest = try? await BackendService.fetchMyOutgoingConnectionRequest()
     }
 
+    /// Nudges the inviter on `pendingOutgoingConnectionRequest`. Returns an error message on
+    /// failure (including the RPC's own cooldown-rejection text), nil on success — same shape as
+    /// `removePartner()`.
+    @discardableResult
+    func sendConnectionRequestReminder() async -> String? {
+        guard let request = pendingOutgoingConnectionRequest else { return "No pending request to remind." }
+        do {
+            try await BackendService.sendConnectionRequestReminder(requestID: request.id)
+            return nil
+        } catch {
+            return error.localizedDescription
+        }
+    }
+
     /// Accepts or declines an incoming request. On accept, re-checks couple state immediately
     /// rather than waiting for the next foreground/background refresh — the whole point of
     /// accepting right now is to connect right now. Returns an error message on failure, nil on
@@ -689,10 +722,11 @@ final class AppModel {
     }
 
     /// Call after a solo (unpaired) user finishes adding a trip/memory or completes a game —
-    /// surfaces `PartnerInviteNudgeView` at most once a day. No-ops once paired, since there's
-    /// nothing left to invite anyone to.
+    /// surfaces `PartnerInviteNudgeView` at most once a day. No-ops once paired (nothing left to
+    /// invite anyone to) or while a request is already pending (they've already invited someone —
+    /// Home's own pending-invite card, not this nudge, is the right prompt for that state).
     func noteSoloActionCompleted() {
-        guard !partnerConnected, PartnerInviteNudgeService.isEligibleToday() else { return }
+        guard !partnerConnected, pendingOutgoingConnectionRequest == nil, PartnerInviteNudgeService.isEligibleToday() else { return }
         pendingPartnerInviteNudge = true
         PartnerInviteNudgeService.markShown()
     }

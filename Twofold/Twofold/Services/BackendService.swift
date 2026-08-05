@@ -303,6 +303,11 @@ enum BackendService {
         var subscriptionTier: String?
         var partnerConnectedCelebrationShown: Bool
         var setupChecklistDismissed: Bool
+        /// Non-nil only while there's an unacknowledged "your subscription lapsed because {name}
+        /// left" notice to show — see `leave_couple`'s partner_subscription_lapse_* columns and
+        /// `AppModel.partnerSubscriptionLapsedPartnerName`.
+        var partnerSubscriptionLapsePartnerName: String?
+        var partnerSubscriptionLapseShown: Bool
     }
 
     /// The signed-in user's own profile — used when they're authenticated but not (yet)
@@ -341,7 +346,9 @@ enum BackendService {
             subscriptionActive: profile.subscriptionActive,
             subscriptionTier: profile.subscriptionTier,
             partnerConnectedCelebrationShown: profile.partnerConnectedCelebrationShown,
-            setupChecklistDismissed: profile.setupChecklistDismissed
+            setupChecklistDismissed: profile.setupChecklistDismissed,
+            partnerSubscriptionLapsePartnerName: profile.partnerSubscriptionLapsePartnerName,
+            partnerSubscriptionLapseShown: profile.partnerSubscriptionLapseShown
         )
     }
 
@@ -446,6 +453,8 @@ enum BackendService {
         var subscriptionTier: String?
         var partnerConnectedCelebrationShown: Bool
         var setupChecklistDismissed: Bool
+        var partnerSubscriptionLapsePartnerName: String?
+        var partnerSubscriptionLapseShown: Bool
 
         enum CodingKeys: String, CodingKey {
             case id
@@ -460,6 +469,8 @@ enum BackendService {
             case subscriptionTier = "subscription_tier"
             case partnerConnectedCelebrationShown = "partner_connected_celebration_shown"
             case setupChecklistDismissed = "setup_checklist_dismissed"
+            case partnerSubscriptionLapsePartnerName = "partner_subscription_lapse_partner_name"
+            case partnerSubscriptionLapseShown = "partner_subscription_lapse_shown"
         }
     }
 
@@ -495,6 +506,24 @@ enum BackendService {
         try? await supabase
             .from("profiles")
             .update(PartnerConnectedCelebrationUpdate())
+            .eq("id", value: userID)
+            .execute()
+    }
+
+    private struct SubscriptionLapseNoticeShownUpdate: Encodable {
+        var partnerSubscriptionLapseShown = true
+        enum CodingKeys: String, CodingKey { case partnerSubscriptionLapseShown = "partner_subscription_lapse_shown" }
+    }
+
+    /// Same reasoning as `markPartnerConnectedCelebrationShown` — acknowledging "your
+    /// subscription lapsed because {name} left" needs to survive a reinstall. Re-armable: if
+    /// `leave_couple` sets this back to `false` again later (a new relationship, same non-payer
+    /// outcome), this simply gets called again.
+    static func markPartnerSubscriptionLapseShown() async {
+        guard let userID = currentUserID else { return }
+        try? await supabase
+            .from("profiles")
+            .update(SubscriptionLapseNoticeShownUpdate())
             .eq("id", value: userID)
             .execute()
     }
@@ -1073,6 +1102,29 @@ enum BackendService {
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
         _ = try? await URLSession.shared.data(for: request)
+    }
+
+    private struct ConnectionRequestRow: Decodable {
+        var inviterId: UUID
+        enum CodingKeys: String, CodingKey { case inviterId = "inviter_id" }
+    }
+
+    /// Nudges the inviter on a still-pending outgoing request — reachable from Home's pending-
+    /// invite card instead of the old hard paywall dead-end. Rate-limited server-side (see the
+    /// `send_connection_request_reminder` RPC's own cooldown check); its exception message is
+    /// what surfaces to the user on a too-soon retry, same pattern `removePartner`/
+    /// `respondToConnectionRequest` already use for RPC-rejection messaging.
+    static func sendConnectionRequestReminder(requestID: UUID) async throws {
+        struct Params: Encodable {
+            var pRequestId: UUID
+            enum CodingKeys: String, CodingKey { case pRequestId = "p_request_id" }
+        }
+        let row: ConnectionRequestRow = try await supabase
+            .rpc("send_connection_request_reminder", params: Params(pRequestId: requestID))
+            .single()
+            .execute()
+            .value
+        Task { await notifyConnectionRequest(eventType: "connection_reminder", targetProfileId: row.inviterId) }
     }
 
     // MARK: - Remove partner / archived data

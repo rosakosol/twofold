@@ -27,6 +27,7 @@ struct HomeView: View {
     @State private var showingSettings = false
     @State private var showingPartnerSetup = false
     @State private var reviewingConnectionRequest: BackendService.PendingConnectionRequest?
+    @State private var showingPendingOutgoingDetail = false
     @State private var showingAddTrip = false
     @State private var showingAddFlight = false
     @State private var showingLocationPermission = false
@@ -70,6 +71,8 @@ struct HomeView: View {
                 VStack(spacing: Theme.Spacing.md) {
                     if let incomingRequest = appModel.pendingConnectionRequests.first {
                         pendingConnectionRequestCard(incomingRequest)
+                    } else if let outgoingRequest = appModel.pendingOutgoingConnectionRequest {
+                        pendingOutgoingInviteCard(outgoingRequest)
                     } else if appModel.needsPartnerInvite {
                         invitePartnerCard
                     }
@@ -177,6 +180,11 @@ struct HomeView: View {
             }
             .sheet(item: $reviewingConnectionRequest) { request in
                 ConnectionRequestReviewView(request: request)
+            }
+            .sheet(isPresented: $showingPendingOutgoingDetail) {
+                if let request = appModel.pendingOutgoingConnectionRequest {
+                    PendingConnectionApprovalView(request: request)
+                }
             }
             .sheet(isPresented: $showingAddTrip) {
                 NavigationStack {
@@ -385,6 +393,56 @@ struct HomeView: View {
 
                 HStack(spacing: 4) {
                     Text("Review request")
+                        .font(.subheadline.weight(.semibold))
+                    Image(systemName: "chevron.right").font(.caption)
+                }
+                .foregroundStyle(.white)
+            }
+            .padding(Theme.Spacing.lg)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Theme.primaryButtonGradient, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// The *outgoing* counterpart to `pendingConnectionRequestCard` above — I redeemed someone
+    /// else's code and I'm the one waiting now. Takes over `invitePartnerCard`'s slot the same
+    /// way (already invited someone; being pitched the feature again would be redundant), and
+    /// opens the same `PendingConnectionApprovalView` that used to be a full-screen root gate —
+    /// now just a status sheet, since there's nothing left to block here.
+    private func pendingOutgoingInviteCard(_ request: BackendService.OutgoingConnectionRequest) -> some View {
+        Button {
+            showingPendingOutgoingDetail = true
+        } label: {
+            VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+                HStack(spacing: Theme.Spacing.md) {
+                    AvatarView(
+                        person: Person(
+                            id: request.inviterId,
+                            name: request.inviterFirstName,
+                            accentColor: Person.palette[0],
+                            avatarURL: request.inviterAvatarURL
+                        ),
+                        size: 56,
+                        showsRing: true
+                    )
+
+                    Text("Invite pending with \(request.inviterFirstName)")
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(.white)
+                        .lineLimit(2)
+
+                    Spacer(minLength: 0)
+                }
+
+                Text("They haven't accepted yet — feel free to explore Twofold while you wait, or send them a nudge.")
+                    .font(.subheadline)
+                    .foregroundStyle(.white.opacity(0.9))
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 4) {
+                    Text("View status")
                         .font(.subheadline.weight(.semibold))
                     Image(systemName: "chevron.right").font(.caption)
                 }

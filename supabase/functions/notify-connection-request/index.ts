@@ -1,9 +1,11 @@
-// Notifies about a partner-connection request — either "someone wants to connect" (to the
-// inviter, right after redeem_invite_code creates a pending request) or "your request was
-// accepted" (to the requester, right after respond_to_connection_request accepts one). Called
-// directly by the client right after each of those, same pattern as notify-couple-event —
-// except neither event has a couple yet (that's the whole point pre-acceptance), so this looks
-// up device_push_tokens by an explicit target profile id instead of resolving one via `couples`.
+// Notifies about a partner-connection request — "someone wants to connect" (to the inviter,
+// right after redeem_invite_code creates a pending request), "your request was accepted" (to the
+// requester, right after respond_to_connection_request accepts one), or "still waiting on you"
+// (to the inviter, right after send_connection_request_reminder — the requester nudging a
+// still-pending request). Called directly by the client right after each of those, same pattern
+// as notify-couple-event — except neither event has a couple yet (that's the whole point
+// pre-acceptance), so this looks up device_push_tokens by an explicit target profile id instead
+// of resolving one via `couples`.
 //
 // Requires an `Authorization: Bearer <user access token>` header (the caller's Supabase auth
 // session) — the caller is the *actor* whose action is being announced, not the recipient.
@@ -11,7 +13,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { sendAPNs } from "../_shared/apns.ts";
 
-type EventType = "connection_requested" | "connection_accepted";
+type EventType = "connection_requested" | "connection_accepted" | "connection_reminder";
 
 interface Input {
   eventType: EventType;
@@ -33,8 +35,15 @@ Deno.serve(async (req) => {
     return Response.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  if (input?.eventType !== "connection_requested" && input?.eventType !== "connection_accepted") {
-    return Response.json({ error: "'eventType' must be 'connection_requested' or 'connection_accepted'" }, { status: 400 });
+  if (
+    input?.eventType !== "connection_requested" &&
+    input?.eventType !== "connection_accepted" &&
+    input?.eventType !== "connection_reminder"
+  ) {
+    return Response.json(
+      { error: "'eventType' must be 'connection_requested', 'connection_accepted', or 'connection_reminder'" },
+      { status: 400 },
+    );
   }
   if (!input.targetProfileId) {
     return Response.json({ error: "'targetProfileId' is required" }, { status: 400 });
@@ -60,9 +69,11 @@ Deno.serve(async (req) => {
   // direction this eventType implies, before pushing anything — without this, any authenticated
   // user could push an arbitrary "wants to connect"/"accepted your request" notification, with
   // their own real name attached, to any other profile by UUID.
-  const expectedMatch = input.eventType === "connection_requested"
-    ? { inviter_id: input.targetProfileId, requester_id: user.id, status: "pending" }
-    : { inviter_id: user.id, requester_id: input.targetProfileId, status: "accepted" };
+  const expectedMatch = input.eventType === "connection_accepted"
+    ? { inviter_id: user.id, requester_id: input.targetProfileId, status: "accepted" }
+    // connection_requested and connection_reminder are both the requester pinging the inviter
+    // about the same still-open request, so they share the same match shape.
+    : { inviter_id: input.targetProfileId, requester_id: user.id, status: "pending" };
   const { data: linkingRequest } = await serviceClient
     .from("connection_requests")
     .select("id")
@@ -84,6 +95,8 @@ Deno.serve(async (req) => {
 
     const { title, body } = input.eventType === "connection_requested"
       ? { title: "New connection request", body: `${actorName} wants to connect with you on Twofold.` }
+      : input.eventType === "connection_reminder"
+      ? { title: "Still waiting on you", body: `${actorName} is waiting for you to accept their connection request.` }
       : { title: "You're connected! 🎉", body: `${actorName} accepted your connection request.` };
 
     const { data: tokens } = await serviceClient
