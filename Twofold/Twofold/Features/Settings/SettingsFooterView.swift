@@ -19,9 +19,9 @@ struct SettingsFooterView: View {
     var body: some View {
         VStack(spacing: Theme.Spacing.xs) {
             HStack(spacing: Theme.Spacing.sm) {
-                Link("Privacy Policy", destination: URL(string: "https://www.twofoldapp.com.au/privacy.html")!)
+                Link("Privacy Policy", destination: URL(string: "https://www.twofoldapp.com.au/privacy")!)
                 Text("·").foregroundStyle(Theme.subtleInk)
-                Link("Terms of Use", destination: URL(string: "https://www.twofoldapp.com.au/terms.html")!)
+                Link("Terms of Use", destination: URL(string: "https://www.twofoldapp.com.au/terms")!)
             }
             .font(.caption)
 
