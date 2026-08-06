@@ -168,6 +168,18 @@ struct SignInView: View {
             handleAccountDeleted()
             return
         }
+        // Apple/Google auto-provision a brand-new account on first use — unlike email/password
+        // (wrong credentials just fail), there's no "no such account" error to tell a genuinely
+        // new person apart from a returning one here, so `loadSignedInState` already routed them
+        // straight past onboarding (see its own doc comment: authenticated at all reads as
+        // "onboarding already done"). A never-onboarded profile always has an empty name — real
+        // onboarding collects it before account creation ever happens — so this catches that one
+        // case and sends them back to actually onboard instead of dropping them at the paywall.
+        if appModel.currentUser.name.isEmpty {
+            appModel.hasCouple = false
+            dismiss()
+            return
+        }
         isSubmitting = false
     }
 

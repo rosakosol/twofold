@@ -440,7 +440,14 @@ final class AppModel {
     /// equally and neither should have to remember to call it separately.
     private func identifyWithRevenueCat() async {
         guard let userID = BackendService.currentUserID else { return }
-        _ = try? await Purchases.shared.logIn(userID.uuidString)
+        if (try? await Purchases.shared.logIn(userID.uuidString)) == nil {
+            // One retry — a `logIn` failure here (typically a network blip right at launch/sign-in)
+            // is exactly what leaves RevenueCat on its anonymous ID for the rest of the session,
+            // which `RootView.checkSubscription`'s `isAnonymous` guard exists to stay safe against
+            // regardless, but a second attempt costs nothing and fixes the common transient case
+            // outright rather than just avoiding its worst consequence.
+            _ = try? await Purchases.shared.logIn(userID.uuidString)
+        }
     }
 
     /// Same idea as `identifyWithRevenueCat()`, for PostHog — ties analytics events to the same

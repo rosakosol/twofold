@@ -4,6 +4,7 @@
 //
 
 import PostHog
+import RevenueCat
 import SwiftUI
 
 struct RootView: View {
@@ -296,7 +297,18 @@ struct RootView: View {
     private func checkSubscription() async {
         guard appModel.hasCouple else { return }
         await subscriptionStore.refreshEntitlementsOnly()
-        try? await BackendService.updateSubscriptionStatus(active: subscriptionStore.isSubscribed, tier: subscriptionStore.subscribedTier?.dbValue)
+        // Only sync a *negative* read back to the backend once RevenueCat is confirmed identified
+        // to this real user (`Purchases.shared.logIn`, called from `identifyWithRevenueCat`,
+        // succeeded at some point this session) — a still-anonymous RevenueCat ID always reads
+        // "not subscribed" regardless of the real subscriber's entitlement (e.g. `logIn` silently
+        // failed, or hasn't resolved yet right after a fresh sign-in), and trusting that blindly
+        // would overwrite a genuinely-active `subscription_active` with `false`, locking a real
+        // subscriber out at the paywall with nothing to self-correct it (there's no server-side
+        // RevenueCat webhook — this client-side write is the only path that ever sets `false`). A
+        // positive read is always safe to write regardless.
+        if subscriptionStore.isSubscribed || !Purchases.shared.isAnonymous {
+            try? await BackendService.updateSubscriptionStatus(active: subscriptionStore.isSubscribed, tier: subscriptionStore.subscribedTier?.dbValue)
+        }
         if let active = try? await BackendService.fetchSubscriptionActive() {
             appModel.isSubscriptionActive = active
         }
