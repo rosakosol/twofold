@@ -47,6 +47,7 @@ struct CreateAccountView: View {
                         .textContentType(.givenName)
                         .padding()
                         .onboardingFieldBackground()
+                        .onChange(of: firstName) { _, _ in errorMessage = nil }
 
                     TextField("Email", text: $email)
                         .textContentType(.emailAddress)
@@ -116,14 +117,25 @@ struct CreateAccountView: View {
     }
 
     private func continueTapped() {
-        isSubmitting = true
         errorMessage = nil
         emailAlreadyExists = false
+
+        let trimmedName = firstName.trimmingCharacters(in: .whitespaces)
+        if let structuralError = NameValidator.structuralError(for: trimmedName) {
+            errorMessage = structuralError
+            return
+        }
+        guard !NameValidator.isInappropriate(trimmedName) else {
+            errorMessage = "Please enter an appropriate name."
+            return
+        }
+
+        isSubmitting = true
         Task {
             do {
-                try await BackendService.signUp(firstName: firstName, email: email, password: password)
+                try await BackendService.signUp(firstName: trimmedName, email: email, password: password)
                 guard let userID = BackendService.currentUserID else { throw BackendError.notAuthenticated }
-                await finishSignIn(userID: userID, providedFirstName: firstName)
+                await finishSignIn(userID: userID, providedFirstName: trimmedName)
             } catch let authError as AuthError where authError.errorCode == .emailExists {
                 // Don't silently retry as a sign-in — the password just typed into *this* form
                 // is almost never that existing account's real password, so that attempt would
@@ -156,10 +168,33 @@ struct CreateAccountView: View {
     /// real identity locally, persist a first name if we have a better one than what's already
     /// on the profile, and advance onboarding.
     private func finishSignIn(userID: UUID, providedFirstName: String?) async {
+        let resolvedName: String
+        if let providedFirstName, !providedFirstName.isEmpty {
+            resolvedName = providedFirstName
+        } else {
+            // Google never supplies a name via this integration, and Apple only does on the
+            // account's very first authorization — either way this falls back to whatever's
+            // typed in the form field, which (unlike `continueTapped`'s email/password path)
+            // never went through `continueTapped`'s own check, since the Apple/Google buttons
+            // call straight through to `onSuccess` on their own. Needs the same validation here
+            // instead, or a blank/too-short/inappropriate typed name would slip through silently.
+            let trimmedTyped = firstName.trimmingCharacters(in: .whitespaces)
+            if let structuralError = NameValidator.structuralError(for: trimmedTyped) {
+                errorMessage = structuralError
+                isSubmitting = false
+                return
+            }
+            guard !NameValidator.isInappropriate(trimmedTyped) else {
+                errorMessage = "Please enter an appropriate name."
+                isSubmitting = false
+                return
+            }
+            resolvedName = trimmedTyped
+        }
+
         if let providedFirstName, !providedFirstName.isEmpty {
             try? await BackendService.updateFirstName(providedFirstName)
         }
-        let resolvedName = (providedFirstName?.isEmpty == false) ? providedFirstName! : firstName
         appModel.adoptSignedInIdentity(id: userID, firstName: resolvedName)
 
         onboarding.firstName = resolvedName
