@@ -56,8 +56,17 @@ struct TripsListView: View {
     // Bumped up from 220 now that the header itself carries an extra row (the "Travel" title) and
     // the carousel card itself grew a line (duration split onto its own line from the date range)
     // — the old value was sized for a shorter header/card and was leaving the card cut off at the
-    // bottom of the panel's fixed height instead of comfortably visible.
-    private let peekHeight: CGFloat = 340
+    // bottom of the panel's fixed height instead of comfortably visible. Bumped again (340 -> 416)
+    // to make room for `peekBottomClearance` replacing the old flat `.lg` bottom padding below the
+    // card — without a matching height increase, that extra padding would just have shoved the
+    // card upward against the header instead of actually growing the panel to fit it.
+    private let peekHeight: CGFloat = 416
+    /// Same idea (and same value) as `bottomListClearance` below, just for the peek-height card
+    /// instead of the expanded list — the floating tab bar sits *outside* this panel entirely (see
+    /// this file's own header comment), so nothing here gets automatic bottom-safe-area clearance
+    /// from it. The old flat `Theme.Spacing.lg` wasn't real tab-bar clearance, just ordinary
+    /// breathing room, so the card's own bottom edge ended up sitting behind/under the tab bar.
+    private let peekBottomClearance: CGFloat = 100
     private let panelAnimation: Animation = .spring(response: 0.35, dampingFraction: 0.86)
 
     enum TripsTab: String, CaseIterable {
@@ -377,8 +386,21 @@ struct TripsListView: View {
                     TripCarouselCard(trip: trip, travelers: travelers(for: trip))
                 }
                 .buttonStyle(.plain)
-                .padding(.horizontal, Theme.Spacing.md)
-                .padding(.bottom, Theme.Spacing.lg)
+                // `.lg`, not `.md` — `TripCarouselCard`'s own shadow (radius 12) bleeds past its
+                // edges, and `.md` alone wasn't enough clearance from the panel's own 40pt corner
+                // radius: the shadow visibly muddied the rounded top corners, reading as "cut
+                // off" rather than cleanly rounded. See `peekBottomClearance` for the matching
+                // bottom-edge issue (the floating tab bar, not the corners).
+                .padding(.horizontal, Theme.Spacing.lg)
+                .padding(.bottom, peekBottomClearance)
+                // Without a trailing flexible spacer, this branch's content doesn't actually
+                // stretch to fill the panel's full imposed `peekHeight` the way the empty-state
+                // branch above (which already had one) does — and short of that, `DraggablePanelHost`'s
+                // `UIHostingController`-hosted corner-radius clip only fully resolved at the *top*
+                // of the panel; the bottom corners rendered dead flat/square instead of rounded,
+                // confirmed by cranking `panelCornerRadius` way up and watching the shape's sides
+                // curve in correctly but get hard-cut before closing. This one line is the fix.
+                Spacer(minLength: 0)
             }
         case .flights:
             // Gated on *tracked* flights specifically, not "ever had any flight" — a couple
@@ -394,8 +416,11 @@ struct TripsListView: View {
                     FlightCarouselCard(flight: flight)
                 }
                 .buttonStyle(.plain)
-                .padding(.horizontal, Theme.Spacing.md)
-                .padding(.bottom, Theme.Spacing.lg)
+                // See the matching `TripCarouselCard` button's own comments above — same shadow-
+                // into-corner-radius issue and same missing-bottom-rounding issue, same fixes.
+                .padding(.horizontal, Theme.Spacing.lg)
+                .padding(.bottom, peekBottomClearance)
+                Spacer(minLength: 0)
             }
         }
     }
