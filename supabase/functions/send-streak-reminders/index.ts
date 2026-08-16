@@ -116,18 +116,29 @@ Deno.serve(async (req) => {
       .lt("created_at", dayBoundary.toISOString())
       .maybeSingle();
 
+    // Who has personally answered today. Keeping the *set* rather than a bare count is the fix
+    // for a real bug: the streak only advances once *both* partners have answered (see
+    // advance_game_session's `v_both_complete` gate), so "somebody answered" never meant the
+    // couple was safe. Skipping the whole couple on the first response meant the partner who
+    // hadn't answered - precisely the person whose silence is about to break the streak - was the
+    // one guaranteed never to get the "1 hour left!" nudge.
+    // (advance_game_session only creates daily_streaks rows on an actual response, and
+    // get_daily_question_session only creates the session itself, so a session with no responses
+    // yet still needs a nudge - handled naturally by the empty set below.)
+    const answeredIds = new Set<string>();
     if (todaysSession) {
-      // A session already exists today - someone's engaged (advance_game_session only creates
-      // daily_streaks rows on an actual response, and get_daily_question_session only creates
-      // the session itself, so a session with no responses yet still needs a nudge).
-      const { count } = await serviceClient
+      const { data: responses } = await serviceClient
         .from("game_responses")
-        .select("id", { count: "exact", head: true })
+        .select("responder_id")
         .eq("session_id", todaysSession.id);
-      if ((count ?? 0) > 0) continue;
+      for (const row of responses ?? []) answeredIds.add(row.responder_id as string);
     }
 
-    const partnerIds = [couple.partner_a_id, couple.partner_b_id].filter((id): id is string => Boolean(id));
+    // Only partners who still owe an answer. Empty means both are done - the streak is safe for
+    // today, so there's nothing to remind anyone about.
+    const partnerIds = [couple.partner_a_id, couple.partner_b_id]
+      .filter((id): id is string => Boolean(id))
+      .filter((id) => !answeredIds.has(id));
     if (partnerIds.length === 0) continue;
 
     const { data: prefRows } = await serviceClient

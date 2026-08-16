@@ -2660,19 +2660,23 @@ enum BackendService {
     private struct DailyStreakRow: Decodable {
         var currentStreak: Int
         var longestStreak: Int
-        var lastAnsweredDate: String?
 
         enum CodingKeys: String, CodingKey {
             case currentStreak = "current_streak"
             case longestStreak = "longest_streak"
-            case lastAnsweredDate = "last_answered_date"
         }
     }
 
     /// No row yet means the couple hasn't answered a daily question at all — a streak of 0,
     /// not an error.
+    ///
+    /// Goes through `get_daily_streak()` rather than selecting `daily_streaks` directly: the
+    /// stored `current_streak` is only ever recomputed when someone *answers*, so a couple who
+    /// last answered days ago still has their old number sitting in the column. Reading it raw
+    /// (what this used to do) displayed a streak that had actually already lapsed. The RPC
+    /// applies the same "still alive" rule the increment side uses — see its own comment.
     static func fetchDailyStreak() async throws -> (current: Int, longest: Int) {
-        let rows: [DailyStreakRow] = try await supabase.from("daily_streaks").select().limit(1).execute().value
+        let rows: [DailyStreakRow] = try await supabase.rpc("get_daily_streak").execute().value
         guard let row = rows.first else { return (0, 0) }
         return (row.currentStreak, row.longestStreak)
     }
