@@ -328,6 +328,41 @@ final class AppModel {
         flights = cached.flights
     }
 
+    /// Guards against a second pass piling on top of one already in flight — `performAdopt` runs
+    /// on every foreground refresh, not just at launch.
+    private var isPrefetchingMemoryPhotos = false
+
+    /// Pulls memory photos onto disk ahead of time so they're actually there when there's no
+    /// connection. Caching on display alone isn't enough for the case this exists for: a photo is
+    /// only cached if you happened to scroll past it *before* losing signal, so browsing memories
+    /// on a plane would still be mostly empty placeholders.
+    ///
+    /// Newest-first because that's what people scroll to, bounded by `MemoryPhotoDiskCache`'s own
+    /// size limit afterwards, and skipped on a metered connection — silently pulling hundreds of
+    /// megabytes over cellular to pre-empt a trip someone may not be taking is not a reasonable
+    /// trade. Runs detached at low priority; every failure is skipped rather than retried, since
+    /// the display path re-downloads on demand anyway.
+    private func prefetchMemoryPhotos() {
+        guard !isPrefetchingMemoryPhotos else { return }
+        guard NetworkMonitor.shared.isConnected, !NetworkMonitor.shared.isExpensive else { return }
+
+        let photos = memories
+            .sorted { $0.date > $1.date }
+            .flatMap(\.photos)
+            .filter { $0.path != "pending" && !MemoryPhotoDiskCache.has(path: $0.path) }
+        guard !photos.isEmpty else { return }
+
+        isPrefetchingMemoryPhotos = true
+        Task.detached(priority: .background) {
+            for photo in photos {
+                guard let (data, _) = try? await URLSession.shared.data(from: photo.url) else { continue }
+                MemoryPhotoDiskCache.write(data, path: photo.path)
+            }
+            MemoryPhotoDiskCache.enforceSizeLimit()
+            await MainActor.run { self.isPrefetchingMemoryPhotos = false }
+        }
+    }
+
     /// Called any time we know a Supabase session exists — at launch (`restoreSession`), right
     /// after a manual sign-in (`SignInView`), or after `removePartner()` dissolves a couple.
     /// Being authenticated at all means onboarding is already done, regardless of whether a
@@ -581,6 +616,7 @@ final class AppModel {
         // guard, but clearing on the way out is the honest place to do it.)
         OfflineSessionCache.clear()
         OfflineDataCache.clear()
+        MemoryPhotoDiskCache.clear()
         WidgetSnapshot.clear()
         WidgetImageCache.clearAll()
         WidgetCenter.shared.reloadAllTimelines()
@@ -998,6 +1034,7 @@ final class AppModel {
             memories: state.memories,
             userID: BackendService.currentUserID
         )
+        prefetchMemoryPhotos()
         partnerConnectedCelebrationShown = state.partnerConnectedCelebrationShown
         setupChecklistDismissed = state.setupChecklistDismissed
         noteCurrentDistanceIfRecord()

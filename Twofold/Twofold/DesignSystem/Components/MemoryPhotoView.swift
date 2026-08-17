@@ -98,13 +98,30 @@ struct MemoryPhotoView: View {
         }
     }
 
+    /// Three tiers, cheapest first: the in-memory `NSCache`, then `MemoryPhotoDiskCache`, then the
+    /// network. The disk tier is what makes memories browsable with no connection — the `NSCache`
+    /// above is empty on every cold launch, and `photo.url` is a signed URL that can't be fetched
+    /// offline (and has usually expired anyway), so without it a plane trip shows nothing but
+    /// placeholder gradients.
     private func load(_ photo: MemoryPhoto) async {
         guard let key = cacheKey else { return }
         if let cached = MemoryPhotoImageCache.shared.image(for: key) {
             loadedImage = cached
             return
         }
+
+        // Pending (not-yet-uploaded) photos are already real local files courtesy of
+        // `PendingMemoryStore`, so there's nothing to cache a second copy of.
+        let isUploaded = photo.path != "pending"
+
+        if isUploaded, let data = MemoryPhotoDiskCache.read(path: photo.path), let image = UIImage(data: data) {
+            MemoryPhotoImageCache.shared.store(image, for: key)
+            loadedImage = image
+            return
+        }
+
         guard let (data, _) = try? await URLSession.shared.data(from: photo.url), let image = UIImage(data: data) else { return }
+        if isUploaded { MemoryPhotoDiskCache.write(data, path: photo.path) }
         MemoryPhotoImageCache.shared.store(image, for: key)
         loadedImage = image
     }
