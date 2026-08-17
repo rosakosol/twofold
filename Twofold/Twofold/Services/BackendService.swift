@@ -978,13 +978,19 @@ enum BackendService {
         return InviterInfo(name: row.firstName, avatarURL: await avatarSignedURLOrNil(row.avatarPath))
     }
 
+    /// All three fields are optional because `redeem_invite_code` reports expected failures as data
+    /// rather than raising: a rejected attempt comes back as a 200 with `errorMessage` set and the
+    /// other two null. It has to work that way — raising aborted the RPC's transaction, which rolled
+    /// back the rate limiter's own attempt-log write along with it, so the limiter never tripped.
     private struct RedeemInviteCodeResult: Decodable {
-        var id: UUID
-        var inviterId: UUID
+        var id: UUID?
+        var inviterId: UUID?
+        var errorMessage: String?
 
         enum CodingKeys: String, CodingKey {
             case id
             case inviterId = "inviter_id"
+            case errorMessage = "error_message"
         }
     }
 
@@ -1005,9 +1011,18 @@ enum BackendService {
             .single()
             .execute()
             .value
+        // Rethrown rather than returned so every call site's existing `catch { errorMessage =
+        // error.localizedDescription }` keeps showing the same wording it did when these were
+        // Postgres exceptions.
+        if let message = row.errorMessage {
+            throw BackendError.requestFailed(message: message)
+        }
+        guard let requestID = row.id, let inviterID = row.inviterId else {
+            throw BackendError.requestFailed(message: nil)
+        }
         Analytics.capture(Analytics.Event.inviteRedeem)
-        Task { await notifyConnectionRequest(eventType: "connection_requested", targetProfileId: row.inviterId) }
-        return row.id
+        Task { await notifyConnectionRequest(eventType: "connection_requested", targetProfileId: inviterID) }
+        return requestID
     }
 
     struct OutgoingConnectionRequest: Decodable {
