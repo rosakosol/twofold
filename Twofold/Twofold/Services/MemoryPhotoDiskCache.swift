@@ -22,7 +22,13 @@
 import CryptoKit
 import Foundation
 
-enum MemoryPhotoDiskCache {
+/// `nonisolated` throughout: this is file I/O with no shared mutable state, and the work it exists
+/// for happens off the main actor — `AppModel.prefetchMemoryPhotos` writes a couple's whole photo
+/// history from a detached background task. Under the project's default MainActor isolation these
+/// members would otherwise be main-actor bound, which would put hundreds of file writes and a
+/// directory-wide eviction sweep on the main thread. `FileManager` is thread-safe for these
+/// operations, and writes are atomic.
+nonisolated enum MemoryPhotoDiskCache {
     /// Generous enough to hold a typical couple's whole history (photos are downscaled to 1600px
     /// and JPEG-compressed on upload — see `AddMemoryView.loadNewPhotos` — so a few hundred KB
     /// each), while still bounding what this can ever consume.

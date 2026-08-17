@@ -525,7 +525,7 @@ enum BackendService {
     /// error for.
     static func markPartnerConnectedCelebrationShown() async {
         guard let userID = currentUserID else { return }
-        try? await supabase
+        _ = try? await supabase
             .from("profiles")
             .update(PartnerConnectedCelebrationUpdate())
             .eq("id", value: userID)
@@ -543,7 +543,7 @@ enum BackendService {
     /// outcome), this simply gets called again.
     static func markPartnerSubscriptionLapseShown() async {
         guard let userID = currentUserID else { return }
-        try? await supabase
+        _ = try? await supabase
             .from("profiles")
             .update(SubscriptionLapseNoticeShownUpdate())
             .eq("id", value: userID)
@@ -560,7 +560,7 @@ enum BackendService {
     /// UserDefaults.
     static func markSetupChecklistDismissed() async {
         guard let userID = currentUserID else { return }
-        try? await supabase
+        _ = try? await supabase
             .from("profiles")
             .update(SetupChecklistDismissedUpdate())
             .eq("id", value: userID)
@@ -577,7 +577,7 @@ enum BackendService {
     /// again even if they'd already dismissed it once during their original onboarding.
     static func resetSetupChecklistDismissed() async {
         guard let userID = currentUserID else { return }
-        try? await supabase
+        _ = try? await supabase
             .from("profiles")
             .update(SetupChecklistResetUpdate())
             .eq("id", value: userID)

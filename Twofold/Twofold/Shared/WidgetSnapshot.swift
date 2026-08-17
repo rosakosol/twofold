@@ -17,7 +17,12 @@
 
 import Foundation
 
-struct WidgetSnapshot: Codable {
+/// `nonisolated` because this is a plain Codable payload crossing a process boundary, not UI
+/// state — it's read by widget TimelineProviders, the Live Activity extension, and the App
+/// Intents query, none of which run on the main actor. The project's default MainActor isolation
+/// would otherwise make even the synthesised `Decodable` conformance main-actor bound, which is
+/// exactly what those out-of-process readers can't satisfy.
+nonisolated struct WidgetSnapshot: Codable {
     struct FlightInfo: Codable {
         /// Lets a tapped widget deep-link straight to this flight's tracking screen
         /// (twofold://flight/{id}) instead of just opening the app.
@@ -144,6 +149,9 @@ struct WidgetSnapshot: Codable {
         defaults?.set(data, forKey: key)
     }
 
+    /// Read off the main actor by the App Intents machinery — `TrackedFlightQuery`'s
+    /// `entities(for:)`/`suggestedEntities()` populate the "Edit Widget" picker from their own
+    /// executor. `UserDefaults` is thread-safe and nothing here touches UI.
     static func read() -> WidgetSnapshot? {
         guard let data = defaults?.data(forKey: key) else { return nil }
         return try? JSONDecoder().decode(WidgetSnapshot.self, from: data)

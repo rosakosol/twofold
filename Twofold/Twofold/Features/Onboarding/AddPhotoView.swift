@@ -110,7 +110,13 @@ struct AddPhotoView: View {
 }
 
 extension UIImage {
-    func resized(maxDimension: CGFloat) -> UIImage {
+    /// `nonisolated` because this is a pure image transform with no UI or shared state, and the
+    /// callers that matter run it off the main actor — `AddMemoryView.loadNewPhotos` resizes a
+    /// whole picker selection inside a TaskGroup precisely so a batch of 12MP photos doesn't
+    /// stall the UI. Without this the project's default MainActor isolation would drag every
+    /// resize back onto the main thread. `UIGraphicsImageRenderer` renders offscreen and is safe
+    /// to use from any thread.
+    nonisolated func resized(maxDimension: CGFloat) -> UIImage {
         let largestSide = max(size.width, size.height)
         guard largestSide > maxDimension else { return self }
         let scale = maxDimension / largestSide

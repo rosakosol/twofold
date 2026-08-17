@@ -288,7 +288,10 @@ private struct MapKitRouteView: UIViewRepresentable {
         /// Flighty-style close tracking: statuses where the plane is genuinely airborne and its
         /// live position is worth zooming in on. Excludes `.boarding` (still at the gate — the
         /// marker just sits on the origin, nothing to zoom into yet).
-        private static func isFollowEligible(_ status: FlightStatus) -> Bool {
+        /// `nonisolated` because it's a pure test on an enum value — no state, no UI. It's called
+        /// from `apply`'s synchronous path and from `previousStatus.map(...)`, neither of which
+        /// carries actor isolation into the closure.
+        nonisolated private static func isFollowEligible(_ status: FlightStatus) -> Bool {
             status == .departed || status == .inAir || status == .landingSoon
         }
 
