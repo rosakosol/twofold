@@ -204,6 +204,28 @@ enum BackendService {
             .execute()
     }
 
+    private struct TimezoneUpdate: Encodable {
+        var timezone: String
+    }
+
+    /// Reports this device's current IANA timezone, which is what the daily question and streak
+    /// use to work out when "today" ends — see
+    /// 20260908000000_local_midnight_day_boundary.sql. Best-effort (`try?` at the call site): a
+    /// failure just means the server keeps the previously-reported value, or falls back to UTC if
+    /// it has never had one, rather than blocking launch.
+    ///
+    /// Written on every foreground rather than once, deliberately — the whole point of using the
+    /// device's own zone (over a fixed home city) is that it follows someone when they travel, so
+    /// a stale value would quietly reinstate exactly the wrong-time-boundary problem this fixes.
+    static func updateTimezone() async throws {
+        guard let userID = currentUserID else { throw BackendError.notAuthenticated }
+        try await supabase
+            .from("profiles")
+            .update(TimezoneUpdate(timezone: TimeZone.current.identifier))
+            .eq("id", value: userID)
+            .execute()
+    }
+
     static var currentUserID: UUID? {
         supabase.auth.currentSession?.user.id
     }

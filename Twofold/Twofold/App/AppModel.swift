@@ -296,6 +296,7 @@ final class AppModel {
             return
         }
         await retryPendingPushTokenRegistrationIfNeeded()
+        try? await BackendService.updateTimezone()
         await identifyWithRevenueCat()
         identifyWithPostHog()
         restorePendingMemoriesFromDisk()
