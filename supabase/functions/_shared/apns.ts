@@ -9,14 +9,14 @@
 // Signs a short-lived ES256 JWT per Apple's token-auth scheme and caches it per environment for
 // ~55 minutes (Apple tokens are valid up to 1 hour) rather than re-signing on every send.
 
-import { importPKCS8, SignJWT } from "npm:jose@^5";
+import { importPKCS8, type KeyLike, SignJWT } from "npm:jose@^5";
 
 type ApnsEnvironment = "sandbox" | "production";
 
 const TOKEN_TTL_MS = 55 * 60 * 1000;
 
 const tokenCache = new Map<ApnsEnvironment, { jwt: string; signedAt: number }>();
-const keyCache = new Map<ApnsEnvironment, CryptoKey>();
+const keyCache = new Map<ApnsEnvironment, KeyLike>();
 
 function keyIdSecretName(environment: ApnsEnvironment): string {
   return environment === "sandbox" ? "APNS_KEY_ID_SANDBOX" : "APNS_KEY_ID_PRODUCTION";
@@ -55,7 +55,7 @@ function normalizeToPem(secretValue: string): string {
   return `-----BEGIN PRIVATE KEY-----\n${body}\n-----END PRIVATE KEY-----`;
 }
 
-async function getSigningKey(environment: ApnsEnvironment): Promise<CryptoKey> {
+async function getSigningKey(environment: ApnsEnvironment): Promise<KeyLike> {
   const cached = keyCache.get(environment);
   if (cached) return cached;
 
