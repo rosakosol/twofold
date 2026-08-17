@@ -114,24 +114,34 @@ function splitFlightDesignator(raw: string): { airline: string; flightNumber: nu
   return { airline: match[1], flightNumber: Number(match[2]) };
 }
 
-// A number-mode search for "QF94" should only surface flights QF actually operates — not every
-// flight AeroAPI's designator-matching turns up under that number, which includes codeshares QF
-// merely markets a seat on (e.g. an American Airlines-operated flight). AeroAPI's /flights/{ident}
-// exposes the true operator via operator/operator_icao/operator_iata, independent of which ident
-// the caller searched by; checked against whichever format the code happens to come back in via
-// airlineCodesMatch, since operator_iata/operator_icao/operator don't always agree on IATA vs ICAO.
+// Whether the flight's real operator is the airline the caller actually searched for. AeroAPI's
+// /flights/{ident} exposes the true operator via operator/operator_icao/operator_iata,
+// independent of which ident was searched by; checked against whichever format the code happens
+// to come back in via airlineCodesMatch, since operator_iata/operator_icao/operator don't always
+// agree on IATA vs ICAO.
+//
+// This used to *filter* number-mode results down to operating-carrier-only, on the reasoning that
+// searching "QF94" shouldn't surface an American-Airlines-operated flight Qantas merely markets a
+// seat on. That's backwards from the traveller's point of view: their boarding pass says QF94, so
+// QF94 is the only thing they know to search — and the AA-operated flight *is* their flight, same
+// aircraft, same seat. Dropping it meant a codeshare number simply returned "no flights found"
+// (reported live: CX6104 found nothing while CA104, the operating number, worked fine).
+// It now only marks the result, so the client can badge it "Codeshare" — which
+// AddFlightResultsStepView already does, and which it deliberately never filters out in number
+// mode for exactly this reason.
 function isOperatingCarrier(f: AeroFlight, designator: { airline: string; flightNumber: number } | null): boolean {
-  if (!designator) return true; // unparseable input — already skipped everywhere else, don't filter here either
+  if (!designator) return true; // unparseable input — already skipped everywhere else, don't judge here either
   const operatorCodes = [f.operator_iata, f.operator_icao, f.operator].filter((c): c is string => Boolean(c));
-  if (operatorCodes.length === 0) return true; // AeroAPI gave no operator field at all — don't drop a result over missing data
+  if (operatorCodes.length === 0) return true; // AeroAPI gave no operator field at all — don't call it a codeshare over missing data
   return operatorCodes.some((code) => airlineCodesMatch(code, designator.airline));
 }
 
 // Same idea for /schedules results: `actual_ident*` is populated only when the row's own `ident`
 // is itself a codeshare designator, in which case it names the real operator's identifier (per
-// AeroAPI's schema docs). Since fetchScheduledFlights already filters by airline/flightNumber, any
-// row where actual_ident disagrees with ident is exactly a codeshare row for the searched
-// designator — drop it. No actual_ident at all means this row already is the operating flight.
+// AeroAPI's schema docs). Since fetchScheduledFlights already filters by airline/flightNumber,
+// every row it returns is for the searched designator — so a row whose actual_ident disagrees is
+// precisely the codeshare the caller is looking for, not noise. Marked rather than dropped, same
+// reasoning as isOperatingCarrier above.
 function isScheduledOperatingCarrier(s: AeroScheduledFlight): boolean {
   const actual = s.actual_ident_iata ?? s.actual_ident_icao ?? s.actual_ident;
   if (!actual) return true;
@@ -262,7 +272,14 @@ interface Candidate {
   isTrackable: boolean;
 }
 
-function fromLiveFlight(f: AeroFlight): Candidate {
+// `designator` is the airline+number the caller searched for, when this came from a number-mode
+// lookup. It's what lets a result operated by a *different* airline be flagged as a codeshare —
+// AeroAPI's own `codeshares` array describes the marketing numbers layered on top of an operating
+// flight, which is the opposite direction and is empty on exactly the rows this needs to catch
+// (search CX6104, get back the CA-operated flight, whose `codeshares` may not mention CX at all).
+// Omitted for route mode, where there's no searched designator to compare against.
+function fromLiveFlight(f: AeroFlight, designator?: { airline: string; flightNumber: number } | null): Candidate {
+  const operatedByAnotherAirline = designator ? !isOperatingCarrier(f, designator) : false;
   return {
     faFlightId: f.fa_flight_id,
     identIata: f.ident_iata ?? null,
@@ -294,12 +311,15 @@ function fromLiveFlight(f: AeroFlight): Candidate {
     status: deriveFlightStatus(f),
     cancelled: Boolean(f.cancelled),
     diverted: Boolean(f.diverted),
-    isCodeshare: (f.codeshares?.length ?? 0) > 0,
+    isCodeshare: (f.codeshares?.length ?? 0) > 0 || operatedByAnotherAirline,
     isTrackable: true,
   };
 }
 
-function fromScheduledFlight(s: AeroScheduledFlight): Candidate {
+// `viaCodeshare` says this row's own ident is a marketing designator for a flight another airline
+// actually operates (its `actual_ident` disagrees). Passed in rather than recomputed so the
+// caller's single isScheduledOperatingCarrier() call is the one source of that judgement.
+function fromScheduledFlight(s: AeroScheduledFlight, viaCodeshare = false): Candidate {
   // /schedules gives no separate operator code — derive one from the ident's leading letters
   // (the same shape splitFlightDesignator parses the user's *input* with).
   const operatorCode = (s.ident_iata ?? s.ident_icao ?? s.ident)?.toUpperCase().match(/^[A-Z]{2,3}/)?.[0] ?? null;
@@ -323,7 +343,7 @@ function fromScheduledFlight(s: AeroScheduledFlight): Candidate {
     status: deriveFlightStatus({}),
     cancelled: false,
     diverted: false,
-    isCodeshare: false,
+    isCodeshare: viaCodeshare,
     isTrackable: s.fa_flight_id != null,
   };
 }
@@ -401,7 +421,10 @@ Deno.serve(async (req) => {
       const { startISO, endISO, wasClamped } = dateWindow(input.date);
       const results = await resolveFlightByIdent(input.flightNumber, { startISO, endISO, identType: "designator" });
 
-      let operatingFlights = results.filter((f) => isOperatingCarrier(f, designator));
+      // Deliberately NOT filtered to operating-carrier-only any more — see isOperatingCarrier.
+      // A differently-operated flight under this designator is the codeshare the caller searched
+      // for; it gets marked (via fromLiveFlight's `designator`) rather than dropped.
+      let operatingFlights = results;
       if (input.originIata) {
         // AeroAPI's own generic `code` field is sometimes populated when the more specific
         // `code_iata` isn't — check both, same as the original pre-/schedules-fallback logic.
@@ -422,18 +445,17 @@ Deno.serve(async (req) => {
         // the other — keep it rather than reject on missing data. This doesn't reintroduce the old
         // "fall back to unfiltered results" bug: that discarded real date information (an adjacent
         // day's flight always has a timestamp, it just didn't match); this only ever fires when
-        // there is literally no timestamp to compare, which the operator filter above has already
-        // narrowed to flights AeroAPI itself considers this ident's operating carrier.
+        // there is literally no timestamp to compare.
         const sameDay = operatingFlights.filter((f) => {
           if (isFlightInProgress(f)) return true;
           const ref = referenceOut(f);
           if (!ref) return true;
           return isSameLocalDay(ref, input.date, input.deviceTimeZone ?? f.origin?.timezone);
         });
-        liveCandidates = sameDay.map(fromLiveFlight);
+        liveCandidates = sameDay.map((f) => fromLiveFlight(f, designator));
       } else {
         const liveFlights = filterPreferringSameDay(operatingFlights, input.date, (f) => input.deviceTimeZone ?? f.origin?.timezone);
-        liveCandidates = liveFlights.map(fromLiveFlight);
+        liveCandidates = liveFlights.map((f) => fromLiveFlight(f, designator));
       }
 
       let scheduledCandidates: Candidate[] = [];
@@ -448,11 +470,11 @@ Deno.serve(async (req) => {
             flightNumber: designator.flightNumber,
             origin: input.originIata,
           });
-          const operatingScheduled = scheduled.filter(isScheduledOperatingCarrier);
-          const scheduledFlights = filterPreferringSameDay(operatingScheduled, input.date, () => input.deviceTimeZone);
-          scheduledCandidates = scheduledFlights.map(fromScheduledFlight);
+          // Not filtered to operating-carrier-only any more — see isScheduledOperatingCarrier.
+          const scheduledFlights = filterPreferringSameDay(scheduled, input.date, () => input.deviceTimeZone);
+          scheduledCandidates = scheduledFlights.map((s) => fromScheduledFlight(s, !isScheduledOperatingCarrier(s)));
           scheduledLog = `window=[${schedStart},${schedEnd}] aeroapi returned ${scheduled.length}, ` +
-            `${operatingScheduled.length} after operator filter, ${scheduledCandidates.length} after same-day filter`;
+            `${scheduledCandidates.length} after same-day filter`;
         } catch (err) {
           // A /schedules failure (e.g. date_end > 1 year out) shouldn't take down a request that
           // still has a legitimate (if possibly empty) /flights/{ident} result — log and continue
@@ -484,7 +506,11 @@ Deno.serve(async (req) => {
       // AeroAPI's route search has no date param of its own — the date filter is applied here,
       // client-side.
       const flights = filterPreferringSameDay(results, input.date, (f: AeroFlight) => input.deviceTimeZone ?? f.origin?.timezone);
-      candidates = flights.map(fromLiveFlight);
+      // Wrapped, not passed by reference: `fromLiveFlight` now takes an optional second argument,
+      // and `Array.map` would hand it the element *index* — truthy from 1 onward, which would
+      // mark every result after the first as a codeshare. Route mode has no searched designator
+      // anyway, so it deliberately passes none.
+      candidates = flights.map((f) => fromLiveFlight(f));
       console.log(
         `[resolve-flight] route ${input.originIata}->${input.destinationIata} on ${input.date}: ` +
           `aeroapi returned ${results.length} total, ${candidates.length} after same-day filter. ` +
