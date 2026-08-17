@@ -308,6 +308,19 @@ final class AppModel {
             await adopt(state)
         } else if let profile = try? await BackendService.fetchOwnProfile() {
             await adoptSoloProfile(profile)
+        } else if let cached = OfflineSessionCache.restore(for: BackendService.currentUserID) {
+            // Both reads failed — almost always no network (they're `try?`, so a real outage looks
+            // identical to "no rows"). Without this, `isSubscriptionActive` keeps its `false`
+            // default while `hasCouple` is set to true just below, and `RootView` drops a paying
+            // subscriber onto the non-dismissable paywall. Reproduced on a cold launch with the
+            // backend unreachable — the exact airplane-mode case this app is most used in.
+            isSubscriptionActive = cached.active
+            subscriptionTier = cached.tier
+            partnerConnected = cached.partnerConnected
+            if let myName = cached.myName, !myName.isEmpty { couple.partnerA.name = myName }
+            if let partnerName = cached.partnerName, !partnerName.isEmpty { couple.partnerB.name = partnerName }
+            partnerConnectedCelebrationShown = cached.celebrationShown
+            setupChecklistDismissed = cached.checklistDismissed
         }
         hasCouple = true
         Task { await WidgetSnapshotWriter.refresh(appModel: self) }
@@ -388,6 +401,18 @@ final class AppModel {
         }
         isSubscriptionActive = profile.subscriptionActive
         subscriptionTier = profile.subscriptionTier
+        // Same reasoning as `performAdopt` — see OfflineSessionCache. Solo (unpaired) here, so
+        // partnerConnected is false; restoring that keeps the setup card honest either way.
+        OfflineSessionCache.record(
+            active: profile.subscriptionActive,
+            tier: profile.subscriptionTier,
+            userID: BackendService.currentUserID,
+            partnerConnected: false,
+            myName: profile.person.name,
+            partnerName: profile.partnerName,
+            celebrationShown: profile.partnerConnectedCelebrationShown,
+            checklistDismissed: profile.setupChecklistDismissed
+        )
         partnerConnectedCelebrationShown = profile.partnerConnectedCelebrationShown
         setupChecklistDismissed = profile.setupChecklistDismissed
         partnerSubscriptionLapsedPartnerName = profile.partnerSubscriptionLapseShown ? nil : profile.partnerSubscriptionLapsePartnerName
@@ -503,6 +528,10 @@ final class AppModel {
         // flight until a different account signed in and overwrote them — none of this was
         // previously cleared by sign-out at all.
         await LiveActivityManager.shared.endAll()
+        // Same reasoning as the widget snapshot below — the next account to sign in on this device
+        // must not inherit this one's entitlement. (`restore(for:)` is account-scoped as a second
+        // guard, but clearing on the way out is the honest place to do it.)
+        OfflineSessionCache.clear()
         WidgetSnapshot.clear()
         WidgetImageCache.clearAll()
         WidgetCenter.shared.reloadAllTimelines()
@@ -894,6 +923,18 @@ final class AppModel {
         hasCouple = true
         isSubscriptionActive = state.subscriptionActive
         subscriptionTier = state.subscriptionTier
+        // The backend has just told us the couple-wide truth — remember it so a later cold launch
+        // with no network doesn't fall back to `false` and paywall a real subscriber.
+        OfflineSessionCache.record(
+            active: state.subscriptionActive,
+            tier: state.subscriptionTier,
+            userID: BackendService.currentUserID,
+            partnerConnected: true,
+            myName: state.couple.partnerA.name,
+            partnerName: state.couple.partnerB.name,
+            celebrationShown: state.partnerConnectedCelebrationShown,
+            checklistDismissed: state.setupChecklistDismissed
+        )
         partnerConnectedCelebrationShown = state.partnerConnectedCelebrationShown
         setupChecklistDismissed = state.setupChecklistDismissed
         noteCurrentDistanceIfRecord()

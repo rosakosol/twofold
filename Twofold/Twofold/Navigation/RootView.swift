@@ -315,6 +315,26 @@ struct RootView: View {
         }
         if let active = try? await BackendService.fetchSubscriptionActive() {
             appModel.isSubscriptionActive = active
+            OfflineSessionCache.record(
+                active: active,
+                tier: appModel.subscriptionTier,
+                userID: BackendService.currentUserID,
+                partnerConnected: appModel.partnerConnected,
+                myName: appModel.currentUser.name,
+                partnerName: appModel.partner.name,
+                celebrationShown: appModel.partnerConnectedCelebrationShown,
+                checklistDismissed: appModel.setupChecklistDismissed
+            )
+        } else if !appModel.isSubscriptionActive,
+                  let cached = OfflineSessionCache.restore(for: BackendService.currentUserID),
+                  cached.active {
+            // The read failed (offline). Fall back to the last confirmed couple-wide answer rather
+            // than leaving `false` standing — this runs right after `loadSignedInState`, so
+            // without it a foreground refresh mid-flight could undo that restore and re-paywall a
+            // subscriber. Only ever upgrades false -> true; a genuine "not subscribed" from the
+            // backend above still wins, because that branch takes priority.
+            appModel.isSubscriptionActive = true
+            appModel.subscriptionTier = cached.tier
         }
         if let tier = try? await BackendService.fetchCoupleSubscriptionTier() {
             appModel.subscriptionTier = tier
