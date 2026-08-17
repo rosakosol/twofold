@@ -662,9 +662,25 @@ async function notifyLiveActivity(serviceClient: SupabaseClient, oldRow: FlightR
   const memberIds = couple ? [couple.partner_a_id, couple.partner_b_id] : [];
   const validTokens = tokens.filter((token) => memberIds.includes(token.profile_id));
 
+  // Whether this flight is actually closing the distance. This used to be
+  // `token.profile_id !== newRow.created_by` - i.e. "the other person added it" - which conflated
+  // *who is flying* with *where they're flying to*, so a partner's work trip or family visit got
+  // the same "on the way to you" framing as them genuinely coming to see you. Now it's only true
+  // for a flight linked to a trip explicitly categorised as a reunion ('seeing_each_other'),
+  // matching AppModel.isReunion and WidgetSnapshotWriter's isReunionTrip. Unlinked flights can't
+  // be marked as anything, so they aren't reunions.
+  let isReunion = false;
+  if (newRow.trip_id) {
+    const { data: trip } = await serviceClient
+      .from("trips")
+      .select("category")
+      .eq("id", newRow.trip_id)
+      .maybeSingle();
+    isReunion = trip?.category === "seeing_each_other";
+  }
+
   for (const token of validTokens) {
     try {
-      const isReunion = token.profile_id !== newRow.created_by;
       const contentState = computeLiveActivityContentState(newRow, isReunion);
 
       if (becameTerminal) {

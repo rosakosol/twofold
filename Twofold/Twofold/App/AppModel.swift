@@ -1173,7 +1173,9 @@ final class AppModel {
                 for: fresh,
                 travelerName: { [weak self] flight in
                     guard let self else { return "" }
-                    return isReunion(flight) ? partner.name : currentUser.name
+                    // Who's flying — not whether it's a reunion. These were the same call until
+                    // the split above.
+                    return isPartnerTravelling(flight) ? partner.name : currentUser.name
                 },
                 isReunion: isReunion
             )
@@ -1237,13 +1239,28 @@ final class AppModel {
         }
     }
 
-    /// "Reunion" framing (the app's existing romantic language for "your partner is on their
-    /// way to you") applies whenever the signed-in user isn't the one who added/is tracking
-    /// this flight — defaults to true when `createdBy` is unset (e.g. an older row) since most
-    /// tracked flights are the partner's.
-    private func isReunion(_ flight: Flight) -> Bool {
+    /// Whose flight this is — the partner's whenever the signed-in user isn't the one who
+    /// added/is tracking it. Defaults to true when `createdBy` is unset (e.g. an older row) since
+    /// most tracked flights are the partner's. Only decides *whose name* the Live Activity shows;
+    /// deliberately separate from `isReunion` below, which the same check used to do double duty
+    /// for.
+    private func isPartnerTravelling(_ flight: Flight) -> Bool {
         guard let createdBy = flight.createdBy else { return true }
         return createdBy != currentUser.id
+    }
+
+    /// Whether this flight is actually closing the distance — true only when it belongs to a trip
+    /// explicitly categorised as a reunion, matching how `WidgetSnapshotWriter` already derives
+    /// `isReunionTrip`.
+    ///
+    /// This used to be "the partner added it", which conflated *who is flying* with *where they're
+    /// flying to*: a partner's work trip or family visit got the same "on the way to you ❤️"
+    /// framing as them actually coming to see you. A flight with no linked trip can't be marked as
+    /// anything, so it isn't a reunion either.
+    private func isReunion(_ flight: Flight) -> Bool {
+        guard let tripID = flight.tripID,
+              let trip = trips.first(where: { $0.id == tripID }) else { return false }
+        return trip.category == .reunion
     }
 
     /// Freeform trip prep notes — reused by the Flight Detail screen's "Trip checklist" card
