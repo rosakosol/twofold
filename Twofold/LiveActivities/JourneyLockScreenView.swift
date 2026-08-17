@@ -40,12 +40,22 @@ struct JourneyLockScreenView: View {
             VStack(alignment: .center, spacing: 2) {
                 journeyTimeRemainingText(context.state)
                     .font(.system(size: 24, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.white.opacity(context.isStale ? 0.5 : 1))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                     .frame(maxWidth: .infinity, alignment: .center)
 
-                if context.state.isReunion {
+                // Past the content's stale date, whatever this card last heard is no longer
+                // something it can stand behind — the flight has almost certainly landed and
+                // nothing has been able to say so (see LiveActivityManager.staleDate). Saying that
+                // plainly beats continuing to assert "departing shortly" hours after the fact,
+                // which is what this used to do.
+                if context.isStale {
+                    Text("Tap to refresh — this may be out of date")
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.55))
+                        .multilineTextAlignment(.center)
+                } else if context.state.isReunion {
                     Text("\(context.attributes.travelerName) is on the way to you ❤️")
                         .font(.caption)
                         .foregroundStyle(.white.opacity(0.6))
