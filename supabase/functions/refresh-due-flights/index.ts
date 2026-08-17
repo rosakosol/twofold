@@ -72,16 +72,25 @@ function isDue(flight: FlightRow, now: number): boolean {
   // the hard backstop if AeroAPI itself never confirms; this is what makes catching a *timely*
   // real confirmation likely well before that backstop ever has to fire.
   const isOverdueForArrival = msToArrival !== null && msToArrival < 0;
-  if (isNearDeparture || isNearArrival || isOverdueForArrival) {
+  // The departure-side twin of isOverdueForArrival above, and the same bug in mirror image: best-
+  // known departure has passed but AeroAPI hasn't reported an actual_out yet, so takeoff
+  // confirmation is imminent. isNearDeparture can't cover this — it requires msToDeparture >= 0,
+  // so a flight drops out of the 1-minute tier the instant its ETA passes, which is the moment it
+  // matters most. Worse, a flight still sitting in `boarding` (an ACTIVE_STATUS) then fell through
+  // to the isActive tier below, whose cadence was widened from 2 to 12 minutes in 3f7cc27 for
+  // mid-cruise flights — so a delayed departure could go a full 12 minutes before anyone was told
+  // it had left. Reported live: a departure noticed ~10 minutes after the fact.
+  const isOverdueForDeparture = msToDeparture < 0 && !flight.actual_out;
+  if (isNearDeparture || isNearArrival || isOverdueForArrival || isOverdueForDeparture) {
     return staleMs > 1 * 60 * 1000;
   }
 
-  // Reaching here means !isNearDeparture && !isNearArrival && !isOverdueForArrival already (those
-  // branches returned above) — so an active flight at this point is genuinely mid-cruise (or
-  // boarding well before its own 10-minute near-departure window), not the moments right around
-  // takeoff/landing. AeroAPI's own answer barely moves between polls in this state (ETA/progress
-  // percent drift slowly), so this tier can afford to be far less aggressive than the near-event
-  // one above.
+  // Reaching here means none of the near/overdue branches above applied — so an active flight at
+  // this point is genuinely mid-cruise (or boarding well before its own 10-minute near-departure
+  // window), with a confirmed actual_out behind it and its arrival still comfortably ahead. Not
+  // the moments right around takeoff/landing: those are all claimed by the 1-minute tier above,
+  // which is what keeps this slower cadence safe. AeroAPI's own answer barely moves between polls
+  // in this state (ETA/progress percent drift slowly), so it can afford to be far less aggressive.
   const isActive = ACTIVE_STATUSES.includes(flight.status);
   if (isActive) {
     return staleMs > 12 * 60 * 1000;
