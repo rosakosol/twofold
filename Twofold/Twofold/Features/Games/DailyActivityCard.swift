@@ -51,11 +51,24 @@ struct DailyActivityCard: View {
                     }
                 }
 
-                TimelineView(.periodic(from: .now, by: 1)) { context in
-                    Text(countdownLabel(from: context.date))
-                        .font(.caption2.weight(.medium))
-                        .foregroundStyle(Theme.subtleInk)
-                        .monospacedDigit()
+                VStack(alignment: .trailing, spacing: 2) {
+                    TimelineView(.periodic(from: .now, by: 1)) { context in
+                        Text(countdownLabel(from: context.date))
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(Theme.subtleInk)
+                            .monospacedDigit()
+                    }
+
+                    // Sits under the countdown rather than in `streakSubline` (where it used to
+                    // live) because that line only ever renders once a streak is actually running
+                    // — so the couple's best-ever streak, the one number worth chasing, was
+                    // invisible in exactly the state where it's most motivating: right after a
+                    // streak lapses and the subline reverts to "Answer today's question together".
+                    if let best = appModel.longestDailyStreak, best > 0 {
+                        Text("Best: \(best) day\(best == 1 ? "" : "s")")
+                            .font(.caption2)
+                            .foregroundStyle(Theme.subtleInk)
+                    }
                 }
             }
 
@@ -98,10 +111,14 @@ struct DailyActivityCard: View {
         return dailyStreak > 0 ? "\(dailyStreak)-day streak" : "Start a streak"
     }
 
+    /// No longer carries the longest streak — that moved out to its own line under the countdown
+    /// (see above), so this can stay a plain call to action in both states.
     private var streakSubline: String {
         guard let dailyStreak = appModel.dailyStreak, dailyStreak > 0 else { return "Answer today's question together" }
-        let longest = appModel.longestDailyStreak ?? dailyStreak
-        return "Longest: \(longest) day\(longest == 1 ? "" : "s")"
+        // Deliberately short: the headline above already says "N-day streak", and the row now also
+        // carries the countdown plus "Best: N days" on the right, so a longer line here wrapped to
+        // three lines and crowded the card.
+        return "Keep it going"
     }
 
     @ViewBuilder
@@ -142,18 +159,15 @@ struct DailyActivityCard: View {
             }
     }
 
-    /// The real "today" boundary the streak/daily-question logic resets on is relative to this
-    /// couple's own `connectedAt` (see `Couple.connectedAt`'s doc comment and
-    /// `advance_game_session`'s Postgres trigger), not a shared UTC midnight — a couple that
-    /// connected mid-day would otherwise get an arbitrary partial first "day" before their very
-    /// first daily question could even reset. Mirrors the trigger's own
-    /// `floor((now - connectedAt) / 86400)` day-index math exactly, so the client's countdown
-    /// always lands on the same instant the backend actually resets at.
+    /// Counts down to the boundary the backend actually resets on, taken straight from
+    /// `get_daily_streak` rather than re-derived here. This used to recompute it locally from
+    /// `couple.connectedAt` — correct while the day was anchored to pairing time, but silently
+    /// wrong the moment 20260908000000 moved the real boundary to local midnight, leaving the
+    /// timer counting down to a moment nothing happened at. For a couple the boundary depends on
+    /// *both* partners' timezones (the later of the two midnights), which the client has no
+    /// business reconstructing.
     private func countdownLabel(from now: Date) -> String {
-        guard let connectedAt = appModel.couple.connectedAt else { return "" }
-        let dayLength: TimeInterval = 86400
-        let elapsedDays = (now.timeIntervalSince(connectedAt) / dayLength).rounded(.down)
-        let nextBoundary = connectedAt.addingTimeInterval((elapsedDays + 1) * dayLength)
+        guard let nextBoundary = appModel.dailyStreakResetsAt else { return "" }
         let remaining = max(0, Int(nextBoundary.timeIntervalSince(now)))
         let hours = remaining / 3600
         let minutes = (remaining % 3600) / 60

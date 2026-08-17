@@ -2682,10 +2682,15 @@ enum BackendService {
     private struct DailyStreakRow: Decodable {
         var currentStreak: Int
         var longestStreak: Int
+        /// When the couple's day actually rolls over — real local midnight, computed server-side
+        /// (see `get_daily_streak`). The card's countdown reads this rather than re-deriving it,
+        /// since for a couple it depends on *both* partners' timezones.
+        var nextBoundary: Date?
 
         enum CodingKeys: String, CodingKey {
             case currentStreak = "current_streak"
             case longestStreak = "longest_streak"
+            case nextBoundary = "next_boundary"
         }
     }
 
@@ -2697,10 +2702,10 @@ enum BackendService {
     /// last answered days ago still has their old number sitting in the column. Reading it raw
     /// (what this used to do) displayed a streak that had actually already lapsed. The RPC
     /// applies the same "still alive" rule the increment side uses — see its own comment.
-    static func fetchDailyStreak() async throws -> (current: Int, longest: Int) {
+    static func fetchDailyStreak() async throws -> (current: Int, longest: Int, resetsAt: Date?) {
         let rows: [DailyStreakRow] = try await supabase.rpc("get_daily_streak").execute().value
-        guard let row = rows.first else { return (0, 0) }
-        return (row.currentStreak, row.longestStreak)
+        guard let row = rows.first else { return (0, 0, nil) }
+        return (row.currentStreak, row.longestStreak, row.nextBoundary)
     }
 
     private struct DailyQuestionStatusRow: Decodable {

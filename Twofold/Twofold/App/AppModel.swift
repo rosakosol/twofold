@@ -59,6 +59,9 @@ final class AppModel {
     /// placeholder instead of visibly flashing "Start a streak" before the real value loads.
     var dailyStreak: Int?
     var longestDailyStreak: Int?
+    /// The instant the daily question/streak next rolls over — real local midnight, resolved
+    /// server-side (see `BackendService.fetchDailyStreak`). Nil until the first fetch lands.
+    var dailyStreakResetsAt: Date?
     /// Today's Daily Activity session id, once known (fetched lazily, not at launch — see
     /// `startOrResumeDailyQuestion()`).
     var todaysDailySessionID: UUID?
@@ -777,6 +780,7 @@ final class AppModel {
         if let streak = try? await BackendService.fetchDailyStreak() {
             dailyStreak = streak.current
             longestDailyStreak = streak.longest
+            dailyStreakResetsAt = streak.resetsAt
         }
     }
 
