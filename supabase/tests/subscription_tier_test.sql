@@ -1,13 +1,15 @@
 -- Couple-wide subscription tier.
 --
 -- Twofold's rule is that a subscription covers both partners: whichever of the two is on the
--- higher tier, both get it. `private.couple_effective_tier` is what every server-side gate reads,
+-- higher *active* tier, both get it. The "active" part is load-bearing: `subscription_tier` is
+-- deliberately never cleared when a subscription lapses, so a stale 'premium' lingers on the
+-- profile forever, and ignoring `subscription_active` leaked premium to couples paying for plus. `private.couple_effective_tier` is what every server-side gate reads,
 -- so getting it wrong either locks a paying couple out of what they bought or gives away premium
 -- content. The 'plus' default matters too — a couple with no tier recorded gets the free tier's
 -- content rather than nothing at all.
 
 begin;
-select plan(7);
+select plan(9);
 
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
 values
@@ -28,26 +30,44 @@ values ('cccccccc-2222-0000-0000-000000000003', 'aaaaaaaa-2222-0000-0000-0000000
 select is(private.couple_effective_tier('cccccccc-2222-0000-0000-000000000003'), 'plus', 'no tier on either side defaults to plus');
 
 -- Partner A alone is premium — B is carried.
-update public.profiles set subscription_tier = 'premium' where id = 'aaaaaaaa-2222-0000-0000-000000000001';
+update public.profiles set subscription_tier = 'premium', subscription_active = true where id = 'aaaaaaaa-2222-0000-0000-000000000001';
 select is(private.couple_effective_tier('cccccccc-2222-0000-0000-000000000003'), 'premium', 'partner A being premium covers the couple');
 
 -- Symmetric: it must not matter which side of the couple row the payer sits on.
-update public.profiles set subscription_tier = null where id = 'aaaaaaaa-2222-0000-0000-000000000001';
-update public.profiles set subscription_tier = 'premium' where id = 'bbbbbbbb-2222-0000-0000-000000000002';
+update public.profiles set subscription_tier = null, subscription_active = false where id = 'aaaaaaaa-2222-0000-0000-000000000001';
+update public.profiles set subscription_tier = 'premium', subscription_active = true where id = 'bbbbbbbb-2222-0000-0000-000000000002';
 select is(private.couple_effective_tier('cccccccc-2222-0000-0000-000000000003'), 'premium', 'partner B being premium covers the couple too');
 
 -- Both premium is still just premium.
-update public.profiles set subscription_tier = 'premium' where id = 'aaaaaaaa-2222-0000-0000-000000000001';
+update public.profiles set subscription_tier = 'premium', subscription_active = true where id = 'aaaaaaaa-2222-0000-0000-000000000001';
 select is(private.couple_effective_tier('cccccccc-2222-0000-0000-000000000003'), 'premium', 'both premium stays premium');
 
 -- Explicit plus on both sides.
-update public.profiles set subscription_tier = 'plus' where id in
+update public.profiles set subscription_tier = 'plus', subscription_active = true where id in
   ('aaaaaaaa-2222-0000-0000-000000000001', 'bbbbbbbb-2222-0000-0000-000000000002');
 select is(private.couple_effective_tier('cccccccc-2222-0000-0000-000000000003'), 'plus', 'both plus stays plus');
 
 -- A mix of plus and premium resolves upward, not downward.
-update public.profiles set subscription_tier = 'premium' where id = 'aaaaaaaa-2222-0000-0000-000000000001';
+update public.profiles set subscription_tier = 'premium', subscription_active = true where id = 'aaaaaaaa-2222-0000-0000-000000000001';
 select is(private.couple_effective_tier('cccccccc-2222-0000-0000-000000000003'), 'premium', 'plus + premium resolves to premium');
+
+-- THE LEAK this migration closes. A lapsed premium alongside an active plus: the couple still has
+-- access (couple-wide access ORs subscription_active), and the stale 'premium' on the inactive row
+-- used to be taken at face value — so they got premium decks while paying for plus.
+update public.profiles set subscription_tier = 'premium', subscription_active = false
+where id = 'aaaaaaaa-2222-0000-0000-000000000001';
+update public.profiles set subscription_tier = 'plus', subscription_active = true
+where id = 'bbbbbbbb-2222-0000-0000-000000000002';
+select is(
+  private.couple_effective_tier('cccccccc-2222-0000-0000-000000000003'),
+  'plus',
+  'a lapsed premium alongside an active plus does NOT grant premium'
+);
+
+-- Both lapsed: they hit the paywall long before any tier question arises, but the tier must not
+-- claim premium on the way there.
+update public.profiles set subscription_active = false where id = 'bbbbbbbb-2222-0000-0000-000000000002';
+select is(private.couple_effective_tier('cccccccc-2222-0000-0000-000000000003'), 'plus', 'both lapsed reports plus');
 
 -- An unknown couple id still resolves to 'plus', not null: the body is an ungrouped aggregate, so
 -- zero matching rows still produce one row with bool_or() = null, which the CASE folds to 'plus'.

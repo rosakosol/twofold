@@ -8,10 +8,11 @@
 //     20260904000000_streak_ending_reminder_per_couple_boundary.sql): a last-chance "1 hour left"
 //     nudge, gated on `streak_ending_reminder`, fired ~1 hour before that same boundary.
 //
-// Each couple's day boundary is now real local midnight - the *later* of the two partners'
-// midnights, so it never lands before either person's own (see
-// 20260908000000_local_midnight_day_boundary.sql). That math lives in the database
-// (`list_couple_day_bounds`), deliberately: it needs IANA timezone + DST handling, and
+// Each *partner* has their own day boundary - their own local midnight, not a shared couple-wide
+// one (see 20260912000100_per_partner_day_boundaries.sql). A London/Melbourne couple is reminded
+// nine hours apart, at 11pm each, rather than both at whichever midnight came first. That math
+// lives in the database
+// (`list_streak_reminder_targets`), deliberately: it needs IANA timezone + DST handling, and
 // re-implementing that here in TypeScript would just be a second place to get it wrong. This
 // function used to derive the boundary itself from `couples.created_at`, back when the day was
 // anchored to whenever the couple happened to pair.
@@ -27,15 +28,18 @@ interface Input {
   final?: boolean;
 }
 
-interface CoupleDayBounds {
+// One row per person, not per couple. Each partner has their own local-midnight boundary now (see
+// 20260912000100), so a London/Melbourne couple gets reminded nine hours apart — at 11pm each,
+// rather than both at whichever partner's midnight came first.
+interface StreakReminderTarget {
+  profile_id: string;
   couple_id: string;
-  partner_a_id: string | null;
-  partner_b_id: string | null;
+  partner_id: string | null;
   local_date: string;
   next_boundary: string;
   current_streak: number;
-  final_reminder_sent_date: string | null;
   early_reminder_sent_date: string | null;
+  final_reminder_sent_date: string | null;
 }
 
 // The cron's own cadence - the "how long before the boundary" window below is exactly this wide,
@@ -69,34 +73,36 @@ Deno.serve(async (req) => {
 
   const now = new Date();
 
-  const { data: couples, error: couplesErr } = await serviceClient.rpc("list_couple_day_bounds");
+  const { data: targets, error: targetsErr } = await serviceClient.rpc("list_streak_reminder_targets");
 
-  if (couplesErr) {
-    console.error("[send-streak-reminders] failed to fetch couple day bounds:", couplesErr.message);
-    return Response.json({ error: couplesErr.message }, { status: 500 });
+  if (targetsErr) {
+    console.error("[send-streak-reminders] failed to fetch reminder targets:", targetsErr.message);
+    return Response.json({ error: targetsErr.message }, { status: 500 });
   }
-  const rows = (couples ?? []) as CoupleDayBounds[];
+  const rows = (targets ?? []) as StreakReminderTarget[];
   if (rows.length === 0) {
     return Response.json({ reminded: 0 });
   }
 
   let remindedCount = 0;
 
-  for (const couple of rows) {
+  for (const target of rows) {
     // Fires once, in the ~15-minute slot where "about `windowMinutes` left" first becomes true -
-    // the window's width matches the cron's own cadence so no couple's boundary can slip through
-    // uncaught between two runs, and the relevant dedup column stops a couple still inside that
-    // window at the *next* run from being reminded twice for the same day.
-    const minutesUntilBoundary = (new Date(couple.next_boundary).getTime() - now.getTime()) / 60_000;
+    // the window's width matches the cron's own cadence so no boundary can slip through uncaught
+    // between two runs, and the dedup row stops someone still inside that window at the *next* run
+    // from being reminded twice for the same day.
+    const minutesUntilBoundary = (new Date(target.next_boundary).getTime() - now.getTime()) / 60_000;
     if (minutesUntilBoundary > windowMinutes || minutesUntilBoundary <= windowMinutes - CRON_INTERVAL_MINUTES) continue;
-    if (couple[dedupColumn as keyof CoupleDayBounds] === couple.local_date) continue;
+    if (target[dedupColumn as keyof StreakReminderTarget] === target.local_date) continue;
 
+    // The session for *this person's* day. Their partner may be on a different date entirely, and
+    // will get their own row in this same loop when their own boundary comes around.
     const { data: todaysSession } = await serviceClient
       .from("game_sessions")
       .select("id")
-      .eq("couple_id", couple.couple_id)
+      .eq("couple_id", target.couple_id)
       .eq("is_daily", true)
-      .eq("daily_local_date", couple.local_date)
+      .eq("daily_local_date", target.local_date)
       .maybeSingle();
 
     // Who has personally answered today. Keeping the *set* rather than a bare count is the fix
@@ -117,35 +123,30 @@ Deno.serve(async (req) => {
       for (const row of responses ?? []) answeredIds.add(row.responder_id as string);
     }
 
-    // Only partners who still owe an answer. Empty means both are done - the streak is safe for
-    // today, so there's nothing to remind anyone about.
-    const partnerIds = [couple.partner_a_id, couple.partner_b_id]
-      .filter((id): id is string => Boolean(id))
-      .filter((id) => !answeredIds.has(id));
-    if (partnerIds.length === 0) continue;
+    // Nothing to nudge this person about if they've already answered. Note this is about *them*,
+    // not the couple: the streak needs both answers (advance_game_session's `v_both_complete`
+    // gate), so the partner who hasn't answered is precisely the one whose silence breaks it — and
+    // they're reminded on their own clock, not their partner's.
+    if (answeredIds.has(target.profile_id)) continue;
 
     const { data: prefRows } = await serviceClient
       .from("notification_preferences")
       .select(`profile_id, ${prefColumn}`)
-      .in("profile_id", partnerIds);
+      .eq("profile_id", target.profile_id);
 
-    const prefByProfile = new Map<string, boolean>();
-    for (const row of prefRows ?? []) {
-      prefByProfile.set(row.profile_id, Boolean((row as Record<string, unknown>)[prefColumn]));
-    }
     // No preference row yet defaults to "notify" (matches the table's own column default).
-    const allowedPartnerIds = partnerIds.filter((id) => prefByProfile.get(id) ?? true);
-    if (allowedPartnerIds.length === 0) continue;
+    const prefRow = prefRows?.[0] as Record<string, unknown> | undefined;
+    if (prefRow && !prefRow[prefColumn]) continue;
 
     const { data: tokens } = await serviceClient
       .from("device_push_tokens")
       .select("apns_token, environment")
-      .in("profile_id", allowedPartnerIds);
+      .eq("profile_id", target.profile_id);
     if (!tokens || tokens.length === 0) continue;
 
     // A streak in progress is worth naming explicitly - losing it is the whole reason to
     // answer today, so that's a stronger nudge than the generic copy below.
-    const currentStreak = couple.current_streak ?? 0;
+    const currentStreak = target.current_streak ?? 0;
 
     const title = isFinal ? "1 hour left!" : "Keep your streak going";
     const body = isFinal
@@ -169,13 +170,20 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Per-profile, because two partners on different days would otherwise suppress each other if
+    // this were still recorded once per couple.
     await serviceClient
-      .from("daily_streaks")
-      .upsert({ couple_id: couple.couple_id, [dedupColumn]: couple.local_date }, { onConflict: "couple_id" });
+      .from("streak_reminder_sends")
+      .upsert({
+        profile_id: target.profile_id,
+        reminder_kind: isFinal ? "final" : "early",
+        sent_for_date: target.local_date,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "profile_id,reminder_kind" });
 
     remindedCount++;
   }
 
-  console.log(`[send-streak-reminders] reminded ${remindedCount} of ${rows.length} couple(s) (final=${isFinal})`);
+  console.log(`[send-streak-reminders] reminded ${remindedCount} of ${rows.length} target(s) (final=${isFinal})`);
   return Response.json({ reminded: remindedCount });
 });

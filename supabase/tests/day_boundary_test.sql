@@ -1,13 +1,14 @@
 -- Day-boundary helpers behind the daily question and streak reset.
 --
 -- These exist because streaks used to roll over at whatever wall-clock time the couple happened to
--- sign up — people were losing streaks at 9:45pm. The rule now is local midnight, and for a couple
--- it's the *later* of the two partners' local midnights, so neither person's day ends while the
--- other still has time to answer. That "later of the two" choice is subtle and easy to flip by
--- accident, so it's pinned here along with the timezone fallback.
+-- sign up — people were losing streaks at 9:45pm. The rule is now each partner's *own* local
+-- midnight: a London/Melbourne couple genuinely has two different day boundaries, because nine
+-- hours apart there is no shared midnight to find. An earlier attempt shared one boundary across
+-- the couple (the later of the two), which just moved the arbitrary reset onto whichever partner
+-- was behind — London's day ended at 3pm.
 
 begin;
-select plan(13);
+select plan(16);
 
 -- safe_timezone: anything Postgres can't resolve must fall back rather than raise, since this runs
 -- inside functions that would otherwise fail closed and lock a couple out of their daily question.
@@ -58,39 +59,61 @@ on conflict (id) do update set first_name = excluded.first_name, timezone = excl
 insert into public.couples (id, partner_a_id, partner_b_id)
 values ('cccccccc-0000-0000-0000-000000000003', 'aaaaaaaa-0000-0000-0000-000000000001', 'bbbbbbbb-0000-0000-0000-000000000002');
 
--- The couple's day is the later of the two local dates: at 15:00 UTC, Melbourne has already
--- rolled over to the 18th, so the couple is on the 18th even though London is still on the 17th.
+-- Each partner now gets their own boundary — `private.viewer_day()` reports the caller's own
+-- timezone, not a shared couple-wide one. At 15:00 UTC, Melbourne has rolled over to the 18th
+-- while London is still on the 17th, and each of them should see exactly that. The old shared
+-- `couple_day` (greatest of the two) put both on the 18th, which meant London's daily question
+-- reset at 3pm local.
+--
+-- Run as postgres rather than `authenticated`: private.viewer_day is a private-schema helper that
+-- app roles deliberately cannot reach (it's only ever called from security-definer public
+-- functions). auth.uid() reads the JWT claim regardless of the current role, so setting the claim
+-- alone is enough to impersonate each partner here.
+select set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-0000-0000-000000000001', true);
 select is(
-  (select local_date from private.couple_day('cccccccc-0000-0000-0000-000000000003', '2026-08-17T15:00:00Z'::timestamptz)),
-  '2026-08-18'::date,
-  'couple day takes the later of the two partners local dates'
-);
-
--- The boundary is `greatest()` of the two partners' next local midnights, which means the couple
--- effectively lives on the *ahead* partner's calendar: the day rolls over at Melbourne's midnight.
--- Worth being explicit that this is a real trade-off, not an oversight — any single shared day for
--- a couple nine hours apart has to break someone's midnight, and this pins which. Concretely, this
--- boundary (2026-08-18 14:00Z) is midnight in Melbourne but 3pm in London, so the London partner's
--- daily question resets mid-afternoon. Flipping to `least()` would just move the compromise onto
--- Melbourne instead.
-select is(
-  (select next_boundary from private.couple_day('cccccccc-0000-0000-0000-000000000003', '2026-08-17T15:00:00Z'::timestamptz)),
-  private.next_local_midnight('Australia/Melbourne', '2026-08-17T15:00:00Z'::timestamptz),
-  'couple boundary is the later of the two partners local midnights (the ahead partner''s)'
-);
-
-select ok(
-  (select next_boundary from private.couple_day('cccccccc-0000-0000-0000-000000000003', '2026-08-17T15:00:00Z'::timestamptz))
-    > '2026-08-17T15:00:00Z'::timestamptz,
-  'couple boundary is still ahead of the given instant'
-);
-
--- A profile with no timezone set must not break the couple's day — it falls back to UTC.
-update public.profiles set timezone = null where id = 'bbbbbbbb-0000-0000-0000-000000000002';
-select is(
-  (select local_date from private.couple_day('cccccccc-0000-0000-0000-000000000003', '2026-08-17T15:00:00Z'::timestamptz)),
+  (select local_date from private.viewer_day('2026-08-17T15:00:00Z'::timestamptz)),
   '2026-08-17'::date,
-  'a null timezone falls back to UTC instead of nulling out the couple day'
+  'London partner is on their own local date'
+);
+select is(
+  (select next_boundary from private.viewer_day('2026-08-17T15:00:00Z'::timestamptz)),
+  private.next_local_midnight('Europe/London', '2026-08-17T15:00:00Z'::timestamptz),
+  'London partner rolls over at London midnight'
+);
+
+select set_config('request.jwt.claim.sub', 'bbbbbbbb-0000-0000-0000-000000000002', true);
+select is(
+  (select local_date from private.viewer_day('2026-08-17T15:00:00Z'::timestamptz)),
+  '2026-08-18'::date,
+  'Melbourne partner is on their own local date, a day ahead'
+);
+select is(
+  (select next_boundary from private.viewer_day('2026-08-17T15:00:00Z'::timestamptz)),
+  private.next_local_midnight('Australia/Melbourne', '2026-08-17T15:00:00Z'::timestamptz),
+  'Melbourne partner rolls over at Melbourne midnight'
+);
+
+-- The two boundaries genuinely differ — this is the whole point of the change.
+select isnt(
+  (select next_boundary from private.viewer_day('2026-08-17T15:00:00Z'::timestamptz)),
+  private.next_local_midnight('Europe/London', '2026-08-17T15:00:00Z'::timestamptz),
+  'the two partners do not share a boundary'
+);
+
+-- Both still resolve to the same couple, so they answer the same shared daily session.
+select is(
+  (select couple_id from private.viewer_day('2026-08-17T15:00:00Z'::timestamptz)),
+  'cccccccc-0000-0000-0000-000000000003'::uuid,
+  'a per-partner boundary still resolves the shared couple'
+);
+
+-- A profile with no timezone set falls back to UTC rather than reporting no day at all.
+update public.profiles set timezone = null where id = 'bbbbbbbb-0000-0000-0000-000000000002';
+select set_config('request.jwt.claim.sub', 'bbbbbbbb-0000-0000-0000-000000000002', true);
+select is(
+  (select local_date from private.viewer_day('2026-08-17T15:00:00Z'::timestamptz)),
+  '2026-08-17'::date,
+  'a null timezone falls back to UTC instead of nulling out the day'
 );
 
 select * from finish();
