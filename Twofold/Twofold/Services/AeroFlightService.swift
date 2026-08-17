@@ -44,6 +44,10 @@ struct AeroFlightCandidate: Identifiable, Decodable, Hashable {
     var cancelled: Bool?
     var diverted: Bool?
     var isCodeshare: Bool?
+    /// The designator the traveller actually typed, when AeroAPI answered with a different one —
+    /// they searched a codeshare number (CX6104) and got back the flight that operates it (CA104).
+    /// Nil when they searched the operating number directly, and for route-mode searches.
+    var marketingIdent: String?
     var isTrackable: Bool?
 
     /// False only for a schedule-only candidate the server can't hand to `add-flight` yet —
@@ -54,7 +58,19 @@ struct AeroFlightCandidate: Identifiable, Decodable, Hashable {
     // `mergeCandidates` uses when a candidate has no `faFlightId` yet.
     var id: String { faFlightId ?? "\(identIata ?? identIcao ?? "?"):\(scheduledOut?.timeIntervalSince1970 ?? 0)" }
 
-    var displayFlightNumber: String { flightNumberIata ?? identIata ?? identIcao ?? "—" }
+    /// What the traveller typed wins over what AeroAPI answered with — CX6104 is on their boarding
+    /// pass and the departure board; CA104 is an implementation detail of who flies the aircraft.
+    /// Showing the operating number back to someone who searched the codeshare reads like the app
+    /// found the wrong flight.
+    var displayFlightNumber: String { marketingIdent ?? flightNumberIata ?? identIata ?? identIcao ?? "—" }
+
+    /// The number AeroAPI tracks this flight under, shown alongside `displayFlightNumber` whenever
+    /// the two differ so the traveller can still match it against an airport board that lists the
+    /// operating carrier.
+    var operatingFlightNumber: String? {
+        guard marketingIdent != nil else { return nil }
+        return flightNumberIata ?? identIata ?? identIcao
+    }
     var logoURL: URL? { AirlineLogo.url(forIATACode: operatorIata) }
 }
 
@@ -178,6 +194,9 @@ enum AeroFlightService {
     @discardableResult
     static func addFlight(candidate: AeroFlightCandidate, tripID: UUID?, travelerIDs: [UUID] = [], shared: Bool = true, notifyMe: Bool) async throws -> UUID {
         var body: [String: Any] = ["shared": shared, "notifyMe": notifyMe]
+        // Sent for both the faFlightId and pending paths — the server stores it outside the fields
+        // it refreshes from AeroAPI, so it survives every later poll.
+        if let marketingIdent = candidate.marketingIdent { body["marketingIdent"] = marketingIdent }
         if let faFlightId = candidate.faFlightId {
             body["faFlightId"] = faFlightId
         } else {

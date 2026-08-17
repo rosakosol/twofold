@@ -1530,6 +1530,7 @@ enum BackendService {
         var travelerIds: [UUID]?
         var faFlightId: String?
         var flightNumberIata: String
+        var marketingFlightNumber: String?
         var flightNumberIcao: String?
         var airlineName: String?
         var airlineCode: String?
@@ -1594,6 +1595,7 @@ enum BackendService {
             case travelerIds = "traveler_ids"
             case faFlightId = "fa_flight_id"
             case flightNumberIata = "flight_number_iata"
+            case marketingFlightNumber = "marketing_flight_number"
             case flightNumberIcao = "flight_number_icao"
             case airlineName = "airline_name"
             case airlineCode = "airline_code"
@@ -1656,6 +1658,7 @@ enum BackendService {
             travelerIDs: row.travelerIds ?? [],
             faFlightID: row.faFlightId,
             flightNumberIATA: row.flightNumberIata,
+            marketingFlightNumber: row.marketingFlightNumber,
             flightNumberICAO: row.flightNumberIcao,
             airlineName: row.airlineName,
             airlineCode: row.airlineCode,

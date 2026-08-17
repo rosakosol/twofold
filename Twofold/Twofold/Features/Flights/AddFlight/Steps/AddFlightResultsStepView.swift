@@ -161,6 +161,17 @@ struct AddFlightResultsStepView: View {
                         Spacer(minLength: 0)
                     }
 
+                    // They searched a codeshare, so the headline number above is the one they
+                    // typed. Name the operating flight too — an airport board often lists only
+                    // the operating carrier, so this is what they'll actually be looking for
+                    // once they're there.
+                    if let operatingNumber = candidate.operatingFlightNumber {
+                        Text(candidate.operatorName.map { "Operated by \($0) as \(operatingNumber)" }
+                            ?? "Operated as \(operatingNumber)")
+                            .font(.caption)
+                            .foregroundStyle(Theme.subtleInk)
+                    }
+
                     if let originCity = candidate.origin?.city, let destinationCity = candidate.destination?.city {
                         Text("\(originCity) to \(destinationCity)")
                             .font(.caption)

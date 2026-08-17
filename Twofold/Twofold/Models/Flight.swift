@@ -101,6 +101,11 @@ struct Flight: Identifiable, Hashable, Codable {
     /// Set once resolved against AeroAPI; nil for a purely self-reported flight.
     var faFlightID: String?
     var flightNumberIATA: String
+    /// The codeshare designator the traveller searched/booked under (e.g. "CX6104"), when it
+    /// differs from the operating number in `flightNumberIATA` (e.g. "CA104"). Nil when they
+    /// searched the operating number directly, which is the common case. Written once at
+    /// add-flight time and never refreshed — see 20260912000200.
+    var marketingFlightNumber: String?
     var flightNumberICAO: String?
     var airlineName: String?
     var airlineCode: String?
@@ -158,6 +163,7 @@ struct Flight: Identifiable, Hashable, Codable {
         travelerIDs: [UUID] = [],
         faFlightID: String? = nil,
         flightNumberIATA: String,
+        marketingFlightNumber: String? = nil,
         flightNumberICAO: String? = nil,
         airlineName: String? = nil,
         airlineCode: String? = nil,
@@ -207,6 +213,7 @@ struct Flight: Identifiable, Hashable, Codable {
         self.travelerIDs = travelerIDs
         self.faFlightID = faFlightID
         self.flightNumberIATA = flightNumberIATA
+        self.marketingFlightNumber = marketingFlightNumber
         self.flightNumberICAO = flightNumberICAO
         self.airlineName = airlineName
         self.airlineCode = airlineCode
@@ -250,7 +257,7 @@ struct Flight: Identifiable, Hashable, Codable {
         self.trackingEnabled = trackingEnabled
     }
 
-    var flightNumber: String { flightNumberIATA }
+    var flightNumber: String { marketingFlightNumber ?? flightNumberIATA }
 
     /// The stored value (from `airline_logo_url`, currently never populated server-side since
     /// AeroAPI doesn't supply one) if present, otherwise derived from the airline code — see
@@ -261,6 +268,19 @@ struct Flight: Identifiable, Hashable, Codable {
     /// (self-reported flights are entered as a single free-text field, so this is a no-op
     /// for those — `flightNumberIATA` already reads e.g. "QF35").
     var displayNumber: String {
+        // What the traveller booked under wins: CX6104 is on their boarding pass and the departure
+        // board, CA104 is only who physically flies it. It already carries its own airline prefix,
+        // so the code-prefixing below doesn't apply to it.
+        if let marketingFlightNumber { return marketingFlightNumber }
+        if let airlineCode, !flightNumberIATA.hasPrefix(airlineCode) { return "\(airlineCode)\(flightNumberIATA)" }
+        return flightNumberIATA
+    }
+
+    /// The number AeroAPI actually tracks this flight under, for showing next to `displayNumber`
+    /// when the traveller booked a codeshare — an airport board may list only the operating
+    /// carrier, so hiding it entirely would be its own kind of wrong. Nil when they're the same.
+    var operatingNumber: String? {
+        guard marketingFlightNumber != nil else { return nil }
         if let airlineCode, !flightNumberIATA.hasPrefix(airlineCode) { return "\(airlineCode)\(flightNumberIATA)" }
         return flightNumberIATA
     }

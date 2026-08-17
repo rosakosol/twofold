@@ -53,6 +53,11 @@ interface Input {
   travelerIds?: string[];
   shared?: boolean;
   notifyMe: boolean;
+  // The codeshare designator the traveller searched for (CX6104) when it differs from the flight
+  // that operates it (CA104). Persisted as-is and never refreshed from AeroAPI — see
+  // 20260912000200. Client-supplied, which is fine: it's a display label for the person who typed
+  // it, not something any tracking or authorization decision reads.
+  marketingIdent?: string | null;
 }
 
 // Builds the same shape mapAeroFlightToRow() produces, but straight from the client-supplied
@@ -60,6 +65,15 @@ interface Input {
 // hasn't assigned a trackable instance to yet. Every live-tracking-only field (position, actual_*,
 // delays, gate/terminal, weather) stays null, same as any other freshly-scheduled flight with no
 // data for those yet.
+// Trimmed/uppercased, and reduced to null unless it actually looks like a flight designator —
+// this is the one field here that's taken from the client verbatim, so it shouldn't be able to put
+// arbitrary text on a flight card.
+function normalizeMarketingIdent(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim().toUpperCase();
+  return /^[A-Z]{2,3}\d{1,4}$/.test(trimmed) ? trimmed : null;
+}
+
 function mapPendingCandidateToRow(pending: PendingCandidate): MappedAeroFields {
   return {
     fa_flight_id: null,
@@ -266,6 +280,9 @@ Deno.serve(async (req) => {
       destination_longitude: destinationLongitude,
       destination_country: destinationCountry,
       status,
+      // Outside `mapped` on purpose: everything in there is rewritten from AeroAPI on the next
+      // poll, which would wipe this within a minute or two.
+      marketing_flight_number: normalizeMarketingIdent(input.marketingIdent),
       couple_id: couple.id,
       trip_id: input.tripId ?? null,
       traveler_ids: travelerIds,

@@ -129,6 +129,31 @@ function splitFlightDesignator(raw: string): { airline: string; flightNumber: nu
 // It now only marks the result, so the client can badge it "Codeshare" — which
 // AddFlightResultsStepView already does, and which it deliberately never filters out in number
 // mode for exactly this reason.
+// Whether a resolved flight's own ident is the same designator the caller typed. Compared
+// numerically (and via airlineCodesMatch) rather than as strings, so "QF035" vs "QF35" and
+// IATA-vs-ICAO airline codes don't read as a mismatch and invent a bogus marketing number.
+function identIsSearchedDesignator(
+  ident: string | null | undefined,
+  designator: { airline: string; flightNumber: number },
+): boolean {
+  if (!ident) return false;
+  const parsed = splitFlightDesignator(ident);
+  if (!parsed) return false;
+  return parsed.flightNumber === designator.flightNumber && airlineCodesMatch(parsed.airline, designator.airline);
+}
+
+// The number to show the traveller, when it isn't the one AeroAPI answered with. Returns null if
+// any of the flight's own idents already matches what they typed.
+function marketingIdentFor(
+  f: AeroFlight,
+  designator: { airline: string; flightNumber: number } | null | undefined,
+): string | null {
+  if (!designator) return null;
+  const idents = [f.ident_iata, f.ident_icao, f.ident];
+  if (idents.some((i) => identIsSearchedDesignator(i, designator))) return null;
+  return `${designator.airline}${designator.flightNumber}`;
+}
+
 function isOperatingCarrier(f: AeroFlight, designator: { airline: string; flightNumber: number } | null): boolean {
   if (!designator) return true; // unparseable input — already skipped everywhere else, don't judge here either
   const operatorCodes = [f.operator_iata, f.operator_icao, f.operator].filter((c): c is string => Boolean(c));
@@ -265,6 +290,12 @@ interface Candidate {
   cancelled: boolean;
   diverted: boolean;
   isCodeshare: boolean;
+  // The designator the caller actually typed, when it differs from this flight's own operating
+  // ident — i.e. they searched a codeshare number (CX6104) and AeroAPI answered with the flight
+  // that operates it (CA104). Null whenever they searched the operating number directly, and for
+  // route mode, where there's no searched designator at all. The client shows this as the headline
+  // number, because it's what's on their boarding pass.
+  marketingIdent: string | null;
   // false only for a /schedules result whose fa_flight_id came back null — a flight that's on
   // the airline's published schedule but that FlightAware hasn't assigned a concrete trackable
   // instance to yet (per AeroAPI's own docs, this normally resolves a few days before departure).
@@ -312,6 +343,7 @@ function fromLiveFlight(f: AeroFlight, designator?: { airline: string; flightNum
     cancelled: Boolean(f.cancelled),
     diverted: Boolean(f.diverted),
     isCodeshare: (f.codeshares?.length ?? 0) > 0 || operatedByAnotherAirline,
+    marketingIdent: marketingIdentFor(f, designator),
     isTrackable: true,
   };
 }
@@ -344,6 +376,10 @@ function fromScheduledFlight(s: AeroScheduledFlight, viaCodeshare = false): Cand
     cancelled: false,
     diverted: false,
     isCodeshare: viaCodeshare,
+    // /schedules is queried *by* airline+flight_number, so a row's own `ident` is already the
+    // searched designator (its `actual_ident` is the operator's). Nothing to substitute — unlike
+    // the live path, this never answers with a different number than the one asked for.
+    marketingIdent: null,
     isTrackable: s.fa_flight_id != null,
   };
 }
