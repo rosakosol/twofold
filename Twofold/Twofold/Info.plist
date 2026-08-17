@@ -29,6 +29,14 @@
 	<array>
 		<string>instagram-stories</string>
 	</array>
+	<!-- Lets a debug build with SUPABASE_ENV=local reach the Supabase CLI stack over plain HTTP on
+	     127.0.0.1 (see SupabaseConfig). Scoped to loopback and link-local addresses only — it does
+	     not relax TLS for any remote host, so production traffic is unaffected. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>Twofold uses your camera to capture boarding passes and travel documents.</string>
 	<key>NSFaceIDUsageDescription</key>

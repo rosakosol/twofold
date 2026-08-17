@@ -79,6 +79,23 @@
       <StoreKitConfigurationFileReference
          identifier = "../../Twofold/Twofold.storekit">
       </StoreKitConfigurationFileReference>
+      <EnvironmentVariables>
+         <EnvironmentVariable
+            key = "SUPABASE_ENV"
+            value = "local"
+            isEnabled = "NO">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "SUPABASE_URL"
+            value = ""
+            isEnabled = "NO">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "SUPABASE_PUBLISHABLE_KEY"
+            value = ""
+            isEnabled = "NO">
+         </EnvironmentVariable>
+      </EnvironmentVariables>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"
