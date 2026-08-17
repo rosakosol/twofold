@@ -173,3 +173,95 @@ Deno.test("bestKnownArrival: prefers the estimate", () => {
   assertEquals(bestKnownArrival(flight({ scheduled_in: at(HOUR) })), at(HOUR));
   assertEquals(bestKnownArrival(flight({ scheduled_in: null })), null);
 });
+
+// --- isFlightInProgress -----------------------------------------------------------------------
+//
+// Callers use this to let a genuinely airborne flight bypass the same-day filter. The old test was
+// `actual_out && !actual_in`, which never stops being true for a flight AeroAPI never recorded an
+// arrival for — so one stale row polluted every later search for that number. The values below are
+// the real AeroAPI response that surfaced it: searching CX6104 for 17 Aug returned the 16 Aug
+// departure too, and neither row showed a date.
+
+import { isFlightInProgress } from "./flight-schedule.ts";
+
+const AUG_17_NOON = Date.parse("2026-08-17T12:00:00Z");
+
+Deno.test("isFlightInProgress: not departed yet", () => {
+  assertEquals(isFlightInProgress({ actual_out: null, actual_in: null }, AUG_17_NOON), false);
+});
+
+Deno.test("isFlightInProgress: already arrived", () => {
+  assertEquals(
+    isFlightInProgress({ actual_out: "2026-08-17T04:50:00Z", actual_in: "2026-08-17T08:10:00Z" }, AUG_17_NOON),
+    false,
+  );
+});
+
+Deno.test("isFlightInProgress: airborne right now", () => {
+  assertEquals(
+    isFlightInProgress(
+      { actual_out: "2026-08-17T10:50:00Z", actual_in: null, scheduled_in: "2026-08-17T14:15:00Z" },
+      AUG_17_NOON,
+    ),
+    true,
+  );
+});
+
+// The live case. Departed 16 Aug, scheduled to land 16 Aug, still no actual_in a day later —
+// AeroAPI simply never reported the arrival. It is not in the air.
+Deno.test("isFlightInProgress: yesterday's flight with no arrival recorded is NOT in progress", () => {
+  assertEquals(
+    isFlightInProgress(
+      { actual_out: "2026-08-16T04:49:00Z", actual_in: null, scheduled_in: "2026-08-16T08:15:00Z" },
+      AUG_17_NOON,
+    ),
+    false,
+  );
+});
+
+// Arrival reporting lags, so a flight that landed a little while ago still counts.
+Deno.test("isFlightInProgress: just-landed flight stays in progress through the reporting grace", () => {
+  assertEquals(
+    isFlightInProgress(
+      { actual_out: "2026-08-17T04:50:00Z", actual_in: null, scheduled_in: "2026-08-17T09:00:00Z" },
+      AUG_17_NOON,
+    ),
+    true,
+  );
+  // Well past the grace window.
+  assertEquals(
+    isFlightInProgress(
+      { actual_out: "2026-08-17T00:00:00Z", actual_in: null, scheduled_in: "2026-08-17T03:00:00Z" },
+      AUG_17_NOON,
+    ),
+    false,
+  );
+});
+
+Deno.test("isFlightInProgress: prefers the estimate over the schedule", () => {
+  // Scheduled to land hours ago, but AeroAPI now estimates it's still en route.
+  assertEquals(
+    isFlightInProgress(
+      {
+        actual_out: "2026-08-17T02:00:00Z",
+        actual_in: null,
+        scheduled_in: "2026-08-17T04:00:00Z",
+        estimated_in: "2026-08-17T13:00:00Z",
+      },
+      AUG_17_NOON,
+    ),
+    true,
+  );
+});
+
+// The CI5175 case this bypass exists for: genuinely airborne, almost every timestamp null.
+Deno.test("isFlightInProgress: no arrival estimate at all falls back to time since departure", () => {
+  assertEquals(
+    isFlightInProgress({ actual_out: "2026-08-17T06:00:00Z", actual_in: null }, AUG_17_NOON),
+    true,
+  );
+  assertEquals(
+    isFlightInProgress({ actual_out: "2026-08-15T06:00:00Z", actual_in: null }, AUG_17_NOON),
+    false,
+  );
+});

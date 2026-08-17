@@ -64,6 +64,22 @@ struct AeroFlightCandidate: Identifiable, Decodable, Hashable {
     /// found the wrong flight.
     var displayFlightNumber: String { marketingIdent ?? flightNumberIata ?? identIata ?? identIcao ?? "—" }
 
+    /// "Sat 16 Aug" when this result departs on a different day than the one searched, else nil.
+    ///
+    /// Compared in the *device's* timezone, deliberately — that's the frame the caller picked the
+    /// date in ("today" means today where they are), and the same frame resolve-flight's own
+    /// same-day filter uses. Comparing in the origin airport's zone instead looks tempting, since
+    /// that's what the departure time chip beside this is rendered in, but it mislabels: a
+    /// Melbourne caller searching a Hong Kong departure for "today" has a searched date whose
+    /// midnight falls on the *previous* Hong Kong day, so every result would be tagged as another
+    /// day. This label answers "is this the day you asked for?", which is a question about the
+    /// caller's calendar, not the airport's.
+    func departureDayLabel(searchedDate: Date) -> String? {
+        guard let scheduledOut else { return nil }
+        guard !Calendar.current.isDate(scheduledOut, inSameDayAs: searchedDate) else { return nil }
+        return scheduledOut.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated))
+    }
+
     /// The number AeroAPI tracks this flight under, shown alongside `displayFlightNumber` whenever
     /// the two differ so the traveller can still match it against an airport board that lists the
     /// operating carrier.

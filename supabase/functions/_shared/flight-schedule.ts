@@ -121,3 +121,40 @@ export function isDueForArrivalReminder(flight: FlightRow, now: number, windowMs
   const msToArrival = new Date(arrival).getTime() - now;
   return msToArrival >= 0 && msToArrival <= windowMs;
 }
+
+// Longest plausible gap between a flight's best-known arrival and AeroAPI actually recording an
+// `actual_in`. Generous — arrival reporting is the flakiest field in the feed — but finite.
+export const ARRIVAL_REPORTING_GRACE_MS = 6 * 60 * 60 * 1000;
+// Fallback bound for a flight with no arrival estimate at all: longer than any scheduled commercial
+// flight, so a genuinely airborne ultra-long-haul is never excluded.
+export const MAX_PLAUSIBLE_FLIGHT_MS = 24 * 60 * 60 * 1000;
+
+// "Departed and not yet arrived" — but bounded in time, which it previously wasn't.
+//
+// The old test was just `actual_out && !actual_in`, which is true *forever* for any flight AeroAPI
+// never got an arrival for. Since callers use this to bypass the same-day filter (a genuinely
+// airborne flight shouldn't be excluded on a date technicality), one stale row poisoned every later
+// search for that number: searching CX6104 for 17 Aug returned the 16 Aug departure alongside it,
+// because the 16th had `actual_out` and no `actual_in` and so still counted as "in progress". Two
+// rows, same number, same route, same local departure time, no date shown on either — with no way
+// to tell which was which. Confirmed against live AeroAPI data.
+//
+// A flight is only still in the air if its arrival hasn't already come and gone.
+export function isFlightInProgress(
+  f: { actual_out?: string | null; actual_in?: string | null; scheduled_in?: string | null; estimated_in?: string | null },
+  nowMs: number = Date.now(),
+): boolean {
+  if (!f.actual_out || f.actual_in) return false;
+
+  const arrival = f.estimated_in ?? f.scheduled_in;
+  if (arrival) {
+    const arrivalMs = Date.parse(arrival);
+    if (!Number.isNaN(arrivalMs)) return arrivalMs >= nowMs - ARRIVAL_REPORTING_GRACE_MS;
+  }
+
+  // No usable arrival estimate (the CI5175 case: airborne with almost every timestamp null) — fall
+  // back to how long ago it left, which is the only signal there is.
+  const outMs = Date.parse(f.actual_out);
+  if (Number.isNaN(outMs)) return true;
+  return outMs >= nowMs - MAX_PLAUSIBLE_FLIGHT_MS;
+}

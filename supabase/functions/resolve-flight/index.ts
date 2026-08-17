@@ -15,6 +15,8 @@ import {
   searchRoute,
 } from "../_shared/aeroapi.ts";
 import { airlineCodesMatch, lookupAirlineName } from "../_shared/airlines.ts";
+import { type Candidate, mergeCandidates } from "../_shared/flight-candidates.ts";
+import { isFlightInProgress } from "../_shared/flight-schedule.ts";
 import { deriveFlightStatus } from "../_shared/flight-status.ts";
 
 interface NumberModeInput {
@@ -226,9 +228,6 @@ function referenceOut(f: {
 // not-yet-departed one purely on that date-string technicality, hiding the flight the caller was
 // actually trying to add. AeroScheduledFlight rows never have actual_out/actual_in (schedule-only
 // data), so this is always false there — same-day filtering still applies to /schedules results.
-function isFlightInProgress(f: { actual_out?: string | null; actual_in?: string | null }): boolean {
-  return Boolean(f.actual_out) && !f.actual_in;
-}
 
 // `date` is computed as "today"/"tomorrow" in the *device's* own timezone (see
 // AddFlightDateStepView.swift) — meaning "departing today" is meant, and should be checked, in
@@ -253,7 +252,7 @@ function isFlightInProgress(f: { actual_out?: string | null; actual_in?: string 
 // fallback: it used to also mask "the true requested-day flight got clamped out of the /flights
 // window," making a real bug look like an ordinary empty result. /schedules never has that
 // problem (no future cap), so a same-day miss there really does mean "no matching flight."
-function filterPreferringSameDay<T extends { scheduled_out?: string | null; estimated_out?: string | null; actual_out?: string | null; actual_in?: string | null }>(
+function filterPreferringSameDay<T extends { scheduled_out?: string | null; estimated_out?: string | null; actual_out?: string | null; actual_in?: string | null; scheduled_in?: string | null; estimated_in?: string | null }>(
   results: T[],
   date: string,
   timeZone: (f: T) => string | null | undefined,
@@ -269,39 +268,6 @@ function filterPreferringSameDay<T extends { scheduled_out?: string | null; esti
   });
 }
 
-// Response shape both AeroFlight (/flights/{ident}, /flights/search) and AeroScheduledFlight
-// (/schedules) normalize into — the two sources have genuinely different field shapes (nested
-// origin/destination objects with timezone/name/city vs. flat code strings; live-tracking fields
-// vs. none at all), so each gets its own mapper into this common shape rather than one trying to
-// pretend to be the other.
-interface Candidate {
-  faFlightId: string | null;
-  identIata: string | null;
-  identIcao: string | null;
-  operatorName: string | null;
-  operatorIata: string | null;
-  flightNumberIata: string | null;
-  aircraftType: string | null;
-  origin: { iata: string | null; icao: string | null; name: string | null; city: string | null; timezone: string | null } | null;
-  destination: { iata: string | null; icao: string | null; name: string | null; city: string | null; timezone: string | null } | null;
-  scheduledOut: string | null;
-  scheduledIn: string | null;
-  status: ReturnType<typeof deriveFlightStatus>;
-  cancelled: boolean;
-  diverted: boolean;
-  isCodeshare: boolean;
-  // The designator the caller actually typed, when it differs from this flight's own operating
-  // ident — i.e. they searched a codeshare number (CX6104) and AeroAPI answered with the flight
-  // that operates it (CA104). Null whenever they searched the operating number directly, and for
-  // route mode, where there's no searched designator at all. The client shows this as the headline
-  // number, because it's what's on their boarding pass.
-  marketingIdent: string | null;
-  // false only for a /schedules result whose fa_flight_id came back null — a flight that's on
-  // the airline's published schedule but that FlightAware hasn't assigned a concrete trackable
-  // instance to yet (per AeroAPI's own docs, this normally resolves a few days before departure).
-  // The client should let the caller see this candidate but not attempt to add-flight it yet.
-  isTrackable: boolean;
-}
 
 // `designator` is the airline+number the caller searched for, when this came from a number-mode
 // lookup. It's what lets a result operated by a *different* airline be flagged as a codeshare —
@@ -382,25 +348,6 @@ function fromScheduledFlight(s: AeroScheduledFlight, viaCodeshare = false): Cand
     marketingIdent: null,
     isTrackable: s.fa_flight_id != null,
   };
-}
-
-// Merges live-tracking and schedule-sourced candidates for the same search, preferring the live
-// version (richer data) wherever both cover the same physical flight. Dedupes by faFlightId when
-// both sides have one, else by identIata+scheduledOut — the two sources are never expected to
-// overlap much in practice (schedules is only consulted when dateWindow reports it clamped the
-// live window short), but a date right at that boundary could plausibly return the same flight
-// from both.
-function mergeCandidates(primary: Candidate[], extra: Candidate[]): Candidate[] {
-  const seen = new Set<string>();
-  const key = (c: Candidate) => c.faFlightId ?? `${c.identIata ?? c.identIcao ?? ""}:${c.scheduledOut ?? ""}`;
-  const merged: Candidate[] = [];
-  for (const c of [...primary, ...extra]) {
-    const k = key(c);
-    if (seen.has(k)) continue;
-    seen.add(k);
-    merged.push(c);
-  }
-  return merged;
 }
 
 Deno.serve(async (req) => {

@@ -172,6 +172,19 @@ struct AddFlightResultsStepView: View {
                             .foregroundStyle(Theme.subtleInk)
                     }
 
+                    // The chip above names the date that was *searched*, not the date of each
+                    // result — and results can legitimately fall on another day (the search
+                    // deliberately falls back to a wider window when nothing matches the requested
+                    // one). A daily service then produces rows identical in every visible respect,
+                    // since the time chips show a local clock time that repeats every day. Naming
+                    // the day on any row that isn't the searched one is what makes them tellable
+                    // apart at all.
+                    if let departureDay = candidate.departureDayLabel(searchedDate: model.date) {
+                        Text(departureDay)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Theme.heartRed)
+                    }
+
                     if let originCity = candidate.origin?.city, let destinationCity = candidate.destination?.city {
                         Text("\(originCity) to \(destinationCity)")
                             .font(.caption)
