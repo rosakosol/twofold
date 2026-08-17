@@ -40,7 +40,9 @@ enum TripCategory: String, Codable, CaseIterable, Identifiable, Hashable {
     }
 }
 
-struct Trip: Identifiable, Hashable {
+/// `Codable` for `OfflineDataCache` — see `Flight`'s matching note. Nested `flights` come
+/// along for free once `Flight` conforms.
+struct Trip: Identifiable, Hashable, Codable {
     let id: UUID
     /// 0, 1, or 2 of the couple's members — mirrors `Flight.travelerIDs`. Almost always 1, but
     /// both partners travelling together (e.g. a joint trip back home) is a real case the old

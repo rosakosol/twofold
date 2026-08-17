@@ -82,6 +82,8 @@ final class AppModel {
     /// (`loadGameDecksIfNeeded()`) — powers the Games hub's topic list and progress bars. Not
     /// loaded at app launch; only Games-hub visits need it.
     private(set) var gameDecks: [GameDeck]?
+    /// True once a deck fetch has been attempted and failed — see `refreshGameDecks`.
+    private(set) var gameDecksUnavailable = false
     /// Per-deck completion counts for the couple — see `DeckProgress`/`get_deck_progress()`.
     /// Superseded `playedDeckIDs` (a deck has progress here the moment either partner starts it).
     private(set) var deckProgress: [UUID: DeckProgress]?
@@ -277,8 +279,53 @@ final class AppModel {
     /// with a partner yet (see `loadSignedInState`).
     func restoreSession() async {
         defer { isLoadingSession = false }
+
+        // Offline fast path. `BackendService.restoreSession()` awaits `supabase.auth.session`,
+        // which refreshes an expired token over the network, and `loadSignedInState()` then makes
+        // several more calls in sequence — with no connectivity every one of those has to time out
+        // before the splash clears, measured at ~45s on a cold launch. `currentSession` reads the
+        // locally-stored session with no network at all, so when we already know we're offline and
+        // have a cached snapshot for that same account, show the app from cache immediately and
+        // let the (still-attempted) refresh below catch up if connectivity returns mid-launch.
+        //
+        // Gated on actually being offline rather than applied universally: online, these calls are
+        // fast and the server is the better source, so there's no reason to render stale data
+        // first and risk a visible flip.
+        if !NetworkMonitor.shared.isConnected,
+           let userID = BackendService.currentUserID,
+           let cached = OfflineSessionCache.restore(for: userID) {
+            isSubscriptionActive = cached.active
+            subscriptionTier = cached.tier
+            partnerConnected = cached.partnerConnected
+            if let myName = cached.myName, !myName.isEmpty { couple.partnerA.name = myName }
+            if let partnerName = cached.partnerName, !partnerName.isEmpty { couple.partnerB.name = partnerName }
+            partnerConnectedCelebrationShown = cached.celebrationShown
+            setupChecklistDismissed = cached.checklistDismissed
+            restorePendingMemoriesFromDisk()
+            restorePendingTripsFromDisk()
+            applyCachedTravelData()
+            hasCouple = true
+            isLoadingSession = false
+        }
+
         guard await BackendService.restoreSession() != nil else { return }
         await loadSignedInState()
+    }
+
+    /// Replays the last-known trips/flights/memories from disk. Only ever called once the live
+    /// fetches have already failed, so it can't overwrite fresher server data.
+    ///
+    /// Anything still pending sync wins over its cached copy: `restorePendingTripsFromDisk()`/
+    /// `restorePendingMemoriesFromDisk()` run earlier in `loadSignedInState`, and those are the
+    /// user's newest work — a stale server snapshot must not clobber something they added offline
+    /// and haven't uploaded yet.
+    private func applyCachedTravelData() {
+        guard let cached = OfflineDataCache.restore(for: BackendService.currentUserID) else { return }
+        let pendingTrips = trips.filter { pendingTripIDs.contains($0.id) }
+        let pendingMemories = memories.filter { pendingMemoryIDs.contains($0.id) }
+        trips = cached.trips.filter { !pendingTripIDs.contains($0.id) } + pendingTrips
+        memories = cached.memories.filter { !pendingMemoryIDs.contains($0.id) } + pendingMemories
+        flights = cached.flights
     }
 
     /// Called any time we know a Supabase session exists — at launch (`restoreSession`), right
@@ -321,6 +368,7 @@ final class AppModel {
             if let partnerName = cached.partnerName, !partnerName.isEmpty { couple.partnerB.name = partnerName }
             partnerConnectedCelebrationShown = cached.celebrationShown
             setupChecklistDismissed = cached.checklistDismissed
+            applyCachedTravelData()
         }
         hasCouple = true
         Task { await WidgetSnapshotWriter.refresh(appModel: self) }
@@ -532,6 +580,7 @@ final class AppModel {
         // must not inherit this one's entitlement. (`restore(for:)` is account-scoped as a second
         // guard, but clearing on the way out is the honest place to do it.)
         OfflineSessionCache.clear()
+        OfflineDataCache.clear()
         WidgetSnapshot.clear()
         WidgetImageCache.clearAll()
         WidgetCenter.shared.reloadAllTimelines()
@@ -825,8 +874,16 @@ final class AppModel {
     func refreshGameDecks() async {
         async let decks = BackendService.fetchGameDecks()
         async let progress = BackendService.fetchDeckProgress()
-        gameDecks = try? await decks
+        let fetchedDecks = try? await decks
+        gameDecks = fetchedDecks
         deckProgress = try? await progress
+        // Distinguishes "haven't asked yet" from "asked and couldn't get them", which
+        // `gameDecks == nil` alone can't. Without it `RecommendedGamesSection` showed its loading
+        // spinner forever whenever the fetch failed — decks are fetched, never bundled, so that's
+        // any time the network or the backend is unreachable. Deliberately not driven off
+        // `NetworkMonitor` alone: NWPathMonitor reports "connected" on a captive portal or when
+        // the server itself is down, both of which strand the spinner just the same.
+        gameDecksUnavailable = fetchedDecks == nil
     }
 
     /// Flips this deck's own "Your turn" → "Answered" bucket instantly, without waiting on
@@ -934,6 +991,12 @@ final class AppModel {
             partnerName: state.couple.partnerB.name,
             celebrationShown: state.partnerConnectedCelebrationShown,
             checklistDismissed: state.setupChecklistDismissed
+        )
+        OfflineDataCache.record(
+            trips: state.trips,
+            flights: state.flights,
+            memories: state.memories,
+            userID: BackendService.currentUserID
         )
         partnerConnectedCelebrationShown = state.partnerConnectedCelebrationShown
         setupChecklistDismissed = state.setupChecklistDismissed

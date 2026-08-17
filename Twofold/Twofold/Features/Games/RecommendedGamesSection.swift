@@ -27,6 +27,41 @@ struct RecommendedGamesSection: View {
         return randomDeckIDs.compactMap { byID[$0] }
     }
 
+    /// Split out of `body` deliberately: adding the offline branch below pushed the whole
+    /// HomeView expression tree past what the Swift type checker would solve in reasonable time
+    /// ("unable to type-check this expression in reasonable time" at HomeView's own call site).
+    /// Isolating it here keeps each builder small enough to infer.
+    @ViewBuilder
+    private var deckContent: some View {
+        if appModel.gameDecks == nil, appModel.gameDecksUnavailable {
+            // Decks are fetched, never bundled, and the fetch swallows its error — so this used
+            // to sit on the spinner below forever whenever it failed, reading as a hang rather
+            // than a limitation. `loadGameDecksIfNeeded` leaves `gameDecks` nil on failure, so it
+            // re-attempts on the next appearance and this resolves itself once it can load.
+            Text("Game packs need a connection — they'll load when you're back online.")
+                .font(.caption)
+                .foregroundStyle(Theme.subtleInk)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, Theme.Spacing.sm)
+        } else if appModel.gameDecks == nil {
+            // Hasn't resolved yet — sized to roughly match a real `DeckCardRow` so the swap-in
+            // doesn't visibly jump.
+            ProgressView()
+                .frame(height: 150)
+                .frame(maxWidth: .infinity)
+        } else {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: Theme.Spacing.sm) {
+                    ForEach(randomDecks) { deck in
+                        DeckCardRow(deck: deck, progress: appModel.deckProgress?[deck.id], showsTopicPill: true)
+                            .frame(width: 220)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+        }
+    }
+
     var body: some View {
         SectionCard {
             HStack {
@@ -40,23 +75,7 @@ struct RecommendedGamesSection: View {
                 }
             }
 
-            if appModel.gameDecks == nil {
-                // `loadGameDecksIfNeeded()` (below) hasn't resolved yet — sized to roughly match
-                // a real `DeckCardRow` so the swap-in doesn't visibly jump.
-                ProgressView()
-                    .frame(height: 150)
-                    .frame(maxWidth: .infinity)
-            } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: Theme.Spacing.sm) {
-                        ForEach(randomDecks) { deck in
-                            DeckCardRow(deck: deck, progress: appModel.deckProgress?[deck.id], showsTopicPill: true)
-                                .frame(width: 220)
-                        }
-                    }
-                    .padding(.vertical, 2)
-                }
-            }
+            deckContent
         }
         .task {
             await appModel.loadGameDecksIfNeeded()

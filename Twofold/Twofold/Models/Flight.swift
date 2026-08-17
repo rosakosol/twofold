@@ -85,7 +85,10 @@ struct FlightTimelineEvent: Identifiable, Hashable {
     }
 }
 
-struct Flight: Identifiable, Hashable {
+/// `Codable` so `OfflineDataCache` can persist real travel data for offline reads — every
+/// stored property here is already a value type Swift can synthesise conformance for
+/// (`FlightAirport`/`FlightWeather`/`FlightStatus` are each `Codable` in their own right).
+struct Flight: Identifiable, Hashable, Codable {
     let id: UUID
     /// Optional link to a Trip — a flight can exist and be tracked entirely on its own.
     var tripID: UUID?
