@@ -122,10 +122,12 @@ struct TopicDetailView: View {
             }
     }
 
+    /// Most recently completed first — see `GameLogic.completedDeckPrecedes`, shared with the
+    /// other two screens that list finished decks.
     private var answeredDecks: [GameDeck] {
         appModel.decks(for: topic)
             .filter { appModel.deckProgress?[$0.id]?.bothCompleted ?? false }
-            .sorted { $0.sortOrder < $1.sortOrder }
+            .sorted { GameLogic.completedDeckPrecedes($0, $1, progress: appModel.deckProgress) }
     }
 
     var body: some View {

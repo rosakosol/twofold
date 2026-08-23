@@ -930,7 +930,16 @@ final class AppModel {
     /// and came back to the Games tab and the fetch had finally landed by then.
     func markDeckProgressMineCompleted(deckID: UUID?) {
         guard let deckID, var progress = deckProgress?[deckID] else { return }
+        let wasCompleted = progress.bothCompleted
         progress.myAnswered = progress.totalRounds
+        // My side being the one that finishes the deck makes *now* its completion moment — the
+        // same stamp `advance_game_session_status` writes server-side. Without it the row keeps
+        // whatever `completed_at`/`updated_at` the last fetch happened to carry, which sorted the
+        // deck I just finished into the middle of the Answered list (and printed that stale date
+        // on its card) until `refreshGameDecks()`' round trip landed.
+        if !wasCompleted, progress.bothCompleted {
+            progress.completedAt = .now
+        }
         deckProgress?[deckID] = progress
     }
 

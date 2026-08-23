@@ -67,6 +67,14 @@ struct AllDecksBrowseView: View {
             let rhsDone = rhsProgress?.bothCompleted ?? false
             if lhsDone != rhsDone { return !lhsDone }
 
+            // Among themselves, finished decks go most-recently-completed first rather than in
+            // the curated `sortOrder` below — that order says nothing once a deck is done, and
+            // read as shuffled next to the "Completed <date>" each card shows. Shared with the
+            // Answered sections on TopicDetailView/GameTypeDecksView.
+            if lhsDone, rhsDone {
+                return GameLogic.completedDeckPrecedes(lhs, rhs, progress: appModel.deckProgress)
+            }
+
             let lhsStarted = lhsProgress != nil
             let rhsStarted = rhsProgress != nil
             if lhsStarted != rhsStarted { return lhsStarted }

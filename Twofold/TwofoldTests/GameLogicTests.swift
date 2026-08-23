@@ -171,6 +171,59 @@ struct GameLogicTests {
         #expect(completed.first?.status == .completed)
     }
 
+    // MARK: - Answered deck ordering
+
+    private func makeDeck(sortOrder: Int) -> GameDeck {
+        GameDeck(id: UUID(), topic: "travel", gameType: .thisOrThat, title: "Deck \(sortOrder)", emoji: "✈️", tier: "free", sortOrder: sortOrder, questionCount: 10)
+    }
+
+    private func makeProgress(completedAt: Date?) -> DeckProgress {
+        DeckProgress(sessionID: UUID(), status: .completed, totalRounds: 5, myAnswered: 5, partnerAnswered: 5, completedAt: completedAt)
+    }
+
+    @Test func answeredDecksSortMostRecentlyCompletedFirst() {
+        let oldest = makeDeck(sortOrder: 1)
+        let newest = makeDeck(sortOrder: 2)
+        let middle = makeDeck(sortOrder: 3)
+        let progress: [UUID: DeckProgress] = [
+            oldest.id: makeProgress(completedAt: Date(timeIntervalSince1970: 1_000)),
+            newest.id: makeProgress(completedAt: Date(timeIntervalSince1970: 3_000)),
+            middle.id: makeProgress(completedAt: Date(timeIntervalSince1970: 2_000)),
+        ]
+        let sorted = [oldest, newest, middle].sorted { GameLogic.completedDeckPrecedes($0, $1, progress: progress) }
+        #expect(sorted.map(\.sortOrder) == [2, 3, 1])
+    }
+
+    @Test func answeredDecksWithoutACompletionDateSinkBelowDatedOnes() {
+        let dated = makeDeck(sortOrder: 9)
+        let undated = makeDeck(sortOrder: 1)
+        let progress: [UUID: DeckProgress] = [
+            dated.id: makeProgress(completedAt: Date(timeIntervalSince1970: 1_000)),
+            undated.id: makeProgress(completedAt: nil),
+        ]
+        let sorted = [undated, dated].sorted { GameLogic.completedDeckPrecedes($0, $1, progress: progress) }
+        #expect(sorted.map(\.sortOrder) == [9, 1])
+    }
+
+    @Test func answeredDecksFallBackToCuratedOrderWhenNeitherHasADate() {
+        let first = makeDeck(sortOrder: 1)
+        let second = makeDeck(sortOrder: 2)
+        #expect(GameLogic.completedDeckPrecedes(first, second, progress: [:]) == true)
+        #expect(GameLogic.completedDeckPrecedes(second, first, progress: [:]) == false)
+    }
+
+    @Test func answeredDecksCompletedAtTheSameMomentKeepCuratedOrder() {
+        let first = makeDeck(sortOrder: 1)
+        let second = makeDeck(sortOrder: 2)
+        let sameMoment = Date(timeIntervalSince1970: 1_000)
+        let progress: [UUID: DeckProgress] = [
+            first.id: makeProgress(completedAt: sameMoment),
+            second.id: makeProgress(completedAt: sameMoment),
+        ]
+        #expect(GameLogic.completedDeckPrecedes(first, second, progress: progress) == true)
+        #expect(GameLogic.completedDeckPrecedes(second, first, progress: progress) == false)
+    }
+
     // MARK: - Game metadata
 
     @Test func eachGameHasTheSpecifiedDuration() {

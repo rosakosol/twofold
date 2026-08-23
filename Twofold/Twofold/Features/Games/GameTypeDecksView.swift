@@ -31,10 +31,13 @@ struct GameTypeDecksView: View {
             }
     }
 
+    /// Most recently completed first — see `GameLogic.completedDeckPrecedes`. The curated
+    /// `sortOrder` these used to be listed in is meaningless once a deck is finished, and read as
+    /// random next to the "Completed <date>" each card shows.
     private var answeredDecks: [GameDeck] {
         allDecks
             .filter { appModel.deckProgress?[$0.id]?.bothCompleted ?? false }
-            .sorted { $0.sortOrder < $1.sortOrder }
+            .sorted { GameLogic.completedDeckPrecedes($0, $1, progress: appModel.deckProgress) }
     }
 
     var body: some View {

@@ -88,4 +88,29 @@ enum GameLogic {
     static func completedSessionsOnly(_ sessions: [GameSession]) -> [GameSession] {
         sessions.filter { $0.status == .completed }
     }
+
+    /// Ordering for two decks the couple has already finished: most recently completed first, so
+    /// an "Answered" list reads in the same order as the `Completed 3 Aug` date each
+    /// `DeckCardRow` prints on itself. Every "Answered"/completed list sorts through this one
+    /// comparator (TopicDetailView, GameTypeDecksView, AllDecksBrowseView) so they can't drift
+    /// into three different orders again.
+    ///
+    /// Falls back to the curated `sortOrder` — never to the decks' natural array order, which
+    /// `sorted(by:)` doesn't promise to preserve — when neither deck has a completion date to go
+    /// on, and puts a deck that has one ahead of a deck that doesn't (a dated row is the more
+    /// useful thing to see at the top than an undated one).
+    static func completedDeckPrecedes(_ lhs: GameDeck, _ rhs: GameDeck, progress: [UUID: DeckProgress]?) -> Bool {
+        let lhsCompletedAt = progress?[lhs.id]?.completedAt
+        let rhsCompletedAt = progress?[rhs.id]?.completedAt
+        switch (lhsCompletedAt, rhsCompletedAt) {
+        case let (lhsDate?, rhsDate?) where lhsDate != rhsDate:
+            return lhsDate > rhsDate
+        case (_?, nil):
+            return true
+        case (nil, _?):
+            return false
+        default:
+            return lhs.sortOrder < rhs.sortOrder
+        }
+    }
 }
