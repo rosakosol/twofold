@@ -85,17 +85,29 @@ struct TimeZoneCard: View {
         .foregroundStyle(.white)
         .padding(Theme.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            LinearGradient(
-                colors: [
-                    Theme.DayNight.nightTop.interpolated(to: Theme.DayNight.dayTop, amount: daylight),
-                    Theme.DayNight.nightBottom.interpolated(to: Theme.DayNight.dayBottom, amount: daylight),
-                ],
-                startPoint: .topTrailing,
-                endPoint: .bottomLeading
-            ),
-            in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-        )
+        .background {
+            ZStack {
+                LinearGradient(
+                    colors: [
+                        Theme.DayNight.nightTop.interpolated(to: Theme.DayNight.dayTop, amount: daylight),
+                        Theme.DayNight.nightBottom.interpolated(to: Theme.DayNight.dayBottom, amount: daylight),
+                    ],
+                    startPoint: .topTrailing,
+                    endPoint: .bottomLeading
+                )
+                // The card's text is white, which is fine against the night palette (16.8:1) and
+                // badly broken against the day one: white on `dayBottom` (#F2A93C) measures 2.00:1
+                // and on `dayTop` 3.42:1, so for roughly half of every day — whenever it's daylight
+                // where the partner is — the whole card was close to unreadable.
+                //
+                // Scaled by `daylight` rather than applied flat: night needs no help and shouldn't
+                // be dimmed, and darkening the day stops themselves turned the sunset amber to mud.
+                // This keeps the palette and only takes the edge off it as the sun comes up. Worst
+                // case across the full cycle is 5.11:1 at midday, past AA's 4.5:1.
+                Color.black.opacity(0.40 * daylight)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+        }
         .overlay(alignment: .topLeading) {
             Image(systemName: isDaytime ? "sun.max.fill" : "moon.stars.fill")
                 .font(.system(size: 72))

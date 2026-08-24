@@ -34,7 +34,9 @@ struct DailyActivityCard: View {
                             .foregroundStyle(.white)
                         Text(appModel.todaysDailyQuestionText ?? "A new question, just for you two")
                             .font(.caption2)
-                            .foregroundStyle(.white.opacity(0.85))
+                            // 0.85 landed at 4.46:1 against the deepened banner — just under AA.
+                            // 0.92 reads the same as a softened white and clears it at 4.9:1.
+                            .foregroundStyle(.white.opacity(0.92))
                             // Two lines is right at normal sizes — this is a teaser, and the full
                             // question is one tap away. At accessibility sizes two lines isn't
                             // enough to reach the end of any real question, so the teaser became a
@@ -49,7 +51,11 @@ struct DailyActivityCard: View {
                 }
                 .padding(Theme.Spacing.md)
                 .background(
-                    LinearGradient(colors: [Theme.skyBlue, .indigo], startPoint: .topLeading, endPoint: .bottomTrailing),
+                    // `skyBlueText`, not `skyBlue`: this banner is white text on a full-bleed
+                    // fill, and white on the fill blue measures 2.60:1 in light mode and 1.70:1 in
+                    // dark — the indigo end was fine (5.65:1), so only the top of the gradient was
+                    // failing. The deepened token is exactly what Theme.swift keeps for this case.
+                    LinearGradient(colors: [Theme.skyBlueText, .indigo], startPoint: .topLeading, endPoint: .bottomTrailing),
                     in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
                 )
                 .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
