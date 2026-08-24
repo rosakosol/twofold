@@ -28,6 +28,12 @@ struct RelationshipStatsShareCard: View {
         .padding(Theme.Spacing.sm)
         .background(Theme.backgroundGradient)
         .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
+        // Pinned to the standard text size, unlike the in-app card this reuses. That card now
+        // reflows at accessibility sizes (single-column tiles, stacked hero stats) so the Stats
+        // tab stays readable — but this renders to a fixed-size image that leaves the device, and
+        // it should look the same to everyone who receives it rather than inheriting whatever
+        // text setting the sender happens to run.
+        .dynamicTypeSize(.large)
     }
 }
 

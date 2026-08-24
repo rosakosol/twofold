@@ -102,7 +102,10 @@ struct GamesHubView: View {
                     Label(filter.rawValue, systemImage: filter.icon)
                         .font(.caption.weight(.semibold))
                         .lineLimit(1)
-                        .minimumScaleFactor(0.75)
+                        // Only shrink while three pills share a row. Stacked full-width at
+                        // accessibility sizes there is nothing to shrink for, and scaling the
+                        // label back down would undo the setting the reader just asked for.
+                        .minimumScaleFactor(dynamicTypeSize.isAccessibilitySize ? 1 : 0.75)
                         .padding(.horizontal, Theme.Spacing.sm)
                         .padding(.vertical, Theme.Spacing.xs)
                         .frame(maxWidth: .infinity)

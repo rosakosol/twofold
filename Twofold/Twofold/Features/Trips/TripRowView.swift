@@ -10,6 +10,32 @@ struct TripRowView: View {
     let travelers: [Person]
 
     @Environment(AppModel.self) private var appModel
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    /// The leading column carries the countdown number and the traveller avatars stacked under it.
+    /// Both it and the number below were fixed values, so at larger text settings the count either
+    /// stayed stubbornly at 17pt (it never scaled at all) or, once scaled, spilled out of a 38pt
+    /// lane. Scaling the two together keeps the number inside its column at every size.
+    @ScaledMetric(relativeTo: .subheadline) private var leadingColumnWidth: CGFloat = 38
+    @ScaledMetric(relativeTo: .subheadline) private var countdownFontSize: CGFloat = 17
+
+    /// Date and duration read fine side by side ("12–18 Aug · 6 nights") until the row runs out of
+    /// width, at which point `lineLimit(1)` clipped them rather than wrapping. Stacked at
+    /// accessibility sizes, each gets the full width of the row.
+    private var metaLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 2))
+            : AnyLayout(HStackLayout(spacing: Theme.Spacing.xs))
+    }
+
+    /// Origin, arrow and destination share one line normally. At accessibility sizes three items
+    /// across left each city about 32pt of width — "London" and "Melbourne" were being squeezed
+    /// into a couple of characters and clipped. Stacked, each city gets the row's full width.
+    private var routeLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 2))
+            : AnyLayout(HStackLayout(spacing: Theme.Spacing.xs))
+    }
 
     private var dateRangeText: String {
         let format = Date.FormatStyle().day().month(.abbreviated)
@@ -33,24 +59,34 @@ struct TripRowView: View {
             }
 
             VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: Theme.Spacing.xs) {
+                routeLayout {
                     Text(trip.origin.displayCity).lineLimit(1)
-                    Image(systemName: "arrow.right").accessibilityHidden(true)
+                    Image(systemName: "arrow.right")
+                        // Points down once the route stacks, so it still reads as "from, to".
+                        .rotationEffect(dynamicTypeSize.isAccessibilitySize ? .degrees(90) : .zero)
+                        .accessibilityHidden(true)
                     Text(trip.destination.displayCity).lineLimit(1)
                 }
                 .font(.subheadline.weight(.semibold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
+                // Shrink-to-fit is the right trade at normal sizes — one clean line beats a
+                // wrapped city pair. At accessibility sizes it inverts: the point of the setting
+                // is bigger text, and shrinking back down to honour a one-line cap defeats it.
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
+                .minimumScaleFactor(dynamicTypeSize.isAccessibilitySize ? 1 : 0.8)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-                HStack(spacing: Theme.Spacing.xs) {
+                metaLayout {
                     Text(dateRangeText)
-                    Text("·")
+                    // The middle dot only separates two things sitting on one line; stacked, it
+                    // would read as a stray bullet.
+                    if !dynamicTypeSize.isAccessibilitySize {
+                        Text("·")
+                    }
                     Text(RelationshipMilestoneStats.tripDuration(trip))
                 }
                 .font(.caption)
                 .foregroundStyle(Theme.subtleInk)
-                .lineLimit(1)
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
             }
         }
         .padding(Theme.Spacing.sm)
@@ -69,7 +105,7 @@ struct TripRowView: View {
                     .overlay(Circle().stroke(Theme.cardBackground, lineWidth: 1.5))
             }
         }
-        .frame(width: 38)
+        .frame(width: leadingColumnWidth)
     }
 
     /// Replaces the old solo/paired avatar in this spot — days-to-go while the trip is still
@@ -82,7 +118,7 @@ struct TripRowView: View {
             if trip.departureDate > .now {
                 let days = max(0, Calendar.current.dateComponents([.day], from: .now, to: trip.departureDate).day ?? 0)
                 Text(days == 0 ? "🎉" : "\(days)")
-                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                    .font(.system(size: countdownFontSize, weight: .bold, design: .rounded))
                 Text(days == 0 ? "Today" : (days == 1 ? "day" : "days"))
                     .font(.caption2)
                     .foregroundStyle(Theme.subtleInk)
@@ -104,6 +140,6 @@ struct TripRowView: View {
                     .foregroundStyle(Theme.subtleInk)
             }
         }
-        .frame(width: 38)
+        .frame(width: leadingColumnWidth)
     }
 }

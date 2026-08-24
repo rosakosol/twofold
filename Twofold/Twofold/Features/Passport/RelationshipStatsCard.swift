@@ -24,6 +24,36 @@ struct RelationshipStatsCard: View {
     var showReunionsStat = true
     var showMemoriesStat = true
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    /// The two headline sizes were fixed points, so they were the only text on the Stats tab that
+    /// ignored the reader's text setting outright — the numbers this card exists to show stayed
+    /// small while every label around them grew.
+    @ScaledMetric(relativeTo: .title) private var timeTogetherFontSize: CGFloat = 26
+    @ScaledMetric(relativeTo: .title3) private var heroValueFontSize: CGFloat = 22
+
+    /// Two columns of milestone tiles at normal sizes. At accessibility sizes each tile gets barely
+    /// half the card's width, and since every line inside is capped to one line with a shrink
+    /// factor, the result was text that got *smaller* the larger the reader's setting — the exact
+    /// inverse of the intent. One column gives each tile the full width instead.
+    private var milestoneColumns: [GridItem] {
+        dynamicTypeSize.isAccessibilitySize
+            ? [GridItem(.flexible())]
+            : [GridItem(.flexible(), spacing: Theme.Spacing.sm), GridItem(.flexible())]
+    }
+
+    /// Three hero stats across is the same story one level up — stacked, each keeps its full width.
+    private var heroStatLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(spacing: Theme.Spacing.sm))
+            : AnyLayout(HStackLayout(alignment: .top, spacing: Theme.Spacing.sm))
+    }
+
+    /// Equal tile heights are what the one-line caps buy, and they only matter while tiles sit
+    /// side by side. In a single column there is no neighbour to match, so the caps come off and
+    /// the text is free to wrap and grow.
+    private var capsLinesToFitGrid: Bool { !dynamicTypeSize.isAccessibilitySize }
+
     var body: some View {
         SectionCard {
             ZStack(alignment: .topTrailing) {
@@ -31,12 +61,12 @@ struct RelationshipStatsCard: View {
                     coupleHeader
 
                     Text(stats.timeTogetherLabel)
-                        .font(.system(size: 26, weight: .bold, design: .rounded))
+                        .font(.system(size: timeTogetherFontSize, weight: .bold, design: .rounded))
                         .foregroundStyle(Theme.ink)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity)
 
-                    HStack(alignment: .top, spacing: Theme.Spacing.sm) {
+                    heroStatLayout {
                         heroStat(label: "Days Together", value: "\(stats.daysTogether)")
                         if showTripsStat {
                             heroStat(label: "Trips", value: "\(stats.tripCount)")
@@ -49,7 +79,7 @@ struct RelationshipStatsCard: View {
 
                     Divider()
 
-                    LazyVGrid(columns: [GridItem(.flexible(), spacing: Theme.Spacing.sm), GridItem(.flexible())], spacing: Theme.Spacing.sm) {
+                    LazyVGrid(columns: milestoneColumns, spacing: Theme.Spacing.sm) {
                         if showReunionsStat {
                             milestoneTile(icon: "heart.fill", label: "Total Reunions", value: "\(stats.reunionCount)", tint: Theme.heartRedText)
                         }
@@ -137,13 +167,13 @@ struct RelationshipStatsCard: View {
             Text(label.uppercased())
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(Theme.subtleInk)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
+                .lineLimit(capsLinesToFitGrid ? 1 : nil)
+                .minimumScaleFactor(capsLinesToFitGrid ? 0.8 : 1)
             Text(value)
-                .font(.system(size: 22, weight: .bold, design: .rounded))
+                .font(.system(size: heroValueFontSize, weight: .bold, design: .rounded))
                 .foregroundStyle(Theme.ink)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
+                .lineLimit(capsLinesToFitGrid ? 1 : nil)
+                .minimumScaleFactor(capsLinesToFitGrid ? 0.6 : 1)
         }
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
@@ -167,13 +197,13 @@ struct RelationshipStatsCard: View {
                 Text(label)
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(Theme.subtleInk)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
+                    .lineLimit(capsLinesToFitGrid ? 1 : nil)
+                    .minimumScaleFactor(capsLinesToFitGrid ? 0.75 : 1)
                 Text(value)
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(Theme.ink)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                    .lineLimit(capsLinesToFitGrid ? 1 : nil)
+                    .minimumScaleFactor(capsLinesToFitGrid ? 0.8 : 1)
                 // Always reserve the detail line's height (even when there's no detail) so every
                 // tile in the grid ends up the same height — some milestones (reunions, longest
                 // separation) never have a detail string, which otherwise made their tiles shorter
@@ -181,7 +211,7 @@ struct RelationshipStatsCard: View {
                 Text(detail ?? " ")
                     .font(.caption2)
                     .foregroundStyle(Theme.subtleInk)
-                    .lineLimit(1)
+                    .lineLimit(capsLinesToFitGrid ? 1 : nil)
                     .opacity(detail == nil ? 0 : 1)
             }
             Spacer(minLength: 0)
