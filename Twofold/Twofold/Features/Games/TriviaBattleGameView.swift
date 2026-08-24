@@ -122,7 +122,6 @@ struct TriviaBattleGameView: View {
         // — without it, the full-bleed background was observed interpolating its own width
         // alongside that animation instead of staying static.
         .background(Theme.backgroundGradient.ignoresSafeArea().transaction { $0.animation = nil })
-        .navigationTitle(title ?? GameType.triviaBattle.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             // A custom `.principal` item, not just relying on `.navigationTitle` above — an

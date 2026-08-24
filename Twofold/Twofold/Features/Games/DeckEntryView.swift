@@ -45,10 +45,23 @@ struct DeckEntryView: View {
         // for the fuller version of this same fix.
         .transition(.identity)
         .background(Theme.backgroundGradient.ignoresSafeArea())
-        .navigationTitle(deck.title)
+        // Only while this view is showing its own content. Once `phase` flips to `.playing`, the
+        // game view mounted below owns the nav bar and supplies its own wrapped title as a
+        // `.principal` toolbar item — and because this view renders that game *inline* rather than
+        // pushing it, both titles otherwise live in the same navigation bar at once. UIKit shows
+        // only the principal one, so it looks right, but both stay in the accessibility tree and
+        // VoiceOver announces the deck title twice on every game screen.
+        .navigationTitle(isShowingGame ? "" : deck.title)
         .navigationBarTitleDisplayMode(.inline)
         .task { await determinePhase() }
         .postHogScreenView("Games: Deck Entry")
+    }
+
+    /// True once the game view below has taken over the nav bar — see `.navigationTitle`.
+    private var isShowingGame: Bool {
+        guard errorMessage == nil else { return false }
+        if case .playing = phase { return true }
+        return false
     }
 
     private func errorState(_ message: String) -> some View {

@@ -97,7 +97,6 @@ struct GameResultsView: View {
         // observed interpolating its own size alongside those, briefly rendering narrower than
         // the screen before settling.
         .background(Theme.backgroundGradient.ignoresSafeArea().transaction { $0.animation = nil })
-        .navigationTitle(title ?? gameType.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             // A custom `.principal` item, not just relying on `.navigationTitle` above — an
