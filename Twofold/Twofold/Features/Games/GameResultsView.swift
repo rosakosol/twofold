@@ -110,6 +110,12 @@ struct GameResultsView: View {
                     .font(.headline)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
+                    // `lineLimit(2)` alone never actually produced two lines: an inline nav bar
+                    // offers its principal item a single line's worth of height, so the text took
+                    // that proposal and truncated instead of wrapping. `fixedSize` makes it report
+                    // the height two lines genuinely need, which is what lets the bar give it the
+                    // room.
+                    .fixedSize(horizontal: false, vertical: true)
             }
             if isFullyRevealed {
                 ToolbarItem(placement: .topBarTrailing) {

@@ -29,14 +29,25 @@ struct WhosMoreLikelyGameView: View {
     /// Also true while revisiting a round via "Edit My Answers" even though I've already
     /// answered every round — see `TriviaBattleGameView`'s identical property for the full
     /// reasoning.
+    /// Deliberately does not consult `store.isLoading`. It used to, and that single dependency
+    /// was what made the toolbar stagger on entering a game: `load()` sets `isLoading` true for the
+    /// whole network round trip, so this and `isDoneWithMyRounds` both went false the instant the
+    /// screen appeared and true again when the fetch landed. Every one of those flips rebuilt the
+    /// toolbar — the leading button swapped from the system back chevron to `GameBackButton` and
+    /// the trailing menu was re-created along with it, so neither was reliably tappable until the
+    /// session had loaded.
+    ///
+    /// Nothing here needs the session to be loaded to be correct: a game with no data yet is a
+    /// game you are about to play, and `handleBack()` already ends at a plain `dismiss()` when
+    /// nothing has been answered, which is exactly the loading case.
     private var isActivelyPlaying: Bool {
-        !store.isLoading && store.errorMessage == nil && store.session?.status != .abandoned
+        store.errorMessage == nil && store.session?.status != .abandoned
             && (!store.hasAnsweredAllRounds(myID: myID) || store.viewingRoundNumber != nil)
     }
     /// Covers both "I'm done, waiting on my partner" and "we're both done" — see
     /// `TriviaBattleGameView`'s identical property for the full reasoning.
     private var isDoneWithMyRounds: Bool {
-        !store.isLoading && store.errorMessage == nil && store.session?.status != .abandoned
+        store.errorMessage == nil && store.session?.status != .abandoned
             && store.hasAnsweredAllRounds(myID: myID) && store.viewingRoundNumber == nil
     }
 
@@ -101,6 +112,12 @@ struct WhosMoreLikelyGameView: View {
                     .font(.headline)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
+                    // `lineLimit(2)` alone never actually produced two lines: an inline nav bar
+                    // offers its principal item a single line's worth of height, so the text took
+                    // that proposal and truncated instead of wrapping. `fixedSize` makes it report
+                    // the height two lines genuinely need, which is what lets the bar give it the
+                    // room.
+                    .fixedSize(horizontal: false, vertical: true)
             }
             if isActivelyPlaying {
                 ToolbarItem(placement: .topBarLeading) {
