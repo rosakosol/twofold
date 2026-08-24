@@ -26,6 +26,9 @@ struct RootView: View {
     /// Non-tab widget destinations (a specific flight/memory/the drawing pad) that need their
     /// own screen rather than just switching tabs.
     @State private var recordDeepLink: WidgetDeepLink.Destination?
+    /// Where a tapped notification wants to go, held until this view can actually get there — see
+    /// `consumePendingRoute()` and `NotificationRouter`.
+    @State private var router = NotificationRouter.shared
 
     var body: some View {
         ZStack {
@@ -68,6 +71,10 @@ struct RootView: View {
             KeyboardDismissal.installOnce()
             await appModel.restoreSession()
             await checkSubscription()
+            // Deliberately after both of the above: a notification tap that cold-launched the app
+            // arrives long before either has finished, and `consumePendingRoute()` refuses to open
+            // anything until they have.
+            consumePendingRoute()
             await refreshPendingOutgoingConnectionRequestIfNeeded()
             refreshCurrentCityIfNeeded()
         }
@@ -147,18 +154,19 @@ struct RootView: View {
         .fullScreenCover(item: $recordDeepLink) { destination in
             NavigationStack { recordDeepLinkDestination(destination) }
         }
-        // Tapping a delivered game-reminder/results-ready push notification lands here —
-        // `PushNotificationDelegate` parses the payload and posts this rather than reaching into
-        // AppModel directly (same reasoning as `.didRegisterForRemoteNotifications`).
-        //
-        // Also requires `isSubscriptionActive`: this fullScreenCover is chained onto the whole
-        // Group below, so it can present on top of the non-dismissable lapsed-subscription
-        // PaywallView just as easily as on top of MainTabView — an old notification sitting in
-        // Notification Center from before a lapse must not become a paywall bypass into live
-        // (including premium) gameplay.
-        .onReceive(NotificationCenter.default.publisher(for: .didTapGameNotification)) { notification in
-            guard appModel.hasCouple, appModel.isSubscriptionActive, let link = notification.object as? GameNotificationDeepLink else { return }
-            gameDeepLink = SessionRoute(id: link.sessionID, gameType: link.gameType)
+        // A tapped notification can land here at any point — including before this view exists at
+        // all, which is why `NotificationRouter` holds it rather than broadcasting it. Both
+        // triggers matter: `onChange` covers a tap while the app is already up, and the `.task`
+        // above calls `consumePendingRoute()` again once the session has finished restoring, which
+        // covers a tap that launched the app cold and has been waiting ever since.
+        .onChange(of: router.pending) { _, _ in consumePendingRoute() }
+        // Watches the readiness condition itself rather than any one input to it. Observing only
+        // `isSubscriptionActive` was subtly wrong and intermittently lost the route: session
+        // restore finishes *before* `isLoadingSession` flips, so the `.task` call above runs while
+        // still gated, and if the subscription flag never changed after that (it's often already
+        // true from cache) nothing came back for the waiting route.
+        .onChange(of: isReadyForNotificationRoute) { _, ready in
+            if ready { consumePendingRoute() }
         }
         .fullScreenCover(item: $gameDeepLink) { route in
             // The typed game view's own back button (during active play or once results show)
@@ -217,6 +225,48 @@ struct RootView: View {
                 .zIndex(1)
         }
         }
+    }
+
+    /// Opens whatever a tapped notification pointed at, if this view is in a position to.
+    ///
+    /// The old handler dropped the link whenever `hasCouple`/`isSubscriptionActive` were false.
+    /// Both start out false and only become true once `restoreSession()` and `checkSubscription()`
+    /// have made their network round trips — which is precisely the state the app is in when a
+    /// notification tap launched it. So the guard that was meant to stop an old notification
+    /// bypassing the paywall was, in practice, throwing away almost every legitimate deep link.
+    ///
+    /// The gate is kept — an old notification sitting in Notification Center from before a lapse
+    /// still must not become a way into premium gameplay — but not-ready now means *leave it
+    /// pending* rather than discard. Whichever of the two triggers fires next tries again, and the
+    /// route is only cleared once something has actually opened.
+    /// Everything that has to be true before a route can be opened. `isSubscriptionActive` is
+    /// part of it deliberately: this presents over the whole app, including the non-dismissable
+    /// lapsed-subscription paywall, so an old notification left sitting in Notification Center
+    /// from before a lapse must not become a way back into premium gameplay.
+    private var isReadyForNotificationRoute: Bool {
+        !appModel.isLoadingSession && appModel.hasCouple && appModel.isSubscriptionActive
+    }
+
+    private func consumePendingRoute() {
+        guard let route = router.pending, isReadyForNotificationRoute else { return }
+
+        switch route {
+        case .game(let sessionID, let gameType):
+            gameDeepLink = SessionRoute(id: sessionID, gameType: gameType)
+        case .dailyQuestion:
+            // The push is scheduled before anyone has opened (and so created) the day's session,
+            // so it carries no id. `DailyActivityCard`'s own `.task` resolves and opens it; landing
+            // on the tab it sits at the top of is the reliable way in.
+            selectedTab = .games
+        case .flight(let id):
+            recordDeepLink = .flight(id)
+        case .drawingPad:
+            recordDeepLink = .drawingPad
+        case .invitePartner:
+            selectedTab = .home
+        }
+
+        router.pending = nil
     }
 
     /// Only ever called for the three cases actually assigned to `recordDeepLink`

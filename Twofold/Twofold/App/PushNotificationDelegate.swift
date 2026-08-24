@@ -19,15 +19,6 @@ import UserNotifications
 
 extension Notification.Name {
     static let didRegisterForRemoteNotifications = Notification.Name("Twofold.didRegisterForRemoteNotifications")
-    /// Posted when the user taps a delivered push notification that carries a game deep link
-    /// (`sessionId`/`gameType` in its payload — see `notify-couple-event`'s `data` param). The
-    /// object is a `GameNotificationDeepLink`; `RootView` observes this to open the right game.
-    static let didTapGameNotification = Notification.Name("Twofold.didTapGameNotification")
-}
-
-struct GameNotificationDeepLink {
-    let sessionID: UUID
-    let gameType: GameType
 }
 
 final class PushNotificationDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
@@ -54,16 +45,17 @@ final class PushNotificationDelegate: NSObject, UIApplicationDelegate, UNUserNot
         completionHandler([.banner, .sound])
     }
 
+    /// Handed to `NotificationRouter` rather than broadcast over `NotificationCenter`. When the app
+    /// wasn't already running — the usual case for a notification tap — this fires during launch,
+    /// before any SwiftUI view exists to have subscribed, and a `NotificationCenter` post with no
+    /// subscriber is dropped on the floor. Storing it lets `RootView` pick it up whenever it's
+    /// ready, which also covers the case where the app is running but hasn't finished restoring
+    /// the session yet.
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
         let userInfo = response.notification.request.content.userInfo
-        if let sessionIdString = userInfo["sessionId"] as? String,
-           let sessionID = UUID(uuidString: sessionIdString),
-           let gameTypeString = userInfo["gameType"] as? String,
-           let gameType = GameType(rawValue: gameTypeString) {
-            NotificationCenter.default.post(
-                name: .didTapGameNotification, object: GameNotificationDeepLink(sessionID: sessionID, gameType: gameType)
-            )
+        Task { @MainActor in
+            NotificationRouter.shared.route(from: userInfo)
+            completionHandler()
         }
-        completionHandler()
     }
 }
