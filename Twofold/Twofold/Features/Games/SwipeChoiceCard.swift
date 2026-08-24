@@ -34,6 +34,27 @@ struct SwipeChoiceCard<Content: View>: View {
     /// because this needs to latch immediately to block a second drag on the same card while
     /// it's still flying off-screen, before the caller's own state even has a chance to update.
     @State private var hasCommitted = false
+    /// True for as long as a drag is actually in progress.
+    ///
+    /// This exists because `DragGesture` has no cancellation callback, and a drag being cancelled
+    /// rather than ended is what left cards stuck part-way across the screen. `onEnded` is the only
+    /// thing that ever put the card back, so any touch the system took away mid-drag — the
+    /// interactive back-swipe claiming a gesture that started near the left edge, a notification
+    /// pulled down over the app, a call arriving — froze the card at whatever offset the last
+    /// `onChanged` had set, permanently, since `offset` is plain `@State` that nothing else
+    /// resets. That matches the intermittent nature of the report: it depends on where the drag
+    /// starts and what else the system is doing, not on the card.
+    ///
+    /// `@GestureState` is the one thing SwiftUI resets automatically when a gesture ends *or is
+    /// cancelled*, so watching it is how the cancelled case gets noticed at all.
+    ///
+    /// Honest caveat: this is reasoned from the code, not reproduced. XCUITest's synthesized drags
+    /// don't provoke the recognizer hand-off a real finger does, and there's no way to cancel a
+    /// touch from a test, so `SwipeCardUITests` can only confirm the card still behaves — it can't
+    /// demonstrate the stuck state. What is certain either way is that `onEnded` used to be the
+    /// only thing that ever returned the card, which is a single point of failure for a gesture the
+    /// system is allowed to take away.
+    @GestureState private var isDragging = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
 
@@ -84,6 +105,9 @@ struct SwipeChoiceCard<Content: View>: View {
                 .contentShape(Rectangle())
                 .gesture(
                     DragGesture()
+                        .updating($isDragging) { _, state, _ in
+                            state = true
+                        }
                         .onChanged { value in
                             guard !isDisabled, !hasCommitted else { return }
                             offset = value.translation
@@ -95,12 +119,19 @@ struct SwipeChoiceCard<Content: View>: View {
                             } else if value.translation.width >= threshold {
                                 fly(direction: 1, action: onChooseRight)
                             } else {
-                                withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
-                                    offset = .zero
-                                }
+                                snapBack()
                             }
                         }
                 )
+                // The safety net for a drag that was cancelled rather than ended — see
+                // `isDragging`. By the time a real `onEnded` has run, one of the two branches
+                // above has already dealt with the card (`hasCommitted` for a swipe that took,
+                // `offset == .zero` for one that didn't), so both are excluded here and this only
+                // fires for a drag that was taken away mid-flight.
+                .onChange(of: isDragging) { _, dragging in
+                    guard !dragging, !hasCommitted, offset != .zero else { return }
+                    snapBack()
+                }
                 // A VoiceOver-driven action runs through the accessibility tree, not a second
                 // UIKit gesture recognizer — unlike the tap-fallback approach this file's own
                 // header comment explains was removed for conflicting with the drag gesture,
@@ -154,6 +185,18 @@ struct SwipeChoiceCard<Content: View>: View {
         Task {
             try? await Task.sleep(for: .seconds(swipeCardFlyDuration))
             action()
+        }
+    }
+
+    /// Returns the card to rest. Reduce Motion gets the same result without the spring — the card
+    /// has to come back either way; only the bounce is optional.
+    private func snapBack() {
+        guard !reduceMotion else {
+            offset = .zero
+            return
+        }
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+            offset = .zero
         }
     }
 
