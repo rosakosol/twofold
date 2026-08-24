@@ -123,4 +123,20 @@ struct Trip: Identifiable, Hashable, Codable {
         }
         return max(distanceKm, legsDistanceKm)
     }
+
+    /// The two ends of the trip, labelled the same way as each other — both airport codes, or both
+    /// city names, never one of each.
+    ///
+    /// Deciding per side (`iataCode ?? displayCity`, independently) produced "LHR → Melbourne",
+    /// which reads as a mistake rather than an abbreviation. It happens easily: a `Place` that came
+    /// from a flight lookup carries an `iataCode`, while one that came from the on-device geocoder
+    /// or the city search doesn't, so any trip mixing the two sources mixed the two formats. Codes
+    /// are still preferred when both ends have one, since this is used on a narrow card where
+    /// "LHR → MEL" fits and two full city names may not.
+    var routeEndpoints: (origin: String, destination: String) {
+        if let originCode = origin.iataCode, let destinationCode = destination.iataCode {
+            return (originCode, destinationCode)
+        }
+        return (origin.displayCity, destination.displayCity)
+    }
 }

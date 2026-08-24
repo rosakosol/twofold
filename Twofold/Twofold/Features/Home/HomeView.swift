@@ -781,10 +781,11 @@ struct HomeView: View {
                         .foregroundStyle(Theme.subtleInk)
                         .lineLimit(1)
                         .minimumScaleFactor(0.9)
+                    let route = trip.routeEndpoints
                     HStack(spacing: Theme.Spacing.xs) {
-                        Text(trip.origin.iataCode ?? trip.origin.displayCity)
+                        Text(route.origin)
                         Image(systemName: "arrow.right")
-                        Text(trip.destination.iataCode ?? trip.destination.displayCity)
+                        Text(route.destination)
                     }
                     .font(.headline)
                     .lineLimit(1)
