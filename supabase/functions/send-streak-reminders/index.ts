@@ -164,6 +164,10 @@ Deno.serve(async (req) => {
           token.environment,
           title,
           body,
+          // The whole point of this nudge is "go answer today's question", so tapping it should
+          // land there. No session id: this is scheduled from a cron before anyone has opened
+          // (and therefore created) the day's session, so the app resolves it on arrival.
+          { route: "daily_question" },
         );
       } catch (err) {
         console.error("[send-streak-reminders] sendAPNs threw:", (err as Error).message);

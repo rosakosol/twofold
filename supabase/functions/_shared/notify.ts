@@ -153,7 +153,7 @@ export async function notifyForEvent(
 
   for (const token of tokens) {
     try {
-      await sendAPNs(token.apns_token, token.environment, title, body);
+      await sendAPNs(token.apns_token, token.environment, title, body, { flightId });
     } catch (err) {
       console.error("[notify] sendAPNs threw:", (err as Error).message);
     }
@@ -232,7 +232,7 @@ export async function notifyPreDeparture(
 
   for (const token of tokens) {
     try {
-      await sendAPNs(token.apns_token, token.environment, title, body);
+      await sendAPNs(token.apns_token, token.environment, title, body, { flightId });
     } catch (err) {
       console.error("[notify] sendAPNs threw (pre-departure):", (err as Error).message);
     }
@@ -314,7 +314,7 @@ export async function notifyArrivalReminder(
 
   for (const token of tokens) {
     try {
-      await sendAPNs(token.apns_token, token.environment, title, body);
+      await sendAPNs(token.apns_token, token.environment, title, body, { flightId });
     } catch (err) {
       console.error(`[notify] sendAPNs threw (arrival reminder ${window}):`, (err as Error).message);
     }

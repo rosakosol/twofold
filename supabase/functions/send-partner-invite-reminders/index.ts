@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
     const { title, body } = MESSAGES[stage];
     for (const token of tokens) {
       try {
-        await sendAPNs(token.apns_token, token.environment, title, body);
+        await sendAPNs(token.apns_token, token.environment, title, body, { route: "invite_partner" });
       } catch (err) {
         console.error("[send-partner-invite-reminders] sendAPNs threw:", (err as Error).message);
       }

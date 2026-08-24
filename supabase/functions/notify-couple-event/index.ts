@@ -152,6 +152,8 @@ Deno.serve(async (req) => {
       const { title, body } = buildSelfMessage(input.eventType, input.detail);
       const data = input.sessionId
         ? { sessionId: input.sessionId, gameType: input.gameType, eventType: input.eventType }
+        : input.eventType === "drawing_saved"
+        ? { route: "drawing_pad", eventType: input.eventType }
         : undefined;
       for (const token of tokens) {
         await sendAPNs(token.apns_token, token.environment, title, body, data);
@@ -198,6 +200,8 @@ Deno.serve(async (req) => {
     const { title, body } = buildMessage(input.eventType, actorName, input.detail);
     const data = input.sessionId
       ? { sessionId: input.sessionId, gameType: input.gameType, eventType: input.eventType }
+      : input.eventType === "drawing_saved"
+      ? { route: "drawing_pad", eventType: input.eventType }
       : undefined;
     for (const token of tokens) {
       await sendAPNs(token.apns_token, token.environment, title, body, data);
