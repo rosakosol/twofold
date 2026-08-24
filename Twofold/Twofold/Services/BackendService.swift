@@ -2781,12 +2781,24 @@ enum BackendService {
 
     /// Relies on RLS to scope results to the caller's own couple — no couple id is passed or
     /// needed client-side.
-    static func fetchGameSessions(status: GameSessionStatus? = nil) async throws -> [GameSession] {
+    ///
+    /// `limit` is not optional-by-accident: this query had no bound at all, which meant it was
+    /// really bounded by PostgREST's `max_rows` (1000, see supabase/config.toml) and would have
+    /// started silently dropping rows there with no signal to the client. The daily question alone
+    /// produces a session per day, so that ceiling is reachable. An explicit limit makes the cut-off
+    /// deliberate and, because the sort is newest-first, keeps the rows anyone actually wants.
+    /// Callers that need to know whether they hit it can compare `count` against what they asked
+    /// for — one more than the cap is the usual trick, which `GameHistoryView` uses.
+    static func fetchGameSessions(status: GameSessionStatus? = nil, limit: Int = 200) async throws -> [GameSession] {
         var query = supabase.from("game_sessions").select()
         if let status {
             query = query.eq("status", value: status.rawValue)
         }
-        let rows: [GameSessionRow] = try await query.order("updated_at", ascending: false).execute().value
+        let rows: [GameSessionRow] = try await query
+            .order("updated_at", ascending: false)
+            .limit(limit)
+            .execute()
+            .value
         return rows.map { $0.toModel() }
     }
 

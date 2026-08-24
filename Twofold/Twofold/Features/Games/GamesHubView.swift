@@ -21,6 +21,7 @@ private struct BrowseRoute: Identifiable, Hashable {
 struct GamesHubView: View {
     @Environment(AppModel.self) private var appModel
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var browseRoute: BrowseRoute?
     /// Tapping a locked (partner-required) card opens this rather than doing nothing — a lock
     /// badge with no tap action just teaches people the card is broken. Goes straight to
@@ -79,17 +80,29 @@ struct GamesHubView: View {
         }
     }
 
-    /// Plain (non-scrolling) `HStack`, each pill given equal width — search moved out to its own
+    /// Plain (non-scrolling) row, each pill given equal width — search moved out to its own
     /// leading toolbar button (in line with the "past games" one), which freed up enough room
     /// for all 3 filter pills to fit on one row without needing horizontal scroll.
+    ///
+    /// Three-across only holds while each label still fits its third of the row. At accessibility
+    /// text sizes it doesn't: "Your turn" wrapped to *one letter per line* and the three capsules
+    /// grew tall enough to fill the entire screen, burying the daily question and every game below
+    /// them — the Games tab was unreachable. So the row becomes one full-width pill per line there,
+    /// where the labels have room to stay on a single line. `lineLimit(1)` + `minimumScaleFactor`
+    /// covers the large-but-not-accessibility sizes in between, which still use three-across.
     private var searchAndFilterBar: some View {
-        HStack(spacing: Theme.Spacing.sm) {
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(spacing: Theme.Spacing.sm))
+            : AnyLayout(HStackLayout(spacing: Theme.Spacing.sm))
+        return layout {
             ForEach(DeckBrowseFilter.allCases) { filter in
                 Button {
                     browseRoute = BrowseRoute(filter: filter)
                 } label: {
                     Label(filter.rawValue, systemImage: filter.icon)
                         .font(.caption.weight(.semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
                         .padding(.horizontal, Theme.Spacing.sm)
                         .padding(.vertical, Theme.Spacing.xs)
                         .frame(maxWidth: .infinity)

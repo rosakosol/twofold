@@ -26,6 +26,18 @@ struct TimeZoneCard: View {
     /// the exact same number repeated) or before it's fetched.
     var myWeather: CurrentWeatherReading?
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    /// The time line and its weather badge sit side by side normally. At accessibility text sizes
+    /// the badge was taking roughly half the row, squeezing the sentence into a column narrow
+    /// enough to break "pm" across two lines and then truncate — "It's 5:32 p / m for…". Stacking
+    /// the badge underneath gives the sentence the full card width instead.
+    private var lineLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Theme.Spacing.xs))
+            : AnyLayout(HStackLayout(spacing: Theme.Spacing.xs))
+    }
+
     var body: some View {
         TimelineView(.periodic(from: .now, by: 15)) { context in
             cardBody(at: context.date)
@@ -38,12 +50,16 @@ struct TimeZoneCard: View {
         let isDaytime = hour >= 6 && hour < 18
 
         return VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-            HStack(spacing: Theme.Spacing.xs) {
+            lineLayout {
                 Text(sameCity
                     ? "It's \(TimeMath.timeString(in: timeZone, at: date)) right now\(cityName.map { " in \($0)" } ?? "")"
                     : "It's \(TimeMath.timeString(in: timeZone, at: date)) for \(person.name) right now\(cityName.map { " in \($0)" } ?? "")")
                     .font(.headline)
-                    .lineLimit(3)
+                    // Three lines is plenty at normal sizes and keeps the card compact. At
+                    // accessibility sizes the same sentence legitimately needs more than three
+                    // lines, and capping it there truncated the partner's city away entirely —
+                    // the one thing the card exists to say.
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 3)
                     .fixedSize(horizontal: false, vertical: true)
 
                 if let weather {
@@ -53,9 +69,10 @@ struct TimeZoneCard: View {
             }
 
             if !sameCity, let comparisonTimeZone {
-                HStack(spacing: Theme.Spacing.xs) {
+                lineLayout {
                     Text("It's \(TimeMath.timeString(in: comparisonTimeZone, at: date)) for you")
                         .font(.caption)
+                        .fixedSize(horizontal: false, vertical: true)
                         .opacity(0.85)
 
                     if let myWeather {

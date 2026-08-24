@@ -84,6 +84,14 @@ struct AvatarView: View {
             }
         }
         .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
+        // Without this VoiceOver reads the placeholder's initials literally — "P" — which tells
+        // nobody anything, and the accessibility audit flags those initials as unscalable text.
+        // They genuinely can't scale: the circle is a fixed diameter because it doubles as a map
+        // pin, a share-card element and an overlapping-stack chip. Naming the person here is the
+        // right fix for both — the identity is carried by the label rather than by 12pt of text.
+        // A caller that needs to say more (e.g. "Ada, finished") can still override this label.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(person.name)
         // Keyed on the URL itself (not just presence of one) — re-runs whenever
         // `person.avatarURL` changes to a different value, including right after a re-upload
         // produces a fresh cache-busted URL, instead of only firing on the very first load.
@@ -97,12 +105,35 @@ struct AvatarView: View {
         }
     }
 
+    /// How far the accent is blended toward black for the placeholder fill. White initials on the
+    /// raw accent measured 2.60:1 against `skyBlue` and 3.40:1 against `heartRed` in light mode,
+    /// and 1.70:1 / 2.01:1 in dark mode — well under WCAG AA's 4.5:1, on the small avatars (size
+    /// 30–32, so ~12pt initials) that appear on every tab. This is Theme.swift's own stated rule
+    /// applied here: "only the deepened tone is licensed" wherever white content sits on a fill.
+    ///
+    /// Deepening decisively rather than a little is deliberate. Blending ~20% lands every accent in
+    /// the mid-luminance valley where *neither* white nor dark ink clears 4.5:1 (measured: the
+    /// worst case gets worse, not better). Going darker keeps one text colour — white — uniform
+    /// across light and dark rather than flipping per person.
+    ///
+    /// These numbers are calibrated against rendered pixels, not arithmetic: `mix(in: .device)`
+    /// interpolates in linear light, so it darkens noticeably harder than the same fraction would
+    /// in sRGB components. Sampling the real screenshot puts the two live accents at 7.4:1
+    /// (heartRed) and 6.0:1 (skyBlue) — comfortably past AA's 4.5:1 with the accent still clearly
+    /// itself, where the arithmetic-derived 0.45 came out closer to 10:1 and read as near-black.
+    /// Sampled fills: `#8F3942` (7.42:1) and `#31698B` (5.96:1), against 3.40:1 and 2.60:1 before.
+    private static let fillDeepening = 0.30
+    private static let fillDeepeningEnd = 0.45
+
     private var placeholder: some View {
         ZStack {
             Circle()
                 .fill(
                     LinearGradient(
-                        colors: [person.accentColor, person.accentColor.opacity(0.6)],
+                        colors: [
+                            person.accentColor.mix(with: .black, by: Self.fillDeepening, in: .device),
+                            person.accentColor.mix(with: .black, by: Self.fillDeepeningEnd, in: .device),
+                        ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -110,6 +141,13 @@ struct AvatarView: View {
             Text(person.initials)
                 .font(.system(size: size * 0.38, weight: .semibold, design: .rounded))
                 .foregroundStyle(.white)
+                // Explicitly hidden as well as covered by the container's
+                // `.accessibilityElement(children: .ignore)` below. That modifier alone wasn't
+                // enough everywhere: where a caller wraps the avatar in its own overlay or button
+                // (DailyActivityCard, DeckCardRow), the initials came back as their own ~7x12pt
+                // static-text elements. The name on the container is the label; this glyph is
+                // decoration.
+                .accessibilityHidden(true)
         }
     }
 

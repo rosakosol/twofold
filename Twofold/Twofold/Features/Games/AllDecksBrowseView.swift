@@ -140,6 +140,11 @@ struct AllDecksBrowseView: View {
         } label: {
             Text(label)
                 .font(.caption.weight(.semibold))
+                // Same reasoning as `GameHistoryView.filterPill` — inside a horizontal ScrollView
+                // an unpinned label wraps rather than letting the row scroll, which collapses to
+                // one letter per line at accessibility text sizes.
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
                 .padding(.horizontal, Theme.Spacing.md)
                 .padding(.vertical, Theme.Spacing.xs)
                 // Dark mode's selected pill now carries a real blue chip fill + text (blue =

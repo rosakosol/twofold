@@ -232,8 +232,18 @@ struct HomeView: View {
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundStyle(Theme.subtleInk.opacity(0.5))
+                            // The glyph alone is ~22pt, half Apple's 44pt minimum — a miss on this
+                            // one dismisses nothing and taps the card behind it instead. The frame
+                            // only grows the tap target; `contentShape` makes the whole of it
+                            // hittable rather than just the glyph's own pixels, and the icon keeps
+                            // its original size.
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    // Cancels the padding the 44pt box adds on the trailing side, so the icon still
+                    // sits where it did against the card's edge.
+                    .padding(.trailing, -Theme.Spacing.xs)
                     .accessibilityLabel("Dismiss")
                 }
 
@@ -343,6 +353,12 @@ struct HomeView: View {
                 Spacer()
                 Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
             }
+            // A single line of `.subheadline` is around 20pt tall, so these rows were roughly half
+            // the 44pt minimum — and the gap between two of them was dead space that looked
+            // tappable. `contentShape` also makes the empty stretch between the title and the
+            // chevron hit the button, rather than only the text and glyphs themselves.
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }

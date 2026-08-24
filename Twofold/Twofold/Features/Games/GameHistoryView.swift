@@ -28,6 +28,15 @@ struct GameHistoryView: View {
     /// daily), rather than one being a sub-option of the other.
     @State private var selectedGameType: GameType?
     @State private var dailyOnly = false
+    /// True when the couple has more completed games than `historyLimit`, so the list below is a
+    /// truncation rather than the whole record — worth saying out loud instead of just stopping.
+    @State private var reachedHistoryLimit = false
+
+    /// How many completed games this screen will show. Unbounded, the fetch was really bounded by
+    /// PostgREST's own `max_rows` of 1000 and would have started dropping rows there with no
+    /// signal; the daily question alone produces one session a day, so that's reachable inside
+    /// three years. Newest-first, so what gets cut is the oldest.
+    private static let historyLimit = 200
 
     private var filteredSessions: [GameSession] {
         sessions.filter { session in
@@ -65,6 +74,14 @@ struct GameHistoryView: View {
                                     }
                                     .buttonStyle(.plain)
                                 }
+                            }
+
+                            if reachedHistoryLimit {
+                                Text("Showing your \(Self.historyLimit) most recent games.")
+                                    .font(.caption)
+                                    .foregroundStyle(Theme.subtleInk)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.top, Theme.Spacing.xs)
                             }
                         }
                     }
@@ -134,6 +151,12 @@ struct GameHistoryView: View {
         Button(action: action) {
             Text(label)
                 .font(.caption.weight(.semibold))
+                // Without these the enclosing horizontal ScrollView proposes each pill a width
+                // narrow enough to wrap its label — at accessibility text sizes that degenerates
+                // into one letter per line and a column of very tall capsules. Pinned to their
+                // natural single-line width, the row scrolls instead, which is what it's for.
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
                 .padding(.horizontal, Theme.Spacing.md)
                 .padding(.vertical, Theme.Spacing.xs)
                 .foregroundStyle(isSelected ? .white : Theme.ink)
@@ -216,10 +239,14 @@ struct GameHistoryView: View {
         isLoading = true
         errorMessage = nil
         do {
-            let all = try await BackendService.fetchGameSessions(status: .completed)
+            // One past the cap, so "exactly `historyLimit` games" can be told apart from "more
+            // than that" and the footer below only appears when something was genuinely cut.
+            let all = try await BackendService.fetchGameSessions(status: .completed, limit: Self.historyLimit + 1)
             // Most recently completed first — `.filter` above preserves order, so sorting here
             // once is enough for `filteredSessions` (and the row list built from it) too.
-            sessions = GameLogic.completedSessionsOnly(all).sorted { completionDate(for: $0) > completionDate(for: $1) }
+            let completed = GameLogic.completedSessionsOnly(all).sorted { completionDate(for: $0) > completionDate(for: $1) }
+            reachedHistoryLimit = completed.count > Self.historyLimit
+            sessions = Array(completed.prefix(Self.historyLimit))
             await loadExtraDetails()
         } catch {
             errorMessage = error.localizedDescription
@@ -234,20 +261,40 @@ struct GameHistoryView: View {
         session.completedAt ?? session.updatedAt
     }
 
-    /// Fetches full session detail — concurrently, one request per session — only for trivia
-    /// sessions (score) and daily-question sessions (actual question text), since every other
-    /// session already has everything `historyRow` needs from the plain session list.
+    /// How many detail requests may be in flight at once. Previously every qualifying session was
+    /// dispatched at the same instant, which is fine for a new couple and much less so later: the
+    /// daily question produces one session per day, so six months in this screen opened ~180
+    /// simultaneous requests, each pulling a session's rounds, content and responses. That's a
+    /// stall on a good connection and a pile of timeouts on a bad one. A small window keeps the
+    /// screen filling in steadily instead.
+    private static let detailFetchConcurrency = 6
+
+    /// Fetches full session detail — a few requests at a time — only for trivia sessions (score)
+    /// and daily-question sessions (actual question text), since every other session already has
+    /// everything `historyRow` needs from the plain session list.
     private func loadExtraDetails() async {
         let needsDetail = sessions.filter { $0.gameType == .triviaBattle || $0.isDaily }
         guard !needsDetail.isEmpty else { return }
         await withTaskGroup(of: (UUID, BackendService.GameSessionDetail?).self) { group in
-            for session in needsDetail {
+            var pending = needsDetail.makeIterator()
+
+            func addNext() -> Bool {
+                guard let session = pending.next() else { return false }
                 group.addTask {
                     let detail = try? await BackendService.fetchGameSession(id: session.id)
                     return (session.id, detail)
                 }
+                return true
             }
-            for await (sessionID, detail) in group {
+
+            for _ in 0..<Self.detailFetchConcurrency {
+                if !addNext() { break }
+            }
+
+            // Each completion immediately starts the next request, so the window stays full
+            // without ever exceeding it.
+            while let (sessionID, detail) = await group.next() {
+                _ = addNext()
                 guard let detail, let session = sessions.first(where: { $0.id == sessionID }) else { continue }
                 if session.gameType == .triviaBattle {
                     scores[sessionID] = (

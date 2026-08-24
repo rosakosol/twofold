@@ -53,6 +53,16 @@
                ReferencedContainer = "container:Twofold.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "DB8C95172FFC502100E0E71E"
+               BuildableName = "TwofoldUITests.xctest"
+               BlueprintName = "TwofoldUITests"
+               ReferencedContainer = "container:Twofold.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction

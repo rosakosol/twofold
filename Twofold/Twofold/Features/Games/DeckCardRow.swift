@@ -16,11 +16,16 @@
 import SwiftUI
 
 struct DeckCardRow: View {
-    /// Fixed total card height (padding included) — sized for a 2-line title, the longest
-    /// `Text(deck.title)` is now allowed to grow to. Every card uses this same constant so decks
+    /// Total card height (padding included) — sized for a 2-line title, the longest
+    /// `Text(deck.title)` is now allowed to grow to. Every card uses this same value so decks
     /// with short one-line titles don't render visibly shorter than ones that wrap to two lines,
     /// both side-by-side in the Travel carousel and stacked in the full-width browse lists.
-    private static let cardHeight: CGFloat = 150
+    ///
+    /// `@ScaledMetric`, not a fixed constant: at accessibility text sizes 150pt didn't come close
+    /// to holding a 2-line title plus the pill, date and avatar row, so the bottom of every card
+    /// was simply cut off. Scaling with `.subheadline` (the title's own text style) keeps the
+    /// equal-height intent while letting the card grow with the type it has to contain.
+    @ScaledMetric(relativeTo: .subheadline) private var cardHeight: CGFloat = 150
 
     let deck: GameDeck
     let progress: DeckProgress?
@@ -143,7 +148,7 @@ struct DeckCardRow: View {
             }
         }
         .padding(Theme.Spacing.sm)
-        .frame(height: Self.cardHeight, alignment: .top)
+        .frame(height: cardHeight, alignment: .top)
         .background(bothCompleted ? Theme.leafGreen.opacity(0.1) : Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         .overlay {
             // A completed deck's pale green fill barely reads as different from the page
@@ -205,5 +210,10 @@ struct DeckCardRow: View {
                 .overlay(Circle().strokeBorder(Theme.cardBackground, lineWidth: 2))
             }
         }
+        // The tick is the whole point of this pair of avatars — who has finished their side — and
+        // it's drawn as a bare glyph, so on its own it's invisible to VoiceOver. `AvatarView`
+        // supplies the name; this overrides that to say the name *and* the state together.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(completed ? "\(person.name), finished" : "\(person.name), not finished yet")
     }
 }

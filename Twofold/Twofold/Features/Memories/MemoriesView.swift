@@ -39,6 +39,9 @@ struct MemoriesView: View {
                     } label: {
                         Image(systemName: "plus")
                     }
+                    // A bare glyph button leaves VoiceOver to guess from the symbol name; the
+                    // other tab roots (see `GamesHubView`'s toolbar) all name theirs explicitly.
+                    .accessibilityLabel("Add memory")
                 }
             }
             .sheet(isPresented: $showingAddMemory) {
@@ -66,6 +69,11 @@ struct MemoriesView: View {
                 .frame(width: 44, height: 44)
                 .foregroundStyle(mode == target ? .white : Theme.subtleInk)
                 .background(mode == target ? AnyShapeStyle(Theme.skyBlue) : AnyShapeStyle(.clear), in: Capsule())
+                // The 44x44 frame above sets the *layout* size, but without a content shape the
+                // hittable and accessibility region stayed the glyph's own bounds — measured at
+                // 16.7x12.3pt by the accessibility audit, roughly a seventh of the area this
+                // looks like it offers.
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(target == .list ? "List view" : "Map view")

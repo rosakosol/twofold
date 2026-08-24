@@ -14,63 +14,13 @@ import SwiftUI
 
 struct DailyActivityCard: View {
     @Environment(AppModel.self) private var appModel
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         // The Games hub's one Aurora hero object (rule #3) — the couple's daily streak sits at
         // the very top of the tab, above every flat deck/topic card below it.
         SectionCard(isHeroInDark: true) {
-            HStack(spacing: Theme.Spacing.sm) {
-                ZStack {
-                    Circle().fill(Theme.primaryButtonGradient)
-                    Image(systemName: "flame.fill")
-                        .font(.title3)
-                        .foregroundStyle(.white)
-                }
-                .frame(width: 44, height: 44)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(streakHeadline)
-                        .font(.subheadline.weight(.bold))
-                    Text(streakSubline)
-                        .font(.caption2)
-                        .foregroundStyle(Theme.subtleInk)
-                }
-                // Redacted (not just showing a "0" default) until the first real fetch resolves —
-                // otherwise this briefly flashes "Start a streak" before flipping to the real
-                // streak count on every cold load, which read as a glitch rather than a loading
-                // state.
-                .redacted(reason: appModel.dailyStreak == nil ? .placeholder : [])
-
-                Spacer()
-
-                if appModel.partnerConnected {
-                    HStack(spacing: -8) {
-                        completionAvatar(person: appModel.currentUser, answered: appModel.todaysMyAnswered)
-                            .zIndex(1)
-                        completionAvatar(person: appModel.partner, answered: appModel.todaysPartnerAnswered)
-                    }
-                }
-
-                VStack(alignment: .trailing, spacing: 2) {
-                    TimelineView(.periodic(from: .now, by: 1)) { context in
-                        Text(countdownLabel(from: context.date))
-                            .font(.caption2.weight(.medium))
-                            .foregroundStyle(Theme.subtleInk)
-                            .monospacedDigit()
-                    }
-
-                    // Sits under the countdown rather than in `streakSubline` (where it used to
-                    // live) because that line only ever renders once a streak is actually running
-                    // — so the couple's best-ever streak, the one number worth chasing, was
-                    // invisible in exactly the state where it's most motivating: right after a
-                    // streak lapses and the subline reverts to "Answer today's question together".
-                    if let best = appModel.longestDailyStreak, best > 0 {
-                        Text("Best: \(best) day\(best == 1 ? "" : "s")")
-                            .font(.caption2)
-                            .foregroundStyle(Theme.subtleInk)
-                    }
-                }
-            }
+            streakSummary
 
             NavigationLink {
                 dailyDestination
@@ -85,7 +35,12 @@ struct DailyActivityCard: View {
                         Text(appModel.todaysDailyQuestionText ?? "A new question, just for you two")
                             .font(.caption2)
                             .foregroundStyle(.white.opacity(0.85))
-                            .lineLimit(2)
+                            // Two lines is right at normal sizes — this is a teaser, and the full
+                            // question is one tap away. At accessibility sizes two lines isn't
+                            // enough to reach the end of any real question, so the teaser became a
+                            // fragment; let it run instead.
+                            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer()
                     Image(systemName: "chevron.right")
@@ -102,6 +57,100 @@ struct DailyActivityCard: View {
             .buttonStyle(.plain)
         }
         .task { await appModel.startOrResumeDailyQuestion() }
+    }
+
+    /// Flame, streak wording, both partners' answered-today ticks and the countdown, all on one
+    /// row. That row only works while the four of them fit side by side: at accessibility text
+    /// sizes each got roughly a quarter of the card and the words came apart mid-syllable —
+    /// "Start a strea / k", "An- / swer to / day's". Above that threshold the row splits in two,
+    /// which gives each half the full width and keeps every phrase whole.
+    @ViewBuilder
+    private var streakSummary: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                HStack(alignment: .top, spacing: Theme.Spacing.sm) {
+                    flameBadge
+                    streakText
+                }
+                HStack(spacing: Theme.Spacing.sm) {
+                    answeredAvatars
+                    Spacer(minLength: Theme.Spacing.sm)
+                    countdownBlock
+                }
+            }
+        } else {
+            HStack(spacing: Theme.Spacing.sm) {
+                flameBadge
+                streakText
+                Spacer()
+                answeredAvatars
+                countdownBlock
+            }
+        }
+    }
+
+    private var flameBadge: some View {
+        ZStack {
+            Circle().fill(Theme.primaryButtonGradient)
+            Image(systemName: "flame.fill")
+                .font(.title3)
+                .foregroundStyle(.white)
+        }
+        .frame(width: 44, height: 44)
+    }
+
+    private var streakText: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(streakHeadline)
+                .font(.subheadline.weight(.bold))
+            Text(streakSubline)
+                .font(.caption2)
+                .foregroundStyle(Theme.subtleInk)
+        }
+        // Redacted (not just showing a "0" default) until the first real fetch resolves —
+        // otherwise this briefly flashes "Start a streak" before flipping to the real
+        // streak count on every cold load, which read as a glitch rather than a loading
+        // state.
+        .redacted(reason: appModel.dailyStreak == nil ? .placeholder : [])
+    }
+
+    @ViewBuilder
+    private var answeredAvatars: some View {
+        if appModel.partnerConnected {
+            HStack(spacing: -8) {
+                completionAvatar(person: appModel.currentUser, answered: appModel.todaysMyAnswered)
+                    .zIndex(1)
+                completionAvatar(person: appModel.partner, answered: appModel.todaysPartnerAnswered)
+            }
+        }
+    }
+
+    private var countdownBlock: some View {
+        VStack(alignment: .trailing, spacing: 2) {
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                Text(countdownLabel(from: context.date))
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(Theme.subtleInk)
+                    .monospacedDigit()
+                    // A countdown that wraps ("Next in 05:1 / 4:22") is unreadable, and it has a
+                    // known maximum width, so it keeps its natural one rather than being squeezed.
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+            }
+
+            // Sits under the countdown rather than in `streakSubline` (where it used to
+            // live) because that line only ever renders once a streak is actually running
+            // — so the couple's best-ever streak, the one number worth chasing, was
+            // invisible in exactly the state where it's most motivating: right after a
+            // streak lapses and the subline reverts to "Answer today's question together".
+            if let best = appModel.longestDailyStreak, best > 0 {
+                Text("Best: \(best) day\(best == 1 ? "" : "s")")
+                    .font(.caption2)
+                    .foregroundStyle(Theme.subtleInk)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+            }
+        }
     }
 
     /// Placeholder text while `appModel.dailyStreak` is nil — never actually shown (the whole
