@@ -16,7 +16,7 @@ struct TriviaBattleGameView: View {
     /// reached via DeckEntryView, so the title doesn't shift once play actually starts.
     var title: String? = nil
     /// The deck's raw `GameTopic` string, nil for a non-deck session — shown as the same badge
-    /// style the deck's own card already uses (see `DeckCardRow`'s `showsTopicPill`).
+    /// style the deck's own card already uses (see `DeckCardRow`'s `showsTopic`).
     var topic: String? = nil
 
     @Environment(AppModel.self) private var appModel

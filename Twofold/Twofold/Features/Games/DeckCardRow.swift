@@ -29,10 +29,10 @@ struct DeckCardRow: View {
 
     let deck: GameDeck
     let progress: DeckProgress?
-    /// Shows the deck's topic instead of its game type — used by cross-topic lists (one game
-    /// type across every topic, or the all-decks browser) where the game type is either already
-    /// implied by the screen or less useful than knowing which topic this deck belongs to.
-    var showsTopicPill = false
+    /// Adds the deck's topic next to its emoji — for cross-topic lists (one game type across every
+    /// topic, or the all-decks browser), where which topic a deck belongs to isn't already implied
+    /// by the screen around it. The game type is shown either way.
+    var showsTopic = false
 
     @Environment(AppModel.self) private var appModel
     @Environment(\.colorScheme) private var colorScheme
@@ -86,20 +86,11 @@ struct DeckCardRow: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             HStack(alignment: .top, spacing: Theme.Spacing.sm) {
                 VStack(alignment: .leading, spacing: 4) {
-                    // The game type is always shown; the topic joins it only in cross-topic lists.
-                    // These used to be either/or, which meant the All/Your turn/Answered/New lists
-                    // — where a deck's game type is the thing you most need to know, since the
-                    // list mixes all four — were the one place it wasn't shown at all.
-                    HStack(spacing: 4) {
-                        if showsTopicPill, let topic = GameTopic(rawValue: deck.topic) {
-                            PillBadge(text: topic.displayName, tint: topic.color, isNeutral: true)
-                        }
-                        PillBadge(text: deck.gameType.shortLabel, tint: deck.gameType.iconGradient.first ?? Theme.skyBlue, isNeutral: true)
-                    }
-                    // Two pills side by side can outgrow a narrow card; letting the row shrink a
-                    // little beats truncating either label to nothing.
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
+                    // Always the game type — it used to swap places with the topic, which left the
+                    // All/Your turn/Answered/New lists (the one place that mixes all four types,
+                    // and so the one place you most need to tell them apart) not showing it at all.
+                    // The topic now sits up by the emoji instead of competing for this slot.
+                    PillBadge(text: deck.gameType.shortLabel, tint: deck.gameType.iconGradient.first ?? Theme.skyBlue, isNeutral: true)
                     Text(deck.title)
                         .font(.subheadline.weight(.bold))
                         .foregroundStyle(Theme.ink)
@@ -130,7 +121,20 @@ struct DeckCardRow: View {
                     }
                     .frame(width: 30, height: 30)
                 } else {
-                    Text(deck.emoji).font(.title2)
+                    HStack(spacing: 6) {
+                        if showsTopic, let topic = GameTopic(rawValue: deck.topic) {
+                            // Plain text rather than a second pill: two chips side by side read as
+                            // competing labels, and the topic is context for the deck rather than a
+                            // status worth boxing. `textColor`, not `color` — see its doc comment;
+                            // the fill hue is unreadable at this size on a light card.
+                            Text(topic.displayName)
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(topic.textColor)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
+                        }
+                        Text(deck.emoji).font(.title2)
+                    }
                 }
             }
 

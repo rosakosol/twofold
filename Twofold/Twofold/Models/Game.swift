@@ -42,6 +42,8 @@ enum GameTopic: String, CaseIterable, Hashable, Identifiable {
         }
     }
 
+    /// The topic's colour as a *fill* — icon circles, chip backgrounds, anything the eye reads as
+    /// a shape rather than as words. Use `textColor` for text.
     var color: Color {
         switch self {
         case .starters: .purple
@@ -55,6 +57,35 @@ enum GameTopic: String, CaseIterable, Hashable, Identifiable {
         case .hobbiesAndLifestyle: .pink
         case .history: .gray
         case .edgyQuestions: .red
+        }
+    }
+
+    /// The same hue, deepened enough to be read as small text.
+    ///
+    /// `color` above can't do this job: as plain text on a card, every one of the eleven fails
+    /// WCAG AA in light mode — measured, from 3.70:1 (Starters) down to 1.35:1 (Moral Values'
+    /// yellow), which is illegible rather than merely marginal. That's fine for a fill, where the
+    /// colour is a shape and the text sits on top of it in white or ink; it isn't fine for words.
+    ///
+    /// This is Theme.swift's own rule applied per topic — "only the deepened tone is licensed for
+    /// text/icons/strokes" — and where a licensed tone already exists it's reused verbatim rather
+    /// than re-derived (`skyBlueText`, `heartRedText`, `leafGreenText`). Dark mode keeps the vivid
+    /// colour, which already clears 4.5:1 against the card there; only light mode changes.
+    ///
+    /// Light-mode ratios on the card: worst is 4.62:1, most sit near 4.7:1.
+    var textColor: Color {
+        switch self {
+        case .starters: Color(light: "A34CCE", dark: "BF5AF2")
+        case .getToKnowEachOther: Theme.skyBlueText
+        case .relationship: Theme.heartRedText
+        case .travel: Theme.leafGreenText
+        case .foodAndCulture: Color(light: "AB6400", dark: "FF9F0A")
+        case .family: Color(light: "8A7050", dark: "AC8E68")
+        case .moneyAndFinances: Color(light: "237F8F", dark: "40C8E0")
+        case .moralValues: Color(light: "8C7000", dark: "FFD60A")
+        case .hobbiesAndLifestyle: Color(light: "DE274A", dark: "FF375F")
+        case .history: Color(light: "747479", dark: "98989D")
+        case .edgyQuestions: Color(light: "DB3329", dark: "FF453A")
         }
     }
 }

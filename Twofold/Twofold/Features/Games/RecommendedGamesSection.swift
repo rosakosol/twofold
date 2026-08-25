@@ -53,7 +53,7 @@ struct RecommendedGamesSection: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: Theme.Spacing.sm) {
                     ForEach(randomDecks) { deck in
-                        DeckCardRow(deck: deck, progress: appModel.deckProgress?[deck.id], showsTopicPill: true)
+                        DeckCardRow(deck: deck, progress: appModel.deckProgress?[deck.id], showsTopic: true)
                             .frame(width: 220)
                     }
                 }

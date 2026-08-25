@@ -82,7 +82,7 @@ struct GameTypeDecksView: View {
 
                 VStack(spacing: Theme.Spacing.sm) {
                     ForEach(decks) { deck in
-                        DeckCardRow(deck: deck, progress: appModel.deckProgress?[deck.id], showsTopicPill: true)
+                        DeckCardRow(deck: deck, progress: appModel.deckProgress?[deck.id], showsTopic: true)
                     }
                 }
             }

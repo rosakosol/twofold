@@ -122,7 +122,7 @@ struct AllDecksBrowseView: View {
 
                 VStack(spacing: Theme.Spacing.sm) {
                     ForEach(filteredDecks) { deck in
-                        DeckCardRow(deck: deck, progress: appModel.deckProgress?[deck.id], showsTopicPill: true)
+                        DeckCardRow(deck: deck, progress: appModel.deckProgress?[deck.id], showsTopic: true)
                     }
                 }
 
