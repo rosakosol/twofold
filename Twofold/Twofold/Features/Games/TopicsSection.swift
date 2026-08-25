@@ -4,7 +4,7 @@
 //
 //  Tapping a topic opens a detail sheet listing that topic's curated decks — real, individually
 //  playable mini-games (see `GameDeck`), not just a filtered view over the shared pools. Progress
-//  bars reflect how many of a topic's decks the couple has started, computed client-side in
+//  bars reflect how many of a topic's decks the couple has *finished*, computed client-side in
 //  AppModel from the couple's own play history (no dedicated RPC).
 //
 
@@ -115,8 +115,9 @@ struct TopicDetailView: View {
         appModel.decks(for: topic)
             .filter { !(appModel.deckProgress?[$0.id]?.bothCompleted ?? false) }
             .sorted { lhs, rhs in
-                let lhsStarted = appModel.deckProgress?[lhs.id] != nil
-                let rhsStarted = appModel.deckProgress?[rhs.id] != nil
+                // Started means answered, not merely opened — see `DeckProgress.hasAnyAnswers`.
+                let lhsStarted = appModel.deckProgress?[lhs.id]?.hasAnyAnswers ?? false
+                let rhsStarted = appModel.deckProgress?[rhs.id]?.hasAnyAnswers ?? false
                 if lhsStarted != rhsStarted { return lhsStarted }
                 return lhs.sortOrder < rhs.sortOrder
             }

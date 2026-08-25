@@ -201,6 +201,19 @@ struct DeckProgress: Hashable {
     /// equivalent case on the History screen). Only meaningful once `bothCompleted`.
     var completedAt: Date?
 
+    /// Whether anyone has actually answered anything yet. A `DeckProgress` row existing is not
+    /// the same thing: opening a deck creates its session (`start_deck_session`) before a single
+    /// question is answered, so a deck someone opened and immediately backed out of has progress
+    /// with zero answers on both sides.
+    var hasAnyAnswers: Bool { myAnswered > 0 || partnerAnswered > 0 }
+
+    /// Finished, as the server sees it. `advance_game_session` sets `completed` once everyone who
+    /// needs to answer has — both partners for a couple's session, the initiator alone for a solo
+    /// one — so this is the one check that's right in both cases. `bothCompleted` below is derived
+    /// purely from answer counts and so never becomes true for a solo player, who has no partner
+    /// to supply the other half.
+    var isCompleted: Bool { status == .completed }
+
     var myCompleted: Bool { myAnswered >= totalRounds }
     var partnerCompleted: Bool { partnerAnswered >= totalRounds }
     var bothCompleted: Bool { myCompleted && partnerCompleted }

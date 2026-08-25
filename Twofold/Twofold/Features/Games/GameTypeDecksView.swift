@@ -24,8 +24,9 @@ struct GameTypeDecksView: View {
         allDecks
             .filter { !(appModel.deckProgress?[$0.id]?.bothCompleted ?? false) }
             .sorted { lhs, rhs in
-                let lhsStarted = appModel.deckProgress?[lhs.id] != nil
-                let rhsStarted = appModel.deckProgress?[rhs.id] != nil
+                // Started means answered, not merely opened — see `DeckProgress.hasAnyAnswers`.
+                let lhsStarted = appModel.deckProgress?[lhs.id]?.hasAnyAnswers ?? false
+                let rhsStarted = appModel.deckProgress?[rhs.id]?.hasAnyAnswers ?? false
                 if lhsStarted != rhsStarted { return lhsStarted }
                 return lhs.sortOrder < rhs.sortOrder
             }

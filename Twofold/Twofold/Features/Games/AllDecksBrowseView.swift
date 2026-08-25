@@ -26,13 +26,20 @@ enum DeckBrowseFilter: String, CaseIterable, Identifiable {
         }
     }
 
-    /// New = never started by either partner. Your turn = started, but I haven't finished my
-    /// side yet. Answered (`.theirTurn`) = I've finished my side (regardless of whether my
+    /// New = nobody has answered anything in it yet. Your turn = someone has, and I haven't
+    /// finished my side. Answered (`.theirTurn`) = I've finished my side (regardless of whether my
     /// partner has) — mutually exclusive and exhaustive over every deck. Shared by
     /// `AllDecksBrowseView`'s own filtering and `GamesHubView`'s pill count badges, so the two
     /// never drift apart.
+    ///
+    /// "New" deliberately keys on answers rather than on a session existing. Opening a deck
+    /// creates its session immediately (`start_deck_session`), so treating a session row as
+    /// "started" meant merely looking at a deck and backing out moved it into Your turn and left
+    /// it there — the bucket that's supposed to be a to-do list filled up with decks nobody had
+    /// played. A deck the *partner* has started still counts as Your turn even with no answers
+    /// from me, because then it genuinely is my turn.
     static func bucket(for deck: GameDeck, progress: [UUID: DeckProgress]?) -> DeckBrowseFilter {
-        guard let progress = progress?[deck.id] else { return .new }
+        guard let progress = progress?[deck.id], progress.hasAnyAnswers else { return .new }
         return progress.myCompleted ? .theirTurn : .yourTurn
     }
 }
@@ -75,8 +82,10 @@ struct AllDecksBrowseView: View {
                 return GameLogic.completedDeckPrecedes(lhs, rhs, progress: appModel.deckProgress)
             }
 
-            let lhsStarted = lhsProgress != nil
-            let rhsStarted = rhsProgress != nil
+            // Same notion of "started" the bucketing above uses — a session nobody has answered
+            // anything in shouldn't sort above genuinely untouched decks either.
+            let lhsStarted = lhsProgress?.hasAnyAnswers ?? false
+            let rhsStarted = rhsProgress?.hasAnyAnswers ?? false
             if lhsStarted != rhsStarted { return lhsStarted }
             return lhs.sortOrder < rhs.sortOrder
         }

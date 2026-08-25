@@ -981,14 +981,19 @@ final class AppModel {
         (gameDecks ?? []).filter { $0.gameType == gameType }
     }
 
-    /// How many of this topic's decks the couple has started at least once — `nil` until
+    /// How many of this topic's decks the couple has actually finished — `nil` until
     /// `loadGameDecksIfNeeded()` has completed.
+    ///
+    /// Counts completed decks rather than started ones. Started was doubly misleading: opening a
+    /// deck creates its session before a single question is answered, so the bar crept up for
+    /// decks nobody had played, and even a genuinely half-played deck read as full credit toward
+    /// the topic.
     func topicProgress(_ topic: GameTopic) -> (played: Int, total: Int)? {
         guard gameDecks != nil else { return nil }
         let topicDecks = decks(for: topic)
         guard !topicDecks.isEmpty else { return nil }
         let progress = deckProgress ?? [:]
-        let playedCount = topicDecks.filter { progress[$0.id] != nil }.count
+        let playedCount = topicDecks.filter { progress[$0.id]?.isCompleted ?? false }.count
         return (playedCount, topicDecks.count)
     }
 

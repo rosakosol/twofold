@@ -86,11 +86,20 @@ struct DeckCardRow: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             HStack(alignment: .top, spacing: Theme.Spacing.sm) {
                 VStack(alignment: .leading, spacing: 4) {
-                    if showsTopicPill, let topic = GameTopic(rawValue: deck.topic) {
-                        PillBadge(text: topic.displayName, tint: topic.color, isNeutral: true)
-                    } else {
+                    // The game type is always shown; the topic joins it only in cross-topic lists.
+                    // These used to be either/or, which meant the All/Your turn/Answered/New lists
+                    // — where a deck's game type is the thing you most need to know, since the
+                    // list mixes all four — were the one place it wasn't shown at all.
+                    HStack(spacing: 4) {
+                        if showsTopicPill, let topic = GameTopic(rawValue: deck.topic) {
+                            PillBadge(text: topic.displayName, tint: topic.color, isNeutral: true)
+                        }
                         PillBadge(text: deck.gameType.shortLabel, tint: deck.gameType.iconGradient.first ?? Theme.skyBlue, isNeutral: true)
                     }
+                    // Two pills side by side can outgrow a narrow card; letting the row shrink a
+                    // little beats truncating either label to nothing.
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
                     Text(deck.title)
                         .font(.subheadline.weight(.bold))
                         .foregroundStyle(Theme.ink)
