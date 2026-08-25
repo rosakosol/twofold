@@ -16,6 +16,31 @@ struct DailyActivityCard: View {
     @Environment(AppModel.self) private var appModel
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
+    /// One line of `.caption2`, measured. Both the question teaser and the streak subline reserve
+    /// two of these so their height stops depending on what the text happens to say — which is the
+    /// whole reason the card used to jump.
+    @ScaledMetric(relativeTo: .caption2) private var captionLineHeight: CGFloat = 13.5
+
+    /// A skeleton is only right before there's anything to show. `startOrResumeDailyQuestion()`
+    /// runs on every appearance of this card, so keying purely off the in-flight flag would flash
+    /// placeholder bars over a question that's already on screen every time the tab is revisited.
+    private var isLoadingQuestion: Bool {
+        appModel.isLoadingDailyQuestion && appModel.todaysDailyQuestionText == nil
+    }
+
+    /// Two lines' worth, so a one-line question and a two-line one occupy the same space and
+    /// nothing below shifts when the real text replaces the skeleton. Left unreserved at
+    /// accessibility sizes, where the teaser is allowed to run to whatever length it needs.
+    private var reservedCaptionHeight: CGFloat? {
+        dynamicTypeSize.isAccessibilitySize ? nil : captionLineHeight * 2
+    }
+
+    /// Stand-in text for the skeleton. Never read: `.redacted` replaces it with bars, and the
+    /// accessibility label below says what's actually happening. It exists only to give the
+    /// placeholder two lines to draw.
+    private static let questionSkeletonText = "Loading today's question for the two of you"
+
+
     var body: some View {
         // The Games hub's one Aurora hero object (rule #3) — the couple's daily streak sits at
         // the very top of the tab, above every flat deck/topic card below it.
@@ -32,7 +57,8 @@ struct DailyActivityCard: View {
                         Text("Today's Deep Question")
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.white)
-                        Text(appModel.todaysDailyQuestionText ?? "A new question, just for you two")
+                        Text(appModel.todaysDailyQuestionText
+                            ?? (isLoadingQuestion ? Self.questionSkeletonText : "A new question, just for you two"))
                             .font(.caption2)
                             // 0.85 landed at 4.46:1 against the deepened banner — just under AA.
                             // 0.92 reads the same as a softened white and clears it at 4.9:1.
@@ -43,6 +69,13 @@ struct DailyActivityCard: View {
                             // fragment; let it run instead.
                             .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
                             .fixedSize(horizontal: false, vertical: true)
+                            // Reserved before the text arrives and kept afterwards, so the card is
+                            // the same height whether it's showing bars, a one-line question or a
+                            // two-line one. Without this the teaser went from the short generic
+                            // line to a wrapped real question and pushed every deck below it down.
+                            .frame(minHeight: reservedCaptionHeight, alignment: .topLeading)
+                            .redacted(reason: isLoadingQuestion ? .placeholder : [])
+                            .accessibilityLabel(isLoadingQuestion ? Text("Loading today's question") : Text(appModel.todaysDailyQuestionText ?? "A new question, just for you two"))
                     }
                     Spacer()
                     Image(systemName: "chevron.right")
@@ -112,6 +145,10 @@ struct DailyActivityCard: View {
             Text(streakSubline)
                 .font(.caption2)
                 .foregroundStyle(Theme.subtleInk)
+                // Same reservation as the teaser: this line swings between "Answer today's
+                // question together" and "Keep it going" depending on whether a streak is running,
+                // and in this narrow column that's a two-line/one-line difference.
+                .frame(minHeight: reservedCaptionHeight, alignment: .topLeading)
         }
         // Redacted (not just showing a "0" default) until the first real fetch resolves —
         // otherwise this briefly flashes "Start a streak" before flipping to the real

@@ -68,6 +68,14 @@ final class AppModel {
     /// The actual discussion topic text for today's session — shown on `DailyActivityCard`
     /// instead of a generic teaser line. Nil while loading or if the fetch fails.
     var todaysDailyQuestionText: String?
+    /// True while `startOrResumeDailyQuestion()` is in flight.
+    ///
+    /// `todaysDailyQuestionText == nil` can't stand in for this: it's ambiguous, covering both
+    /// "hasn't been fetched yet" and "the fetch finished but the topic couldn't be resolved" (the
+    /// inner `try?` in that method). `DailyActivityCard` has to tell those apart — the first
+    /// deserves a skeleton, the second deserves the generic teaser rather than a placeholder that
+    /// never resolves.
+    private(set) var isLoadingDailyQuestion = false
     /// Per-partner completion for today's question — drives the checkmark on each avatar in
     /// `DailyActivityCard`. See `get_daily_question_status` for why this needs its own
     /// RLS-bypassing RPC rather than reading `game_responses` directly.
@@ -873,6 +881,8 @@ final class AppModel {
     /// streak — called when the Games hub appears, not at launch, since it's Games-specific.
     func startOrResumeDailyQuestion() async {
         dailyQuestionError = nil
+        isLoadingDailyQuestion = true
+        defer { isLoadingDailyQuestion = false }
         do {
             let sessionID = try await BackendService.getDailyQuestionSession()
             todaysDailySessionID = sessionID
