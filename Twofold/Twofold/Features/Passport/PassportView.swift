@@ -629,13 +629,46 @@ struct FlightStats {
         longestFlightTime = longest?.time ?? 0
         longestFlightRoute = longest?.route
 
-        airports = Self.ranked(flights.flatMap { [$0.origin.displayCode, $0.destination.displayCode] })
-        airlines = Self.ranked(flights.compactMap { flight -> String? in
-            let code = flight.flightNumber.prefix { $0.isLetter }
-            return code.isEmpty ? nil : code.uppercased()
+        airports = Self.ranked(flights.flatMap { [Self.airportKey($0.origin), Self.airportKey($0.destination)].compactMap { $0 } })
+        airlines = Self.ranked(flights.compactMap(Self.airlineKey))
+        // Direction-agnostic, so MEL → SIN and SIN → MEL count as one route. A flight with an
+        // unresolvable airport at either end contributes no route at all rather than a half-named
+        // one — "MEL – —" would rank as its own distinct route, and every such flight would pile
+        // into the same fake one.
+        routes = Self.ranked(flights.compactMap { flight -> String? in
+            guard let origin = Self.airportKey(flight.origin), let destination = Self.airportKey(flight.destination) else { return nil }
+            return [origin, destination].sorted().joined(separator: " – ")
         })
-        // Direction-agnostic, so MEL → SIN and SIN → MEL count as one route.
-        routes = Self.ranked(flights.map { [$0.origin.displayCode, $0.destination.displayCode].sorted().joined(separator: " – ") })
+    }
+
+    /// The airport as a counting key, or nil if it can't be identified.
+    ///
+    /// Not `displayCode`, which exists for *showing* an airport and falls back through `city` to a
+    /// literal "—". Both fallbacks corrupt a count: a flight that resolved only a city contributed
+    /// "Melbourne" as an airport distinct from another flight's "MEL", and every flight with
+    /// nothing resolved contributed the same "—", which then ranked as a real airport someone had
+    /// supposedly visited many times.
+    private static func airportKey(_ airport: FlightAirport) -> String? {
+        let code = airport.iata ?? airport.icao
+        guard let code, !code.trimmingCharacters(in: .whitespaces).isEmpty else { return nil }
+        return code.trimmingCharacters(in: .whitespaces).uppercased()
+    }
+
+    /// The operating carrier, or nil if unknown.
+    ///
+    /// Previously this scraped the letters off the front of `flightNumber` — but `flightNumber` is
+    /// `marketingFlightNumber ?? flightNumberIATA`, so a codeshare reported the *marketing*
+    /// carrier's prefix while a non-codeshare on the same airline reported its own. One airline
+    /// then counted as two, which is how five flights across three airlines came out as four.
+    /// `airlineCode` is the operating carrier resolved server-side (`operator_iata`, falling back
+    /// to ICAO — see flight-sync.ts), so it stays the same across both cases. The prefix scrape is
+    /// kept only as a fallback for flights added before that field was populated.
+    private static func airlineKey(for flight: Flight) -> String? {
+        if let code = flight.airlineCode?.trimmingCharacters(in: .whitespaces), !code.isEmpty {
+            return code.uppercased()
+        }
+        let prefix = flight.flightNumber.prefix { $0.isLetter }
+        return prefix.isEmpty ? nil : prefix.uppercased()
     }
 
     private static func ranked(_ names: [String]) -> [Ranked] {
