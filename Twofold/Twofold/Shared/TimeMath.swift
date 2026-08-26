@@ -78,6 +78,20 @@ enum TimeMath {
         return minutes == 0 ? "UTC\(sign)\(hours)" : "UTC\(sign)\(hours):\(String(format: "%02d", minutes))"
     }
 
+    /// "2d 4h" / "3h 12m" / "18m" — the compact elapsed/remaining form used wherever a flight
+    /// counts down to something or reports how long ago something happened. Negative intervals
+    /// clamp to zero rather than rendering a minus sign; callers decide direction by which way
+    /// they subtract and whether they append "ago".
+    static func compactDuration(_ interval: TimeInterval) -> String {
+        let totalSeconds = max(0, Int(interval))
+        let days = totalSeconds / 86_400
+        let hours = (totalSeconds % 86_400) / 3600
+        let minutes = (totalSeconds % 3600) / 60
+        if days > 0 { return "\(days)d \(hours)h" }
+        if hours > 0 { return "\(hours)h \(minutes)m" }
+        return "\(minutes)m"
+    }
+
     /// Same hex values as Theme.DayNight — duplicated here (not imported from Theme.swift,
     /// which stays main-app-only) since these four colors are all a widget needs from it.
     enum DayNight {

@@ -407,13 +407,7 @@ struct Flight: Identifiable, Hashable, Codable {
     }
 
     private static func relative(from: Date, to: Date) -> String {
-        let totalSeconds = max(0, Int(to.timeIntervalSince(from)))
-        let days = totalSeconds / 86_400
-        let hours = (totalSeconds % 86_400) / 3600
-        let minutes = (totalSeconds % 3600) / 60
-        if days > 0 { return "\(days)d \(hours)h" }
-        if hours > 0 { return "\(hours)h \(minutes)m" }
-        return "\(minutes)m"
+        TimeMath.compactDuration(to.timeIntervalSince(from))
     }
 
     /// Derived from actual/estimated timestamps rather than stored — there's nothing to keep

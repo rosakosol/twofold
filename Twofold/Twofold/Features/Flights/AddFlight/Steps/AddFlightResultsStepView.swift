@@ -223,19 +223,29 @@ struct AddFlightResultsStepView: View {
         .foregroundStyle(Theme.leafGreen)
     }
 
+    /// Every branch of `progressSummary` renders through this one shape, including the plain
+    /// countdown — the column used to special-case "in air" against "leaves in 2h" and leave a
+    /// blank 56pt gutter for everything else, which is what a flight that had already landed got.
     @ViewBuilder
     private func statusColumn(_ candidate: AeroFlightCandidate) -> some View {
-        if let status = candidate.status.flatMap(FlightStatus.init(rawValue:)), status == .inAir {
+        if let summary = candidate.progressSummary() {
+            let tint = summary.isPast ? Theme.subtleInk : Theme.skyBlue
             VStack(spacing: 2) {
-                Image(systemName: "airplane").font(.caption).foregroundStyle(Theme.skyBlue)
-                Text("IN AIR").font(.caption2.weight(.bold)).foregroundStyle(Theme.skyBlue)
+                if let symbol = summary.symbol {
+                    Image(systemName: symbol).font(.caption).foregroundStyle(tint)
+                }
+                Text(summary.label)
+                    .font(.caption2.weight(.bold))
+                    // A bare countdown carries no symbol and isn't a status word — it stays in
+                    // page ink, the way it always read, rather than borrowing a status colour.
+                    .foregroundStyle(summary.symbol == nil ? Theme.ink : tint)
+                if let detail = summary.detail {
+                    Text(detail)
+                        .font(.caption2)
+                        .foregroundStyle(Theme.subtleInk)
+                }
             }
-        } else if let scheduledOut = candidate.scheduledOut, scheduledOut > .now {
-            let totalMinutes = max(0, Int(scheduledOut.timeIntervalSinceNow / 60))
-            Text("\(totalMinutes / 60)h \(totalMinutes % 60)m")
-                .font(.caption.weight(.bold))
-                .foregroundStyle(Theme.ink)
-                .multilineTextAlignment(.center)
+            .multilineTextAlignment(.center)
         }
     }
 

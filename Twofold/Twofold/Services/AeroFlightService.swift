@@ -88,6 +88,78 @@ struct AeroFlightCandidate: Identifiable, Decodable, Hashable {
         return flightNumberIata ?? identIata ?? identIcao
     }
     var logoURL: URL? { AirlineLogo.url(forIATACode: operatorIata) }
+
+    /// What the leading column of a search result says about where this flight is up to.
+    ///
+    /// The column used to answer only two questions — "is it in the air?" and "how long until it
+    /// leaves?" — and rendered nothing at all otherwise. Every flight that had already departed
+    /// fell into that gap, so searching for one you took this morning gave a result with a blank
+    /// space where every other row has its status. Nothing was wrong with the result; it just
+    /// declined to say anything about it.
+    ///
+    /// Read from `status` where AeroAPI gives one, and from the schedule where it doesn't — a
+    /// schedule-only candidate (`canTrack == false`, no fa_flight_id) has no status at all, and
+    /// its own times are enough to place it either side of now.
+    struct ProgressSummary {
+        var label: String
+        /// The elapsed/remaining time, when there is one — "3h 12m ago", "in 2h 10m".
+        var detail: String?
+        var symbol: String?
+        /// True for a flight that's done — the caller renders these muted, since a landed or
+        /// cancelled flight isn't news the way a countdown is.
+        var isPast: Bool
+    }
+
+    func progressSummary(now: Date = .now) -> ProgressSummary? {
+        let parsed = status.flatMap(FlightStatus.init(rawValue:))
+
+        if cancelled == true || parsed == .cancelled {
+            return ProgressSummary(label: "CANCELLED", detail: nil, symbol: "xmark.circle.fill", isPast: true)
+        }
+        if diverted == true || parsed == .diverted {
+            return ProgressSummary(label: "DIVERTED", detail: nil, symbol: "arrow.triangle.branch", isPast: true)
+        }
+
+        switch parsed {
+        case .arrived, .landed:
+            return landedSummary(now: now)
+        case .inAir, .landingSoon:
+            let detail = scheduledIn.flatMap { $0 > now ? "lands in \(TimeMath.compactDuration($0.timeIntervalSince(now)))" : nil }
+            return ProgressSummary(label: "IN AIR", detail: detail, symbol: "airplane", isPast: false)
+        case .boarding:
+            return ProgressSummary(label: "BOARDING", detail: countdownDetail(now: now), symbol: "figure.walk.arrival", isPast: false)
+        case .departed:
+            return ProgressSummary(label: "DEPARTED", detail: nil, symbol: "airplane.departure", isPast: false)
+        case .scheduled, .delayed, .cancelled, .diverted, .none:
+            break
+        }
+
+        // No usable status — place it by its own schedule instead. Arrival is checked before
+        // departure so a flight that has both behind it reads as landed rather than departed.
+        guard let scheduledOut else { return nil }
+        if scheduledOut > now {
+            return ProgressSummary(
+                label: TimeMath.compactDuration(scheduledOut.timeIntervalSince(now)),
+                detail: nil,
+                symbol: nil,
+                isPast: false
+            )
+        }
+        if let scheduledIn, scheduledIn <= now { return landedSummary(now: now) }
+        return ProgressSummary(label: "DEPARTED", detail: nil, symbol: "airplane.departure", isPast: true)
+    }
+
+    private func landedSummary(now: Date) -> ProgressSummary {
+        // Scheduled arrival, since a candidate carries no actual-on timestamp — close enough to
+        // say "about three hours ago", which is all this line is claiming.
+        let detail = scheduledIn.map { "\(TimeMath.compactDuration(now.timeIntervalSince($0))) ago" }
+        return ProgressSummary(label: "LANDED", detail: detail, symbol: "airplane.arrival", isPast: true)
+    }
+
+    private func countdownDetail(now: Date) -> String? {
+        guard let scheduledOut, scheduledOut > now else { return nil }
+        return "in \(TimeMath.compactDuration(scheduledOut.timeIntervalSince(now)))"
+    }
 }
 
 enum AeroFlightError: LocalizedError {
