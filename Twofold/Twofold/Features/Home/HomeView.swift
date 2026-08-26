@@ -88,6 +88,14 @@ struct HomeView: View {
                             weather: weatherReading,
                             myWeather: myWeatherReading
                         )
+                        // Required wherever WeatherKit data is shown, so it's tied to a reading
+                        // actually being on screen rather than to the card — the card renders with
+                        // no temperature at all until WeatherKit answers (or if the capability
+                        // isn't enabled), and there's nothing to attribute in that state.
+                        if weatherReading != nil || myWeatherReading != nil {
+                            WeatherAttributionView()
+                                .frame(maxWidth: .infinity, alignment: .trailing)
+                        }
                     }
                     if !appModel.activeOrUpcomingFlights.isEmpty {
                         flightCarousel(flights: appModel.activeOrUpcomingFlights)

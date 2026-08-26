@@ -1,0 +1,492 @@
+<title>Twofold Pre-Flight</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+
+<style>
+  :root {
+    --ground: #F6F9FB;
+    --surface: #FFFFFF;
+    --surface-2: #EEF4F8;
+    --ink: #17242F;
+    --muted: #5B6B7A;
+    --line: #DCE6ED;
+    --accent: #1F6F9E;
+    --critical: #C2334A;
+    --done: #1E7A4B;
+    --warn: #8A5E00;
+    --shadow: 0 1px 2px rgba(23, 36, 47, .06), 0 8px 24px rgba(23, 36, 47, .05);
+  }
+  :root:not([data-theme="light"]) {
+    @media (prefers-color-scheme: dark) {
+      --ground: #0A121A;
+      --surface: #14222D;
+      --surface-2: #1B2C39;
+      --ink: #E8F0F5;
+      --muted: #93A7B5;
+      --line: #24363F;
+      --accent: #8ACFF5;
+      --critical: #FF9BA3;
+      --done: #88DFA9;
+      --warn: #E8B23A;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .3);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0A121A;
+    --surface: #14222D;
+    --surface-2: #1B2C39;
+    --ink: #E8F0F5;
+    --muted: #93A7B5;
+    --line: #24363F;
+    --accent: #8ACFF5;
+    --critical: #FF9BA3;
+    --done: #88DFA9;
+    --warn: #E8B23A;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .3);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 60rem; margin: 0 auto; padding: 0 1.25rem 5rem; }
+
+  /* ---------- masthead ---------- */
+  .masthead { padding: 3rem 0 1.5rem; }
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .72rem; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--muted); margin: 0 0 .75rem;
+  }
+  h1 {
+    font-family: "IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif;
+    font-weight: 700; font-size: clamp(2.1rem, 5vw, 3.1rem);
+    line-height: 1.04; letter-spacing: -.015em; margin: 0 0 .6rem;
+    text-wrap: balance;
+  }
+  .standfirst { color: var(--muted); max-width: 46ch; margin: 0; font-size: 1.02rem; }
+
+  /* ---------- progress ---------- */
+  .status {
+    position: sticky; top: 0; z-index: 20;
+    background: color-mix(in srgb, var(--ground) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+    margin: 1.5rem 0 2.5rem;
+    padding: .85rem 0;
+  }
+  .status-inner { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+  .meter { flex: 1 1 12rem; height: 6px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+  .meter-fill { height: 100%; width: 0%; background: var(--accent); transition: width .35s ease; }
+  .tally {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .8rem; font-variant-numeric: tabular-nums; color: var(--muted);
+    white-space: nowrap;
+  }
+  .tally b { color: var(--ink); font-weight: 600; }
+  .blockers-left { color: var(--critical); font-weight: 600; }
+  .blockers-left.clear { color: var(--done); }
+  .savechip {
+    font-family: "IBM Plex Mono", monospace; font-size: .7rem;
+    letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+    opacity: 0; transition: opacity .25s ease; white-space: nowrap;
+  }
+  .savechip.on { opacity: 1; }
+  .savechip.warn { color: var(--warn); opacity: 1; }
+
+  /* ---------- sections ---------- */
+  section { margin: 0 0 2.75rem; }
+  .sec-head { display: flex; align-items: baseline; gap: .75rem; flex-wrap: wrap; margin-bottom: .35rem; }
+  h2 {
+    font-family: "IBM Plex Sans Condensed", sans-serif;
+    font-weight: 700; font-size: 1.35rem; letter-spacing: -.005em; margin: 0;
+  }
+  .chip {
+    font-family: "IBM Plex Mono", monospace; font-size: .65rem;
+    letter-spacing: .1em; text-transform: uppercase; font-weight: 600;
+    padding: .18rem .45rem; border-radius: 4px; white-space: nowrap;
+  }
+  .chip.blocker { color: var(--critical); background: color-mix(in srgb, var(--critical) 14%, transparent); }
+  .chip.high    { color: var(--warn);     background: color-mix(in srgb, var(--warn) 16%, transparent); }
+  .chip.std     { color: var(--muted);    background: var(--surface-2); }
+  .chip.untested{ color: var(--accent);   background: color-mix(in srgb, var(--accent) 14%, transparent); }
+  .sec-note { color: var(--muted); font-size: .93rem; margin: 0 0 1rem; max-width: 62ch; }
+
+  ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .4rem; }
+
+  .item {
+    display: grid; grid-template-columns: auto 1fr; gap: .8rem;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    padding: .8rem .95rem; cursor: pointer; box-shadow: var(--shadow);
+    transition: border-color .15s ease, opacity .2s ease;
+  }
+  .item:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+  .item:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .item.done { opacity: .5; }
+  .item.done .title { text-decoration: line-through; text-decoration-thickness: 1px; }
+
+  input[type="checkbox"] {
+    appearance: none; margin: .28rem 0 0; width: 1.15rem; height: 1.15rem;
+    border: 1.5px solid color-mix(in srgb, var(--ink) 35%, transparent);
+    border-radius: 5px; background: transparent; cursor: pointer; flex: none;
+    display: grid; place-content: center;
+  }
+  input[type="checkbox"]::after {
+    content: ""; width: .58rem; height: .32rem;
+    border-left: 2px solid var(--surface); border-bottom: 2px solid var(--surface);
+    transform: rotate(-45deg) scale(0); transition: transform .15s ease;
+    margin-top: -.12rem;
+  }
+  input[type="checkbox"]:checked { background: var(--done); border-color: var(--done); }
+  input[type="checkbox"]:checked::after { transform: rotate(-45deg) scale(1); }
+  input[type="checkbox"]:disabled { cursor: not-allowed; opacity: .5; }
+
+  .title { font-weight: 500; margin: 0; }
+  .why { color: var(--muted); font-size: .89rem; margin: .15rem 0 0; }
+  .why code {
+    font-family: "IBM Plex Mono", monospace; font-size: .85em;
+    background: var(--surface-2); padding: .05rem .3rem; border-radius: 4px;
+  }
+  .flag {
+    display: inline-block; font-family: "IBM Plex Mono", monospace;
+    font-size: .63rem; letter-spacing: .09em; text-transform: uppercase;
+    font-weight: 600; color: var(--critical); margin-left: .45rem;
+    vertical-align: 1px;
+  }
+
+  .readonly-banner {
+    display: none; background: color-mix(in srgb, var(--warn) 12%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--warn) 35%, var(--line));
+    border-radius: 10px; padding: .8rem 1rem; margin-bottom: 1.5rem;
+    font-size: .92rem; color: var(--ink);
+  }
+  .readonly-banner.on { display: block; }
+
+  footer {
+    border-top: 1px solid var(--line); margin-top: 3rem; padding-top: 1.25rem;
+    color: var(--muted); font-size: .87rem; max-width: 62ch;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <p class="eyebrow">Twofold · v1.0 (11) · iOS 26.0+</p>
+    <h1>Pre-Flight</h1>
+    <p class="standfirst">Everything to clear before submitting to App Review, ordered by what actually gets apps rejected.</p>
+  </header>
+
+  <div class="status">
+    <div class="status-inner">
+      <div class="meter"><div class="meter-fill" id="fill"></div></div>
+      <div class="tally"><b id="doneCount">0</b>/<span id="totalCount">0</span> done</div>
+      <div class="tally" id="blockerTally"></div>
+      <div class="savechip" id="savechip">Saved</div>
+    </div>
+  </div>
+
+  <div class="readonly-banner" id="ro"></div>
+  <main id="list"></main>
+
+  <footer id="foot"></footer>
+</div>
+
+<script type="application/json" id="seed">{}</script>
+<script>
+(function () {
+  "use strict";
+
+  var SECTIONS = [
+    {
+      id: "blockers",
+      title: "Likely rejection triggers",
+      chip: "blocker", chipLabel: "Do first",
+      note: "Found by inspecting the project. Each of these is a documented App Review rejection cause, and each is live in the current build.",
+      items: [
+        { id: "ipad", t: "Decide iPad: support it properly or drop it",
+          w: "<code>TARGETED_DEVICE_FAMILY = \"1,2\"</code> — the build claims iPad, so Review <em>will</em> test on iPad. Every screen you've designed is iPhone-shaped. Either test all of them on an iPad or set the family to <code>1</code>.", flag: true },
+        { id: "weatherkit", t: "Add Apple Weather attribution",
+          w: "WeatherKit requires the Apple Weather trademark plus a link to its legal attribution anywhere its data appears — the Home time card and the widgets both show a temperature. I found no attribution anywhere in the project.", flag: true },
+        { id: "demoaccount", t: "Give Review a pre-paired demo couple",
+          w: "Almost nothing in Twofold works solo — games, streaks, the globe, distance, reunions all need a partner. A reviewer signing up fresh sees an empty shell and rejects for broken functionality. Supply credentials for an account that is <em>already paired</em>, with trips, flights and completed games in it.", flag: true },
+        { id: "landscape", t: "Test landscape on iPhone, or turn it off",
+          w: "<code>UISupportedInterfaceOrientations_iPhone</code> includes both landscape orientations. Landscape broke measurements repeatedly during testing. If you haven't designed for it, restrict to portrait." },
+        { id: "iosversion", t: "State the iOS 26.0 minimum in App Review Notes",
+          w: "A reviewer on an older device can't install it at all. Say so explicitly in the notes so it isn't read as a broken build." },
+        { id: "agerating", t: "Set an age rating that matches the Edgy Questions decks",
+          w: "Decks like <em>Say It Before You Regret It</em> and <em>Who's More Likely to Cause a Scene</em> sit under an “Edgy Questions” topic. Rate for the content you actually ship, including anything gated behind Premium." }
+      ]
+    },
+    {
+      id: "iap",
+      title: "Subscriptions",
+      chip: "blocker", chipLabel: "Do first",
+      note: "The single most common rejection area, and Twofold's model is unusual — one subscription covers both partners — so it needs explaining as well as testing.",
+      items: [
+        { id: "restore", t: "Restore Purchases works from a clean install",
+          w: "The button exists in <code>PaywallView</code>. Verify it actually restores on a device that never bought anything but is signed into the buying Apple ID." },
+        { id: "paywallterms", t: "Paywall shows price, duration and auto-renew terms",
+          w: "Plus the Privacy Policy and Terms links — both are present in <code>PaywallView</code>; confirm they open and resolve." },
+        { id: "sharedsub", t: "Partner inherits access when the other subscribes",
+          w: "Explain this in Review Notes too. A reviewer testing the second account will otherwise hit a paywall they can't clear and report it as broken." },
+        { id: "lapse", t: "Lapsed subscription lands somewhere sensible",
+          w: "Including the case where the paying partner disconnects — there's a dedicated screen for it (<code>SubscriptionLapsedFromDisconnectView</code>). Verify it appears rather than the generic paywall." },
+        { id: "sandbox", t: "Full sandbox purchase, on device",
+          w: "Buy, cancel, re-subscribe. Confirm entitlement propagates to both partners and to the widgets." },
+        { id: "pricesmatch", t: "App Store Connect products match what the paywall renders",
+          w: "Product IDs, tiers, and the Plus/Premium split. A mismatch shows an empty or wrongly-priced paywall to the reviewer." }
+      ]
+    },
+    {
+      id: "account",
+      title: "Account, data and privacy",
+      chip: "high", chipLabel: "Guideline 5.1",
+      note: "",
+      items: [
+        { id: "deletion", t: "Account deletion is reachable in-app",
+          w: "Required by 5.1.1(v). <code>DeleteAccountView</code> exists but was moved under Help — confirm a reviewer can actually find it, and that it deletes rather than deactivates." },
+        { id: "deleteshared", t: "Deletion removes shared couple data correctly",
+          w: "There's a migration for exactly this (<code>delete_own_account_shared_data</code>). Verify what happens to the partner's view afterwards." },
+        { id: "siwa", t: "Sign in with Apple present alongside Google",
+          w: "Already satisfied — <code>AppleGoogleSignInButtons</code> offers both. Just confirm the Apple path completes end to end, including the hide-my-email case.", pre: true },
+        { id: "privacylabels", t: "App Privacy answers match what's collected",
+          w: "Location, photos, contacts-of-a-sort (partner name), purchase history, identifiers. Third parties: Supabase, RevenueCat, PostHog, FlightAware." },
+        { id: "posthog", t: "Analytics disclosed",
+          w: "PostHog identifies by Supabase user id. That's a tracking identifier and must be declared." },
+        { id: "export", t: "Export compliance answered",
+          w: "<code>ITSAppUsesNonExemptEncryption = false</code> is already set, so this should pass without a document.", pre: true }
+      ]
+    },
+    {
+      id: "permissions",
+      title: "Permissions",
+      chip: "high", chipLabel: "Test denied paths",
+      note: "Every prompt must appear in context, and the app must stay usable when the answer is no. All three usage strings are present in Info.plist.",
+      items: [
+        { id: "permloc", t: "Location — prompt appears in context, denial is survivable",
+          w: "Used to set your city for timezones, weather and distance. Denial is documented as a silent no-op; verify the app doesn't just show blanks." },
+        { id: "permcam", t: "Camera — only prompts when capturing a boarding pass" },
+        { id: "permfaceid", t: "Face ID — App Lock enables and disables cleanly",
+          w: "Including after sign-out, which previously gated the sign-in screen itself behind a biometric prompt." },
+        { id: "permpush", t: "Notifications — prompt appears during onboarding and can be declined",
+          w: "Requested in <code>NotificationsSellView</code>. Check the app is fully usable with notifications off." }
+      ]
+    },
+    {
+      id: "fixed",
+      title: "Fixed this session — verify on device",
+      chip: "std", chipLabel: "Regression pass",
+      note: "All of these are committed and unit-tested, but several were only verified in the simulator. These are the ones most worth a real-device pass.",
+      items: [
+        { id: "deeplink", t: "Notification taps open the right screen from a cold start",
+          w: "Force-quit first — that's the case that was broken. Test all four: streak reminder → daily question, flight push → that flight, game push → that game, drawing → the pad." },
+        { id: "dailyrace", t: "Daily question can't be created twice for one day",
+          w: "Have both of you open it at the same moment. Both should land on the same question, and the streak should advance once you've both answered." },
+        { id: "flightsearch", t: "Flight search across all three time ranges",
+          w: "A flight from over a month ago (this path had no fallback until now and always returned nothing), one today, and one several months out." },
+        { id: "flightadd", t: "Add a flight end to end",
+          w: "Not tested at all this session — it writes real tracked flights and starts a webhook subscription. Add, confirm tracking, confirm the Live Activity and widget." },
+        { id: "gamesorder", t: "Answered games sort newest-completed first" },
+        { id: "yourturn", t: "Opening a deck and backing out leaves it in New, not Your turn" },
+        { id: "swipe", t: "Swipe cards never stick mid-swipe",
+          w: "Swipe fast through several rounds, and try starting a swipe from the very left edge where the back gesture competes." },
+        { id: "statsfilter", t: "Stats year filter and unique airline/airport counts",
+          w: "The airline count was over-counting codeshares. Check it against flights you know." },
+        { id: "drawingpad", t: "Drawing pad colours in dark mode",
+          w: "Black used to draw as near-white on the always-white canvas. Check the first stroke before touching the palette." }
+      ]
+    },
+    {
+      id: "untested",
+      title: "Never verified — no way to test here",
+      chip: "untested", chipLabel: "Unknown",
+      note: "Honest gaps. These aren't known-broken; they're unobserved, which is different and worth more of your attention than the items above.",
+      items: [
+        { id: "shareGame", t: "Game results share card",
+          w: "Unreachable in testing — the test account has no completed games. Check the sharer's own name appears (it used to say “You”), and that the daily question's three layouts have visibly different backgrounds." },
+        { id: "partnerflows", t: "Everything that needs two devices",
+          w: "Pairing, invite codes, partner-finished notifications, both-answered reveals, shared subscription, Live Activity on the watching partner's phone." },
+        { id: "aeroapi", t: "Live flight data",
+          w: "Not a single real AeroAPI call was made. Search, add, refresh, departure and arrival pushes are all unverified against the real provider." },
+        { id: "pushdelivery", t: "Real push delivery",
+          w: "Notifications aren't authorised in the test simulator, so no banner was ever tapped. The four Edge Functions carrying deep-link payloads were deployed on 24 Aug." },
+        { id: "widgets", t: "Widgets and Live Activities on device",
+          w: "Home Screen, Lock Screen, and a flight's Live Activity through departure, in-air and landing." }
+      ]
+    },
+    {
+      id: "store",
+      title: "Store listing and build",
+      chip: "std", chipLabel: "Last",
+      note: "",
+      items: [
+        { id: "screenshots", t: "Screenshots for every required device size",
+          w: "If you keep iPad support, that means iPad screenshots too." },
+        { id: "screenshotreal", t: "Screenshots show real, populated state",
+          w: "Empty states look like a broken app to a reviewer." },
+        { id: "version", t: "Version and build set deliberately",
+          w: "Currently <code>1.0</code> build <code>11</code>." },
+        { id: "archive", t: "Archive builds clean and validates",
+          w: "Release configuration, not Debug — the notification-route test hook is <code>#if DEBUG</code> and must not ship." },
+        { id: "thirdparty", t: "FlightAware terms allow your display of their data",
+          w: "Check your AeroAPI agreement for attribution or branding requirements before you ship it in a consumer app." },
+        { id: "support", t: "Support URL and privacy policy URLs resolve",
+          w: "<code>twofoldapp.com.au/privacy</code> and <code>/terms</code> are linked from inside the app." },
+        { id: "notes", t: "Review Notes written",
+          w: "Demo credentials, the pairing explanation, the shared-subscription model, and the iOS 26 minimum. This one note prevents most of the rejections above." }
+      ]
+    }
+  ];
+
+  var LS_KEY = "twofold-preflight-v1";
+  var state = { checked: {} };
+  var canPublish = false;
+  var api = null;
+  var timer = null;
+
+  var listEl = document.getElementById("list");
+  var chip = document.getElementById("savechip");
+  var roEl = document.getElementById("ro");
+
+  function allItems() {
+    return SECTIONS.reduce(function (acc, s) { return acc.concat(s.items); }, []);
+  }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+
+  function render() {
+    listEl.innerHTML = SECTIONS.map(function (s) {
+      var items = s.items.map(function (it) {
+        var on = !!state.checked[it.id];
+        return '<li><label class="item' + (on ? " done" : "") + '" data-id="' + it.id + '">' +
+          '<input type="checkbox"' + (on ? " checked" : "") + (canPublish ? "" : " disabled") +
+          ' aria-describedby="why-' + it.id + '">' +
+          '<div><p class="title">' + esc(it.t) +
+          (it.flag ? '<span class="flag">Blocker</span>' : "") + "</p>" +
+          (it.w ? '<p class="why" id="why-' + it.id + '">' + it.w + "</p>" : "") +
+          "</div></label></li>";
+      }).join("");
+      return '<section><div class="sec-head"><h2>' + esc(s.title) + "</h2>" +
+        '<span class="chip ' + s.chip + '">' + esc(s.chipLabel) + "</span></div>" +
+        (s.note ? '<p class="sec-note">' + esc(s.note) + "</p>" : "") +
+        "<ul>" + items + "</ul></section>";
+    }).join("");
+    updateTally();
+  }
+
+  function updateTally() {
+    var items = allItems();
+    var done = items.filter(function (i) { return state.checked[i.id]; }).length;
+    var pct = items.length ? Math.round((done / items.length) * 100) : 0;
+    document.getElementById("fill").style.width = pct + "%";
+    document.getElementById("doneCount").textContent = done;
+    document.getElementById("totalCount").textContent = items.length;
+
+    var blockers = SECTIONS.filter(function (s) { return s.chip === "blocker"; })
+      .reduce(function (a, s) { return a.concat(s.items); }, []);
+    var left = blockers.filter(function (i) { return !state.checked[i.id]; }).length;
+    var tally = document.getElementById("blockerTally");
+    tally.innerHTML = left
+      ? '<span class="blockers-left">' + left + " blocker" + (left === 1 ? "" : "s") + " left</span>"
+      : '<span class="blockers-left clear">Blockers clear</span>';
+  }
+
+  function setChip(text, warn) {
+    chip.textContent = text;
+    chip.className = "savechip on" + (warn ? " warn" : "");
+    if (!warn) {
+      clearTimeout(setChip._t);
+      setChip._t = setTimeout(function () { chip.className = "savechip"; }, 1800);
+    }
+  }
+
+  function readOnly(msg) {
+    canPublish = false;
+    roEl.textContent = msg;
+    roEl.className = "readonly-banner on";
+    render();
+  }
+
+  function save() {
+    try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) { /* private mode */ }
+    if (!canPublish || !api) return;
+    clearTimeout(timer);
+    setChip("Saving…");
+    // One publish per pause, never per tick — every call mints a version.
+    timer = setTimeout(function () {
+      api.publish({ "data/state.json": JSON.stringify(state) }).then(function () {
+        setChip("Saved");
+      }).catch(function (err) {
+        var code = err && err.code;
+        if (code === "conflict") {
+          setChip("Reopen to sync", true);
+        } else if (code === "not_writer" || code === "not_granted" || code === "capability_disabled" || code === "not_declared") {
+          readOnly("Ticks are being kept on this device only — this view can't write back to the artifact.");
+        } else if (code === "rate_limited") {
+          setChip("Slowing down…", true);
+        } else {
+          setChip("Not saved", true);
+        }
+      });
+    }, 1200);
+  }
+
+  listEl.addEventListener("change", function (e) {
+    var box = e.target;
+    if (!box || box.type !== "checkbox") return;
+    var label = box.closest(".item");
+    if (!label) return;
+    var id = label.getAttribute("data-id");
+    if (box.checked) state.checked[id] = true; else delete state.checked[id];
+    label.classList.toggle("done", box.checked);
+    updateTally();
+    save();
+  });
+
+  // Local copy first so the page is usable immediately, then the shared one wins if present.
+  try {
+    var cached = localStorage.getItem(LS_KEY);
+    if (cached) state = JSON.parse(cached) || state;
+  } catch (e) { /* ignore */ }
+  if (!state.checked) state.checked = {};
+
+  document.getElementById("foot").innerHTML =
+    "Built from the Twofold project itself — device family, Info.plist keys, sign-in methods, " +
+    "subscription surfaces and the session's own test coverage. Ticks save automatically. " +
+    "The three flagged blockers were found by inspection and are live in the current build.";
+
+  render();
+
+  fetch("./data/state.json", { cache: "no-store" })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (remote) {
+      if (remote && remote.checked) { state = remote; render(); }
+    })
+    .catch(function () { /* first run: no file yet */ });
+
+  if (window.claude && window.claude.use) {
+    window.claude.use("artifact").then(function (ns) {
+      if (!ns) return;
+      api = ns;
+      canPublish = true;
+      render();
+    });
+  }
+})();
+</script>

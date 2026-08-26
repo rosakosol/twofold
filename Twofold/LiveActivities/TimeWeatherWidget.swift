@@ -118,7 +118,11 @@ struct TimeWeatherWidgetView: View {
                         Spacer()
                         Text(entry.temperatureLabel ?? "—")
                             .font(.system(size: 26, weight: .bold, design: .rounded))
-                        Text("weather")
+                        // The Apple Weather trademark, required wherever WeatherKit data is
+                        // shown. It doubles as this half's label — it already said "weather".
+                        // The matching link to Apple's legal attribution page lives in the app
+                        // (WeatherAttributionView), since a widget can't host one.
+                        Text(appleWeatherMark)
                             .font(.caption2)
                             .opacity(0.85)
                     }
