@@ -81,20 +81,24 @@ struct TimeZoneCard: View {
                     }
                 }
             }
+
+            // Laid out, not overlaid. As a `.bottomTrailing` overlay this reserved no space of
+            // its own and was drawn into the card's bottom padding, directly beneath the last
+            // temperature badge — legible, but jammed hard against it and against the card edge,
+            // reading as a collision rather than a footnote. As a trailing-aligned line it sits
+            // under the readings it attributes with real spacing, and still costs one caption2
+            // line inside the card rather than a row of its own beneath it.
+            //
+            // Only present when there's actually a reading on screen to attribute.
+            if weather != nil || myWeather != nil {
+                WeatherAttributionView(tint: .white.opacity(0.9))
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .padding(.top, 2)
+            }
         }
         .foregroundStyle(.white)
         .padding(Theme.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        // Tucked into the card's own bottom corner rather than given a row of its own beneath it —
-        // it's a required legal mark, not content, and it only appears when there's actually a
-        // reading on screen to attribute.
-        .overlay(alignment: .bottomTrailing) {
-            if weather != nil || myWeather != nil {
-                WeatherAttributionView(tint: .white.opacity(0.9))
-                    .padding(.horizontal, Theme.Spacing.md)
-                    .padding(.bottom, 6)
-            }
-        }
         .background {
             ZStack {
                 LinearGradient(
