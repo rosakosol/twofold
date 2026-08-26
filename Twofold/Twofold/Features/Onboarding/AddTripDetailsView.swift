@@ -41,7 +41,11 @@ struct AddTripDetailsView: View {
     @State private var traveler: TripTraveler = .you
     @State private var category: TripCategory = .reunion
     @State private var flightNumberHint: String
-    @State private var selectedFlightCandidate: AeroFlightCandidate?
+    /// A list, not one flight: a trip's itinerary can be several legs (Melbourne → Singapore →
+    /// London is two tracked flights), which `Trip.flights` has always modelled. This screen was
+    /// the only place that assumed one, so adding the second leg meant saving the trip, reopening
+    /// it, and finding "Link another leg" — a detour with nothing to recommend it.
+    @State private var flightCandidates: [AeroFlightCandidate] = []
     @State private var showingAddFlightFlow = false
     @State private var isSaving = false
 
@@ -134,67 +138,95 @@ struct AddTripDetailsView: View {
                 topBarTitle: "Cancel",
                 onTopBarAction: { showingAddFlightFlow = false },
                 completion: .handOff { candidate in
-                    selectedFlightCandidate = candidate
+                    // Same flight twice is a mis-tap, not a real itinerary — `id` is the
+                    // fa_flight_id (or the ident/departure composite standing in for one), so
+                    // this compares actual flights, not just designators.
+                    if !flightCandidates.contains(where: { $0.id == candidate.id }) {
+                        flightCandidates.append(candidate)
+                    }
                     showingAddFlightFlow = false
                 }
             )
         }
     }
 
-    /// Tapping through opens the real AeroAPI-backed AddFlightFlowView search (the same wizard
-    /// used elsewhere in the app) — flights are never self-reported, so a flight only ever
-    /// attaches to this trip once a real candidate comes back from that search. When this view
-    /// was opened from the forwarded-flight-email review flow, whatever number the parser
-    /// picked out of the email is shown as a hint and pre-fills the search rather than being
-    /// saved as-is.
+    /// Every leg attached so far, plus the button that adds the next one. Tapping through opens
+    /// the real AeroAPI-backed AddFlightFlowView search (the same wizard used elsewhere in the
+    /// app) — flights are never self-reported, so a leg only ever attaches once a real candidate
+    /// comes back from that search. When this view was opened from the forwarded-flight-email
+    /// review flow, whatever number the parser picked out of the email is shown as a hint and
+    /// pre-fills the search rather than being saved as-is.
     private var addFlightRow: some View {
+        VStack(spacing: Theme.Spacing.sm) {
+            ForEach(flightCandidates) { candidate in
+                selectedFlightRow(candidate)
+            }
+            addFlightButton
+        }
+    }
+
+    private func selectedFlightRow(_ candidate: AeroFlightCandidate) -> some View {
+        HStack(spacing: Theme.Spacing.sm) {
+            AirlineLogoView(url: candidate.logoURL, size: 28)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(candidate.displayFlightNumber)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Theme.ink)
+                if let originCity = candidate.origin?.city, let destinationCity = candidate.destination?.city {
+                    Text("\(originCity) to \(destinationCity)")
+                        .font(.caption)
+                        .foregroundStyle(Theme.subtleInk)
+                        .lineLimit(1)
+                }
+            }
+            Spacer(minLength: 0)
+            Button {
+                flightCandidates.removeAll { $0.id == candidate.id }
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundStyle(Theme.subtleInk)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Remove flight \(candidate.displayFlightNumber)")
+        }
+        .padding()
+        .themedCardBackground(cornerRadius: Theme.Radius.card)
+    }
+
+    private var addFlightButton: some View {
         Button {
             showingAddFlightFlow = true
         } label: {
             HStack(spacing: Theme.Spacing.sm) {
-                if let candidate = selectedFlightCandidate {
-                    AirlineLogoView(url: candidate.logoURL, size: 28)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(candidate.displayFlightNumber)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(Theme.ink)
-                        if let originCity = candidate.origin?.city, let destinationCity = candidate.destination?.city {
-                            Text("\(originCity) to \(destinationCity)")
-                                .font(.caption)
-                                .foregroundStyle(Theme.subtleInk)
-                                .lineLimit(1)
-                        }
-                    }
-                    Spacer(minLength: 0)
-                    Button {
-                        selectedFlightCandidate = nil
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
+                Image(systemName: "airplane")
+                    .foregroundStyle(Theme.skyBlue)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(addFlightLabel)
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(Theme.ink)
+                    if flightCandidates.isEmpty && !flightNumberHint.isEmpty {
+                        Text("From your forwarded email — tap to find and confirm")
+                            .font(.caption2)
                             .foregroundStyle(Theme.subtleInk)
                     }
-                } else {
-                    Image(systemName: "airplane")
-                        .foregroundStyle(Theme.skyBlue)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(flightNumberHint.isEmpty ? "Add a flight" : flightNumberHint)
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(Theme.ink)
-                        if !flightNumberHint.isEmpty {
-                            Text("From your forwarded email — tap to find and confirm")
-                                .font(.caption2)
-                                .foregroundStyle(Theme.subtleInk)
-                        }
-                    }
-                    Spacer(minLength: 0)
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
                 }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(Theme.subtleInk)
             }
             .padding()
             .themedCardBackground(cornerRadius: Theme.Radius.card)
         }
         .buttonStyle(.plain)
+    }
+
+    /// The hint only stands in for the first leg — once something is attached, this button is
+    /// about adding the *next* one, and repeating the parsed number there would name a flight
+    /// that's already in the list above.
+    private var addFlightLabel: String {
+        if !flightCandidates.isEmpty { return "Add another leg" }
+        return flightNumberHint.isEmpty ? "Add a flight" : flightNumberHint
     }
 
     private func save() {
@@ -212,7 +244,7 @@ struct AddTripDetailsView: View {
                 arrivalDate: returnDate,
                 traveler: traveler,
                 category: category,
-                flightCandidate: selectedFlightCandidate
+                flightCandidates: flightCandidates
             )
             isSaving = false
             // Only post-onboarding — during onboarding itself there's already a dedicated,

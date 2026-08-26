@@ -150,7 +150,7 @@ final class AppModel {
     /// to doesn't exist server-side until pairing completes. Kept here (not just as local
     /// `@State` on the view) so it survives past that screen and gets attempted once the trip
     /// is actually inserted, in `performAdopt(_:)` — previously this was silently dropped.
-    private var pendingFlightCandidates: [Trip.ID: (candidate: AeroFlightCandidate, travelerIDs: [Person.ID])] = [:]
+    private var pendingFlightCandidates: [Trip.ID: (candidates: [AeroFlightCandidate], travelerIDs: [Person.ID])] = [:]
     /// A pending memory's photos can't be uploaded until there's a real couple to namespace the
     /// storage path under — held here so they aren't silently dropped, and uploaded once paired.
     private var pendingMemoryPhotoData: [Memory.ID: [Data]] = [:]
@@ -908,6 +908,44 @@ final class AppModel {
         }
     }
 
+    #if DEBUG
+    /// How many times `refreshAll()` has been entered. Exists so a UI test can prove the
+    /// pull-to-refresh gesture is actually wired up, which cannot be done by looking for the
+    /// spinner: XCUITest quiesces the app before every accessibility query, so a refresh that
+    /// completes in under a second has always finished (and its control disappeared) by the time
+    /// any query can observe it. A counter survives that; a transient view does not.
+    /// See `PullToRefreshUITests`. DEBUG-only, so it can't exist in a shipped build.
+    var refreshAllCount = 0
+    #endif
+
+    /// Everything a pull-to-refresh should pull. Every tab shares this rather than each one
+    /// re-listing the subset it happens to display: what a person means by pulling down is "get
+    /// me current", and being told that only Travel refreshes trips is not a distinction worth
+    /// making them learn. It's user-initiated and infrequent, so the extra breadth is affordable
+    /// in a way the automatic on-appear refreshes aren't.
+    ///
+    /// Unconditional by design — the `…IfNeeded` variants exist to keep automatic refreshes cheap,
+    /// and reusing them here would make the gesture do nothing precisely when someone reaches for
+    /// it because the screen looks stale.
+    func refreshAll() async {
+        #if DEBUG
+        refreshAllCount += 1
+        #endif
+        // The only "…IfNeeded" that stays: its guard is `hasCouple`, not a staleness check, so
+        // it already re-fetches every time it's called.
+        async let coupleState: Void = refreshCoupleStateIfNeeded()
+        async let trips: Void = refreshTrips()
+        async let flights: Void = refreshFlights()
+        async let memories: Void = refreshMemories()
+        async let decks: Void = refreshGameDecks()
+        async let streak: Void = refreshDailyStreak()
+        async let pads: Void = loadDrawingPads()
+        _ = await (coupleState, trips, flights, memories, decks, streak, pads)
+        if needsPartnerInvite {
+            await refreshPendingConnectionRequests()
+        }
+    }
+
     /// Populates `gameDecks`/`deckProgress` once per app session (cheap to recheck — both are
     /// simple nil-guards) for the Games hub's topic list and progress bars.
     func loadGameDecksIfNeeded() async {
@@ -1094,9 +1132,22 @@ final class AppModel {
         // still pending, since `AeroFlightService.addFlight`'s trip FK would just reject it.
         var didAttachPendingFlight = false
         for (tripID, pending) in pendingFlightCandidates where !stillPendingTrips.contains(tripID) {
-            if (try? await AeroFlightService.addFlight(candidate: pending.candidate, tripID: tripID, travelerIDs: pending.travelerIDs, notifyMe: true)) != nil {
+            // Per-leg, so a multi-leg itinerary where one leg's add fails still attaches the rest
+            // and only re-queues what didn't land. Dropping the whole trip's flights over a single
+            // failed leg would be a worse outcome than a partially-attached itinerary the next
+            // adopt finishes off.
+            var unattached: [AeroFlightCandidate] = []
+            for candidate in pending.candidates {
+                if (try? await AeroFlightService.addFlight(candidate: candidate, tripID: tripID, travelerIDs: pending.travelerIDs, notifyMe: true)) != nil {
+                    didAttachPendingFlight = true
+                } else {
+                    unattached.append(candidate)
+                }
+            }
+            if unattached.isEmpty {
                 pendingFlightCandidates.removeValue(forKey: tripID)
-                didAttachPendingFlight = true
+            } else {
+                pendingFlightCandidates[tripID] = (unattached, pending.travelerIDs)
             }
         }
         if didAttachPendingFlight {
@@ -1265,7 +1316,12 @@ final class AppModel {
     /// in `pendingFlightCandidates`, so `performAdopt(_:)` can attach it once the trip is
     /// actually inserted — previously it was just silently dropped.
     @discardableResult
-    func addTrip(origin: Place, destination: Place, departureDate: Date, arrivalDate: Date, traveler: TripTraveler, category: TripCategory, flightCandidate: AeroFlightCandidate? = nil) async -> Trip {
+    /// `flightCandidates` is a list because a trip's itinerary genuinely is one — a connecting
+    /// journey is two or more separately-tracked flights, and `Trip.flights` has always modelled
+    /// that. Only trip *creation* accepted a single flight; `TripDetailsView`'s "Link another leg"
+    /// could add the rest afterwards, which made attaching a second leg a thing you had to know to
+    /// go back and do. Legs attach independently — one failing doesn't discard the others.
+    func addTrip(origin: Place, destination: Place, departureDate: Date, arrivalDate: Date, traveler: TripTraveler, category: TripCategory, flightCandidates: [AeroFlightCandidate] = []) async -> Trip {
         let travelerIDs: [Person.ID] = {
             switch traveler {
             case .you: return [currentUser.id]
@@ -1296,25 +1352,29 @@ final class AppModel {
                 // still gets persisted as a pending flight — add-flight accepts it without one and
                 // refresh-due-flights' cron backfills a real faFlightId (and starts live tracking)
                 // automatically once AeroAPI assigns this flight one.
-                if let flightCandidate {
-                    if (try? await AeroFlightService.addFlight(candidate: flightCandidate, tripID: trip.id, travelerIDs: travelerIDs, notifyMe: true)) != nil {
-                        await refreshFlights()
+                var attached = false
+                var unattached: [AeroFlightCandidate] = []
+                for candidate in flightCandidates {
+                    if (try? await AeroFlightService.addFlight(candidate: candidate, tripID: trip.id, travelerIDs: travelerIDs, notifyMe: true)) != nil {
+                        attached = true
                     } else {
-                        pendingFlightCandidates[trip.id] = (flightCandidate, travelerIDs)
+                        unattached.append(candidate)
                     }
                 }
+                if attached { await refreshFlights() }
+                if !unattached.isEmpty { pendingFlightCandidates[trip.id] = (unattached, travelerIDs) }
             } catch {
                 pendingTripIDs.insert(trip.id)
                 PendingTripStore.save(trip)
-                if let flightCandidate {
-                    pendingFlightCandidates[trip.id] = (flightCandidate, travelerIDs)
+                if !flightCandidates.isEmpty {
+                    pendingFlightCandidates[trip.id] = (flightCandidates, travelerIDs)
                 }
             }
         } else {
             pendingTripIDs.insert(trip.id)
             PendingTripStore.save(trip)
-            if let flightCandidate {
-                pendingFlightCandidates[trip.id] = (flightCandidate, travelerIDs)
+            if !flightCandidates.isEmpty {
+                pendingFlightCandidates[trip.id] = (flightCandidates, travelerIDs)
             }
         }
 
