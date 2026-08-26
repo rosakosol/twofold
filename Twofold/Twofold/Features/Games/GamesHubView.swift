@@ -77,6 +77,7 @@ struct GamesHubView: View {
                 PartnerRequiredGateView()
             }
             .task { await appModel.loadGameDecksIfNeeded() }
+            .refreshable { await appModel.refreshAll() }
         }
     }
 

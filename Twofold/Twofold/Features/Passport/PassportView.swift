@@ -76,6 +76,7 @@ struct PassportView: View {
                 .padding(Theme.Spacing.md)
             }
             .background(Theme.backgroundGradient.ignoresSafeArea())
+            .refreshable { await appModel.refreshAll() }
             .navigationTitle("Stats")
             .sheet(isPresented: $showingSnapshot) {
                 RelationshipStatsShareView(couple: appModel.couple, stats: relationshipStats)

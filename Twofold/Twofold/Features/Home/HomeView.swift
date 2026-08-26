@@ -137,6 +137,7 @@ struct HomeView: View {
             .sheet(item: $reviewingShare, onDismiss: refreshPendingShares) { share in
                 PendingFlightShareReviewView(share: share)
             }
+            .refreshable { await pullToRefresh() }
             .onAppear {
                 refreshPendingShares()
                 Task { await appModel.refreshCoupleStateIfNeeded() }
@@ -299,28 +300,41 @@ struct HomeView: View {
     /// failed fetch does NOT mark the city as fetched, so a transient/auth error gets retried on
     /// the next foreground instead of leaving the card permanently blank. Fetches the partner's
     /// and the user's own city in parallel — the card shows both now, one per time line.
-    private func refreshWeatherIfNeeded() async {
-        async let partner: Void = refreshPartnerWeatherIfNeeded()
-        async let mine: Void = refreshMyWeatherIfNeeded()
+    /// `force` is what a pull-to-refresh passes: the same-city guard below is there to keep the
+    /// *automatic* refreshes cheap, and honouring it when someone has deliberately pulled the
+    /// screen down would make the gesture a no-op on the one card most likely to look stale.
+    private func refreshWeatherIfNeeded(force: Bool = false) async {
+        async let partner: Void = refreshPartnerWeatherIfNeeded(force: force)
+        async let mine: Void = refreshMyWeatherIfNeeded(force: force)
         _ = await (partner, mine)
     }
 
-    private func refreshPartnerWeatherIfNeeded() async {
+    private func refreshPartnerWeatherIfNeeded(force: Bool = false) async {
         guard let city = appModel.partner.homeCity else { return }
-        guard weatherFetchedForCityID != city.id else { return }
+        guard force || weatherFetchedForCityID != city.id else { return }
         if let reading = await TwofoldWeatherService.currentWeather(for: city) {
             weatherReading = reading
             weatherFetchedForCityID = city.id
         }
     }
 
-    private func refreshMyWeatherIfNeeded() async {
+    private func refreshMyWeatherIfNeeded(force: Bool = false) async {
         guard let city = appModel.currentUser.homeCity else { return }
-        guard myWeatherFetchedForCityID != city.id else { return }
+        guard force || myWeatherFetchedForCityID != city.id else { return }
         if let reading = await TwofoldWeatherService.currentWeather(for: city) {
             myWeatherReading = reading
             myWeatherFetchedForCityID = city.id
         }
+    }
+
+    /// Everything `onAppear` does, minus the staleness guards, run as one awaited unit so the
+    /// spinner stays up until the screen is actually current rather than snapping back while the
+    /// fetches are still in flight.
+    private func pullToRefresh() async {
+        refreshPendingShares()
+        async let everything: Void = appModel.refreshAll()
+        async let weather: Void = refreshWeatherIfNeeded(force: true)
+        _ = await (everything, weather)
     }
     
     enum ChecklistIcon {

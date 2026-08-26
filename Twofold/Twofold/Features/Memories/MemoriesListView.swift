@@ -102,7 +102,14 @@ struct MemoriesListView: View {
             // right there. `yearFilter == nil` keeps a genuinely-filtered-to-zero year (memories
             // exist, just not that year) reading as `noMatchState`, not this big CTA.
             if filteredMemories.isEmpty && yearFilter == nil {
-                emptyState
+                // Wrapped in a scroll view purely so it can be pulled on. An empty Memories tab is
+                // exactly when someone reaches for a refresh — their partner just added the first
+                // one — and the bare empty state had nothing to pull, so the gesture that works on
+                // every other screen silently did nothing here.
+                ScrollView {
+                    emptyState
+                }
+                .refreshable { await appModel.refreshAll() }
             } else {
                 VStack(spacing: 0) {
                     // Only the tab-mode full list offers location/year filters — the map-pin
@@ -138,6 +145,7 @@ struct MemoriesListView: View {
                         }
                         .listStyle(.plain)
                         .scrollContentBackground(.hidden)
+                        .refreshable { await appModel.refreshAll() }
                         .environment(\.defaultMinListRowHeight, 0)
                         .safeAreaPadding(.bottom, 64)
                         .overlay(alignment: .trailing) {

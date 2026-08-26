@@ -16,6 +16,10 @@ struct MainTabView: View {
     /// the preview below) is unaffected.
     @Binding var selection: MainTab
 
+    #if DEBUG
+    @Environment(AppModel.self) private var appModel
+    #endif
+
     init(selection: Binding<MainTab> = .constant(.home)) {
         _selection = selection
         Self.configureTabBarAppearance()
@@ -45,6 +49,19 @@ struct MainTabView: View {
             }
         }
         .tint(Theme.skyBlue)
+        #if DEBUG
+        // A 1pt, invisible carrier for `refreshAllCount` — see its doc comment for why the test
+        // reads a counter rather than looking for the refresh spinner. Sits here rather than in
+        // any one tab so the same probe covers all of them.
+        .overlay(alignment: .topLeading) {
+            Color.clear
+                .frame(width: 1, height: 1)
+                .allowsHitTesting(false)
+                .accessibilityElement()
+                .accessibilityIdentifier("refreshAllCount")
+                .accessibilityValue("\(appModel.refreshAllCount)")
+        }
+        #endif
     }
 
     /// Applied once via `UITabBar.appearance()` — SwiftUI's `TabView` has no direct modifier for
