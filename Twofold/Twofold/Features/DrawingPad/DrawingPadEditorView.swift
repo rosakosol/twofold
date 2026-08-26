@@ -13,7 +13,12 @@ struct DrawingPadEditorView: View {
     @State private var elements: [DrawingElement] = []
     @State private var redoStack: [DrawingElement] = []
     @State private var tool: DrawingTool = .pen
-    @State private var penColor: Color = Theme.ink
+    /// The palette's own black, not `Theme.ink` — see `penColorPalette` for why the pad can't use
+    /// appearance-adaptive colours. Starting on `Theme.ink` meant a dark-mode user's very first
+    /// stroke was near-white on a white canvas, i.e. invisible until they picked a colour.
+    /// Referencing the palette entry rather than repeating the literal also keeps the menu's
+    /// selected-checkmark (`penColor == swatch.color`) true on open.
+    @State private var penColor: Color = DrawingPadEditorView.defaultPenColor
     @State private var canvasSize: CGSize = CGSize(width: 600, height: 600)
     @State private var isSaving = false
     @State private var backgroundImage: UIImage?
@@ -22,16 +27,32 @@ struct DrawingPadEditorView: View {
     /// A fixed swatch set rather than the system ColorPicker's full spectrum+sliders UI — lets
     /// picking a color be a single tap that auto-closes the menu (ColorPicker's own popover has
     /// no API to dismiss itself on selection, since it supports multi-step interactions).
+    ///
+    /// Spectrum order top to bottom, then the neutrals: cream, brown, black, white. Reading down
+    /// the menu now follows the rainbow instead of the arbitrary order these were added in.
+    ///
+    /// Literal hex values, deliberately not `Theme.*` tokens. The canvas is `.background(.white)`
+    /// in both appearances (see `DrawingCanvasView`) and what gets saved is a PNG, so ink has to be
+    /// a fixed colour. The theme tokens are appearance-adaptive: "Black" was `Theme.ink`, which is
+    /// `#F3F7FA` in dark mode — near-white ink on a permanently white canvas, i.e. invisible. Red,
+    /// blue and green were washing out the same way.
     private static let penColorPalette: [(name: String, color: Color)] = [
-        ("Black", Theme.ink),
-        ("Red", Theme.heartRed),
-        ("Blue", Theme.skyBlue),
-        ("Green", Theme.leafGreen),
-        ("Orange", .orange),
-        ("Purple", .purple),
-        ("Pink", .pink),
-        ("Brown", .brown),
+        ("Red", Color(hex: "E5322D")),
+        ("Orange", Color(hex: "F07C1F")),
+        ("Yellow", Color(hex: "F2B705")),
+        ("Green", Color(hex: "2FA84F")),
+        ("Blue", Color(hex: "2F6FE0")),
+        ("Indigo", Color(hex: "4436B8")),
+        ("Violet", Color(hex: "8B3FC7")),
+        ("Pink", Color(hex: "E0489A")),
+        ("Cream", Color(hex: "F0E2C0")),
+        ("Brown", Color(hex: "8A5A2B")),
+        ("Black", defaultPenColor),
+        ("White", Color(hex: "FFFFFF")),
     ]
+
+    /// Black — what the pad opens on.
+    private static let defaultPenColor = Color(hex: "1A1A1A")
 
     var body: some View {
         NavigationStack {
@@ -134,6 +155,11 @@ struct DrawingPadEditorView: View {
                     .frame(width: 44, height: 44)
                     .background(Theme.cardBackground, in: Circle())
             }
+            // Without this the spectrum comes out upside down. A menu defaults to `.priority`
+            // order, which puts the first declared item nearest the button — and this button is in
+            // the bottom toolbar, so the menu opens upward and renders the list bottom-to-top.
+            // `.fixed` shows it in declared order whichever way the menu happens to open.
+            .menuOrder(.fixed)
             .accessibilityLabel("Pen color")
             .accessibilityValue(Self.penColorPalette.first { $0.color == penColor }?.name ?? "Custom")
         }
