@@ -162,6 +162,7 @@
     font-weight: 600; color: var(--critical); margin-left: .45rem;
     vertical-align: 1px;
   }
+  .flag.ok { color: var(--done); }
 
   .readonly-banner {
     display: none; background: color-mix(in srgb, var(--warn) 12%, var(--surface));
@@ -213,16 +214,16 @@
       id: "blockers",
       title: "Likely rejection triggers",
       chip: "blocker", chipLabel: "Do first",
-      note: "Found by inspecting the project. Each of these is a documented App Review rejection cause, and each is live in the current build.",
+      note: "Found by inspecting the project. Items marked \u201cIn code\u201d are already handled \u2014 confirm them on device rather than re-deriving them. The rest are still open.",
       items: [
-        { id: "ipad", t: "Decide iPad: support it properly or drop it",
-          w: "<code>TARGETED_DEVICE_FAMILY = \"1,2\"</code> — the build claims iPad, so Review <em>will</em> test on iPad. Every screen you've designed is iPhone-shaped. Either test all of them on an iPad or set the family to <code>1</code>.", flag: true },
-        { id: "weatherkit", t: "Add Apple Weather attribution",
-          w: "WeatherKit requires the Apple Weather trademark plus a link to its legal attribution anywhere its data appears — the Home time card and the widgets both show a temperature. I found no attribution anywhere in the project.", flag: true },
+        { id: "ipad", t: "iPhone-only — no iPad screenshots needed",
+          w: "<code>TARGETED_DEVICE_FAMILY</code> is now <code>1</code> across all targets, so Review won't test on iPad. Just confirm App Store Connect isn't still expecting iPad screenshots.", pre: true },
+        { id: "weatherkit", t: "Apple Weather attribution present on both surfaces",
+          w: "The Home time card shows the mark linked to Apple's legal page; the Time &amp; Weather widget carries the mark alone. Verify the link opens, and that the mark still shows once real weather loads on device.", pre: true },
         { id: "demoaccount", t: "Give Review a pre-paired demo couple",
           w: "Almost nothing in Twofold works solo — games, streaks, the globe, distance, reunions all need a partner. A reviewer signing up fresh sees an empty shell and rejects for broken functionality. Supply credentials for an account that is <em>already paired</em>, with trips, flights and completed games in it.", flag: true },
-        { id: "landscape", t: "Test landscape on iPhone, or turn it off",
-          w: "<code>UISupportedInterfaceOrientations_iPhone</code> includes both landscape orientations. Landscape broke measurements repeatedly during testing. If you haven't designed for it, restrict to portrait." },
+        { id: "landscape", t: "Portrait-only — rotation is refused",
+          w: "Verified by forcing landscape in a UI test: the device rotates, the app frame stays 402&times;874. Worth one manual rotate on device to be certain.", pre: true },
         { id: "iosversion", t: "State the iOS 26.0 minimum in App Review Notes",
           w: "A reviewer on an older device can't install it at all. Say so explicitly in the notes so it isn't read as a broken build." },
         { id: "agerating", t: "Set an age rating that matches the Edgy Questions decks",
@@ -378,7 +379,8 @@
           '<input type="checkbox"' + (on ? " checked" : "") + (canPublish ? "" : " disabled") +
           ' aria-describedby="why-' + it.id + '">' +
           '<div><p class="title">' + esc(it.t) +
-          (it.flag ? '<span class="flag">Blocker</span>' : "") + "</p>" +
+          (it.flag ? '<span class="flag">Blocker</span>' : "") +
+          (it.pre ? '<span class="flag ok">In code</span>' : "") + "</p>" +
           (it.w ? '<p class="why" id="why-' + it.id + '">' + it.w + "</p>" : "") +
           "</div></label></li>";
       }).join("");

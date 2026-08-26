@@ -15,6 +15,11 @@
 import SwiftUI
 
 struct WeatherAttributionView: View {
+    /// Defaults to page-ground ink. On the time card, which is a dark gradient with white content,
+    /// the caller passes a near-white — 0.9 is the floor there: measured against the card's worst
+    /// (midday) background it gives 4.51:1, and 0.85 drops to 4.21:1.
+    var tint: Color = Theme.subtleInk
+
     @State private var legalURL: URL?
 
     var body: some View {
@@ -38,7 +43,7 @@ struct WeatherAttributionView: View {
     private var label: some View {
         Text(appleWeatherMark)
             .font(.caption2)
-            .foregroundStyle(Theme.subtleInk)
+            .foregroundStyle(tint)
     }
 }
 

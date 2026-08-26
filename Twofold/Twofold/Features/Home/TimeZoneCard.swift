@@ -85,6 +85,16 @@ struct TimeZoneCard: View {
         .foregroundStyle(.white)
         .padding(Theme.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
+        // Tucked into the card's own bottom corner rather than given a row of its own beneath it —
+        // it's a required legal mark, not content, and it only appears when there's actually a
+        // reading on screen to attribute.
+        .overlay(alignment: .bottomTrailing) {
+            if weather != nil || myWeather != nil {
+                WeatherAttributionView(tint: .white.opacity(0.9))
+                    .padding(.horizontal, Theme.Spacing.md)
+                    .padding(.bottom, 6)
+            }
+        }
         .background {
             ZStack {
                 LinearGradient(
