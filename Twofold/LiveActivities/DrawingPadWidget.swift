@@ -91,7 +91,12 @@ struct DrawingPadWidgetView: View {
         }
         .widgetBranded()
         .widgetLock(requiredTier: WidgetTier.premium, currentTier: entry.subscriptionTier)
-        .widgetURL(URL(string: isLocked ? "twofold://paywall" : "twofold://drawing-pad"))
+        // Small shows only the partner's drawing, so it opens the partner's drawing — tapping it
+        // to be handed your own blank canvas is the same mismatch the "<partner> saved a new
+        // drawing" push had. Medium shows both pads, where your own editor is the useful landing.
+        .widgetURL(URL(string: isLocked
+            ? "twofold://paywall"
+            : family == .systemMedium ? "twofold://drawing-pad" : "twofold://partner-drawing-pad"))
     }
 
     // MARK: - Small: partner's drawing only

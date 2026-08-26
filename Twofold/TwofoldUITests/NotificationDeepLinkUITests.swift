@@ -70,6 +70,36 @@ final class NotificationDeepLinkUITests: XCTestCase {
         )
     }
 
+    /// The other half of the same event. "<partner> saved a new drawing" is a notification about
+    /// *their* pad, and used to open your own blank editor — it named a thing and then showed you
+    /// something else. Distinguished by the title, which is the only thing separating the two
+    /// screens once either is up.
+    @MainActor
+    func testPartnerDrawingNotificationOpensTheirPadNotYours() throws {
+        let app = try launch(route: "partner_drawing_pad")
+
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "deeplink-partner-drawing-pad"
+        shot.lifetime = .keepAlways
+        add(shot)
+
+        let home = app.buttons["Home"]
+        XCTAssertFalse(
+            home.exists && home.isHittable,
+            "A partner_drawing_pad notification should have opened a pad over the tab bar."
+        )
+        // "<Name>'s pad", never "Your pad" — DrawingPadFullScreenView vs DrawingPadEditorView.
+        XCTAssertFalse(
+            app.staticTexts["Your pad"].exists,
+            "A partner's drawing notification opened your own editor instead of their pad."
+        )
+        let theirPad = app.staticTexts.matching(NSPredicate(format: "label ENDSWITH %@", "'s pad")).firstMatch
+        XCTAssertTrue(
+            theirPad.waitForExistence(timeout: 10),
+            "Expected the partner's read-only pad, titled \"<Name>'s pad\"."
+        )
+    }
+
     /// Nothing to route on must leave the app exactly where it would otherwise have opened — a
     /// plain notification shouldn't yank anyone anywhere.
     @MainActor

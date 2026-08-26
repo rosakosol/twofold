@@ -23,7 +23,11 @@ enum NotificationRoute: Hashable {
     /// session, so the app resolves it on arrival instead.
     case dailyQuestion
     case flight(UUID)
+    /// Your own pad, in the editor — reached from the "your new drawing was saved" confirmation.
     case drawingPad
+    /// Your partner's pad, read-only — reached from "<partner> saved a new drawing", which is a
+    /// notification about *their* drawing and so has no business opening your blank canvas.
+    case partnerDrawingPad
     /// "Your partner still hasn't joined" — lands on the invite flow rather than the app's root.
     case invitePartner
 
@@ -51,6 +55,10 @@ enum NotificationRoute: Hashable {
         switch userInfo["route"] as? String {
         case "daily_question": self = .dailyQuestion
         case "drawing_pad": self = .drawingPad
+        // Notifications sent before this value existed say `drawing_pad` for both directions, so
+        // one already sitting in Notification Center still opens the editor. Only affects pushes
+        // that predate this build.
+        case "partner_drawing_pad": self = .partnerDrawingPad
         case "invite_partner": self = .invitePartner
         default: return nil
         }

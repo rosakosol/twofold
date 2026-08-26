@@ -53,10 +53,30 @@ struct NotificationRouteTests {
         #expect(NotificationRoute(userInfo: userInfo(["route": "invite_partner"])) == .invitePartner)
     }
 
-    /// `notify-couple-event`'s drawing_saved branch — a fixed destination, so it carries a route
-    /// rather than an id.
-    @Test func drawingPushOpensTheDrawingPad() {
+    /// `notify-couple-event`'s drawing_saved *self* branch — "your new drawing was saved", which
+    /// is about your own pad, so it opens the editor.
+    @Test func ownDrawingConfirmationOpensYourEditor() {
         #expect(NotificationRoute(userInfo: userInfo(["route": "drawing_pad"])) == .drawingPad)
+    }
+
+    /// The partner branch of the same event. Both used to send `drawing_pad`, so tapping
+    /// "<partner> saved a new drawing" opened your own blank canvas instead of the drawing you had
+    /// just been told about — the notification named a thing and then didn't show it to you.
+    @Test func partnerDrawingPushOpensTheirPad() {
+        #expect(NotificationRoute(userInfo: userInfo(["route": "partner_drawing_pad"])) == .partnerDrawingPad)
+    }
+
+    /// The two are genuinely different destinations, not aliases — this is the whole fix.
+    @Test func theTwoDrawingRoutesAreNotTheSame() {
+        #expect(NotificationRoute(userInfo: userInfo(["route": "drawing_pad"]))
+            != NotificationRoute(userInfo: userInfo(["route": "partner_drawing_pad"])))
+    }
+
+    /// The widget's own URLs land on the same pair, so a tap on the small Drawing Pad widget —
+    /// which shows only the partner's drawing — opens the partner's drawing too.
+    @Test func widgetDrawingURLsMatchTheirNotificationRoutes() {
+        #expect(WidgetDeepLink.destination(for: URL(string: "twofold://drawing-pad")!) == .drawingPad)
+        #expect(WidgetDeepLink.destination(for: URL(string: "twofold://partner-drawing-pad")!) == .partnerDrawingPad)
     }
 
     // MARK: - Nothing to route on

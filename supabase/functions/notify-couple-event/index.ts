@@ -201,7 +201,11 @@ Deno.serve(async (req) => {
     const data = input.sessionId
       ? { sessionId: input.sessionId, gameType: input.gameType, eventType: input.eventType }
       : input.eventType === "drawing_saved"
-      ? { route: "drawing_pad", eventType: input.eventType }
+      // Not the same destination as the self-notification above, though the event type is
+      // identical. That one says "your new drawing was saved" and belongs in your own editor;
+      // this one says "<partner> saved a new drawing", and tapping it to be shown your own
+      // canvas instead of the drawing you were just told about is the whole reason it exists.
+      ? { route: "partner_drawing_pad", eventType: input.eventType }
       : undefined;
     for (const token of tokens) {
       await sendAPNs(token.apns_token, token.environment, title, body, data);

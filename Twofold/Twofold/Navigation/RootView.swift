@@ -132,7 +132,7 @@ struct RootView: View {
             switch destination {
             case .paywall:
                 showingPaywallFromWidget = true
-            case .flight, .memory, .drawingPad:
+            case .flight, .memory, .drawingPad, .partnerDrawingPad:
                 if appModel.isSubscriptionActive {
                     recordDeepLink = destination
                 }
@@ -262,6 +262,8 @@ struct RootView: View {
             recordDeepLink = .flight(id)
         case .drawingPad:
             recordDeepLink = .drawingPad
+        case .partnerDrawingPad:
+            recordDeepLink = .partnerDrawingPad
         case .invitePartner:
             selectedTab = .home
         }
@@ -269,11 +271,12 @@ struct RootView: View {
         router.pending = nil
     }
 
-    /// Only ever called for the three cases actually assigned to `recordDeepLink`
-    /// (.flight/.memory/.drawingPad) — the tab/paywall cases route elsewhere in `.onOpenURL`.
+    /// Only ever called for the four cases actually assigned to `recordDeepLink`
+    /// (.flight/.memory/.drawingPad/.partnerDrawingPad) — the tab/paywall cases route elsewhere
+    /// in `.onOpenURL`.
     ///
-    /// `.flight`/`.memory` get an explicit Close button here; `.drawingPad` doesn't need one
-    /// since `DrawingPadEditorView` already has its own. Both `FlightTrackingView` and
+    /// `.flight`/`.memory` get an explicit Close button here; the two drawing-pad cases don't
+    /// need one, since `DrawingPadEditorView` and `DrawingPadFullScreenView` each have their own. Both `FlightTrackingView` and
     /// `MemoryDetailView` are normally reached by pushing onto an existing `NavigationStack`
     /// (Home's flight card, the Memories list), where the system supplies a back chevron
     /// automatically — but here they're the *root* of a brand-new `NavigationStack` inside a
@@ -311,6 +314,13 @@ struct RootView: View {
             }
         case .drawingPad:
             DrawingPadEditorView()
+        case .partnerDrawingPad:
+            // The URL is loaded lazily by `DrawingPadCard`, which may never have been on screen
+            // — arriving here straight from a notification tap on a cold launch is the normal
+            // case, not the edge one. `DrawingPadFullScreenView` shows its own empty state while
+            // this resolves, so it opens immediately and fills in rather than gating on a load.
+            DrawingPadFullScreenView(title: appModel.partner.name, url: appModel.partnerDrawingURL)
+                .task { await appModel.loadDrawingPads() }
         case .paywall, .home, .memories, .passport:
             EmptyView()
         }

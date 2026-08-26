@@ -18,6 +18,9 @@ enum WidgetDeepLink {
         case flight(UUID)
         case memory(UUID)
         case drawingPad
+        /// Read-only view of the partner's pad. Where the small Drawing Pad widget — which shows
+        /// only their drawing — and the "<partner> saved a new drawing" push both land.
+        case partnerDrawingPad
         case home
         case memories
         case passport
@@ -33,6 +36,7 @@ enum WidgetDeepLink {
         case "flight": return id.map(Destination.flight)
         case "memory": return id.map(Destination.memory)
         case "drawing-pad": return .drawingPad
+        case "partner-drawing-pad": return .partnerDrawingPad
         case "home": return .home
         case "memories": return .memories
         case "passport": return .passport
