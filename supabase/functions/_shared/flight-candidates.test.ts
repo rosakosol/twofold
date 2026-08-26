@@ -140,6 +140,71 @@ Deno.test("the marketing designator survives the collapse", () => {
   assertEquals(merged[0].isCodeshare, true);
 });
 
+// The reported case, from the live response: searching SQ208 for tomorrow returned seven rows —
+// one Melbourne–Singapore departure listed once per codeshare partner, all sharing AeroAPI's
+// fa_flight_id "SIA208-1787640565-airline-337p". Only the searched row has a null marketingIdent;
+// the rest carry "SQ208" as the number to display, so all seven rendered identically.
+Deno.test("collapses one movement listed once per codeshare partner", () => {
+  const movement = "SIA208-1787640565-airline-337p";
+  const merged = mergeCandidates([
+    candidate({ faFlightId: movement, identIata: "SQ208", operatorIata: "SQ", operatorName: "Singapore Airlines", marketingIdent: null }),
+    candidate({ faFlightId: movement, identIata: "AI8201", operatorIata: "AI", operatorName: "Air India", marketingIdent: "SQ208" }),
+    candidate({ faFlightId: movement, identIata: "SK8066", operatorIata: "SK", operatorName: "SAS", marketingIdent: "SQ208" }),
+    candidate({ faFlightId: movement, identIata: "LH9761", operatorIata: "LH", operatorName: "Lufthansa", marketingIdent: "SQ208" }),
+    candidate({ faFlightId: movement, identIata: "TK9303", operatorIata: "TK", operatorName: "Turkish Airlines", marketingIdent: "SQ208" }),
+    candidate({ faFlightId: movement, identIata: "VA5508", operatorIata: "VA", operatorName: "Virgin Australia", marketingIdent: "SQ208" }),
+    candidate({ faFlightId: movement, identIata: "ET1302", operatorIata: "ET", operatorName: "Ethiopian Airlines", marketingIdent: "SQ208" }),
+  ], []);
+  assertEquals(merged.length, 1);
+  // Not just any survivor: the row the traveller searched for, so the card shows their airline.
+  assertEquals(merged[0].identIata, "SQ208");
+  assertEquals(merged[0].operatorName, "Singapore Airlines");
+});
+
+// Ordering must not decide it — AeroAPI has no obligation to list the operating row first.
+Deno.test("the searched designator wins its movement whatever order it arrives in", () => {
+  const merged = mergeCandidates([
+    candidate({ faFlightId: "FA1", identIata: "ET1302", operatorIata: "ET", marketingIdent: "SQ208" }),
+    candidate({ faFlightId: "FA1", identIata: "SQ208", operatorIata: "SQ", marketingIdent: null }),
+  ], []);
+  assertEquals(merged.length, 1);
+  assertEquals(merged[0].identIata, "SQ208");
+});
+
+// When the search was itself a codeshare number, no row matches it and every marketingIdent is
+// set — the collapse still has to happen, it just has no preference to express.
+Deno.test("collapses a movement where no row carries the searched designator", () => {
+  const merged = mergeCandidates([
+    candidate({ faFlightId: "FA1", identIata: "CA104", marketingIdent: "CX6104", isCodeshare: true }),
+    candidate({ faFlightId: "FA1", identIata: "MU7602", marketingIdent: "CX6104", isCodeshare: true }),
+  ], []);
+  assertEquals(merged.length, 1);
+  assertEquals(merged[0].marketingIdent, "CX6104");
+});
+
+// Codeshare collapse must not reach across movements: two departures of the same service on one
+// day are different flights, however many partners each is marketed by.
+Deno.test("keeps separate movements that each carry codeshares", () => {
+  const merged = mergeCandidates([
+    candidate({ faFlightId: "FA-morning", identIata: "SQ208", scheduledOut: "2026-08-27T08:25:00Z", marketingIdent: null }),
+    candidate({ faFlightId: "FA-morning", identIata: "ET1302", scheduledOut: "2026-08-27T08:25:00Z", marketingIdent: "SQ208" }),
+    candidate({ faFlightId: "FA-evening", identIata: "SQ208", scheduledOut: "2026-08-27T20:10:00Z", marketingIdent: null }),
+    candidate({ faFlightId: "FA-evening", identIata: "ET1302", scheduledOut: "2026-08-27T20:10:00Z", marketingIdent: "SQ208" }),
+  ], []);
+  assertEquals(merged.length, 2);
+  assertEquals(merged.map((c) => c.scheduledOut), ["2026-08-27T08:25:00Z", "2026-08-27T20:10:00Z"]);
+});
+
+// A schedule-sourced row has no fa_flight_id to group on, so the movement pass must let it
+// through untouched rather than treating "no id" as an id of its own.
+Deno.test("untrackable rows survive the movement pass", () => {
+  const merged = mergeCandidates([], [
+    candidate({ faFlightId: null, isTrackable: false, identIata: "SQ208", scheduledOut: "2026-11-02T08:25:00Z" }),
+    candidate({ faFlightId: null, isTrackable: false, identIata: "SQ212", scheduledOut: "2026-11-02T20:10:00Z" }),
+  ]);
+  assertEquals(merged.length, 2);
+});
+
 Deno.test("empty in, empty out", () => {
   assertEquals(mergeCandidates([], []).length, 0);
 });

@@ -538,7 +538,11 @@ Deno.serve(async (req) => {
       // and `Array.map` would hand it the element *index* — truthy from 1 onward, which would
       // mark every result after the first as a codeshare. Route mode has no searched designator
       // anyway, so it deliberately passes none.
-      candidates = flights.map((f) => fromLiveFlight(f));
+      // Deduped for the same reason number mode is: AeroAPI lists one aircraft movement once per
+      // marketing designator, so a route search returns the codeshare partners of every departure
+      // alongside it. Nothing to merge in here — the second argument is the merge's other source,
+      // and route mode only has the one — but the collapse is the same collapse.
+      candidates = mergeCandidates(flights.map((f) => fromLiveFlight(f)), []);
       console.log(
         `[resolve-flight] route ${input.originIata}->${input.destinationIata} on ${input.date}: ` +
           `aeroapi returned ${results.length} total, ${candidates.length} after same-day filter. ` +
