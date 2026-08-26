@@ -217,7 +217,12 @@ struct GameResultsShareCard: View {
     /// tailed chat bubble per side, unlike `messageBubble`'s plain rounded rectangle above) is
     /// meant to be the whole visual, not one element inside a bigger composed card.
     private var speechBubbleBody: some View {
-        let palette = palette(.sky)
+        // Leaf, not sky. `namesAndAnswer` above already owns sky, and these two are offered
+        // together every time — they're the whole set for a Deep Conversations deck, and two of
+        // the three for the Daily Question. Sharing an accent meant swiping between them changed
+        // only the arrangement of the text on an identical canvas, which reads as the same card
+        // twice rather than a choice. Every accent is now used exactly once per game.
+        let palette = palette(.leaf)
         return VStack(spacing: Theme.Spacing.lg) {
             TwofoldBrandMark(color: palette.foreground, size: 20, textStyle: .subheadline)
 
