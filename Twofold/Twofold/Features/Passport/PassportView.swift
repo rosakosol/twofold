@@ -103,8 +103,24 @@ private struct FullStatsView: View {
         case all, user, partner
     }
 
+    /// Which slice of time the numbers cover. Deliberately not an enum of fixed ranges ("last 12
+    /// months" and so on) — a travel year is the unit people actually think in, and the list is
+    /// built from the years the couple has actually flown rather than a calendar.
+    private enum StatPeriod: Hashable {
+        case allTime
+        case year(Int)
+
+        var label: String {
+            switch self {
+            case .allTime: "All time"
+            case .year(let year): String(year)
+            }
+        }
+    }
+
     @Environment(AppModel.self) private var appModel
     @State private var scope: StatScope = .all
+    @State private var period: StatPeriod = .allTime
     @State private var showAllCountries = false
     /// Set by a section's share button (see `shareableCard`) to open that section's own
     /// full-screen preview — the same "see the card before you send it" flow `PassportShareView`
@@ -115,11 +131,32 @@ private struct FullStatsView: View {
     /// Scoped by each flight's own `travelerIDs` — independent of whether that flight has a
     /// linked trip, or what that trip's own (separate) `travelerIDs` says.
     private var scopedFlights: [Flight] {
+        let byPerson: [Flight]
         switch scope {
-        case .all: appModel.flights
-        case .user: appModel.flights.filter { $0.travelerIDs.contains(appModel.currentUser.id) }
-        case .partner: appModel.flights.filter { $0.travelerIDs.contains(appModel.partner.id) }
+        case .all: byPerson = appModel.flights
+        case .user: byPerson = appModel.flights.filter { $0.travelerIDs.contains(appModel.currentUser.id) }
+        case .partner: byPerson = appModel.flights.filter { $0.travelerIDs.contains(appModel.partner.id) }
         }
+        guard case .year(let year) = period else { return byPerson }
+        return byPerson.filter { Self.year(of: $0) == year }
+    }
+
+    /// The year a flight belongs to, by its departure. Nil for a flight with no usable departure
+    /// time, which then belongs to no year and only ever appears under All time — better than
+    /// silently filing it under whichever year happens to be selected.
+    ///
+    /// Read in the device's own calendar rather than the departure airport's: a flight leaving late
+    /// on 31 December is a rounding case either way, and using the traveller's own calendar at
+    /// least matches the year they'd say they took it in.
+    private static func year(of flight: Flight) -> Int? {
+        flight.bestDeparture.map { Calendar.current.component(.year, from: $0) }
+    }
+
+    /// Years the couple has actually flown in, newest first. Built from every flight rather than
+    /// the currently-scoped ones, so switching between All and a partner doesn't make the year
+    /// you're looking at disappear out from under you.
+    private var availableYears: [Int] {
+        Array(Set(appModel.flights.compactMap(Self.year))).sorted(by: >)
     }
 
     private var stats: FlightStats {
@@ -129,12 +166,19 @@ private struct FullStatsView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: Theme.Spacing.lg) {
-                Picker("Who", selection: $scope) {
-                    Text("All").tag(StatScope.all)
-                    Text(appModel.currentUser.name).tag(StatScope.user)
-                    Text(appModel.partner.name).tag(StatScope.partner)
+                // Who on the left, when on the right — two independent filters that compose, so
+                // they read as one control strip rather than two stacked rows eating vertical space
+                // above the numbers they filter.
+                HStack(spacing: Theme.Spacing.sm) {
+                    Picker("Who", selection: $scope) {
+                        Text("All").tag(StatScope.all)
+                        Text(appModel.currentUser.name).tag(StatScope.user)
+                        Text(appModel.partner.name).tag(StatScope.partner)
+                    }
+                    .pickerStyle(.segmented)
+
+                    periodMenu
                 }
-                .pickerStyle(.segmented)
 
                 hero
                 flightsSection
@@ -168,6 +212,36 @@ private struct FullStatsView: View {
         }
     }
 
+    /// A menu rather than more segments: the year list grows without bound, and segments would
+    /// squeeze the names beside them thinner every year the couple flies.
+    private var periodMenu: some View {
+        Menu {
+            Picker("Period", selection: $period) {
+                Text("All time").tag(StatPeriod.allTime)
+                ForEach(availableYears, id: \.self) { year in
+                    Text(String(year)).tag(StatPeriod.year(year))
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Text(period.label)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.caption2)
+                    .accessibilityHidden(true)
+            }
+            .font(.subheadline.weight(.medium))
+            .foregroundStyle(Theme.ink)
+            .lineLimit(1)
+            .padding(.horizontal, Theme.Spacing.sm)
+            .padding(.vertical, 7)
+            .themedCardBackground(cornerRadius: Theme.Radius.pill)
+        }
+        // Takes only the width it needs, leaving the rest of the row to the segmented control.
+        .fixedSize()
+        .accessibilityLabel("Time period")
+        .accessibilityValue(period.label)
+    }
+
     private var heroName: String {
         switch scope {
         case .all: "You've"
@@ -190,6 +264,14 @@ private struct FullStatsView: View {
             if scope == .all {
                 Text(appModel.couple.sharesHomeCity ? "together" : "for each other")
                     .font(.headline)
+                    .foregroundStyle(Theme.subtleInk)
+            }
+
+            // Without this the headline number silently changes meaning when a year is picked —
+            // the same big figure, now covering a slice, with nothing on screen saying which.
+            if case .year(let year) = period {
+                Text("in \(String(year))")
+                    .font(.subheadline.weight(.medium))
                     .foregroundStyle(Theme.subtleInk)
             }
         }
