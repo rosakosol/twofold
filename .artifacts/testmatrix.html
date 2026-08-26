@@ -1,4 +1,4 @@
-<title>Twofold Pre-Flight</title>
+<title>Twofold Test Matrix</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
@@ -184,9 +184,9 @@
 
 <div class="wrap">
   <header class="masthead">
-    <p class="eyebrow">Twofold · v1.0 (11) · iOS 26.0+</p>
-    <h1>Pre-Flight</h1>
-    <p class="standfirst">Everything to clear before submitting to App Review, ordered by what actually gets apps rejected.</p>
+    <p class="eyebrow">Twofold · coverage &amp; manual passes</p>
+    <h1>Test Matrix</h1>
+    <p class="standfirst">What runs on its own, what the paired test accounts newly unlocked, and what only a human with two phones can check.</p>
   </header>
 
   <div class="status">
@@ -211,147 +211,111 @@
 
   var SECTIONS = [
     {
-      id: "blockers",
-      title: "Likely rejection triggers",
-      chip: "blocker", chipLabel: "Do first",
-      note: "Found by inspecting the project. Items marked \u201cIn code\u201d are already handled \u2014 confirm them on device rather than re-deriving them. The rest are still open.",
+      id: "auto", title: "Runs without you", chip: "std", chipLabel: "Automated",
+      note: "157 checks, all currently green. Run them before every build you submit — the first three take seconds.",
       items: [
-        { id: "ipad", t: "iPhone-only — no iPad screenshots needed",
-          w: "<code>TARGETED_DEVICE_FAMILY</code> is now <code>1</code> across all targets, so Review won't test on iPad. Just confirm App Store Connect isn't still expecting iPad screenshots.", pre: true },
-        { id: "weatherkit", t: "Apple Weather attribution present on both surfaces",
-          w: "The Home time card shows the mark linked to Apple's legal page; the Time &amp; Weather widget carries the mark alone. Verify the link opens, and that the mark still shows once real weather loads on device.", pre: true },
-        { id: "demoaccount", t: "Give Review a pre-paired demo couple",
-          w: "Almost nothing in Twofold works solo — games, streaks, the globe, distance, reunions all need a partner. A reviewer signing up fresh sees an empty shell and rejects for broken functionality. Supply credentials for an account that is <em>already paired</em>, with trips, flights and completed games in it.", flag: true },
-        { id: "landscape", t: "Portrait-only — rotation is refused",
-          w: "Verified by forcing landscape in a UI test: the device rotates, the app frame stays 402&times;874. Worth one manual rotate on device to be certain.", pre: true },
-        { id: "iosversion", t: "State the iOS 26.0 minimum in App Review Notes",
-          w: "A reviewer on an older device can't install it at all. Say so explicitly in the notes so it isn't read as a broken build." },
-        { id: "agerating", t: "Set an age rating that matches the Edgy Questions decks",
-          w: "Decks like <em>Say It Before You Regret It</em> and <em>Who's More Likely to Cause a Scene</em> sit under an “Edgy Questions” topic. Rate for the content you actually ship, including anything gated behind Premium." }
+        { id: "a-swift", t: "Swift unit tests — 71 across 6 suites", pre: true,
+          w: "<code>xcodebuild test -scheme Twofold -only-testing:TwofoldTests</code><br>Covers game logic, deck ordering, flight stat counting, notification route parsing, trip route labels." },
+        { id: "a-pgtap", t: "Database tests — 42 pgTAP", pre: true,
+          w: "<code>supabase test db</code> (needs Docker + <code>supabase start</code>)<br>Day boundaries, streak lapse rules, subscription tiers, and the daily-session uniqueness guarantee." },
+        { id: "a-deno", t: "Backend tests — 44 Deno", pre: true,
+          w: "<code>docker run --rm -v \"$PWD\":/app -w /app --entrypoint deno denoland/deno:latest test --allow-all supabase/functions/</code><br>Flight refresh cadence, reminder windows, candidate merging, and the past/present/future search windows." },
+        { id: "a-a11y", t: "Accessibility audit across all five tabs", pre: true,
+          w: "<code>-only-testing:TwofoldUITests/AppWalkthroughUITests</code><br>Prints findings rather than failing; grep the log for <code>A11Y</code>. Re-run at an accessibility text size to catch layout breaks." },
+        { id: "a-swipe", t: "Swipe card returns to rest", pre: true,
+          w: "<code>-only-testing:TwofoldUITests/SwipeCardUITests</code><br>Short drags, repeated drags, edge-started drags. Note: it does <em>not</em> reproduce the stuck-card bug — see the caveat in the source." },
+        { id: "a-deeplink", t: "Notification routes survive a cold launch", pre: true,
+          w: "<code>-only-testing:TwofoldUITests/NotificationDeepLinkUITests</code><br>Uses the DEBUG <code>-notificationRoute</code> seed to stand in for a tap." },
+        { id: "a-seed", t: "Seed the paired test couple", pre: true,
+          w: "<code>python3 scripts/seed-test-couple.py</code> with the four <code>TWOFOLD_*</code> env vars set. Creates or reuses both accounts and pairs them. Verified working — couple <code>146b0590…</code>." }
       ]
     },
     {
-      id: "iap",
-      title: "Subscriptions",
-      chip: "blocker", chipLabel: "Do first",
-      note: "The single most common rejection area, and Twofold's model is unusual — one subscription covers both partners — so it needs explaining as well as testing.",
+      id: "unlocked", title: "Newly testable — not yet automated", chip: "high", chipLabel: "Next to build",
+      note: "The seed script makes these reachable for the first time. Each is a UI test I could write against a signed-in, paired account; none exist yet.",
       items: [
-        { id: "restore", t: "Restore Purchases works from a clean install",
-          w: "The button exists in <code>PaywallView</code>. Verify it actually restores on a device that never bought anything but is signed into the buying Apple ID." },
-        { id: "paywallterms", t: "Paywall shows price, duration and auto-renew terms",
-          w: "Plus the Privacy Policy and Terms links — both are present in <code>PaywallView</code>; confirm they open and resolve." },
-        { id: "sharedsub", t: "Partner inherits access when the other subscribes",
-          w: "Explain this in Review Notes too. A reviewer testing the second account will otherwise hit a paywall they can't clear and report it as broken." },
-        { id: "lapse", t: "Lapsed subscription lands somewhere sensible",
-          w: "Including the case where the paying partner disconnects — there's a dedicated screen for it (<code>SubscriptionLapsedFromDisconnectView</code>). Verify it appears rather than the generic paywall." },
-        { id: "sandbox", t: "Full sandbox purchase, on device",
-          w: "Buy, cancel, re-subscribe. Confirm entitlement propagates to both partners and to the widgets." },
-        { id: "pricesmatch", t: "App Store Connect products match what the paywall renders",
-          w: "Product IDs, tiers, and the Plus/Premium split. A mismatch shows an empty or wrongly-priced paywall to the reviewer." }
+        { id: "u-signin", t: "Sign in with email and password",
+          w: "The two-field path. Everything below depends on it, so it's the first one worth writing." },
+        { id: "u-games", t: "Play a deck to completion and see results",
+          w: "Which also finally makes the game results share card reachable — the one screen this session could never open." },
+        { id: "u-daily", t: "Answer the daily question and watch the streak advance" },
+        { id: "u-memory", t: "Add a memory with a photo, confirm it appears for the partner" },
+        { id: "u-trip", t: "Add a trip, confirm the countdown and globe update" },
+        { id: "u-paywall", t: "Buy, restore and cancel against the StoreKit config",
+          w: "<code>Twofold.storekit</code> is already wired into the scheme, so purchases work in the simulator without a sandbox Apple ID. This is automatable and would cover the highest-rejection-risk area." }
       ]
     },
     {
-      id: "account",
-      title: "Account, data and privacy",
-      chip: "high", chipLabel: "Guideline 5.1",
-      note: "",
+      id: "twophone", title: "Two devices, by hand", chip: "blocker", chipLabel: "Manual only",
+      note: "One XCUITest run drives one app on one device. Anything where A acts and B observes needs you, two simulators or phones, and both accounts signed in.",
       items: [
-        { id: "deletion", t: "Account deletion is reachable in-app",
-          w: "Required by 5.1.1(v). <code>DeleteAccountView</code> exists but was moved under Help — confirm a reviewer can actually find it, and that it deletes rather than deactivates." },
-        { id: "deleteshared", t: "Deletion removes shared couple data correctly",
-          w: "There's a migration for exactly this (<code>delete_own_account_shared_data</code>). Verify what happens to the partner's view afterwards." },
-        { id: "siwa", t: "Sign in with Apple present alongside Google",
-          w: "Already satisfied — <code>AppleGoogleSignInButtons</code> offers both. Just confirm the Apple path completes end to end, including the hide-my-email case.", pre: true },
-        { id: "privacylabels", t: "App Privacy answers match what's collected",
-          w: "Location, photos, contacts-of-a-sort (partner name), purchase history, identifiers. Third parties: Supabase, RevenueCat, PostHog, FlightAware." },
-        { id: "posthog", t: "Analytics disclosed",
-          w: "PostHog identifies by Supabase user id. That's a tracking identifier and must be declared." },
-        { id: "export", t: "Export compliance answered",
-          w: "<code>ITSAppUsesNonExemptEncryption = false</code> is already set, so this should pass without a document.", pre: true }
+        { id: "m-pair", t: "Pair through the real UI, not the script",
+          w: "A generates a code in-app, B enters it, A accepts the request. The script proves the RPCs work; only this proves the screens do." },
+        { id: "m-pairpush", t: "B redeeming sends A a connection-request notification" },
+        { id: "m-bothanswer", t: "Both answer a deck — answers stay hidden until the second one finishes",
+          w: "The reveal is the whole mechanic. Check the waiting state on the first device while the second is still playing." },
+        { id: "m-partnerfinished", t: "“Partner finished” notification arrives and opens that game" },
+        { id: "m-streakboth", t: "Streak only advances once both have answered",
+          w: "Answer as A alone first and confirm it does <em>not</em> move." },
+        { id: "m-editanswers", t: "One partner editing answers doesn't corrupt the other's view" },
+        { id: "m-drawing", t: "A drawing saved by one appears on the other's widget" },
+        { id: "m-sharedsub", t: "One subscribes, the other gains access",
+          w: "Then have the payer disconnect and confirm the other lands on the lapsed-from-disconnect screen, not the generic paywall." },
+        { id: "m-leave", t: "Leaving the couple, from both sides",
+          w: "And account deletion from one side — check what the other sees afterwards." }
       ]
     },
     {
-      id: "permissions",
-      title: "Permissions",
-      chip: "high", chipLabel: "Test denied paths",
-      note: "Every prompt must appear in context, and the app must stay usable when the answer is no. All three usage strings are present in Info.plist.",
+      id: "device", title: "Real device only", chip: "blocker", chipLabel: "Manual only",
+      note: "Nothing in the simulator can stand in for these.",
       items: [
-        { id: "permloc", t: "Location — prompt appears in context, denial is survivable",
-          w: "Used to set your city for timezones, weather and distance. Denial is documented as a silent no-op; verify the app doesn't just show blanks." },
-        { id: "permcam", t: "Camera — only prompts when capturing a boarding pass" },
-        { id: "permfaceid", t: "Face ID — App Lock enables and disables cleanly",
-          w: "Including after sign-out, which previously gated the sign-in screen itself behind a biometric prompt." },
-        { id: "permpush", t: "Notifications — prompt appears during onboarding and can be declined",
-          w: "Requested in <code>NotificationsSellView</code>. Check the app is fully usable with notifications off." }
+        { id: "d-push", t: "Tap a real push from a cold start",
+          w: "Force-quit first. All four kinds: streak reminder, flight update, game event, drawing. This is the case that was broken and the fix is unverified against a real tap." },
+        { id: "d-pushperm", t: "Notification permission prompt, and the app with it declined" },
+        { id: "d-live", t: "Live Activity through a full flight",
+          w: "Pre-departure, in-air, landed. It previously stranded on pre-departure content after landing." },
+        { id: "d-widgets", t: "Home Screen and Lock Screen widgets, all sizes and tiers" },
+        { id: "d-faceid", t: "Face ID app lock, including after sign-out" },
+        { id: "d-camera", t: "Capture a boarding pass with the camera" },
+        { id: "d-share", t: "Share sheet and Instagram Stories from every share card" },
+        { id: "d-shareext", t: "Forward a flight confirmation email into the share extension" }
       ]
     },
     {
-      id: "fixed",
-      title: "Fixed this session — verify on device",
-      chip: "std", chipLabel: "Regression pass",
-      note: "All of these are committed and unit-tested, but several were only verified in the simulator. These are the ones most worth a real-device pass.",
+      id: "external", title: "Depends on someone else's system", chip: "untested", chipLabel: "Unverified",
+      note: "Not one real call was made to these all session. They're the largest untested surface in the app.",
       items: [
-        { id: "deeplink", t: "Notification taps open the right screen from a cold start",
-          w: "Force-quit first — that's the case that was broken. Test all four: streak reminder → daily question, flight push → that flight, game push → that game, drawing → the pad." },
-        { id: "dailyrace", t: "Daily question can't be created twice for one day",
-          w: "Have both of you open it at the same moment. Both should land on the same question, and the streak should advance once you've both answered." },
-        { id: "flightsearch", t: "Flight search across all three time ranges",
-          w: "A flight from over a month ago (this path had no fallback until now and always returned nothing), one today, and one several months out." },
-        { id: "flightadd", t: "Add a flight end to end",
-          w: "Not tested at all this session — it writes real tracked flights and starts a webhook subscription. Add, confirm tracking, confirm the Live Activity and widget." },
-        { id: "gamesorder", t: "Answered games sort newest-completed first" },
-        { id: "yourturn", t: "Opening a deck and backing out leaves it in New, not Your turn" },
-        { id: "swipe", t: "Swipe cards never stick mid-swipe",
-          w: "Swipe fast through several rounds, and try starting a swipe from the very left edge where the back gesture competes." },
-        { id: "statsfilter", t: "Stats year filter and unique airline/airport counts",
-          w: "The airline count was over-counting codeshares. Check it against flights you know." },
-        { id: "drawingpad", t: "Drawing pad colours in dark mode",
-          w: "Black used to draw as near-white on the always-white canvas. Check the first stroke before touching the palette." }
+        { id: "x-aeroapi", t: "Flight search against live AeroAPI",
+          w: "One flight from over a month ago (the history fallback is brand new and has never run against the real API), one today, one several months out." },
+        { id: "x-add", t: "Add a flight end to end",
+          w: "Never tested — it writes a tracked flight and starts a webhook subscription." },
+        { id: "x-refresh", t: "A tracked flight actually updating as it flies" },
+        { id: "x-weather", t: "WeatherKit returns real conditions, and the attribution shows with them",
+          w: "Requires the WeatherKit capability enabled on the App ID. With it off, the app shows no temperature and no mark, which is correct but proves nothing." },
+        { id: "x-revenuecat", t: "RevenueCat against a real sandbox purchase, not just the StoreKit config" }
       ]
     },
     {
-      id: "untested",
-      title: "Never verified — no way to test here",
-      chip: "untested", chipLabel: "Unknown",
-      note: "Honest gaps. These aren't known-broken; they're unobserved, which is different and worth more of your attention than the items above.",
+      id: "edges", title: "Conditions worth forcing", chip: "high", chipLabel: "Easy to skip",
+      note: "Cheap to test and where bugs hide. Most take under a minute each.",
       items: [
-        { id: "shareGame", t: "Game results share card",
-          w: "Unreachable in testing — the test account has no completed games. Check the sharer's own name appears (it used to say “You”), and that the daily question's three layouts have visibly different backgrounds." },
-        { id: "partnerflows", t: "Everything that needs two devices",
-          w: "Pairing, invite codes, partner-finished notifications, both-answered reveals, shared subscription, Live Activity on the watching partner's phone." },
-        { id: "aeroapi", t: "Live flight data",
-          w: "Not a single real AeroAPI call was made. Search, add, refresh, departure and arrival pushes are all unverified against the real provider." },
-        { id: "pushdelivery", t: "Real push delivery",
-          w: "Notifications aren't authorised in the test simulator, so no banner was ever tapped. The four Edge Functions carrying deep-link payloads were deployed on 24 Aug." },
-        { id: "widgets", t: "Widgets and Live Activities on device",
-          w: "Home Screen, Lock Screen, and a flight's Live Activity through departure, in-air and landing." }
-      ]
-    },
-    {
-      id: "store",
-      title: "Store listing and build",
-      chip: "std", chipLabel: "Last",
-      note: "",
-      items: [
-        { id: "screenshots", t: "Screenshots for every required device size",
-          w: "If you keep iPad support, that means iPad screenshots too." },
-        { id: "screenshotreal", t: "Screenshots show real, populated state",
-          w: "Empty states look like a broken app to a reviewer." },
-        { id: "version", t: "Version and build set deliberately",
-          w: "Currently <code>1.0</code> build <code>11</code>." },
-        { id: "archive", t: "Archive builds clean and validates",
-          w: "Release configuration, not Debug — the notification-route test hook is <code>#if DEBUG</code> and must not ship." },
-        { id: "thirdparty", t: "FlightAware terms allow your display of their data",
-          w: "Check your AeroAPI agreement for attribution or branding requirements before you ship it in a consumer app." },
-        { id: "support", t: "Support URL and privacy policy URLs resolve",
-          w: "<code>twofoldapp.com.au/privacy</code> and <code>/terms</code> are linked from inside the app." },
-        { id: "notes", t: "Review Notes written",
-          w: "Demo credentials, the pairing explanation, the shared-subscription model, and the iOS 26 minimum. This one note prevents most of the rejections above." }
+        { id: "e-offline", t: "Airplane mode: play a game, add a memory, then reconnect",
+          w: "There's an offline queue for game responses; confirm it drains and nothing double-submits." },
+        { id: "e-slow", t: "Slow network — the daily question skeleton should hold its space, not jump" },
+        { id: "e-ax", t: "Largest accessibility text size on every tab",
+          w: "Games was completely unusable at this size before this session. Re-check after any layout change." },
+        { id: "e-voiceover", t: "VoiceOver through Home and one full game" },
+        { id: "e-dark", t: "Dark and light, plus the in-app appearance override" },
+        { id: "e-solo", t: "The whole app as a solo user, never paired",
+          w: "Several counts derive from both partners answering, which can never happen solo — the Answered sections use a both-completed check that a solo player can't satisfy." },
+        { id: "e-empty", t: "A brand new account with no trips, flights or memories" },
+        { id: "e-timezone", t: "Change the device timezone and confirm the day boundary follows",
+          w: "Streak reset and the daily question both key off your own local midnight." }
       ]
     }
   ];
 
-  var LS_KEY = "twofold-preflight-v1";
+  var LS_KEY = "twofold-testmatrix-v1";
   var state = { checked: {} };
   var canPublish = false;
   var api = null;
@@ -470,9 +434,9 @@
   if (!state.checked) state.checked = {};
 
   document.getElementById("foot").innerHTML =
-    "Built from the Twofold project itself — device family, Info.plist keys, sign-in methods, " +
-    "subscription surfaces and the session's own test coverage. Ticks save automatically. " +
-    "The three flagged blockers were found by inspection and are live in the current build.";
+    "157 checks run without you: 71 Swift unit, 42 pgTAP, 44 Deno, plus the UI suites. " +
+    "scripts/seed-test-couple.py pairs the two test accounts in one command, which is what makes " +
+    "the partner-side rows testable at all. Ticks save automatically.";
 
   render();
 

@@ -50,6 +50,10 @@ struct PaywallView: View {
     @State private var showingPartnerManagesSubscription = false
     @State private var isSigningOut = false
     @State private var errorMessage: String?
+    /// Restore's own outcome, which is not an error either way — see `performRestore`. Kept
+    /// separate from `errorMessage` so a perfectly successful restore doesn't get announced under
+    /// a "Something went wrong" heading.
+    @State private var restoreNotice: String?
     /// Freshly fetched from both partners' profile rows (see `BackendService.fetchCoupleSubscriptionTier`)
     /// — `store.subscribedTier` only knows about *this* Apple ID/device, which misses a tier the
     /// partner subscribed to separately. `nil` while the fetch is in flight or if it fails, in
@@ -66,6 +70,10 @@ struct PaywallView: View {
 
     private var isShowingError: Binding<Bool> {
         Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })
+    }
+
+    private var isShowingRestoreNotice: Binding<Bool> {
+        Binding(get: { restoreNotice != nil }, set: { if !$0 { restoreNotice = nil } })
     }
 
     private var selectedPricedPackage: PricedPackage? {
@@ -120,6 +128,17 @@ struct PaywallView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(errorMessage ?? "")
+        }
+        // Restore used to have no success path at all: it updated state and, only when this screen
+        // was dismissable, dismissed. Anywhere else — a forced paywall, or an already-subscribed
+        // device — tapping it produced nothing visible, which reads as a dead button. Reviewers
+        // test this control specifically.
+        .alert("Restore Purchases", isPresented: isShowingRestoreNotice) {
+            Button("OK", role: .cancel) {
+                if isDismissable { dismiss() }
+            }
+        } message: {
+            Text(restoreNotice ?? "")
         }
         .sheet(isPresented: $showingCustomerCenter) {
             CustomerCenterView()
@@ -395,10 +414,23 @@ struct PaywallView: View {
         defer { isRestoring = false }
         do {
             let customerInfo = try await store.restore()
-            if SubscriptionTier.active(in: customerInfo) != nil {
-                await handleEntitlementChange(customerInfo, event: Analytics.Event.restoreComplete)
+            if let tier = SubscriptionTier.active(in: customerInfo) {
+                // Dismissal moves to the notice's OK button, so the confirmation is actually seen.
+                await handleEntitlementChange(customerInfo, event: Analytics.Event.restoreComplete, dismissOnCompletion: false)
+                let entitlement = customerInfo.entitlements.active.values.first { !$0.willRenew }
+                if let expiry = entitlement?.expirationDate {
+                    // The case that brought this to light: restoring a *cancelled* subscription
+                    // succeeds and changes nothing visible, because cancelling doesn't remove
+                    // access — it stops the renewal. Only the App Store can turn that back on, so
+                    // say so rather than leaving it looking like the restore failed.
+                    restoreNotice = "Your \(tier.displayName) subscription is active until \(expiry.formatted(date: .abbreviated, time: .omitted)). "
+                        + "It won't renew after that — to keep it, resubscribe in Settings › Apple Account › Subscriptions."
+                } else {
+                    restoreNotice = "Your \(tier.displayName) subscription is active on this device."
+                }
             } else {
-                errorMessage = "No active subscription found to restore."
+                // Not an error — a legitimate outcome worth stating plainly.
+                restoreNotice = "No previous purchase was found for this Apple Account. If you subscribed with a different one, sign in with it and try again."
             }
         } catch {
             errorMessage = error.localizedDescription
@@ -409,7 +441,7 @@ struct PaywallView: View {
     /// entitlement state to the caller's own Supabase profile row, then update `AppModel`
     /// locally (no network round-trip) — see `AppModel.markSubscriptionActive`'s doc comment for
     /// why that local flag, not the Supabase write, is what `RootView`'s gate actually reads.
-    private func handleEntitlementChange(_ customerInfo: CustomerInfo, event: String) async {
+    private func handleEntitlementChange(_ customerInfo: CustomerInfo, event: String, dismissOnCompletion: Bool = true) async {
         guard let tier = SubscriptionTier.active(in: customerInfo) else { return }
         try? await BackendService.updateSubscriptionStatus(active: true, tier: tier.dbValue)
         appModel.markSubscriptionActive(tier: tier.dbValue)
@@ -417,7 +449,7 @@ struct PaywallView: View {
         onSubscribed()
         // Only when reached as a dismissable sheet/push — RootView's forced gate has nothing to
         // dismiss to and already routes itself off `appModel.isSubscriptionActive` flipping.
-        if isDismissable { dismiss() }
+        if isDismissable && dismissOnCompletion { dismiss() }
     }
 }
 
