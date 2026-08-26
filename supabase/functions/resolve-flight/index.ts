@@ -10,6 +10,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import {
   type AeroFlight,
   type AeroScheduledFlight,
+  fetchHistoricalFlights,
   fetchScheduledFlights,
   resolveFlightByIdent,
   searchRoute,
@@ -59,7 +60,7 @@ function isValidDate(date: unknown): date is string {
 // a date 2+ days out still can't reliably reach the true requested day within this endpoint's
 // 2-day ceiling (the clamped window may end partway *through* the requested day, missing a
 // later-in-the-day departure entirely) — that's what `wasClamped` exists to signal upstream.
-function dateWindow(date: string): { startISO: string; endISO: string; wasClamped: boolean } {
+export function dateWindow(date: string): { startISO: string; endISO: string; wasClamped: boolean } {
   const target = new Date(`${date}T00:00:00Z`);
   let end = new Date(target.getTime());
   end.setUTCDate(end.getUTCDate() + 2);
@@ -87,6 +88,17 @@ function dateWindow(date: string): { startISO: string; endISO: string; wasClampe
   // ("type is incorrect") — strip them defensively; AeroAPI's own documented examples never
   // include a fractional-seconds component.
   return { startISO: toAeroTimestamp(start), endISO: toAeroTimestamp(end), wasClamped };
+}
+
+/// Whether the requested day is entirely behind us, in UTC.
+///
+/// Compared at whole-day granularity deliberately: the point is "is this a day that has already
+/// happened", not "is this instant in the past", and the requested value is a bare YYYY-MM-DD with
+/// no time of day to be more precise about.
+export function isPastDate(date: string, now: Date = new Date()): boolean {
+  const requested = new Date(`${date}T00:00:00Z`).getTime();
+  const startOfToday = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  return requested < startOfToday;
 }
 
 // Padding window for /schedules — that endpoint has no ~2-day future cap (up to a year ahead,
@@ -441,6 +453,37 @@ Deno.serve(async (req) => {
         liveCandidates = liveFlights.map((f) => fromLiveFlight(f, designator));
       }
 
+      // The mirror image of the /schedules fallback below, on the other side of "now".
+      //
+      // /flights/{ident} is a live-tracking endpoint: it reaches ~2 days into the future (hence
+      // `wasClamped`) and only about ten days into the past. Past that it simply returns nothing —
+      // no error, no signal — so a flight the traveller genuinely took last month searched as
+      // "no flights found". The date picker has no lower bound, so that's a reachable, ordinary
+      // thing to ask for, and /history/flights/{ident} answers it. It returns the same `AeroFlight`
+      // shape, so the candidates go through exactly the same mapping as the live ones.
+      //
+      // Only attempted when the live endpoint found nothing *and* the date is genuinely past, so
+      // the common cases (today, tomorrow, last week) never spend the extra AeroAPI call.
+      let historyCandidates: Candidate[] = [];
+      let historyLog = "skipped (live results, or date not in the past)";
+      if (liveCandidates.length === 0 && isPastDate(input.date)) {
+        try {
+          const historical = await fetchHistoricalFlights(input.flightNumber, startISO, endISO);
+          let matches = historical;
+          if (input.originIata) {
+            matches = matches.filter((f) => f.origin?.code_iata === input.originIata || f.origin?.code === input.originIata);
+          }
+          const sameDay = filterPreferringSameDay(matches, input.date, (f) => input.deviceTimeZone ?? f.origin?.timezone);
+          historyCandidates = sameDay.map((f) => fromLiveFlight(f, designator));
+          historyLog = `window=[${startISO},${endISO}] aeroapi returned ${historical.length}, ` +
+            `${historyCandidates.length} after same-day filter`;
+        } catch (err) {
+          // Same "degrade, don't fail" posture as the /schedules call below — a history miss
+          // shouldn't turn an ordinary empty result into a failed request.
+          historyLog = `failed: ${(err as Error).message}`;
+        }
+      }
+
       let scheduledCandidates: Candidate[] = [];
       let scheduledLog = "skipped (not clamped or unparseable designator)";
       // Only worth the extra AeroAPI call when /flights/{ident}'s own future cap actually bit —
@@ -467,7 +510,9 @@ Deno.serve(async (req) => {
         }
       }
 
-      candidates = mergeCandidates(liveCandidates, scheduledCandidates);
+      // History and schedules sit on opposite sides of "now", so at most one is ever non-empty;
+      // nesting keeps `mergeCandidates`' two-argument primary/extra contract intact.
+      candidates = mergeCandidates(mergeCandidates(liveCandidates, historyCandidates), scheduledCandidates);
       // Dumps every ident/scheduled_out AeroAPI actually returned (not just the count) — with no
       // way to hit AeroAPI directly outside a running deployment, this is what makes a "flight X
       // doesn't show up" report diagnosable from the Supabase dashboard's function logs alone,
