@@ -41,12 +41,15 @@ struct BoardingPassShareCard: View {
         .padding(Theme.Spacing.lg)
         .frame(width: 340)
         .background(style.backgroundColor)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.shareCard, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: Theme.Radius.shareCard, style: .continuous)
                 .strokeBorder(style.secondaryTextColor.opacity(0.25), lineWidth: 1)
         }
         .shadow(color: .black.opacity(0.12), radius: 6, y: 4)
+        // Pinned, because this renders to a fixed-size image that leaves the device: it should
+        // look the same to whoever receives it rather than reflowing to the sender's text size.
+        .dynamicTypeSize(.large)
     }
 
     /// Just the brand mark and the "BOARDING PASS" label — the airline logo used to live up here

@@ -78,7 +78,10 @@ struct SnapshotThemeCard: View {
         .padding(.horizontal, Theme.Spacing.lg)
         .frame(maxWidth: .infinity)
         .background { themeBackground }
-        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.shareCard, style: .continuous))
+        // Pinned, because this renders to a fixed-size image that leaves the device: it should
+        // look the same to whoever receives it rather than reflowing to the sender's text size.
+        .dynamicTypeSize(.large)
     }
 
     /// The `.earth` theme layers real satellite Earth imagery under its usual blue gradient

@@ -40,12 +40,15 @@ struct FlightStatusShareCard: View {
         .padding(Theme.Spacing.lg)
         .frame(width: 340)
         .background(Color(hex: "0C2233"))
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.shareCard, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
+            RoundedRectangle(cornerRadius: Theme.Radius.shareCard, style: .continuous)
                 .strokeBorder(.white.opacity(0.17), lineWidth: 1)
         }
         .shadow(color: .black.opacity(0.25), radius: 16, y: 8)
+        // Pinned, because this renders to a fixed-size image that leaves the device: it should
+        // look the same to whoever receives it rather than reflowing to the sender's text size.
+        .dynamicTypeSize(.large)
     }
 
     private var header: some View {

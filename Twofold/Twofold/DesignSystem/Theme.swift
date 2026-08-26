@@ -116,6 +116,11 @@ enum Theme {
         // mode, and threading a per-appearance radius through every call site for a difference
         // this small wasn't worth the churn.
         static let card: CGFloat = 26
+        /// Corner radius for a card that gets exported as an image. Deliberately its own token
+        /// rather than reusing `card`: these are bigger, standalone objects that live outside the
+        /// app's chrome, and every one of them was picking its own value — 22, 24, 28 and 32 were
+        /// all in use across the eight share cards with nothing to distinguish them.
+        static let shareCard: CGFloat = 32
         static let pill: CGFloat = 999
     }
 }

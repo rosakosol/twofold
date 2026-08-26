@@ -20,7 +20,10 @@ struct TripStatsShareCard: View {
         }
         .padding(Theme.Spacing.sm)
         .background(Theme.backgroundGradient)
-        .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.shareCard, style: .continuous))
+        // Pinned, because this renders to a fixed-size image that leaves the device: it should
+        // look the same to whoever receives it rather than reflowing to the sender's text size.
+        .dynamicTypeSize(.large)
     }
 }
 

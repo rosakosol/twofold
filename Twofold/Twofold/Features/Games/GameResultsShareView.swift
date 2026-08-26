@@ -161,7 +161,7 @@ struct GameResultsShareView: View {
                     .font(.title3)
                     .foregroundStyle(isSelected ? Theme.leafGreen : Theme.subtleInk.opacity(0.3))
             }
-            answerLine(name: "You", text: round.myAnswer)
+            answerLine(name: data.me.name, text: round.myAnswer)
             answerLine(name: data.partner.name, text: round.partnerAnswer)
         }
         .padding(Theme.Spacing.md)

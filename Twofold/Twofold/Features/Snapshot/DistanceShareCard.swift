@@ -77,7 +77,10 @@ struct DistanceShareCard: View {
         .padding(.vertical, Theme.Spacing.xl)
         .frame(maxWidth: .infinity)
         .background(backgroundGradient)
-        .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.shareCard, style: .continuous))
+        // Pinned, because this renders to a fixed-size image that leaves the device: it should
+        // look the same to whoever receives it rather than reflowing to the sender's text size.
+        .dynamicTypeSize(.large)
     }
 
     private var backgroundGradient: some View {
@@ -102,6 +105,8 @@ struct DistanceShareCard: View {
             }
         }
         .frame(width: Self.mapSize.width, height: Self.mapSize.height)
+        // Inner panel, not the card's outer corner — deliberately tighter than
+        // `Theme.Radius.shareCard` so the nested map reads as sitting inside the card.
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .shadow(color: .black.opacity(0.35), radius: 16, y: 8)
     }

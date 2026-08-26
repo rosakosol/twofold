@@ -27,7 +27,7 @@ struct RelationshipStatsShareCard: View {
         // second full padding pass stacked on top of that.
         .padding(Theme.Spacing.sm)
         .background(Theme.backgroundGradient)
-        .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.shareCard, style: .continuous))
         // Pinned to the standard text size, unlike the in-app card this reuses. That card now
         // reflows at accessibility sizes (single-column tiles, stacked hero stats) so the Stats
         // tab stays readable — but this renders to a fixed-size image that leaves the device, and

@@ -25,12 +25,17 @@ struct GameResultsShareCard: View {
     }
 
     var body: some View {
-        switch layout {
-        case .scoreSnapshot: scoreSnapshotBody
-        case .dailyStreak: dailyStreakBody
-        case .namesAndAnswer: namesAndAnswerBody
-        case .speechBubble: speechBubbleBody
+        Group {
+            switch layout {
+            case .scoreSnapshot: scoreSnapshotBody
+            case .dailyStreak: dailyStreakBody
+            case .namesAndAnswer: namesAndAnswerBody
+            case .speechBubble: speechBubbleBody
+            }
         }
+        // Pinned, because this renders to a fixed-size image that leaves the device: it should
+        // look the same to whoever receives it rather than reflowing to the sender's text size.
+        .dynamicTypeSize(.large)
     }
 
     private func canvasBackground(_ palette: ShareCardPalette) -> some View {
@@ -90,7 +95,7 @@ struct GameResultsShareCard: View {
             }
         } else if let myScore = data.triviaMyScore, let partnerScore = data.triviaPartnerScore, let total = data.triviaTotalRounds {
             HStack(spacing: Theme.Spacing.xl) {
-                scoreColumn(value: "\(myScore)", label: "You", palette: palette)
+                scoreColumn(value: "\(myScore)", label: data.me.name, palette: palette)
                 Text("/\(total)")
                     .font(.title2.weight(.semibold))
                     .foregroundStyle(palette.foreground.opacity(0.7))
@@ -131,7 +136,7 @@ struct GameResultsShareCard: View {
             }
 
             VStack(spacing: Theme.Spacing.sm) {
-                messageBubble(name: "You", text: data.myAnswer, alignment: .leading, palette: palette, isMine: true)
+                messageBubble(name: data.me.name, text: data.myAnswer, alignment: .leading, palette: palette, isMine: true)
                 messageBubble(name: data.partner.name, text: data.partnerAnswer, alignment: .trailing, palette: palette, isMine: false)
             }
         }
@@ -233,7 +238,7 @@ struct GameResultsShareCard: View {
             }
 
             VStack(spacing: Theme.Spacing.md) {
-                speechBubble(name: "You", text: data.myAnswer, tailOnRight: false, palette: palette, isMine: true)
+                speechBubble(name: data.me.name, text: data.myAnswer, tailOnRight: false, palette: palette, isMine: true)
                 speechBubble(name: data.partner.name, text: data.partnerAnswer, tailOnRight: true, palette: palette, isMine: false)
             }
             .padding(.horizontal, Theme.Spacing.lg)
