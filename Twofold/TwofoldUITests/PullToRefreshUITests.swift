@@ -55,14 +55,17 @@ final class PullToRefreshUITests: XCTestCase {
         guard let surface = candidates.first(where: { $0.waitForExistence(timeout: 5) }) else {
             return "no scrollable surface to pull on"
         }
-        // Each attempt starts from a different height. The scroll view's frame spans the whole
-        // window, so dy 0.1 lands on the navigation bar and the press never reaches the content at
-        // all; lower down, a press that begins on a card's own Button occasionally wins the gesture
-        // instead of the scroll. Neither is a bug in the thing being tested, so the drag is retried
-        // rather than pinned to one lucky coordinate.
-        for startY in [0.45, 0.3, 0.6] {
-            let top = surface.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: startY))
-            let bottom = surface.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95))
+        // Each attempt starts somewhere different, because no single point is safe on every tab.
+        // The scroll view's frame spans the whole window, so dy 0.1 lands on the navigation bar and
+        // the press never reaches the content; mid-screen on Home is the relationship globe, which
+        // is a map and swallows pans wholesale; elsewhere a press that begins on a card's own
+        // Button sometimes wins the gesture instead of the scroll. The left margin (dx 0.08) is
+        // page background on every tab, which is why it's in the list. None of these are bugs in
+        // the thing being tested, so the drag is retried rather than pinned to one lucky
+        // coordinate.
+        for (startX, startY) in [(0.08, 0.35), (0.5, 0.28), (0.08, 0.55), (0.5, 0.45)] {
+            let top = surface.coordinate(withNormalizedOffset: CGVector(dx: startX, dy: startY))
+            let bottom = surface.coordinate(withNormalizedOffset: CGVector(dx: startX, dy: 0.95))
             top.press(forDuration: 0.2, thenDragTo: bottom, withVelocity: .slow, thenHoldForDuration: 0.5)
 
             // The refresh runs against production, so give the count a moment to move rather than
@@ -75,7 +78,7 @@ final class PullToRefreshUITests: XCTestCase {
             )
             if XCTWaiter().wait(for: [moved], timeout: 12) == .completed { return nil }
         }
-        return "refreshAllCount stayed at \(before) after three pulls"
+        return "refreshAllCount stayed at \(before) after four pulls from different points"
     }
 
     @MainActor
