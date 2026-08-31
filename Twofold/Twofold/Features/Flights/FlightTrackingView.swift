@@ -75,9 +75,7 @@ struct FlightTrackingView: View {
     /// just meant nothing appeared in the list, which is indistinguishable from the upload still
     /// being in progress. Now the rejections that are the user's to act on say so.
     @State private var documentError: String?
-    @State private var showingTripNotes = false
     @State private var showingShare = false
-    @State private var tripNotesDraft = ""
 
     init(flight: Flight) {
         _flight = State(initialValue: flight)
@@ -198,9 +196,6 @@ struct FlightTrackingView: View {
         }
         // Pushed onto this screen's own NavigationStack rather than presented as a second sheet
         // on top of Flight Details — same reasoning as TripDetailsView's edit flow.
-        .navigationDestination(isPresented: $showingTripNotes) {
-            tripNotesSheet
-        }
         .sheet(item: $premiumGateFeature) { feature in
             FlightPremiumGateView(icon: feature.icon, title: feature.title, description: feature.description)
         }
@@ -911,25 +906,6 @@ struct FlightTrackingView: View {
                 }
                 .padding(.top, Theme.Spacing.sm)
             }
-
-            if linkedTrip != nil {
-                Button {
-                    tripNotesDraft = linkedTrip?.notes ?? ""
-                    showingTripNotes = true
-                } label: {
-                    HStack {
-                        documentCardIcon(.system("checklist"))
-                        Text("Trip checklist").font(.subheadline.weight(.medium))
-                        Spacer()
-                        Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
-                    }
-                    .padding(Theme.Spacing.sm)
-                    .frame(maxWidth: .infinity)
-                    .themedCardBackground(cornerRadius: Theme.Radius.card)
-                }
-                .buttonStyle(.plain)
-                .padding(.top, Theme.Spacing.sm)
-            }
         }
         .photosPicker(isPresented: $showingPhotosPicker, selection: $documentPickerItem, matching: .images)
         .onChange(of: documentPickerItem) { _, newItem in
@@ -1062,36 +1038,6 @@ struct FlightTrackingView: View {
                     .font(.system(size: size))
             }
         }
-    }
-
-    private func documentCardIcon(_ icon: FlightDocumentIcon) -> some View {
-        ZStack {
-            Circle().fill(Theme.skyBlue.opacity(0.15))
-            flightDocumentIcon(icon, size: 20)
-                .foregroundStyle(Theme.skyBlue)
-        }
-        .frame(width: 40, height: 40)
-    }
-
-    private var tripNotesSheet: some View {
-        TextEditor(text: $tripNotesDraft)
-            .padding(Theme.Spacing.sm)
-            .navigationTitle("Trip checklist")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) { Button("Cancel") { showingTripNotes = false } }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Save") {
-                        Task {
-                            if var trip = linkedTrip {
-                                trip.notes = tripNotesDraft
-                                await appModel.updateTripNotes(trip)
-                            }
-                            showingTripNotes = false
-                        }
-                    }
-                }
-            }
     }
 
     // MARK: - Notification preferences
