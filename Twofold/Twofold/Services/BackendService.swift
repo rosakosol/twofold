@@ -1761,11 +1761,16 @@ enum BackendService {
     /// Stops tracking a flight entirely — status events, notification preferences, and
     /// documents all cascade-delete with it (see the flights_delete_members migration).
     static func deleteFlight(id: UUID) async throws {
+        // Read before the delete, not after: `flight_documents` cascades with the flight, so once
+        // it's gone the rows naming these paths are gone too and the files behind them can't be
+        // found at all — orphaned *and* unreachable rather than merely orphaned.
+        let documentPaths = await flightDocumentPaths(flightID: id)
         try await supabase
             .from("flights")
             .delete()
             .eq("id", value: id)
             .execute()
+        await removeFlightDocumentObjects(documentPaths)
     }
 
     // MARK: - Flight status events (provider-sourced) & notification preferences
@@ -1933,6 +1938,7 @@ enum BackendService {
         var filePath: String
         var originalFilename: String?
         var contentType: String?
+        var customLabel: String?
         var createdAt: Date
 
         enum CodingKeys: String, CodingKey {
@@ -1944,6 +1950,7 @@ enum BackendService {
             case filePath = "file_path"
             case originalFilename = "original_filename"
             case contentType = "content_type"
+            case customLabel = "custom_label"
             case createdAt = "created_at"
         }
     }
@@ -1956,6 +1963,7 @@ enum BackendService {
         var filePath: String
         var originalFilename: String?
         var contentType: String?
+        var customLabel: String?
 
         enum CodingKeys: String, CodingKey {
             case flightId = "flight_id"
@@ -1965,6 +1973,7 @@ enum BackendService {
             case filePath = "file_path"
             case originalFilename = "original_filename"
             case contentType = "content_type"
+            case customLabel = "custom_label"
         }
     }
 
@@ -1983,7 +1992,7 @@ enum BackendService {
     }
 
     @discardableResult
-    static func insertFlightDocument(coupleID: UUID, flightID: UUID?, tripID: UUID?, docType: FlightDocumentType, data: Data, contentType: String, fileExtension: String, originalFilename: String?) async throws -> FlightDocument {
+    static func insertFlightDocument(coupleID: UUID, flightID: UUID?, tripID: UUID?, docType: FlightDocumentType, data: Data, contentType: String, fileExtension: String, originalFilename: String?, customLabel: String? = nil) async throws -> FlightDocument {
         guard let userID = currentUserID else { throw BackendError.notAuthenticated }
         let parentID = flightID ?? tripID
         guard let parentID else { throw BackendError.notAuthenticated }
@@ -1991,7 +2000,11 @@ enum BackendService {
 
         let insert = FlightDocumentInsert(
             flightId: flightID, tripId: tripID, uploadedBy: userID,
-            docType: docType.rawValue, filePath: path, originalFilename: originalFilename, contentType: contentType
+            docType: docType.rawValue, filePath: path, originalFilename: originalFilename, contentType: contentType,
+            // Only ever set for `.other` — the column has a check constraint saying so, since a
+            // boarding pass renamed to something else would be unfindable on a screen where the
+            // label is how you tell rows apart.
+            customLabel: docType == .other ? customLabel : nil
         )
         let rows: [FlightDocumentRow] = try await supabase
             .from("flight_documents")
@@ -2001,7 +2014,7 @@ enum BackendService {
             .value
         guard let row = rows.first else { throw BackendError.avatarURLFailed }
         let url = try? await flightDocumentSignedURL(path: row.filePath)
-        return FlightDocument(id: row.id, flightID: row.flightId, tripID: row.tripId, uploadedBy: row.uploadedBy, docType: row.docType, filePath: row.filePath, originalFilename: row.originalFilename, contentType: row.contentType, createdAt: row.createdAt, url: url)
+        return FlightDocument(id: row.id, flightID: row.flightId, tripID: row.tripId, uploadedBy: row.uploadedBy, docType: row.docType, filePath: row.filePath, originalFilename: row.originalFilename, contentType: row.contentType, customLabel: row.customLabel, createdAt: row.createdAt, url: url)
     }
 
     static func fetchFlightDocuments(flightID: UUID? = nil, tripID: UUID? = nil) async throws -> [FlightDocument] {
@@ -2018,13 +2031,47 @@ enum BackendService {
         var documents: [FlightDocument] = []
         for row in rows {
             let url = try? await flightDocumentSignedURL(path: row.filePath)
-            documents.append(FlightDocument(id: row.id, flightID: row.flightId, tripID: row.tripId, uploadedBy: row.uploadedBy, docType: row.docType, filePath: row.filePath, originalFilename: row.originalFilename, contentType: row.contentType, createdAt: row.createdAt, url: url))
+            documents.append(FlightDocument(id: row.id, flightID: row.flightId, tripID: row.tripId, uploadedBy: row.uploadedBy, docType: row.docType, filePath: row.filePath, originalFilename: row.originalFilename, contentType: row.contentType, customLabel: row.customLabel, createdAt: row.createdAt, url: url))
         }
         return documents
     }
 
-    static func deleteFlightDocument(id: UUID) async throws {
+    /// Takes the storage path as well as the id, the same way `deleteMemoryPhoto` does and for the
+    /// same reason: deleting the row leaves the file behind, and a boarding pass is exactly the
+    /// kind of thing (full name, PNR, seat, frequent-flyer number) somebody deletes *because* they
+    /// want it gone.
+    static func deleteFlightDocument(id: UUID, path: String) async throws {
         try await supabase.from("flight_documents").delete().eq("id", value: id).execute()
+        await removeFlightDocumentObjects([path])
+    }
+
+    /// Just the `file_path` column — deliberately not `fetchFlightDocuments`, which mints a signed
+    /// URL per row. Those are round trips spent building links to files that are about to be
+    /// deleted.
+    private static func flightDocumentPaths(flightID: UUID? = nil, tripID: UUID? = nil) async -> [String] {
+        struct PathRow: Decodable {
+            var filePath: String
+            enum CodingKeys: String, CodingKey { case filePath = "file_path" }
+        }
+        var query = supabase.from("flight_documents").select("file_path")
+        if let flightID {
+            query = query.eq("flight_id", value: flightID)
+        } else if let tripID {
+            query = query.eq("trip_id", value: tripID)
+        } else {
+            return []
+        }
+        let rows: [PathRow]? = try? await query.execute().value
+        return rows?.map(\.filePath) ?? []
+    }
+
+    /// Storage objects aren't reachable from a foreign key, so nothing removes them when the row
+    /// pointing at them cascades away — the same gap `deleteMemory` closes for `memory-photos`.
+    /// Best-effort: a failure here leaves a file behind, which mustn't turn an otherwise-successful
+    /// delete into a thrown error the caller reports as "couldn't delete".
+    private static func removeFlightDocumentObjects(_ paths: [String]) async {
+        guard !paths.isEmpty else { return }
+        _ = try? await supabase.storage.from("flight-documents").remove(paths: paths)
     }
 
     // MARK: - Push device tokens
@@ -2155,7 +2202,12 @@ enum BackendService {
     /// `flights.trip_id`/`memories.trip_id` both have `on delete set null`, so any linked
     /// flight or memory survives untethered rather than disappearing along with the trip.
     static func deleteTrip(id: UUID) async throws {
+        // Only the documents attached to the trip itself. Its flights survive the delete
+        // (`flights.trip_id` is `on delete set null`, so they're unlinked rather than removed) and
+        // keep their own attachments.
+        let documentPaths = await flightDocumentPaths(tripID: id)
         try await supabase.from("trips").delete().eq("id", value: id).execute()
+        await removeFlightDocumentObjects(documentPaths)
     }
 
     private struct TripIDUpdate: Encodable {

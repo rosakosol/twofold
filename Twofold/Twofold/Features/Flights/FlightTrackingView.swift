@@ -54,14 +54,27 @@ struct FlightTrackingView: View {
     @State private var baggageClaimNotif = true
     @State private var preferencesLoaded = false
 
-    // Document upload — tapping a card shows a `Menu` (anchored right at the card, unlike a
-    // `confirmationDialog`'s forced bottom sheet) asking which source to pull from, then routes
-    // to exactly one of the three pickers below.
-    @State private var photosPickerDocType: FlightDocumentType?
-    @State private var cameraDocType: FlightDocumentType?
-    @State private var fileImporterDocType: FlightDocumentType?
+    // Document upload. One "+" opens a source menu; whatever comes back is held in
+    // `pendingDocumentData` until the traveller says what it is, then uploaded with that tag.
+    //
+    // The pickers are presented off plain booleans, deliberately. They used to be driven off
+    // `FlightDocumentType?` state that doubled as *both* "which kind of document is this" and
+    // "is the picker up" — and dismissing a picker sets `isPresented` false, whose setter nil'd
+    // that state. So the result handler's `guard let docType` ran against a value the dismissal
+    // had already cleared, and both Photo Library and Choose File silently did nothing at all.
+    // Nothing now has to survive a dismissal: the type is chosen after the file arrives.
+    @State private var showingPhotosPicker = false
+    @State private var showingCamera = false
+    @State private var showingFileImporter = false
     @State private var documentPickerItem: PhotosPickerItem?
+    /// A picked file waiting to be tagged. Held rather than uploaded immediately so the tag sheet
+    /// can be cancelled without leaving a stray document behind.
+    @State private var pendingDocument: PendingFlightDocument?
     @State private var isUploadingDocument = false
+    /// Attaching a document had no failure path at all: every step was `try?`-ed and a failure
+    /// just meant nothing appeared in the list, which is indistinguishable from the upload still
+    /// being in progress. Now the rejections that are the user's to act on say so.
+    @State private var documentError: String?
     @State private var showingTripNotes = false
     @State private var showingShare = false
     @State private var tripNotesDraft = ""
@@ -876,11 +889,27 @@ struct FlightTrackingView: View {
     // MARK: - Documents
 
     private var documentsSection: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+        SectionCard {
             HStack(spacing: Theme.Spacing.sm) {
-                documentActionCard(type: .boardingPass, title: "Boarding pass")
-                documentActionCard(type: .itinerary, title: "Itinerary")
-                documentActionCard(type: .other, title: "Documents")
+                Text("Documents").font(.subheadline.weight(.semibold))
+                Spacer(minLength: 0)
+                addDocumentButton
+            }
+
+            if documents.isEmpty {
+                Text("Boarding passes, itineraries, visas — anything you'll want on the day.")
+                    .font(.caption)
+                    .foregroundStyle(Theme.subtleInk)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                // The rows used to butt straight up against the controls above them. `lg` rather
+                // than the card's own default spacing so the heading reads as a heading.
+                VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+                    ForEach(FlightDocument.grouped(documents), id: \.label) { group in
+                        documentGroup(label: group.label, documents: group.documents)
+                    }
+                }
+                .padding(.top, Theme.Spacing.sm)
             }
 
             if linkedTrip != nil {
@@ -899,71 +928,121 @@ struct FlightTrackingView: View {
                     .themedCardBackground(cornerRadius: Theme.Radius.card)
                 }
                 .buttonStyle(.plain)
-            }
-
-            if !documents.isEmpty {
-                ForEach(documents) { document in
-                    HStack {
-                        flightDocumentIcon(document.docType.icon, size: 16)
-                            .foregroundStyle(Theme.skyBlue)
-                        Text(document.originalFilename ?? document.docType.label).font(.caption)
-                        Spacer()
-                        if let url = document.url {
-                            Link("View", destination: url).font(.caption.weight(.medium))
-                        }
-                    }
-                    .padding(.horizontal, Theme.Spacing.sm)
-                }
+                .padding(.top, Theme.Spacing.sm)
             }
         }
-        .photosPicker(isPresented: Binding(get: { photosPickerDocType != nil }, set: { if !$0 { photosPickerDocType = nil } }), selection: $documentPickerItem, matching: .images)
+        .photosPicker(isPresented: $showingPhotosPicker, selection: $documentPickerItem, matching: .images)
         .onChange(of: documentPickerItem) { _, newItem in
-            guard let newItem, let docType = photosPickerDocType else { return }
-            photosPickerDocType = nil
-            Task { await uploadPickedPhoto(newItem, type: docType) }
+            guard let newItem else { return }
+            documentPickerItem = nil
+            Task { await stagePickedPhoto(newItem) }
         }
-        .fullScreenCover(isPresented: Binding(get: { cameraDocType != nil }, set: { if !$0 { cameraDocType = nil } })) {
-            if let docType = cameraDocType {
-                CameraPicker(
-                    onCapture: { image in
-                        cameraDocType = nil
-                        Task { await uploadImageDocument(image, type: docType) }
-                    },
-                    onCancel: { cameraDocType = nil }
-                )
-                .ignoresSafeArea()
-            }
+        .fullScreenCover(isPresented: $showingCamera) {
+            CameraPicker(
+                onCapture: { image in
+                    showingCamera = false
+                    stageImage(image, suggestedName: nil)
+                },
+                onCancel: { showingCamera = false }
+            )
+            .ignoresSafeArea()
         }
         .fileImporter(
-            isPresented: Binding(get: { fileImporterDocType != nil }, set: { if !$0 { fileImporterDocType = nil } }),
+            isPresented: $showingFileImporter,
             allowedContentTypes: [.pdf, .image, .data],
             allowsMultipleSelection: false
         ) { result in
-            guard let docType = fileImporterDocType else { return }
-            fileImporterDocType = nil
             if case .success(let urls) = result, let url = urls.first {
-                Task { await uploadFileDocument(at: url, type: docType) }
+                stageFile(at: url)
+            }
+        }
+        .sheet(item: $pendingDocument) { pending in
+            NavigationStack {
+                FlightDocumentTagSheet(
+                    suggestedName: pending.suggestedName,
+                    onCancel: { pendingDocument = nil },
+                    onConfirm: { docType, customLabel in
+                        pendingDocument = nil
+                        Task { await upload(pending, docType: docType, customLabel: customLabel) }
+                    }
+                )
+            }
+            .presentationDetents([.medium])
+        }
+        .alert("Couldn't attach that", isPresented: Binding(get: { documentError != nil }, set: { if !$0 { documentError = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(documentError ?? "")
+        }
+    }
+
+    /// One "+", not three cards. The old row asked which *kind* of document you had before it
+    /// would let you pick a file, which meant three separate entry points to the same three
+    /// pickers, no way to attach two boarding passes without going round twice, and a
+    /// "Documents" card whose only label for everything else was the generic "Travel documents".
+    private var addDocumentButton: some View {
+        Menu {
+            Button("Photo Library", systemImage: "photo") { showingPhotosPicker = true }
+            Button("Take Photo", systemImage: "camera") { showingCamera = true }
+            Button("Choose File", systemImage: "folder") { showingFileImporter = true }
+        } label: {
+            ZStack {
+                Circle().fill(Theme.skyBlue.opacity(0.15))
+                if isUploadingDocument {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Image(systemName: "plus").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.skyBlue)
+                }
+            }
+            .frame(width: 32, height: 32)
+        }
+        .disabled(isUploadingDocument)
+        .accessibilityLabel("Add a document")
+    }
+
+    private func documentGroup(label: String, documents: [FlightDocument]) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+            Text(label.uppercased())
+                .font(.caption2.weight(.bold))
+                .tracking(0.5)
+                .foregroundStyle(Theme.subtleInk)
+
+            ForEach(documents) { document in
+                SwipeToDeleteRow(
+                    onDelete: { Task { await deleteDocument(document) } },
+                    accessibilityLabel: "Delete \(document.displayLabel)"
+                ) {
+                    documentRow(document)
+                }
             }
         }
     }
 
-    /// Boarding passes/travel documents can come from anywhere the traveler happens to have
-    /// them saved — a photo they took at check-in, a screenshot, or a PDF/pass file saved from
-    /// Mail or Wallet's own "Save to Files" share action (there's no public API to browse a
-    /// user's existing Wallet passes directly from a third-party app, so Files is the closest,
-    /// honest equivalent).
-    private func documentActionCard(type: FlightDocumentType, title: String) -> some View {
-        // `Menu` (not `confirmationDialog`) deliberately — it pops up anchored right at the
-        // tapped card, matching where the user's attention already is, instead of a
-        // confirmationDialog's forced-to-the-bottom-of-the-screen system sheet.
-        Menu {
-            Button("Photo Library", systemImage: "photo") { photosPickerDocType = type }
-            Button("Take Photo", systemImage: "camera") { cameraDocType = type }
-            Button("Choose File", systemImage: "folder") { fileImporterDocType = type }
-        } label: {
-            documentCardLabel(icon: type.icon, title: title)
+    private func documentRow(_ document: FlightDocument) -> some View {
+        HStack(spacing: Theme.Spacing.sm) {
+            flightDocumentIcon(document.docType.icon, size: 16)
+                .foregroundStyle(Theme.skyBlue)
+                .frame(width: 18)
+
+            // The filename, not the tag — the tag is the group heading directly above, so a row
+            // repeating it says nothing at all (three rows reading "Boarding pass" under a
+            // heading reading "BOARDING PASS"). Camera captures have no filename to show, so
+            // those fall back to when they were added, which at least tells them apart.
+            Text(document.originalFilename ?? "Added \(document.createdAt.formatted(date: .abbreviated, time: .shortened))")
+                .font(.caption)
+                .lineLimit(1)
+                .truncationMode(.middle)
+
+            Spacer(minLength: Theme.Spacing.xs)
+
+            if let url = document.url {
+                Link("View", destination: url).font(.caption.weight(.medium))
+            }
         }
-        .disabled(isUploadingDocument)
+        .padding(.horizontal, Theme.Spacing.sm)
+        .padding(.vertical, Theme.Spacing.xs + 2)
+        .frame(maxWidth: .infinity)
+        .themedCardBackground(cornerRadius: 12)
     }
 
     /// Renders either a bundled asset (e.g. the boarding-pass glyph, tinted like an SF Symbol
@@ -992,19 +1071,6 @@ struct FlightTrackingView: View {
                 .foregroundStyle(Theme.skyBlue)
         }
         .frame(width: 40, height: 40)
-    }
-
-    private func documentCardLabel(icon: FlightDocumentIcon, title: String) -> some View {
-        VStack(spacing: Theme.Spacing.xs) {
-            documentCardIcon(icon)
-
-            Text(title)
-                .font(.caption.weight(.medium))
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(Theme.Spacing.sm)
-        .themedCardBackground(cornerRadius: Theme.Radius.card)
     }
 
     private var tripNotesSheet: some View {
@@ -1124,42 +1190,83 @@ struct FlightTrackingView: View {
         isRefreshing = false
     }
 
-    private func uploadPickedPhoto(_ item: PhotosPickerItem, type: FlightDocumentType) async {
-        guard let data = try? await item.loadTransferable(type: Data.self), let uiImage = UIImage(data: data) else { return }
-        await uploadImageDocument(uiImage, type: type)
-        documentPickerItem = nil
-    }
+    // MARK: - Attaching a document
 
-    private func uploadImageDocument(_ uiImage: UIImage, type: FlightDocumentType) async {
-        let resized = uiImage.resized(maxDimension: 2000)
-        guard let jpeg = resized.jpegData(compressionQuality: 0.85) else { return }
-        isUploadingDocument = true
-        if let document = try? await BackendService.insertFlightDocument(
-            coupleID: appModel.couple.id, flightID: flight.id, tripID: nil,
-            docType: type, data: jpeg, contentType: "image/jpeg", fileExtension: "jpg", originalFilename: nil
-        ) {
-            documents.insert(document, at: 0)
+    private func stagePickedPhoto(_ item: PhotosPickerItem) async {
+        guard let data = try? await item.loadTransferable(type: Data.self), let image = UIImage(data: data) else {
+            documentError = "Couldn't read that photo. Try picking it again."
+            return
         }
-        isUploadingDocument = false
+        stageImage(image, suggestedName: nil)
     }
 
-    /// Files (unlike the Photos/camera paths) can be anything the user picked — a PDF boarding
-    /// pass, a `.pkpass`, whatever — so this uploads the raw bytes as-is rather than forcing a
-    /// decode through `UIImage`.
-    private func uploadFileDocument(at url: URL, type: FlightDocumentType) async {
-        guard url.startAccessingSecurityScopedResource() else { return }
+    /// Photos and camera captures are resized and re-encoded before they're staged, the same way
+    /// they always were — a full-resolution capture is several megabytes against a few hundred
+    /// kilobytes, and none of that detail survives being looked at on a phone anyway.
+    private func stageImage(_ image: UIImage, suggestedName: String?) {
+        guard let jpeg = image.resized(maxDimension: 2000).jpegData(compressionQuality: 0.85) else {
+            documentError = "Couldn't prepare that image."
+            return
+        }
+        pendingDocument = PendingFlightDocument(
+            data: jpeg, contentType: "image/jpeg", fileExtension: "jpg",
+            originalFilename: suggestedName, suggestedName: suggestedName
+        )
+    }
+
+    /// `FlightDocumentUploadPlan` decides whether a picked file is an image worth re-encoding, a
+    /// document to take as-is, or too large to accept at all.
+    private func stageFile(at url: URL) {
+        guard url.startAccessingSecurityScopedResource() else {
+            documentError = "Couldn't open that file."
+            return
+        }
         defer { url.stopAccessingSecurityScopedResource() }
-        guard let data = try? Data(contentsOf: url) else { return }
-        let fileExtension = url.pathExtension.isEmpty ? "dat" : url.pathExtension
-        let contentType = UTType(filenameExtension: fileExtension)?.preferredMIMEType ?? "application/octet-stream"
-        isUploadingDocument = true
-        if let document = try? await BackendService.insertFlightDocument(
-            coupleID: appModel.couple.id, flightID: flight.id, tripID: nil,
-            docType: type, data: data, contentType: contentType, fileExtension: fileExtension, originalFilename: url.lastPathComponent
-        ) {
-            documents.insert(document, at: 0)
+        guard let data = try? Data(contentsOf: url) else {
+            documentError = "Couldn't read that file. Try picking it again."
+            return
         }
-        isUploadingDocument = false
+
+        switch FlightDocumentUploadPlan.plan(for: data) {
+        case .recompressImage(let image):
+            stageImage(image, suggestedName: url.lastPathComponent)
+        case .tooLarge(let bytes, let limit):
+            let size = ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
+            let ceiling = ByteCountFormatter.string(fromByteCount: Int64(limit), countStyle: .file)
+            documentError = "That file is \(size). Documents need to be under \(ceiling) — try attaching a photo of it instead."
+        case .uploadAsIs:
+            let fileExtension = url.pathExtension.isEmpty ? "dat" : url.pathExtension
+            pendingDocument = PendingFlightDocument(
+                data: data,
+                contentType: UTType(filenameExtension: fileExtension)?.preferredMIMEType ?? "application/octet-stream",
+                fileExtension: fileExtension,
+                originalFilename: url.lastPathComponent,
+                suggestedName: url.deletingPathExtension().lastPathComponent
+            )
+        }
+    }
+
+    private func upload(_ pending: PendingFlightDocument, docType: FlightDocumentType, customLabel: String?) async {
+        isUploadingDocument = true
+        defer { isUploadingDocument = false }
+        do {
+            let document = try await BackendService.insertFlightDocument(
+                coupleID: appModel.couple.id, flightID: flight.id, tripID: nil,
+                docType: docType, data: pending.data, contentType: pending.contentType,
+                fileExtension: pending.fileExtension, originalFilename: pending.originalFilename,
+                customLabel: customLabel
+            )
+            documents.insert(document, at: 0)
+        } catch {
+            documentError = "Couldn't upload that document. Check your connection and try again."
+        }
+    }
+
+    private func deleteDocument(_ document: FlightDocument) async {
+        // Removed from the list first: the row is already gone under the finger that swiped it,
+        // and putting it back on a network hiccup reads worse than leaving it deleted.
+        documents.removeAll { $0.id == document.id }
+        try? await BackendService.deleteFlightDocument(id: document.id, path: document.filePath)
     }
 
     private static func relativeShort(_ date: Date) -> String {
