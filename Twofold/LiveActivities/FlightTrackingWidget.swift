@@ -286,12 +286,7 @@ struct FlightTrackingWidgetView: View {
     private var status: FlightStatus? { entry.status }
 
     private var emptyState: some View {
-        VStack(spacing: 4) {
-            Image(systemName: "airplane.circle").font(.title3).foregroundStyle(LiveActivityPalette.subtleInk)
-            Text("No upcoming flight").font(.caption2).multilineTextAlignment(.center).foregroundStyle(LiveActivityPalette.subtleInk)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding()
+        WidgetEmptyState(systemImage: "airplane.circle", message: "No upcoming flight", tint: LiveActivityPalette.skyBlue)
     }
 }
 

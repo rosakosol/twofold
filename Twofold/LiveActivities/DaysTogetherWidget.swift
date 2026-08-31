@@ -157,12 +157,7 @@ struct DaysTogetherWidgetView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 4) {
-            Image(systemName: "heart.fill").font(.title3).foregroundStyle(LiveActivityPalette.subtleInk)
-            Text("Set your anniversary date").font(.caption2).multilineTextAlignment(.center).foregroundStyle(LiveActivityPalette.subtleInk)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding()
+        WidgetEmptyState(systemImage: "heart.fill", message: "Set your anniversary date", tint: LiveActivityPalette.heartRed)
     }
 }
 

@@ -170,12 +170,7 @@ struct SmartRotatingWidgetView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 4) {
-            Image(systemName: "arrow.triangle.2.circlepath").font(.title3).foregroundStyle(LiveActivityPalette.subtleInk)
-            Text("Nothing to show yet").font(.caption2).foregroundStyle(LiveActivityPalette.subtleInk)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding()
+        WidgetEmptyState(systemImage: "arrow.triangle.2.circlepath", message: "Nothing to show yet", tint: LiveActivityPalette.skyBlue)
     }
 }
 

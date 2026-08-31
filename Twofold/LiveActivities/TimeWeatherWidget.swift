@@ -162,12 +162,7 @@ struct TimeWeatherWidgetView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 4) {
-            Image(systemName: "person.2.fill").font(.title3).foregroundStyle(LiveActivityPalette.subtleInk)
-            Text("Connect with your partner").font(.caption2).multilineTextAlignment(.center).foregroundStyle(LiveActivityPalette.subtleInk)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding()
+        WidgetEmptyState(systemImage: "person.2.fill", message: "Connect with your partner", tint: LiveActivityPalette.subtleInk)
     }
 }
 

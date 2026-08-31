@@ -155,13 +155,7 @@ struct DrawingPadWidgetView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 4) {
-            Image(systemName: "pencil.tip").font(.title3).foregroundStyle(LiveActivityPalette.subtleInk)
-            Text("Nothing drawn yet").font(.caption2).foregroundStyle(LiveActivityPalette.subtleInk)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding()
-        .background(Color.white)
+        WidgetEmptyState(systemImage: "pencil.tip", message: "Nothing drawn yet", tint: LiveActivityPalette.skyBlue)
     }
 }
 
