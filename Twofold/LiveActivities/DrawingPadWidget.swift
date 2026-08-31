@@ -44,25 +44,52 @@ struct DrawingPadProvider: TimelineProvider {
         }
 
         Task {
-            var partnerImageData = WidgetImageCache.readDrawingPadImage()
-            if let url = snapshot?.partnerSignedDrawingPadURL,
-               let fetched = try? await URLSession.shared.data(from: url).0, UIImage(data: fetched) != nil {
-                WidgetImageCache.writeDrawingPadImage(fetched)
-                partnerImageData = fetched
-            }
-            var myImageData = WidgetImageCache.readMyDrawingImage()
-            if let url = snapshot?.mySignedDrawingPadURL,
-               let fetched = try? await URLSession.shared.data(from: url).0, UIImage(data: fetched) != nil {
-                WidgetImageCache.writeMyDrawingImage(fetched)
-                myImageData = fetched
-            }
+            // Both pads at once, not one after the other. WidgetKit gives a timeline provider a
+            // short window to call `completion`, and this used to spend it on two serial fetches
+            // against `URLSession.shared`, whose default request timeout is 60 seconds each. Small
+            // only needs the partner's pad, so it made one request and usually came back in time;
+            // Medium makes two back to back and had twice the chance of running out of budget
+            // before completing — and a provider that never completes leaves WidgetKit with
+            // nothing to draw. That is the medium pad failing to load while the small one worked.
+            async let partner = Self.fetchPad(at: snapshot?.partnerSignedDrawingPadURL)
+            async let mine = Self.fetchPad(at: snapshot?.mySignedDrawingPadURL)
+            let (partnerFetched, myFetched) = await (partner, mine)
+
+            if let partnerFetched { WidgetImageCache.writeDrawingPadImage(partnerFetched) }
+            if let myFetched { WidgetImageCache.writeMyDrawingImage(myFetched) }
+
             let entry = DrawingPadEntry(
                 date: .now, subscriptionTier: snapshot?.subscriptionTier,
-                imageData: partnerImageData, myImageData: myImageData,
+                imageData: partnerFetched ?? WidgetImageCache.readDrawingPadImage(),
+                myImageData: myFetched ?? WidgetImageCache.readMyDrawingImage(),
                 myName: snapshot?.myName ?? "You", partnerName: snapshot?.partnerName ?? "Partner"
             )
             completion(Timeline(entries: [entry], policy: .after(nextRefresh)))
         }
+    }
+
+    /// Bounded, so the awaits above are guaranteed to return and `completion` is guaranteed to be
+    /// called. `URLSession.shared`'s 60-second default is far longer than the window a widget gets;
+    /// an expired signed URL or a slow network shouldn't cost the widget its whole render, it
+    /// should just mean this render uses the cached pad.
+    ///
+    /// Not `.ephemeral`: a signed pad URL is stable for 48 hours (see `WidgetSnapshotWriter`), so
+    /// the shared URL cache can answer a repeat fetch outright.
+    private static let padSession: URLSession = {
+        let configuration = URLSessionConfiguration.default
+        configuration.timeoutIntervalForRequest = 6
+        configuration.timeoutIntervalForResource = 10
+        configuration.waitsForConnectivity = false
+        return URLSession(configuration: configuration)
+    }()
+
+    /// Nil for anything that isn't a decodable image — a missing URL, a timeout, or the XML error
+    /// document Storage returns for an expired signature, which would otherwise be cached and
+    /// rendered as a broken pad.
+    private static func fetchPad(at url: URL?) async -> Data? {
+        guard let url else { return nil }
+        guard let data = try? await padSession.data(from: url).0, UIImage(data: data) != nil else { return nil }
+        return data
     }
 
     private func cachedEntry() -> DrawingPadEntry {
