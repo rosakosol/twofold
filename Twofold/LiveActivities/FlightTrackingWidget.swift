@@ -44,21 +44,50 @@ struct FlightTrackingProvider: TimelineProvider {
     }
 
     func getSnapshot(in context: Context, completion: @escaping (FlightTrackingEntry) -> Void) {
-        completion(entry(from: WidgetSnapshot.read()))
+        completion(entry(from: WidgetSnapshot.read(), at: .now))
     }
 
+    /// Several entries, not one.
+    ///
+    /// This used to hand WidgetKit a single entry holding the status and progress exactly as the
+    /// main app last wrote them, then ask to be called again in fifteen minutes — where it read
+    /// the same stored values and rendered the same thing. So a flight the app had last seen as
+    /// scheduled stayed "Scheduled" on the Home Screen through boarding, take-off and landing,
+    /// because nothing between those moments ever reruns the app. The reported case was a flight
+    /// stuck at Scheduled while it was in the air.
+    ///
+    /// The snapshot carries the departure and arrival times, which is enough for the widget to
+    /// move itself along: each entry re-derives status and progress for its own moment, and there
+    /// are entries at the two times the display actually changes character. WidgetKit renders
+    /// them at those instants without the app running at all.
     func getTimeline(in context: Context, completion: @escaping (Timeline<FlightTrackingEntry>) -> Void) {
-        let current = entry(from: WidgetSnapshot.read())
-        let nextRefresh = Calendar.current.date(byAdding: .minute, value: 15, to: .now) ?? .now.addingTimeInterval(900)
-        completion(Timeline(entries: [current], policy: .after(nextRefresh)))
+        let snapshot = WidgetSnapshot.read()
+        let flight = snapshot?.nextFlight
+        let now = Date.now
+
+        // The moments worth a guaranteed entry: take-off and touchdown, plus a coarse walk across
+        // the flight so the progress rail creeps forward rather than jumping a quarter at a time.
+        var moments: Set<Date> = [now]
+        if let departure = flight?.bestDeparture, departure > now { moments.insert(departure) }
+        if let arrival = flight?.bestArrival, arrival > now { moments.insert(arrival) }
+        for minutes in stride(from: 15, through: 240, by: 15) {
+            moments.insert(now.addingTimeInterval(Double(minutes) * 60))
+        }
+        // A cap well under WidgetKit's own, since it budgets refreshes per widget per day and
+        // there is no value in a denser walk than the rail can visibly show.
+        let dates = moments.sorted().prefix(24)
+
+        let entries = dates.map { entry(from: snapshot, at: $0) }
+        let nextRefresh = dates.last ?? now.addingTimeInterval(900)
+        completion(Timeline(entries: entries, policy: .after(nextRefresh)))
     }
 
-    private func entry(from snapshot: WidgetSnapshot?) -> FlightTrackingEntry {
+    private func entry(from snapshot: WidgetSnapshot?, at date: Date) -> FlightTrackingEntry {
         let flight = snapshot?.nextFlight
         return FlightTrackingEntry(
-            date: .now,
+            date: date,
             subscriptionTier: snapshot?.subscriptionTier,
-            status: flight?.status,
+            status: flight?.status.projected(departure: flight?.bestDeparture, arrival: flight?.bestArrival, now: date),
             originCity: flight?.originCity,
             destinationCity: flight?.destinationCity,
             originCode: flight?.originCode,
@@ -68,11 +97,23 @@ struct FlightTrackingProvider: TimelineProvider {
             delaySeconds: flight?.delaySeconds,
             bestDeparture: flight?.bestDeparture,
             bestArrival: flight?.bestArrival,
-            progress: flight?.progress ?? 0,
+            // Recomputed for this entry's own moment. The stored value was correct when the app
+            // last ran and has been frozen ever since, so the rail never moved between openings.
+            progress: Self.progress(for: flight, at: date),
             travelerIsMe: flight?.travelerIsMe,
             myName: snapshot?.myName ?? "You",
             partnerName: snapshot?.partnerName ?? "Partner"
         )
+    }
+
+    /// Mirrors `Flight.progress`, evaluated at an arbitrary moment rather than "now" — same
+    /// guard, so an arrival that isn't after its departure can't produce a NaN.
+    private static func progress(for flight: WidgetSnapshot.FlightInfo?, at date: Date) -> Double {
+        guard let flight else { return 0 }
+        guard let departure = flight.bestDeparture, let arrival = flight.bestArrival, arrival > departure else {
+            return flight.progress
+        }
+        return min(1, max(0, date.timeIntervalSince(departure) / arrival.timeIntervalSince(departure)))
     }
 }
 
