@@ -47,6 +47,12 @@ struct FlightWeather: Hashable, Codable {
     var windSummary: String?
 
     var isEmpty: Bool { conditions == nil && temperatureC == nil && windSummary == nil }
+
+    /// Whether there's anything here the flight card actually draws. Narrower than `isEmpty`,
+    /// which asks whether the provider returned anything at all: wind speed is still stored (it
+    /// comes free with the METAR observation) but no longer displayed, so a reading holding only
+    /// a wind summary has nothing to show even though it isn't empty.
+    var hasDisplayableReading: Bool { conditions != nil || temperatureC != nil }
 }
 
 /// Base `FlightStatus` enum lives in `Shared/FlightStatus.swift` (shared with

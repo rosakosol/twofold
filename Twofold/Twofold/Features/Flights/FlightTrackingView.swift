@@ -636,8 +636,11 @@ struct FlightTrackingView: View {
 
     /// Weather (moved here from the departure/arrival cards) and the time difference between
     /// the two airports, in one place — never rendered empty.
+    /// "Has something worth drawing", not "has any field set at all". Wind is no longer shown, so
+    /// a reading carrying only a wind summary would render as a bare airport code over a dash —
+    /// a panel that says nothing, sitting under a heading promising something useful.
     private var hasAnyWeather: Bool {
-        flight.weatherOrigin?.isEmpty == false || flight.weatherDestination?.isEmpty == false
+        flight.weatherOrigin?.hasDisplayableReading == true || flight.weatherDestination?.hasDisplayableReading == true
     }
 
     @ViewBuilder
@@ -674,9 +677,6 @@ struct FlightTrackingView: View {
             Text(weather?.temperatureC.map { "\(Int($0))°C" } ?? "—")
                 .font(.title3.weight(.bold))
                 .foregroundStyle(.white)
-            Text(weather?.windSummary ?? " ")
-                .font(.caption2)
-                .foregroundStyle(.white.opacity(0.85))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(.vertical, Theme.Spacing.sm)
