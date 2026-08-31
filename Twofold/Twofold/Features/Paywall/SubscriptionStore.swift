@@ -113,11 +113,38 @@ final class SubscriptionStore {
     private(set) var pricedPackages: [PricedPackage] = []
 
     /// Just the entitlement check — `RootView`'s gate only ever needs this, not a product
-    /// catalog fetch, and calling it is cheap: RevenueCat caches `CustomerInfo` locally and only
-    /// hits the network when that cache is stale, so this is safe to call on every foreground.
+    /// catalog fetch.
+    ///
+    /// `fetchCurrent`, not the cached read this used to do. A plan change made *outside* the app —
+    /// Settings › Apple Account › Subscriptions, which is where changing between Plus and Premium
+    /// actually happens — doesn't notify the app at all, so the SDK keeps serving its cached
+    /// CustomerInfo and the old tier with it. That would be merely stale, except `checkSubscription`
+    /// writes whatever this returns straight back to the profile row: an upgrade to Premium was
+    /// recorded, then the next foreground read the stale cache and overwrote it with Plus. Reported
+    /// as a subscription that "keeps reverting to plus" after repeatedly changing plan.
+    ///
+    /// Called on launch and on each foreground, so this is a network round trip at those moments
+    /// rather than the cache hit it was — the correct trade when its answer is about to be
+    /// persisted as the couple's tier.
     func refreshEntitlementsOnly() async {
-        guard let info = try? await Purchases.shared.customerInfo() else { return }
+        guard let info = try? await Purchases.shared.customerInfo(fetchPolicy: .fetchCurrent) else { return }
         subscribedTier = SubscriptionTier.active(in: info)
+    }
+
+    /// Entitlement changes as RevenueCat learns of them, for the same out-of-app plan change the
+    /// fetch above only catches at the next foreground. Renewals, upgrades and expiries all arrive
+    /// here without the app having to ask.
+    func entitlementUpdates() -> AsyncStream<SubscriptionTier?> {
+        let stream = Purchases.shared.customerInfoStream
+        return AsyncStream { continuation in
+            let task = Task {
+                for await info in stream {
+                    continuation.yield(SubscriptionTier.active(in: info))
+                }
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
     }
 
     func package(for tier: SubscriptionTier, period: BillingPeriod) -> PricedPackage? {

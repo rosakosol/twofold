@@ -37,7 +37,10 @@ struct DistanceCompactWidgetView: View {
 
     var body: some View {
         Group {
-            if entry.myCity == nil || entry.partnerCity == nil {
+            // Same collapse as DistanceWidget's `distanceOrTogetherText`, and for the same reason:
+            // cities that are set but carry no coordinates produced a headline row holding nothing
+            // but the heart pair.
+            if !entry.isSameCity && entry.distanceLabel == nil {
                 HStack(spacing: 4) {
                     heartPair
                     Text("Add your home cities")

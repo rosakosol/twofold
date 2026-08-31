@@ -78,6 +78,27 @@ struct RootView: View {
             await refreshPendingOutgoingConnectionRequestIfNeeded()
             refreshCurrentCityIfNeeded()
         }
+        // Entitlement changes as RevenueCat learns of them, rather than only at the next
+        // foreground. A plan change made in Settings › Apple Account › Subscriptions never tells
+        // the app anything, so without this the tier stayed whatever the last foreground read
+        // until another one happened to come along.
+        .task {
+            for await tier in subscriptionStore.entitlementUpdates() {
+                guard appModel.hasCouple else { continue }
+                // Same guard as `checkSubscription`: never write a negative read back while
+                // RevenueCat is still anonymous, since that reads "not subscribed" for everyone.
+                if tier != nil || !Purchases.shared.isAnonymous {
+                    try? await BackendService.updateSubscriptionStatus(active: tier != nil, tier: tier?.dbValue)
+                }
+                if let coupleTier = try? await BackendService.fetchCoupleSubscriptionTier() {
+                    appModel.subscriptionTier = coupleTier
+                }
+                if let active = try? await BackendService.fetchSubscriptionActive() {
+                    appModel.isSubscriptionActive = active
+                }
+                await WidgetSnapshotWriter.refresh(appModel: appModel)
+            }
+        }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
                 // Sequential in one `Task`, not two separate concurrent ones — both

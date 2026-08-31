@@ -76,12 +76,20 @@ struct DistanceWidgetView: View {
     /// apart — `WidgetSnapshotWriter` deliberately leaves it nil for a same-city couple too.
     @ViewBuilder
     private var distanceOrTogetherText: some View {
-        if entry.myCity == nil || entry.partnerCity == nil {
-            Text("Add your home cities")
-        } else if entry.isSameCity {
+        if entry.isSameCity, entry.myCity != nil {
             Text("We're together!")
         } else if let distanceLabel = entry.distanceLabel {
             Text(distanceLabel)
+        } else {
+            // Everything that isn't one of the two above. The chain used to end at the
+            // distanceLabel branch with no else, so a couple whose cities are both *set* but whose
+            // distance couldn't be computed — a saved city carrying no coordinate — got a widget
+            // that rendered literally nothing. Blank is the one thing a widget must never be: it
+            // reads as the app being broken rather than as something the reader can act on.
+            //
+            // The two cases collapse into one message on purpose: whether a city is missing or is
+            // missing its coordinates, re-picking it is the fix either way.
+            Text("Add your home cities")
         }
     }
 
