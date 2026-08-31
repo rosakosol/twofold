@@ -130,7 +130,7 @@ struct DrawingPadWidgetView: View {
 
     @ViewBuilder
     private var singleBody: some View {
-        if let imageData = entry.imageData, let uiImage = UIImage(data: imageData) {
+        if let uiImage = WidgetImageDecoding.downsampled(entry.imageData, pointSize: 200) {
             Image(uiImage: uiImage)
                 .resizable()
                 .scaledToFit()
@@ -154,7 +154,7 @@ struct DrawingPadWidgetView: View {
     private func pane(name: String, imageData: Data?, person: WidgetPerson) -> some View {
         ZStack(alignment: .top) {
             Color.white
-            if let imageData, let uiImage = UIImage(data: imageData) {
+            if let uiImage = WidgetImageDecoding.downsampled(imageData, pointSize: 160) {
                 Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFit()

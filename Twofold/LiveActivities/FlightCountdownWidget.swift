@@ -161,7 +161,7 @@ struct FlightCountdownWidgetView: View {
                 } else {
                     Image(systemName: "airplane.departure").font(.title3)
                 }
-                if let data = WidgetImageCache.readAirlineLogoImage(), let uiImage = UIImage(data: data) {
+                if let uiImage = WidgetImageDecoding.downsampled(WidgetImageCache.readAirlineLogoImage(), pointSize: 44) {
                     Image(uiImage: uiImage)
                         .resizable()
                         .scaledToFit()

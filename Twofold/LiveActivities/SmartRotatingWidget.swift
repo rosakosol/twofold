@@ -155,7 +155,7 @@ struct SmartRotatingWidgetView: View {
 
     private func memorySlide(title: String, imageData: Data?) -> some View {
         ZStack(alignment: .bottomLeading) {
-            if let imageData, let uiImage = UIImage(data: imageData) {
+            if let uiImage = WidgetImageDecoding.downsampled(imageData, pointSize: 360) {
                 Image(uiImage: uiImage).resizable().scaledToFill()
             } else {
                 LinearGradient(colors: [LiveActivityPalette.skyBlue, LiveActivityPalette.leafGreen], startPoint: .topLeading, endPoint: .bottomTrailing)

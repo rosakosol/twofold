@@ -95,7 +95,7 @@ struct JourneyLockScreenView: View {
     /// show a placeholder that never gets replaced this session.
     @ViewBuilder
     private func airlineLogo(size: CGFloat) -> some View {
-        if let data = WidgetImageCache.readAirlineLogoImage(), let uiImage = UIImage(data: data) {
+        if let uiImage = WidgetImageDecoding.downsampled(WidgetImageCache.readAirlineLogoImage(), pointSize: 24) {
             Image(uiImage: uiImage)
                 .resizable()
                 .scaledToFit()

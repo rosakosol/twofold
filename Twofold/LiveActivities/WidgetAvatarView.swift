@@ -39,7 +39,7 @@ struct WidgetAvatarView: View {
 
     var body: some View {
         Group {
-            if let imageData, let uiImage = UIImage(data: imageData) {
+            if let uiImage = WidgetImageDecoding.downsampled(imageData, pointSize: size) {
                 Image(uiImage: uiImage).resizable().scaledToFill()
             } else {
                 placeholder

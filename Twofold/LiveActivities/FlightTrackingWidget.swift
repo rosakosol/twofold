@@ -229,7 +229,7 @@ struct FlightTrackingWidgetView: View {
 
     @ViewBuilder
     private func airlineLogo(size: CGFloat) -> some View {
-        if let data = WidgetImageCache.readAirlineLogoImage(), let uiImage = UIImage(data: data) {
+        if let uiImage = WidgetImageDecoding.downsampled(WidgetImageCache.readAirlineLogoImage(), pointSize: size) {
             Image(uiImage: uiImage)
                 .resizable()
                 .scaledToFit()
