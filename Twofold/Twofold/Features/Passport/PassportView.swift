@@ -210,7 +210,10 @@ private struct FullStatsView: View {
                     icon: "building.2.fill",
                     title: "Top Visited Airports",
                     total: stats.airports.count,
-                    unit: "total airports",
+                    // "different", not "total". These have always been counts of distinct things —
+                    // `ranked` groups by name — but captioning a 3 as "total airports" reads as
+                    // every visit added up, so a correct number looked wrong.
+                    unit: "different airports",
                     ranked: stats.airports
                 )
                 airlinesSection
@@ -218,7 +221,7 @@ private struct FullStatsView: View {
                     icon: "arrow.triangle.swap",
                     title: "Top Routes",
                     total: stats.routes.count,
-                    unit: "total routes",
+                    unit: "different routes",
                     ranked: stats.routes
                 )
                 countriesSection
@@ -357,7 +360,7 @@ private struct FullStatsView: View {
     /// number prefix) — same `AirlineLogoView`/`AirlineLogo.url(forIATACode:)` pairing
     /// `FlightTrackingView`'s header uses, just keyed off the ranked code instead of a live flight.
     private var airlinesSection: some View {
-        shareableCard(icon: "airplane.circle.fill", title: "Top Airlines", value: "\(stats.airlines.count)", unit: "total airlines") {
+        shareableCard(icon: "airplane.circle.fill", title: "Top Airlines", value: "\(stats.airlines.count)", unit: "different airlines") {
             if !stats.airlines.isEmpty {
                 VStack(spacing: Theme.Spacing.sm) {
                     ForEach(stats.airlines.prefix(3)) { entry in
@@ -413,7 +416,7 @@ private struct FullStatsView: View {
     /// "Show more" toggle, plus a fixed 3x3 region grid underneath — countries are the one
     /// breakdown worth seeing in full, not just a top-N taste.
     private var countriesSection: some View {
-        shareableCard(icon: "globe.americas.fill", title: "Countries & Territories", value: "\(stats.countries.count)", unit: "total") {
+        shareableCard(icon: "globe.americas.fill", title: "Countries & Territories", value: "\(stats.countries.count)", unit: "visited") {
             if !stats.countries.isEmpty {
                 VStack(spacing: Theme.Spacing.sm) {
                     ForEach(stats.countries.prefix(showAllCountries ? stats.countries.count : 5)) { entry in
@@ -733,46 +736,96 @@ struct FlightStats {
         longestFlightTime = longest?.time ?? 0
         longestFlightRoute = longest?.route
 
-        airports = Self.ranked(flights.flatMap { [Self.airportKey($0.origin), Self.airportKey($0.destination)].compactMap { $0 } })
-        airlines = Self.ranked(flights.compactMap(Self.airlineKey))
+        // Canonicalised across the whole set before counting, because the same airport or airline
+        // can arrive under more than one identifier — see `airportCanonicaliser`.
+        let airportKey = Self.airportCanonicaliser(flights.flatMap { [$0.origin, $0.destination] })
+        let airlineKey = Self.airlineCanonicaliser(flights)
+
+        airports = Self.ranked(flights.flatMap { [airportKey($0.origin), airportKey($0.destination)].compactMap { $0 } })
+        airlines = Self.ranked(flights.compactMap(airlineKey))
         // Direction-agnostic, so MEL → SIN and SIN → MEL count as one route. A flight with an
         // unresolvable airport at either end contributes no route at all rather than a half-named
         // one — "MEL – —" would rank as its own distinct route, and every such flight would pile
         // into the same fake one.
         routes = Self.ranked(flights.compactMap { flight -> String? in
-            guard let origin = Self.airportKey(flight.origin), let destination = Self.airportKey(flight.destination) else { return nil }
+            guard let origin = airportKey(flight.origin), let destination = airportKey(flight.destination) else { return nil }
             return [origin, destination].sorted().joined(separator: " – ")
         })
     }
 
-    /// The airport as a counting key, or nil if it can't be identified.
+    /// One identity per airport, resolved across the whole set of flights rather than per flight.
+    ///
+    /// An airport is keyed by its IATA code, falling back to ICAO — and that fallback is what
+    /// inflated the counts. A flight that resolved only an ICAO code contributed "YMML" while
+    /// another through the same airport contributed "MEL", so Melbourne counted as two airports,
+    /// two entries in Top Airports, and two separate routes to everywhere it connects. The
+    /// reported symptom: three airports flown repeatedly showing as more than three.
+    ///
+    /// There's no airport table on the device to look codes up in, but the flights themselves
+    /// carry the link: any airport that arrives with *both* codes tells us they're the same place.
+    /// So one pass records those pairings, and a second resolves every airport through them. An
+    /// ICAO code never seen alongside its IATA partner stays as it is — wrong to merge on a guess,
+    /// and it's the honest answer for a set of flights that genuinely never identified them
+    /// together.
     ///
     /// Not `displayCode`, which exists for *showing* an airport and falls back through `city` to a
     /// literal "—". Both fallbacks corrupt a count: a flight that resolved only a city contributed
     /// "Melbourne" as an airport distinct from another flight's "MEL", and every flight with
     /// nothing resolved contributed the same "—", which then ranked as a real airport someone had
     /// supposedly visited many times.
-    private static func airportKey(_ airport: FlightAirport) -> String? {
-        let code = airport.iata ?? airport.icao
-        guard let code, !code.trimmingCharacters(in: .whitespaces).isEmpty else { return nil }
-        return code.trimmingCharacters(in: .whitespaces).uppercased()
+    private static func airportCanonicaliser(_ airports: [FlightAirport]) -> (FlightAirport) -> String? {
+        var canonical: [String: String] = [:]
+        for airport in airports {
+            guard let iata = normalizedCode(airport.iata) else { continue }
+            canonical[iata] = iata
+            if let icao = normalizedCode(airport.icao) { canonical[icao] = iata }
+        }
+        return { airport in
+            if let iata = normalizedCode(airport.iata) { return canonical[iata] ?? iata }
+            if let icao = normalizedCode(airport.icao) { return canonical[icao] ?? icao }
+            return nil
+        }
     }
 
-    /// The operating carrier, or nil if unknown.
+    /// The same idea for airlines, linked through the carrier's name instead of a second code.
     ///
-    /// Previously this scraped the letters off the front of `flightNumber` — but `flightNumber` is
-    /// `marketingFlightNumber ?? flightNumberIATA`, so a codeshare reported the *marketing*
-    /// carrier's prefix while a non-codeshare on the same airline reported its own. One airline
-    /// then counted as two, which is how five flights across three airlines came out as four.
-    /// `airlineCode` is the operating carrier resolved server-side (`operator_iata`, falling back
-    /// to ICAO — see flight-sync.ts), so it stays the same across both cases. The prefix scrape is
-    /// kept only as a fallback for flights added before that field was populated.
-    private static func airlineKey(for flight: Flight) -> String? {
+    /// `airlineCode` is whatever the server resolved — `operator_iata` where it exists, ICAO
+    /// otherwise — so one carrier can arrive as "SQ" on one flight and "SIA" on another and count
+    /// twice. Flights that carry both a code and a name let the two be tied together; the shortest
+    /// code wins as the canonical one, which is the IATA form the tailfin logos are keyed on.
+    ///
+    /// The prefix scrape survives only as a fallback for flights added before `airlineCode` was
+    /// populated. It can't be trusted as a primary key: `flightNumber` is
+    /// `marketingFlightNumber ?? flightNumberIATA`, so a codeshare reports the *marketing*
+    /// carrier's prefix while a non-codeshare on the same airline reports its own — which is how
+    /// five flights across three airlines once came out as four.
+    private static func airlineCanonicaliser(_ flights: [Flight]) -> (Flight) -> String? {
+        var byName: [String: String] = [:]
+        for flight in flights {
+            guard let code = rawAirlineKey(for: flight),
+                  let name = flight.airlineName?.trimmingCharacters(in: .whitespaces).lowercased(),
+                  !name.isEmpty else { continue }
+            if let existing = byName[name], existing.count <= code.count { continue }
+            byName[name] = code
+        }
+        return { flight in
+            guard let code = rawAirlineKey(for: flight) else { return nil }
+            guard let name = flight.airlineName?.trimmingCharacters(in: .whitespaces).lowercased() else { return code }
+            return byName[name] ?? code
+        }
+    }
+
+    private static func rawAirlineKey(for flight: Flight) -> String? {
         if let code = flight.airlineCode?.trimmingCharacters(in: .whitespaces), !code.isEmpty {
             return code.uppercased()
         }
         let prefix = flight.flightNumber.prefix { $0.isLetter }
         return prefix.isEmpty ? nil : prefix.uppercased()
+    }
+
+    private static func normalizedCode(_ code: String?) -> String? {
+        guard let trimmed = code?.trimmingCharacters(in: .whitespaces), !trimmed.isEmpty else { return nil }
+        return trimmed.uppercased()
     }
 
     private static func ranked(_ names: [String]) -> [Ranked] {
