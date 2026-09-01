@@ -2,10 +2,15 @@
 //  SmartRotatingWidget.swift
 //  LiveActivities
 //
-//  Premium tier — cycles through the couple's other widgets' content in one slot. This is
-//  standard WidgetKit practice: a single Timeline whose entries are time-spaced ~20 min apart,
-//  each carrying a different slide's content pulled straight from the existing WidgetSnapshot —
-//  not an animation, and no extra reloadTimelines() calls beyond the one normal refresh.
+//  Premium tier — cycles through the couple's other widgets' content in one slot. This is standard
+//  WidgetKit practice: a single Timeline of time-spaced entries, each carrying a different slide's
+//  content pulled straight from the existing WidgetSnapshot — not an animation, and no extra
+//  reloadTimelines() calls beyond the one normal refresh.
+//
+//  Advancing through entries that have already been handed over is free: it costs nothing against
+//  WidgetKit's daily refresh budget, because nothing is being reloaded. What costs budget is
+//  `getTimeline` being called again, which `.atEnd` does when the last entry's date passes. So the
+//  rotation interval and the reload rate have to be decoupled — see `slides(from:)`.
 //
 
 import SwiftUI
@@ -14,7 +19,11 @@ import WidgetKit
 enum RotatingSlide {
     case anniversary(days: Int, myName: String, partnerName: String)
     case flight(status: FlightStatus, route: String, flightID: UUID?, travelerIsMe: Bool?, myName: String, partnerName: String)
-    case memory(title: String, memoryID: UUID?, imageData: Data?)
+    /// No image data. The photo is read from `WidgetImageCache` at render time instead of riding
+    /// in the entry: the timeline now holds dozens of entries, and embedding the bytes would put a
+    /// copy in every memory entry, inflating the archive WidgetKit has to hand across. An oversized
+    /// archive is what left widgets rendering as grey placeholders (see `WidgetImageDecoding`).
+    case memory(title: String, memoryID: UUID?)
     case stat(memoryCount: Int, tripCount: Int)
 }
 
@@ -41,34 +50,68 @@ struct SmartRotatingProvider: TimelineProvider {
         completion(Timeline(entries: entries, policy: .atEnd))
     }
 
-    /// One entry per available slide, spaced 20 minutes apart — skips slides with nothing to
-    /// show (e.g. no upcoming flight) rather than displaying an empty one.
+    /// How long each slide is on screen.
+    private static let rotationInterval: TimeInterval = 5 * 60
+
+    /// How far ahead the timeline reaches, which is what actually decides the reload rate.
+    ///
+    /// These two are deliberately independent. One entry per slide at the rotation interval would
+    /// mean a four-slide cycle ends after twenty minutes, `.atEnd` fires, and `getTimeline` runs
+    /// ~72 times a day — past WidgetKit's daily budget of roughly 40-70 refreshes per device across
+    /// all widgets, at which point iOS throttles it and the widget stops updating at all. The cycle
+    /// is repeated instead, so the rotation is quick and the reloads are rare: about six a day.
+    private static let timelineSpan: TimeInterval = 4 * 60 * 60
+
+    /// One entry per slide per turn of the cycle, skipping slides with nothing to show (e.g. no
+    /// upcoming flight) rather than displaying an empty one.
     private func slides(from snapshot: WidgetSnapshot?) -> [SmartRotatingEntry] {
         let subscriptionTier = snapshot?.subscriptionTier
         let myName = snapshot?.myName ?? "You"
         let partnerName = snapshot?.partnerName ?? "Partner"
-        var slides: [RotatingSlide] = []
+
+        // Built as closures over a moment rather than as fixed values, because the timeline now
+        // spans hours: the flight slide has to say where the flight is at the entry's own time, not
+        // where it was when the timeline was built. Same reasoning as FlightTrackingWidget.
+        var builders: [(Date) -> RotatingSlide] = []
 
         if let anniversaryDate = snapshot?.anniversaryDate {
-            let days = max(0, Calendar.current.dateComponents([.day], from: anniversaryDate, to: .now).day ?? 0)
-            slides.append(.anniversary(days: days, myName: myName, partnerName: partnerName))
+            builders.append { at in
+                let days = max(0, Calendar.current.dateComponents([.day], from: anniversaryDate, to: at).day ?? 0)
+                return .anniversary(days: days, myName: myName, partnerName: partnerName)
+            }
         }
         if let flight = snapshot?.nextFlight {
-            slides.append(.flight(status: flight.status, route: "\(flight.originCity) → \(flight.destinationCity)", flightID: flight.id, travelerIsMe: flight.travelerIsMe, myName: myName, partnerName: partnerName))
+            builders.append { at in
+                .flight(
+                    status: flight.status.projected(departure: flight.bestDeparture, arrival: flight.bestArrival, now: at),
+                    route: "\(flight.originCity) → \(flight.destinationCity)",
+                    flightID: flight.id,
+                    travelerIsMe: flight.travelerIsMe,
+                    myName: myName,
+                    partnerName: partnerName
+                )
+            }
         }
         if let memory = snapshot?.latestMemory {
-            slides.append(.memory(title: memory.title, memoryID: memory.id, imageData: WidgetImageCache.readLatestMemoryImage()))
+            builders.append { _ in .memory(title: memory.title, memoryID: memory.id) }
         }
         if let stats = snapshot?.relationshipStats {
-            slides.append(.stat(memoryCount: stats.memoryCount, tripCount: stats.tripCount))
+            builders.append { _ in .stat(memoryCount: stats.memoryCount, tripCount: stats.tripCount) }
         }
 
-        guard !slides.isEmpty else {
+        guard !builders.isEmpty else {
             return [SmartRotatingEntry(date: .now, subscriptionTier: subscriptionTier, slide: nil)]
         }
 
-        return slides.enumerated().map { index, slide in
-            SmartRotatingEntry(date: .now.addingTimeInterval(Double(index) * 20 * 60), subscriptionTier: subscriptionTier, slide: slide)
+        let start = Date.now
+        let count = max(builders.count, Int(Self.timelineSpan / Self.rotationInterval))
+        return (0..<count).map { step in
+            let at = start.addingTimeInterval(Double(step) * Self.rotationInterval)
+            return SmartRotatingEntry(
+                date: at,
+                subscriptionTier: subscriptionTier,
+                slide: builders[step % builders.count](at)
+            )
         }
     }
 }
@@ -83,12 +126,19 @@ struct SmartRotatingWidgetView: View {
     private var deepLinkURL: URL? {
         if isLocked { return URL(string: "twofold://paywall") }
         switch entry.slide {
-        case .anniversary, .stat, .none:
+        // Each slide opens what it's showing, matching the standalone widget it mirrors: the
+        // anniversary count is the relationship card on Stats (same as Days Together), the
+        // memories/trips tally is the Stats tab itself.
+        case .anniversary:
+            return URL(string: "twofold://passport/relationship")
+        case .stat:
+            return URL(string: "twofold://passport")
+        case .none:
             return URL(string: "twofold://home")
         case .flight(_, _, let flightID, _, _, _):
             if let flightID { return URL(string: "twofold://flight/\(flightID.uuidString)") }
             return URL(string: "twofold://passport")
-        case .memory(_, let memoryID, _):
+        case .memory(_, let memoryID):
             if let memoryID { return URL(string: "twofold://memory/\(memoryID.uuidString)") }
             return URL(string: "twofold://memories")
         }
@@ -109,8 +159,8 @@ struct SmartRotatingWidgetView: View {
                         Image(systemName: status.icon).font(.title3)
                     }
                 }
-            case .memory(let title, _, let imageData):
-                memorySlide(title: title, imageData: imageData)
+            case .memory(let title, _):
+                memorySlide(title: title)
             case .stat(let memoryCount, let tripCount):
                 slideBody(value: "\(memoryCount)", label: "memories · \(tripCount) trips", colors: [.purple, LiveActivityPalette.skyBlue]) {
                     Image(systemName: "chart.bar.fill").font(.title3)
@@ -153,7 +203,13 @@ struct SmartRotatingWidgetView: View {
         .background(LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing))
     }
 
-    private func memorySlide(title: String, imageData: Data?) -> some View {
+    /// Reads the photo here rather than taking it from the entry — see `RotatingSlide.memory`.
+    private func memorySlide(title: String) -> some View {
+        let imageData = WidgetImageCache.readLatestMemoryImage()
+        return memorySlideBody(title: title, imageData: imageData)
+    }
+
+    private func memorySlideBody(title: String, imageData: Data?) -> some View {
         ZStack(alignment: .bottomLeading) {
             if let uiImage = WidgetImageDecoding.downsampled(imageData, pointSize: 360) {
                 Image(uiImage: uiImage).resizable().scaledToFill()
