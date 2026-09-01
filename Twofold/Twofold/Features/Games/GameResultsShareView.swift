@@ -24,14 +24,16 @@ struct GameResultsShareView: View {
     /// isn't the same as consent to have a partner's own words exported to Photos/Messages/
     /// Instagram, so this gates both CTAs behind a one-time-per-tap confirmation instead of
     /// sharing on the first tap the way `.scoreSnapshot` (no free text, no one else's words) can.
-    @State private var pendingShareAction: PendingShareAction?
+    /// One per button, rather than one shared value for both.
+    ///
+    /// A `confirmationDialog` anchors to the view it's attached to, and a single dialog can only
+    /// be attached to their common parent — the row — so it pointed at the gap between the two
+    /// buttons, reading as though it belonged to Instagram Stories no matter which one was tapped.
+    /// Each button now carries its own.
+    @State private var pendingInstagramShare: UIImage?
+    @State private var pendingOtherShare: UIImage?
 
     private enum Tab: Hashable { case result, questions }
-
-    private enum PendingShareAction {
-        case instagram(UIImage)
-        case other(UIImage)
-    }
 
     /// Only Deep Conversations decks with more than one topic have anything to pick between — the
     /// Daily Question and every other game type render straight from `data`'s own single-round
@@ -201,7 +203,7 @@ struct GameResultsShareView: View {
             if InstagramStoryShare.isAvailable, let image {
                 Button {
                     if currentLayoutIncludesPartnerAnswer {
-                        pendingShareAction = .instagram(image)
+                        pendingInstagramShare = image
                     } else {
                         InstagramStoryShare.shareSticker(image)
                     }
@@ -220,13 +222,38 @@ struct GameResultsShareView: View {
                         )
                         .foregroundStyle(.white)
                 }
+                .confirmationDialog(
+                    partnerAnswerWarning,
+                    isPresented: presenting($pendingInstagramShare),
+                    titleVisibility: .visible
+                ) {
+                    if let pendingInstagramShare {
+                        Button("Share to Instagram Stories") { InstagramStoryShare.shareSticker(pendingInstagramShare) }
+                    }
+                    Button("Cancel", role: .cancel) {}
+                }
             }
             if let image {
                 if currentLayoutIncludesPartnerAnswer {
                     Button {
-                        pendingShareAction = .other(image)
+                        pendingOtherShare = image
                     } label: {
                         otherButtonLabel
+                    }
+                    .confirmationDialog(
+                        partnerAnswerWarning,
+                        isPresented: presenting($pendingOtherShare),
+                        titleVisibility: .visible
+                    ) {
+                        if let pendingOtherShare {
+                            ShareLink(
+                                item: Image(uiImage: pendingOtherShare),
+                                preview: SharePreview("\(data.title) results", image: Image(uiImage: pendingOtherShare))
+                            ) {
+                                Text("Share")
+                            }
+                        }
+                        Button("Cancel", role: .cancel) {}
                     }
                 } else {
                     ShareLink(item: Image(uiImage: image), preview: SharePreview("\(data.title) results", image: Image(uiImage: image))) {
@@ -235,26 +262,15 @@ struct GameResultsShareView: View {
                 }
             }
         }
-        .confirmationDialog(
-            "This includes \(data.partner.name)'s answer too — share anyway?",
-            isPresented: Binding(
-                get: { pendingShareAction != nil },
-                set: { isPresented in if !isPresented { pendingShareAction = nil } }
-            ),
-            titleVisibility: .visible
-        ) {
-            switch pendingShareAction {
-            case .instagram(let image):
-                Button("Share to Instagram Stories") { InstagramStoryShare.shareSticker(image) }
-            case .other(let image):
-                ShareLink(item: Image(uiImage: image), preview: SharePreview("\(data.title) results", image: Image(uiImage: image))) {
-                    Text("Share")
-                }
-            case nil:
-                EmptyView()
-            }
-            Button("Cancel", role: .cancel) {}
-        }
+    }
+
+    private var partnerAnswerWarning: String {
+        "This includes \(data.partner.name)'s answer too — share anyway?"
+    }
+
+    /// A `Bool` binding that clears the held image when the dialog dismisses.
+    private func presenting(_ image: Binding<UIImage?>) -> Binding<Bool> {
+        Binding(get: { image.wrappedValue != nil }, set: { if !$0 { image.wrappedValue = nil } })
     }
 
     private var otherButtonLabel: some View {
