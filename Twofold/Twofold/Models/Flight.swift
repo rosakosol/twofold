@@ -367,6 +367,40 @@ struct Flight: Identifiable, Hashable, Codable {
         return "\(totalMinutes / 60)h \(totalMinutes % 60)m"
     }
 
+    /// Whether this flight actually happened — the gate for every travel statistic.
+    ///
+    /// Flight stats counted every row regardless of status, so a trip booked for next month made
+    /// its destination an airport you had "visited", its carrier an airline you had flown, and its
+    /// distance part of how far you'd travelled. A cancelled flight counted the same way, for a
+    /// journey nobody took. Reported as stats that didn't add up: eighteen flights where sixteen
+    /// had been flown, and airports neither partner had set foot in.
+    ///
+    /// Cancelled is excluded outright. Diverted is not — you flew, just not to the airport on the
+    /// ticket. Everything else is decided by the clock rather than by status, because a flight
+    /// that has landed isn't always *marked* landed: tracking stops when the provider stops
+    /// reporting, and a flight added after the fact may never carry a live status at all.
+    var hasBeenFlown: Bool {
+        if cancelled { return false }
+        switch status {
+        case .cancelled:
+            return false
+        case .landed, .arrived, .diverted:
+            // Diverted counts: you landed, just not where the ticket said.
+            return true
+        case .scheduled, .boarding, .delayed, .departed, .inAir, .landingSoon:
+            // Still in progress as far as the provider knows — but tracking stops when the provider
+            // stops reporting, and a flight added after the fact may never carry a live status at
+            // all, so the clock decides rather than the status.
+            break
+        }
+        // Arrival, not departure. A flight that has taken off hasn't necessarily got where it was
+        // going — it can divert, turn back, or land somewhere else entirely — so it isn't a journey
+        // taken until it's down. Departure is only the fallback for a flight with no arrival time
+        // recorded at all.
+        guard let reference = bestArrival ?? bestDeparture else { return false }
+        return reference <= .now
+    }
+
     var hasLivePosition: Bool { positionLatitude != nil && positionLongitude != nil }
 
     var positionCoordinate: CLLocationCoordinate2D? {

@@ -143,7 +143,12 @@ private struct FullStatsView: View {
     @Environment(AppModel.self) private var appModel
     @State private var scope: StatScope = .all
     @State private var period: StatPeriod = .allTime
-    @State private var showAllCountries = false
+    /// Which ranked cards have been expanded past their first few rows, keyed by card title.
+    ///
+    /// Each card headlines a count of everything and then listed only the top three, with nothing
+    /// saying so — "22" above three airports reads as a number that can't be right, rather than as
+    /// three of twenty-two. Reported exactly that way.
+    @State private var expandedRankings: Set<String> = []
     /// Set by a section's share button (see `shareableCard`) to open that section's own
     /// full-screen preview — the same "see the card before you send it" flow `PassportShareView`
     /// already gives the summary Flight Stats card, rather than firing a `ShareLink` straight to
@@ -178,7 +183,7 @@ private struct FullStatsView: View {
     /// the currently-scoped ones, so switching between All and a partner doesn't make the year
     /// you're looking at disappear out from under you.
     private var availableYears: [Int] {
-        Array(Set(appModel.flights.compactMap(Self.year))).sorted(by: >)
+        Array(Set(appModel.flights.filter(\.hasBeenFlown).compactMap(Self.year))).sorted(by: >)
     }
 
     private var stats: FlightStats {
@@ -213,7 +218,7 @@ private struct FullStatsView: View {
                     // "different", not "total". These have always been counts of distinct things —
                     // `ranked` groups by name — but captioning a 3 as "total airports" reads as
                     // every visit added up, so a correct number looked wrong.
-                    unit: "different airports",
+                    unit: "airports",
                     ranked: stats.airports
                 )
                 airlinesSection
@@ -221,7 +226,7 @@ private struct FullStatsView: View {
                     icon: "arrow.triangle.swap",
                     title: "Top Routes",
                     total: stats.routes.count,
-                    unit: "different routes",
+                    unit: "routes",
                     ranked: stats.routes
                 )
                 countriesSection
@@ -360,11 +365,22 @@ private struct FullStatsView: View {
     /// number prefix) — same `AirlineLogoView`/`AirlineLogo.url(forIATACode:)` pairing
     /// `FlightTrackingView`'s header uses, just keyed off the ranked code instead of a live flight.
     private var airlinesSection: some View {
-        shareableCard(icon: "airplane.circle.fill", title: "Top Airlines", value: "\(stats.airlines.count)", unit: "different airlines") {
+        shareableCard(icon: "airplane.circle.fill", title: "Top Airlines", value: "\(stats.airlines.count)", unit: "airlines") {
             if !stats.airlines.isEmpty {
+                let isExpanded = expandedRankings.contains("Top Airlines")
                 VStack(spacing: Theme.Spacing.sm) {
-                    ForEach(stats.airlines.prefix(3)) { entry in
+                    ForEach(stats.airlines.prefix(isExpanded ? stats.airlines.count : 3)) { entry in
                         airlineRow(entry)
+                    }
+                    if stats.airlines.count > 3 {
+                        Button(isExpanded ? "Show less" : "Show all \(stats.airlines.count)") {
+                            withAnimation {
+                                if isExpanded { expandedRankings.remove("Top Airlines") } else { expandedRankings.insert("Top Airlines") }
+                            }
+                        }
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Theme.skyBlueText)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
             }
@@ -391,11 +407,31 @@ private struct FullStatsView: View {
     private func rankedSection(icon: String, title: String, total: Int, unit: String, ranked: [FlightStats.Ranked]) -> some View {
         shareableCard(icon: icon, title: title, value: "\(total)", unit: unit) {
             if !ranked.isEmpty {
-                VStack(spacing: Theme.Spacing.sm) {
-                    ForEach(ranked.prefix(3)) { entry in
-                        breakdownRow(label: entry.name, value: "×\(entry.count)")
+                rankedRows(title: title, ranked: ranked)
+            }
+        }
+    }
+
+    /// The card's first few entries, with a way to reach the rest.
+    ///
+    /// `collapsedLimit` is 3 here and 5 for countries, which is why the limit is a parameter rather
+    /// than a constant — those lists were already different lengths and there's no reason to
+    /// flatten them.
+    private func rankedRows(title: String, ranked: [FlightStats.Ranked], collapsedLimit: Int = 3) -> some View {
+        let isExpanded = expandedRankings.contains(title)
+        return VStack(spacing: Theme.Spacing.sm) {
+            ForEach(ranked.prefix(isExpanded ? ranked.count : collapsedLimit)) { entry in
+                breakdownRow(label: entry.name, value: "×\(entry.count)")
+            }
+            if ranked.count > collapsedLimit {
+                Button(isExpanded ? "Show less" : "Show all \(ranked.count)") {
+                    withAnimation {
+                        if isExpanded { expandedRankings.remove(title) } else { expandedRankings.insert(title) }
                     }
                 }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Theme.skyBlueText)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
     }
@@ -412,25 +448,12 @@ private struct FullStatsView: View {
         return CountryRegion.allCases.map { ($0, counts[$0] ?? 0) }
     }
 
-    /// Unlike the other `rankedSection`s (always top-3), the country list shows up to 5 with a
-    /// "Show more" toggle, plus a fixed 3x3 region grid underneath — countries are the one
-    /// breakdown worth seeing in full, not just a top-N taste.
+    /// Shows 5 before collapsing rather than the other cards' 3, plus a fixed 3x3 region grid
+    /// underneath — countries are the one breakdown worth seeing more of at a glance.
     private var countriesSection: some View {
-        shareableCard(icon: "globe.americas.fill", title: "Countries & Territories", value: "\(stats.countries.count)", unit: "visited") {
+        shareableCard(icon: "globe.americas.fill", title: "Countries & Territories", value: "\(stats.countries.count)", unit: "countries") {
             if !stats.countries.isEmpty {
-                VStack(spacing: Theme.Spacing.sm) {
-                    ForEach(stats.countries.prefix(showAllCountries ? stats.countries.count : 5)) { entry in
-                        breakdownRow(label: entry.name, value: "×\(entry.count)")
-                    }
-                    if stats.countries.count > 5 {
-                        Button(showAllCountries ? "Show less" : "Show more") {
-                            withAnimation { showAllCountries.toggle() }
-                        }
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Theme.skyBlueText)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                }
+                rankedRows(title: "Countries & Territories", ranked: stats.countries, collapsedLimit: 5)
 
                 Divider()
 
@@ -698,7 +721,10 @@ struct FlightStats {
     /// reference table when the flight was tracked (see add-flight/index.ts) — never from a
     /// linked trip's `Place`. A flight whose airport(s) aren't in that reference table (rare)
     /// just doesn't contribute to these three breakdowns; every other stat below still counts it.
-    init(flights: [Flight], couple: Couple) {
+    /// `allFlights` is filtered to the ones actually flown before anything is counted — see
+    /// `Flight.hasBeenFlown`. A passport records where you've been, not where you're booked.
+    init(flights allFlights: [Flight], couple: Couple) {
+        let flights = allFlights.filter(\.hasBeenFlown)
         flightCount = flights.count
         userFlightCount = flights.count { $0.travelerIDs.contains(couple.partnerA.id) }
         partnerFlightCount = flights.count { $0.travelerIDs.contains(couple.partnerB.id) }

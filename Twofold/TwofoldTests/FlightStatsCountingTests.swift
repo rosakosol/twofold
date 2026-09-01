@@ -7,6 +7,10 @@
 //  display strings, which split one real thing into two (or merged several into one) in ways that
 //  only show up once real flight data is messy.
 //
+//  Every fixture here is a flight that has already landed, since stats only count those — see
+//  `Flight.hasBeenFlown`. Without that these all read zero, which is a true statement about a set
+//  of flights nobody has taken and tells you nothing about the keys.
+//
 
 import Testing
 import Foundation
@@ -33,7 +37,9 @@ struct FlightStatsCountingTests {
             airlineCode: airlineCode,
             origin: from,
             destination: to,
-            status: .scheduled
+            scheduledOut: Date.now.addingTimeInterval(-8 * 86_400),
+            scheduledIn: Date.now.addingTimeInterval(-8 * 86_400 + 8 * 3600),
+            status: .arrived
         )
     }
 

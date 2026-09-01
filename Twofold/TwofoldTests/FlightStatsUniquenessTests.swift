@@ -23,12 +23,17 @@ struct FlightStatsUniquenessTests {
         FlightAirport(iata: iata, icao: icao, name: nil, city: city, timezone: nil, latitude: nil, longitude: nil, country: country)
     }
 
+    /// Defaults to a flight that has already been taken, since that's what stats count — see
+    /// `Flight.hasBeenFlown`. Tests that care about the other states say so explicitly.
     private func flight(
         _ number: String,
         airlineCode: String?,
         name: String? = nil,
         from origin: FlightAirport,
-        to destination: FlightAirport
+        to destination: FlightAirport,
+        departedAgo: TimeInterval = 8 * 86_400,
+        status: FlightStatus = .arrived,
+        cancelled: Bool = false
     ) -> Flight {
         Flight(
             travelerIDs: [couple.partnerA.id],
@@ -36,7 +41,11 @@ struct FlightStatsUniquenessTests {
             airlineName: name,
             airlineCode: airlineCode,
             origin: origin,
-            destination: destination
+            destination: destination,
+            scheduledOut: Date.now.addingTimeInterval(-departedAgo),
+            scheduledIn: Date.now.addingTimeInterval(-departedAgo + 8 * 3600),
+            cancelled: cancelled,
+            status: status
         )
     }
 
@@ -126,5 +135,109 @@ struct FlightStatsUniquenessTests {
         let result = stats([flight("XX1", airlineCode: "XX", from: mel, to: unknown)])
         #expect(result.airports.count == 1)
         #expect(result.routes.isEmpty, "a route needs both ends identified")
+    }
+}
+
+/// Stats count where you've been, not where you're booked. Every flight row used to count
+/// regardless of status, so a trip booked for next month made its destination an airport you'd
+/// visited and its distance part of how far you'd travelled.
+struct FlightStatsFlownOnlyTests {
+
+    private let couple = Couple(
+        partnerA: Person(name: "Alex", accentColor: Person.palette[0]),
+        partnerB: Person(name: "Sam", accentColor: Person.palette[1]),
+        startedDatingOn: Date(timeIntervalSince1970: 1_600_000_000)
+    )
+
+    private func airport(_ iata: String, _ city: String, country: String = "Australia") -> FlightAirport {
+        FlightAirport(iata: iata, icao: nil, name: nil, city: city, timezone: nil, latitude: nil, longitude: nil, country: country)
+    }
+
+    private func flight(
+        to destination: FlightAirport,
+        departsIn: TimeInterval,
+        status: FlightStatus,
+        cancelled: Bool = false
+    ) -> Flight {
+        Flight(
+            travelerIDs: [couple.partnerA.id],
+            flightNumberIATA: "QF1",
+            airlineName: "Qantas",
+            airlineCode: "QF",
+            origin: airport("MEL", "Melbourne"),
+            destination: destination,
+            scheduledOut: Date.now.addingTimeInterval(departsIn),
+            scheduledIn: Date.now.addingTimeInterval(departsIn + 8 * 3600),
+            cancelled: cancelled,
+            status: status
+        )
+    }
+
+    private func stats(_ flights: [Flight]) -> FlightStats { FlightStats(flights: flights, couple: couple) }
+
+    @Test("a flight booked for next month isn't somewhere you've been")
+    func upcomingFlightsAreExcluded() {
+        let result = stats([flight(to: airport("HND", "Tokyo", country: "Japan"), departsIn: 30 * 86_400, status: .scheduled)])
+        #expect(result.flightCount == 0)
+        #expect(result.airports.isEmpty, "Tokyo isn't an airport you've visited yet")
+        #expect(result.countries.isEmpty)
+        #expect(result.totalDistanceKm == 0)
+    }
+
+    @Test("a cancelled flight is a journey nobody took")
+    func cancelledFlightsAreExcluded() {
+        let result = stats([flight(to: airport("HND", "Tokyo", country: "Japan"), departsIn: -30 * 86_400, status: .cancelled)])
+        #expect(result.flightCount == 0)
+        #expect(result.airports.isEmpty)
+    }
+
+    /// Cancelled wins over a past arrival time — the clock says it landed, the status says it never
+    /// left.
+    @Test("the cancelled flag beats the clock")
+    func cancelledFlagWinsOverTimestamps() {
+        let result = stats([flight(to: airport("HND", "Tokyo", country: "Japan"), departsIn: -30 * 86_400, status: .arrived, cancelled: true)])
+        #expect(result.flightCount == 0)
+    }
+
+    @Test("a flight already taken counts")
+    func pastFlightsAreCounted() {
+        let result = stats([flight(to: airport("HND", "Tokyo", country: "Japan"), departsIn: -30 * 86_400, status: .arrived)])
+        #expect(result.flightCount == 1)
+        #expect(result.airports.count == 2)
+    }
+
+    /// You flew — just not to the airport on the ticket.
+    @Test("a diverted flight still counts")
+    func divertedFlightsAreCounted() {
+        let result = stats([flight(to: airport("HND", "Tokyo", country: "Japan"), departsIn: -2 * 86_400, status: .diverted)])
+        #expect(result.flightCount == 1)
+    }
+
+    /// Tracking stops when the provider stops reporting, so a flight that landed isn't always
+    /// *marked* landed. The clock decides when the status doesn't.
+    @Test("a past flight still marked scheduled counts, because the clock says it flew")
+    func staleStatusFallsBackToTheClock() {
+        let result = stats([flight(to: airport("HND", "Tokyo", country: "Japan"), departsIn: -10 * 86_400, status: .scheduled)])
+        #expect(result.flightCount == 1)
+    }
+
+    /// Taking off isn't arriving. A flight in the air can divert, turn back, or land somewhere
+    /// else, so it isn't a journey taken — or an airport visited — until it's down.
+    @Test("a flight still in the air doesn't count yet")
+    func inAirFlightsAreNotCountedYet() {
+        let result = stats([flight(to: airport("HND", "Tokyo", country: "Japan"), departsIn: -2 * 3600, status: .inAir)])
+        #expect(result.flightCount == 0)
+    }
+
+    @Test("mixing flown and unflown counts only the flown")
+    func onlyFlownFlightsAreCounted() {
+        let result = stats([
+            flight(to: airport("HND", "Tokyo", country: "Japan"), departsIn: -30 * 86_400, status: .arrived),
+            flight(to: airport("SIN", "Singapore", country: "Singapore"), departsIn: -10 * 86_400, status: .arrived),
+            flight(to: airport("JFK", "New York", country: "United States"), departsIn: 20 * 86_400, status: .scheduled),
+            flight(to: airport("LHR", "London", country: "United Kingdom"), departsIn: -5 * 86_400, status: .cancelled),
+        ])
+        #expect(result.flightCount == 2, "two flown, one upcoming, one cancelled")
+        #expect(result.airports.count == 3, "MEL, HND, SIN")
     }
 }
