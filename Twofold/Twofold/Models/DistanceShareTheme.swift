@@ -21,19 +21,27 @@ enum DistanceShareTheme: String, CaseIterable, Identifiable {
     }
 
     /// Colors drawn straight from the dark-mode/Daylight handoff's `ShareCard` canvas table
-    /// (`sky` accent, dark "Aurora" canvas / light "Daylight" pastel canvas). `.classic` ("Light")
-    /// follows system appearance — it's the default, so it should read as unmistakably "Twofold,"
-    /// not a separate design language — while `.dark` and `.pink` are explicit, appearance-
-    /// independent picks (the same handoff's dark-sky and light-heart canvases), so choosing one
-    /// always looks the same regardless of the system's own light/dark setting.
+    /// (`sky` accent, dark "Aurora" canvas / light "Daylight" pastel canvas). All three are fixed:
+    /// `.classic` is the light canvas, `.dark` the dark one and `.pink` the light-heart one, so
+    /// picking a theme looks the same regardless of the system's own setting.
+    ///
+    /// `.classic` used to be the exception, built from `Color(light:dark:)` so it tracked the
+    /// device. That made the swatch labelled "Light" render dark for anyone in dark mode — and
+    /// worse, it disagreed with the file it produced, since the exported image renders light. Users
+    /// saw a dark preview and shared a light card.
+    ///
+    /// A share card is a leaf image that leaves the app: it has to look right in Photos and in a
+    /// Messages thread, where the sender's appearance setting is not in evidence — which is the
+    /// same reason `ShareCardPalette` exists at all rather than these cards using `Theme.*`. A
+    /// theme picker naming a colour should produce that colour.
     var backgroundGradient: LinearGradient {
         switch self {
         case .classic:
             LinearGradient(
                 colors: [
-                    Color(light: "E4F2FC", dark: "123045"),
-                    Color(light: "D3E9F8", dark: "0C2233"),
-                    Color(light: "DFF2EC", dark: "08161F"),
+                    Color(hex: "E4F2FC"),
+                    Color(hex: "D3E9F8"),
+                    Color(hex: "DFF2EC"),
                 ],
                 startPoint: .top, endPoint: .bottom
             )
@@ -48,7 +56,7 @@ enum DistanceShareTheme: String, CaseIterable, Identifiable {
     /// own base hue (`DistanceShareCard` applies the opacity).
     var glowColor: Color {
         switch self {
-        case .classic: Color(light: "6EC1F0", dark: "4FA9E0")
+        case .classic: Color(hex: "6EC1F0")
         case .dark: Color(hex: "4FA9E0")
         case .pink: Color(hex: "E85C6B")
         }
@@ -56,7 +64,7 @@ enum DistanceShareTheme: String, CaseIterable, Identifiable {
 
     var primaryTextColor: Color {
         switch self {
-        case .classic: Color(light: "16232F", dark: "F4F9FC")
+        case .classic: Color(hex: "16232F")
         case .dark: Color(hex: "F4F9FC")
         case .pink: Color(hex: "16232F")
         }
@@ -64,7 +72,7 @@ enum DistanceShareTheme: String, CaseIterable, Identifiable {
 
     var secondaryTextColor: Color {
         switch self {
-        case .classic: Color(light: "52657A", dark: "AEC0CD")
+        case .classic: Color(hex: "52657A")
         case .dark: Color(hex: "AEC0CD")
         case .pink: Color(hex: "16232F").opacity(0.65)
         }
@@ -75,7 +83,7 @@ enum DistanceShareTheme: String, CaseIterable, Identifiable {
     /// abstract.
     var accentTextColor: Color {
         switch self {
-        case .classic: Color(light: "1F6F9E", dark: "8ACFF5")
+        case .classic: Color(hex: "1F6F9E")
         case .dark: Color(hex: "8ACFF5")
         case .pink: Color(hex: "C2334A")
         }

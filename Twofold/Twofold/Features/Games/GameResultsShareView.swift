@@ -28,6 +28,10 @@ struct GameResultsShareView: View {
     /// up. The dialog is attached to the button itself so it anchors there — it used to hang off
     /// the row that held two buttons, and pointed at the gap between them.
     @State private var pendingShare: UIImage?
+    /// The card's colour, chosen here rather than fixed per layout — every game type gets all
+    /// three. Nil until the card first appears, then seeded from the result (see
+    /// `GameResultsShareCard.defaultAccent`) so the opening card still reacts to how the game went.
+    @State private var accent: ShareCardAccent?
 
     private enum Tab: Hashable { case result, questions }
 
@@ -53,6 +57,36 @@ struct GameResultsShareView: View {
     }
 
     private var layouts: [GameResultShareLayout] { effectiveData.availableLayouts }
+
+    private var currentAccent: ShareCardAccent {
+        accent ?? GameResultsShareCard.defaultAccent(for: effectiveData)
+    }
+
+    /// Three swatches under the card. A picker rather than three more pages: the Daily Question
+    /// already has three layouts, and crossing those with three colours would be nine swipes to
+    /// see everything.
+    private var accentPicker: some View {
+        HStack(spacing: Theme.Spacing.md) {
+            ForEach(ShareCardAccent.allCases, id: \.self) { option in
+                Button {
+                    withAnimation(.snappy(duration: 0.2)) { accent = option }
+                } label: {
+                    Circle()
+                        .fill(ShareCardPalette.resolve(option, for: .dark).accent)
+                        .frame(width: 28, height: 28)
+                        .overlay {
+                            Circle()
+                                .strokeBorder(Theme.ink, lineWidth: currentAccent == option ? 2.5 : 0)
+                                .padding(-3)
+                        }
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(option.displayName)
+                .accessibilityAddTraits(currentAccent == option ? [.isButton, .isSelected] : .isButton)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
 
     var body: some View {
         NavigationStack {
@@ -94,7 +128,7 @@ struct GameResultsShareView: View {
             TabView(selection: $page) {
                 ForEach(Array(layouts.enumerated()), id: \.offset) { index, layout in
                     ScrollView {
-                        GameResultsShareCard(data: effectiveData, layout: layout)
+                        GameResultsShareCard(data: effectiveData, layout: layout, accent: currentAccent)
                             .padding(.top, Theme.Spacing.lg)
                             .shadow(color: .black.opacity(0.2), radius: 20, y: 10)
                     }
@@ -107,6 +141,8 @@ struct GameResultsShareView: View {
             if layouts.count > 1 {
                 dotIndicator
             }
+
+            accentPicker
 
             ctaRow
                 .padding(.horizontal, Theme.Spacing.lg)
@@ -252,7 +288,7 @@ struct GameResultsShareView: View {
 
     private func currentPageImage() -> UIImage? {
         guard layouts.indices.contains(page) else { return nil }
-        return renderImage(GameResultsShareCard(data: effectiveData, layout: layouts[page]))
+        return renderImage(GameResultsShareCard(data: effectiveData, layout: layouts[page], accent: currentAccent))
     }
 
     @MainActor

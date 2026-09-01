@@ -13,8 +13,17 @@
 
 import SwiftUI
 
-enum ShareCardAccent {
+enum ShareCardAccent: CaseIterable {
     case sky, leaf, heart
+
+    /// For the share screen's colour swatches, which are otherwise three unlabelled circles.
+    var displayName: String {
+        switch self {
+        case .sky: "Blue"
+        case .leaf: "Green"
+        case .heart: "Pink"
+        }
+    }
 }
 
 /// A fully-resolved set of colors for one accent, in one appearance. Every share card that draws
