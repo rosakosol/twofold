@@ -5,9 +5,12 @@
 //   present -> /flights/{ident} answers directly
 //   future  -> /flights/{ident} is hard-capped ~2 days out; beyond that needs /schedules
 //
-// Both caps are AeroAPI's, not ours, and neither reports itself as an error — the endpoint just
-// returns nothing. So the window arithmetic and the past/future predicates are what decide whether
-// a real flight is findable at all, which is what these cover.
+// Both caps are AeroAPI's, not ours, but they fail differently, which matters. The future cap is
+// silent — the endpoint just returns nothing. The past cap is not: a `start` more than ~10 days
+// back is rejected with a 400 for the whole request ("Invalid start bound: time is too far in the
+// past"), which used to surface to the traveller as a failed search for any flight older than that
+// — reported live for CX488 two months back. So the window arithmetic decides both whether a real
+// flight is findable and whether the search errors at all, which is what these cover.
 
 import { assert, assertEquals, assertFalse } from "jsr:@std/assert";
 import { dateWindow, isPastDate } from "./index.ts";
@@ -110,5 +113,38 @@ Deno.test("dateWindow: timestamps carry no fractional seconds", () => {
     const { startISO, endISO } = dateWindow(isoDay(offset));
     assertEquals(startISO.includes("."), false, `start ${startISO}`);
     assertEquals(endISO.includes("."), false, `end ${endISO}`);
+  }
+});
+
+// MARK: - Past
+
+// The reported case: a search for a flight two months ago returned AeroAPI's own "time is too far
+// in the past" 400 rather than the flight. /history answers that day perfectly well; the live call
+// just has to be skipped rather than attempted and allowed to throw.
+Deno.test("dateWindow: a date beyond the live endpoint's ~10-day memory says so", () => {
+  const { tooOldForLive } = dateWindow(isoDay(-62));
+  assert(tooOldForLive, "two months back must skip /flights/{ident} and go to /history");
+});
+
+Deno.test("dateWindow: recent past days are still answered by the live endpoint", () => {
+  for (const offset of [0, -1, -3, -5, -7]) {
+    const { tooOldForLive } = dateWindow(isoDay(offset));
+    assertFalse(tooOldForLive, `${offset} days back is within the live window and shouldn't be skipped`);
+  }
+});
+
+// The margin is deliberate: AeroAPI enforces its limit against its own clock when the request
+// lands, so a window built exactly on the boundary can cross it in flight. Day 9 is the last one
+// the live endpoint is asked about, not day 10.
+Deno.test("dateWindow: the cutoff keeps a margin inside AeroAPI's stated 10 days", () => {
+  assertFalse(dateWindow(isoDay(-7)).tooOldForLive, "7 days back is comfortably inside");
+  assert(dateWindow(isoDay(-11)).tooOldForLive, "11 days back is outside");
+});
+
+// A future date must never be mistaken for one that's too old — the window's `start` is pulled a
+// day back from the target, and the clamp for the future cap moves `start` too.
+Deno.test("dateWindow: future dates are never treated as too old", () => {
+  for (const offset of [1, 2, 5, 30, 300]) {
+    assertFalse(dateWindow(isoDay(offset)).tooOldForLive, `${offset} days out must not skip the live endpoint as 'too old'`);
   }
 });

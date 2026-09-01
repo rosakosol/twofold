@@ -60,7 +60,7 @@ function isValidDate(date: unknown): date is string {
 // a date 2+ days out still can't reliably reach the true requested day within this endpoint's
 // 2-day ceiling (the clamped window may end partway *through* the requested day, missing a
 // later-in-the-day departure entirely) — that's what `wasClamped` exists to signal upstream.
-export function dateWindow(date: string): { startISO: string; endISO: string; wasClamped: boolean } {
+export function dateWindow(date: string): { startISO: string; endISO: string; wasClamped: boolean; tooOldForLive: boolean } {
   const target = new Date(`${date}T00:00:00Z`);
   let end = new Date(target.getTime());
   end.setUTCDate(end.getUTCDate() + 2);
@@ -84,10 +84,23 @@ export function dateWindow(date: string): { startISO: string; endISO: string; wa
     }
   }
 
+  // The mirror of `wasClamped`, on the other side of the endpoint's reach. /flights/{ident} rejects
+  // a `start` more than ~10 days back outright — "Invalid start bound: time is too far in the past
+  // (limit: 10 days)", a 400 for the whole request, not an empty result. There is no window
+  // arithmetic that makes it answer for an older day, and clamping `start` forward would only ask
+  // it about the wrong dates. So this reports the condition and the caller skips the endpoint
+  // entirely, going to /history/flights/{ident} — which is the right source for that day anyway.
+  //
+  // Nine days, not ten: the limit is enforced against AeroAPI's clock at the moment the request
+  // lands, and a window built right on the boundary can cross it in flight.
+  const oldestLiveStart = new Date();
+  oldestLiveStart.setUTCDate(oldestLiveStart.getUTCDate() - 9);
+  const tooOldForLive = start.getTime() < oldestLiveStart.getTime();
+
   // AeroAPI's parser has rejected a `.toISOString()` timestamp's trailing milliseconds before
   // ("type is incorrect") — strip them defensively; AeroAPI's own documented examples never
   // include a fractional-seconds component.
-  return { startISO: toAeroTimestamp(start), endISO: toAeroTimestamp(end), wasClamped };
+  return { startISO: toAeroTimestamp(start), endISO: toAeroTimestamp(end), wasClamped, tooOldForLive };
 }
 
 /// Whether the requested day is entirely behind us, in UTC.
@@ -413,8 +426,28 @@ Deno.serve(async (req) => {
 
     if (input.mode === "number") {
       const designator = splitFlightDesignator(input.flightNumber);
-      const { startISO, endISO, wasClamped } = dateWindow(input.date);
-      const results = await resolveFlightByIdent(input.flightNumber, { startISO, endISO, identType: "designator" });
+      const { startISO, endISO, wasClamped, tooOldForLive } = dateWindow(input.date);
+
+      // Skipped outright for a day beyond the live endpoint's ~10-day memory, and otherwise
+      // allowed to fail without taking the request with it.
+      //
+      // Searching a flight from two months ago used to return a 502 carrying AeroAPI's own "time
+      // is too far in the past" complaint. The history fallback below would have answered it
+      // correctly — it just never ran, because this call threw first and the outer catch turned
+      // the whole request into an error. A date picker with no lower bound makes that an ordinary
+      // thing to ask for, not an edge case.
+      let results: AeroFlight[] = [];
+      let liveLog = "skipped (older than the live endpoint's ~10-day window)";
+      if (!tooOldForLive) {
+        try {
+          results = await resolveFlightByIdent(input.flightNumber, { startISO, endISO, identType: "designator" });
+          liveLog = `window=[${startISO},${endISO}] wasClamped=${wasClamped}, aeroapi returned ${results.length}`;
+        } catch (err) {
+          // Same "degrade, don't fail" posture as the /history and /schedules calls below: this is
+          // one of three sources, and one of them being unavailable is not the request failing.
+          liveLog = `failed: ${(err as Error).message}`;
+        }
+      }
 
       // Deliberately NOT filtered to operating-carrier-only any more — see isOperatingCarrier.
       // A differently-operated flight under this designator is the codeshare the caller searched
@@ -518,9 +551,9 @@ Deno.serve(async (req) => {
       // doesn't show up" report diagnosable from the Supabase dashboard's function logs alone,
       // rather than needing to guess blind at date-window/filter math.
       console.log(
-        `[resolve-flight] number ${input.flightNumber} on ${input.date}: live window=[${startISO},${endISO}] ` +
-          `wasClamped=${wasClamped}, aeroapi returned ${results.length} live, ${operatingFlights.length} after operator filter, ` +
-          `${liveCandidates.length} after same-day; schedules ${scheduledLog}; ${candidates.length} candidates after merge. ` +
+        `[resolve-flight] number ${input.flightNumber} on ${input.date}: live ${liveLog}; ` +
+          `${operatingFlights.length} after operator filter, ` +
+          `${liveCandidates.length} after same-day; history ${historyLog}; schedules ${scheduledLog}; ${candidates.length} candidates after merge. ` +
           `raw=${JSON.stringify(results.map((f) => ({
             ident: f.ident_iata ?? f.ident_icao ?? f.ident, operator: f.operator_iata ?? f.operator_icao ?? f.operator,
             out: f.scheduled_out, estOut: f.estimated_out, actOut: f.actual_out,
