@@ -47,6 +47,8 @@ struct AddMemoryView: View {
     @State private var showingLocationSearch = false
     @State private var locationService = HomeLocationService()
     @State private var mapCameraPosition: MapCameraPosition
+    /// How far the form below has been scrolled, which is what the map's height follows.
+    @State private var contentScrollOffset: CGFloat = 0
 
     private enum Field: Hashable { case title, note }
     /// Drives the map's shrink-while-editing-notes behavior below — the map used to stay fixed at
@@ -96,7 +98,10 @@ struct AddMemoryView: View {
             GeometryReader { geo in
                 VStack(spacing: 0) {
                     locationMap
-                        .frame(height: focusedField == .note ? geo.size.height * 0.15 : geo.size.height / 2)
+                        .frame(height: mapHeight(in: geo))
+                        // Only the focus change animates. The scroll-driven change has to track the
+                        // finger exactly — animating it would leave the map lagging behind the
+                        // content it's making room for.
                         .animation(.easeInOut(duration: 0.25), value: focusedField)
 
                     ScrollView {
@@ -117,6 +122,11 @@ struct AddMemoryView: View {
                         }
                         .padding(Theme.Spacing.lg)
                         .padding(.bottom, 72)
+                    }
+                    .onScrollGeometryChange(for: CGFloat.self) { geometry in
+                        geometry.contentOffset.y + geometry.contentInsets.top
+                    } action: { _, offset in
+                        contentScrollOffset = offset
                     }
                     bottomBar
                 }
@@ -172,6 +182,14 @@ struct AddMemoryView: View {
     /// to) and recentering whenever `place` changes. Tapping it opens the same location search
     /// sheet the mappin toolbar icon does, so it doubles as a large, obvious tap target for
     /// changing the location rather than just a static preview.
+    private func mapHeight(in geo: GeometryProxy) -> CGFloat {
+        MemoryMapHeight.forOffset(
+            contentScrollOffset,
+            availableHeight: geo.size.height,
+            isEditingNote: focusedField == .note
+        )
+    }
+
     private var locationMap: some View {
         Map(position: $mapCameraPosition) {
             if let place {
@@ -528,4 +546,32 @@ private struct ExistingPhotoThumbnail: View {
 #Preview {
     AddMemoryView()
         .environment(AppModel())
+}
+
+/// How tall the location map is as the form below it scrolls.
+///
+/// The map was a fixed half-screen unless the note field happened to be focused, so everything
+/// below the first field or two was permanently off-screen — you'd add photos and have no way to
+/// see whether they'd landed without scrolling down and losing sight of the rest.
+///
+/// Pulled out of the view because the clamping is the part that can go wrong, and it's the part a
+/// test can actually hold still. Shrinking the map grows the scroll view, and a growing scroll view
+/// can nudge its own offset back at the bottom of the content — which, if the height tracked the
+/// offset unclamped, would feed back and oscillate. Clamped at both ends it's monotonic in how far
+/// you've scrolled: past the collapse point the map simply stays small.
+enum MemoryMapHeight {
+    /// Half the screen, before any scrolling.
+    static let expandedFraction: CGFloat = 0.5
+    /// What's left once the form has taken over — enough to keep the pin in view as context.
+    static let collapsedFraction: CGFloat = 0.15
+
+    static func forOffset(_ offset: CGFloat, availableHeight: CGFloat, isEditingNote: Bool) -> CGFloat {
+        let collapsed = availableHeight * collapsedFraction
+        let expanded = availableHeight * expandedFraction
+        // Typing a note isn't about scrolling: the keyboard takes the bottom half of the screen, so
+        // the map gets out of the way at once rather than gradually.
+        guard !isEditingNote else { return collapsed }
+        let shrink = min(expanded - collapsed, max(0, offset))
+        return expanded - shrink
+    }
 }
