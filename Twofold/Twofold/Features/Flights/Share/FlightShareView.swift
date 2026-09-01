@@ -127,39 +127,25 @@ struct FlightShareView: View {
         }
     }
 
+    /// One button, the system share sheet. Instagram Stories used to sit alongside it; that path
+    /// required a Facebook App ID the app doesn't have, so it failed for everyone who tapped it —
+    /// and Instagram is reachable through the share sheet anyway, alongside everywhere else.
+    @ViewBuilder
     private func ctaRow(image: UIImage?) -> some View {
-        HStack(spacing: Theme.Spacing.sm) {
-            if InstagramStoryShare.isAvailable, let image {
-                Button {
-                    InstagramStoryShare.shareSticker(image)
-                } label: {
-                    Label("Instagram Stories", systemImage: "square.and.arrow.up")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(
-                            LinearGradient(
-                                colors: [Color(hex: "F58529"), Color(hex: "DD2A7B"), Color(hex: "8134AF")],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            ),
-                            in: Capsule()
-                        )
-                        .foregroundStyle(.white)
-                }
-            }
-            if let image {
-                ShareLink(item: Image(uiImage: image), preview: SharePreview("Flight share", image: Image(uiImage: image))) {
-                    Text("Other")
-                        .font(.headline)
-                        .frame(maxWidth: InstagramStoryShare.isAvailable ? nil : .infinity)
-                        .padding(.horizontal, Theme.Spacing.lg)
-                        .padding(.vertical, 14)
-                        .background(Theme.cardBackground, in: Capsule())
-                        .foregroundStyle(Theme.ink)
-                }
+        if let image {
+            ShareLink(item: Image(uiImage: image), preview: SharePreview("Flight share", image: Image(uiImage: image))) {
+                shareButtonLabel
             }
         }
+    }
+
+    private var shareButtonLabel: some View {
+        Label("Share", systemImage: "square.and.arrow.up")
+            .font(.headline)
+            .frame(maxWidth: .infinity)
+            .padding()
+            .background(Theme.skyBlue, in: Capsule())
+            .foregroundStyle(.white)
     }
 
     @MainActor

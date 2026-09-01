@@ -3,10 +3,9 @@
 //  Twofold
 //
 //  The distance-reveal moment's share screen — one card (`DistanceSnapshotCard`, mirroring the
-//  live reveal screen itself) plus Instagram Stories + system share CTAs, reusing the same
-//  `InstagramStoryShare` service `GameResultsShareView` uses for its own share cards. No
-//  partner-consent gating like that screen needs for answer text — everything here (distance,
-//  cities, photos) is this user's own onboarding input, never anyone else's words.
+//  live reveal screen itself) and a single share button. No partner-consent gating like
+//  `GameResultsShareView` needs for answer text — everything here (distance, cities, photos) is
+//  this user's own onboarding input, never anyone else's words.
 //
 
 import PostHog
@@ -75,40 +74,14 @@ struct DistanceRevealShareView: View {
 
     @ViewBuilder
     private var ctaRow: some View {
-        let image = mapSnapshot != nil ? renderImage(card) : nil
-        HStack(spacing: Theme.Spacing.sm) {
-            if InstagramStoryShare.isAvailable, let image {
-                Button {
-                    InstagramStoryShare.shareSticker(image)
-                } label: {
-                    Label("Instagram Stories", systemImage: "square.and.arrow.up")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(
-                            LinearGradient(
-                                colors: [Color(hex: "F58529"), Color(hex: "DD2A7B"), Color(hex: "8134AF")],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            ),
-                            in: Capsule()
-                        )
-                        .foregroundStyle(.white)
-                }
-            }
-            if let image {
-                ShareLink(
-                    item: Image(uiImage: image),
-                    preview: SharePreview("\(MeasurementPreference.distanceLabel(km: distanceKm)) apart", image: Image(uiImage: image))
-                ) {
-                    Text("Other")
-                        .font(.headline)
-                        .frame(maxWidth: InstagramStoryShare.isAvailable ? nil : .infinity)
-                        .padding(.horizontal, Theme.Spacing.lg)
-                        .padding(.vertical, 14)
-                        .background(Theme.cardBackground, in: Capsule())
-                        .foregroundStyle(Theme.ink)
-                }
+        if let image = mapSnapshot != nil ? renderImage(card) : nil {
+            ShareLink(item: Image(uiImage: image), preview: SharePreview("The distance between us", image: Image(uiImage: image))) {
+                Label("Share", systemImage: "square.and.arrow.up")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Theme.skyBlue, in: Capsule())
+                    .foregroundStyle(.white)
             }
         }
     }

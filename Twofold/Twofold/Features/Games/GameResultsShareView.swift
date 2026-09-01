@@ -21,17 +21,13 @@ struct GameResultsShareView: View {
     /// Set instead of sharing directly whenever the current layout renders the *partner's*
     /// answer text (every layout except `.scoreSnapshot` — see `GameResultShareData.availableLayouts`,
     /// only reachable when there's a real single-round Q&A to render). Mutual in-app reveal
-    /// isn't the same as consent to have a partner's own words exported to Photos/Messages/
-    /// Instagram, so this gates both CTAs behind a one-time-per-tap confirmation instead of
+    /// isn't the same as consent to have a partner's own words exported to Photos, Messages or
+    /// anywhere else, so this gates the share behind a one-time-per-tap confirmation instead of
     /// sharing on the first tap the way `.scoreSnapshot` (no free text, no one else's words) can.
-    /// One per button, rather than one shared value for both.
-    ///
-    /// A `confirmationDialog` anchors to the view it's attached to, and a single dialog can only
-    /// be attached to their common parent — the row — so it pointed at the gap between the two
-    /// buttons, reading as though it belonged to Instagram Stories no matter which one was tapped.
-    /// Each button now carries its own.
-    @State private var pendingInstagramShare: UIImage?
-    @State private var pendingOtherShare: UIImage?
+    /// The image awaiting confirmation, non-nil while the "this includes their answer" dialog is
+    /// up. The dialog is attached to the button itself so it anchors there — it used to hang off
+    /// the row that held two buttons, and pointed at the gap between them.
+    @State private var pendingShare: UIImage?
 
     private enum Tab: Hashable { case result, questions }
 
@@ -196,72 +192,53 @@ struct GameResultsShareView: View {
         return layouts[page] != .scoreSnapshot
     }
 
+    /// One button, the system share sheet.
+    ///
+    /// Instagram Stories used to sit alongside it. That path required a Facebook App ID the app
+    /// doesn't have, so it failed for everyone who tapped it — and Instagram is reachable through
+    /// the share sheet anyway, alongside everywhere else someone might want to put this.
+    ///
+    /// The confirmation before sharing a card that carries the partner's answer stays: it's about
+    /// consent, not about where the card is going.
     @ViewBuilder
     private var ctaRow: some View {
-        let image = currentPageImage()
-        HStack(spacing: Theme.Spacing.sm) {
-            if InstagramStoryShare.isAvailable, let image {
+        if let image = currentPageImage() {
+            if currentLayoutIncludesPartnerAnswer {
                 Button {
-                    if currentLayoutIncludesPartnerAnswer {
-                        pendingInstagramShare = image
-                    } else {
-                        InstagramStoryShare.shareSticker(image)
-                    }
+                    pendingShare = image
                 } label: {
-                    Label("Instagram Stories", systemImage: "square.and.arrow.up")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(
-                            LinearGradient(
-                                colors: [Color(hex: "F58529"), Color(hex: "DD2A7B"), Color(hex: "8134AF")],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            ),
-                            in: Capsule()
-                        )
-                        .foregroundStyle(.white)
+                    shareButtonLabel
                 }
                 .confirmationDialog(
                     partnerAnswerWarning,
-                    isPresented: presenting($pendingInstagramShare),
+                    isPresented: presenting($pendingShare),
                     titleVisibility: .visible
                 ) {
-                    if let pendingInstagramShare {
-                        Button("Share to Instagram Stories") { InstagramStoryShare.shareSticker(pendingInstagramShare) }
+                    if let pendingShare {
+                        ShareLink(
+                            item: Image(uiImage: pendingShare),
+                            preview: SharePreview("\(data.title) results", image: Image(uiImage: pendingShare))
+                        ) {
+                            Text("Share")
+                        }
                     }
                     Button("Cancel", role: .cancel) {}
                 }
-            }
-            if let image {
-                if currentLayoutIncludesPartnerAnswer {
-                    Button {
-                        pendingOtherShare = image
-                    } label: {
-                        otherButtonLabel
-                    }
-                    .confirmationDialog(
-                        partnerAnswerWarning,
-                        isPresented: presenting($pendingOtherShare),
-                        titleVisibility: .visible
-                    ) {
-                        if let pendingOtherShare {
-                            ShareLink(
-                                item: Image(uiImage: pendingOtherShare),
-                                preview: SharePreview("\(data.title) results", image: Image(uiImage: pendingOtherShare))
-                            ) {
-                                Text("Share")
-                            }
-                        }
-                        Button("Cancel", role: .cancel) {}
-                    }
-                } else {
-                    ShareLink(item: Image(uiImage: image), preview: SharePreview("\(data.title) results", image: Image(uiImage: image))) {
-                        otherButtonLabel
-                    }
+            } else {
+                ShareLink(item: Image(uiImage: image), preview: SharePreview("\(data.title) results", image: Image(uiImage: image))) {
+                    shareButtonLabel
                 }
             }
         }
+    }
+
+    private var shareButtonLabel: some View {
+        Label("Share", systemImage: "square.and.arrow.up")
+            .font(.headline)
+            .frame(maxWidth: .infinity)
+            .padding()
+            .background(Theme.skyBlue, in: Capsule())
+            .foregroundStyle(.white)
     }
 
     private var partnerAnswerWarning: String {
@@ -271,16 +248,6 @@ struct GameResultsShareView: View {
     /// A `Bool` binding that clears the held image when the dialog dismisses.
     private func presenting(_ image: Binding<UIImage?>) -> Binding<Bool> {
         Binding(get: { image.wrappedValue != nil }, set: { if !$0 { image.wrappedValue = nil } })
-    }
-
-    private var otherButtonLabel: some View {
-        Text("Other")
-            .font(.headline)
-            .frame(maxWidth: InstagramStoryShare.isAvailable ? nil : .infinity)
-            .padding(.horizontal, Theme.Spacing.lg)
-            .padding(.vertical, 14)
-            .background(Theme.cardBackground, in: Capsule())
-            .foregroundStyle(Theme.ink)
     }
 
     private func currentPageImage() -> UIImage? {
