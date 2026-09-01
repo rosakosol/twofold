@@ -2878,14 +2878,22 @@ enum BackendService {
     /// deliberate and, because the sort is newest-first, keeps the rows anyone actually wants.
     /// Callers that need to know whether they hit it can compare `count` against what they asked
     /// for — one more than the cap is the usual trick, which `GameHistoryView` uses.
-    static func fetchGameSessions(status: GameSessionStatus? = nil, limit: Int = 200) async throws -> [GameSession] {
+    /// `offset` pages through the list rather than pulling the whole history at once. Game History
+    /// used to fetch every completed session up front — one a day from the daily question alone —
+    /// and then fetch full detail for most of them, so the screen got slower every month a couple
+    /// used the app.
+    ///
+    /// Ordered by `updated_at` for stable paging: the column is always populated, whereas
+    /// `completed_at` isn't on older rows, and a null in the sort key makes page boundaries
+    /// unstable. The caller re-sorts a page by true completion date for display.
+    static func fetchGameSessions(status: GameSessionStatus? = nil, limit: Int = 200, offset: Int = 0) async throws -> [GameSession] {
         var query = supabase.from("game_sessions").select()
         if let status {
             query = query.eq("status", value: status.rawValue)
         }
         let rows: [GameSessionRow] = try await query
             .order("updated_at", ascending: false)
-            .limit(limit)
+            .range(from: offset, to: offset + limit - 1)
             .execute()
             .value
         return rows.map { $0.toModel() }

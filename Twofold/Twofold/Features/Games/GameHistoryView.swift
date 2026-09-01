@@ -31,11 +31,26 @@ struct GameHistoryView: View {
     /// True when the couple has more completed games than `historyLimit`, so the list below is a
     /// truncation rather than the whole record — worth saying out loud instead of just stopping.
     @State private var reachedHistoryLimit = false
+    /// How many rows have been requested, including ones `completedSessionsOnly` dropped — the
+    /// paging offset has to count what the server returned, not what survived filtering.
+    @State private var rawSessionCount = 0
+    /// True while a further page is on its way, so the footer can say so and the trigger can't
+    /// fire twice for the same page.
+    @State private var isLoadingMore = false
+    /// False once a page comes back short, meaning there's nothing after it.
+    @State private var hasMore = true
 
-    /// How many completed games this screen will show. Unbounded, the fetch was really bounded by
-    /// PostgREST's own `max_rows` of 1000 and would have started dropping rows there with no
-    /// signal; the daily question alone produces one session a day, so that's reachable inside
-    /// three years. Newest-first, so what gets cut is the oldest.
+    /// How many completed games arrive per page.
+    ///
+    /// This screen used to fetch the whole history at once and then fetch full detail for most of
+    /// it — the daily question alone produces a session a day, so a couple six months in waited on
+    /// ~180 rows plus ~180 detail requests before seeing anything. A page is about two screens'
+    /// worth, so the first one lands quickly and the rest arrive as they're scrolled to.
+    private static let pageSize = 25
+
+    /// The ceiling across all pages. Unbounded, paging would eventually walk into PostgREST's own
+    /// `max_rows` of 1000 and start dropping rows with no signal. Newest-first, so what's cut is
+    /// the oldest.
     private static let historyLimit = 200
 
     private var filteredSessions: [GameSession] {
@@ -73,16 +88,19 @@ struct GameHistoryView: View {
                                         historyRow(session)
                                     }
                                     .buttonStyle(.plain)
+                                    .onAppear {
+                                        // Triggered from the last row rather than a scroll offset:
+                                        // the filters above can shrink the list to a handful, and
+                                        // an offset threshold would then never be reached while
+                                        // more pages sat unfetched behind the filter.
+                                        if session.id == filteredSessions.last?.id {
+                                            Task { await loadMore() }
+                                        }
+                                    }
                                 }
                             }
 
-                            if reachedHistoryLimit {
-                                Text("Showing your \(Self.historyLimit) most recent games.")
-                                    .font(.caption)
-                                    .foregroundStyle(Theme.subtleInk)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.top, Theme.Spacing.xs)
-                            }
+                            listFooter
                         }
                     }
                     .padding(Theme.Spacing.md)
@@ -95,6 +113,21 @@ struct GameHistoryView: View {
         .task { await load() }
         .task { await appModel.loadGameDecksIfNeeded() }
         .postHogScreenView("Games: History")
+    }
+
+    @ViewBuilder
+    private var listFooter: some View {
+        if isLoadingMore {
+            ProgressView()
+                .frame(maxWidth: .infinity)
+                .padding(.top, Theme.Spacing.sm)
+        } else if reachedHistoryLimit {
+            Text("Showing your \(Self.historyLimit) most recent games.")
+                .font(.caption)
+                .foregroundStyle(Theme.subtleInk)
+                .frame(maxWidth: .infinity)
+                .padding(.top, Theme.Spacing.xs)
+        }
     }
 
     private var emptyState: some View {
@@ -235,23 +268,67 @@ struct GameHistoryView: View {
         gameDestinationView(gameType: session.gameType, sessionID: session.id, title: deck?.title, topic: deck?.topic)
     }
 
+    /// The first page. Only this one shows the full-screen spinner; every page after it arrives
+    /// under the list without taking the screen away.
     private func load() async {
+        guard sessions.isEmpty else { return }
         isLoading = true
         errorMessage = nil
-        do {
-            // One past the cap, so "exactly `historyLimit` games" can be told apart from "more
-            // than that" and the footer below only appears when something was genuinely cut.
-            let all = try await BackendService.fetchGameSessions(status: .completed, limit: Self.historyLimit + 1)
-            // Most recently completed first — `.filter` above preserves order, so sorting here
-            // once is enough for `filteredSessions` (and the row list built from it) too.
-            let completed = GameLogic.completedSessionsOnly(all).sorted { completionDate(for: $0) > completionDate(for: $1) }
-            reachedHistoryLimit = completed.count > Self.historyLimit
-            sessions = Array(completed.prefix(Self.historyLimit))
-            await loadExtraDetails()
-        } catch {
-            errorMessage = error.localizedDescription
-        }
+        hasMore = true
+        reachedHistoryLimit = false
+        await fetchPage()
         isLoading = false
+    }
+
+    private func loadMore() async {
+        guard hasMore, !isLoadingMore, !isLoading, errorMessage == nil else { return }
+        isLoadingMore = true
+        await fetchPage()
+        isLoadingMore = false
+    }
+
+    /// Fetches the page after whatever's already loaded and appends it.
+    ///
+    /// The offset is `rawSessionCount`, not `sessions.count`: `completedSessionsOnly` can drop rows
+    /// from a page, and paging on the kept count would re-request the dropped ones forever, serving
+    /// the same page over and over.
+    private func fetchPage() async {
+        do {
+            let page = try await BackendService.fetchGameSessions(
+                status: .completed,
+                limit: Self.pageSize,
+                offset: rawSessionCount
+            )
+            rawSessionCount += page.count
+
+            // A short page means the server has nothing more.
+            if page.count < Self.pageSize { hasMore = false }
+
+            let newlyCompleted = GameLogic.completedSessionsOnly(page)
+                .filter { session in !sessions.contains { $0.id == session.id } }
+
+            // Sorted across the whole list, not just the new page: `updated_at` orders the fetch
+            // (stable, always populated) while `completedAt` orders the display, and the two can
+            // disagree — so a later page can legitimately contain a game that belongs above one
+            // already on screen.
+            sessions = (sessions + newlyCompleted).sorted { completionDate(for: $0) > completionDate(for: $1) }
+
+            if sessions.count >= Self.historyLimit {
+                sessions = Array(sessions.prefix(Self.historyLimit))
+                reachedHistoryLimit = true
+                hasMore = false
+            }
+
+            await loadExtraDetails(for: newlyCompleted)
+        } catch {
+            // Only fatal for the first page. A later one failing leaves what's already on screen
+            // alone and simply stops paging, rather than replacing a working list with an error.
+            if sessions.isEmpty {
+                errorMessage = error.localizedDescription
+            } else {
+                hasMore = false
+            }
+        }
     }
 
     /// Falls back to `updatedAt` for the rare completed session missing `completedAt` — a
@@ -272,8 +349,12 @@ struct GameHistoryView: View {
     /// Fetches full session detail — a few requests at a time — only for trivia sessions (score)
     /// and daily-question sessions (actual question text), since every other session already has
     /// everything `historyRow` needs from the plain session list.
-    private func loadExtraDetails() async {
-        let needsDetail = sessions.filter { $0.gameType == .triviaBattle || $0.isDaily }
+    ///
+    /// Scoped to one page's sessions rather than the whole list. It used to run across everything
+    /// loaded, so each new page re-requested detail for every session already on screen — work that
+    /// grew with the list and that had already been done.
+    private func loadExtraDetails(for pageSessions: [GameSession]) async {
+        let needsDetail = pageSessions.filter { $0.gameType == .triviaBattle || $0.isDaily }
         guard !needsDetail.isEmpty else { return }
         await withTaskGroup(of: (UUID, BackendService.GameSessionDetail?).self) { group in
             var pending = needsDetail.makeIterator()
@@ -295,7 +376,7 @@ struct GameHistoryView: View {
             // without ever exceeding it.
             while let (sessionID, detail) = await group.next() {
                 _ = addNext()
-                guard let detail, let session = sessions.first(where: { $0.id == sessionID }) else { continue }
+                guard let detail, let session = pageSessions.first(where: { $0.id == sessionID }) else { continue }
                 if session.gameType == .triviaBattle {
                     scores[sessionID] = (
                         mine: GameLogic.triviaScore(responses: detail.responses, responderID: appModel.currentUser.id),
