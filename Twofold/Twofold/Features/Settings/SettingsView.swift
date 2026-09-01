@@ -34,7 +34,10 @@ struct SettingsView: View {
     @State private var showingExportPremiumGate = false
     @State private var appLock = AppLockService()
     @State private var isAuthenticatingLockToggle = false
-    @State private var showingLockEnabledConfirmation = false
+    /// Which way the app-lock toggle just went, non-nil while the confirmation is up. Was a plain
+    /// `showingLockEnabledConfirmation` bool, which could only describe the "on" direction — the
+    /// "off" one had nothing to show and so showed nothing.
+    @State private var lockChangeToConfirm: AppLockConfirmationView.Change?
     /// `PartnerSetupView` owns its own `NavigationStack` (it's shared with Home's pre-connection
     /// entry point, which presents it as a sheet) — pushing it via `NavigationLink` onto this
     /// screen's stack would nest two `NavigationStack`s, which SwiftUI doesn't support.
@@ -287,9 +290,10 @@ struct SettingsView: View {
                     description: "Turn your trips, memories, and flights into a beautiful, formatted keepsake PDF. Upgrade to Premium to export your story."
                 )
             }
-            .sheet(isPresented: $showingLockEnabledConfirmation) {
-                AppLockEnabledConfirmationView(methodName: appLock.methodName)
-                    .presentationDetents([.medium])
+            .sheet(item: $lockChangeToConfirm) { change in
+                // Detents are set inside the view — see its own comment; the choice depends on
+                // the text size, which is only in scope there.
+                AppLockConfirmationView(change: change, methodName: appLock.methodName)
             }
             .sheet(isPresented: $showingPartnerSetup) {
                 PartnerSetupView()
@@ -310,9 +314,9 @@ struct SettingsView: View {
             isAuthenticatingLockToggle = false
             guard success else { return }
             appLock.isEnabled = newValue
-            if newValue {
-                showingLockEnabledConfirmation = true
-            }
+            // Both directions, not just "on". Turning the lock off is the change that removes a
+            // protection, so it's the one most worth confirming out loud.
+            lockChangeToConfirm = newValue ? .enabled : .disabled
         }
     }
 
