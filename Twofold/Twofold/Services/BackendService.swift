@@ -672,13 +672,50 @@ enum BackendService {
     /// `tier` is `nil` for a routine re-check (only reconfirming `active`, not a purchase) —
     /// `SubscriptionStatusUpdate.subscriptionTier` being `nil` means `encodeIfPresent` omits the
     /// key entirely, so the column is left untouched rather than being overwritten with null.
+    ///
+    /// A Debug build never persists `active: false` — see `isTrustworthyEntitlementSource`.
     static func updateSubscriptionStatus(active: Bool, tier: String? = nil) async throws {
         guard let userID = currentUserID else { throw BackendError.notAuthenticated }
+        guard active || isTrustworthyEntitlementSource else {
+            print("[subscription] skipped persisting active=false — a Debug build's StoreKit environment can't prove a lapse")
+            return
+        }
         try await supabase
             .from("profiles")
             .update(SubscriptionStatusUpdate(subscriptionActive: active, subscriptionCheckedAt: .now, subscriptionTier: tier))
             .eq("id", value: userID)
             .execute()
+    }
+
+    /// Whether this build's StoreKit environment can be believed when it says "not subscribed".
+    ///
+    /// A Debug build runs under the scheme's `Twofold.storekit` configuration, which is a purely
+    /// local StoreKit: transactions are signed by Xcode's own test certificate, Apple never sees
+    /// them, and RevenueCat — which validates server-side against Apple — therefore reports no
+    /// entitlement no matter what the person is actually subscribed to. That read is not evidence
+    /// of a lapse; it's evidence of the environment.
+    ///
+    /// It would be harmless, except `SUPABASE_ENV=local` is disabled in the scheme, so a local run
+    /// talks to *production*. Signing in as a real account on a Debug build therefore wrote
+    /// `subscription_active = false` onto that real profile row — and since
+    /// `fetchCoupleSubscriptionTier` ORs both partners, it could take the partner down with it.
+    /// Observed: a subscription flag set by hand was overwritten within seconds of launching.
+    ///
+    /// Debug rather than simulator-only, deliberately: the StoreKit configuration is attached to
+    /// the scheme's *Run* action, so a debug build on a physical device has exactly the same
+    /// problem. Release builds — TestFlight and the App Store — run against the real sandbox and
+    /// production StoreKit, where a negative read means what it says.
+    ///
+    /// Only *negative* writes are suppressed. A positive one is always safe to believe, and local
+    /// UI still reflects the local read; it's the persisted couple-wide state that's protected.
+    /// The cost is that a genuine lapse can't be recorded from a Debug build, which is the right
+    /// trade: that build can't observe a genuine lapse in the first place.
+    private static var isTrustworthyEntitlementSource: Bool {
+        #if DEBUG
+        false
+        #else
+        true
+        #endif
     }
 
     private struct SubscriptionActiveRow: Decodable {
