@@ -51,7 +51,7 @@ struct SmartRotatingProvider: TimelineProvider {
     }
 
     /// How long each slide is on screen.
-    private static let rotationInterval: TimeInterval = 5 * 60
+    private static let rotationInterval: TimeInterval = 10 * 60
 
     /// How far ahead the timeline reaches, which is what actually decides the reload rate.
     ///
@@ -239,7 +239,7 @@ struct SmartRotatingWidget: Widget {
                 .containerBackground(for: .widget) { Color.clear }
         }
         .configurationDisplayName("Smart Rotating")
-        .description("Cycles through your other widgets automatically.")
+        .description("Cycles through your other widgets automatically every 10 minutes.")
         .supportedFamilies([.systemSmall, .systemMedium])
         .contentMarginsDisabled()
     }
