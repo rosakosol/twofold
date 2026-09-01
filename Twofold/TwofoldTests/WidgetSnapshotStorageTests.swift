@@ -14,9 +14,9 @@ import Testing
 import Foundation
 @testable import Twofold
 
-// Serialized: every test here writes to the same app-group UserDefaults key, so run in parallel
-// they clear each other's state mid-test and report failures that are pure interference.
-@Suite(.serialized)
+// Every test here writes the same app-group UserDefaults key, which is process-wide global state.
+// `.serialized` would only order them within this suite — `WidgetSnapshotTestLock` also excludes
+// the other suites that touch that key. See its own comment.
 struct WidgetSnapshotStorageTests {
 
     private func snapshot(
@@ -60,38 +60,40 @@ struct WidgetSnapshotStorageTests {
 
     /// The whole contract: what the app writes, a widget can read.
     @Test func aFullSnapshotRoundTrips() throws {
-        WidgetSnapshot.clear()
-        WidgetSnapshot.write(snapshot())
-        let read = try #require(WidgetSnapshot.read(), "Nothing was readable back — widgets would render empty")
+        let read = try WidgetSnapshotTestLock.withExclusiveSnapshot {
+            WidgetSnapshot.write(snapshot())
+            return try #require(WidgetSnapshot.read(), "Nothing was readable back — widgets would render empty")
+        }
         #expect(read.partnerName == "Sam")
         #expect(read.trackedFlights.count == 1)
         #expect(read.nextFlight?.flightNumber == "SQ208")
-        WidgetSnapshot.clear()
     }
 
     /// The app group suite has to open at all. When it doesn't, `defaults?` optional-chains the
     /// write into a no-op and nothing anywhere reports a problem.
     @Test func theAppGroupSuiteIsReachable() throws {
-        WidgetSnapshot.clear()
-        WidgetSnapshot.write(snapshot())
-        #expect(WidgetSnapshot.read() != nil, "UserDefaults(suiteName:) for the app group isn't usable from this target")
-        WidgetSnapshot.clear()
+        let readBack = WidgetSnapshotTestLock.withExclusiveSnapshot { () -> WidgetSnapshot? in
+            WidgetSnapshot.write(snapshot())
+            return WidgetSnapshot.read()
+        }
+        #expect(readBack != nil, "UserDefaults(suiteName:) for the app group isn't usable from this target")
     }
 
     /// JSONEncoder throws outright on a non-finite Double rather than writing null, and `write`
     /// swallows that with `try?` — so one bad number anywhere in the payload silently costs every
     /// widget its entire snapshot, not just the field it came from.
     @Test func aNonFiniteNumberDoesNotSilentlyLoseEverything() throws {
-        WidgetSnapshot.clear()
-        WidgetSnapshot.write(snapshot())
-        let good = try #require(WidgetSnapshot.read())
+        let (good, after) = try WidgetSnapshotTestLock.withExclusiveSnapshot { () -> (WidgetSnapshot, WidgetSnapshot) in
+            WidgetSnapshot.write(snapshot())
+            let good = try #require(WidgetSnapshot.read())
 
-        WidgetSnapshot.write(snapshot(progress: .nan))
-        let after = try #require(WidgetSnapshot.read(), "A NaN wiped the snapshot entirely")
+            WidgetSnapshot.write(snapshot(progress: .nan))
+            let after = try #require(WidgetSnapshot.read(), "A NaN wiped the snapshot entirely")
+            return (good, after)
+        }
         // Either the NaN was sanitised on the way in, or the previous good snapshot survived.
         // What must never happen is `read()` returning nil because one Double was unencodable.
         #expect(after.partnerName == good.partnerName)
-        WidgetSnapshot.clear()
     }
 }
 

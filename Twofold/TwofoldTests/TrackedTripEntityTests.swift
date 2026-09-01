@@ -9,12 +9,14 @@
 //  the snapshot is a trip nobody can choose — and there's no error when that happens, just an
 //  option that isn't there.
 //
+//  Snapshot access goes through `WidgetSnapshotTestLock`; see its comment for why `.serialized`
+//  isn't enough.
+//
 
 import Testing
 import Foundation
 @testable import Twofold
 
-@Suite(.serialized)
 struct TrackedTripEntityTests {
 
     private func trip(_ city: String, id: UUID? = UUID(), inDays: Double = 30) -> WidgetSnapshot.ReunionInfo {
@@ -44,42 +46,50 @@ struct TrackedTripEntityTests {
 
     @Test("every upcoming trip is offered, in the order the app sorted them")
     func allUpcomingTripsAreSelectable() async throws {
-        WidgetSnapshot.write(snapshot(trips: [trip("Rome", inDays: 10), trip("Tokyo", inDays: 40), trip("Lisbon", inDays: 90)]))
-        let offered = try await TrackedTripQuery().suggestedEntities()
+        let offered = try await WidgetSnapshotTestLock.withExclusiveSnapshot {
+            WidgetSnapshot.write(snapshot(trips: [
+                trip("Rome", inDays: 10), trip("Tokyo", inDays: 40), trip("Lisbon", inDays: 90),
+            ]))
+            return try await TrackedTripQuery().suggestedEntities()
+        }
         #expect(offered.map(\.destinationCity) == ["Rome", "Tokyo", "Lisbon"])
-        WidgetSnapshot.clear()
     }
 
     /// A snapshot written before `ReunionInfo` carried an id has trips that can't be identified.
     /// They're dropped rather than offered, since selecting one could never be resolved back.
     @Test("a trip with no id isn't offered")
     func unidentifiableTripsAreSkipped() async throws {
-        WidgetSnapshot.write(snapshot(trips: [trip("Rome"), trip("Tokyo", id: nil)]))
-        let offered = try await TrackedTripQuery().suggestedEntities()
+        let offered = try await WidgetSnapshotTestLock.withExclusiveSnapshot {
+            WidgetSnapshot.write(snapshot(trips: [trip("Rome"), trip("Tokyo", id: nil)]))
+            return try await TrackedTripQuery().suggestedEntities()
+        }
         #expect(offered.map(\.destinationCity) == ["Rome"])
-        WidgetSnapshot.clear()
     }
 
     /// How the widget resolves a previously-picked trip back to something to display.
     @Test("a chosen trip is found again by its id")
     func aChosenTripResolvesBack() async throws {
         let chosen = UUID()
-        WidgetSnapshot.write(snapshot(trips: [trip("Rome"), trip("Tokyo", id: chosen), trip("Lisbon")]))
-        let matched = try await TrackedTripQuery().entities(for: [chosen])
+        let matched = try await WidgetSnapshotTestLock.withExclusiveSnapshot {
+            WidgetSnapshot.write(snapshot(trips: [trip("Rome"), trip("Tokyo", id: chosen), trip("Lisbon")]))
+            return try await TrackedTripQuery().entities(for: [chosen])
+        }
         #expect(matched.map(\.destinationCity) == ["Tokyo"])
-        WidgetSnapshot.clear()
     }
 
     @Test("nothing to offer when there are no trips")
     func noTripsMeansNoOptions() async throws {
-        WidgetSnapshot.write(snapshot(trips: []))
-        #expect(try await TrackedTripQuery().suggestedEntities().isEmpty)
-        WidgetSnapshot.clear()
+        let offered = try await WidgetSnapshotTestLock.withExclusiveSnapshot {
+            WidgetSnapshot.write(snapshot(trips: []))
+            return try await TrackedTripQuery().suggestedEntities()
+        }
+        #expect(offered.isEmpty)
     }
 }
 
 /// The label both countdown widgets show. It counted only in hours and minutes, which is fine on
-/// the day and absurd before it — a flight a week out read "196h 20m".
+/// the day and absurd before it — a flight a week out read "196h 20m". Touches no shared state,
+/// so it needs no lock.
 struct CountdownLabelTests {
 
     @Test("a countdown more than a day out is counted in days")
