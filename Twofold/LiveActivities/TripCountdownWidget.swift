@@ -26,23 +26,35 @@ struct TripCountdownEntry: TimelineEntry {
     let tripID: UUID?
 }
 
-struct TripCountdownProvider: TimelineProvider {
+struct TripCountdownProvider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> TripCountdownEntry {
         TripCountdownEntry(date: .now, daysToGo: 12, destinationCity: "Singapore", tripID: nil)
     }
 
-    func getSnapshot(in context: Context, completion: @escaping (TripCountdownEntry) -> Void) {
-        completion(entry(from: WidgetSnapshot.read()))
+    func snapshot(for configuration: SelectTripIntent, in context: Context) async -> TripCountdownEntry {
+        entry(for: configuration, from: WidgetSnapshot.read())
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<TripCountdownEntry>) -> Void) {
-        let current = entry(from: WidgetSnapshot.read())
+    func timeline(for configuration: SelectTripIntent, in context: Context) async -> Timeline<TripCountdownEntry> {
+        let current = entry(for: configuration, from: WidgetSnapshot.read())
         let midnight = Calendar.current.nextDate(after: .now, matching: DateComponents(hour: 0, minute: 1), matchingPolicy: .nextTime) ?? .now.addingTimeInterval(86400)
-        completion(Timeline(entries: [current], policy: .after(midnight)))
+        return Timeline(entries: [current], policy: .after(midnight))
     }
 
-    private func entry(from snapshot: WidgetSnapshot?) -> TripCountdownEntry {
-        guard let reunion = snapshot?.nextReunion else {
+    /// Which trip this instance counts down to: the picked one while it's still upcoming,
+    /// otherwise the soonest. So an unconfigured widget — or one whose trip has since been taken
+    /// or deleted — degrades to exactly the behaviour this widget had before it was configurable,
+    /// rather than going blank. Same resolution `FlightCountdownProvider` uses.
+    private func selectedTrip(for configuration: SelectTripIntent, snapshot: WidgetSnapshot?) -> WidgetSnapshot.ReunionInfo? {
+        let upcoming = snapshot?.upcomingTrips ?? []
+        if let selectedID = configuration.trip?.id, let match = upcoming.first(where: { $0.id == selectedID }) {
+            return match
+        }
+        return upcoming.first ?? snapshot?.nextReunion
+    }
+
+    private func entry(for configuration: SelectTripIntent, from snapshot: WidgetSnapshot?) -> TripCountdownEntry {
+        guard let reunion = selectedTrip(for: configuration, snapshot: snapshot) else {
             return TripCountdownEntry(date: .now, daysToGo: nil, destinationCity: nil, tripID: nil)
         }
         let days = Calendar.current.dateComponents([.day], from: .now, to: reunion.departureDate).day ?? 0
@@ -173,12 +185,12 @@ struct TripCountdownWidget: Widget {
     let kind = "NextReunionWidget"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: TripCountdownProvider()) { entry in
+        AppIntentConfiguration(kind: kind, intent: SelectTripIntent.self, provider: TripCountdownProvider()) { entry in
             TripCountdownWidgetView(entry: entry)
                 .containerBackground(for: .widget) { Color.clear }
         }
         .configurationDisplayName("Trip Countdown")
-        .description("Countdown to your next trip together, on your Home or Lock Screen.")
+        .description("Countdown to your chosen trip together.")
         .supportedFamilies([.systemSmall, .accessoryRectangular, .accessoryCircular, .accessoryInline])
         .contentMarginsDisabled()
     }

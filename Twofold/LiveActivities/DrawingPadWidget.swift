@@ -222,7 +222,7 @@ struct DrawingPadWidget: Widget {
                 .containerBackground(for: .widget) { Color.white }
         }
         .configurationDisplayName("Drawing Pad")
-        .description("Your partner's drawing — both of yours side by side at Medium size.")
+        .description("Your partner's drawing at Small. Both of yours side by side at Medium size.")
         .supportedFamilies([.systemSmall, .systemMedium])
         .contentMarginsDisabled()
     }

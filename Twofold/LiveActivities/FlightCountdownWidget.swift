@@ -109,23 +109,27 @@ struct FlightCountdownWidgetView: View {
 
     private var isLocked: Bool { WidgetTier.isLocked(required: WidgetTier.plus, current: entry.subscriptionTier) }
 
+    /// Days once there are any, then hours, then minutes — via the same `TimeMath.compactDuration`
+    /// the flight screen's own countdown uses, so the widget and the app never disagree about how
+    /// long is left.
+    ///
+    /// This counted only in hours and minutes, which is fine on the day and absurd before it: a
+    /// flight a week out read "196h 20m". Nobody plans around a number like that.
     private var remainingLabel: String {
         guard let targetDate = entry.targetDate else { return "—" }
-        let remaining = max(0, targetDate.timeIntervalSince(entry.date))
-        let hours = Int(remaining) / 3600
-        let minutes = (Int(remaining) % 3600) / 60
-        if hours > 0 { return "\(hours)h \(minutes)m" }
-        return "\(minutes)m"
+        return TimeMath.compactDuration(targetDate.timeIntervalSince(entry.date))
     }
 
-    /// Compact single-unit form for the small Lock Screen circle — "2h"/"45m" rather than the
-    /// combined "2h 10m" the rectangular/Home Screen views have room for.
+    /// Single-unit form for the small Lock Screen circle — "8d"/"2h"/"45m" rather than the combined
+    /// form the rectangular and Home Screen views have room for. Rounds down deliberately: "1d"
+    /// through the whole of the last day before departure is a truer thing to glance at than a
+    /// figure that flickers to "2d" because 47 hours rounded up.
     private var compactRemainingLabel: String {
         guard let targetDate = entry.targetDate else { return "—" }
-        let remaining = max(0, targetDate.timeIntervalSince(entry.date))
-        let hours = Int(remaining) / 3600
-        if hours > 0 { return "\(hours)h" }
-        return "\(Int(remaining) / 60)m"
+        let remaining = max(0, Int(targetDate.timeIntervalSince(entry.date)))
+        if remaining >= 86_400 { return "\(remaining / 86_400)d" }
+        if remaining >= 3600 { return "\(remaining / 3600)h" }
+        return "\(remaining / 60)m"
     }
 
     private var caption: String {

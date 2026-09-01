@@ -115,6 +115,7 @@
 				Shared/MeasurementPreference.swift,
 				Shared/TimeMath.swift,
 				Shared/TrackedFlightEntity.swift,
+				Shared/TrackedTripEntity.swift,
 				Shared/WidgetImageCache.swift,
 				Shared/WidgetSnapshot.swift,
 				Shared/WidgetTier.swift,

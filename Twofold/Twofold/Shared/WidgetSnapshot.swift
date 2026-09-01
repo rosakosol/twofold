@@ -121,6 +121,11 @@ nonisolated struct WidgetSnapshot: Codable {
     /// "just give me the soonest one" convenience every other widget already relies on.
     var trackedFlights: [FlightInfo] = []
     var nextReunion: ReunionInfo?
+    /// Every upcoming trip, not just the soonest — feeds `TrackedTripQuery`'s picker for the
+    /// configurable Trip Countdown widget, which needs more than one to offer. `nextReunion` above
+    /// stays the "just give me the soonest" convenience the other widgets rely on, exactly as
+    /// `nextFlight` does alongside `trackedFlights`.
+    var upcomingTrips: [ReunionInfo] = []
     var latestMemory: MemoryInfo?
     var partnerWeather: WeatherInfo?
     var relationshipStats: RelationshipStats?

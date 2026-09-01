@@ -299,7 +299,7 @@ struct FlightTrackingWidget: Widget {
                 .containerBackground(for: .widget) { Color.clear }
         }
         .configurationDisplayName("Flight Tracking")
-        .description("Live status and route, on your Home Screen.")
+        .description("Live status and route for your upcoming flight.")
         .supportedFamilies([.systemSmall, .systemMedium])
         .contentMarginsDisabled()
     }

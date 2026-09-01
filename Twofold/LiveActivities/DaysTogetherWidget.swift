@@ -172,7 +172,7 @@ struct DaysTogetherWidget: Widget {
                 .containerBackground(for: .widget) { Color.clear }
         }
         .configurationDisplayName("Days Together")
-        .description("Your running total, right on your Home Screen or Lock Screen.")
+        .description("How long you and your partner have been together.")
         .supportedFamilies([.systemSmall, .accessoryRectangular, .accessoryCircular, .accessoryInline])
         .contentMarginsDisabled()
     }

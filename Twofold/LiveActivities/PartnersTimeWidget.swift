@@ -121,7 +121,7 @@ struct PartnersTimeWidget: Widget {
                 .containerBackground(for: .widget) { Color.clear }
         }
         .configurationDisplayName("Partner's Time")
-        .description("See your partner's local time at a glance, on your Home Screen.")
+        .description("See your partner's local time at a glance.")
         .supportedFamilies([.systemSmall])
         .contentMarginsDisabled()
     }

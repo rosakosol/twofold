@@ -71,15 +71,15 @@ enum WidgetSnapshotWriter {
             distanceLabel = MeasurementPreference.distanceLabel(km: Geo.distanceKm(mine, theirs))
         }
 
-        var reunionInfo: WidgetSnapshot.ReunionInfo?
-        if let trip = appModel.upcomingTrips.first {
-            reunionInfo = WidgetSnapshot.ReunionInfo(
+        let upcomingTrips = appModel.upcomingTrips.map { trip in
+            WidgetSnapshot.ReunionInfo(
                 id: trip.id,
                 departureDate: trip.departureDate,
                 destinationCity: trip.destination.displayCity,
                 isReunionTrip: trip.category == .reunion
             )
         }
+        let reunionInfo = upcomingTrips.first
 
         let flightInfo = appModel.activeOrUpcomingFlight.map { Self.flightInfo(for: $0, currentUserID: appModel.currentUser.id) }
         let trackedFlights = appModel.activeOrUpcomingFlights.map { Self.flightInfo(for: $0, currentUserID: appModel.currentUser.id) }
@@ -117,6 +117,7 @@ enum WidgetSnapshotWriter {
                 nextFlight: flightInfo,
                 trackedFlights: trackedFlights,
                 nextReunion: reunionInfo,
+                upcomingTrips: upcomingTrips,
                 latestMemory: memoryInfo,
                 partnerWeather: weather,
                 relationshipStats: relationshipStats,
