@@ -15,13 +15,17 @@ struct MainTabView: View {
     /// twofold://memories) — defaults to a private @State so every other call site (including
     /// the preview below) is unaffected.
     @Binding var selection: MainTab
+    /// A Stats card a deep link asked for, handed straight to `PassportView` to consume. Held as a
+    /// binding rather than passed by value so clearing it there is visible to whoever set it.
+    @Binding var statsSection: StatsSection?
 
     #if DEBUG
     @Environment(AppModel.self) private var appModel
     #endif
 
-    init(selection: Binding<MainTab> = .constant(.home)) {
+    init(selection: Binding<MainTab> = .constant(.home), statsSection: Binding<StatsSection?> = .constant(nil)) {
         _selection = selection
+        _statsSection = statsSection
         Self.configureTabBarAppearance()
     }
 
@@ -44,7 +48,7 @@ struct MainTabView: View {
                     .postHogScreenView("Games")
             }
             Tab("Stats", systemImage: "chart.bar.fill", value: .passport) {
-                PassportView()
+                PassportView(requestedSection: $statsSection)
                     .postHogScreenView("Passport")
             }
         }

@@ -26,6 +26,9 @@ struct RootView: View {
     /// Non-tab widget destinations (a specific flight/memory/the drawing pad) that need their
     /// own screen rather than just switching tabs.
     @State private var recordDeepLink: WidgetDeepLink.Destination?
+    /// A Stats card a deep link asked for, consumed by `PassportView` once it appears. Without it
+    /// the Days Together widget landed on whichever card happened to be open from last time.
+    @State private var pendingStatsSection: StatsSection?
     /// Where a tapped notification wants to go, held until this view can actually get there — see
     /// `consumePendingRoute()` and `NotificationRouter`.
     @State private var router = NotificationRouter.shared
@@ -47,7 +50,7 @@ struct RootView: View {
                 // Home shows a persistent "invite pending" card (with a reminder nudge) in place
                 // of the old full-screen `PendingConnectionApprovalView` gate this used to be.
                 if appModel.isSubscriptionActive || appModel.pendingOutgoingConnectionRequest != nil {
-                    MainTabView(selection: $selectedTab)
+                    MainTabView(selection: $selectedTab, statsSection: $pendingStatsSection)
                 } else if let lapsedPartnerName = appModel.partnerSubscriptionLapsedPartnerName {
                     // The payer disconnected and this profile wasn't the one backing the
                     // couple's access — see `leave_couple`'s partner_subscription_lapse_*
@@ -153,7 +156,7 @@ struct RootView: View {
             switch destination {
             case .paywall:
                 showingPaywallFromWidget = true
-            case .flight, .memory, .drawingPad, .partnerDrawingPad:
+            case .flight, .memory, .trip, .drawingPad, .partnerDrawingPad:
                 if appModel.isSubscriptionActive {
                     recordDeepLink = destination
                 }
@@ -161,7 +164,8 @@ struct RootView: View {
                 selectedTab = .home
             case .memories:
                 selectedTab = .memories
-            case .passport:
+            case .passport(let section):
+                pendingStatsSection = section
                 selectedTab = .passport
             }
         }
@@ -313,6 +317,19 @@ struct RootView: View {
                     FlightTrackingView(flight: flight)
                 } else {
                     GameErrorState(message: "This flight isn't available anymore.")
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Close") { recordDeepLink = nil }
+                }
+            }
+        case .trip(let id):
+            Group {
+                if let trip = appModel.trips.first(where: { $0.id == id }) {
+                    TripDetailsView(trip: trip)
+                } else {
+                    GameErrorState(message: "This trip isn't available anymore.")
                 }
             }
             .toolbar {

@@ -56,7 +56,9 @@ struct DaysTogetherWidgetView: View {
             default: homeScreenBody
             }
         }
-        .widgetURL(URL(string: "twofold://home"))
+        // The relationship card on Stats, not the Home tab — this widget counts the relationship,
+        // and Stats remembers whichever card was last open, so it has to name the one it means.
+        .widgetURL(URL(string: "twofold://passport/relationship"))
     }
 
     @ViewBuilder

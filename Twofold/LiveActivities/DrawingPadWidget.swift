@@ -118,12 +118,14 @@ struct DrawingPadWidgetView: View {
         }
         .widgetBranded()
         .widgetLock(requiredTier: WidgetTier.premium, currentTier: entry.subscriptionTier)
-        // Small shows only the partner's drawing, so it opens the partner's drawing — tapping it
-        // to be handed your own blank canvas is the same mismatch the "<partner> saved a new
-        // drawing" push had. Medium shows both pads, where your own editor is the useful landing.
-        .widgetURL(URL(string: isLocked
-            ? "twofold://paywall"
-            : family == .systemMedium ? "twofold://drawing-pad" : "twofold://partner-drawing-pad"))
+        // Small only: it shows the partner's drawing, so it opens the partner's drawing — tapping
+        // it to be handed your own blank canvas is the same mismatch the "<partner> saved a new
+        // drawing" push had. Medium doesn't set this at all; each of its halves carries its own
+        // `Link` (see `sideBySideBody`), and a `widgetURL` here would swallow taps that land
+        // between them and send both sides to one place.
+        .widgetURL(family == .systemMedium
+            ? nil
+            : URL(string: isLocked ? "twofold://paywall" : "twofold://partner-drawing-pad"))
     }
 
     // MARK: - Small: partner's drawing only
@@ -144,10 +146,31 @@ struct DrawingPadWidgetView: View {
 
     // MARK: - Medium: both drawings side by side
 
+    /// Each half is its own `Link`, not one `widgetURL` across the whole widget.
+    ///
+    /// `widgetURL` can only name a single destination for the entire widget, so tapping either pad
+    /// went to the same place — and whichever place that was, half the taps were wrong. `Link`
+    /// works inside `systemMedium`, so each side can open the pad it's actually showing: your own
+    /// goes to the editor, your partner's to their pad.
+    ///
+    /// Locked, both halves fall back to the paywall — there's nothing behind either one to reach.
     private var sideBySideBody: some View {
         HStack(spacing: 2) {
-            pane(name: entry.myName, imageData: entry.myImageData, person: .me)
-            pane(name: entry.partnerName, imageData: entry.imageData, person: .partner)
+            linked(to: isLocked ? "twofold://paywall" : "twofold://drawing-pad") {
+                pane(name: entry.myName, imageData: entry.myImageData, person: .me)
+            }
+            linked(to: isLocked ? "twofold://paywall" : "twofold://partner-drawing-pad") {
+                pane(name: entry.partnerName, imageData: entry.imageData, person: .partner)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func linked<Content: View>(to urlString: String, @ViewBuilder content: () -> Content) -> some View {
+        if let url = URL(string: urlString) {
+            Link(destination: url) { content() }
+        } else {
+            content()
         }
     }
 

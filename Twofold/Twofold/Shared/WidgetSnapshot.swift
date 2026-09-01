@@ -79,6 +79,11 @@ nonisolated struct WidgetSnapshot: Codable {
     /// precomputed day-count, so TripCountdownWidget stays correct without waiting on a fresh
     /// snapshot write — same reasoning as `anniversaryDate`.
     struct ReunionInfo: Codable {
+        /// Lets the Trip Countdown widget open this trip (twofold://trip/{id}) rather than the
+        /// Home tab. Optional so an already-written v5 snapshot still decodes — a widget missing
+        /// only its deep link for one refresh is a far smaller cost than bumping the key and
+        /// blanking every widget until the app next runs.
+        var id: UUID?
         var departureDate: Date
         var destinationCity: String
         var isReunionTrip: Bool

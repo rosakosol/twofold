@@ -21,11 +21,14 @@ struct TripCountdownEntry: TimelineEntry {
     let date: Date
     let daysToGo: Int?
     let destinationCity: String?
+    /// Which trip this is counting down to, so tapping opens it. Nil for a snapshot written before
+    /// `ReunionInfo` carried an id, and for the placeholder.
+    let tripID: UUID?
 }
 
 struct TripCountdownProvider: TimelineProvider {
     func placeholder(in context: Context) -> TripCountdownEntry {
-        TripCountdownEntry(date: .now, daysToGo: 12, destinationCity: "Singapore")
+        TripCountdownEntry(date: .now, daysToGo: 12, destinationCity: "Singapore", tripID: nil)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (TripCountdownEntry) -> Void) {
@@ -40,10 +43,10 @@ struct TripCountdownProvider: TimelineProvider {
 
     private func entry(from snapshot: WidgetSnapshot?) -> TripCountdownEntry {
         guard let reunion = snapshot?.nextReunion else {
-            return TripCountdownEntry(date: .now, daysToGo: nil, destinationCity: nil)
+            return TripCountdownEntry(date: .now, daysToGo: nil, destinationCity: nil, tripID: nil)
         }
         let days = Calendar.current.dateComponents([.day], from: .now, to: reunion.departureDate).day ?? 0
-        return TripCountdownEntry(date: .now, daysToGo: max(0, days), destinationCity: reunion.destinationCity)
+        return TripCountdownEntry(date: .now, daysToGo: max(0, days), destinationCity: reunion.destinationCity, tripID: reunion.id)
     }
 }
 
@@ -66,7 +69,9 @@ struct TripCountdownWidgetView: View {
             default: homeScreenBody
             }
         }
-        .widgetURL(URL(string: "twofold://home"))
+        // The trip it's counting down to, when the snapshot knows which one. Falls back to Home
+        // for a snapshot written before `ReunionInfo` carried an id.
+        .widgetURL(entry.tripID.map { URL(string: "twofold://trip/\($0.uuidString)") } ?? URL(string: "twofold://home"))
     }
 
     private var homeScreenBody: some View {
@@ -182,23 +187,23 @@ struct TripCountdownWidget: Widget {
 #Preview(as: .systemSmall) {
     TripCountdownWidget()
 } timeline: {
-    TripCountdownEntry(date: .now, daysToGo: 12, destinationCity: "Singapore")
+    TripCountdownEntry(date: .now, daysToGo: 12, destinationCity: "Singapore", tripID: nil)
 }
 
 #Preview(as: .accessoryRectangular) {
     TripCountdownWidget()
 } timeline: {
-    TripCountdownEntry(date: .now, daysToGo: 12, destinationCity: "Singapore")
+    TripCountdownEntry(date: .now, daysToGo: 12, destinationCity: "Singapore", tripID: nil)
 }
 
 #Preview(as: .accessoryCircular) {
     TripCountdownWidget()
 } timeline: {
-    TripCountdownEntry(date: .now, daysToGo: 12, destinationCity: "Singapore")
+    TripCountdownEntry(date: .now, daysToGo: 12, destinationCity: "Singapore", tripID: nil)
 }
 
 #Preview(as: .accessoryInline) {
     TripCountdownWidget()
 } timeline: {
-    TripCountdownEntry(date: .now, daysToGo: 12, destinationCity: "Singapore")
+    TripCountdownEntry(date: .now, daysToGo: 12, destinationCity: "Singapore", tripID: nil)
 }

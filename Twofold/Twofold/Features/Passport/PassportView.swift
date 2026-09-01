@@ -13,19 +13,27 @@
 import PostHog
 import SwiftUI
 
+/// Which of the Stats screen's three cards is showing. Top-level rather than private to
+/// `PassportView` so a widget deep link can name one — the Days Together widget lands on the
+/// relationship card specifically, not just the tab.
+enum StatsSection: String, CaseIterable {
+    case relationship = "Relationship"
+    case trips = "Trips"
+    case flights = "Flights"
+}
+
 struct PassportView: View {
     @Environment(AppModel.self) private var appModel
     @State private var showingSnapshot = false
     @State private var showingTripShare = false
     @State private var showingPassportShare = false
     @State private var showingAllFlightStats = false
+    /// Set by a widget deep link that named a card. Consumed (and cleared) on arrival, so it
+    /// steers this screen once rather than pinning it — the picker still works normally after.
+    @Binding var requestedSection: StatsSection?
+
     @State private var section: StatsSection = .relationship
 
-    private enum StatsSection: String, CaseIterable {
-        case relationship = "Relationship"
-        case trips = "Trips"
-        case flights = "Flights"
-    }
 
     /// `FlightStatsCard`'s own scope — deliberately the current user alone, not the couple
     /// combined (that framing already lives on `RelationshipStatsCard` above it). Matches "your
@@ -78,6 +86,19 @@ struct PassportView: View {
             .background(Theme.backgroundGradient.ignoresSafeArea())
             .refreshable { await appModel.refreshAll() }
             .navigationTitle("Stats")
+            .onChange(of: requestedSection) { _, requested in
+                guard let requested else { return }
+                section = requested
+                requestedSection = nil
+            }
+            .onAppear {
+                // Also on appear: a deep link can set this before this view exists, in which case
+                // `onChange` never fires for it.
+                if let requestedSection {
+                    section = requestedSection
+                    self.requestedSection = nil
+                }
+            }
             .sheet(isPresented: $showingSnapshot) {
                 RelationshipStatsShareView(couple: appModel.couple, stats: relationshipStats)
             }
@@ -769,6 +790,6 @@ struct FlightStats {
 }
 
 #Preview {
-    PassportView()
+    PassportView(requestedSection: .constant(nil))
         .environment(AppModel())
 }

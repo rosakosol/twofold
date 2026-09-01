@@ -74,6 +74,7 @@ enum WidgetSnapshotWriter {
         var reunionInfo: WidgetSnapshot.ReunionInfo?
         if let trip = appModel.upcomingTrips.first {
             reunionInfo = WidgetSnapshot.ReunionInfo(
+                id: trip.id,
                 departureDate: trip.departureDate,
                 destinationCity: trip.destination.displayCity,
                 isReunionTrip: trip.category == .reunion
