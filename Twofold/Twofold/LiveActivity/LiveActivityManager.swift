@@ -180,18 +180,34 @@ final class LiveActivityManager {
     /// system marks the content stale and the widget can say so (`context.isStale`) instead of
     /// stating something it can no longer stand behind.
     ///
-    /// Set from the best-known arrival plus a margin for late arrival reporting, falling back to a
-    /// day past departure when there's no arrival estimate at all.
+    /// Set to the best-known arrival, falling back to a day past departure when there's no arrival
+    /// estimate at all.
+    ///
+    /// The arrival itself, with no grace period. There used to be thirty minutes of it, to allow
+    /// for late arrival reporting — but the stale date is also the only thing that re-renders this
+    /// card at a chosen moment, and during that half hour a landed flight kept counting *up* under
+    /// the words "Arrives in", because `Text(_, style: .relative)` keeps ticking while the branch
+    /// that wrapped it doesn't get re-evaluated. Marking it stale at the arrival closes that window.
+    ///
+    /// The cost is that a flight whose landing push is a few minutes late briefly says it may be
+    /// out of date, then corrects itself when the push lands and resets both the content and this
+    /// date. A moment of honest uncertainty is worth more than half an hour of confident nonsense.
     private func staleDate(for flight: Flight) -> Date {
-        let grace: TimeInterval = 30 * 60
         if let arrival = flight.estimatedIn ?? flight.scheduledIn {
-            return arrival.addingTimeInterval(grace)
+            return arrival
         }
         if let departure = flight.estimatedOut ?? flight.scheduledOut {
             return departure.addingTimeInterval(24 * 60 * 60)
         }
         return Date().addingTimeInterval(12 * 60 * 60)
     }
+
+    #if DEBUG
+    /// Test-only access to the rule above. `LiveActivityManager` can't be exercised end to end from
+    /// a test — ActivityKit needs a real host — but the date it hands ActivityKit is a pure function
+    /// of the flight, and that's the part that was wrong.
+    func staleDateForTesting(_ flight: Flight) -> Date { staleDate(for: flight) }
+    #endif
 
     private func observePushToken(_ activity: Activity<JourneyActivityAttributes>, flightID: UUID) {
         tokenObservationTasks[flightID]?.cancel()
