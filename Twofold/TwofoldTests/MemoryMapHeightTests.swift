@@ -3,9 +3,12 @@
 //  TwofoldTests
 //
 //  The Add Memory screen's map gives up its height as the form scrolls. The arithmetic is trivial;
-//  the clamping isn't optional. Shrinking the map grows the scroll view, and a growing scroll view
-//  can nudge its own offset back at the bottom of the content — so a height that tracked the offset
-//  unclamped would feed back into it and oscillate.
+//  the clamping isn't optional — unclamped, the height would keep changing past the point the map
+//  can shrink, and rubber-banding at the top would stretch it past full size.
+//
+//  The map is layered over a fixed-frame scroll view rather than stacked above it, so nothing here
+//  feeds back into the offset it reads. That was the earlier arrangement, and the juddering it
+//  caused was reported as glitchy scrolling.
 //
 
 import Testing
@@ -18,8 +21,8 @@ struct MemoryMapHeightTests {
     private var expanded: CGFloat { screen * MemoryMapHeight.expandedFraction }
     private var collapsed: CGFloat { screen * MemoryMapHeight.collapsedFraction }
 
-    private func height(_ offset: CGFloat, editingNote: Bool = false) -> CGFloat {
-        MemoryMapHeight.forOffset(offset, availableHeight: screen, isEditingNote: editingNote)
+    private func height(_ offset: CGFloat) -> CGFloat {
+        MemoryMapHeight.forOffset(offset, availableHeight: screen)
     }
 
     @Test("unscrolled, the map takes half the screen")
@@ -33,8 +36,6 @@ struct MemoryMapHeightTests {
         #expect(height(200) == expanded - 200)
     }
 
-    /// The clamp that stops the oscillation: past the collapse point, more scrolling changes
-    /// nothing, so an offset nudged back by the growing scroll view can't grow the map again.
     @Test("the map stops shrinking once it's collapsed")
     func clampsAtTheBottom() {
         #expect(height(expanded - collapsed) == collapsed)
@@ -60,11 +61,13 @@ struct MemoryMapHeightTests {
         }
     }
 
-    /// The keyboard takes the bottom half of the screen, so this one case isn't gradual.
-    @Test("editing the note collapses the map immediately, whatever the scroll")
-    func editingNoteOverridesScroll() {
-        #expect(height(0, editingNote: true) == collapsed)
-        #expect(height(500, editingNote: true) == collapsed)
+    /// The height is a function of the scroll offset and nothing else. Focusing the note field used
+    /// to collapse the map directly; it scrolls the field up instead, and the height follows from
+    /// that like any other scroll — which is what keeps the map and the content moving together.
+    @Test("the height depends on the scroll offset alone")
+    func dependsOnlyOnOffset() {
+        #expect(height(120) == height(120))
+        #expect(height(120) != height(0))
     }
 
     @Test("the map always keeps enough height to show the pin")
