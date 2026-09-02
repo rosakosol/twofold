@@ -28,6 +28,7 @@ struct PassportView: View {
     @State private var showingTripShare = false
     @State private var showingPassportShare = false
     @State private var showingAllFlightStats = false
+    @State private var showingAllTripStats = false
     /// Set by a widget deep link that named a card. Consumed (and cleared) on arrival, so it
     /// steers this screen once rather than pinning it — the picker still works normally after.
     @Binding var requestedSection: StatsSection?
@@ -74,9 +75,11 @@ struct PassportView: View {
                             showingSnapshot = true
                         }
                     case .trips:
-                        TripStatsCard(stats: tripStats) {
-                            showingTripShare = true
-                        }
+                        TripStatsCard(
+                            stats: tripStats,
+                            onShare: { showingTripShare = true },
+                            onShowAllStats: { showingAllTripStats = true }
+                        )
                     case .flights:
                         FlightStatsCard(stats: flightStats, onShare: { showingPassportShare = true }, onShowAllStats: { showingAllFlightStats = true })
                     }
@@ -107,6 +110,9 @@ struct PassportView: View {
             }
             .sheet(isPresented: $showingPassportShare) {
                 PassportShareView(stats: flightStats)
+            }
+            .navigationDestination(isPresented: $showingAllTripStats) {
+                FullTripStatsView()
             }
             .navigationDestination(isPresented: $showingAllFlightStats) {
                 FullStatsView()
@@ -412,28 +418,15 @@ private struct FullStatsView: View {
         }
     }
 
-    /// The card's first few entries, with a way to reach the rest.
-    ///
-    /// `collapsedLimit` is 3 here and 5 for countries, which is why the limit is a parameter rather
-    /// than a constant — those lists were already different lengths and there's no reason to
-    /// flatten them.
+    /// The card's first few entries, with a way to reach the rest — see `StatRankedRows`,
+    /// which `FullTripStatsView` shares.
     private func rankedRows(title: String, ranked: [FlightStats.Ranked], collapsedLimit: Int = 3) -> some View {
-        let isExpanded = expandedRankings.contains(title)
-        return VStack(spacing: Theme.Spacing.sm) {
-            ForEach(ranked.prefix(isExpanded ? ranked.count : collapsedLimit)) { entry in
-                breakdownRow(label: entry.name, value: "×\(entry.count)")
-            }
-            if ranked.count > collapsedLimit {
-                Button(isExpanded ? "Show less" : "Show all \(ranked.count)") {
-                    withAnimation {
-                        if isExpanded { expandedRankings.remove(title) } else { expandedRankings.insert(title) }
-                    }
-                }
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Theme.skyBlueText)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
+        StatRankedRows(
+            title: title,
+            ranked: ranked.map { .init(name: $0.name, count: $0.count) },
+            expanded: $expandedRankings,
+            collapsedLimit: collapsedLimit
+        )
     }
 
     /// Number of distinct countries visited per `CountryRegion` — always all nine regions, in
@@ -499,7 +492,7 @@ private struct FullStatsView: View {
     ) -> some View {
         SectionCard {
             HStack(alignment: .top) {
-                statHeaderView(icon: icon, title: title, value: value, unit: unit)
+                StatCardHeader(icon: icon, title: title, value: value, unit: unit)
                 Spacer()
                 Button {
                     sharingStat = StatCardSpec(icon: icon, title: title, value: value, unit: unit, rows: AnyView(rows()))
@@ -517,18 +510,7 @@ private struct FullStatsView: View {
     }
 
     private func breakdownRow(label: String, value: String) -> some View {
-        HStack {
-            Text(label)
-                .font(.subheadline)
-                .foregroundStyle(Theme.subtleInk)
-                .lineLimit(1)
-                .minimumScaleFactor(0.85)
-            Spacer()
-            Text(value)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Theme.ink)
-                .monospacedDigit()
-        }
+        StatBreakdownRow(label: label, value: value)
     }
 
     private func multipleRow(emoji: String, value: Double, precision: Int, label: String) -> some View {
@@ -567,27 +549,11 @@ private struct FullStatsView: View {
 /// value instead of three across. Free function (not a method on either view) so both
 /// `FullStatsView`'s in-app card and `StatShareView`'s full-screen preview render an identical
 /// header from the same source.
-private func statHeaderView(icon: String, title: String, value: String, unit: String?) -> some View {
-    VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-        HStack(spacing: Theme.Spacing.sm) {
-            ZStack {
-                Circle().fill(Theme.skyBlueText.opacity(0.15))
-                Image(systemName: icon).font(.subheadline).foregroundStyle(Theme.skyBlueText)
-            }
-            .frame(width: 32, height: 32)
-            Text(title)
-                .font(.headline)
-                .foregroundStyle(Theme.ink)
-        }
-        Text("\(Text(value).font(.system(size: 34, weight: .bold, design: .rounded)).foregroundStyle(Theme.skyBlueText))\(Text(unit.map { " \($0)" } ?? "").font(.title3.weight(.semibold)).foregroundStyle(Theme.subtleInk))")
-    }
-}
 
-/// Everything `StatShareView` needs to re-render one `FullStatsView` section standalone — captured
-/// once when its share button is tapped (see `FullStatsView.shareableCard`), since `rows` closures
-/// only read already-available `stats`/`scope` state, not anything that changes while the sheet
-/// is open.
-private struct StatCardSpec: Identifiable {
+/// Everything `StatShareView` needs to re-render one full-stats section standalone — captured once
+/// when its share button is tapped, since `rows` closures only read already-available stats/scope
+/// state, not anything that changes while the sheet is open. Shared with `FullTripStatsView`.
+struct StatCardSpec: Identifiable {
     let id = UUID()
     let icon: String
     let title: String
@@ -599,7 +565,7 @@ private struct StatCardSpec: Identifiable {
 /// The full-screen "see it before you send it" preview for one Full Flight Stats card — same
 /// flow `PassportShareView` already gives the summary Flight Stats card (card preview, Close,
 /// and a `ShareLink` in the toolbar), just for a single section's card instead of the whole thing.
-private struct StatShareView: View {
+struct StatShareView: View {
     let stat: StatCardSpec
 
     @Environment(\.dismiss) private var dismiss
@@ -652,7 +618,7 @@ private struct StatShareView: View {
             TwofoldBrandMark(color: Theme.ink, size: 24, textStyle: .title3)
 
             SectionCard {
-                statHeaderView(icon: stat.icon, title: stat.title, value: stat.value, unit: stat.unit)
+                StatCardHeader(icon: stat.icon, title: stat.title, value: stat.value, unit: stat.unit)
                 stat.rows
             }
             .frame(maxWidth: .infinity, alignment: .leading)

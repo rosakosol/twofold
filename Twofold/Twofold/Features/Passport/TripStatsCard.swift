@@ -16,6 +16,9 @@ struct TripStatsCard: View {
     /// `RelationshipStatsCard.onShare`/`FlightStatsCard.onShare` — nil hides the button (the
     /// share card's own preview has nothing to open).
     var onShare: (() -> Void)?
+    /// Set only when reached from the Stats tab (not the share-card preview) — pushes the full
+    /// scoped breakdown, mirroring `FlightStatsCard.onShowAllStats`.
+    var onShowAllStats: (() -> Void)?
 
     var body: some View {
         SectionCard {
@@ -67,6 +70,20 @@ struct TripStatsCard: View {
                         milestoneTile(icon: "heart.fill", label: "Reunion Trips", value: "\(stats.reunionCount)", tint: Theme.heartRedText)
                         milestoneTile(icon: "calendar.badge.clock", label: "Upcoming", value: "\(stats.upcomingCount)", tint: .orange)
                         milestoneTile(icon: "checkmark.circle.fill", label: "Completed", value: "\(stats.pastCount)", tint: .purple)
+                    }
+
+                    if let onShowAllStats {
+                        Button(action: onShowAllStats) {
+                            HStack {
+                                Text("All Trip Stats")
+                                    .font(.subheadline.weight(.semibold))
+                                Spacer()
+                                Image(systemName: "chevron.right").font(.caption)
+                            }
+                            .foregroundStyle(Theme.skyBlueText)
+                            .padding(.top, Theme.Spacing.xs)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
 
