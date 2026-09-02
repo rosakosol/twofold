@@ -94,13 +94,14 @@ struct FullTripStatsView: View {
 
     // MARK: - Controls
 
-    /// The same control All Flight Stats uses — a segmented picker, with the period menu beside it.
+    /// The same control All Flight Stats uses — a segmented picker with the period menu trailing
+    /// it, just stacked instead of side by side.
     ///
-    /// On its own row rather than sharing one with the menu, which is the one place this departs
-    /// from that screen: three segments reading "All" and two first names fit alongside a menu,
-    /// five don't, and "Reunion" is the first label to become unreadable. Stacking keeps the
-    /// segmented control the picker it's meant to be instead of squeezing it until the labels are
-    /// useless.
+    /// That stacking is the one place this departs from that screen: three segments reading "All"
+    /// and two first names fit alongside a menu, five don't, and "Reunion" is the first label to
+    /// become unreadable. Keeping the menu trailing on its own row preserves the arrangement the
+    /// flight screen reads as — kinds on the left, period on the right — without squeezing the
+    /// segments until their labels are useless.
     private var controls: some View {
         VStack(spacing: Theme.Spacing.sm) {
             Picker("Kind", selection: $scope) {
@@ -116,7 +117,7 @@ struct FullTripStatsView: View {
             .pickerStyle(.segmented)
 
             periodMenu
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .trailing)
         }
     }
 

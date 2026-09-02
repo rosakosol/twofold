@@ -199,10 +199,15 @@ private struct FullStatsView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: Theme.Spacing.lg) {
-                // Who on the left, when on the right — two independent filters that compose, so
-                // they read as one control strip rather than two stacked rows eating vertical space
-                // above the numbers they filter.
-                HStack(spacing: Theme.Spacing.sm) {
+                // Who above, when below and trailing — two independent filters that compose, so
+                // they still read as one control strip.
+                //
+                // Stacked rather than sharing a row, matching `FullTripStatsView`. Sharing one row
+                // meant the segments and the menu competed for the same width: three segments, two
+                // of them first names, squeezed a little thinner with every character in a longer
+                // name. Full width gives the names room, and the menu keeps its trailing position
+                // on the row beneath.
+                VStack(spacing: Theme.Spacing.sm) {
                     Picker("Who", selection: $scope) {
                         Text("All").tag(StatScope.all)
                         Text(appModel.currentUser.name).tag(StatScope.user)
@@ -211,6 +216,7 @@ private struct FullStatsView: View {
                     .pickerStyle(.segmented)
 
                     periodMenu
+                        .frame(maxWidth: .infinity, alignment: .trailing)
                 }
 
                 hero
@@ -249,7 +255,7 @@ private struct FullStatsView: View {
     }
 
     /// A menu rather than more segments: the year list grows without bound, and segments would
-    /// squeeze the names beside them thinner every year the couple flies.
+    /// squeeze the names above them thinner every year the couple flies.
     private var periodMenu: some View {
         Menu {
             Picker("Period", selection: $period) {
