@@ -72,16 +72,22 @@ struct TripStatsCard: View {
                         milestoneTile(icon: "checkmark.circle.fill", label: "Completed", value: "\(stats.pastCount)", tint: .purple)
                     }
 
+                    // Identical to `FlightStatsCard`'s own drill-in row — same tinted pill, same
+                    // weights, same metrics. These two cards sit one above the other on the Stats
+                    // tab, so any difference between them reads as one of them being wrong.
                     if let onShowAllStats {
                         Button(action: onShowAllStats) {
                             HStack {
                                 Text("All Trip Stats")
                                     .font(.subheadline.weight(.semibold))
                                 Spacer()
-                                Image(systemName: "chevron.right").font(.caption)
+                                Image(systemName: "chevron.right")
+                                    .font(.caption.weight(.bold))
                             }
                             .foregroundStyle(Theme.skyBlueText)
-                            .padding(.top, Theme.Spacing.xs)
+                            .padding(.horizontal, Theme.Spacing.md)
+                            .padding(.vertical, 12)
+                            .background(Theme.skyBlueText.opacity(0.1), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                         }
                         .buttonStyle(.plain)
                     }

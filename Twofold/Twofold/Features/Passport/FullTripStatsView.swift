@@ -94,42 +94,30 @@ struct FullTripStatsView: View {
 
     // MARK: - Controls
 
-    /// Kind on top, when underneath.
+    /// The same control All Flight Stats uses — a segmented picker, with the period menu beside it.
     ///
-    /// `FullStatsView` fits both on one row because its three options are "All" and two first
-    /// names. Five options, two of which carry a name, can't share a row with a period menu at any
-    /// text size worth supporting — so the kinds scroll horizontally as pills and the period keeps
-    /// its own line.
+    /// On its own row rather than sharing one with the menu, which is the one place this departs
+    /// from that screen: three segments reading "All" and two first names fit alongside a menu,
+    /// five don't, and "Reunion" is the first label to become unreadable. Stacking keeps the
+    /// segmented control the picker it's meant to be instead of squeezing it until the labels are
+    /// useless.
     private var controls: some View {
         VStack(spacing: Theme.Spacing.sm) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: Theme.Spacing.xs) {
-                    scopePill("All", .all)
-                    scopePill("Reunion", .reunion)
-                    scopePill("Together", .together)
-                    scopePill("Solo · \(appModel.currentUser.name)", .soloMine)
-                    scopePill("Solo · \(appModel.partner.name)", .soloPartner)
-                }
-                .padding(.horizontal, 2)
+            Picker("Kind", selection: $scope) {
+                Text("All").tag(TripScope.all)
+                Text("Reunion").tag(TripScope.reunion)
+                Text("Together").tag(TripScope.together)
+                // Bare first names. "Solo · Rosa" repeated a category the segment already sits
+                // beside; a name alongside Reunion and Together reads as "the trips that were
+                // theirs" without needing the word.
+                Text(appModel.currentUser.name).tag(TripScope.soloMine)
+                Text(appModel.partner.name).tag(TripScope.soloPartner)
             }
+            .pickerStyle(.segmented)
+
             periodMenu
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-    }
-
-    private func scopePill(_ title: String, _ option: TripScope) -> some View {
-        Button {
-            scope = option
-        } label: {
-            Text(title)
-                .font(.subheadline.weight(.medium))
-                .padding(.horizontal, Theme.Spacing.md)
-                .padding(.vertical, 8)
-                .background(scope == option ? Theme.skyBlue : Theme.cardBackground, in: Capsule())
-                .foregroundStyle(scope == option ? .white : Theme.ink)
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(scope == option ? [.isButton, .isSelected] : .isButton)
     }
 
     private var periodMenu: some View {
@@ -183,7 +171,7 @@ struct FullTripStatsView: View {
         }
     }
 
-    /// The kind breakdown is only meaningful when looking at every kind — under a single scope pill
+    /// The kind breakdown is only meaningful when looking at every kind — under a single segment
     /// it would be that same number and two zeros.
     private var tripsSection: some View {
         statCard(icon: "suitcase.fill", title: "Trips", value: "\(stats.totalTrips)", unit: "total") {

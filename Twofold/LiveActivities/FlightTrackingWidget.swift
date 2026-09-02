@@ -243,7 +243,14 @@ struct FlightTrackingWidgetView: View {
     /// avatar (WidgetAvatarView) when one's set, falling back to a plain plane glyph otherwise.
     private func progressRail(markerSize: CGFloat) -> some View {
         GeometryReader { geo in
-            let progressX = geo.size.width * min(1, max(0, entry.progress))
+            // The marker is positioned by its *centre*, so at 0% that centre sat on x = 0 and half
+            // the avatar hung off the rail — which is every scheduled flight, i.e. most of them.
+            // Same at 100%, off the other end. Keeping the centre a half-width inside either end
+            // means the marker is always whole; the rail itself still runs the full width, so the
+            // progress it draws is unchanged.
+            let inset = markerSize / 2
+            let travel = max(0, geo.size.width - markerSize)
+            let progressX = inset + travel * min(1, max(0, entry.progress))
             let midY = geo.size.height / 2
 
             ZStack {

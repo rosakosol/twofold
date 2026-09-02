@@ -212,7 +212,9 @@ struct SmartRotatingWidgetView: View {
     private func memorySlideBody(title: String, imageData: Data?) -> some View {
         ZStack(alignment: .bottomLeading) {
             if let uiImage = WidgetImageDecoding.downsampled(imageData, pointSize: 360) {
-                Image(uiImage: uiImage).resizable().scaledToFill()
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFill()
             } else {
                 LinearGradient(colors: [LiveActivityPalette.skyBlue, LiveActivityPalette.leafGreen], startPoint: .topLeading, endPoint: .bottomTrailing)
             }
@@ -221,8 +223,18 @@ struct SmartRotatingWidgetView: View {
                 .font(.subheadline.weight(.bold))
                 .foregroundStyle(.white)
                 .lineLimit(2)
+                // The same inset every other slide gets from `slideBody`'s `.padding()` — the
+                // title sat hard against the left and bottom edges. The extra trailing room keeps
+                // a long title clear of the brand mark's corner.
                 .padding()
+                .padding(.trailing, 22)
         }
+        // `scaledToFill` doesn't clip, so without this the image overflows the ZStack and the
+        // ZStack reports the oversized bounds — which `widgetBranded`'s `.topTrailing` overlay then
+        // anchors to, pushing the Twofold mark past the widget's edge and cropping it. Every other
+        // slide draws a gradient that fills exactly, which is why only this one lost its mark.
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .clipped()
     }
 
     private var emptyState: some View {
