@@ -19,6 +19,13 @@ struct TwofoldApp: App {
                 // "System" choice, which `.preferredColorScheme` already treats as "follow the
                 // system setting," so this is a no-op until someone actually picks Light/Dark.
                 .preferredColorScheme(AppearancePreference.current.colorScheme)
+                // …and on the window itself, which is what carries the override into sheets. See
+                // `AppearancePreference.applyToWindows`. Run on appear as well as on change, since
+                // a window exists to be styled only once the scene is up.
+                .onAppear { AppearancePreference.applyToWindows() }
+                .onChange(of: AppearancePreference.current) { _, _ in
+                    AppearancePreference.applyToWindows()
+                }
                 .onReceive(NotificationCenter.default.publisher(for: .didRegisterForRemoteNotifications)) { notification in
                     guard let tokenData = notification.object as? Data else { return }
                     Task { await appModel.registerPushToken(tokenData) }

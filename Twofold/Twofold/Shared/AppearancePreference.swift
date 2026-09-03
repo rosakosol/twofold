@@ -11,6 +11,7 @@
 
 import Observation
 import SwiftUI
+import UIKit
 
 enum AppAppearance: String, Codable, CaseIterable {
     case system
@@ -73,5 +74,30 @@ enum AppearancePreference {
     static var current: AppAppearance {
         get { AppearancePreferenceStore.shared.appearance }
         set { AppearancePreferenceStore.shared.appearance = newValue }
+    }
+
+    /// Applies the preference to every window the app owns.
+    ///
+    /// `.preferredColorScheme` at the root only reaches the hierarchy it's attached to. A sheet is
+    /// a separate presentation, so Settings — itself presented as a sheet — kept whatever scheme it
+    /// was created with: changing the setting updated the app behind it and left the screen holding
+    /// the control untouched until it was dismissed and reopened. Reported exactly that way.
+    ///
+    /// Set on the window instead, which every presentation inside it inherits, including sheets,
+    /// full-screen covers and alerts. `.preferredColorScheme` stays at the root as well; both read
+    /// this same value, so they can't disagree.
+    @MainActor
+    static func applyToWindows() {
+        let style: UIUserInterfaceStyle = switch current {
+        case .system: .unspecified
+        case .light: .light
+        case .dark: .dark
+        }
+        for scene in UIApplication.shared.connectedScenes {
+            guard let windowScene = scene as? UIWindowScene else { continue }
+            for window in windowScene.windows {
+                window.overrideUserInterfaceStyle = style
+            }
+        }
     }
 }
