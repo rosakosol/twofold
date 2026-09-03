@@ -65,7 +65,10 @@ struct AvatarView: View {
 
     private var resolvedImage: UIImage? {
         if let loadedImage, loadedURL == person.avatarURL { return loadedImage }
-        return person.avatarURL.flatMap { AvatarImageCache.shared.image(for: $0) }
+        guard let url = person.avatarURL else { return nil }
+        // Memory first, then disk. The disk layer is what makes a face appear on a cold launch
+        // with no network — `AvatarImageCache` is an NSCache and starts every launch empty.
+        return AvatarImageCache.shared.image(for: url) ?? RemoteImageDiskCache.image(for: url)
     }
 
     var body: some View {
@@ -157,8 +160,16 @@ struct AvatarView: View {
             loadedURL = url
             return
         }
+        // Shown from disk straight away, so an offline launch draws a face rather than initials
+        // while the request below either succeeds or quietly doesn't.
+        if let onDisk = RemoteImageDiskCache.image(for: url) {
+            AvatarImageCache.shared.store(onDisk, for: url)
+            loadedImage = onDisk
+            loadedURL = url
+        }
         guard let (data, _) = try? await URLSession.shared.data(from: url), let image = UIImage(data: data) else { return }
         AvatarImageCache.shared.store(image, for: url)
+        RemoteImageDiskCache.store(data, for: url)
         loadedImage = image
         loadedURL = url
     }

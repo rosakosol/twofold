@@ -115,3 +115,70 @@ struct OfflineLaunchTests {
         #expect(OfflineSessionCache.restore(for: userID) == nil)
     }
 }
+
+/// What the *data* cache has to carry for an offline Home to render at all.
+///
+/// Everything on that screen is built from the couple's home cities and avatars: the timezone card,
+/// the distance, the globe, the header. Neither was cached, so a cold launch with no network fell
+/// through to "add your home cities" — telling a long-paired couple to set up something they set up
+/// long ago — and drew initials where two faces should be.
+/// Serialized for the same reason  is: these all write and clear one shared
+/// file, so run in parallel they clear each other's fixtures mid-test.
+@Suite(.serialized)
+struct OfflineHomeDataTests {
+
+    private let userID = UUID()
+
+    private func place(_ city: String, _ country: String) -> Place {
+        Place(id: UUID(), city: city, country: country, iataCode: nil, latitude: 1, longitude: 2)
+    }
+
+    private func record(userID: UUID, myCity: Place?, partnerCity: Place?, myAvatar: URL?, partnerAvatar: URL?) {
+        OfflineDataCache.record(
+            trips: [], flights: [], memories: [],
+            myCity: myCity, partnerCity: partnerCity,
+            myAvatarURL: myAvatar, partnerAvatarURL: partnerAvatar,
+            userID: userID
+        )
+    }
+
+    @Test("both home cities survive, so the timezone card and globe have somewhere to draw")
+    func citiesRoundTrip() throws {
+        OfflineDataCache.clear()
+        record(
+            userID: userID,
+            myCity: place("Rome", "Italy"),
+            partnerCity: place("Fukuoka", "Japan"),
+            myAvatar: nil, partnerAvatar: nil
+        )
+        let restored = try #require(OfflineDataCache.restore(for: userID))
+        #expect(restored.myCity?.city == "Rome")
+        #expect(restored.partnerCity?.city == "Fukuoka")
+        OfflineDataCache.clear()
+    }
+
+    /// The signed token in a stored URL is stale by the time it's read back, and that's fine:
+    /// `RemoteImageDiskCache` keys on the path, which doesn't change when the URL is re-signed.
+    /// Without the URL at all there's no key to look up, which is why faces were missing even with
+    /// the images already on disk.
+    @Test("avatar URLs survive, so the disk cache has a key to look up")
+    func avatarURLsRoundTrip() throws {
+        OfflineDataCache.clear()
+        let mine = URL(string: "https://example.com/storage/couple/me/avatar.jpg?token=abc")!
+        let theirs = URL(string: "https://example.com/storage/couple/them/avatar.jpg?token=def")!
+        record(userID: userID, myCity: nil, partnerCity: nil, myAvatar: mine, partnerAvatar: theirs)
+
+        let restored = try #require(OfflineDataCache.restore(for: userID))
+        #expect(restored.myAvatarURL?.path == mine.path, "the path is the part that has to survive")
+        #expect(restored.partnerAvatarURL?.path == theirs.path)
+        OfflineDataCache.clear()
+    }
+
+    @Test("a different account's home and faces are not restored")
+    func accountScoped() {
+        OfflineDataCache.clear()
+        record(userID: userID, myCity: place("Rome", "Italy"), partnerCity: nil, myAvatar: nil, partnerAvatar: nil)
+        #expect(OfflineDataCache.restore(for: UUID()) == nil)
+        OfflineDataCache.clear()
+    }
+}

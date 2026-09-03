@@ -29,6 +29,11 @@ struct RootView: View {
     /// A Stats card a deep link asked for, consumed by `PassportView` once it appears. Without it
     /// the Days Together widget landed on whichever card happened to be open from last time.
     @State private var pendingStatsSection: StatsSection?
+    /// The one-time "you're offline" explainer, and the flag that keeps it to once per launch —
+    /// it's an orientation, not an alarm to re-raise every time the signal drops in a tunnel.
+    @State private var showingOfflineNotice = false
+    @State private var hasShownOfflineNotice = false
+    private var network = NetworkMonitor.shared
     /// Where a tapped notification wants to go, held until this view can actually get there — see
     /// `consumePendingRoute()` and `NotificationRouter`.
     @State private var router = NotificationRouter.shared
@@ -136,6 +141,33 @@ struct RootView: View {
                     appLock.lock()
                 }
             }
+        }
+        // Offline at launch: say so once, after giving the monitor a moment to deliver its first
+        // real reading. `isConnected` defaults to `true` and `NWPathMonitor` reports asynchronously,
+        // so asking immediately always answers "connected" — the same race that made the offline
+        // launch path unreachable (see `AppModel.restoreSession`).
+        .task {
+            try? await Task.sleep(for: .milliseconds(600))
+            guard !network.isConnected, appModel.hasCouple, !hasShownOfflineNotice else { return }
+            hasShownOfflineNotice = true
+            showingOfflineNotice = true
+        }
+        // Back online without being reopened. Everything the app couldn't fetch while offline is
+        // pulled now, and anything queued while offline is flushed — the app used to sit on
+        // whatever it had until it was force-quit and relaunched.
+        .onChange(of: network.isConnected) { wasConnected, isConnected in
+            guard !wasConnected, isConnected, appModel.hasCouple else { return }
+            Task {
+                await appModel.refreshCoupleStateIfNeeded()
+                await appModel.refreshAll()
+                await checkSubscription()
+            }
+        }
+        .sheet(isPresented: $showingOfflineNotice) {
+            OfflineNoticeView()
+                // Full height, not `.medium`: this is a list of what does and doesn't work, and at
+                // half a screen it showed one and a half rows of it.
+                .presentationDetents([.large])
         }
         .onChange(of: currentCityService.state) { _, newState in
             if case .resolved(let place) = newState {

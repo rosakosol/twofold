@@ -2,6 +2,11 @@
 //  DrawingPadCard.swift
 //  Twofold
 //
+//  Draws through `CachedRemoteImage` rather than `AsyncImage`: the pads are signed Storage URLs, so
+//  `AsyncImage` (and URLSession's own cache, which keys on the whole URL) misses every time the URL
+//  is re-signed, and offline it has nothing at all — a cold launch on a plane showed two blank
+//  rectangles where the couple's drawings should be.
+//
 
 import SwiftUI
 
@@ -40,12 +45,10 @@ struct DrawingPadCard: View {
                 ZStack {
                     RoundedRectangle(cornerRadius: 12, style: .continuous).fill(.white)
                     if let url {
-                        AsyncImage(url: url) { phase in
-                            if let image = phase.image {
-                                image.resizable().scaledToFit()
-                            } else if isMine {
-                                emptyPadHint
-                            }
+                        CachedRemoteImage(url: url) { image in
+                            image.resizable().scaledToFit()
+                        } placeholder: {
+                            if isMine { emptyPadHint }
                         }
                     } else if isMine {
                         emptyPadHint

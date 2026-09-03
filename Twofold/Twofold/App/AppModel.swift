@@ -333,6 +333,12 @@ final class AppModel {
         trips = cached.trips.filter { !pendingTripIDs.contains($0.id) } + pendingTrips
         memories = cached.memories.filter { !pendingMemoryIDs.contains($0.id) } + pendingMemories
         flights = cached.flights
+        // Only fill a city that isn't already known — a live value from the backend is better than
+        // a cached one, and this also runs on paths where some state is already real.
+        if couple.partnerA.homeCity == nil { couple.partnerA.homeCity = cached.myCity }
+        if couple.partnerB.homeCity == nil { couple.partnerB.homeCity = cached.partnerCity }
+        if couple.partnerA.avatarURL == nil { couple.partnerA.avatarURL = cached.myAvatarURL }
+        if couple.partnerB.avatarURL == nil { couple.partnerB.avatarURL = cached.partnerAvatarURL }
     }
 
     /// Guards against a second pass piling on top of one already in flight — `performAdopt` runs
@@ -636,6 +642,7 @@ final class AppModel {
         OfflineSessionCache.clear()
         OfflineDataCache.clear()
         MemoryPhotoDiskCache.clear()
+        RemoteImageDiskCache.clear()
         WidgetSnapshot.clear()
         WidgetImageCache.clearAll()
         WidgetCenter.shared.reloadAllTimelines()
@@ -1105,6 +1112,10 @@ final class AppModel {
             trips: state.trips,
             flights: state.flights,
             memories: state.memories,
+            myCity: state.couple.partnerA.homeCity,
+            partnerCity: state.couple.partnerB.homeCity,
+            myAvatarURL: state.couple.partnerA.avatarURL,
+            partnerAvatarURL: state.couple.partnerB.avatarURL,
             userID: BackendService.currentUserID
         )
         prefetchMemoryPhotos()

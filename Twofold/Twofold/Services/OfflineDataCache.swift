@@ -26,6 +26,23 @@ enum OfflineDataCache {
         var trips: [Trip]
         var flights: [Flight]
         var memories: [Memory]
+        /// Both partners' home cities.
+        ///
+        /// Without these, an offline Home had no timezone card, no distance and no globe — every
+        /// one of them is built from `homeCity`, and with none the screen fell through to "add your
+        /// home cities", telling a long-paired couple to set up something they set up long ago.
+        /// Optional so a snapshot written before they were cached still decodes.
+        var myCity: Place?
+        var partnerCity: Place?
+        /// Both partners' avatar URLs.
+        ///
+        /// The signed token in them is stale by the time it's read back, and that's fine: nothing
+        /// offline can fetch anyway, and `RemoteImageDiskCache` keys on the URL's *path*, which is
+        /// stable across re-signs. Without them `avatarURL` is nil offline, so the disk cache is
+        /// never consulted and a cold launch draws initials where two faces should be — which is
+        /// what it did even with the images sitting on disk.
+        var myAvatarURL: URL?
+        var partnerAvatarURL: URL?
         var userID: String?
         var recordedAt: Date
     }
@@ -40,11 +57,24 @@ enum OfflineDataCache {
         return base.appendingPathComponent("OfflineDataCache.json")
     }
 
-    static func record(trips: [Trip], flights: [Flight], memories: [Memory], userID: UUID?) {
+    static func record(
+        trips: [Trip],
+        flights: [Flight],
+        memories: [Memory],
+        myCity: Place?,
+        partnerCity: Place?,
+        myAvatarURL: URL?,
+        partnerAvatarURL: URL?,
+        userID: UUID?
+    ) {
         let snapshot = Snapshot(
             trips: trips,
             flights: flights,
             memories: memories,
+            myCity: myCity,
+            partnerCity: partnerCity,
+            myAvatarURL: myAvatarURL,
+            partnerAvatarURL: partnerAvatarURL,
             userID: userID?.uuidString,
             recordedAt: Date()
         )
@@ -54,12 +84,30 @@ enum OfflineDataCache {
 
     /// Account-scoped and age-bounded for the same reasons as `OfflineSessionCache.restore` — a
     /// previous user of this device must never see their trips resurface under a new account.
-    static func restore(for userID: UUID?) -> (trips: [Trip], flights: [Flight], memories: [Memory])? {
+    static func restore(for userID: UUID?) -> Restored? {
         guard let data = try? Data(contentsOf: fileURL),
               let snapshot = try? JSONDecoder().decode(Snapshot.self, from: data) else { return nil }
         guard let userID, snapshot.userID == userID.uuidString else { return nil }
         guard Date().timeIntervalSince(snapshot.recordedAt) < maxAge else { return nil }
-        return (snapshot.trips, snapshot.flights, snapshot.memories)
+        return Restored(
+            trips: snapshot.trips,
+            flights: snapshot.flights,
+            memories: snapshot.memories,
+            myCity: snapshot.myCity,
+            partnerCity: snapshot.partnerCity,
+            myAvatarURL: snapshot.myAvatarURL,
+            partnerAvatarURL: snapshot.partnerAvatarURL
+        )
+    }
+
+    struct Restored {
+        var trips: [Trip]
+        var flights: [Flight]
+        var memories: [Memory]
+        var myCity: Place?
+        var partnerCity: Place?
+        var myAvatarURL: URL?
+        var partnerAvatarURL: URL?
     }
 
     static func clear() {
