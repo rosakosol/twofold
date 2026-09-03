@@ -288,30 +288,29 @@ final class AppModel {
     func restoreSession() async {
         defer { isLoadingSession = false }
 
-        // Offline fast path. `BackendService.restoreSession()` awaits `supabase.auth.session`,
-        // which refreshes an expired token over the network, and `loadSignedInState()` then makes
-        // several more calls in sequence — with no connectivity every one of those has to time out
-        // before the splash clears, measured at ~45s on a cold launch. `currentSession` reads the
-        // locally-stored session with no network at all, so when we already know we're offline and
-        // have a cached snapshot for that same account, show the app from cache immediately and
-        // let the (still-attempted) refresh below catch up if connectivity returns mid-launch.
+        // Cache first, always — not only when we already believe we're offline.
         //
-        // Gated on actually being offline rather than applied universally: online, these calls are
-        // fast and the server is the better source, so there's no reason to render stale data
-        // first and risk a visible flip.
-        if !NetworkMonitor.shared.isConnected,
-           let userID = BackendService.currentUserID,
+        // `BackendService.restoreSession()` awaits `supabase.auth.session`, which refreshes an
+        // expired token over the network, and `loadSignedInState()` then makes several more calls
+        // in sequence; with no connectivity every one has to time out before the splash clears,
+        // measured at ~45s on a cold launch.
+        //
+        // This used to be gated on `!NetworkMonitor.shared.isConnected`, which never fired at
+        // launch: `isConnected` defaults to `true` and `NWPathMonitor` delivers its first real
+        // reading asynchronously, so at the instant this runs — the first thing the app does — the
+        // monitor still says connected even in airplane mode. The gate was the whole fix, and it
+        // was racing something it could never win.
+        //
+        // Ungated, it doesn't need to win: `currentSession` reads the locally-stored session with
+        // no network at all, so an account that has run before shows its cached state immediately
+        // and the refresh below overwrites it whenever the network answers. The stale-then-fresh
+        // flip that gate existed to avoid is between two states of the same account, usually
+        // identical, and lasts as long as one round trip. That is a far smaller cost than a splash
+        // screen that never clears — and it covers what the monitor cannot see at all: a captive
+        // portal, or a connection too slow to finish.
+        if let userID = BackendService.currentUserID,
            let cached = OfflineSessionCache.restore(for: userID) {
-            isSubscriptionActive = cached.active
-            subscriptionTier = cached.tier
-            partnerConnected = cached.partnerConnected
-            if let myName = cached.myName, !myName.isEmpty { couple.partnerA.name = myName }
-            if let partnerName = cached.partnerName, !partnerName.isEmpty { couple.partnerB.name = partnerName }
-            partnerConnectedCelebrationShown = cached.celebrationShown
-            setupChecklistDismissed = cached.checklistDismissed
-            restorePendingMemoriesFromDisk()
-            restorePendingTripsFromDisk()
-            applyCachedTravelData()
+            applyCachedSession(cached)
             hasCouple = true
             isLoadingSession = false
         }
@@ -402,20 +401,32 @@ final class AppModel {
             // Both reads failed — almost always no network (they're `try?`, so a real outage looks
             // identical to "no rows"). Without this, `isSubscriptionActive` keeps its `false`
             // default while `hasCouple` is set to true just below, and `RootView` drops a paying
-            // subscriber onto the non-dismissable paywall. Reproduced on a cold launch with the
-            // backend unreachable — the exact airplane-mode case this app is most used in.
-            isSubscriptionActive = cached.active
-            subscriptionTier = cached.tier
-            partnerConnected = cached.partnerConnected
-            if let myName = cached.myName, !myName.isEmpty { couple.partnerA.name = myName }
-            if let partnerName = cached.partnerName, !partnerName.isEmpty { couple.partnerB.name = partnerName }
-            partnerConnectedCelebrationShown = cached.celebrationShown
-            setupChecklistDismissed = cached.checklistDismissed
-            applyCachedTravelData()
+            // subscriber onto the non-dismissable paywall.
+            applyCachedSession(cached)
         }
         hasCouple = true
         Task { await WidgetSnapshotWriter.refresh(appModel: self) }
         checkReviewMilestones()
+    }
+
+    /// Unpacks a cached snapshot into the live state — the couple's names, what they've paid for,
+    /// and their travel data. Called from both launch paths so there's one definition of what
+    /// "the app, from cache" means rather than two that can drift.
+    ///
+    /// Deliberately doesn't touch `hasCouple` or `isLoadingSession`: what a cache means for routing
+    /// differs between a pre-network launch and a post-failure fallback, so those stay with the
+    /// caller that knows which it is.
+    private func applyCachedSession(_ cached: OfflineSessionCache.Snapshot) {
+        isSubscriptionActive = cached.active
+        subscriptionTier = cached.tier
+        partnerConnected = cached.partnerConnected
+        if let myName = cached.myName, !myName.isEmpty { couple.partnerA.name = myName }
+        if let partnerName = cached.partnerName, !partnerName.isEmpty { couple.partnerB.name = partnerName }
+        partnerConnectedCelebrationShown = cached.celebrationShown
+        setupChecklistDismissed = cached.checklistDismissed
+        restorePendingMemoriesFromDisk()
+        restorePendingTripsFromDisk()
+        applyCachedTravelData()
     }
 
     /// Restores memories that were added before pairing (or otherwise never synced) from local
