@@ -47,11 +47,11 @@ struct AddMemoryView: View {
     @State private var showingLocationSearch = false
     @State private var locationService = HomeLocationService()
     @State private var mapCameraPosition: MapCameraPosition
-    /// How far the form below has been scrolled, which is what the map's height follows.
-    @State private var contentScrollOffset: CGFloat = 0
-
-    /// Anchor for scrolling the note field up when it takes focus — see the `onChange` below.
-    private static let noteFieldID = "memory-note-field" 
+    /// Enough map to place the pin and read the streets around it, without taking room the form
+    /// needs. A point value rather than a fraction of the screen: this is a header, and a header
+    /// that's a third of a small phone and a quarter of a large one is the same header drawn
+    /// inconsistently.
+    private static let mapHeight: CGFloat = 150
 
     private enum Field: Hashable { case title, note }
     /// Drives the map's shrink-while-editing-notes behavior below — the map used to stay fixed at
@@ -98,67 +98,35 @@ struct AddMemoryView: View {
 
     var body: some View {
         NavigationStack {
-            GeometryReader { geo in
-                VStack(spacing: 0) {
-                    // The map is layered *over* the scroll view rather than stacked above it in a
-                    // VStack, which is what makes the collapse smooth.
-                    //
-                    // Stacked, the map's height was the scroll view's height: shrinking one grew
-                    // the other, which moved the content, which changed the offset, which resized
-                    // the map again. Clamping stopped that running away but not from juddering the
-                    // whole way down — reported as glitchy scrolling.
-                    //
-                    // Here the scroll view's frame never changes. Its content simply starts an
-                    // expanded-map's height down the page, and since scrolling by N moves the
-                    // content up by N while the map loses exactly N of its height, the two stay
-                    // flush without either one being told about the other. Past the collapse point
-                    // the content carries on underneath, which is what a sticky header should do.
-                    ZStack(alignment: .top) {
-                        ScrollViewReader { proxy in
-                        ScrollView {
-                            VStack(alignment: .leading, spacing: Theme.Spacing.md) {
-                                titleRow
-                                dateLocationSummary
-                                noteField
-                                    .id(Self.noteFieldID)
+            VStack(spacing: 0) {
+                // Both heights are fixed. The map used to be half the screen and give that height
+                // up as the form scrolled, which meant two things moving at once for the whole
+                // length of the page; the shrunken end of that was where it read best, so it just
+                // starts there and stays. No GeometryReader, no scroll observation, nothing to
+                // desynchronise.
+                locationMap
+                    .frame(height: Self.mapHeight)
 
-                                if !existingPhotos.isEmpty || !pendingPhotos.isEmpty {
-                                    photoStrip
-                                }
+                ScrollView {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+                        titleRow
+                        dateLocationSummary
+                        noteField
 
-                                if let errorMessage {
-                                    Text(errorMessage)
-                                        .font(.caption)
-                                        .foregroundStyle(Theme.heartRed)
-                                }
-                            }
-                            .padding(Theme.Spacing.lg)
-                            .padding(.top, geo.size.height * MemoryMapHeight.expandedFraction)
-                            .padding(.bottom, 72)
-                        }
-                        .onScrollGeometryChange(for: CGFloat.self) { geometry in
-                            geometry.contentOffset.y + geometry.contentInsets.top
-                        } action: { _, offset in
-                            contentScrollOffset = offset
-                        }
-                        // Typing a note is the one case that isn't driven by a finger: the keyboard
-                        // takes the bottom half of the screen, so the field has to come up. Done by
-                        // scrolling rather than by collapsing the map directly — the map's height
-                        // and the content's position have to move together, and scrolling is what
-                        // moves both.
-                        .onChange(of: focusedField) { _, field in
-                            guard field == .note else { return }
-                            withAnimation(.easeInOut(duration: 0.25)) {
-                                proxy.scrollTo(Self.noteFieldID, anchor: .top)
-                            }
-                        }
+                        if !existingPhotos.isEmpty || !pendingPhotos.isEmpty {
+                            photoStrip
                         }
 
-                        locationMap
-                            .frame(height: mapHeight(in: geo))
+                        if let errorMessage {
+                            Text(errorMessage)
+                                .font(.caption)
+                                .foregroundStyle(Theme.heartRed)
+                        }
                     }
-                    bottomBar
+                    .padding(Theme.Spacing.lg)
+                    .padding(.bottom, 72)
                 }
+                bottomBar
             }
             .background(Theme.backgroundGradient.ignoresSafeArea())
             .navigationTitle(isEditing ? "Edit memory" : "Add a memory")
@@ -211,9 +179,6 @@ struct AddMemoryView: View {
     /// to) and recentering whenever `place` changes. Tapping it opens the same location search
     /// sheet the mappin toolbar icon does, so it doubles as a large, obvious tap target for
     /// changing the location rather than just a static preview.
-    private func mapHeight(in geo: GeometryProxy) -> CGFloat {
-        MemoryMapHeight.forOffset(contentScrollOffset, availableHeight: geo.size.height)
-    }
 
     private var locationMap: some View {
         Map(position: $mapCameraPosition) {
@@ -571,39 +536,4 @@ private struct ExistingPhotoThumbnail: View {
 #Preview {
     AddMemoryView()
         .environment(AppModel())
-}
-
-/// How tall the location map is as the form below it scrolls.
-///
-/// The map was a fixed half-screen unless the note field happened to be focused, so everything
-/// below the first field or two was permanently off-screen — you'd add photos and have no way to
-/// see whether they'd landed without scrolling down and losing sight of the rest.
-///
-/// Pulled out of the view because the clamping is the part that can go wrong, and it's the part a
-/// test can hold still. Clamped at both ends it's monotonic in how far you've scrolled: past the
-/// collapse point the map simply stays small, and rubber-banding at the top can't stretch it.
-///
-/// The map no longer sits in a VStack above the scroll view, where its height *was* the scroll
-/// view's height — shrinking one grew the other, which moved the content, which changed the offset,
-/// which resized the map again. Clamping stopped that running away but not from juddering, which is
-/// what made the screen feel glitchy. `AddMemoryView` layers the map over a fixed-frame scroll view
-/// now, so nothing here feeds back into the offset it reads.
-enum MemoryMapHeight {
-    /// Half the screen, before any scrolling.
-    static let expandedFraction: CGFloat = 0.5
-    /// What's left once the form has taken over — enough to keep the pin in view as context.
-    static let collapsedFraction: CGFloat = 0.15
-
-    /// A pure function of how far the form has scrolled — nothing else.
-    ///
-    /// It used to take an `isEditingNote` flag that collapsed the map outright. That can't work now
-    /// the map is layered over the scroll view: the content's top inset is a fixed expanded-map
-    /// height, so collapsing the map without also moving the content would open a gap between them.
-    /// Focusing the note scrolls instead, and the height follows from that like any other scroll.
-    static func forOffset(_ offset: CGFloat, availableHeight: CGFloat) -> CGFloat {
-        let collapsed = availableHeight * collapsedFraction
-        let expanded = availableHeight * expandedFraction
-        let shrink = min(expanded - collapsed, max(0, offset))
-        return expanded - shrink
-    }
 }
