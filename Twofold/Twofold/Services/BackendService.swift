@@ -2756,6 +2756,37 @@ enum BackendService {
         return rows.map { $0.toModel() }
     }
 
+    /// The whole deck catalogue and every round behind it, encoded as the payload
+    /// `GameContentStore` caches — see that file for why games need a local copy at all, and
+    /// `scripts/export-game-content.py`, which produces the bundled seed in this same shape.
+    ///
+    /// Returned as raw JSON rather than models on purpose: it is written straight to disk, and
+    /// decoding it here only to re-encode it would be two chances to drop a column for no gain.
+    /// ~2,000 rows and about half a megabyte, so it's fetched on a schedule, not per foreground.
+    static func fetchGameContentPayload() async throws -> Data {
+        func rows(_ table: String, _ columns: String) async throws -> [[String: AnyJSON]] {
+            try await supabase.from(table).select(columns).eq("active", value: true).execute().value
+        }
+        // Keyed by `GameType.rawValue`, which is what the store looks them up by.
+        async let trivia = rows("trivia_questions", "id,deck_id,question,options,correct_answer,explanation,difficulty,category,tier")
+        async let moreLikely = rows("more_likely_prompts", "id,deck_id,prompt,category,tier")
+        async let thisOrThat = rows("this_or_that_prompts", "id,deck_id,option_a,option_b,category,tier")
+        async let deep = rows("deep_conversation_topics", "id,deck_id,topic,category,tier")
+        async let decks = rows("game_decks", "id,topic,game_type,title,emoji,tier,sort_order,question_count")
+
+        let payload: [String: AnyJSON] = [
+            "version": .integer(1),
+            "decks": .array(try await decks.map { .object($0) }),
+            "content": .object([
+                GameType.triviaBattle.rawValue: .array(try await trivia.map { .object($0) }),
+                GameType.moreLikely.rawValue: .array(try await moreLikely.map { .object($0) }),
+                GameType.thisOrThat.rawValue: .array(try await thisOrThat.map { .object($0) }),
+                GameType.deepConversations.rawValue: .array(try await deep.map { .object($0) }),
+            ]),
+        ]
+        return try JSONEncoder().encode(AnyJSON.object(payload))
+    }
+
     static func startDeckSession(deckID: UUID) async throws -> UUID {
         struct Params: Encodable {
             var pDeckId: UUID

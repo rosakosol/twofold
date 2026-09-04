@@ -43,6 +43,15 @@ enum OfflineDataCache {
         /// what it did even with the images sitting on disk.
         var myAvatarURL: URL?
         var partnerAvatarURL: URL?
+        /// The couple's own scalar fields, which nothing else on the restore path carries.
+        ///
+        /// Without them an offline launch runs on `placeholderCouple`, whose `startedDatingOn` is
+        /// `.now` — so the Stats screen told a couple of nine years they had been together for
+        /// zero days, and the relationship stats built on it were wrong in the same way.
+        var coupleID: String?
+        var startedDatingOn: Date?
+        var connectedAt: Date?
+        var maxDistanceKm: Double?
         var userID: String?
         var recordedAt: Date
     }
@@ -65,6 +74,7 @@ enum OfflineDataCache {
         partnerCity: Place?,
         myAvatarURL: URL?,
         partnerAvatarURL: URL?,
+        couple: Couple?,
         userID: UUID?
     ) {
         let snapshot = Snapshot(
@@ -75,6 +85,10 @@ enum OfflineDataCache {
             partnerCity: partnerCity,
             myAvatarURL: myAvatarURL,
             partnerAvatarURL: partnerAvatarURL,
+            coupleID: couple?.id.uuidString,
+            startedDatingOn: couple?.startedDatingOn,
+            connectedAt: couple?.connectedAt,
+            maxDistanceKm: couple?.maxDistanceKm,
             userID: userID?.uuidString,
             recordedAt: Date()
         )
@@ -96,7 +110,11 @@ enum OfflineDataCache {
             myCity: snapshot.myCity,
             partnerCity: snapshot.partnerCity,
             myAvatarURL: snapshot.myAvatarURL,
-            partnerAvatarURL: snapshot.partnerAvatarURL
+            partnerAvatarURL: snapshot.partnerAvatarURL,
+            coupleID: snapshot.coupleID.flatMap(UUID.init(uuidString:)),
+            startedDatingOn: snapshot.startedDatingOn,
+            connectedAt: snapshot.connectedAt,
+            maxDistanceKm: snapshot.maxDistanceKm
         )
     }
 
@@ -108,6 +126,10 @@ enum OfflineDataCache {
         var partnerCity: Place?
         var myAvatarURL: URL?
         var partnerAvatarURL: URL?
+        var coupleID: UUID?
+        var startedDatingOn: Date?
+        var connectedAt: Date?
+        var maxDistanceKm: Double?
     }
 
     static func clear() {

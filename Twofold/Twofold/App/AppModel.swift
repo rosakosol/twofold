@@ -339,6 +339,31 @@ final class AppModel {
         if couple.partnerB.homeCity == nil { couple.partnerB.homeCity = cached.partnerCity }
         if couple.partnerA.avatarURL == nil { couple.partnerA.avatarURL = cached.myAvatarURL }
         if couple.partnerB.avatarURL == nil { couple.partnerB.avatarURL = cached.partnerAvatarURL }
+        // The couple's own fields, and only while `couple` is still the placeholder — once
+        // `performAdopt` has run, `couple.id` matches the cached one and the live values stand.
+        // `placeholderCouple` dates the relationship to `.now`, so without this the Stats screen
+        // opened offline saying a couple of nine years had been together for zero days.
+        if couple.id != cached.coupleID {
+            if let startedDatingOn = cached.startedDatingOn { couple.startedDatingOn = startedDatingOn }
+            if couple.connectedAt == nil { couple.connectedAt = cached.connectedAt }
+            if couple.maxDistanceKm == nil { couple.maxDistanceKm = cached.maxDistanceKm }
+        }
+        applyCachedGameState()
+    }
+
+    /// The streak and today's question, restored the same way and for the same reason as the rest:
+    /// they're only ever set by a backend call, so offline they sat at zero and nil.
+    private func applyCachedGameState() {
+        guard let cached = OfflineGameStateCache.restore(for: BackendService.currentUserID) else { return }
+        if dailyStreak == nil { dailyStreak = cached.dailyStreak }
+        if longestDailyStreak == nil { longestDailyStreak = cached.longestDailyStreak }
+        if dailyStreakResetsAt == nil { dailyStreakResetsAt = cached.dailyStreakResetsAt }
+        if todaysDailyQuestionText == nil {
+            todaysDailyQuestionText = cached.questionText
+            todaysDailySessionID = cached.questionSessionID
+            todaysMyAnswered = cached.myAnswered
+            todaysPartnerAnswered = cached.partnerAnswered
+        }
     }
 
     /// Guards against a second pass piling on top of one already in flight — `performAdopt` runs
@@ -641,6 +666,11 @@ final class AppModel {
         // guard, but clearing on the way out is the honest place to do it.)
         OfflineSessionCache.clear()
         OfflineDataCache.clear()
+        OfflineGameStateCache.clear()
+        // The catalogue itself, not just this account's view of it — the next person signing in
+        // falls back to the bundled seed until their own refresh runs, rather than inheriting a
+        // copy fetched under someone else's subscription tier.
+        GameContentStore.clear()
         MemoryPhotoDiskCache.clear()
         RemoteImageDiskCache.clear()
         WidgetSnapshot.clear()
@@ -909,13 +939,25 @@ final class AppModel {
                 todaysDailyQuestionText = topic.topic
             }
         } catch {
-            dailyQuestionError = "Couldn't load today's question. Check your connection and try again."
+            // Offline, today's question may already be on disk from earlier today — the backend
+            // assigns one per day, so a cached one is the same question, not a guess. Only a day
+            // with no cached question is a real error.
+            if let cached = OfflineGameStateCache.restore(for: BackendService.currentUserID),
+               let text = cached.questionText {
+                todaysDailyQuestionText = text
+                todaysDailySessionID = cached.questionSessionID
+                todaysMyAnswered = cached.myAnswered
+                todaysPartnerAnswered = cached.partnerAnswered
+            } else {
+                dailyQuestionError = "Couldn't load today's question. Check your connection and try again."
+            }
         }
         if let status = try? await BackendService.fetchDailyQuestionStatus() {
             todaysMyAnswered = status.mine
             todaysPartnerAnswered = status.partner
         }
         await refreshDailyStreak()
+        recordGameStateForOffline()
     }
 
     func refreshDailyStreak() async {
@@ -923,7 +965,24 @@ final class AppModel {
             dailyStreak = streak.current
             longestDailyStreak = streak.longest
             dailyStreakResetsAt = streak.resetsAt
+            recordGameStateForOffline()
         }
+    }
+
+    /// Keeps the streak and today's question on disk so the Games hub has something to show with
+    /// no network — otherwise a 40-day streak read as zero, which is the one number in the app
+    /// nobody wants to see wrong.
+    func recordGameStateForOffline() {
+        OfflineGameStateCache.record(
+            dailyStreak: dailyStreak,
+            longestDailyStreak: longestDailyStreak,
+            dailyStreakResetsAt: dailyStreakResetsAt,
+            questionText: todaysDailyQuestionText,
+            questionSessionID: todaysDailySessionID,
+            myAnswered: todaysMyAnswered,
+            partnerAnswered: todaysPartnerAnswered,
+            userID: BackendService.currentUserID
+        )
     }
 
     #if DEBUG
@@ -977,15 +1036,41 @@ final class AppModel {
         async let decks = BackendService.fetchGameDecks()
         async let progress = BackendService.fetchDeckProgress()
         let fetchedDecks = try? await decks
-        gameDecks = fetchedDecks
+        // Falls back to the on-device catalogue rather than to nothing. Decks are the entry point
+        // to every game, so with no network this was an empty hub — the screen a couple reaches
+        // on the flight where they have hours and nothing else to do. `GameContentStore` carries
+        // the same decks, from the bundled seed or from the last online refresh.
+        gameDecks = fetchedDecks ?? nonEmpty(GameContentStore.decks())
         deckProgress = try? await progress
-        // Distinguishes "haven't asked yet" from "asked and couldn't get them", which
+        // Distinguishes "haven't asked yet" from "asked and there's nothing to show", which
         // `gameDecks == nil` alone can't. Without it `RecommendedGamesSection` showed its loading
-        // spinner forever whenever the fetch failed — decks are fetched, never bundled, so that's
-        // any time the network or the backend is unreachable. Deliberately not driven off
-        // `NetworkMonitor` alone: NWPathMonitor reports "connected" on a captive portal or when
-        // the server itself is down, both of which strand the spinner just the same.
-        gameDecksUnavailable = fetchedDecks == nil
+        // spinner forever whenever the fetch failed. Now that the fetch failing still leaves the
+        // on-device catalogue, this is only true when *both* are empty — a failed fetch with decks
+        // on disk isn't an unavailable state any more, it's just offline.
+        // Deliberately not driven off `NetworkMonitor` alone: NWPathMonitor reports "connected" on
+        // a captive portal or when the server itself is down, both of which strand the spinner
+        // just the same.
+        gameDecksUnavailable = gameDecks?.isEmpty ?? true
+        await refreshGameContentIfStale()
+    }
+
+    /// Empty means "the fetch produced nothing", which is not a usable fallback — keep nil so the
+    /// caller can tell the difference.
+    private func nonEmpty(_ decks: [GameDeck]) -> [GameDeck]? {
+        decks.isEmpty ? nil : decks
+    }
+
+    /// Pulls the full deck-and-content catalogue onto the device so games work with no network.
+    ///
+    /// Daily, not per foreground: it's about half a megabyte, and content changes on the order of
+    /// weeks. The first run after an install has no cached copy at all and fetches immediately —
+    /// until then the app is running on the bundled seed, which is only as current as the last
+    /// release.
+    private func refreshGameContentIfStale() async {
+        guard NetworkMonitor.shared.isConnected else { return }
+        if let age = GameContentStore.cacheAge, age < 24 * 60 * 60 { return }
+        guard let payload = try? await BackendService.fetchGameContentPayload() else { return }
+        GameContentStore.store(payload: payload)
     }
 
     /// Flips this deck's own "Your turn" → "Answered" bucket instantly, without waiting on
@@ -1116,6 +1201,7 @@ final class AppModel {
             partnerCity: state.couple.partnerB.homeCity,
             myAvatarURL: state.couple.partnerA.avatarURL,
             partnerAvatarURL: state.couple.partnerB.avatarURL,
+            couple: state.couple,
             userID: BackendService.currentUserID
         )
         prefetchMemoryPhotos()

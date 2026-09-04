@@ -133,13 +133,51 @@ struct OfflineHomeDataTests {
         Place(id: UUID(), city: city, country: country, iataCode: nil, latitude: 1, longitude: 2)
     }
 
-    private func record(userID: UUID, myCity: Place?, partnerCity: Place?, myAvatar: URL?, partnerAvatar: URL?) {
+    private func record(
+        userID: UUID,
+        myCity: Place?,
+        partnerCity: Place?,
+        myAvatar: URL?,
+        partnerAvatar: URL?,
+        couple: Couple? = nil
+    ) {
         OfflineDataCache.record(
             trips: [], flights: [], memories: [],
             myCity: myCity, partnerCity: partnerCity,
             myAvatarURL: myAvatar, partnerAvatarURL: partnerAvatar,
+            couple: couple,
             userID: userID
         )
+    }
+
+    private func couple(startedDatingOn: Date, maxDistanceKm: Double? = nil) -> Couple {
+        Couple(
+            partnerA: Person(name: "Alex", accentColor: Person.palette[0]),
+            partnerB: Person(name: "Sam", accentColor: Person.palette[1]),
+            startedDatingOn: startedDatingOn,
+            connectedAt: startedDatingOn,
+            maxDistanceKm: maxDistanceKm
+        )
+    }
+
+    /// The Stats screen builds every relationship number off `startedDatingOn`, and the
+    /// placeholder couple an offline launch falls back to dates the relationship to `.now` — so
+    /// without this, Stats opened with no network said a couple of nine years had been together
+    /// for zero days.
+    @Test("the couple's own dates survive, so Stats isn't computed from a placeholder")
+    func coupleFieldsRoundTrip() throws {
+        OfflineDataCache.clear()
+        let anniversary = Date(timeIntervalSince1970: 1_500_000_000)
+        record(
+            userID: userID, myCity: nil, partnerCity: nil, myAvatar: nil, partnerAvatar: nil,
+            couple: couple(startedDatingOn: anniversary, maxDistanceKm: 9_526)
+        )
+        let restored = try #require(OfflineDataCache.restore(for: userID))
+        #expect(restored.startedDatingOn == anniversary)
+        #expect(restored.connectedAt == anniversary, "the streak's day boundary is measured from this")
+        #expect(restored.maxDistanceKm == 9_526)
+        #expect(restored.coupleID != nil, "without the id there's no way to tell a placeholder from the real couple")
+        OfflineDataCache.clear()
     }
 
     @Test("both home cities survive, so the timezone card and globe have somewhere to draw")
