@@ -23,6 +23,10 @@ export interface FlightRow {
   trip_id: string | null;
   couple_id: string;
   created_by: string | null;
+  // The "share this flight with my partner" toggle (20260712110000). False means only `created_by`
+  // may see it — service-role paths have to honour that themselves, as notify.ts and
+  // notifyLiveActivity below both do.
+  shared: boolean;
   fa_flight_id: string | null;
   flight_number_iata: string | null;
   flight_number_icao: string | null;
@@ -650,17 +654,29 @@ async function notifyLiveActivity(serviceClient: SupabaseClient, oldRow: FlightR
     .eq("flight_id", newRow.id);
   if (error || !tokens || tokens.length === 0) return;
 
-  // This runs under the service-role client (RLS-bypassing), so re-check couple membership
-  // explicitly here rather than trusting the token rows alone — belt-and-suspenders alongside the
-  // membership check `register-live-activity-token` performs at write time, in case a couple
-  // dissolves (or any future code path writes a token) after registration.
+  // This runs under the service-role client (RLS-bypassing), so re-check couple membership *and*
+  // flight privacy explicitly here rather than trusting the token rows alone — belt-and-suspenders
+  // alongside the checks `register-live-activity-token` performs at write time, in case a couple
+  // dissolves, a flight is un-shared, or any future code path writes a token after registration.
+  //
+  // The privacy half can't reuse `can_see_flight` (20260916000000): that function answers for
+  // `auth.uid()`, and there is no authenticated user here. Written out per recipient instead, which
+  // is the same rule — a private flight is visible only to whoever created it.
+  //
+  // RLS on the token table (20260917000000) refuses to *create* a row on a flight the owner can't
+  // see, but deliberately still lets them read and delete a row whose flight went private after the
+  // fact — otherwise an un-share would strand a Live Activity nobody could tear down. So this is the
+  // layer that actually stops the push for that case, and for any row predating that migration.
   const { data: couple } = await serviceClient
     .from("couples")
     .select("partner_a_id, partner_b_id")
     .eq("id", newRow.couple_id)
     .maybeSingle();
   const memberIds = couple ? [couple.partner_a_id, couple.partner_b_id] : [];
-  const validTokens = tokens.filter((token) => memberIds.includes(token.profile_id));
+  const validTokens = tokens.filter((token) =>
+    memberIds.includes(token.profile_id) &&
+    (newRow.shared || token.profile_id === newRow.created_by)
+  );
 
   // Whether this flight is actually closing the distance. This used to be
   // `token.profile_id !== newRow.created_by` - i.e. "the other person added it" - which conflated
