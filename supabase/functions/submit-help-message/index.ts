@@ -48,6 +48,26 @@ function isSupportCategory(value: unknown): value is SupportCategory {
 }
 
 const MAX_MESSAGE_LENGTH = 5000;
+const MAX_SUBJECT_LENGTH = 200;
+
+/// Flattens anything that would end a header line.
+///
+/// `subject` is written straight into the SMTP DATA stream as `Subject: <value>` — denomailer's
+/// `client.ts` does `writeCmd("Subject: ", config.subject)` and `writeCmd` only appends CRLF, it
+/// never escapes. The `quotedPrintableEncodeInline` the library wraps it in looks like it would
+/// save us and does not: it encodes only when the string contains a NON-ASCII character
+/// (it tests for any code point above U+007F), and CR and LF are both ASCII, so a pure-ASCII
+/// subject passes through untouched.
+///
+/// So a CRLF in `subject` terminates the Subject header and starts a new one inside the message —
+/// an injected `To:` or `Cc:` would have this function's authenticated SMTP account relay mail to
+/// arbitrary recipients, from our own domain. Not a data leak; a reputation and blocklisting one.
+///
+/// Applied to the free-text fields that reach the email at all. The body is far less dangerous
+/// than the header, but a line that looks like a header is worth flattening there too.
+function singleLine(value: string): string {
+  return value.replace(/[\r\n]+/g, " ");
+}
 
 /// Attached automatically when the report came from a game screen's "Report a Problem" - the
 /// IDs matter more than the labels: a deck title can be renamed or duplicated, so deckID and
@@ -88,13 +108,13 @@ function smtpClient(): SMTPClient {
 /// to the offending deck/question without asking the reporter follow-up questions.
 function gameContextLines(game: GameContext): string[] {
   const lines: string[] = [];
-  if (game.gameType) lines.push(`Game: ${game.gameType}`);
-  if (game.gameTitle) lines.push(`Deck: ${game.gameTitle}`);
-  if (game.deckID) lines.push(`Deck ID: ${game.deckID}`);
+  if (game.gameType) lines.push(`Game: ${singleLine(game.gameType)}`);
+  if (game.gameTitle) lines.push(`Deck: ${singleLine(game.gameTitle)}`);
+  if (game.deckID) lines.push(`Deck ID: ${singleLine(game.deckID)}`);
   if (typeof game.roundNumber === "number") lines.push(`Round: ${game.roundNumber}`);
-  if (game.content) lines.push(`Content: ${game.content}`);
-  if (game.contentID) lines.push(`Content ID: ${game.contentID}`);
-  if (game.sessionID) lines.push(`Session ID: ${game.sessionID}`);
+  if (game.content) lines.push(`Content: ${singleLine(game.content)}`);
+  if (game.contentID) lines.push(`Content ID: ${singleLine(game.contentID)}`);
+  if (game.sessionID) lines.push(`Session ID: ${singleLine(game.sessionID)}`);
   return lines.length ? ["- Game context -", ...lines, ""] : [];
 }
 
@@ -136,8 +156,10 @@ Deno.serve(async (req) => {
     return Response.json({ error: "Email sending isn't set up yet - please try again later" }, { status: 500 });
   }
 
-  const trimmedSubject = input.subject?.trim();
-  const subject = trimmedSubject && trimmedSubject.length > 0
+  // Length-capped like `message` above — `subject` had neither a cap nor any CRLF handling, and
+  // it is the one field that lands in a header rather than the body.
+  const trimmedSubject = singleLine(input.subject?.trim() ?? "").slice(0, MAX_SUBJECT_LENGTH).trim();
+  const subject = trimmedSubject.length > 0
     ? trimmedSubject
     : `[${input.category}] Twofold support request`;
 
