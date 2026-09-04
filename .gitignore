@@ -48,3 +48,8 @@ site/design-system
 # Local-only content — dropped when this .gitignore got replaced by an incoming merge.
 itineraries/
 images/
+# Local Claude Code configuration — subagent definitions, settings and session state.
+# Machine-local tooling rather than part of the app, and it was swept into a commit once by a
+# `git add -A` before this line existed. Drop `.claude/agents/` from this if the team ever wants
+# to share subagent definitions.
+.claude/
