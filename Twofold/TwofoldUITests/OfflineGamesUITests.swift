@@ -64,6 +64,7 @@ final class OfflineGamesUITests: XCTestCase {
 
         let openedDeck = Date()
         firstDeck.tap()
+        _ = app.navigationBars.firstMatch.waitForExistence(timeout: budget)
 
         // Either the deck opens to its first round, or it says plainly that this one needs a
         // connection — both are prompt answers. What must not happen is a spinner for a minute.
@@ -78,10 +79,17 @@ final class OfflineGamesUITests: XCTestCase {
         // by then the couple has committed to playing it.
         //
         // Only the decks with a "Next" button (deep conversations) are measured; the others answer
-        // through a swipe, and driving that reliably is a bigger job than it's worth here.
+        // through a swipe, and driving that reliably is a bigger job than it's worth here. Which
+        // deck the hub happens to list first isn't fixed, so this walks a few until it finds one
+        // rather than silently skipping the measurement that matters most.
+        //
+        // Deliberately not walking deck to deck looking for one: `app.scrollViews.buttons`
+        // indexed past the first times the *query* out on this screen — the hub carries 191 decks,
+        // and enumerating that hierarchy is slower than anything it would measure.
+        // `GameSessionStoreOfflineTests` covers round-to-round directly instead.
         let next = app.buttons["Next"]
-        guard next.waitForExistence(timeout: budget) else {
-            print("OFFLINE_TIMING hub=\(hubTime)s deck=\(deckTime)s round=skipped")
+        guard next.waitForExistence(timeout: 3) else {
+            print("OFFLINE_TIMING hub=\(hubTime)s deck=\(deckTime)s round=not-a-next-button-deck")
             return
         }
         let tappedNext = Date()

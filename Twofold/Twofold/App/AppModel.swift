@@ -668,6 +668,7 @@ final class AppModel {
         OfflineDataCache.clear()
         OfflineGameStateCache.clear()
         LocalGameSessionStore.clear()
+        PendingGameResponseStore.clear()
         // The catalogue itself, not just this account's view of it — the next person signing in
         // falls back to the bundled seed until their own refresh runs, rather than inheriting a
         // copy fetched under someone else's subscription tier.

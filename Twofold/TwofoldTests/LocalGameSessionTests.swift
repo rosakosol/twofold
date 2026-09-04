@@ -10,6 +10,9 @@
 //  to land in that slot: silently, plausibly, and wrong. Everything here is about the content id
 //  being what actually carries an answer across.
 //
+//  Every test that touches the stores holds `LocalGameSessionTestLock` — `.serialized` orders these
+//  against each other but not against `GameSessionStoreOfflineTests`, which writes the same keys.
+//
 
 import Testing
 import Foundation
@@ -41,37 +44,44 @@ struct LocalGameSessionTests {
 
     @Test("a deck from the catalogue becomes a playable session")
     func createsFromCatalogue() throws {
-        LocalGameSessionStore.clear()
-        let deck = try catalogueDeck()
-        let session = try #require(
-            LocalGameSessionStore.create(deck: deck, effectiveTier: "plus", hasPartner: true)
-        )
-        #expect(session.deckID == deck.id)
-        #expect(session.totalRounds == deck.questionCount)
-        #expect(session.rounds().count == session.totalRounds)
-        #expect(Set(session.contentIDs).count == session.contentIDs.count, "a question twice in one session")
-        LocalGameSessionStore.clear()
+        try LocalGameSessionTestLock.withExclusiveStores {
+            let deck = try catalogueDeck()
+            let session = try #require(
+                LocalGameSessionStore.create(deck: deck, effectiveTier: "plus", hasPartner: true)
+            )
+            #expect(session.deckID == deck.id)
+            #expect(session.totalRounds == deck.questionCount)
+            #expect(session.rounds().count == session.totalRounds)
+            #expect(
+                Set(session.contentIDs).count == session.contentIDs.count,
+                "a question appears twice in one session"
+            )
+        }
     }
 
     @Test("it survives being written and read back")
     func persists() throws {
-        LocalGameSessionStore.clear()
-        let deck = try catalogueDeck()
-        let created = try #require(LocalGameSessionStore.create(deck: deck, effectiveTier: "plus", hasPartner: true))
-        let reloaded = try #require(LocalGameSessionStore.session(id: created.id))
-        #expect(reloaded.contentIDs == created.contentIDs, "the round order has to survive a relaunch")
-        LocalGameSessionStore.clear()
+        try LocalGameSessionTestLock.withExclusiveStores {
+            let deck = try catalogueDeck()
+            let created = try #require(
+                LocalGameSessionStore.create(deck: deck, effectiveTier: "plus", hasPartner: true)
+            )
+            let reloaded = try #require(LocalGameSessionStore.session(id: created.id))
+            #expect(reloaded.contentIDs == created.contentIDs, "the round order has to survive a relaunch")
+        }
     }
 
     /// Reopening the deck must resume, not start again — a second session would renumber the
     /// rounds under answers already queued against the first.
     @Test("reopening the same deck finds the session already in progress")
     func resumesRatherThanRestarts() throws {
-        LocalGameSessionStore.clear()
-        let deck = try catalogueDeck()
-        let first = try #require(LocalGameSessionStore.create(deck: deck, effectiveTier: "plus", hasPartner: true))
-        #expect(LocalGameSessionStore.session(forDeck: deck.id)?.id == first.id)
-        LocalGameSessionStore.clear()
+        try LocalGameSessionTestLock.withExclusiveStores {
+            let deck = try catalogueDeck()
+            let first = try #require(
+                LocalGameSessionStore.create(deck: deck, effectiveTier: "plus", hasPartner: true)
+            )
+            #expect(LocalGameSessionStore.session(forDeck: deck.id)?.id == first.id)
+        }
     }
 
     // MARK: - The refusals, applied before the game rather than after it
@@ -93,9 +103,9 @@ struct LocalGameSessionTests {
 
     @Test("a deck with no content on the device isn't started")
     func unknownDeckIsRefused() {
-        LocalGameSessionStore.clear()
-        #expect(LocalGameSessionStore.create(deck: deck(), effectiveTier: "plus", hasPartner: true) == nil)
-        LocalGameSessionStore.clear()
+        LocalGameSessionTestLock.withExclusiveStores {
+            #expect(LocalGameSessionStore.create(deck: deck(), effectiveTier: "plus", hasPartner: true) == nil)
+        }
     }
 
     // MARK: - Carrying answers across
@@ -104,26 +114,28 @@ struct LocalGameSessionTests {
     /// same question, so an answer has to travel by content id.
     @Test("an answer maps to the round holding its question, not to its old round number")
     func answersMapByContent() throws {
-        LocalGameSessionStore.clear()
-        let deck = try catalogueDeck()
-        let local = try #require(LocalGameSessionStore.create(deck: deck, effectiveTier: "plus", hasPartner: true))
-        let answeredContent = try #require(local.contentID(forRound: 1))
-
-        // The real session, with its rounds in a different order — which is the case the mapping
-        // exists for.
-        let realRounds = local.contentIDs.reversed().enumerated().map { index, contentID in
-            GameSessionRound(
-                id: UUID(), sessionID: UUID(), roundNumber: index + 1,
-                contentID: contentID, discussionStatus: nil
+        try LocalGameSessionTestLock.withExclusiveStores {
+            let deck = try catalogueDeck()
+            let local = try #require(
+                LocalGameSessionStore.create(deck: deck, effectiveTier: "plus", hasPartner: true)
             )
-        }
-        var roundForContent: [UUID: Int] = [:]
-        for round in realRounds { roundForContent[round.contentID] = round.roundNumber }
+            let answeredContent = try #require(local.contentID(forRound: 1))
 
-        let mapped = try #require(roundForContent[answeredContent])
-        #expect(mapped == local.totalRounds, "round 1 offline is the last round in this reversed session")
-        #expect(realRounds.first { $0.roundNumber == mapped }?.contentID == answeredContent)
-        LocalGameSessionStore.clear()
+            // The real session, with its rounds in a different order — the case the mapping exists
+            // for.
+            let realRounds = local.contentIDs.reversed().enumerated().map { index, contentID in
+                GameSessionRound(
+                    id: UUID(), sessionID: UUID(), roundNumber: index + 1,
+                    contentID: contentID, discussionStatus: nil
+                )
+            }
+            var roundForContent: [UUID: Int] = [:]
+            for round in realRounds { roundForContent[round.contentID] = round.roundNumber }
+
+            let mapped = try #require(roundForContent[answeredContent])
+            #expect(mapped == local.totalRounds, "round 1 offline is the last round in this reversed session")
+            #expect(realRounds.first { $0.roundNumber == mapped }?.contentID == answeredContent)
+        }
     }
 
     @Test("a queued answer remembers which question it was for")
@@ -153,14 +165,29 @@ struct LocalGameSessionTests {
 
     @Test("removing a session leaves the others alone")
     func removalIsScoped() throws {
-        LocalGameSessionStore.clear()
-        let deep = try catalogueDeck(gameType: .deepConversations)
-        let trivia = try catalogueDeck(gameType: .triviaBattle)
-        let a = try #require(LocalGameSessionStore.create(deck: deep, effectiveTier: "plus", hasPartner: true))
-        let b = try #require(LocalGameSessionStore.create(deck: trivia, effectiveTier: "plus", hasPartner: true))
-        LocalGameSessionStore.remove(id: a.id)
-        #expect(LocalGameSessionStore.session(id: a.id) == nil)
-        #expect(LocalGameSessionStore.session(id: b.id) != nil)
-        LocalGameSessionStore.clear()
+        try LocalGameSessionTestLock.withExclusiveStores {
+            let deep = try catalogueDeck(gameType: .deepConversations)
+            let trivia = try catalogueDeck(gameType: .triviaBattle)
+            let a = try #require(LocalGameSessionStore.create(deck: deep, effectiveTier: "plus", hasPartner: true))
+            let b = try #require(LocalGameSessionStore.create(deck: trivia, effectiveTier: "plus", hasPartner: true))
+            LocalGameSessionStore.remove(id: a.id)
+            #expect(LocalGameSessionStore.session(id: a.id) == nil)
+            #expect(LocalGameSessionStore.session(id: b.id) != nil)
+        }
+    }
+
+    /// Signing out has to take queued answers with it: `submitGameResponse` writes as whoever is
+    /// signed in *now*, so answers left behind would be submitted as the next person on this
+    /// device.
+    @Test("clearing takes the queued answers as well as the sessions")
+    func clearingRemovesQueuedAnswers() {
+        PendingGameResponseStore.add(
+            PendingGameResponse(
+                sessionID: UUID(), roundNumber: 1, responderID: UUID(),
+                answerValue: "mine", isCorrect: nil, contentID: UUID()
+            )
+        )
+        PendingGameResponseStore.clear()
+        #expect(PendingGameResponseStore.all().isEmpty)
     }
 }

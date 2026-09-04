@@ -61,6 +61,14 @@ enum PendingGameResponseStore {
         save(all().filter { $0.id != id })
     }
 
+    /// Signing out has to take these with it. `submitGameResponse` writes as whoever is signed in
+    /// *now*, not as the `responderID` the answer was queued under — so answers left behind by one
+    /// account would be submitted, on the next reconnect, as the next person to sign in on this
+    /// device.
+    static func clear() {
+        UserDefaults.standard.removeObject(forKey: key)
+    }
+
     private static func save(_ responses: [PendingGameResponse]) {
         guard let data = try? JSONEncoder().encode(responses) else { return }
         UserDefaults.standard.set(data, forKey: key)
