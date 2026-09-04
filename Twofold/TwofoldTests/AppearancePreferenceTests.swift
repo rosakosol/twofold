@@ -101,29 +101,39 @@ struct AppearancePreferenceTests {
         #expect(root.presentedViewController === sheet, "nothing was presented, so this proves nothing")
         defer { Task { await dismiss(sheet) } }
 
-        #expect(await resolvedStyle(of: sheet, after: .light) == .light)
-        #expect(await resolvedStyle(of: sheet, after: .dark) == .dark)
+        #expect(await resolvedStyle(of: sheet, after: .light, expecting: .light) == .light)
+        #expect(await resolvedStyle(of: sheet, after: .dark, expecting: .dark) == .dark)
 
         // "System" can't assert a fixed value — it depends on the simulator's own appearance — so
         // the invariant is that the sheet lands wherever the window lands. That is exactly what
         // was broken: the window went dark and the sheet stayed light.
-        let underSystem = await resolvedStyle(of: sheet, after: .system)
+        let underSystem = await resolvedStyle(of: sheet, after: .system, expecting: window.traitCollection.userInterfaceStyle)
         #expect(underSystem == window.traitCollection.userInterfaceStyle)
         #expect(window.overrideUserInterfaceStyle == .unspecified)
     }
 
-    /// Trait changes propagate on the next turn of the run loop, so reading straight after the
-    /// write returns the *previous* value — which is how a version of this test once passed
-    /// against an unchanged sheet.
+    /// Trait changes propagate on a later turn of the run loop, so reading straight after the write
+    /// returns the *previous* value — which is how a version of this test once passed against an
+    /// unchanged sheet.
+    ///
+    /// Polled rather than waiting a fixed number of turns: a single turn was enough on one
+    /// simulator and not on another, which made this fail on device size alone. Gives up after a
+    /// second so a genuinely stuck trait still fails rather than hanging.
     @MainActor
     private func resolvedStyle(
         of controller: UIViewController,
-        after appearance: AppAppearance
+        after appearance: AppAppearance,
+        expecting expected: UIUserInterfaceStyle? = nil
     ) async -> UIUserInterfaceStyle {
         AppearancePreference.current = appearance
         AppearancePreference.applyToWindows()
-        await withCheckedContinuation { continuation in
-            DispatchQueue.main.async { continuation.resume() }
+        for _ in 0..<50 {
+            await withCheckedContinuation { continuation in
+                DispatchQueue.main.async { continuation.resume() }
+            }
+            let style = controller.traitCollection.userInterfaceStyle
+            if expected == nil || style == expected { return style }
+            try? await Task.sleep(for: .milliseconds(20))
         }
         return controller.traitCollection.userInterfaceStyle
     }

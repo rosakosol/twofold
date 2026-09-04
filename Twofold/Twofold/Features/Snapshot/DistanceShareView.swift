@@ -23,10 +23,19 @@ struct DistanceShareView: View {
             VStack(spacing: Theme.Spacing.lg) {
                 ScrollView {
                     DistanceShareCard(couple: couple, myCity: myCity, partnerCity: partnerCity, distanceKm: distanceKm, theme: selectedTheme, mapSnapshot: mapSnapshot)
-                        .padding(.top, Theme.Spacing.lg)
+                        .padding(.vertical, Theme.Spacing.lg)
                         .padding(.horizontal, Theme.Spacing.lg)
                         .shadow(color: .black.opacity(0.25), radius: 24, y: 12)
                 }
+                // The card is a fixed ~550pt tall (a 300pt globe plus the distance above it), and
+                // on a shorter screen that's more than this scroll view gets once the theme picker
+                // and the share button have taken their share. Anchored to the top, what falls off
+                // the end is the bottom of the globe — the part with both faces on it.
+                //
+                // Bottom padding matches the top for the same reason: with padding on one side
+                // only, scrolling to the end put the card's edge and its shadow flush against the
+                // theme picker, which reads as cut off even when nothing is.
+                .defaultScrollAnchor(.bottom)
 
                 themePicker
 
