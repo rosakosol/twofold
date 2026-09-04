@@ -15,6 +15,9 @@
 //    later day the honest answer is that the app doesn't know yet which question it will be — the
 //    backend assigns it, and guessing would show a question that isn't the one the couple
 //    actually gets.
+//  - Deck progress is what the Games hub's topic bars are built from, and it decays slowest of
+//    the three: a deck you finished stays finished. Kept for the full window, because "you have
+//    completed nothing" is a worse thing to tell someone than a count that's a day behind.
 //  - The streak is a count that was true when it was written. It stays restorable for two days:
 //    the number can go stale if a day is missed while offline, but so can the online app between
 //    refreshes, and showing a streak that's a day behind is closer to the truth than showing zero
@@ -33,6 +36,9 @@ enum OfflineGameStateCache {
         var questionSessionID: UUID?
         var myAnswered: Bool
         var partnerAnswered: Bool
+        /// Keyed by deck id as a string — `[UUID: T]` encodes as a flat alternating array, which
+        /// round-trips but reads as nonsense in the file.
+        var deckProgress: [String: DeckProgress]?
         var userID: String?
         var recordedAt: Date
     }
@@ -55,6 +61,7 @@ enum OfflineGameStateCache {
         questionSessionID: UUID?,
         myAnswered: Bool,
         partnerAnswered: Bool,
+        deckProgress: [UUID: DeckProgress]?,
         userID: UUID?
     ) {
         // Merged rather than replaced. `refreshDailyStreak()` runs on its own from `refreshAll()`
@@ -69,6 +76,8 @@ enum OfflineGameStateCache {
             questionSessionID: questionSessionID ?? existing?.questionSessionID,
             myAnswered: myAnswered,
             partnerAnswered: partnerAnswered,
+            deckProgress: deckProgress.map { Dictionary(uniqueKeysWithValues: $0.map { ($0.key.uuidString, $0.value) }) }
+                ?? existing?.deckProgress,
             userID: userID?.uuidString,
             recordedAt: Date()
         )
@@ -95,7 +104,12 @@ enum OfflineGameStateCache {
             questionText: isToday ? snapshot.questionText : nil,
             questionSessionID: isToday ? snapshot.questionSessionID : nil,
             myAnswered: isToday && snapshot.myAnswered,
-            partnerAnswered: isToday && snapshot.partnerAnswered
+            partnerAnswered: isToday && snapshot.partnerAnswered,
+            deckProgress: snapshot.deckProgress.map {
+                Dictionary(uniqueKeysWithValues: $0.compactMap { key, value in
+                    UUID(uuidString: key).map { ($0, value) }
+                })
+            }
         )
     }
 
@@ -111,5 +125,6 @@ enum OfflineGameStateCache {
         var questionSessionID: UUID?
         var myAnswered: Bool
         var partnerAnswered: Bool
+        var deckProgress: [UUID: DeckProgress]?
     }
 }

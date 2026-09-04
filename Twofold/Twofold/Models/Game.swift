@@ -221,7 +221,7 @@ struct GameDeck: Identifiable, Hashable {
 /// `game_responses`' own "hidden until both partners are done" RLS so an avatar tick can appear
 /// the moment *that* partner finishes, independent of the other). See
 /// `20260715000000_deck_progress_rpc.sql`.
-struct DeckProgress: Hashable {
+struct DeckProgress: Hashable, Codable {
     var sessionID: UUID
     var status: GameSessionStatus
     var totalRounds: Int

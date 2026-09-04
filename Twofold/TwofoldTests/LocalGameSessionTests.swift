@@ -181,13 +181,18 @@ struct LocalGameSessionTests {
     /// device.
     @Test("clearing takes the queued answers as well as the sessions")
     func clearingRemovesQueuedAnswers() {
-        PendingGameResponseStore.add(
-            PendingGameResponse(
-                sessionID: UUID(), roundNumber: 1, responderID: UUID(),
-                answerValue: "mine", isCorrect: nil, contentID: UUID()
+        // Inside the lock like everything else that touches these keys. Without it this cleared
+        // the queue out from under `GameSessionStoreOfflineTests` running in parallel, which
+        // showed up there as three answers it had just written coming back as zero.
+        LocalGameSessionTestLock.withExclusiveStores {
+            PendingGameResponseStore.add(
+                PendingGameResponse(
+                    sessionID: UUID(), roundNumber: 1, responderID: UUID(),
+                    answerValue: "mine", isCorrect: nil, contentID: UUID()
+                )
             )
-        )
-        PendingGameResponseStore.clear()
-        #expect(PendingGameResponseStore.all().isEmpty)
+            PendingGameResponseStore.clear()
+            #expect(PendingGameResponseStore.all().isEmpty)
+        }
     }
 }

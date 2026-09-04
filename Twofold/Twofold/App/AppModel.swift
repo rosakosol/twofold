@@ -364,6 +364,7 @@ final class AppModel {
             todaysMyAnswered = cached.myAnswered
             todaysPartnerAnswered = cached.partnerAnswered
         }
+        if deckProgress == nil { deckProgress = cached.deckProgress }
     }
 
     /// Guards against a second pass piling on top of one already in flight — `performAdopt` runs
@@ -1011,6 +1012,7 @@ final class AppModel {
             questionSessionID: todaysDailySessionID,
             myAnswered: todaysMyAnswered,
             partnerAnswered: todaysPartnerAnswered,
+            deckProgress: deckProgress,
             userID: BackendService.currentUserID
         )
     }
@@ -1069,6 +1071,12 @@ final class AppModel {
         guard NetworkMonitor.shared.isConnected else {
             gameDecks = nonEmpty(GameContentStore.decks())
             gameDecksUnavailable = gameDecks?.isEmpty ?? true
+            // Every topic bar on the hub is counted from this. Left nil it reads as zero decks
+            // completed — telling a couple who has finished forty of them that they have finished
+            // none, which is the same thing the streak used to do.
+            if deckProgress == nil {
+                deckProgress = OfflineGameStateCache.restore(for: BackendService.currentUserID)?.deckProgress
+            }
             return
         }
         async let decks = BackendService.fetchGameDecks()
@@ -1080,6 +1088,7 @@ final class AppModel {
         // the same decks, from the bundled seed or from the last online refresh.
         gameDecks = fetchedDecks ?? nonEmpty(GameContentStore.decks())
         deckProgress = try? await progress
+        if deckProgress != nil { recordGameStateForOffline() }
         // Distinguishes "haven't asked yet" from "asked and there's nothing to show", which
         // `gameDecks == nil` alone can't. Without it `RecommendedGamesSection` showed its loading
         // spinner forever whenever the fetch failed. Now that the fetch failing still leaves the
