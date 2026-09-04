@@ -424,9 +424,12 @@ final class AppModel {
         identifyWithPostHog()
         restorePendingMemoriesFromDisk()
         restorePendingTripsFromDisk()
-        if let state = try? await BackendService.fetchCoupleState() {
+        let outcome = await CoupleStateOutcome.fetch()
+        if case let .paired(state) = outcome {
             await adopt(state)
-        } else if let profile = try? await BackendService.fetchOwnProfile() {
+        } else if case .noCouple = outcome, let profile = try? await BackendService.fetchOwnProfile() {
+            // Only when the backend actually said so. A failed fetch used to land here too, so a
+            // launch on a flaky connection could show a paired couple their solo, unpaired app.
             await adoptSoloProfile(profile)
         } else if let cached = OfflineSessionCache.restore(for: BackendService.currentUserID) {
             // Both reads failed — almost always no network (they're `try?`, so a real outage looks
@@ -872,10 +875,18 @@ final class AppModel {
     /// was actually dissolved, until a full sign-out/sign-in or cold relaunch.
     func refreshCoupleStateIfNeeded() async {
         guard hasCouple else { return }
-        if let state = try? await BackendService.fetchCoupleState() {
+        switch await CoupleStateOutcome.fetch() {
+        case let .paired(state):
             await adopt(state)
-        } else if partnerConnected, let profile = try? await BackendService.fetchOwnProfile() {
-            await adoptSoloProfile(profile)
+        case .noCouple:
+            // The backend answered, and there is no active couple. This is the only outcome that
+            // may tear down a pairing — see `CoupleStateOutcome` for the Wi-Fi blip that used to
+            // reach here and announce that the partner had disconnected.
+            if partnerConnected, let profile = try? await BackendService.fetchOwnProfile() {
+                await adoptSoloProfile(profile)
+            }
+        case .unknown:
+            break
         }
     }
 

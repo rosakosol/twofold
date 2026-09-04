@@ -79,6 +79,76 @@ struct AppearancePreferenceTests {
         #expect(applying(.dark).allSatisfy { $0 == .dark })
     }
 
+    // MARK: - Presented sheets
+
+    /// The reported sequence, on a dark device: System → Light → System, with Settings open.
+    ///
+    /// SwiftUI stamps a presented controller's own `overrideUserInterfaceStyle` from
+    /// `.preferredColorScheme`, and going back to "System" passes `nil` — "no preference", which
+    /// does not clear what is already stamped. The sheet stayed light while the app behind it went
+    /// dark. Light → Dark always worked, because that path writes a new value instead of needing
+    /// one removed, which is why it only showed up in this one direction.
+    /// Presentation isn't synchronous even with `animated: false` — asserting straight after
+    /// `present` runs while `presentedViewController` is still nil, so `applyToWindows` never
+    /// reaches the sheet and its untouched `.unspecified` passes a test for "the override was
+    /// cleared". Awaiting the completion is what makes these tests about anything.
+    @MainActor
+    private func presentSheet(on root: UIViewController) async -> UIViewController {
+        let sheet = UIViewController()
+        await withCheckedContinuation { continuation in
+            root.present(sheet, animated: false) { continuation.resume() }
+        }
+        return sheet
+    }
+
+    @MainActor
+    private func dismiss(_ sheet: UIViewController) async {
+        await withCheckedContinuation { continuation in
+            sheet.dismiss(animated: false) { continuation.resume() }
+        }
+    }
+
+    @MainActor
+    @Test("returning to System clears an open sheet's override, not just the window's")
+    func systemClearsAPresentedSheet() async throws {
+        let original = AppearancePreference.current
+        defer { AppearancePreference.current = original; AppearancePreference.applyToWindows() }
+
+        let window = try #require(windows.first, "no window to present from")
+        let root = try #require(window.rootViewController)
+        let sheet = await presentSheet(on: root)
+        #expect(root.presentedViewController === sheet, "nothing was presented, so this proves nothing")
+        defer { Task { await dismiss(sheet) } }
+
+        AppearancePreference.current = .light
+        AppearancePreference.applyToWindows()
+        #expect(sheet.overrideUserInterfaceStyle == .light)
+
+        AppearancePreference.current = .system
+        AppearancePreference.applyToWindows()
+        #expect(
+            sheet.overrideUserInterfaceStyle == .unspecified,
+            "the sheet kept its light override and stayed light on a dark device"
+        )
+    }
+
+    @MainActor
+    @Test("an open sheet follows an explicit switch too")
+    func explicitSwitchReachesAPresentedSheet() async throws {
+        let original = AppearancePreference.current
+        defer { AppearancePreference.current = original; AppearancePreference.applyToWindows() }
+
+        let window = try #require(windows.first)
+        let root = try #require(window.rootViewController)
+        let sheet = await presentSheet(on: root)
+        #expect(root.presentedViewController === sheet, "nothing was presented, so this proves nothing")
+        defer { Task { await dismiss(sheet) } }
+
+        AppearancePreference.current = .dark
+        AppearancePreference.applyToWindows()
+        #expect(sheet.overrideUserInterfaceStyle == .dark)
+    }
+
     // MARK: - The stored value
 
     /// The window override and `.preferredColorScheme` both read this, which is what keeps them
