@@ -5,8 +5,10 @@
 // so Services/SupportMail.swift and its mailto: flow are gone.
 //
 // Requires a real signed-in user (`Authorization: Bearer <user access token>`) - same reasoning
-// as parse-flight-email: this triggers an outbound third-party call with no other
-// rate-limiting, so it must never be reachable with just the publishable/anon key.
+// as parse-flight-email: this triggers an outbound third-party call, so it must never be
+// reachable with just the publishable/anon key. That gate is now backed by a per-user rate limit
+// (see RATE_LIMIT below), because "signed in" on its own put no ceiling on how much mail one
+// account could push out through our own authenticated mailbox.
 //
 // Requires these Supabase secrets - sending fails with a 500 until they're set:
 //   - ZOHO_SMTP_USER / ZOHO_SMTP_PASSWORD: the Zoho mailbox login and an **app-specific
@@ -23,6 +25,7 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
+import { enforceRateLimit } from "../_shared/rate-limit.ts";
 
 // Every category now lands in one inbox - the old feedback@/support@ split went away with the
 // separate feedback form, since one categorised queue is simpler to actually monitor.
@@ -49,6 +52,21 @@ function isSupportCategory(value: unknown): value is SupportCategory {
 
 const MAX_MESSAGE_LENGTH = 5000;
 const MAX_SUBJECT_LENGTH = 200;
+
+// 5 an hour, per user. The message and subject were already length-capped; what was uncapped was
+// how MANY times a user could make our authenticated Zoho mailbox send. That is the dangerous
+// number here — the cost of abuse is not a bill, it is our sending domain's reputation, and a
+// domain that starts emitting thousands of messages an hour gets blocklisted by receivers well
+// before anyone notices in the support inbox. Once that happens the damage outlives the abuse:
+// password resets and invites from the same domain start landing in spam.
+//
+// 5 is generous for the behaviour being protected. Contacting support is a rare, deliberate act —
+// one report, perhaps a follow-up with a screenshot's worth of detail, perhaps a second unrelated
+// issue in the same sitting. Anyone sending a sixth message within the hour is not being helped by
+// a form that keeps accepting them, and a "please try again a bit later" is a reasonable thing for
+// a support form to say. Lower than parse-flight-email's ten because the honest usage is rarer and
+// the failure mode is worse.
+const RATE_LIMIT = { bucket: "submit-help-message", limit: 5, window: "1 hour" };
 
 /// Flattens anything that would end a header line.
 ///
@@ -149,6 +167,15 @@ Deno.serve(async (req) => {
   if (!user) {
     return Response.json({ error: "Not authenticated" }, { status: 401 });
   }
+
+  // After validation, unlike parse-flight-email, and for a reason specific to this endpoint: a
+  // request that fails validation never reaches SMTP, so it costs nothing to refuse and there is
+  // no point spending one of only five hourly slots on it. The client also can't produce an
+  // invalid one — the picker supplies the category and the form requires the message — so in
+  // practice this only affects someone poking at the endpoint by hand, who gets validation errors
+  // instead of mail either way.
+  const limited = await enforceRateLimit(userClient, RATE_LIMIT);
+  if (limited) return limited;
 
   const fromAddress = Deno.env.get("ZOHO_FROM_ADDRESS") ?? Deno.env.get("ZOHO_SMTP_USER");
   if (!fromAddress) {
