@@ -198,6 +198,16 @@ final class GameSessionStore {
         self.deckTitle = deckTitle
         isLoading = true
         errorMessage = nil
+        // A session started with no connection exists only on this device, so asking the backend
+        // for it can only ever fail — and failing takes a full URLSession timeout, once here and
+        // again on every `refresh()`. Checked *before* the fetch rather than in a catch, which is
+        // what made an offline deck take the better part of a minute to open and then stall
+        // between rounds.
+        if loadLocalSession(id: sessionID) {
+            isLoading = false
+            applyQueuedAnswers(for: sessionID)
+            return
+        }
         do {
             let detail = try await BackendService.fetchGameSession(id: sessionID)
             session = detail.session
@@ -208,22 +218,46 @@ final class GameSessionStore {
             errorMessage = error.localizedDescription
         }
         isLoading = false
-        // Re-apply anything still sitting in the local offline queue for this session — covers
-        // reopening a session that was answered offline and never got a chance to sync (app
-        // backgrounded/killed before reconnecting), so those answers don't briefly vanish from
-        // `responses` between this load and the next successful sync.
-        let pending = PendingGameResponseStore.forSession(sessionID)
-        pendingSyncCount = pending.count
-        for item in pending {
-            applyOptimistic(item)
-        }
+        applyQueuedAnswers(for: sessionID)
         if NetworkMonitor.shared.isConnected {
             await syncPendingResponses()
         }
     }
 
+    /// Rebuilds a session that was started offline from the on-device catalogue. Returns false
+    /// when this id isn't one of those, which is every ordinary session.
+    private func loadLocalSession(id: UUID) -> Bool {
+        guard let local = LocalGameSessionStore.session(id: id),
+              let myID = BackendService.currentUserID else { return false }
+        session = local.asSession(initiatorID: myID)
+        rounds = local.rounds()
+        roundContent = Dictionary(
+            uniqueKeysWithValues: GameContentStore
+                .content(forDeck: local.deckID, gameType: local.gameType)
+                .map { (contentID(of: $0), $0) }
+        )
+        responses = []
+        return true
+    }
+
+    /// Re-applies anything still sitting in the local offline queue for this session — covers
+    /// reopening a session that was answered offline and never got a chance to sync (app
+    /// backgrounded/killed before reconnecting), so those answers don't briefly vanish from
+    /// `responses` between this load and the next successful sync. For a session started offline
+    /// it's not a top-up but the whole answer history, since nothing was ever on a server.
+    private func applyQueuedAnswers(for sessionID: UUID) {
+        let pending = PendingGameResponseStore.forSession(sessionID)
+        pendingSyncCount = pending.count
+        for item in pending {
+            applyOptimistic(item)
+        }
+    }
+
     func refresh() async {
         guard let session else { return }
+        // Nothing to reconcile against for a session that only exists here, and asking costs a
+        // full timeout on every round — which is what made the game stall between questions.
+        guard LocalGameSessionStore.session(id: session.id) == nil else { return }
         if let detail = try? await BackendService.fetchGameSession(id: session.id) {
             self.session = detail.session
             self.rounds = detail.rounds
@@ -259,7 +293,12 @@ final class GameSessionStore {
         // any rounds left before this submit", used after the round-trip to detect the one
         // moment *I* become the one who's finished (see the `.gamePartnerFinished` branch).
         let wasAllMineAnsweredBefore = myID.map { hasAnsweredAllRounds(myID: $0) } ?? false
-        guard NetworkMonitor.shared.isConnected else {
+        // A session started offline has no row on the server to upsert into, so submitting
+        // directly can only time out and fall through to the queue anyway — one wasted minute per
+        // answer if the connection returns mid-game. `LocalGameSessionSync` replays these once the
+        // real session exists.
+        let isLocalSession = LocalGameSessionStore.session(id: session.id) != nil
+        guard NetworkMonitor.shared.isConnected, !isLocalSession else {
             queueOffline(sessionID: session.id, roundNumber: roundNumber, answerValue: answerValue, isCorrect: isCorrect)
             return true
         }
@@ -318,7 +357,11 @@ final class GameSessionStore {
     /// this is what lets play continue uninterrupted while offline.
     private func queueOffline(sessionID: UUID, roundNumber: Int, answerValue: String, isCorrect: Bool?) {
         guard let myID = BackendService.currentUserID else { return }
-        let pending = PendingGameResponse(sessionID: sessionID, roundNumber: roundNumber, responderID: myID, answerValue: answerValue, isCorrect: isCorrect)
+        // Recorded alongside the round number so an answer given in a session started offline can
+        // still be placed once the real session exists — see `LocalGameSessionSync`, and
+        // `PendingGameResponse.contentID` for why the round number alone isn't enough.
+        let contentID = rounds.first { $0.roundNumber == roundNumber }?.contentID
+        let pending = PendingGameResponse(sessionID: sessionID, roundNumber: roundNumber, responderID: myID, answerValue: answerValue, isCorrect: isCorrect, contentID: contentID)
         PendingGameResponseStore.add(pending)
         pendingSyncCount = PendingGameResponseStore.forSession(sessionID).count
         applyOptimistic(pending)

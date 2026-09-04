@@ -667,6 +667,7 @@ final class AppModel {
         OfflineSessionCache.clear()
         OfflineDataCache.clear()
         OfflineGameStateCache.clear()
+        LocalGameSessionStore.clear()
         // The catalogue itself, not just this account's view of it — the next person signing in
         // falls back to the bundled seed until their own refresh runs, rather than inheriting a
         // copy fetched under someone else's subscription tier.
@@ -931,6 +932,13 @@ final class AppModel {
         dailyQuestionError = nil
         isLoadingDailyQuestion = true
         defer { isLoadingDailyQuestion = false }
+        // Same reason as `refreshGameDecks`: offline these calls only fail, and only after a full
+        // timeout each, so the card spun for a minute before showing the question already cached
+        // from earlier today.
+        guard NetworkMonitor.shared.isConnected else {
+            applyCachedDailyQuestion()
+            return
+        }
         do {
             let sessionID = try await BackendService.getDailyQuestionSession()
             todaysDailySessionID = sessionID
@@ -939,18 +947,7 @@ final class AppModel {
                 todaysDailyQuestionText = topic.topic
             }
         } catch {
-            // Offline, today's question may already be on disk from earlier today — the backend
-            // assigns one per day, so a cached one is the same question, not a guess. Only a day
-            // with no cached question is a real error.
-            if let cached = OfflineGameStateCache.restore(for: BackendService.currentUserID),
-               let text = cached.questionText {
-                todaysDailyQuestionText = text
-                todaysDailySessionID = cached.questionSessionID
-                todaysMyAnswered = cached.myAnswered
-                todaysPartnerAnswered = cached.partnerAnswered
-            } else {
-                dailyQuestionError = "Couldn't load today's question. Check your connection and try again."
-            }
+            applyCachedDailyQuestion()
         }
         if let status = try? await BackendService.fetchDailyQuestionStatus() {
             todaysMyAnswered = status.mine
@@ -961,11 +958,32 @@ final class AppModel {
     }
 
     func refreshDailyStreak() async {
+        // `refreshAll()` runs this alongside five other fetches on every foreground and every
+        // pull-to-refresh; offline it can only wait out a timeout, holding that whole group open.
+        guard NetworkMonitor.shared.isConnected else { return }
         if let streak = try? await BackendService.fetchDailyStreak() {
             dailyStreak = streak.current
             longestDailyStreak = streak.longest
             dailyStreakResetsAt = streak.resetsAt
             recordGameStateForOffline()
+        }
+    }
+
+    /// Today's question as of the last time it was fetched. The backend assigns one per day, so a
+    /// question cached earlier today is the same question, not a guess at it — which is why this
+    /// only restores one recorded today, and reports a real error otherwise.
+    private func applyCachedDailyQuestion() {
+        if let cached = OfflineGameStateCache.restore(for: BackendService.currentUserID),
+           let text = cached.questionText {
+            todaysDailyQuestionText = text
+            todaysDailySessionID = cached.questionSessionID
+            todaysMyAnswered = cached.myAnswered
+            todaysPartnerAnswered = cached.partnerAnswered
+            if dailyStreak == nil { dailyStreak = cached.dailyStreak }
+            if longestDailyStreak == nil { longestDailyStreak = cached.longestDailyStreak }
+            if dailyStreakResetsAt == nil { dailyStreakResetsAt = cached.dailyStreakResetsAt }
+        } else {
+            dailyQuestionError = "Today's question needs a connection. Decks below are ready to play."
         }
     }
 
@@ -1033,6 +1051,14 @@ final class AppModel {
     /// Re-fetches unconditionally — called after starting/resetting a deck session so its
     /// progress updates immediately rather than waiting for the next cold load.
     func refreshGameDecks() async {
+        // Straight to the on-device catalogue when there's nothing to ask. Both fetches below take
+        // a full URLSession timeout to fail offline, and the hub shows a spinner until they do —
+        // a minute of waiting to be handed decks that were on the device the whole time.
+        guard NetworkMonitor.shared.isConnected else {
+            gameDecks = nonEmpty(GameContentStore.decks())
+            gameDecksUnavailable = gameDecks?.isEmpty ?? true
+            return
+        }
         async let decks = BackendService.fetchGameDecks()
         async let progress = BackendService.fetchDeckProgress()
         let fetchedDecks = try? await decks
@@ -1051,7 +1077,12 @@ final class AppModel {
         // a captive portal or when the server itself is down, both of which strand the spinner
         // just the same.
         gameDecksUnavailable = gameDecks?.isEmpty ?? true
-        await refreshGameContentIfStale()
+        // Detached, never awaited. This pulls the whole catalogue — four tables, ~2,000 rows, about
+        // half a megabyte — and awaiting it here put all of that in front of the Games hub's first
+        // paint, and in front of every `refreshAll()`. The decks it needs are already assigned
+        // above; this only refreshes the offline copy for later, so nothing on screen is waiting
+        // on it.
+        Task.detached(priority: .background) { await Self.refreshGameContentIfStale() }
     }
 
     /// Empty means "the fetch produced nothing", which is not a usable fallback — keep nil so the
@@ -1066,7 +1097,7 @@ final class AppModel {
     /// weeks. The first run after an install has no cached copy at all and fetches immediately —
     /// until then the app is running on the bundled seed, which is only as current as the last
     /// release.
-    private func refreshGameContentIfStale() async {
+    private static func refreshGameContentIfStale() async {
         guard NetworkMonitor.shared.isConnected else { return }
         if let age = GameContentStore.cacheAge, age < 24 * 60 * 60 { return }
         guard let payload = try? await BackendService.fetchGameContentPayload() else { return }

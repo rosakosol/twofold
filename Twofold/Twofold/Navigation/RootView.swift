@@ -159,6 +159,12 @@ struct RootView: View {
             guard !wasConnected, isConnected, appModel.hasCouple else { return }
             Task {
                 await appModel.refreshCoupleStateIfNeeded()
+                // Before `refreshAll`, which reloads the deck list: a deck played offline only
+                // becomes a real session here, and until it does its progress isn't anywhere the
+                // deck list could read it.
+                if await LocalGameSessionSync.flush() {
+                    await appModel.refreshGameDecks()
+                }
                 await appModel.refreshAll()
                 await checkSubscription()
             }

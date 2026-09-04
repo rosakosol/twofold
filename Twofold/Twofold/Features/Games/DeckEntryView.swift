@@ -89,12 +89,19 @@ struct DeckEntryView: View {
 
     private func determinePhase() async {
         errorMessage = nil
+        // Checked up front rather than left to the fetch below failing: offline, that fetch takes
+        // a full URLSession timeout before it gives up, so the deck sat on a spinner for the best
+        // part of a minute before falling back to the copy already on the device.
+        guard NetworkMonitor.shared.isConnected else {
+            startLocally()
+            return
+        }
         do {
             let existing = try await BackendService.fetchGameSessions()
             let resumable = existing.first { $0.deckID == deck.id && ($0.status == .active || $0.status == .waitingForPartner) }
             await start(existingSessionID: resumable?.id)
         } catch {
-            errorMessage = error.localizedDescription
+            startLocally()
         }
     }
 
@@ -108,7 +115,31 @@ struct DeckEntryView: View {
                 Task { await appModel.refreshGameDecks() }
             }
         } catch {
-            errorMessage = error.localizedDescription
+            startLocally()
         }
+    }
+
+    /// The offline path. Starting a deck is a server RPC, so with no connection this screen could
+    /// only ever show an error — on a hub the couple opened *because* they were offline. The app
+    /// builds the session from the on-device catalogue instead, and `LocalGameSessionSync` turns
+    /// it into a real one, answers and all, when the connection comes back.
+    ///
+    /// Falls through to the error message when there's genuinely nothing to play: a deck this
+    /// couple's tier doesn't include, one that needs a partner they don't have, or a deck whose
+    /// content isn't on the device.
+    private func startLocally() {
+        if let resumable = LocalGameSessionStore.session(forDeck: deck.id) {
+            phase = .playing(sessionID: resumable.id)
+            return
+        }
+        guard let local = LocalGameSessionStore.create(
+            deck: deck,
+            effectiveTier: appModel.subscriptionTier,
+            hasPartner: appModel.partnerConnected
+        ) else {
+            errorMessage = "This one needs a connection. Other decks are ready to play offline."
+            return
+        }
+        phase = .playing(sessionID: local.id)
     }
 }
