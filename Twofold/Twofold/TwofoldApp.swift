@@ -15,13 +15,20 @@ struct TwofoldApp: App {
         WindowGroup {
             RootView()
                 .environment(appModel)
-                // Device-local override (Settings → Appearance) — `nil` for the default
-                // "System" choice, which `.preferredColorScheme` already treats as "follow the
-                // system setting," so this is a no-op until someone actually picks Light/Dark.
-                .preferredColorScheme(AppearancePreference.current.colorScheme)
-                // …and on the window itself, which is what carries the override into sheets. See
-                // `AppearancePreference.applyToWindows`. Run on appear as well as on change, since
-                // a window exists to be styled only once the scene is up.
+                // Device-local override (Settings → Appearance), applied to the window rather than
+                // through `.preferredColorScheme`.
+                //
+                // That modifier used to be here as well, and was the thing keeping Settings light.
+                // It writes the scheme into the environment, and a sheet inherits the environment
+                // it was presented with — so picking Light baked light into the open Settings
+                // sheet, and going back to System passed `nil`, which is "no preference" rather
+                // than "clear the preference". Measured: with both in place, switching back to
+                // System left the window resolving to dark and the sheet's own hosting controller
+                // still resolving to light, even after its override was explicitly cleared.
+                //
+                // The window override alone carries into every presentation, so this is one
+                // mechanism instead of two that disagree. Run on appear as well as on change,
+                // since a window exists to be styled only once the scene is up.
                 .onAppear { AppearancePreference.applyToWindows() }
                 .onChange(of: AppearancePreference.current) { _, _ in
                     AppearancePreference.applyToWindows()

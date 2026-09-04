@@ -76,25 +76,21 @@ enum AppearancePreference {
         set { AppearancePreferenceStore.shared.appearance = newValue }
     }
 
-    /// Applies the preference to every window the app owns.
+    /// Applies the preference to every window the app owns — the only mechanism that does.
     ///
-    /// `.preferredColorScheme` at the root only reaches the hierarchy it's attached to. A sheet is
-    /// a separate presentation, so Settings — itself presented as a sheet — kept whatever scheme it
-    /// was created with: changing the setting updated the app behind it and left the screen holding
-    /// the control untouched until it was dismissed and reopened. Reported exactly that way.
+    /// The app used to carry `.preferredColorScheme` at the root as well, and the two disagreed.
+    /// That modifier writes the scheme into the SwiftUI environment, and a sheet inherits the
+    /// environment it was presented with, so choosing Light baked light into an open Settings
+    /// sheet. Returning to "System" passes `nil`, which means *no preference* rather than *clear
+    /// the preference* — leaving the sheet light while the app behind it went dark, until Settings
+    /// was closed and reopened. Reported twice.
     ///
-    /// Set on the window instead, which every presentation inside it inherits, including sheets,
-    /// full-screen covers and alerts. `.preferredColorScheme` stays at the root as well; both read
-    /// this same value, so they can't disagree.
-    ///
-    /// Presented view controllers are walked explicitly rather than left to inherit, because
-    /// SwiftUI stamps them itself. `.preferredColorScheme(.light)` sets an override on the
-    /// presented controller, and switching the preference to "System" passes `nil`, which is "no
-    /// preference" — it doesn't *clear* what was already stamped. So on a dark device, going
-    /// Light → System left the open Settings sheet stuck in light while the app behind it went
-    /// dark: the window was `.unspecified` and correct, and the sheet had its own override
-    /// outranking it. Light → Dark always looked fine because that path stamps a new value rather
-    /// than relying on one being removed.
+    /// Measured, on a dark device with Settings open and both mechanisms in place: after switching
+    /// back to System the window resolved to dark and the sheet's own hosting controller still
+    /// resolved to light — even with its `overrideUserInterfaceStyle` explicitly cleared, because
+    /// the environment it captured outranked it. With `.preferredColorScheme` removed, the same
+    /// switch resolves the sheet to dark on its own. A window's override propagates into every
+    /// presentation inside it, so nothing needs to be walked or stamped per-controller.
     @MainActor
     static func applyToWindows() {
         let style: UIUserInterfaceStyle = switch current {
@@ -106,11 +102,6 @@ enum AppearancePreference {
             guard let windowScene = scene as? UIWindowScene else { continue }
             for window in windowScene.windows {
                 window.overrideUserInterfaceStyle = style
-                var presented = window.rootViewController
-                while let controller = presented {
-                    controller.overrideUserInterfaceStyle = style
-                    presented = controller.presentedViewController
-                }
             }
         }
     }
