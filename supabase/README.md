@@ -21,7 +21,7 @@ the phone itself.
 ## Tests
 
 ```sh
-# pgTAP — day boundary, streak lapse, couple subscription tier
+# pgTAP — day boundary, streak lapse, couple subscription tier, client-locked entitlement columns
 supabase test db
 
 # Deno — flight refresh cadence and reminder windows
