@@ -19,6 +19,7 @@
 //  as long as the account does, so evicting them on size would defeat the point.
 //
 
+import CryptoKit
 import Foundation
 import UIKit
 
@@ -31,9 +32,14 @@ enum RemoteImageDiskCache {
     }
 
     /// Hashed because a real storage path ("{coupleID}/{personID}/avatar.jpg") contains separators
-    /// that can't go in a filename — same approach `MemoryPhotoDiskCache` takes.
+    /// that can't go in a filename — SHA256, the same as `MemoryPhotoDiskCache`.
+    ///
+    /// Not `hashValue`: Swift seeds its hasher randomly per process, so the same path produces a
+    /// different filename on every launch. A cache whose key doesn't survive a relaunch is no cache
+    /// at all here, since a cold launch is the only time this is the last copy of the image.
     private static func filename(for url: URL) -> String {
-        String(url.path.hashValue.magnitude, radix: 36) + ".img"
+        let digest = SHA256.hash(data: Data(url.path.utf8))
+        return digest.map { String(format: "%02x", $0) }.joined() + ".img"
     }
 
     static func image(for url: URL) -> UIImage? {

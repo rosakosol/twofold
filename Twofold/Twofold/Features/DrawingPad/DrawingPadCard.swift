@@ -44,14 +44,10 @@ struct DrawingPadCard: View {
             } label: {
                 ZStack {
                     RoundedRectangle(cornerRadius: 12, style: .continuous).fill(.white)
-                    if let url {
-                        CachedRemoteImage(url: url) { image in
-                            image.resizable().scaledToFit()
-                        } placeholder: {
-                            if isMine { emptyPadHint }
-                        }
-                    } else if isMine {
-                        emptyPadHint
+                    CachedRemoteImage(url: url) { image in
+                        image.resizable().scaledToFit()
+                    } placeholder: {
+                        if isMine { emptyPadHint }
                     }
                 }
                 .frame(height: 120)

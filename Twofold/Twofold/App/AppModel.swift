@@ -1119,6 +1119,15 @@ final class AppModel {
             userID: BackendService.currentUserID
         )
         prefetchMemoryPhotos()
+        // Adoption is the only thing that sets `backendCoupleID`, and the drawing pads are the one
+        // part of Home whose contents it does *not* hand over — trips, memories and flights all
+        // arrive in `state`, so they survive being fetched too early; the pads are two signed URLs
+        // that have to be asked for separately, behind a `guard let backendCoupleID`. Every caller
+        // raced that guard: `refreshAll` starts `loadDrawingPads()` with `async let` alongside the
+        // couple fetch that sets the ID, and both `.task` sites fire when their view appears. A
+        // loss is permanent, because nothing re-runs it — so the pads stayed blank for the whole
+        // session. Loading them here means the fetch happens *because* the ID now exists.
+        await loadDrawingPads()
         partnerConnectedCelebrationShown = state.partnerConnectedCelebrationShown
         setupChecklistDismissed = state.setupChecklistDismissed
         noteCurrentDistanceIfRecord()
