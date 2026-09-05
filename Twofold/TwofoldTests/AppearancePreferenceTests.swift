@@ -99,7 +99,6 @@ struct AppearancePreferenceTests {
         let root = try #require(window.rootViewController)
         let sheet = await presentSheet(on: root)
         #expect(root.presentedViewController === sheet, "nothing was presented, so this proves nothing")
-        defer { Task { await dismiss(sheet) } }
 
         #expect(await resolvedStyle(of: sheet, after: .light, expecting: .light) == .light)
         #expect(await resolvedStyle(of: sheet, after: .dark, expecting: .dark) == .dark)
@@ -110,6 +109,14 @@ struct AppearancePreferenceTests {
         let underSystem = await resolvedStyle(of: sheet, after: .system, expecting: window.traitCollection.userInterfaceStyle)
         #expect(underSystem == window.traitCollection.userInterfaceStyle)
         #expect(window.overrideUserInterfaceStyle == .unspecified)
+
+        // Awaited, not `defer { Task { … } }`. These tests are hosted BY the app, so this sheet is
+        // presented on the app's real window — a fire-and-forget dismissal returns before UIKit has
+        // torn it down, and a transparent modal left behind shows the app underneath while
+        // swallowing every touch. That is an app that looks fine and responds to nothing, which is
+        // exactly how it was reported.
+        await dismiss(sheet)
+        #expect(root.presentedViewController == nil, "the sheet outlived the test and will eat the app's touches")
     }
 
     /// Trait changes propagate on a later turn of the run loop, so reading straight after the write

@@ -36,6 +36,10 @@ struct DrawingCanvasSizeTests {
     private func present<V: View>(_ view: V) async -> UIWindow {
         let window = UIWindow(frame: CGRect(origin: .zero, size: host))
         window.rootViewController = UIHostingController(rootView: view)
+        // Below `.normal`, so it can never sit above the app's own window and take its touches.
+        // These tests run inside the app process; a stray visible window there is indistinguishable
+        // from a frozen app.
+        window.windowLevel = .normal - 1
         window.isHidden = false
         window.layoutIfNeeded()
         // One turn of the run loop for SwiftUI to run its appearance pass.
@@ -43,6 +47,15 @@ struct DrawingCanvasSizeTests {
             DispatchQueue.main.async { continuation.resume() }
         }
         return window
+    }
+
+    /// Fully tears a test window down. Hiding it is not enough — it keeps a hosting controller
+    /// alive and stays in the scene's window list, and anything left behind here lands in the
+    /// running app, because these tests are hosted by it.
+    private func dismantle(_ window: UIWindow) {
+        window.isHidden = true
+        window.rootViewController = nil
+        window.windowScene = nil
     }
 
     /// The old arrangement: measured outside, after padding.
@@ -67,7 +80,7 @@ struct DrawingCanvasSizeTests {
                 .padding(Theme.Spacing.md)
                 .frame(width: host.width, height: host.height)
         )
-        defer { w1.isHidden = true; w2.isHidden = true }
+        defer { dismantle(w1); dismantle(w2) }
 
         #expect(padded != .zero, "nothing was laid out — this test can't say anything")
         #expect(
@@ -103,7 +116,7 @@ struct DrawingCanvasSizeTests {
                 .padding(Theme.Spacing.md)
                 .frame(width: host.width, height: host.height)
         )
-        defer { w1.isHidden = true; w2.isHidden = true }
+        defer { dismantle(w1); dismantle(w2) }
 
         #expect(bare != .zero, "the bare canvas never laid out")
         #expect(wrapped != .zero, "the wrapped canvas never laid out")
