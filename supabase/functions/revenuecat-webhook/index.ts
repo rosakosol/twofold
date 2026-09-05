@@ -303,6 +303,40 @@ async function applyState(
   return (updated?.length ?? 0) > 0 ? "written" : "stale";
 }
 
+/// Appends what we decided to `subscription_events` (20260926000000).
+///
+/// Exists because entitlement is read as an OR across both partners' profiles, so "why is this
+/// couple Premium?" is otherwise a guess — neither row records where its value came from. Recorded
+/// for every outcome, not just successful writes: a run of `stale` is what out-of-order delivery
+/// looks like from the outside, and `no_profile` is how a deleted account shows up.
+///
+/// Never allowed to fail the request. This is a ledger, not the entitlement itself; losing a row
+/// here must not cost RevenueCat a 2xx and earn a retry that rewrites a profile we already got
+/// right. `event_id` is unique, so a redelivery conflicts — which is success, not an error.
+async function recordEvent(
+  // deno-lint-ignore no-explicit-any
+  serviceClient: any,
+  profileId: string,
+  eventId: string | null,
+  eventType: string,
+  tier: string | null,
+  outcome: ApplyOutcome,
+  stateAsOfMs: number | null,
+): Promise<void> {
+  const { error } = await serviceClient.from("subscription_events").insert({
+    profile_id: profileId,
+    event_id: eventId,
+    event_type: eventType,
+    tier,
+    outcome,
+    state_as_of: stateAsOfMs === null ? null : new Date(stateAsOfMs).toISOString(),
+  });
+  // 23505 is the redelivery case and is expected; anything else is logged and swallowed.
+  if (error && error.code !== "23505") {
+    console.error(`[revenuecat-webhook] could not record provenance: ${error.message}`);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);
@@ -335,6 +369,9 @@ Deno.serve(async (req) => {
     ? payload.event
     : (payload as WebhookEvent);
   const eventType = typeof event?.type === "string" ? event.type : "unknown";
+  // RevenueCat's own event id, used to dedupe redeliveries in `subscription_events`. Null when the
+  // payload carries none, which the ledger's partial unique index tolerates.
+  const eventId = typeof event?.id === "string" && event.id.length > 0 ? event.id : null;
 
   const userIds = collectCandidateUserIds(event ?? {});
   if (userIds.length === 0) {
@@ -368,6 +405,20 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Temporary failure, retry" }, 503);
     }
     outcomes[outcome] = (outcomes[outcome] ?? 0) + 1;
+
+    // Provenance. Not recorded for `unknown_subscriber`: RevenueCat has never heard of that id, so
+    // there is no decision to attribute and no profile the row would describe.
+    if (outcome !== "unknown_subscriber") {
+      await recordEvent(
+        serviceClient,
+        userId,
+        eventId,
+        eventType,
+        state?.tier ?? null,
+        outcome,
+        state?.asOfMs ?? null,
+      );
+    }
   }
 
   // Event type and per-outcome counts only. No ids, no tiers, no products, no prices — enough to
