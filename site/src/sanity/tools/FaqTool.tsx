@@ -11,12 +11,17 @@ import { faqSupabase, type FaqEntryRow } from "@/sanity/tools/faqSupabaseClient"
 // package installed, and this tool is simple enough not to need it.
 //
 // Reads go straight to Supabase with the anon key (faq_entries has a public SELECT policy).
-// Writes go through the admin-faq Edge Function instead (see its own doc comment for why: this
-// tool has no Supabase user session to authenticate a direct write with).
-
-const FUNCTIONS_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/admin-faq`;
-const ADMIN_SECRET = process.env.NEXT_PUBLIC_FAQ_ADMIN_SECRET ?? "";
-const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+//
+// Writes used to go through the `admin-faq` Edge Function, gated by a shared secret. That secret
+// was `NEXT_PUBLIC_FAQ_ADMIN_SECRET`, which Next.js inlines into a JS chunk at build time — served
+// from /studio, a public client-rendered route with no gate in front of it. Anyone who could load
+// that page could read the secret out of the bundle, and it unlocked a service-role client.
+//
+// The premise behind that design ("this tool has no Supabase user session to authenticate a direct
+// write with") stopped being true: this site runs Supabase auth in its middleware and already
+// resolves admin status through `is_feedback_admin()` in useIsAdmin.ts. So writes now go directly
+// as the signed-in admin, against the `faq_entries_admin_write` policy added in
+// 20260924000000 — one access model instead of two, and no secret in the bundle to steal.
 
 interface DraftEntry {
   id: string | null; // null while creating a brand new entry
@@ -28,22 +33,34 @@ interface DraftEntry {
 
 const EMPTY_DRAFT: DraftEntry = { id: null, category: "", question: "", answer: "", sortOrder: "0" };
 
-async function callAdmin(method: "POST" | "PATCH" | "DELETE", id: string | null, body?: unknown) {
-  const url = id ? `${FUNCTIONS_URL}?id=${encodeURIComponent(id)}` : FUNCTIONS_URL;
-  const res = await fetch(url, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      apikey: ANON_KEY,
-      "x-admin-secret": ADMIN_SECRET,
-    },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}) as { error?: string });
-    throw new Error(data.error ?? `Request failed (${res.status})`);
+interface FaqWrite {
+  category: string | null;
+  question: string;
+  answer: string;
+  sort_order: number;
+}
+
+/// Writes as the signed-in user. RLS decides whether they are allowed, so a non-admin gets a
+/// refusal from Postgres rather than from anything this file checks — the check cannot be skipped
+/// by calling the API directly, which is exactly what the old shared secret could not promise.
+///
+/// An update or delete by a non-admin raises nothing: RLS filters the row out, so the statement
+/// succeeds having matched zero rows. `count: "exact"` turns that silence into something this can
+/// report, rather than a save that appears to work and changes nothing.
+async function writeEntry(action: "create" | "update" | "delete", id: string | null, body?: FaqWrite) {
+  const table = faqSupabase.from("faq_entries");
+
+  const { error, count } =
+    action === "create"
+      ? await table.insert(body!).select("id", { count: "exact" })
+      : action === "update"
+        ? await table.update(body!).eq("id", id!).select("id", { count: "exact" })
+        : await table.delete().eq("id", id!).select("id", { count: "exact" });
+
+  if (error) throw new Error(error.message);
+  if (!count) {
+    throw new Error("That didn't save — your account isn't an FAQ admin, or you've been signed out.");
   }
-  return res.json();
 }
 
 export function FaqTool() {
@@ -102,14 +119,16 @@ export function FaqTool() {
     }
     setIsSaving(true);
     setSaveError(null);
+    // `sort_order`, not `sortOrder`: this writes to the table directly now. The Edge Function used
+    // to translate the camelCase name, and it is gone.
     const body = {
       category: draft.category.trim() || null,
       question: draft.question.trim(),
       answer: draft.answer.trim(),
-      sortOrder: Number.parseInt(draft.sortOrder, 10) || 0,
+      sort_order: Number.parseInt(draft.sortOrder, 10) || 0,
     };
     try {
-      await callAdmin(draft.id ? "PATCH" : "POST", draft.id, body);
+      await writeEntry(draft.id ? "update" : "create", draft.id, body);
       setDraft(null);
       await load();
     } catch (err) {
@@ -124,7 +143,7 @@ export function FaqTool() {
     setIsSaving(true);
     setSaveError(null);
     try {
-      await callAdmin("DELETE", entry.id);
+      await writeEntry("delete", entry.id);
       await load();
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Couldn't delete that entry.");
