@@ -57,17 +57,21 @@ struct DrawingPadEditorView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                DrawingCanvasView(elements: $elements, redoStack: $redoStack, tool: tool, color: penColor, backgroundImage: backgroundImage)
+                // Size comes from the canvas itself, not from a GeometryReader out here. This
+                // used to read the size of the *padded* container — 2 x Spacing.md larger on each
+                // axis — and `save()` then rendered into that oversized frame, stretching the
+                // background image while the strokes stayed at their recorded coordinates.
+                DrawingCanvasView(
+                    elements: $elements,
+                    redoStack: $redoStack,
+                    tool: tool,
+                    color: penColor,
+                    backgroundImage: backgroundImage,
+                    onSizeChange: { canvasSize = $0 }
+                )
                     .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                     .shadow(color: .black.opacity(0.1), radius: 8, y: 4)
                     .padding(Theme.Spacing.md)
-                    .background(
-                        GeometryReader { geo in
-                            Color.clear
-                                .onAppear { canvasSize = geo.size }
-                                .onChange(of: geo.size) { _, newSize in canvasSize = newSize }
-                        }
-                    )
 
                 bottomToolbar
             }

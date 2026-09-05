@@ -17,6 +17,21 @@ struct DrawingCanvasView: View {
     /// The previously-saved pad, drawn first so new strokes layer on top of it. `nil` once the
     /// user hits Clear, so a save after clearing doesn't resurrect the old drawing underneath.
     var backgroundImage: UIImage?
+    /// Reports the drawing surface's own size, measured here rather than by the caller.
+    ///
+    /// It has to be measured *inside* this view. `backgroundImage` is stretched to fill whatever
+    /// size the `Canvas` is given, while strokes are drawn at the absolute coordinates they were
+    /// recorded at — so a size that is even slightly wrong shifts every new stroke relative to the
+    /// drawing underneath it. The editor previously measured its own padded container, which is
+    /// 2 x `Theme.Spacing.md` larger on each axis, and re-rendered into that larger frame at save
+    /// time: the background grew, the strokes did not, and the new layer landed up and to the left.
+    ///
+    /// Worse, it compounded. Each save wrote an image with the padded aspect ratio, which the next
+    /// session stretched back into the true canvas before saving it padded again, so a pad drawn on
+    /// repeatedly drifted a little further every time.
+    ///
+    /// Reporting from in here means no caller can get it wrong by adding a modifier.
+    var onSizeChange: ((CGSize) -> Void)?
 
     @State private var currentElement: DrawingElement?
 
@@ -33,6 +48,13 @@ struct DrawingCanvasView: View {
             }
         }
         .background(.white)
+        .background(
+            GeometryReader { geo in
+                Color.clear
+                    .onAppear { onSizeChange?(geo.size) }
+                    .onChange(of: geo.size) { _, newSize in onSizeChange?(newSize) }
+            }
+        )
         .contentShape(Rectangle())
         .gesture(
             DragGesture(minimumDistance: 0)
