@@ -11,6 +11,14 @@ The output is a build input, not a runtime cache. It's committed and re-exported
 changes; the app refreshes from the backend whenever it's online, so this only has to be good
 enough for someone who has never had a connection since installing.
 
+PREMIUM CONTENT IS DELIBERATELY EXCLUDED. An .ipa is a zip and this file is plain JSON, so
+everything exported here is readable by anyone who downloads the app, subscriber or not. Seeding
+the premium catalogue would have put 131 of 191 decks and 1,468 of 1,987 questions — most of what
+the subscription sells — in the hands of people who never paid for it. Premium subscribers still
+get their decks offline: the in-app refresh (`BackendService.fetchGameContentPayload`) pulls the
+full catalogue for their tier and caches it, so the only gap is a premium user who has never once
+had a connection since installing, which is also a user who has never been able to subscribe.
+
 Credentials come from the environment, never from this file — any authenticated account can read
 the content tables (see `discussion_topics_select_authenticated` and its siblings), so a disposable
 test account is the right thing to use:
@@ -40,6 +48,10 @@ OUTPUT = os.path.join(
 # Which table holds the rounds for each game type, and which columns the app actually needs. Kept
 # narrow deliberately: this file ships inside the app, so anything exported here is anything a
 # user could read out of the bundle.
+# Only this tier is seeded into the bundle — see the note above. `game_decks.tier` and each content
+# row's own `tier` are both checked: a plus deck is not assumed to contain only plus rows.
+SEED_TIERS = {"plus"}
+
 CONTENT_TABLES = {
     "trivia_battle": (
         "trivia_questions",
@@ -123,12 +135,21 @@ def main():
     # Inactive rows are excluded here rather than at runtime, matching `fetchGameDecks`'s
     # `.eq("active", true)` and `start_deck_session`'s own `and active` — the app must not be able
     # to build a deck offline that the backend would refuse to build online.
-    decks = [d for d in decks if d.get("active") and d.get("game_type") in CONTENT_TABLES]
+    decks = [
+        d for d in decks
+        if d.get("active") and d.get("game_type") in CONTENT_TABLES and d.get("tier") in SEED_TIERS
+    ]
+    seeded_deck_ids = {d["id"] for d in decks}
     decks.sort(key=lambda d: (d.get("sort_order") or 0, d["id"]))
 
     content = {}
     for game_type, (table, columns) in CONTENT_TABLES.items():
-        rows = [r for r in fetch_all(table, columns, token) if r.get("active")]
+        rows = [
+            r for r in fetch_all(table, columns, token)
+            if r.get("active")
+            and r.get("deck_id") in seeded_deck_ids
+            and r.get("tier") in SEED_TIERS
+        ]
         for row in rows:
             row.pop("active", None)
         content[game_type] = rows
@@ -143,9 +164,13 @@ def main():
         deck["question_count"] = len(by_deck.get(deck["id"], []))
         deck.pop("active", None)
 
-    empty = [d["title"] for d in decks if d["question_count"] == 0]
+    # A seeded deck with no rows left after filtering would open to nothing offline, so it is
+    # dropped rather than shipped broken.
+    empty = [d for d in decks if d["question_count"] == 0]
     if empty:
-        print(f"warning: {len(empty)} deck(s) have no content: {', '.join(empty[:5])}")
+        print(f"dropping {len(empty)} deck(s) left with no seedable content: "
+              f"{', '.join(d['title'] for d in empty[:5])}")
+        decks = [d for d in decks if d["question_count"] > 0]
 
     seed = {"version": 1, "decks": decks, "content": content}
     os.makedirs(os.path.dirname(OUTPUT), exist_ok=True)
