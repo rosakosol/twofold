@@ -1204,17 +1204,32 @@ final class AppModel {
     }
 
     /// Serializing entry point — see `inFlightAdopt`'s doc comment for why this can't just be
-    /// the function body directly. Waits for any adopt already running, then runs its own.
+    /// the function body directly. Each adopt waits for its predecessor, then runs.
+    ///
+    /// Chained rather than spun on. This used to be
+    ///
+    ///     while let inFlight = inFlightAdopt { await inFlight.value }
+    ///
+    /// which livelocks whenever two adopts overlap: the second reads the flag before the first has
+    /// cleared it, awaits a task that has *already* finished, returns immediately, loops, and reads
+    /// the same finished task again. On the main actor that is a spin, and the app sits on the
+    /// splash screen forever — `restoreSession`'s `defer` never runs, so `isLoadingSession` never
+    /// clears. Sampled in that state: 187 of 187 main-thread samples inside this loop.
+    ///
+    /// Two adopts overlap easily — `loadSignedInState` at launch and `refreshCoupleStateIfNeeded`
+    /// on foreground both reach here — and the window is however long `performAdopt` takes.
+    ///
+    /// Holding the tail of a chain removes the loop entirely: waiting happens inside the new task,
+    /// so there is no flag to re-read and nothing to clear. `inFlightAdopt` is only ever the most
+    /// recently queued adopt, and each one releases its predecessor as it completes.
     private func adopt(_ state: BackendService.CoupleState) async {
-        while let inFlight = inFlightAdopt {
-            await inFlight.value
-        }
+        let previous = inFlightAdopt
         let task = Task { [weak self] () -> Void in
+            await previous?.value
             await self?.performAdopt(state)
         }
         inFlightAdopt = task
         await task.value
-        inFlightAdopt = nil
     }
 
     /// Adopts real couple/trip/memory rows from the backend, flushing anything that was added
@@ -1264,8 +1279,13 @@ final class AppModel {
         // raced that guard: `refreshAll` starts `loadDrawingPads()` with `async let` alongside the
         // couple fetch that sets the ID, and both `.task` sites fire when their view appears. A
         // loss is permanent, because nothing re-runs it — so the pads stayed blank for the whole
-        // session. Loading them here means the fetch happens *because* the ID now exists.
-        await loadDrawingPads()
+        // session. Kicking it off here means the fetch happens *because* the ID now exists.
+        //
+        // NOT awaited. The ID it needs is already set, so a detached task sees it — and awaiting
+        // put two signed-URL round trips on the launch path, inside the adopt that everything else
+        // serializes behind. Nothing on screen waits for a pad URL; the splash screen was waiting
+        // for both of them.
+        Task { [weak self] in await self?.loadDrawingPads() }
         partnerConnectedCelebrationShown = state.partnerConnectedCelebrationShown
         setupChecklistDismissed = state.setupChecklistDismissed
         noteCurrentDistanceIfRecord()
