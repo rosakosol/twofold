@@ -63,10 +63,28 @@ struct ExtractedFlightDetails: Decodable {
     }
 }
 
-enum FlightEmailParsingError: Error {
+enum FlightEmailParsingError: LocalizedError {
     case invalidResponse
     case missingContent
     case notAuthenticated
+    /// The server said why, and it was worth repeating. Carries the Edge Function's own `error`
+    /// string rather than a status code — the two cases a user can act on are the rate limit
+    /// (`consume_rate_limit`, 10/hour) and an over-long email, and both explain themselves.
+    /// Everything else still collapses into `invalidResponse`.
+    case rejected(message: String)
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidResponse: "Something went wrong reading this email."
+        case .missingContent: "There was nothing to read in that email."
+        case .notAuthenticated: "You need to be signed in to do that."
+        case .rejected(let message): message
+        }
+    }
+}
+
+private struct ErrorResponse: Decodable {
+    var error: String?
 }
 
 enum FlightEmailParsingService {
@@ -89,7 +107,18 @@ enum FlightEmailParsingService {
         request.httpBody = try JSONEncoder().encode(payload)
 
         let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+        guard let http = response as? HTTPURLResponse else {
+            throw FlightEmailParsingError.invalidResponse
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            // Same shape `HelpService` already uses: the function answers with `{ "error": ... }`,
+            // and for 429 (rate limited) and 400 (too long) that text is the whole explanation.
+            // Collapsing every non-2xx into one generic failure — which is what this did — turned
+            // "you've done this 10 times this hour" into "something went wrong", leaving the
+            // person to retry against a limit they had no way to know about.
+            if let message = (try? JSONDecoder().decode(ErrorResponse.self, from: data))?.error, !message.isEmpty {
+                throw FlightEmailParsingError.rejected(message: message)
+            }
             throw FlightEmailParsingError.invalidResponse
         }
         return try JSONDecoder().decode(ExtractedFlightDetails.self, from: data)

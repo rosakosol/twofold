@@ -17,6 +17,9 @@ struct PendingFlightShareReviewView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var isLoading = true
     @State private var extracted: ExtractedFlightDetails?
+    /// What the server said, when it said something worth repeating — the parse limit and an
+    /// over-long email both explain themselves, and `failureView`'s generic headline does not.
+    @State private var failureMessage: String?
 
     var body: some View {
         NavigationStack {
@@ -53,8 +56,9 @@ struct PendingFlightShareReviewView: View {
             Image(systemName: "envelope.badge.exclamationmark")
                 .font(.largeTitle)
                 .foregroundStyle(Theme.subtleInk)
-            Text("Something went wrong reading this email")
+            Text(failureMessage ?? "Something went wrong reading this email")
                 .font(.headline)
+                .multilineTextAlignment(.center)
             Button("Add manually instead") {
                 extracted = ExtractedFlightDetails()
             }
@@ -73,6 +77,11 @@ struct PendingFlightShareReviewView: View {
             )
         } catch {
             extracted = nil
+            // Only a message the server actually chose to send. Anything else keeps the generic
+            // headline rather than surfacing a URLError or a decoding failure at the person.
+            if case let FlightEmailParsingError.rejected(message) = error {
+                failureMessage = message
+            }
         }
         isLoading = false
     }
