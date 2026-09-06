@@ -1607,9 +1607,6 @@ final class AppModel {
         }
     }
 
-    /// Airport timezones resolved from the reference table, once per code per launch.
-    private static var airportTimeZoneCache: [String: String] = [:]
-
     /// Fills in airport timezones the backend didn't supply.
     ///
     /// A flight that came from AeroAPI's `/schedules` endpoint — anything booked more than about
@@ -1632,24 +1629,18 @@ final class AppModel {
         }
         guard !needed.isEmpty else { return }
 
-        let unresolved = needed.subtracting(Self.airportTimeZoneCache.keys)
-        if !unresolved.isEmpty {
-            let fetched = await FlightSearchIndex.timeZoneIdentifiers(forIATACodes: Array(unresolved))
-            Self.airportTimeZoneCache.merge(fetched) { _, new in new }
-        }
+        await AirportTimeZoneResolver.resolve(iataCodes: Array(needed))
 
         var changed = false
         for index in flights.indices {
             if flights[index].origin.timezone == nil,
-               let code = flights[index].origin.iata,
-               let zone = Self.airportTimeZoneCache[code] {
-                flights[index].origin.timezone = zone
+               let zone = AirportTimeZoneResolver.timeZone(forIATACode: flights[index].origin.iata) {
+                flights[index].origin.timezone = zone.identifier
                 changed = true
             }
             if flights[index].destination.timezone == nil,
-               let code = flights[index].destination.iata,
-               let zone = Self.airportTimeZoneCache[code] {
-                flights[index].destination.timezone = zone
+               let zone = AirportTimeZoneResolver.timeZone(forIATACode: flights[index].destination.iata) {
+                flights[index].destination.timezone = zone.identifier
                 changed = true
             }
         }

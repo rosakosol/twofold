@@ -20,6 +20,9 @@ struct AddFlightResultsStepView: View {
     @State private var candidateToConfirm: AeroFlightCandidate?
     @State private var hideCodeshares = false
     @State private var airlineFilter: String?
+    /// Flipped once airport timezones have been looked up, purely to redraw the time chips with
+    /// the resolved zone. See `AirportTimeZoneResolver` for why they need looking up at all.
+    @State private var resolvedTimeZones = false
 
     /// Flight-number mode is never filtered — the caller already told us exactly which flight
     /// they're after, so hiding a codeshare-linked or differently-operated result there could
@@ -66,6 +69,12 @@ struct AddFlightResultsStepView: View {
         .sheet(item: $candidateToConfirm) { candidate in
             if case .confirmAndTrack(let onDone) = completion {
                 FlightConfirmationView(candidate: candidate, initialTripID: model.initialTripID, onDone: onDone)
+            }
+        }
+        .task(id: model.candidates.map(\.id)) {
+            let codes = model.candidates.flatMap { [$0.origin?.iata, $0.destination?.iata] }
+            if await AirportTimeZoneResolver.resolve(iataCodes: codes) {
+                resolvedTimeZones.toggle()
             }
         }
         .postHogScreenView("Flights: Add Flight — Results")
@@ -212,12 +221,28 @@ struct AddFlightResultsStepView: View {
     }
 
 
+    /// The airport's own local time — the number on the boarding pass.
+    ///
+    /// This fell back to the *device's* timezone when a candidate had none, which is every
+    /// candidate that came from the schedules endpoint. So a UA60 leaving San Francisco at 11:20pm
+    /// showed 4:20pm to a phone in Melbourne: the right instant, labelled with the wrong airport's
+    /// clock, on the last screen before you commit to adding it.
     private func timeChip(code: String, date: Date, timeZone: String?, systemImage: String) -> some View {
-        let tz: TimeZone = timeZone.flatMap(TimeZone.init(identifier:)) ?? .current
+        let resolved = timeZone.flatMap(TimeZone.init(identifier:))
+            ?? AirportTimeZoneResolver.timeZone(forIATACode: code)
+        let tz: TimeZone = resolved ?? .current
         return HStack(spacing: 4) {
             Image(systemName: systemImage).font(.caption2)
             Text(code)
             Text(date, format: Date.FormatStyle(timeZone: tz).hour().minute())
+            // Marked, not hidden. If the airport's zone is genuinely unknown this is the device's
+            // clock rather than the airport's, and an unmarked time is indistinguishable from a
+            // correct one — which is exactly how this went unnoticed.
+            if resolved == nil {
+                Image(systemName: "questionmark.circle")
+                    .font(.caption2)
+                    .accessibilityLabel("Shown in your device's time — this airport's timezone is unknown")
+            }
         }
         .font(.caption.weight(.semibold))
         .padding(.horizontal, Theme.Spacing.sm)
