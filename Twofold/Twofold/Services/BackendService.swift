@@ -2152,8 +2152,17 @@ enum BackendService {
             .execute()
     }
 
+    /// Explicit for the same reason as `TripIDUpdate`: clearing a trip's notes passes nil, and
+    /// synthesised encoding would drop the key and leave the old note in place.
     private struct TripNotesUpdate: Encodable {
         var notes: String?
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(notes, forKey: .notes)
+        }
+
+        enum CodingKeys: String, CodingKey { case notes }
     }
 
     static func updateTripNotes(tripID: UUID, notes: String?) async throws {
@@ -2247,14 +2256,47 @@ enum BackendService {
         await removeFlightDocumentObjects(documentPaths)
     }
 
+    /// Encodes explicitly, so `nil` becomes `"trip_id": null` rather than being left out.
+    ///
+    /// Swift's *synthesised* `Encodable` uses `encodeIfPresent` for an optional, which omits the
+    /// key entirely — so `TripIDUpdate(tripId: nil)` encoded to `{}`, PostgREST received a PATCH
+    /// with nothing in it, and unlinking a flight changed nothing on the server. It looked like it
+    /// worked because the local edit is applied optimistically; the flight reappeared on the trip
+    /// at the next full refresh, which is whenever anything else was added.
+    ///
+    /// `container.encode` rather than `encodeIfPresent` is the whole difference: `Optional`
+    /// conforms to `Encodable` and writes a null.
+    ///
+    /// (`SubscriptionStatusUpdate` relies on the opposite behaviour on purpose — see its own note.
+    /// The distinction is whether `nil` means "clear this" or "leave this alone", and it has to be
+    /// decided per payload rather than inherited from the synthesis.)
     private struct TripIDUpdate: Encodable {
         var tripId: UUID?
         enum CodingKeys: String, CodingKey { case tripId = "trip_id" }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(tripId, forKey: .tripId)
+        }
     }
 
     /// The only way to change `flights.trip_id` after a flight's already been added — every
     /// other write path (`AeroFlightService.addFlight`) only ever sets it once, at creation.
     /// Pass `nil` to unlink.
+    #if DEBUG
+    /// Test seams for the update payloads whose optional encoding decides whether a column is
+    /// cleared or left alone. The structs are private and the distinction is invisible at the type
+    /// level, so `UpdatePayloadEncodingTests` reads the bytes these produce.
+    static func tripIDUpdateForTesting(tripID: UUID?) -> some Encodable { TripIDUpdate(tripId: tripID) }
+    static func tripNotesUpdateForTesting(notes: String?) -> some Encodable { TripNotesUpdate(notes: notes) }
+    static func memoryUpdateForTesting(placeID: UUID?, title: String, note: String) -> some Encodable {
+        MemoryUpdate(placeId: placeID, title: title, note: note, occurredAt: Date(timeIntervalSince1970: 0))
+    }
+    static func subscriptionStatusUpdateForTesting(active: Bool, tier: String?) -> some Encodable {
+        SubscriptionStatusUpdate(subscriptionActive: active, subscriptionCheckedAt: Date(timeIntervalSince1970: 0), subscriptionTier: tier)
+    }
+    #endif
+
     static func setFlightTrip(flightID: UUID, tripID: UUID?) async throws {
         try await supabase
             .from("flights")
@@ -2335,11 +2377,21 @@ enum BackendService {
         }
     }
 
+    /// `placeId` is explicit for the same reason as `TripIDUpdate` — a memory losing its place
+    /// has to write a null, not omit the column and keep the old one.
     private struct MemoryUpdate: Encodable {
         var placeId: UUID?
         var title: String
         var note: String
         var occurredAt: Date
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(placeId, forKey: .placeId)
+            try container.encode(title, forKey: .title)
+            try container.encode(note, forKey: .note)
+            try container.encode(occurredAt, forKey: .occurredAt)
+        }
 
         enum CodingKeys: String, CodingKey {
             case title, note
