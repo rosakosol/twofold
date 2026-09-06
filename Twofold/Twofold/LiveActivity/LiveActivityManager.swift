@@ -41,17 +41,25 @@ final class LiveActivityManager {
     /// Called at the end of every `AppModel.refreshFlights()` — starts activities for newly
     /// trackable flights, updates ones already running, ends ones that became inactive or
     /// disappeared from the list entirely.
-    func syncActivities(for flights: [Flight], travelerName: (Flight) -> String, isReunion: (Flight) -> Bool) async {
+    func syncActivities(for flights: [Flight], participants: (Flight) -> JourneyParticipants, isReunion: (Flight) -> Bool) async {
         for flight in flights {
             let shouldTrack = flight.trackingEnabled && flight.status.isActivelyTracked
             if let activity = runningActivities[flight.id] {
-                if shouldTrack {
-                    await updateActivity(activity, for: flight, isReunion: isReunion(flight))
-                } else {
+                if !shouldTrack {
                     await endActivity(activity, flightID: flight.id)
+                } else if Self.needsRestart(activity.attributes, for: participants(flight)) {
+                    // Attributes are fixed for the life of an Activity — only its content state can
+                    // be pushed. So a card started before this device knew whose side to write from
+                    // can't be corrected in place; it has to be replaced. Ended immediately rather
+                    // than left to linger, or the wrong wording sits on the Lock Screen beside the
+                    // right one.
+                    await endActivity(activity, flightID: flight.id, dismissalPolicy: .immediate)
+                    await startActivity(for: flight, participants: participants(flight), isReunion: isReunion(flight))
+                } else {
+                    await updateActivity(activity, for: flight, isReunion: isReunion(flight))
                 }
             } else if shouldTrack {
-                await startActivity(for: flight, travelerName: travelerName(flight), isReunion: isReunion(flight))
+                await startActivity(for: flight, participants: participants(flight), isReunion: isReunion(flight))
             }
         }
 
@@ -101,9 +109,21 @@ final class LiveActivityManager {
         }
     }
 
-    private func startActivity(for flight: Flight, travelerName: String, isReunion: Bool) async {
+    /// True when a running card would say the wrong thing about who is flying.
+    ///
+    /// Covers both a card started before these fields existed — `partnerName` decodes empty — and
+    /// one whose stored perspective no longer matches, which happens when a flight's travellers are
+    /// edited after tracking began.
+    nonisolated static func needsRestart(_ attributes: JourneyActivityAttributes, for participants: JourneyParticipants) -> Bool {
+        attributes.partnerName.isEmpty
+            || attributes.viewerIsTraveler != participants.viewerIsTraveler
+            || attributes.travelerName != participants.travelerName
+            || attributes.partnerName != participants.partnerName
+    }
+
+    private func startActivity(for flight: Flight, participants: JourneyParticipants, isReunion: Bool) async {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
-        let attributes = flight.makeJourneyActivityAttributes(travelerName: travelerName)
+        let attributes = flight.makeJourneyActivityAttributes(participants: participants)
         let content = ActivityContent(
             state: flight.makeJourneyActivityContentState(isReunion: isReunion),
             staleDate: staleDate(for: flight)

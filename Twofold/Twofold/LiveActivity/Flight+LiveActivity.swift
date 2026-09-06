@@ -13,11 +13,20 @@
 import Foundation
 #if canImport(ActivityKit)
 
+/// Who this journey is between, from the point of view of the device showing it.
+struct JourneyParticipants {
+    let travelerName: String
+    let partnerName: String
+    let viewerIsTraveler: Bool
+}
+
 extension Flight {
-    func makeJourneyActivityAttributes(travelerName: String) -> JourneyActivityAttributes {
+    func makeJourneyActivityAttributes(participants: JourneyParticipants) -> JourneyActivityAttributes {
         JourneyActivityAttributes(
             flightID: id,
-            travelerName: travelerName,
+            travelerName: participants.travelerName,
+            partnerName: participants.partnerName,
+            viewerIsTraveler: participants.viewerIsTraveler,
             flightNumber: displayNumber,
             airlineName: airlineName,
             originCode: origin.displayCode,

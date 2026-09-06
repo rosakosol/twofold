@@ -518,7 +518,11 @@ final class AppModel {
         // instead, so a flight-tracking Live Activity doesn't keep showing (now stale, since the
         // couple that authorized it no longer exists) until the app happens to background/
         // foreground or relaunch.
-        await LiveActivityManager.shared.syncActivities(for: [], travelerName: { _ in "" }, isReunion: { _ in false })
+        await LiveActivityManager.shared.syncActivities(
+            for: [],
+            participants: { _ in JourneyParticipants(travelerName: "", partnerName: "", viewerIsTraveler: false) },
+            isReunion: { _ in false }
+        )
         myDrawingURL = nil
         partnerDrawingURL = nil
         couple = Self.placeholderCouple
@@ -1594,11 +1598,16 @@ final class AppModel {
             await LiveActivityManager.shared.reconcileOnLaunch(with: fresh)
             await LiveActivityManager.shared.syncActivities(
                 for: fresh,
-                travelerName: { [weak self] flight in
-                    guard let self else { return "" }
+                participants: { [weak self] flight in
+                    guard let self else { return JourneyParticipants(travelerName: "", partnerName: "", viewerIsTraveler: false) }
                     // Who's flying — not whether it's a reunion. These were the same call until
                     // the split above.
-                    return isPartnerTravelling(flight) ? partner.name : currentUser.name
+                    let partnerIsTravelling = isPartnerTravelling(flight)
+                    return JourneyParticipants(
+                        travelerName: partnerIsTravelling ? partner.name : currentUser.name,
+                        partnerName: partnerIsTravelling ? currentUser.name : partner.name,
+                        viewerIsTraveler: !partnerIsTravelling
+                    )
                 },
                 isReunion: isReunion
             )
@@ -1712,7 +1721,16 @@ final class AppModel {
     /// most tracked flights are the partner's. Only decides *whose name* the Live Activity shows;
     /// deliberately separate from `isReunion` below, which the same check used to do double duty
     /// for.
+    /// Who is actually on the plane, which is not the same question as who typed it in.
+    ///
+    /// `travelerIDs` is the answer whenever it has one — it is set explicitly on the confirmation
+    /// step, and it is the only field that knows a person added a flight *for* their partner.
+    /// `createdBy` is the fallback for flights saved before that was asked, and for a flight where
+    /// both of them are travelling the viewer counts as travelling too.
     private func isPartnerTravelling(_ flight: Flight) -> Bool {
+        if !flight.travelerIDs.isEmpty {
+            return !flight.travelerIDs.contains(currentUser.id)
+        }
         guard let createdBy = flight.createdBy else { return true }
         return createdBy != currentUser.id
     }

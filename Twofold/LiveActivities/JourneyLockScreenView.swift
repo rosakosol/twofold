@@ -56,7 +56,14 @@ struct JourneyLockScreenView: View {
                         .foregroundStyle(.white.opacity(0.55))
                         .multilineTextAlignment(.center)
                 } else if context.state.isReunion {
-                    Text("\(context.attributes.travelerName) is on the way to you ❤️")
+                    // Addressed to whoever is holding the phone. Each device starts its own Live
+                    // Activity and knows its own viewer, so the traveller and the person waiting
+                    // see the same flight described from their own side of it. This line used to
+                    // be written only for the person waiting, which told a traveller watching
+                    // their own flight that they were on their way to themselves.
+                    Text(context.attributes.viewerIsTraveler
+                         ? "On the way to \(context.attributes.partnerName) ❤️"
+                         : "\(context.attributes.travelerName) is on the way to you ❤️")
                         .font(.caption)
                         .foregroundStyle(.white.opacity(0.6))
                         .multilineTextAlignment(.center)
