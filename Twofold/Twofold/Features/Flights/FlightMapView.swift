@@ -109,7 +109,9 @@ struct FlightMapView: View {
 /// The `MKMapView` itself. A thin `UIViewRepresentable` shell — all the real work (building the
 /// route overlays, placing annotations, fitting/following the camera) happens in `Coordinator`,
 /// which persists across SwiftUI body re-evaluations exactly like the underlying `MKMapView` does.
-private struct MapKitRouteView: UIViewRepresentable {
+// Not `private`: FlightMapPanTests measures its Coordinator's scroll-suspension directly, since the
+// thing that can go wrong (leaving a screen unable to scroll) is invisible from the outside.
+struct MapKitRouteView: UIViewRepresentable {
     let origin: CLLocationCoordinate2D
     let destination: CLLocationCoordinate2D
     let originCode: String
@@ -137,6 +139,13 @@ private struct MapKitRouteView: UIViewRepresentable {
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
+    /// Puts scrolling back the way it was found. Without this, a view torn down mid-touch — swiping
+    /// back while a finger is still on the map — leaves the screen unable to scroll at all, with
+    /// nothing left alive to switch it on again.
+    static func dismantleUIView(_ mapView: SizeAwareMapView, coordinator: Coordinator) {
+        coordinator.restoreEnclosingScroll()
+    }
+
     func makeUIView(context: Context) -> SizeAwareMapView {
         let mapView = SizeAwareMapView(frame: .zero)
         mapView.delegate = context.coordinator
@@ -154,6 +163,30 @@ private struct MapKitRouteView: UIViewRepresentable {
         // region-based fitting doesn't work for a wide route in the first place).
         mapView.cameraZoomRange = MKMapView.CameraZoomRange(maxCenterCoordinateDistance: 40_000_000)
         context.coordinator.mapView = mapView
+        if interactive {
+            // Hands the drag to the map instead of to the page.
+            //
+            // This map sits inside the detail screen's ScrollView, and a scroll view claims a drag
+            // that starts anywhere in its content — including on a subview with a pan recogniser of
+            // its own. So the map was interactive in every respect except the one that matters:
+            // pinch worked, dragging scrolled the page past the map rather than panning it, and the
+            // recentre button had nothing to recentre from.
+            //
+            // A zero-duration long press fires the instant a finger lands, which is early enough to
+            // switch the enclosing scroll view off before it decides the gesture is a scroll.
+            // `cancelsTouchesInView = false` so the map's own recognisers still see every touch —
+            // this observes, it doesn't consume.
+            let touchObserver = UILongPressGestureRecognizer(
+                target: context.coordinator,
+                action: #selector(Coordinator.mapTouched(_:))
+            )
+            touchObserver.minimumPressDuration = 0
+            touchObserver.cancelsTouchesInView = false
+            touchObserver.delaysTouchesBegan = false
+            touchObserver.delaysTouchesEnded = false
+            touchObserver.delegate = context.coordinator
+            mapView.addGestureRecognizer(touchObserver)
+        }
         // `makeUIView` runs before SwiftUI has laid the view out, so `mapView.bounds` is still
         // zero here — fitting the camera against a zero-sized view produces a garbage zoom level
         // (this was the actual cause of "ports cropped out of view": the very first fit landed on
@@ -190,7 +223,68 @@ private struct MapKitRouteView: UIViewRepresentable {
     /// Owns the `MKMapView` delegate callbacks, the route overlays, and the three annotations
     /// (origin, destination, live/traveler position) — plus the follow-camera state machine for
     /// en-route flights.
-    final class Coordinator: NSObject, MKMapViewDelegate {
+    final class Coordinator: NSObject, MKMapViewDelegate, UIGestureRecognizerDelegate {
+
+        /// The scroll view that was switched off for the duration of a touch, so it can be switched
+        /// back on afterwards — and only if it was on to begin with.
+        private weak var suspendedScrollView: UIScrollView?
+
+        /// The nearest scroll view *above* this one in the hierarchy.
+        ///
+        /// Upward only, deliberately. The thing to suspend is the page this map is sitting in,
+        /// which is by definition an ancestor — anything scrollable found *inside* the map would
+        /// belong to the map, and switching that off would take away the panning this is trying to
+        /// give back.
+        static func enclosingScrollView(of view: UIView?) -> UIScrollView? {
+            var candidate = view?.superview
+            while let current = candidate {
+                if let scrollView = current as? UIScrollView { return scrollView }
+                candidate = current.superview
+            }
+            return nil
+        }
+
+        @objc func mapTouched(_ recognizer: UIGestureRecognizer) {
+            switch recognizer.state {
+            case .began:
+                guard suspendedScrollView == nil,
+                      let scrollView = Self.enclosingScrollView(of: recognizer.view),
+                      scrollView.isScrollEnabled else { return }
+                scrollView.isScrollEnabled = false
+                suspendedScrollView = scrollView
+            case .ended, .cancelled, .failed:
+                restoreEnclosingScroll()
+            default:
+                break
+            }
+        }
+
+        #if DEBUG
+        /// Test seam. The real entry point is a gesture recogniser's `.began`, and a recogniser's
+        /// state cannot be set from outside it.
+        func suspendScrollForTesting(around view: UIView) {
+            guard let scrollView = Self.enclosingScrollView(of: view) else { return }
+            scrollView.isScrollEnabled = false
+            suspendedScrollView = scrollView
+        }
+        #endif
+
+        /// Safe to call at any time, including when nothing was suspended.
+        func restoreEnclosingScroll() {
+            suspendedScrollView?.isScrollEnabled = true
+            suspendedScrollView = nil
+        }
+
+        // Observes rather than competes: the map's own pan and pinch must keep working while this
+        // is recognising, and the scroll view needs to see the touch too so that a drag started on
+        // the map but continued past its edge doesn't leave the page stuck.
+        func gestureRecognizer(
+            _ gestureRecognizer: UIGestureRecognizer,
+            shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
+        ) -> Bool {
+            true
+        }
+
         struct Route: Equatable {
             var origin: CLLocationCoordinate2D
             var destination: CLLocationCoordinate2D
@@ -920,7 +1014,7 @@ private struct MapKitRouteView: UIViewRepresentable {
 /// A plain `MKMapView` that also reports its own `layoutSubviews` — used to catch the moment
 /// SwiftUI actually gives this view a real, non-zero frame (see the `onLayout` wiring in
 /// `MapKitRouteView.makeUIView`), since `makeUIView` itself runs before that layout pass happens.
-private final class SizeAwareMapView: MKMapView {
+final class SizeAwareMapView: MKMapView {
     var onLayout: (() -> Void)?
 
     override func layoutSubviews() {
