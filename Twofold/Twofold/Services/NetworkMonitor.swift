@@ -42,11 +42,17 @@ final class NetworkMonitor {
             isExpensive = false
             return
         }
-        // Drops connectivity a few seconds after launch, so the ONLINE -> OFFLINE transition can be
+        // Drops connectivity a few seconds after THIS MONITOR IS FIRST TOUCHED, so the
+        // ONLINE -> OFFLINE transition can be
         // exercised. `TWOFOLD_FORCE_OFFLINE` only covers starting offline, and the interesting
         // behaviour — noticing mid-session and switching over — needs a real edge to fire on.
         // Toggling the Mac's Wi-Fi is the alternative, and that disconnects the simulator, the test
         // runner and everything else along with it.
+        //
+        // The delay is measured from here, not from app launch — `shared` is a lazy static, so the
+        // clock starts whenever something first reads it, which is a few seconds into launch and
+        // after sign-in. Timing screenshots from launch instead will look like the drop never
+        // happened; it just has not started counting yet.
         if let delay = ProcessInfo.processInfo.environment["TWOFOLD_GO_OFFLINE_AFTER"].flatMap(Double.init) {
             monitor.pathUpdateHandler = { [weak self] path in
                 let expensive = path.isExpensive
