@@ -2764,8 +2764,30 @@ enum BackendService {
     /// decoding it here only to re-encode it would be two chances to drop a column for no gain.
     /// ~2,000 rows and about half a megabyte, so it's fetched on a schedule, not per foreground.
     static func fetchGameContentPayload() async throws -> Data {
+        // Paged explicitly. PostgREST caps a plain select at 1,000 rows and says nothing when it
+        // truncates — it just returns a short list. The largest content table is around 600 rows
+        // today, so a single request happens to be enough, which is exactly how this would ship
+        // broken later: content grows, a table crosses the cap, and the catalogue silently loses
+        // whatever fell off the end. `GameContentStore.store` only rejects an empty deck list, so a
+        // truncated fetch would overwrite a complete cache with a partial one.
+        //
+        // `scripts/export-game-content.py` already pages for the same reason; this is the half that
+        // was missed.
         func rows(_ table: String, _ columns: String) async throws -> [[String: AnyJSON]] {
-            try await supabase.from(table).select(columns).eq("active", value: true).execute().value
+            let pageSize = 1000
+            var all: [[String: AnyJSON]] = []
+            while true {
+                let page: [[String: AnyJSON]] = try await supabase
+                    .from(table)
+                    .select(columns)
+                    .eq("active", value: true)
+                    .order("id", ascending: true)
+                    .range(from: all.count, to: all.count + pageSize - 1)
+                    .execute()
+                    .value
+                all.append(contentsOf: page)
+                if page.count < pageSize { return all }
+            }
         }
         // Keyed by `GameType.rawValue`, which is what the store looks them up by.
         async let trivia = rows("trivia_questions", "id,deck_id,question,options,correct_answer,explanation,difficulty,category,tier")

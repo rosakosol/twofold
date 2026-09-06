@@ -12,7 +12,7 @@
 -- what drifts.
 
 begin;
-select plan(11);
+select plan(13);
 
 -- Note on shape: the tier resolution is asserted THROUGH the policies rather than by calling
 -- `private.viewer_effective_tier()` directly, because a client cannot call it — `authenticated` has
@@ -105,6 +105,34 @@ select cmp_ok(
   (select count(*)::int from public.trivia_questions where tier = 'premium'),
   '>', 0,
   'and the premium trivia'
+);
+
+-- ---------------------------------------------------------------------------
+-- What the gate leans on
+-- ---------------------------------------------------------------------------
+--
+-- The policies are written as `tier is distinct from 'premium'` — a denylist, which is the wrong
+-- shape for a paywall on its own: it gives away any row whose tier is unfamiliar. It is safe here
+-- only because the column cannot hold an unfamiliar value, and that guarantee lives somewhere else
+-- entirely, on the table definition.
+--
+-- So pin it here rather than defensively rewriting four policies to say the same thing twice. If
+-- someone relaxes the constraint to add a third tier, this fails and points at the gate that
+-- assumed there were only two.
+
+select is(
+  (select count(*)::int from pg_constraint
+    where conrelid = 'public.deep_conversation_topics'::regclass
+      and contype = 'c'
+      and pg_get_constraintdef(oid) like '%tier%'),
+  1,
+  'tier is constrained to a known set — the denylist gate depends on it'
+);
+
+select ok(
+  (select attnotnull from pg_attribute
+    where attrelid = 'public.deep_conversation_topics'::regclass and attname = 'tier'),
+  'and cannot be null, which the gate would otherwise expose to everyone'
 );
 
 -- Decks stay visible to everyone on purpose: the hub shows premium decks locked, which is how
