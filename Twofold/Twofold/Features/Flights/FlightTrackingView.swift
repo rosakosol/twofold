@@ -450,10 +450,15 @@ struct FlightTrackingView: View {
 
     // MARK: - Journey summary
 
-    /// Unlike the departure/arrival cards below (which deliberately stay in each airport's own
-    /// local time — the useful frame while actually there), this quick-glance summary card shows
-    /// both legs in the user's own home-city time, so a glance at the phone answers "when do I
-    /// need to be ready" without a timezone conversion.
+    /// Every time on this screen is that airport's own local time, because that is the number
+    /// printed on the boarding pass and shown on the departure board. A UA60 leaving San Francisco
+    /// at 23:20 has to read 11:20pm.
+    ///
+    /// This card used to render both legs in the viewer's home-city time instead, so that a glance
+    /// answered "when do I need to be ready" with no conversion. That is a real question, but it is
+    /// the second one — and answering it by relabelling the departure time silently made the
+    /// summary disagree with the departure card below it. Home time is still here, on its own line
+    /// underneath and only when it differs, which answers both without either being a guess.
     private var homeTimeZone: TimeZone { appModel.currentUser.homeCity?.timeZone ?? .current }
 
     private var journeyCard: some View {
@@ -470,7 +475,7 @@ struct FlightTrackingView: View {
 
             journeyRow(
                 code: flight.origin.displayCode, city: flight.origin.displayName,
-                time: flight.bestDeparture, timeZone: homeTimeZone,
+                time: flight.bestDeparture, timeZone: flight.origin.timeZone ?? homeTimeZone,
                 terminal: flight.terminalOrigin, gate: flight.gateOrigin,
                 statusLine: departureStatusLine
             )
@@ -482,7 +487,7 @@ struct FlightTrackingView: View {
 
             journeyRow(
                 code: flight.destination.displayCode, city: flight.destination.displayName,
-                time: flight.bestArrival, timeZone: homeTimeZone,
+                time: flight.bestArrival, timeZone: flight.destination.timeZone ?? homeTimeZone,
                 terminal: flight.terminalDestination, gate: flight.gateDestination,
                 statusLine: arrivalStatusLine
             )
@@ -512,6 +517,18 @@ struct FlightTrackingView: View {
         return "Not available"
     }
 
+    /// "4:20 pm your time", or nothing when there is nothing to convert.
+    ///
+    /// Compared on the offset at *that instant*, not on the identifiers: two zones with different
+    /// names can be the same clock on the day in question, and printing "11:20 pm your time" under
+    /// "11:20 pm" is noise. It also catches the reverse — one zone on daylight saving and the other
+    /// not — which comparing names would miss.
+    static func homeTimeLine(for time: Date, airportZone: TimeZone, homeZone: TimeZone) -> String? {
+        guard airportZone.secondsFromGMT(for: time) != homeZone.secondsFromGMT(for: time) else { return nil }
+        let local = time.formatted(Date.FormatStyle(timeZone: homeZone).day().month(.abbreviated).hour().minute())
+        return "\(local) your time"
+    }
+
     private func journeyRow(code: String, city: String, time: Date?, timeZone: TimeZone?, terminal: String?, gate: String?, statusLine: String) -> some View {
         HStack(alignment: .top, spacing: Theme.Spacing.md) {
             ZStack {
@@ -524,13 +541,17 @@ struct FlightTrackingView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(code) · \(city)").font(.headline).lineLimit(1).minimumScaleFactor(0.85)
                 if let time {
-                    // Falls back to the user's home city, not the device. These cards are meant to
-                    // show each airport's own local time; when that zone is unknown, home time is
-                    // at least the same frame the journey summary above uses, so the two agree
-                    // rather than contradicting each other. Falling back to the device made a
-                    // departure read 8:20am on a phone in UTC+2 while the summary said 4:20pm.
+                    // Falls back to the user's home city, not the device. When an airport's own
+                    // zone is genuinely unknown, home time is at least the frame the rest of this
+                    // screen is in, so nothing contradicts anything else. Falling back to the
+                    // device made a departure read 8:20am on a phone that happened to be in UTC+2.
                     Text(time, format: Date.FormatStyle(timeZone: timeZone ?? homeTimeZone).day().month(.abbreviated).hour().minute())
                         .font(.subheadline.weight(.semibold))
+                    if let homeLine = Self.homeTimeLine(for: time, airportZone: timeZone ?? homeTimeZone, homeZone: homeTimeZone) {
+                        Text(homeLine)
+                            .font(.caption)
+                            .foregroundStyle(Theme.subtleInk)
+                    }
                 } else {
                     Text("Time not available").font(.subheadline).foregroundStyle(Theme.subtleInk)
                 }

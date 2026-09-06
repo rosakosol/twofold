@@ -1251,6 +1251,7 @@ final class AppModel {
         trips = state.trips
         memories = state.memories
         flights = state.flights
+        Task { [weak self] in await self?.resolveMissingAirportTimezones() }
         partnerConnected = true
         hasCouple = true
         isSubscriptionActive = state.subscriptionActive
@@ -1588,6 +1589,7 @@ final class AppModel {
             for index in trips.indices {
                 trips[index].flights = fresh.filter { $0.tripID == trips[index].id }
             }
+            await resolveMissingAirportTimezones()
             reapplyInFlightMutations()
             await LiveActivityManager.shared.reconcileOnLaunch(with: fresh)
             await LiveActivityManager.shared.syncActivities(
@@ -1602,6 +1604,60 @@ final class AppModel {
             )
             Task { await WidgetSnapshotWriter.refresh(appModel: self) }
             checkReviewMilestones()
+        }
+    }
+
+    /// Airport timezones resolved from the reference table, once per code per launch.
+    private static var airportTimeZoneCache: [String: String] = [:]
+
+    /// Fills in airport timezones the backend didn't supply.
+    ///
+    /// A flight that came from AeroAPI's `/schedules` endpoint — anything booked more than about
+    /// two days ahead — has no timezone on either airport, because that endpoint returns bare
+    /// origin/destination codes with no airport object behind them. `add-flight` looks it up in the
+    /// `airports` table when the row is created, and a migration fills in the rows written before
+    /// it did, but neither helps a device running against a backend where those have not been
+    /// deployed yet, and neither covers an airport missing from the reference table entirely.
+    ///
+    /// Without a zone, every screen falls back to something — and they don't all fall back to the
+    /// same thing, which is how one departure read 4:20pm in the summary and 8:20am in the detail
+    /// card. So the app resolves it too, from the same table, in one query for everything it is
+    /// missing. Silent and best-effort: a flight whose airport genuinely isn't in the table keeps
+    /// falling back, as it did before.
+    func resolveMissingAirportTimezones() async {
+        var needed = Set<String>()
+        for flight in flights {
+            if flight.origin.timezone == nil, let code = flight.origin.iata, !code.isEmpty { needed.insert(code) }
+            if flight.destination.timezone == nil, let code = flight.destination.iata, !code.isEmpty { needed.insert(code) }
+        }
+        guard !needed.isEmpty else { return }
+
+        let unresolved = needed.subtracting(Self.airportTimeZoneCache.keys)
+        if !unresolved.isEmpty {
+            let fetched = await FlightSearchIndex.timeZoneIdentifiers(forIATACodes: Array(unresolved))
+            Self.airportTimeZoneCache.merge(fetched) { _, new in new }
+        }
+
+        var changed = false
+        for index in flights.indices {
+            if flights[index].origin.timezone == nil,
+               let code = flights[index].origin.iata,
+               let zone = Self.airportTimeZoneCache[code] {
+                flights[index].origin.timezone = zone
+                changed = true
+            }
+            if flights[index].destination.timezone == nil,
+               let code = flights[index].destination.iata,
+               let zone = Self.airportTimeZoneCache[code] {
+                flights[index].destination.timezone = zone
+                changed = true
+            }
+        }
+        guard changed else { return }
+        // Trips carry their own copies of the same flights; a trip's flight list left un-updated
+        // would show the old fallback time beside the corrected one.
+        for index in trips.indices {
+            trips[index].flights = flights.filter { $0.tripID == trips[index].id }
         }
     }
 

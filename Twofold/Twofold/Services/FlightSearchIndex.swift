@@ -131,6 +131,32 @@ enum FlightSearchIndex {
         return Array(merged.prefix(limit))
     }
 
+    /// IANA timezone for each of the given airport codes, for the ones the reference table knows.
+    ///
+    /// A flight resolved from AeroAPI's `/schedules` endpoint — which is every flight booked more
+    /// than about two days ahead — arrives with no airport timezone on either end, because that
+    /// endpoint returns flat origin/destination codes with no nested airport object. The server
+    /// fills that in from this same table at flight-creation time, but only for flights created
+    /// after that was added; rows written before it stay blank, and nothing revisits them.
+    ///
+    /// So the app looks it up too. One query for every code it is missing, not one per flight.
+    static func timeZoneIdentifiers(forIATACodes codes: [String]) async -> [String: String] {
+        let codes = codes.filter { !$0.isEmpty }
+        guard !codes.isEmpty else { return [:] }
+
+        struct Row: Decodable {
+            let iata: String
+            let timezone: String?
+        }
+        let rows: [Row] = (try? await supabase.from("airports").select("iata,timezone")
+            .in("iata", values: codes)
+            .execute().value) ?? []
+
+        return rows.reduce(into: [String: String]()) { result, row in
+            if let timezone = row.timezone, !timezone.isEmpty { result[row.iata] = timezone }
+        }
+    }
+
     // MARK: - What to show before anyone types
 
     /// The airports actually closest to a coordinate.
