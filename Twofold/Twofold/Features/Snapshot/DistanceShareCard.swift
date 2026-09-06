@@ -40,9 +40,46 @@ struct DistanceShareCard: View {
     /// city only, smaller and left-biased so the card has room for partner's floating card.
     static let offGlobeSize: CGFloat = 210
 
+    /// The globe and the partner's card, laid out for a partner who is north-east of you. Both are
+    /// mirrored below when the real bearing points the other way — see `offGlobeLayout`.
     private static let offGlobeCenter = CGPoint(x: 118, y: 148)
     private static let offGlobeRadius: CGFloat = offGlobeSize / 2
+    #if DEBUG
+    static var offGlobeRadiusForTesting: CGFloat { offGlobeRadius }
+    #endif
     private static let floatingCardCenter = CGPoint(x: 278, y: 78)
+
+    /// Where the globe and the partner's card sit, given which way the partner actually is.
+    ///
+    /// These were both fixed points: the globe left-of-centre, the card up and to the right. The
+    /// dashed path leaves the globe at the true great-circle bearing though, which points wherever
+    /// the partner really is — so for a partner to the west the line ran out of the globe's *left*
+    /// edge and the curve then doubled all the way back across the card to reach a partner pinned
+    /// on the right. Melbourne to Rome (bearing 292°) drew exactly that, as did Melbourne to London
+    /// (311°) and to Reykjavik (348°); Melbourne to New York (72°) only looked right because it
+    /// happens to head east.
+    ///
+    /// Mirroring rather than free placement: there is only 13pt of margin beside the globe, so a
+    /// card placed radially along the bearing would fall off the card entirely. Flipping the pair
+    /// of them keeps the spacing the design was built with and just reads it in the other
+    /// direction. The globe itself is a snapshot centred on your own city, so moving where it sits
+    /// changes nothing about what it shows.
+    var offGlobeLayout: (globe: CGPoint, card: CGPoint) {
+        let bearing = Geo.initialBearing(from: myCity.coordinate, to: partnerCity.coordinate) * .pi / 180
+        // Screen axes: +x is east on the globe, and -y is north.
+        let pointsWest = sin(bearing) < 0
+        let pointsSouth = cos(bearing) < 0
+
+        let globe = CGPoint(
+            x: pointsWest ? Self.mapSize.width - Self.offGlobeCenter.x : Self.offGlobeCenter.x,
+            y: Self.offGlobeCenter.y
+        )
+        let card = CGPoint(
+            x: pointsWest ? Self.mapSize.width - Self.floatingCardCenter.x : Self.floatingCardCenter.x,
+            y: pointsSouth ? Self.mapSize.height - Self.floatingCardCenter.y : Self.floatingCardCenter.y
+        )
+        return (globe, card)
+    }
     /// MapKit's globe-mode renderer always leaves some black space/limb margin around the
     /// sphere regardless of how tight the snapshot's region span is — scaling the whole
     /// composited image up (map photo + path + pins together, so they stay aligned to their real
@@ -226,20 +263,20 @@ struct DistanceShareCard: View {
             .frame(width: Self.offGlobeSize, height: Self.offGlobeSize)
             .scaleEffect(Self.globeOverscan)
             .clipShape(Circle())
-            .position(Self.offGlobeCenter)
+            .position(offGlobeLayout.globe)
 
             // The segment from your pin to the globe's own edge starts *at* the circle's edge by
             // construction (a point exactly `offGlobeRadius` from its center), so it never needs
             // its own clip — then a curved segment continues on to partner's floating card.
             Path { path in
-                path.move(to: Self.offGlobeCenter)
+                path.move(to: offGlobeLayout.globe)
                 path.addLine(to: offGlobeExitPoint)
             }
             .stroke(theme.accentTextColor, style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [2, 11]))
 
             offGlobeCurve
 
-            pin(person: couple.partnerA, city: myCity, at: Self.offGlobeCenter, boundsWidth: Self.mapSize.width)
+            pin(person: couple.partnerA, city: myCity, at: offGlobeLayout.globe, boundsWidth: Self.mapSize.width)
             floatingPartnerCard
         }
     }
@@ -248,11 +285,12 @@ struct DistanceShareCard: View {
     /// compass heading (0° = north/up, clockwise) into the matching point on the globe's own
     /// rendered circle, so the exit point actually points the right way even though partner's
     /// city itself is off this smaller globe entirely.
-    private var offGlobeExitPoint: CGPoint {
+    var offGlobeExitPoint: CGPoint {
         let bearing = Geo.initialBearing(from: myCity.coordinate, to: partnerCity.coordinate) * .pi / 180
+        let center = offGlobeLayout.globe
         return CGPoint(
-            x: Self.offGlobeCenter.x + Self.offGlobeRadius * sin(bearing),
-            y: Self.offGlobeCenter.y - Self.offGlobeRadius * cos(bearing)
+            x: center.x + Self.offGlobeRadius * sin(bearing),
+            y: center.y - Self.offGlobeRadius * cos(bearing)
         )
     }
 
@@ -262,14 +300,14 @@ struct DistanceShareCard: View {
     /// arced here since the two ends aren't on the same straight line as the globe's center.
     private var offGlobeCurve: some View {
         let exit = offGlobeExitPoint
-        let target = Self.floatingCardCenter
+        let target = offGlobeLayout.card
         let chordMid = CGPoint(x: (exit.x + target.x) / 2, y: (exit.y + target.y) / 2)
         let dx = target.x - exit.x, dy = target.y - exit.y
         let length = (dx * dx + dy * dy).squareRoot()
         let normal = length > 0 ? CGPoint(x: -dy / length, y: dx / length) : CGPoint(x: 0, y: -1)
         // Bows toward whichever side is farther from the globe's own center, so the curve
         // reads as arcing away from the sphere rather than doubling back across it.
-        let towardOutside: CGFloat = ((chordMid.x - Self.offGlobeCenter.x) * normal.x + (chordMid.y - Self.offGlobeCenter.y) * normal.y) >= 0 ? 1 : -1
+        let towardOutside: CGFloat = ((chordMid.x - offGlobeLayout.globe.x) * normal.x + (chordMid.y - offGlobeLayout.globe.y) * normal.y) >= 0 ? 1 : -1
         let control = CGPoint(x: chordMid.x + normal.x * length * 0.35 * towardOutside, y: chordMid.y + normal.y * length * 0.35 * towardOutside)
 
         return Path { path in
@@ -294,7 +332,7 @@ struct DistanceShareCard: View {
                 .padding(.vertical, 2)
                 .background(.black.opacity(0.55), in: Capsule())
         }
-        .position(Self.floatingCardCenter)
+        .position(offGlobeLayout.card)
     }
 
     /// Anchored at the avatar's own center (not the label below it) so `point` — the real
