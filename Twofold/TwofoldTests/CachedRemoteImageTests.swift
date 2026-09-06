@@ -56,6 +56,26 @@ struct CachedRemoteImageTests {
         #expect(rendersSomething(view))
     }
 
+    /// Saving a drawing uploads new bytes to the SAME storage path and returns a re-signed url.
+    /// The view has to notice that. Keyed on the path — which was tried, to avoid re-signing
+    /// restarting an in-flight download — the id does not change, the fetch never re-runs, and the
+    /// Home card keeps showing the previous drawing while opening the pad shows the new one.
+    ///
+    /// Asserted on the id rather than by driving a fetch, because the id is the whole mechanism:
+    /// two urls for the same image must be different ids, or nothing re-loads.
+    @Test("a re-signed url is a different identity, so saving reloads the preview")
+    func reSignedURLChangesIdentity() throws {
+        let path = "/storage/v1/object/sign/drawing-pads/couple/me/pad.png"
+        let before = try #require(URL(string: "https://x.supabase.co\(path)?token=first"))
+        let after = try #require(URL(string: "https://x.supabase.co\(path)?token=second"))
+
+        #expect(before != after, "the two signings must not compare equal — that is the reload trigger")
+        #expect(
+            before.path == after.path,
+            "and they share a path, which is why keying on the path silently stops reloading"
+        )
+    }
+
     /// The base must not push callers around — it sits inside a fixed-height pad preview.
     @Test("the placeholder decides the size, not the base")
     func baseDoesNotDominateLayout() {

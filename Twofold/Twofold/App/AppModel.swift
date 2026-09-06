@@ -1195,6 +1195,13 @@ final class AppModel {
     func saveMyDrawing(imageData: Data) async {
         guard let backendCoupleID else { return }
         let uploadedURL = try? await BackendService.uploadDrawingPad(coupleID: backendCoupleID, personID: currentUser.id, imageData: imageData)
+        if let uploadedURL {
+            // We already hold the bytes that were just uploaded, so put them in the disk cache
+            // rather than making the next reader download what we just sent. This also keeps the
+            // offline copy correct: without it, a save followed by going offline would show the
+            // *previous* drawing back again, since that is what was still cached under this path.
+            RemoteImageDiskCache.store(imageData, for: uploadedURL)
+        }
         myDrawingURL = uploadedURL
         if uploadedURL != nil {
             Analytics.capture(Analytics.Event.doodleSave)

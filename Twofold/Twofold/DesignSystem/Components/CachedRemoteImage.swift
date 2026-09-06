@@ -43,11 +43,21 @@ struct CachedRemoteImage<Content: View, Placeholder: View>: View {
                 placeholder()
             }
         }
-        // Keyed on the storage path, not the whole URL, for the same reason the disk cache is:
-        // the signature is re-minted on every refresh. `loadDrawingPads()` runs several times a
-        // launch and hands back a *different* URL for the same image each time, and keying on that
-        // restarted this task — cancelling the download in flight — every single time.
-        .task(id: url?.path) {
+        // Keyed on the WHOLE url, signature included — not on the storage path.
+        //
+        // Path-keying was tried and is wrong, because a path is the image's *name*, not its
+        // contents. Saving a drawing uploads new bytes to the same path and hands back a re-signed
+        // url; keyed on the path, the id does not change, this never re-runs, and the view keeps
+        // showing the image it already loaded. That is exactly what it did: the Home card stayed on
+        // the old drawing while opening the pad — a fresh view with fresh state — showed the new
+        // one.
+        //
+        // The reason path-keying was reached for is real but smaller: `loadDrawingPads()` re-signs
+        // on every refresh, so this restarts and cancels an in-flight download. That is wasted
+        // bandwidth, not a failure — the last task still completes, which was measured at the time.
+        // Re-fetching after a re-sign is also what picks up the partner's new drawing at all.
+        // Wasteful and correct beats cheap and stale.
+        .task(id: url) {
             guard let url else { return }
             // The cached copy is already on screen by now, so this is a refresh rather than a
             // load — a failure leaves what's showing alone instead of blanking it.
