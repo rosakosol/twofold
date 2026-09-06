@@ -69,7 +69,11 @@ struct MemoriesMapView: View {
                     // title says which memory this is.
                     Annotation(pinTitle(for: city), coordinate: city.coordinate) {
                         Button {
-                            sheetDetent = Self.peekDetent
+                            // Opens at peek when nothing is open. Deliberately leaves the height
+                            // alone when a panel is already up: tapping a second pin swaps which
+                            // place is being shown, and shoving the panel back down to peek would
+                            // undo a person's own scroll position for no reason.
+                            if selectedCity == nil { sheetDetent = Self.peekDetent }
                             selectedCity = city
                         } label: {
                             memoryPin(for: city)
@@ -130,12 +134,22 @@ struct MemoriesMapView: View {
                 }
             }
         }
-        .sheet(item: $selectedCity) { city in
-            NavigationStack {
-                // Previously left at its default no-op closure — tapping this location's own
-                // "Add your first memory" empty-state hint did nothing at all, since only
-                // MemoriesView's tab-mode instantiation ever wired onTapAddMemory through.
-                MemoriesListView(initialLocationFilter: city, onTapAddMemory: { addMemoryPlace = city })
+        // `isPresented`, not `item`. With `sheet(item:)`, changing the item tears the sheet down
+        // and presents a new one — measured: the presented view controller is a different instance
+        // afterwards. So tapping a second pin while the first one's panel was open dismissed it and
+        // slid a whole new panel up, which reads as being taken somewhere rather than as the panel
+        // switching. Bound to whether a city is selected instead, the sheet stays put and only its
+        // contents change.
+        .sheet(isPresented: Binding(get: { selectedCity != nil }, set: { if !$0 { selectedCity = nil } })) {
+            Group {
+                if let city = selectedCity {
+                    NavigationStack {
+                        // Previously left at its default no-op closure — tapping this location's own
+                        // "Add your first memory" empty-state hint did nothing at all, since only
+                        // MemoriesView's tab-mode instantiation ever wired onTapAddMemory through.
+                        MemoriesListView(initialLocationFilter: city, onTapAddMemory: { addMemoryPlace = city })
+                    }
+                }
             }
             .simultaneousGesture(
                 TapGesture().onEnded {
