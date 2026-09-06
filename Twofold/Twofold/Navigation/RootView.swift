@@ -33,6 +33,8 @@ struct RootView: View {
     /// it's an orientation, not an alarm to re-raise every time the signal drops in a tunnel.
     @State private var showingOfflineNotice = false
     @State private var hasShownOfflineNotice = false
+    /// Pending "you've gone offline" announcement, held so a brief blip can cancel it.
+    @State private var offlineNoticeTask: Task<Void, Never>?
     private var network = NetworkMonitor.shared
     /// Where a tapped notification wants to go, held until this view can actually get there — see
     /// `consumePendingRoute()` and `NotificationRouter`.
@@ -152,11 +154,40 @@ struct RootView: View {
             hasShownOfflineNotice = true
             showingOfflineNotice = true
         }
-        // Back online without being reopened. Everything the app couldn't fetch while offline is
-        // pulled now, and anything queued while offline is flushed — the app used to sit on
-        // whatever it had until it was force-quit and relaunched.
+        // Connectivity changing while the app is already open, in both directions. Neither used to
+        // be handled: the notice fired once at launch and never again, so turning on airplane mode
+        // mid-session left the app looking exactly as it had a moment earlier — right up until
+        // something it needed silently failed.
+        //
+        // Everything that reads data already re-checks `NetworkMonitor` at call time and falls back
+        // to its cache, and `isConnected` is observable so views following it re-render on their
+        // own. What was missing is telling the person, and re-arming so a *later* drop is announced
+        // too.
         .onChange(of: network.isConnected) { wasConnected, isConnected in
-            guard !wasConnected, isConnected, appModel.hasCouple else { return }
+            guard wasConnected != isConnected else { return }
+
+            offlineNoticeTask?.cancel()
+
+            if !isConnected {
+                // Deliberately delayed. NWPathMonitor reports a handover, a tunnel or a lift as a
+                // genuine drop, and a sheet appearing for a two-second blip is worse than saying
+                // nothing — it interrupts whatever the person was doing to report a problem that
+                // has already fixed itself.
+                offlineNoticeTask = Task {
+                    try? await Task.sleep(for: .seconds(2))
+                    guard !Task.isCancelled, !network.isConnected,
+                          appModel.hasCouple, !hasShownOfflineNotice else { return }
+                    hasShownOfflineNotice = true
+                    showingOfflineNotice = true
+                }
+                return
+            }
+
+            // Re-armed on the way back up, so a second trip through a tunnel is announced rather
+            // than passing in silence.
+            hasShownOfflineNotice = false
+
+            guard appModel.hasCouple else { return }
             Task {
                 await appModel.refreshCoupleStateIfNeeded()
                 // Before `refreshAll`, which reloads the deck list: a deck played offline only

@@ -42,6 +42,22 @@ final class NetworkMonitor {
             isExpensive = false
             return
         }
+        // Drops connectivity a few seconds after launch, so the ONLINE -> OFFLINE transition can be
+        // exercised. `TWOFOLD_FORCE_OFFLINE` only covers starting offline, and the interesting
+        // behaviour — noticing mid-session and switching over — needs a real edge to fire on.
+        // Toggling the Mac's Wi-Fi is the alternative, and that disconnects the simulator, the test
+        // runner and everything else along with it.
+        if let delay = ProcessInfo.processInfo.environment["TWOFOLD_GO_OFFLINE_AFTER"].flatMap(Double.init) {
+            monitor.pathUpdateHandler = { [weak self] path in
+                let expensive = path.isExpensive
+                DispatchQueue.main.async { self?.isExpensive = expensive }
+            }
+            monitor.start(queue: queue)
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                self?.isConnected = false
+            }
+            return
+        }
         #endif
         monitor.pathUpdateHandler = { [weak self] path in
             let connected = path.status == .satisfied
