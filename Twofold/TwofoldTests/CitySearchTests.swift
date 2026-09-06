@@ -74,15 +74,23 @@ struct CitySearchTests {
         #expect(!widened.isEmpty)
     }
 
-    /// And that widening it did not turn the city picker into a street picker. These are ordinary
-    /// localities and must be unaffected — if `.administrativeArea` started pulling in prefectures
-    /// and states for every query, the picker would fill with things that are not cities.
+    /// And that widening it did not demote ordinary cities. The risk in admitting administrative
+    /// areas is that states, counties and prefectures crowd out the city someone actually typed, so
+    /// what matters is that each of these still comes back and still comes back first.
+    ///
+    /// Deliberately not asserted on result *counts*. MapKit is a live service and the number it
+    /// returns for a given query moves between runs on its own — "Paris" gave 5 one run and 6 the
+    /// next with no code change between them — so an exact-count assertion fails for reasons that
+    /// have nothing to do with this app.
     @Test("widening the filter leaves ordinary cities alone")
     func ordinaryCitiesAreUnchanged() async {
         for city in ["Paris", "Melbourne", "Kyoto", "Berlin"] {
-            let before = await completions(for: city, filter: MKAddressFilter(including: .locality))
-            let after = await completions(for: city, filter: MKAddressFilter(including: [.locality, .administrativeArea]))
-            #expect(before.count == after.count, "\(city): \(before.count) -> \(after.count)")
+            let results = await completions(for: city, filter: MKAddressFilter(including: [.locality, .administrativeArea]))
+            #expect(!results.isEmpty, "\(city) returned nothing — needs a network")
+            #expect(
+                results.first?.title.localizedCaseInsensitiveContains(city) == true,
+                "\(city) is no longer the top result: \(results.map(\.title).prefix(3))"
+            )
         }
     }
 

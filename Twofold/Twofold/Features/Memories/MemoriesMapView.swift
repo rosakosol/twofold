@@ -23,7 +23,20 @@ struct MemoriesMapView: View {
     /// already uses, just against the real `citiesWithMemories` list instead of mock data.
     @State private var shownCityIDs: Set<UUID> = []
 
-    private static let peekDetent: PresentationDetent = .height(220)
+    // Not private, so SheetDetentWidthTests measures the detents this view actually uses
+    // rather than its own copies of them — a copy would keep passing after a revert here.
+    static let peekDetent: PresentationDetent = .height(220)
+    /// The expanded height, and deliberately not `.large`.
+    ///
+    /// A sheet below full height is drawn as an inset card — 8pt in from each edge, 386pt wide on
+    /// a 402pt screen. `.large` is the one detent that isn't: it goes edge to edge at the full 402.
+    /// So dragging this panel up didn't just make it taller, it made it wider at the same time, and
+    /// the card appeared to grow sideways out of the screen as you pulled it.
+    ///
+    /// A fraction just short of full keeps the card exactly where it was. Measured at 402x874:
+    /// peek sits at x=8 w=386, `.large` at x=0 w=402, and `.fraction(0.98)` at x=8 w=386 — same
+    /// width as the peek, ~823pt tall against `.large`'s 874.
+    static let expandedDetent: PresentationDetent = .fraction(0.98)
 
     /// Centers on the user's own home city when known — same "home city as location" surrogate
     /// the rest of the app already uses for weather/distance, so this needs no fresh location
@@ -45,7 +58,11 @@ struct MemoriesMapView: View {
             // bug. `interactionModes: .all` set explicitly rather than relying on the default.
             Map(initialPosition: .region(initialRegion), interactionModes: .all) {
                 ForEach(appModel.citiesWithMemories) { city in
-                    Annotation(city.city, coordinate: city.coordinate) {
+                    // Labelled with the memory itself rather than the place. The pin already
+                    // shows that memory's photo and sits on the map at its location, so repeating
+                    // the city underneath said nothing the map wasn't already saying — where a
+                    // title says which memory this is.
+                    Annotation(pinTitle(for: city), coordinate: city.coordinate) {
                         Button {
                             sheetDetent = Self.peekDetent
                             selectedCity = city
@@ -95,10 +112,10 @@ struct MemoriesMapView: View {
             }
             .simultaneousGesture(
                 TapGesture().onEnded {
-                    if sheetDetent == Self.peekDetent { sheetDetent = .large }
+                    if sheetDetent == Self.peekDetent { sheetDetent = Self.expandedDetent }
                 }
             )
-            .presentationDetents([Self.peekDetent, .large], selection: $sheetDetent)
+            .presentationDetents([Self.peekDetent, Self.expandedDetent], selection: $sheetDetent)
             .presentationDragIndicator(.visible)
             .presentationBackgroundInteraction(.enabled(upThrough: Self.peekDetent))
         }
@@ -114,6 +131,16 @@ struct MemoriesMapView: View {
     private func memoryPinLabel(for city: Place) -> String {
         let count = appModel.memories(in: city).count
         return "\(city.displayCity), \(count) \(count == 1 ? "memory" : "memories")"
+    }
+
+    /// The label under the pin: the memory whose photo the pin is showing, so the caption and the
+    /// picture are about the same thing. Where a place holds several, the newest one names it and
+    /// the badge on the pin already says how many more there are. Falls back to the place only when
+    /// a memory has no title to show.
+    private func pinTitle(for city: Place) -> String {
+        let newest = appModel.memories(in: city).max { $0.date < $1.date }
+        let title = newest?.title.trimmingCharacters(in: .whitespaces) ?? ""
+        return title.isEmpty ? city.displayCity : title
     }
 
     private func memoryPin(for city: Place) -> some View {

@@ -43,7 +43,6 @@ struct AddMemoryView: View {
     @State private var errorMessage: String?
 
     @State private var showingDatePicker = false
-    @State private var showingTimePicker = false
     @State private var showingLocationSearch = false
     @State private var locationService = HomeLocationService()
     @State private var mapCameraPosition: MapCameraPosition
@@ -168,8 +167,9 @@ struct AddMemoryView: View {
             .sheet(isPresented: $showingLocationSearch) {
                 MemoryLocationSearchView { selected in place = selected }
             }
-            .sheet(isPresented: $showingDatePicker) { datePickerSheet }
-            .sheet(isPresented: $showingTimePicker) { timePickerSheet }
+            .sheet(isPresented: $showingDatePicker) {
+                MemoryDateTimeSheet(date: $date) { showingDatePicker = false }
+            }
         }
         .postHogScreenView("Memories: Add/Edit Memory")
     }
@@ -198,13 +198,23 @@ struct AddMemoryView: View {
 
     private var dateLocationSummary: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(date, format: .dateTime.day().month(.abbreviated).year().hour().minute())
-                .font(.subheadline)
-                .foregroundStyle(Theme.subtleInk)
-            if let place {
-                Text(place.city)
+            Button {
+                showingDatePicker = true
+            } label: {
+                Text(date, format: .dateTime.day().month(.abbreviated).year().hour().minute())
                     .font(.subheadline)
                     .foregroundStyle(Theme.subtleInk)
+            }
+            .buttonStyle(.plain)
+            if let place {
+                Button {
+                    showingLocationSearch = true
+                } label: {
+                    Text(place.city)
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.subtleInk)
+                }
+                .buttonStyle(.plain)
             } else {
                 Button {
                     showingLocationSearch = true
@@ -275,8 +285,10 @@ struct AddMemoryView: View {
             PhotosPicker(selection: $selectedItems, maxSelectionCount: 8, matching: .images) {
                 iconCircle("photo.badge.plus")
             }
+            // One button, not a calendar and a clock. Both opened a picker for half the same
+            // value; `MemoryDateTimeSheet` sets the whole thing in one visit.
             Button { showingDatePicker = true } label: { iconCircle("calendar") }
-            Button { showingTimePicker = true } label: { iconCircle("clock") }
+                .accessibilityLabel("Date and time")
             Button { showingLocationSearch = true } label: {
                 iconCircle(place == nil ? "mappin" : "mappin.circle.fill")
                     .overlay(alignment: .topTrailing) {
@@ -343,70 +355,6 @@ struct AddMemoryView: View {
             .background(Theme.cardBackground, in: Circle())
     }
 
-    private var datePickerSheet: some View {
-        NavigationStack {
-            DatePicker("Date", selection: dateOnlyBinding, in: ...Date.now, displayedComponents: .date)
-                .datePickerStyle(.graphical)
-                .padding()
-                .navigationTitle("When")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Done") { showingDatePicker = false }
-                    }
-                }
-        }
-        .presentationDetents([.medium])
-    }
-
-    private var timePickerSheet: some View {
-        NavigationStack {
-            DatePicker("Time", selection: timeOnlyBinding, displayedComponents: .hourAndMinute)
-                .datePickerStyle(.wheel)
-                .labelsHidden()
-                .padding()
-                .navigationTitle("What time?")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Done") { showingTimePicker = false }
-                    }
-                }
-        }
-        .presentationDetents([.height(300)])
-    }
-
-    /// Writes the picked calendar day into `date` while preserving whatever time-of-day is
-    /// already set (and vice versa for `timeOnlyBinding`) — the two pickers edit the same
-    /// underlying `Date` independently, the way separate date/time icons imply they should.
-    private var dateOnlyBinding: Binding<Date> {
-        Binding(
-            get: { date },
-            set: { newValue in
-                let calendar = Calendar.current
-                let time = calendar.dateComponents([.hour, .minute], from: date)
-                var components = calendar.dateComponents([.year, .month, .day], from: newValue)
-                components.hour = time.hour
-                components.minute = time.minute
-                date = calendar.date(from: components) ?? newValue
-            }
-        )
-    }
-
-    private var timeOnlyBinding: Binding<Date> {
-        Binding(
-            get: { date },
-            set: { newValue in
-                let calendar = Calendar.current
-                let time = calendar.dateComponents([.hour, .minute], from: newValue)
-                var components = calendar.dateComponents([.year, .month, .day], from: date)
-                components.hour = time.hour
-                components.minute = time.minute
-                date = calendar.date(from: components) ?? newValue
-            }
-        )
-    }
-
     private func removeExistingPhoto(_ photo: MemoryPhoto) {
         existingPhotos.removeAll { $0.id == photo.id }
         guard let existingMemory else { return }
@@ -427,40 +375,17 @@ struct AddMemoryView: View {
     /// (`loadedItemKeys`/`pendingPhotos`/`errorMessage`) touches view state, and only after every
     /// task has finished, same shape as `BackendService`'s photo-signing TaskGroup.
     private func loadNewPhotos(_ items: [PhotosPickerItem]) async {
-        let itemsToLoad = items
-            .map { ($0, $0.itemIdentifier ?? UUID().uuidString) }
-            .filter { !loadedItemKeys.contains($0.1) }
-        guard !itemsToLoad.isEmpty else { return }
+        let toLoad = MemoryPhotoImport.keyed(items).filter { !loadedItemKeys.contains($0.key) }
+        guard !toLoad.isEmpty else { return }
 
-        let results = await withTaskGroup(of: (String, PendingPhoto?).self) { group in
-            for (item, key) in itemsToLoad {
-                group.addTask {
-                    guard let data = try? await item.loadTransferable(type: Data.self),
-                          let uiImage = UIImage(data: data) else { return (key, nil) }
-                    let resized = uiImage.resized(maxDimension: 1600)
-                    guard let jpeg = resized.jpegData(compressionQuality: 0.8) else { return (key, nil) }
-                    return (key, PendingPhoto(image: Image(uiImage: resized), data: jpeg))
-                }
-            }
-            var collected: [(String, PendingPhoto?)] = []
-            for await result in group { collected.append(result) }
-            return collected
+        let (loaded, failedCount) = await MemoryPhotoImport.load(toLoad)
+        for photo in loaded {
+            loadedItemKeys.insert(photo.key)
+            pendingPhotos.append(PendingPhoto(image: Image(uiImage: photo.image), data: photo.data))
         }
-
-        var failedCount = 0
-        for (key, pending) in results {
-            if let pending {
-                loadedItemKeys.insert(key)
-                pendingPhotos.append(pending)
-            } else {
-                failedCount += 1
-            }
-        }
-        if failedCount > 0 {
-            errorMessage = failedCount == 1
-                ? "Couldn't load that photo — try selecting it again."
-                : "Couldn't load \(failedCount) of those photos — try selecting them again."
-        }
+        // A failed item deliberately isn't recorded in `loadedItemKeys`, so it gets another go the
+        // next time this runs rather than being dropped for good.
+        errorMessage = MemoryPhotoImport.failureMessage(count: failedCount) ?? errorMessage
     }
 
     private func save() {
