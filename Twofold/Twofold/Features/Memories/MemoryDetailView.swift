@@ -36,9 +36,15 @@ struct MemoryDetailView: View {
     /// straight through to the store would save on every spin of the wheel.
     @State private var draftDate = Date.now
 
-    @State private var showingPhotoOptions = false
     @State private var showingPhotoPicker = false
+    /// Kept between openings rather than cleared after each one. The system picker shows whatever
+    /// is in this binding as already ticked, so reopening it lands on the photos that were chosen
+    /// and unticking one is how you take it back out — which is the whole point of going straight
+    /// to the gallery instead of asking first.
     @State private var photoSelection: [PhotosPickerItem] = []
+    /// What each picker item turned into, so an item that gets unticked can be matched back to the
+    /// photo it became and removed.
+    @State private var photosByPickerItem: [PhotosPickerItem: MemoryPhoto.ID] = [:]
     @State private var isAddingPhotos = false
     /// Which page of the carousel is showing, so "Remove this photo" removes the one being looked
     /// at rather than always the first.
@@ -111,13 +117,6 @@ struct MemoryDetailView: View {
                     }
                     Button("Cancel", role: .cancel) {}
                 }
-                .confirmationDialog("Photos", isPresented: $showingPhotoOptions, titleVisibility: .hidden) {
-                    Button("Add photos") { showingPhotoPicker = true }
-                    if !memory.photos.isEmpty {
-                        Button("Remove this photo", role: .destructive) { removeVisiblePhoto(from: memory) }
-                    }
-                    Button("Cancel", role: .cancel) {}
-                }
                 .photosPicker(isPresented: $showingPhotoPicker, selection: $photoSelection, maxSelectionCount: 8, matching: .images)
                 .sheet(isPresented: $showingEdit) {
                     AddMemoryView(existingMemory: memory)
@@ -134,7 +133,7 @@ struct MemoryDetailView: View {
                     }
                 }
                 .onChange(of: photoSelection) { _, newItems in
-                    Task { await addPhotos(newItems, to: memory) }
+                    Task { await syncPhotos(with: newItems, for: memory) }
                 }
             }
         }
@@ -235,17 +234,40 @@ struct MemoryDetailView: View {
 
     // MARK: - Photos
 
-    private func addPhotos(_ items: [PhotosPickerItem], to memory: Memory) async {
-        guard !items.isEmpty else { return }
+    /// Applies the picker's selection as a whole: anything newly ticked is added, anything unticked
+    /// that this screen put there is removed.
+    ///
+    /// The one thing iOS will not do is show a photo that is already on the memory as ticked when
+    /// it did not come from this device in this session — an uploaded photo is no longer a library
+    /// item as far as the picker is concerned, and a photo a partner added never was one here. So
+    /// those stay removable by holding the photo itself, further down.
+    private func syncPhotos(with items: [PhotosPickerItem], for memory: Memory) async {
+        let removed = photosByPickerItem.keys.filter { !items.contains($0) }
+        for item in removed {
+            if let photoID = photosByPickerItem[item], let photo = memory.photos.first(where: { $0.id == photoID }) {
+                await appModel.removePhoto(photo, from: memory)
+            }
+            photosByPickerItem.removeValue(forKey: item)
+        }
+
+        let added = items.filter { photosByPickerItem[$0] == nil }
+        guard !added.isEmpty else { return }
+
         isAddingPhotos = true
         errorMessage = nil
-        let (loaded, failedCount) = await MemoryPhotoImport.load(MemoryPhotoImport.keyed(items))
+        let (loaded, failedCount) = await MemoryPhotoImport.load(MemoryPhotoImport.keyed(added))
         if !loaded.isEmpty, let current = self.memory {
+            let before = Set(current.photos.map(\.id))
             await appModel.updateMemory(current, newImagesData: loaded.map(\.data))
+            // Pair each picked item with the photo it became, so unticking it later knows what to
+            // take out. Matched by what is new rather than by index, since an upload can fail and
+            // the counts would stop lining up.
+            let after = self.memory?.photos.filter { !before.contains($0.id) } ?? []
+            for (item, photo) in zip(added, after) {
+                photosByPickerItem[item] = photo.id
+            }
         }
         errorMessage = MemoryPhotoImport.failureMessage(count: failedCount)
-        // Cleared so picking the same photo again still registers as a change.
-        photoSelection = []
         isAddingPhotos = false
     }
 
@@ -290,12 +312,31 @@ struct MemoryDetailView: View {
         // than floating beside a tilted card. Outside the rotation it would drift away from the
         // edge it is supposed to belong to.
         .overlay(alignment: .bottomTrailing) { photoEditButton }
+        // Hold to take a photo out. The gallery is where adding and removing happen now, but iOS
+        // will only show a photo as already-ticked there if it is still a library item on this
+        // device — which an uploaded photo, or one a partner added, is not. This is how those come
+        // off. A context menu rather than a permanent × so the photo stays a photo.
+        .contextMenu {
+            if !memory.photos.isEmpty {
+                Button(role: .destructive) {
+                    removeVisiblePhoto(from: memory)
+                } label: {
+                    Label("Remove this photo", systemImage: "trash")
+                }
+            }
+        }
+        // Room for the parts that sit outside the card's own bounds. Tilting it pushes its corners
+        // past the edges of the space it was laid out in, and the button is deliberately offset
+        // past the bottom-right one — so without this the card's corners and half the button were
+        // cut off against the sides of the screen.
+        .padding(.horizontal, Theme.Spacing.lg)
+        .padding(.bottom, Theme.Spacing.md)
         .accessibilityElement(children: .contain)
     }
 
     private var photoEditButton: some View {
         Button {
-            showingPhotoOptions = true
+            showingPhotoPicker = true
         } label: {
             Group {
                 if isAddingPhotos {
