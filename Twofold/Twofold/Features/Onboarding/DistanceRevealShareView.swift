@@ -23,6 +23,7 @@ struct DistanceRevealShareView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.displayScale) private var displayScale
+    @Environment(\.colorScheme) private var colorScheme
     @State private var mapSnapshot: MKMapSnapshotter.Snapshot?
 
     var body: some View {
@@ -91,7 +92,9 @@ struct DistanceRevealShareView: View {
         // Fixed width regardless of the device's actual screen width — the on-screen preview is
         // responsive, but the exported PNG should always come out the same deliberate size.
         // Matches `DistanceSnapshotCard`'s own outer frame width.
-        let renderer = ImageRenderer(content: view.frame(width: 340))
+        // Handed the scheme explicitly for the same reason as the other share screens — see
+        // GameResultsShareView's note.
+        let renderer = ImageRenderer(content: view.frame(width: 340).environment(\.colorScheme, colorScheme))
         renderer.scale = displayScale
         return renderer.uiImage
     }

@@ -19,6 +19,7 @@ struct FlightShareView: View {
     @Environment(AppModel.self) private var appModel
     @Environment(\.dismiss) private var dismiss
     @Environment(\.displayScale) private var displayScale
+    @Environment(\.colorScheme) private var colorScheme
 
     @State private var page = 0
     @State private var stickerStyle: FlightStickerStyle = .light
@@ -159,7 +160,11 @@ struct FlightShareView: View {
 
     @MainActor
     private func renderImage<V: View>(_ view: V) -> UIImage? {
-        let renderer = ImageRenderer(content: view)
+        // See GameResultsShareView's own note: the renderer builds a fresh environment and
+        // defaults to light, so the scheme has to be handed in explicitly. These cards carry fixed
+        // palettes today and so do not read it, but they sit alongside ones that do and there is
+        // nothing to stop one of them starting to.
+        let renderer = ImageRenderer(content: view.environment(\.colorScheme, colorScheme))
         renderer.scale = displayScale
         return renderer.uiImage
     }

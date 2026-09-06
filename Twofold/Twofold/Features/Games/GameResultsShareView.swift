@@ -11,6 +11,7 @@ struct GameResultsShareView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.displayScale) private var displayScale
+    @Environment(\.colorScheme) private var colorScheme
     @State private var page = 0
     @State private var activeTab: Tab = .result
     /// Which entry in `data.deepConversationRounds` is currently featured on the share cards —
@@ -295,7 +296,18 @@ struct GameResultsShareView: View {
     private func renderImage<V: View>(_ view: V) -> UIImage? {
         // Fixed width regardless of the device's actual screen width — the on-screen preview is
         // responsive, but the exported PNG should always come out the same deliberate size.
-        let renderer = ImageRenderer(content: view.frame(width: 360))
+        // `.environment(\.colorScheme,)`, not `.preferredColorScheme`.
+        //
+        // `ImageRenderer` renders into a fresh environment rather than inheriting the one this view
+        // is living in, and an unset `colorScheme` defaults to light — so a card that picks its
+        // palette from the environment came out light no matter what the phone was set to, while
+        // the preview right above it, being a real view in the hierarchy, was correctly dark.
+        //
+        // Measured, because the obvious fix is the wrong one: rendering the same probe view four
+        // ways, plain gives light, `.preferredColorScheme(.dark)` *also* gives light (it is a
+        // presentation-level modifier and the renderer ignores it), and only
+        // `.environment(\.colorScheme, .dark)` actually reaches the view.
+        let renderer = ImageRenderer(content: view.frame(width: 360).environment(\.colorScheme, colorScheme))
         renderer.scale = displayScale
         return renderer.uiImage
     }
