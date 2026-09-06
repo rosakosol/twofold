@@ -26,6 +26,15 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import OpenAI from "openai";
 import { enforceRateLimit } from "../_shared/rate-limit.ts";
+import {
+  buildPrimaryText,
+  EXTRACTION_SCHEMA,
+  type ExtractedFlight,
+  fieldSizeError,
+  hasContent,
+  MAX_REQUEST_BYTES,
+  needsPdfFallback,
+} from "./extraction.ts";
 
 const openai = new OpenAI({ apiKey: Deno.env.get("OPENAI_API_KEY") });
 
@@ -47,66 +56,7 @@ const MODEL = "gpt-5.4-mini";
 // Neither one bounds the bill on its own.
 const RATE_LIMIT = { bucket: "parse-flight-email", limit: 10, window: "1 hour" };
 
-// Cap the fields that are forwarded to OpenAI, since every character of them is billed to us and
-// nothing upstream bounded them. Both numbers come from measuring the real emails in `itineraries/`
-// rather than from taste:
-//   * bodies of 28,418 and 21,376 characters (Jetstar and Cathay confirmations, text/plain)
-//   * PDF text of 26,460 characters (a multi-passenger e-ticket, via pdftotext)
-//   * subjects of 88 and 32 characters
-// So 64,000 is a bit over twice the largest genuine body seen, and any email that exceeds it is not
-// a flight confirmation. 1,000 for the subject is already past what RFC 5322 will carry on one
-// line (998 octets) — a subject longer than that is a payload, not a subject.
-//
-// Rejected rather than truncated: truncation would silently hand OpenAI a half-itinerary and return
-// a confidently wrong flight, which is worse than an error the share sheet can report.
-const MAX_SUBJECT_CHARS = 1_000;
-const MAX_TEXT_CHARS = 64_000;
-
-// Checked from `Content-Length` before the body is read at all, so a multi-megabyte post is refused
-// without ever being buffered into the isolate's memory — the per-field caps above can only run
-// after `req.json()` has already paid for the whole thing. Generous against the field caps
-// (2 x 64k characters) because JSON escaping and multi-byte UTF-8 both inflate bytes per character;
-// it is a backstop on memory, not a second content limit.
-const MAX_REQUEST_BYTES = 512 * 1024;
-
-const EXTRACTION_SCHEMA = {
-  type: "object",
-  properties: {
-    flightNumber: {
-      type: ["string", "null"],
-      description: "e.g. QF35. Null if not confidently present.",
-    },
-    originCity: { type: ["string", "null"] },
-    originCountry: { type: ["string", "null"] },
-    originIata: {
-      type: ["string", "null"],
-      description: "3-letter IATA airport code, e.g. SIN",
-    },
-    scheduledDepartureLocalDateTime: {
-      type: ["string", "null"],
-      description:
-        "ISO 8601 local date-time exactly as stated in the email, no timezone conversion, e.g. 2026-09-14T10:20:00",
-    },
-    destinationCity: { type: ["string", "null"] },
-    destinationCountry: { type: ["string", "null"] },
-    destinationIata: { type: ["string", "null"] },
-    scheduledArrivalLocalDateTime: { type: ["string", "null"] },
-  },
-  required: [
-    "flightNumber",
-    "originCity",
-    "originCountry",
-    "originIata",
-    "scheduledDepartureLocalDateTime",
-    "destinationCity",
-    "destinationCountry",
-    "destinationIata",
-    "scheduledArrivalLocalDateTime",
-  ],
-  additionalProperties: false,
-};
-
-async function extractFlight(text: string) {
+async function extractFlight(text: string): Promise<ExtractedFlight> {
   const response = await openai.responses.create({
     model: MODEL,
     input: [
@@ -138,10 +88,6 @@ async function extractFlight(text: string) {
   // json_schema format above means the model's output conforms to EXTRACTION_SCHEMA or the request
   // fails outright.
   return JSON.parse(response.output_text);
-}
-
-function hasContent(value: unknown): value is string {
-  return typeof value === "string" && value.trim().length > 0;
 }
 
 Deno.serve(async (req) => {
@@ -180,32 +126,21 @@ Deno.serve(async (req) => {
 
   // Every one of these returns before the first OpenAI call — the whole point is to not pay for
   // the request, so an oversized field must never reach `extractFlight`.
-  if (typeof subject === "string" && subject.length > MAX_SUBJECT_CHARS) {
-    return Response.json({ error: `'subject' must be ${MAX_SUBJECT_CHARS} characters or fewer` }, { status: 400 });
-  }
-  if (typeof body === "string" && body.length > MAX_TEXT_CHARS) {
-    return Response.json({ error: `'body' must be ${MAX_TEXT_CHARS} characters or fewer` }, { status: 400 });
-  }
-  if (typeof pdfText === "string" && pdfText.length > MAX_TEXT_CHARS) {
-    return Response.json({ error: `'pdfText' must be ${MAX_TEXT_CHARS} characters or fewer` }, { status: 400 });
-  }
+  const sizeError = fieldSizeError(subject, body, pdfText);
+  if (sizeError) return Response.json({ error: sizeError }, { status: 400 });
 
-  const primarySections = [
-    hasContent(subject) ? `Subject: ${subject.trim()}` : null,
-    hasContent(body) ? `Body:\n${body.trim()}` : null,
-  ].filter((section): section is string => section !== null);
-  const primaryText = primarySections.join("\n\n");
+  const primaryText = buildPrimaryText(subject, body);
 
   if (primaryText.length === 0 && !hasContent(pdfText)) {
     return Response.json({ error: "Missing 'subject'/'body'/'pdfText'" }, { status: 400 });
   }
 
-  let parsed = primaryText.length > 0 ? await extractFlight(primaryText) : null;
+  let parsed: ExtractedFlight | null = primaryText.length > 0 ? await extractFlight(primaryText) : null;
 
   // Subject/body didn't yield a usable flight — fall back to text extracted from a PDF
   // attachment (boarding pass, e-ticket), if one was provided.
-  if ((!parsed || !parsed.flightNumber) && hasContent(pdfText)) {
-    parsed = await extractFlight(pdfText.trim());
+  if (needsPdfFallback(parsed, pdfText)) {
+    parsed = await extractFlight((pdfText as string).trim());
   }
 
   return Response.json(parsed ?? {});
