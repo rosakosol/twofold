@@ -36,8 +36,7 @@ struct AddMemoryView: View {
     @State private var existingPhotos: [MemoryPhoto]
 
     @State private var pendingPhotos: [PendingPhoto] = []
-    @State private var loadedItemKeys: Set<String> = []
-    @State private var selectedItems: [PhotosPickerItem] = []
+    @State private var showingPhotosSheet = false
 
     @State private var isSaving = false
     @State private var errorMessage: String?
@@ -161,8 +160,23 @@ struct AddMemoryView: View {
                     mapCameraPosition = .region(MKCoordinateRegion(center: newPlace.coordinate, latitudinalMeters: 4000, longitudinalMeters: 4000))
                 }
             }
-            .onChange(of: selectedItems) { _, newItems in
-                Task { await loadNewPhotos(newItems) }
+            .sheet(isPresented: $showingPhotosSheet) {
+                MemoryPhotosSheet(
+                    photos: existingPhotos.map { .uploaded($0) } + pendingPhotos.map { .pending(id: $0.id, image: $0.image) },
+                    isBusy: false,
+                    onAdd: { data in
+                        for imageData in data {
+                            guard let image = UIImage(data: imageData) else { continue }
+                            pendingPhotos.append(PendingPhoto(image: Image(uiImage: image), data: imageData))
+                        }
+                    },
+                    onRemove: { item in
+                        switch item {
+                        case .uploaded(let photo): removeExistingPhoto(photo)
+                        case .pending(let id, _): pendingPhotos.removeAll { $0.id == id }
+                        }
+                    }
+                )
             }
             .sheet(isPresented: $showingLocationSearch) {
                 MemoryLocationSearchView { selected in place = selected }
@@ -242,7 +256,9 @@ struct AddMemoryView: View {
             HStack(spacing: Theme.Spacing.sm) {
                 ForEach(existingPhotos) { photo in
                     ZStack(alignment: .topTrailing) {
-                        ExistingPhotoThumbnail(photo: photo)
+                        MemoryPhotoThumbnail(photo: photo)
+                            .frame(width: 72, height: 72)
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                         removeButton { removeExistingPhoto(photo) }
                     }
                 }
@@ -282,9 +298,11 @@ struct AddMemoryView: View {
 
     private var bottomBar: some View {
         HStack(spacing: Theme.Spacing.sm) {
-            PhotosPicker(selection: $selectedItems, maxSelectionCount: 8, matching: .images) {
-                iconCircle("photo.badge.plus")
-            }
+            // Opens `MemoryPhotosSheet` rather than the system picker directly. The system picker
+            // can only tick a photo that is still in this device's library, so it can never offer
+            // to remove one a partner added — see that type's own comment.
+            Button { showingPhotosSheet = true } label: { iconCircle("photo.badge.plus") }
+                .accessibilityLabel("Photos")
             // One button, not a calendar and a clock. Both opened a picker for half the same
             // value; `MemoryDateTimeSheet` sets the whole thing in one visit.
             Button { showingDatePicker = true } label: { iconCircle("calendar") }
@@ -361,33 +379,6 @@ struct AddMemoryView: View {
         Task { await appModel.removePhoto(photo, from: existingMemory) }
     }
 
-    /// `loadTransferable` is known to fail intermittently — most visibly in the Simulator, where
-    /// PHPickerViewController's out-of-process data handoff for seeded library assets frequently
-    /// times out. A failed item deliberately isn't added to `loadedItemKeys`, so it gets another
-    /// attempt the next time this runs (e.g. picking one more photo re-fires `onChange` with the
-    /// whole selection) instead of being silently dropped forever with no way to retry it short
-    /// of restarting the picker from scratch.
-    ///
-    /// Every item's load + decode + downscale + JPEG-encode runs concurrently via a `TaskGroup` —
-    /// this used to be a plain sequential loop, so picking the full 8-photo selection meant eight
-    /// full decode/resize/encode passes back to back (each one a real CPU cost on a full-resolution
-    /// source photo) before the last thumbnail ever appeared. Only the final bookkeeping
-    /// (`loadedItemKeys`/`pendingPhotos`/`errorMessage`) touches view state, and only after every
-    /// task has finished, same shape as `BackendService`'s photo-signing TaskGroup.
-    private func loadNewPhotos(_ items: [PhotosPickerItem]) async {
-        let toLoad = MemoryPhotoImport.keyed(items).filter { !loadedItemKeys.contains($0.key) }
-        guard !toLoad.isEmpty else { return }
-
-        let (loaded, failedCount) = await MemoryPhotoImport.load(toLoad)
-        for photo in loaded {
-            loadedItemKeys.insert(photo.key)
-            pendingPhotos.append(PendingPhoto(image: Image(uiImage: photo.image), data: photo.data))
-        }
-        // A failed item deliberately isn't recorded in `loadedItemKeys`, so it gets another go the
-        // next time this runs rather than being dropped for good.
-        errorMessage = MemoryPhotoImport.failureMessage(count: failedCount) ?? errorMessage
-    }
-
     private func save() {
         isSaving = true
         errorMessage = nil
@@ -418,43 +409,6 @@ struct AddMemoryView: View {
             onSaved?()
             dismiss()
         }
-    }
-}
-
-/// An already-uploaded photo's thumbnail (as opposed to a `pendingPhotos` entry, which is backed
-/// by local `Data` and needs no loading at all). Shares `MemoryPhotoView`'s path-keyed
-/// `MemoryPhotoImageCache` rather than plain `AsyncImage`, so re-opening this sheet for the same
-/// memory — or the same photo appearing again in the Memories list/Relationship Stats snapshot —
-/// resolves instantly from cache instead of re-downloading.
-private struct ExistingPhotoThumbnail: View {
-    let photo: MemoryPhoto
-
-    @State private var loadedImage: UIImage?
-
-    private var cacheKey: String { photo.path == "pending" ? photo.url.absoluteString : photo.path }
-    private var resolvedImage: UIImage? { loadedImage ?? MemoryPhotoImageCache.shared.image(for: cacheKey) }
-
-    var body: some View {
-        Group {
-            if let resolvedImage {
-                Image(uiImage: resolvedImage).resizable().scaledToFill()
-            } else {
-                Theme.cardBackground
-                    .task(id: cacheKey) { await load() }
-            }
-        }
-        .frame(width: 72, height: 72)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-    }
-
-    private func load() async {
-        if let cached = MemoryPhotoImageCache.shared.image(for: cacheKey) {
-            loadedImage = cached
-            return
-        }
-        guard let (data, _) = try? await URLSession.shared.data(from: photo.url), let image = UIImage(data: data) else { return }
-        MemoryPhotoImageCache.shared.store(image, for: cacheKey)
-        loadedImage = image
     }
 }
 

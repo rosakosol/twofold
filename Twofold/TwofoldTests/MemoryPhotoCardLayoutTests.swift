@@ -2,9 +2,8 @@
 //  MemoryPhotoCardLayoutTests.swift
 //  TwofoldTests
 //
-//  The memory photo card is tilted, and its edit button deliberately hangs off the bottom-right
-//  corner. Both push drawing outside the rectangle SwiftUI laid the card out in, so a card given
-//  the full screen width has its corners and half its button cut off against the screen edges.
+//  The memory photo card is tilted, which pushes its corners outside the rectangle SwiftUI laid it
+//  out in — so a card given the full screen width has them cut off against the screen edges.
 //
 //  Measured on the rendered layer tree rather than by eye: `presentationPath`-style geometry, where
 //  the frame that matters is the one in the window, not the one in the parent.
@@ -20,8 +19,8 @@ struct MemoryPhotoCardLayoutTests {
 
     private static let screen = CGSize(width: 402, height: 874)
 
-    /// The same composition the detail screen builds: a tilted card with a button hung off one
-    /// corner, inside the horizontal padding under test.
+    /// The same composition the detail screen builds: a tilted card inside the horizontal padding
+    /// under test.
     private struct Card: View {
         let horizontalPadding: CGFloat
         var body: some View {
@@ -30,9 +29,6 @@ struct MemoryPhotoCardLayoutTests {
                 .padding(Theme.Spacing.sm)
                 .background(.white, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .rotationEffect(.degrees(-2))
-                .overlay(alignment: .bottomTrailing) {
-                    Circle().fill(.red).frame(width: 36, height: 36).offset(x: 6, y: 6)
-                }
                 .padding(.horizontal, horizontalPadding)
                 .padding(.bottom, Theme.Spacing.md)
         }
@@ -70,7 +66,7 @@ struct MemoryPhotoCardLayoutTests {
     func cardFitsWithPadding() {
         let (leading, trailing) = touchesEdge(horizontalPadding: Theme.Spacing.lg)
         #expect(!leading, "the card reaches the leading edge and is cut off there")
-        #expect(!trailing, "the card or its button reaches the trailing edge and is cut off there")
+        #expect(!trailing, "the card reaches the trailing edge and is cut off there")
     }
 
     /// The negative control: with no padding it really does overflow, so the test above is
@@ -78,6 +74,6 @@ struct MemoryPhotoCardLayoutTests {
     @Test("with no padding it runs off the edge, which is what was happening")
     func cardOverflowsWithoutPadding() {
         let (leading, trailing) = touchesEdge(horizontalPadding: 0)
-        #expect(leading || trailing, "nothing reached the edge at zero padding — the card no longer tilts, or the button no longer hangs off its corner")
+        #expect(leading || trailing, "nothing reached the edge at zero padding — the card no longer tilts")
     }
 }

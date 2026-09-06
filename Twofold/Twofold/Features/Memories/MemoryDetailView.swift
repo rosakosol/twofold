@@ -37,14 +37,6 @@ struct MemoryDetailView: View {
     @State private var draftDate = Date.now
 
     @State private var showingPhotoPicker = false
-    /// Kept between openings rather than cleared after each one. The system picker shows whatever
-    /// is in this binding as already ticked, so reopening it lands on the photos that were chosen
-    /// and unticking one is how you take it back out — which is the whole point of going straight
-    /// to the gallery instead of asking first.
-    @State private var photoSelection: [PhotosPickerItem] = []
-    /// What each picker item turned into, so an item that gets unticked can be matched back to the
-    /// photo it became and removed.
-    @State private var photosByPickerItem: [PhotosPickerItem: MemoryPhoto.ID] = [:]
     @State private var isAddingPhotos = false
     /// Which page of the carousel is showing, so "Remove this photo" removes the one being looked
     /// at rather than always the first.
@@ -117,7 +109,21 @@ struct MemoryDetailView: View {
                     }
                     Button("Cancel", role: .cancel) {}
                 }
-                .photosPicker(isPresented: $showingPhotoPicker, selection: $photoSelection, maxSelectionCount: 8, matching: .images)
+                .sheet(isPresented: $showingPhotoPicker) {
+                    MemoryPhotosSheet(
+                        photos: memory.photos.map { .uploaded($0) },
+                        isBusy: isAddingPhotos,
+                        onAdd: { data in await addPhotos(data) },
+                        onRemove: { item in
+                            if case .uploaded(let photo) = item {
+                                // Step the carousel back first, or removing the page being looked
+                                // at leaves it on an index that no longer exists.
+                                visiblePhotoIndex = max(0, min(visiblePhotoIndex, memory.photos.count - 2))
+                                Task { await appModel.removePhoto(photo, from: memory) }
+                            }
+                        }
+                    )
+                }
                 .sheet(isPresented: $showingEdit) {
                     AddMemoryView(existingMemory: memory)
                 }
@@ -131,9 +137,6 @@ struct MemoryDetailView: View {
                         showingDatePicker = false
                         apply { $0.date = draftDate }
                     }
-                }
-                .onChange(of: photoSelection) { _, newItems in
-                    Task { await syncPhotos(with: newItems, for: memory) }
                 }
             }
         }
@@ -234,50 +237,12 @@ struct MemoryDetailView: View {
 
     // MARK: - Photos
 
-    /// Applies the picker's selection as a whole: anything newly ticked is added, anything unticked
-    /// that this screen put there is removed.
-    ///
-    /// The one thing iOS will not do is show a photo that is already on the memory as ticked when
-    /// it did not come from this device in this session — an uploaded photo is no longer a library
-    /// item as far as the picker is concerned, and a photo a partner added never was one here. So
-    /// those stay removable by holding the photo itself, further down.
-    private func syncPhotos(with items: [PhotosPickerItem], for memory: Memory) async {
-        let removed = photosByPickerItem.keys.filter { !items.contains($0) }
-        for item in removed {
-            if let photoID = photosByPickerItem[item], let photo = memory.photos.first(where: { $0.id == photoID }) {
-                await appModel.removePhoto(photo, from: memory)
-            }
-            photosByPickerItem.removeValue(forKey: item)
-        }
-
-        let added = items.filter { photosByPickerItem[$0] == nil }
-        guard !added.isEmpty else { return }
-
+    private func addPhotos(_ imagesData: [Data]) async {
+        guard !imagesData.isEmpty, let current = memory else { return }
         isAddingPhotos = true
         errorMessage = nil
-        let (loaded, failedCount) = await MemoryPhotoImport.load(MemoryPhotoImport.keyed(added))
-        if !loaded.isEmpty, let current = self.memory {
-            let before = Set(current.photos.map(\.id))
-            await appModel.updateMemory(current, newImagesData: loaded.map(\.data))
-            // Pair each picked item with the photo it became, so unticking it later knows what to
-            // take out. Matched by what is new rather than by index, since an upload can fail and
-            // the counts would stop lining up.
-            let after = self.memory?.photos.filter { !before.contains($0.id) } ?? []
-            for (item, photo) in zip(added, after) {
-                photosByPickerItem[item] = photo.id
-            }
-        }
-        errorMessage = MemoryPhotoImport.failureMessage(count: failedCount)
+        await appModel.updateMemory(current, newImagesData: imagesData)
         isAddingPhotos = false
-    }
-
-    private func removeVisiblePhoto(from memory: Memory) {
-        guard memory.photos.indices.contains(visiblePhotoIndex) else { return }
-        let photo = memory.photos[visiblePhotoIndex]
-        // Step back first, or removing the last page leaves the carousel on an index that no
-        // longer exists and it renders blank.
-        visiblePhotoIndex = max(0, visiblePhotoIndex - 1)
-        Task { await appModel.removePhoto(photo, from: memory) }
     }
 
     @ViewBuilder
@@ -308,56 +273,35 @@ struct MemoryDetailView: View {
         .background(.white, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .shadow(color: .black.opacity(0.15), radius: 12, y: 6)
         .rotationEffect(.degrees(-2))
-        // Sits on the corner of the photo card and turns with it, so it stays on the corner rather
-        // than floating beside a tilted card. Outside the rotation it would drift away from the
-        // edge it is supposed to belong to.
-        .overlay(alignment: .bottomTrailing) { photoEditButton }
-        // Hold to take a photo out. The gallery is where adding and removing happen now, but iOS
-        // will only show a photo as already-ticked there if it is still a library item on this
-        // device — which an uploaded photo, or one a partner added, is not. This is how those come
-        // off. A context menu rather than a permanent × so the photo stays a photo.
-        .contextMenu {
-            if !memory.photos.isEmpty {
-                Button(role: .destructive) {
-                    removeVisiblePhoto(from: memory)
-                } label: {
-                    Label("Remove this photo", systemImage: "trash")
-                }
+        // While an upload is going. This used to live inside the edit button, which no longer
+        // exists, and the picker dismisses before the photo appears — so with nothing here at all,
+        // a slow upload looks like a tap that did nothing.
+        .overlay {
+            if isAddingPhotos {
+                ProgressView()
+                    .tint(.white)
+                    .padding(Theme.Spacing.md)
+                    .background(.black.opacity(0.45), in: Circle())
             }
         }
-        // Room for the parts that sit outside the card's own bounds. Tilting it pushes its corners
-        // past the edges of the space it was laid out in, and the button is deliberately offset
-        // past the bottom-right one — so without this the card's corners and half the button were
-        // cut off against the sides of the screen.
+        // The photo *is* the button. `contentShape` because the card is mostly the image's own
+        // clipped shape and its white border, and a tap on the border should count too.
+        //
+        // `simultaneousGesture` rather than `onTapGesture`, so the tap never has to win an argument
+        // with the paging TabView's scroll view underneath it. A page view responds to drags rather
+        // than taps and should not contest this, but an exclusive gesture only has to lose once to
+        // make the photo look unresponsive, and a simultaneous one cannot lose. Swiping between
+        // photos is unaffected either way.
+        .contentShape(Rectangle())
+        .simultaneousGesture(TapGesture().onEnded { showingPhotoPicker = true })
+        // Room for the corners. Tilting the card pushes them past the edges of the space it was
+        // laid out in, so at full screen width they were cut off against the sides.
         .padding(.horizontal, Theme.Spacing.lg)
         .padding(.bottom, Theme.Spacing.md)
-        .accessibilityElement(children: .contain)
-    }
-
-    private var photoEditButton: some View {
-        Button {
-            showingPhotoPicker = true
-        } label: {
-            Group {
-                if isAddingPhotos {
-                    ProgressView().tint(.white)
-                } else {
-                    Image(systemName: "photo.badge.plus")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
-                }
-            }
-            .frame(width: 36, height: 36)
-            .background(Theme.heartRed, in: Circle())
-            .overlay(Circle().strokeBorder(.white, lineWidth: 2))
-            .shadow(color: .black.opacity(0.2), radius: 4, y: 2)
-        }
-        .buttonStyle(.plain)
-        .disabled(isAddingPhotos)
-        // Half off the card's corner, the way the count badge sits on a map pin — on the photo
-        // without covering the part of it worth looking at.
-        .offset(x: 6, y: 6)
-        .accessibilityLabel("Add or remove photos")
+        .accessibilityElement()
+        .accessibilityLabel(memory.photos.isEmpty ? "Add photos" : "Photos. \(memory.photos.count) of them")
+        .accessibilityHint("Tap to add or remove photos")
+        .accessibilityAddTraits(.isButton)
     }
 }
 

@@ -110,3 +110,185 @@ struct MemoryDateTimeSheet: View {
         .presentationDetents([.height(560), .large])
     }
 }
+
+// MARK: - Managing a memory's photos
+
+/// One photo on a memory, wherever it currently lives — already uploaded, or picked a moment ago
+/// and not saved yet.
+enum MemoryPhotoItem: Identifiable {
+    case uploaded(MemoryPhoto)
+    case pending(id: UUID, image: Image)
+
+    var id: String {
+        switch self {
+        case .uploaded(let photo): "uploaded-\(photo.id)"
+        case .pending(let id, _): "pending-\(id)"
+        }
+    }
+}
+
+/// The gallery, with the memory's own photos underneath it.
+///
+/// The system photo picker on its own cannot do this job. It can only show a photo as selected if
+/// that photo is still an item in *this* device's library, so a photo that has been uploaded — or
+/// one a partner added, which was never in this library at all — can never appear ticked there.
+/// Handing someone the system picker to manage a memory's photos therefore leaves them permanently
+/// unable to remove half of them: the ones they did not personally add are simply not in the
+/// picker to untick.
+///
+/// So the two halves are separated. The picker above is only ever for adding, embedded inline
+/// rather than presented, and the strip below is the memory as it actually stands — every photo on
+/// it, whoever added it and wherever it came from, each removable. One list, one meaning, and
+/// nothing that can only be reached by the person who happened to take the picture.
+struct MemoryPhotosSheet: View {
+    let photos: [MemoryPhotoItem]
+    let isBusy: Bool
+    var onAdd: ([Data]) async -> Void
+    var onRemove: (MemoryPhotoItem) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var picked: [PhotosPickerItem] = []
+    @State private var errorMessage: String?
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                PhotosPicker(selection: $picked, maxSelectionCount: 8, matching: .images) {
+                    // Never drawn: an inline picker embeds the library itself and ignores its
+                    // label. Required by the initialiser all the same.
+                    EmptyView()
+                }
+                .photosPickerStyle(.inline)
+                // The picker's own "Done"/"Cancel" bar would be a second, contradictory way out of
+                // a sheet that already has one, and it is not what finishes this job — the strip
+                // below is.
+                .photosPickerAccessoryVisibility(.hidden, edges: .bottom)
+
+                Divider()
+
+                selectedStrip
+                    .background(Theme.cardBackground)
+            }
+            .navigationTitle("Photos")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            .onChange(of: picked) { _, items in
+                Task { await add(items) }
+            }
+        }
+    }
+
+    private var selectedStrip: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+            HStack(spacing: Theme.Spacing.xs) {
+                Text(photos.isEmpty ? "No photos yet" : "On this memory")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Theme.subtleInk)
+                if isBusy {
+                    ProgressView().controlSize(.small)
+                }
+                Spacer(minLength: 0)
+                if let errorMessage {
+                    Text(errorMessage)
+                        .font(.caption2)
+                        .foregroundStyle(Theme.heartRed)
+                        .lineLimit(1)
+                }
+            }
+            .padding(.horizontal, Theme.Spacing.md)
+            .padding(.top, Theme.Spacing.sm)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: Theme.Spacing.sm) {
+                    ForEach(photos) { photo in
+                        thumbnail(photo)
+                    }
+                }
+                .padding(.horizontal, Theme.Spacing.md)
+                .padding(.bottom, Theme.Spacing.sm)
+            }
+            // Holds its height with nothing in it, so removing the last photo doesn't collapse the
+            // strip and jump the picker above it down the screen.
+            .frame(height: 88)
+        }
+    }
+
+    private func thumbnail(_ photo: MemoryPhotoItem) -> some View {
+        ZStack(alignment: .topTrailing) {
+            Group {
+                switch photo {
+                case .uploaded(let uploaded):
+                    MemoryPhotoThumbnail(photo: uploaded)
+                case .pending(_, let image):
+                    image.resizable().scaledToFill()
+                }
+            }
+            .frame(width: 68, height: 68)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+            Button {
+                onRemove(photo)
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .symbolRenderingMode(.palette)
+                    .foregroundStyle(.white, .black.opacity(0.6))
+                    .font(.title3)
+            }
+            // The glyph stays pinned to the corner; only the tappable area grows inward to the
+            // 44pt minimum, rather than the icon itself looking oversized.
+            .frame(width: 44, height: 44, alignment: .topTrailing)
+            .contentShape(Rectangle())
+            .accessibilityLabel("Remove photo")
+        }
+        .frame(width: 68, height: 68, alignment: .topLeading)
+    }
+
+    private func add(_ items: [PhotosPickerItem]) async {
+        guard !items.isEmpty else { return }
+        errorMessage = nil
+        let (loaded, failedCount) = await MemoryPhotoImport.load(MemoryPhotoImport.keyed(items))
+        // Cleared before the await returns to the picker, so the library's ticks reset and the
+        // strip below is the only place a chosen photo appears. Two places showing the same
+        // selection would need reconciling every time either changed.
+        picked = []
+        if !loaded.isEmpty {
+            await onAdd(loaded.map(\.data))
+        }
+        errorMessage = MemoryPhotoImport.failureMessage(count: failedCount)
+    }
+}
+
+/// An already-uploaded photo, through the shared path-keyed cache rather than a plain `AsyncImage`,
+/// so re-opening this sheet for the same memory resolves from cache instead of downloading again.
+struct MemoryPhotoThumbnail: View {
+    let photo: MemoryPhoto
+
+    @State private var loadedImage: UIImage?
+
+    private var cacheKey: String { photo.path == "pending" ? photo.url.absoluteString : photo.path }
+    private var resolvedImage: UIImage? { loadedImage ?? MemoryPhotoImageCache.shared.image(for: cacheKey) }
+
+    var body: some View {
+        Group {
+            if let resolvedImage {
+                Image(uiImage: resolvedImage).resizable().scaledToFill()
+            } else {
+                Theme.cardBackground.task(id: cacheKey) { await load() }
+            }
+        }
+    }
+
+    private func load() async {
+        if let cached = MemoryPhotoImageCache.shared.image(for: cacheKey) {
+            loadedImage = cached
+            return
+        }
+        guard let (data, _) = try? await URLSession.shared.data(from: photo.url), let image = UIImage(data: data) else { return }
+        MemoryPhotoImageCache.shared.store(image, for: cacheKey)
+        loadedImage = image
+    }
+}
