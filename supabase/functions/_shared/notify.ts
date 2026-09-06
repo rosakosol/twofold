@@ -31,21 +31,37 @@ const PREFERENCE_COLUMN: Record<string, string> = {
 };
 
 // Mirrors `Flight.displayNumber` on the client — prefixes the airline code onto the number
-// unless it's already there (AeroAPI sometimes includes it, sometimes doesn't).
-function displayFlightNumber(flightNumberIATA: string | null, airlineCode: string | null): string {
-  if (!flightNumberIATA) return "Flight";
+// unless it's already there (AeroAPI sometimes includes it, sometimes doesn't). Null rather than
+// a placeholder when there's no number at all, so the callers below can leave it out of the
+// sentence instead of building "Alex's flight Flight".
+function displayFlightNumber(flightNumberIATA: string | null, airlineCode: string | null): string | null {
+  if (!flightNumberIATA) return null;
   if (airlineCode && !flightNumberIATA.startsWith(airlineCode)) return `${airlineCode}${flightNumberIATA}`;
   return flightNumberIATA;
 }
 
-// Every push needs to say *whose* flight this is about, never a generic "Their" — the
-// traveler's first name plus the flight number when exactly one traveler is set. With zero
-// travelers (unknown) or both partners travelling together, a possessive reads oddly ("Alice &
-// Bob's UA123" going out to Alice and Bob about their own shared flight) — just the flight
-// number in both of those cases.
-function flightLabel(travelerNames: string[], flightNumberIATA: string | null, airlineCode: string | null): string {
-  const number = displayFlightNumber(flightNumberIATA, airlineCode);
-  return travelerNames.length === 1 ? `${travelerNames[0]}'s ${number}` : number;
+// How a flight is named in a push, written for the person receiving it.
+//
+// The same flight goes to both partners and it is not the same flight to each of them, so this is
+// per-recipient rather than computed once. Told "Alex's UA60 has landed" about their own flight,
+// the traveller is being addressed as a spectator to their own journey.
+//
+// It also said "Alex's UA60" rather than "Alex's flight UA60" — a possessive attached straight to a
+// flight number reads as a thing rather than a journey.
+//
+// Both partners flying together resolves to "Your flight" for each of them, which is true for both;
+// listing two names ("Alice & Bob's flight UA60", sent to Alice and Bob) never read well.
+export function flightLabel(opts: {
+  travelerNames: string[];
+  recipientIsTraveler: boolean;
+  flightNumberIATA: string | null;
+  airlineCode: string | null;
+}): string {
+  const number = displayFlightNumber(opts.flightNumberIATA, opts.airlineCode);
+  const suffix = number ? ` ${number}` : "";
+  if (opts.recipientIsTraveler) return `Your flight${suffix}`;
+  if (opts.travelerNames.length === 1) return `${opts.travelerNames[0]}'s flight${suffix}`;
+  return `Flight${suffix}`;
 }
 
 function buildMessage(event: FlightEvent, label: string): { title: string; body: string } {
@@ -108,8 +124,6 @@ export async function notifyForEvent(
       .map((t: { first_name: string | null }) => t.first_name)
       .filter((name: string | null): name is string => Boolean(name));
   }
-  const label = flightLabel(travelerNames, flight.flight_number_iata ?? null, flight.airline_code ?? null);
-
   // This runs under the service-role client (RLS-bypassing), so a private (shared: false)
   // flight needs its own explicit check here — otherwise the creator's partner would still get
   // pushed a notification about a flight they can't even see in the app.
@@ -143,15 +157,22 @@ export async function notifyForEvent(
   const allowedPartnerIds = partnerIds.filter((id) => prefByProfile.get(id) ?? true);
   if (allowedPartnerIds.length === 0) return;
 
+  // `profile_id` comes back too, so each device can be told whose flight this is from where it
+  // is standing — the traveller's phone and their partner's get different words for the same event.
   const { data: tokens } = await serviceClient
     .from("device_push_tokens")
-    .select("apns_token, environment")
+    .select("profile_id, apns_token, environment")
     .in("profile_id", allowedPartnerIds);
   if (!tokens || tokens.length === 0) return;
 
-  const { title, body } = buildMessage(event, label);
-
   for (const token of tokens) {
+    const label = flightLabel({
+      travelerNames,
+      recipientIsTraveler: travelerIds.includes(token.profile_id),
+      flightNumberIATA: flight.flight_number_iata ?? null,
+      airlineCode: flight.airline_code ?? null,
+    });
+    const { title, body } = buildMessage(event, label);
     try {
       await sendAPNs(token.apns_token, token.environment, title, body, { flightId });
     } catch (err) {
@@ -224,7 +245,14 @@ export async function notifyPreDeparture(
     .in("profile_id", allowedIds);
   if (!tokens || tokens.length === 0) return;
 
-  const label = flightLabel(travelerName ? [travelerName] : [], flight.flight_number_iata ?? null, flight.airline_code ?? null);
+  // Recipients here are filtered to the partners who are *not* travelling (see `recipientIds`
+  // above), so this is never addressed to the traveller.
+  const label = flightLabel({
+    travelerNames: travelerName ? [travelerName] : [],
+    recipientIsTraveler: false,
+    flightNumberIATA: flight.flight_number_iata ?? null,
+    airlineCode: flight.airline_code ?? null,
+  });
   const title = "Wheels up soon";
   const body = travelerName
     ? `${label} departs in about 10 minutes. Wish ${travelerName} a safe flight! ✈️`
@@ -270,8 +298,6 @@ export async function notifyArrivalReminder(
       .map((t: { first_name: string | null }) => t.first_name)
       .filter((name: string | null): name is string => Boolean(name));
   }
-  const label = flightLabel(travelerNames, flight.flight_number_iata ?? null, flight.airline_code ?? null);
-
   let partnerIds: string[];
   if (flight.shared === false) {
     if (!flight.created_by) return;
@@ -302,7 +328,7 @@ export async function notifyArrivalReminder(
 
   const { data: tokens } = await serviceClient
     .from("device_push_tokens")
-    .select("apns_token, environment")
+    .select("profile_id, apns_token, environment")
     .in("profile_id", allowedPartnerIds);
   if (!tokens || tokens.length === 0) return;
 
@@ -310,9 +336,16 @@ export async function notifyArrivalReminder(
   const delaySuffix = arrivalDelaySeconds > 300 ? `, currently running ${formatDelay(arrivalDelaySeconds)} behind schedule` : "";
   const windowLabel = window === "1h" ? "1 hour" : "30 minutes";
   const title = window === "1h" ? "Landing in 1 hour" : "Landing in 30 minutes";
-  const body = `${label} is expected to land in about ${windowLabel}${delaySuffix}.`;
-
+  // Deliberately goes to the traveller as well as the person waiting (see this function's own
+  // comment), so this is the other place the wording has to change per recipient.
   for (const token of tokens) {
+    const label = flightLabel({
+      travelerNames,
+      recipientIsTraveler: travelerIds.includes(token.profile_id),
+      flightNumberIATA: flight.flight_number_iata ?? null,
+      airlineCode: flight.airline_code ?? null,
+    });
+    const body = `${label} is expected to land in about ${windowLabel}${delaySuffix}.`;
     try {
       await sendAPNs(token.apns_token, token.environment, title, body, { flightId });
     } catch (err) {
