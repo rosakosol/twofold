@@ -34,18 +34,43 @@ enum AirportTimeZoneResolver {
 
     /// Fetches whatever isn't cached yet, in a single query. Returns whether anything new arrived,
     /// so a caller can avoid a redraw that would change nothing.
+    ///
+    /// A lookup that *fails* caches nothing and is tried again next time. Recording a failure as
+    /// "this airport has no timezone" is the bug this comment exists to prevent: the first thing
+    /// that asks is the flight list, moments after sign-in on a cold start, and if that one query
+    /// does not get through then every airport on it is written off for the life of the launch —
+    /// the Add Flight screen then shows every departure in the phone's own timezone, and no amount
+    /// of reopening it recovers, because nothing asks again.
     @discardableResult
     static func resolve(iataCodes codes: [String?]) async -> Bool {
         let wanted = Set(codes.compactMap { $0 }.filter { !$0.isEmpty }).subtracting(cache.keys)
         guard !wanted.isEmpty else { return false }
 
-        let fetched = await FlightSearchIndex.timeZoneIdentifiers(forIATACodes: Array(wanted))
-        // Every code that was asked for is recorded, including the ones the table had nothing for.
-        // Without that, an airport genuinely missing from the table is re-queried on every redraw
-        // for the life of the app.
+        guard let fetched = try? await fetch(Array(wanted)) else { return false }
+
+        // Only now, with an answer in hand, is a blank worth remembering: these codes were asked
+        // about and the table genuinely had nothing, so asking again on every redraw would be
+        // pointless traffic.
         for code in wanted {
             cache[code] = fetched[code] ?? ""
         }
         return fetched.values.contains { !$0.isEmpty }
+    }
+
+    #if DEBUG
+    /// Test seam: lets a test make a lookup fail, which is the case that matters and the one a real
+    /// query will not do on demand.
+    static var fetchOverride: (@Sendable ([String]) async throws -> [String: String])?
+    static func resetForTesting() {
+        cache = [:]
+        fetchOverride = nil
+    }
+    #endif
+
+    private static func fetch(_ codes: [String]) async throws -> [String: String] {
+        #if DEBUG
+        if let fetchOverride { return try await fetchOverride(codes) }
+        #endif
+        return try await FlightSearchIndex.timeZoneIdentifiers(forIATACodes: codes)
     }
 }

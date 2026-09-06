@@ -75,6 +75,49 @@ struct AirportTimeZoneResolverTests {
         #expect(rendered == "11:20 pm", "got \(rendered)")
     }
 
+    // MARK: - A failed lookup is not an answer
+
+    /// The bug behind a departure that kept reading in the phone's own timezone no matter how many
+    /// times the screen was reopened.
+    ///
+    /// The first thing to ask about an airport is the flight list, moments after sign-in. If that
+    /// one query does not get through — a cold start, a session still refreshing, a second of no
+    /// signal — the failure used to be recorded as "this airport has no timezone", and nothing ever
+    /// asked again for the life of the launch. Every screen then fell back to the device, forever,
+    /// with no way back short of relaunching.
+    @Test("a failed lookup is tried again, not remembered as a blank")
+    func failureIsNotCached() async throws {
+        AirportTimeZoneResolver.resetForTesting()
+        defer { AirportTimeZoneResolver.resetForTesting() }
+
+        struct Offline: Error {}
+        AirportTimeZoneResolver.fetchOverride = { _ in throw Offline() }
+        _ = await AirportTimeZoneResolver.resolve(iataCodes: ["SFO"])
+        #expect(AirportTimeZoneResolver.timeZone(forIATACode: "SFO") == nil)
+
+        // The network comes back. Asking again has to actually ask.
+        AirportTimeZoneResolver.fetchOverride = { _ in ["SFO": "America/Los_Angeles"] }
+        #expect(await AirportTimeZoneResolver.resolve(iataCodes: ["SFO"]) == true, "the failure was cached — nothing asked again")
+        #expect(AirportTimeZoneResolver.timeZone(forIATACode: "SFO")?.identifier == "America/Los_Angeles")
+    }
+
+    /// The other half, and the reason failures were being cached in the first place: an airport the
+    /// table genuinely has nothing for must be remembered, or every redraw re-queries it forever.
+    @Test("a genuine blank is remembered")
+    func genuineBlankIsCached() async {
+        AirportTimeZoneResolver.resetForTesting()
+        defer { AirportTimeZoneResolver.resetForTesting() }
+
+        var calls = 0
+        AirportTimeZoneResolver.fetchOverride = { _ in
+            calls += 1
+            return [:]   // a real answer: the table knows nothing about this code
+        }
+        _ = await AirportTimeZoneResolver.resolve(iataCodes: ["ZZZZ"])
+        _ = await AirportTimeZoneResolver.resolve(iataCodes: ["ZZZZ"])
+        #expect(calls == 1, "asked \(calls) times — a known-empty answer should only be fetched once")
+    }
+
     /// Nothing to look up must not become a query.
     @Test("an empty request does nothing")
     func emptyRequestIsANoOp() async {
@@ -82,13 +125,9 @@ struct AirportTimeZoneResolverTests {
         #expect(await AirportTimeZoneResolver.resolve(iataCodes: [nil, ""]) == false)
     }
 
-    /// A code the table has never heard of must be remembered as unknown, not re-queried forever.
-    /// Asserted through the second call reporting no news, which is the signal callers use to
-    /// decide whether a redraw is worth doing.
-    @Test("an unknown airport is asked about once")
-    func unknownAirportsAreNotRetriedForever() async {
+    @Test("an unknown airport resolves to nothing")
+    func unknownAirportsResolveToNothing() async {
         _ = await AirportTimeZoneResolver.resolve(iataCodes: ["ZZZZ"])
-        #expect(await AirportTimeZoneResolver.resolve(iataCodes: ["ZZZZ"]) == false)
         #expect(AirportTimeZoneResolver.timeZone(forIATACode: "ZZZZ") == nil)
     }
 }

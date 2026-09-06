@@ -140,7 +140,11 @@ enum FlightSearchIndex {
     /// after that was added; rows written before it stay blank, and nothing revisits them.
     ///
     /// So the app looks it up too. One query for every code it is missing, not one per flight.
-    static func timeZoneIdentifiers(forIATACodes codes: [String]) async -> [String: String] {
+    /// Throws rather than returning an empty result on failure. The two are not the same thing and
+    /// the caller has to be able to tell them apart: "the table has no timezone for this airport"
+    /// is worth remembering, and "the query didn't get through" must not be, or one bad moment on a
+    /// cold start is cached as fact for the rest of the launch.
+    static func timeZoneIdentifiers(forIATACodes codes: [String]) async throws -> [String: String] {
         let codes = codes.filter { !$0.isEmpty }
         guard !codes.isEmpty else { return [:] }
 
@@ -148,9 +152,9 @@ enum FlightSearchIndex {
             let iata: String
             let timezone: String?
         }
-        let rows: [Row] = (try? await supabase.from("airports").select("iata,timezone")
+        let rows: [Row] = try await supabase.from("airports").select("iata,timezone")
             .in("iata", values: codes)
-            .execute().value) ?? []
+            .execute().value
 
         return rows.reduce(into: [String: String]()) { result, row in
             if let timezone = row.timezone, !timezone.isEmpty { result[row.iata] = timezone }
