@@ -246,27 +246,44 @@ Deno.serve(async (req) => {
   // airport search uses, and already how resolveAirportCity prefers a curated city over AeroAPI's
   // own). Flight-level so domestic/international/countries stats work for every tracked flight,
   // not only ones linked to a Trip. Best-effort: a failed/missing lookup just leaves it null.
+  //
+  // The same lookup now also backfills the airport's TIMEZONE, which matters more than the country
+  // does. A flight resolved from /schedules has no nested airport object at all — resolve-flight
+  // maps those rows with `timezone: null` because the endpoint simply does not return one — and
+  // /schedules is the only source for anything beyond AeroAPI's ~2-day live window, so every flight
+  // booked more than two days out arrived with no timezone on either end.
+  //
+  // The app then falls back to the device's timezone to render departure and arrival, which is
+  // wrong in the ordinary case and silently so: a UA60 out of SFO at 23:20 local showed as 8:20am
+  // on a phone set to UTC+2. The instant stored was always correct; only the zone it was displayed
+  // in was missing. Reported as the app showing two different departure times, because the journey
+  // summary renders in the user's home city while the detail cards render in the airport's — and
+  // with no airport zone those two fall back to different places.
   let originCountry: string | null = null;
   let destinationCountry: string | null = null;
+  let originTimezone: string | null = null;
+  let destinationTimezone: string | null = null;
   try {
     const originCode = mapped.origin_iata ?? mapped.origin_icao;
     if (originCode) {
-      const { data } = await serviceClient.from("airports").select("country").or(`iata.eq.${originCode},icao.eq.${originCode}`).limit(1)
+      const { data } = await serviceClient.from("airports").select("country, timezone").or(`iata.eq.${originCode},icao.eq.${originCode}`).limit(1)
         .maybeSingle();
       originCountry = data?.country ?? null;
+      originTimezone = data?.timezone ?? null;
     }
   } catch (err) {
-    console.error("[add-flight] origin country lookup threw:", (err as Error).message);
+    console.error("[add-flight] origin airport lookup threw:", (err as Error).message);
   }
   try {
     const destCode = mapped.destination_iata ?? mapped.destination_icao;
     if (destCode) {
-      const { data } = await serviceClient.from("airports").select("country").or(`iata.eq.${destCode},icao.eq.${destCode}`).limit(1)
+      const { data } = await serviceClient.from("airports").select("country, timezone").or(`iata.eq.${destCode},icao.eq.${destCode}`).limit(1)
         .maybeSingle();
       destinationCountry = data?.country ?? null;
+      destinationTimezone = data?.timezone ?? null;
     }
   } catch (err) {
-    console.error("[add-flight] destination country lookup threw:", (err as Error).message);
+    console.error("[add-flight] destination airport lookup threw:", (err as Error).message);
   }
 
   const { data: inserted, error: insertErr } = await serviceClient
@@ -276,9 +293,13 @@ Deno.serve(async (req) => {
       origin_latitude: originLatitude,
       origin_longitude: originLongitude,
       origin_country: originCountry,
+      // AeroAPI's own value wins when it has one — it is the live source and knows about an
+      // airport that has changed zone. Ours only fills the gap /schedules leaves.
+      origin_timezone: mapped.origin_timezone ?? originTimezone,
       destination_latitude: destinationLatitude,
       destination_longitude: destinationLongitude,
       destination_country: destinationCountry,
+      destination_timezone: mapped.destination_timezone ?? destinationTimezone,
       status,
       // Outside `mapped` on purpose: everything in there is rewritten from AeroAPI on the next
       // poll, which would wipe this within a minute or two.

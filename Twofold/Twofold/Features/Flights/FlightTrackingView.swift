@@ -524,7 +524,12 @@ struct FlightTrackingView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(code) · \(city)").font(.headline).lineLimit(1).minimumScaleFactor(0.85)
                 if let time {
-                    Text(time, format: Date.FormatStyle(timeZone: timeZone ?? .current).day().month(.abbreviated).hour().minute())
+                    // Falls back to the user's home city, not the device. These cards are meant to
+                    // show each airport's own local time; when that zone is unknown, home time is
+                    // at least the same frame the journey summary above uses, so the two agree
+                    // rather than contradicting each other. Falling back to the device made a
+                    // departure read 8:20am on a phone in UTC+2 while the summary said 4:20pm.
+                    Text(time, format: Date.FormatStyle(timeZone: timeZone ?? homeTimeZone).day().month(.abbreviated).hour().minute())
                         .font(.subheadline.weight(.semibold))
                 } else {
                     Text("Time not available").font(.subheadline).foregroundStyle(Theme.subtleInk)
@@ -576,8 +581,8 @@ struct FlightTrackingView: View {
         SectionCard {
             portCardHeader(icon: "airplane.departure", title: "Departure", code: flight.origin.displayCode, city: flight.origin.displayName)
             Text("All times shown in local time").font(.caption2).foregroundStyle(Theme.subtleInk)
-            detailRow(label: "Scheduled", value: Self.timeOrNA(flight.scheduledOut, timeZone: flight.origin.timeZone))
-            detailRow(label: flight.actualOut != nil ? "Actual" : "Estimated", value: Self.timeOrNA(flight.actualOut ?? flight.estimatedOut, timeZone: flight.origin.timeZone))
+            detailRow(label: "Scheduled", value: Self.timeOrNA(flight.scheduledOut, timeZone: flight.origin.timeZone, fallback: homeTimeZone))
+            detailRow(label: flight.actualOut != nil ? "Actual" : "Estimated", value: Self.timeOrNA(flight.actualOut ?? flight.estimatedOut, timeZone: flight.origin.timeZone, fallback: homeTimeZone))
             if let delta = Self.delayDelta(scheduled: flight.scheduledOut, actualOrEstimated: flight.actualOut ?? flight.estimatedOut) {
                 delayDeltaCaption(delta)
             }
@@ -590,8 +595,8 @@ struct FlightTrackingView: View {
         SectionCard {
             portCardHeader(icon: "airplane.arrival", title: "Arrival", code: flight.destination.displayCode, city: flight.destination.displayName)
             Text("All times shown in local time").font(.caption2).foregroundStyle(Theme.subtleInk)
-            detailRow(label: "Scheduled", value: Self.timeOrNA(flight.scheduledIn, timeZone: flight.destination.timeZone))
-            detailRow(label: flight.actualIn != nil ? "Actual" : "Estimated", value: Self.timeOrNA(flight.actualIn ?? flight.estimatedIn, timeZone: flight.destination.timeZone))
+            detailRow(label: "Scheduled", value: Self.timeOrNA(flight.scheduledIn, timeZone: flight.destination.timeZone, fallback: homeTimeZone))
+            detailRow(label: flight.actualIn != nil ? "Actual" : "Estimated", value: Self.timeOrNA(flight.actualIn ?? flight.estimatedIn, timeZone: flight.destination.timeZone, fallback: homeTimeZone))
             if let delta = Self.delayDelta(scheduled: flight.scheduledIn, actualOrEstimated: flight.actualIn ?? flight.estimatedIn) {
                 delayDeltaCaption(delta)
             }
@@ -635,9 +640,12 @@ struct FlightTrackingView: View {
         }
     }
 
-    private static func timeOrNA(_ date: Date?, timeZone: TimeZone?) -> String {
+    /// `fallback` rather than `.current`: callers pass the user's home zone, so an airport whose
+    /// own timezone we do not know reads in the same frame as the rest of the screen instead of in
+    /// whatever zone the phone happens to be set to.
+    private static func timeOrNA(_ date: Date?, timeZone: TimeZone?, fallback: TimeZone) -> String {
         guard let date else { return "Not available" }
-        return date.formatted(Date.FormatStyle(timeZone: timeZone ?? .current).hour().minute().day().month(.abbreviated))
+        return date.formatted(Date.FormatStyle(timeZone: timeZone ?? fallback).hour().minute().day().month(.abbreviated))
     }
 
     // MARK: - Good to know
