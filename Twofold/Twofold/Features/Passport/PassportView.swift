@@ -265,21 +265,8 @@ private struct FullStatsView: View {
                 }
             }
         } label: {
-            HStack(spacing: 4) {
-                Text(period.label)
-                Image(systemName: "chevron.up.chevron.down")
-                    .font(.caption2)
-                    .accessibilityHidden(true)
-            }
-            .font(.subheadline.weight(.medium))
-            .foregroundStyle(Theme.ink)
-            .lineLimit(1)
-            .padding(.horizontal, Theme.Spacing.sm)
-            .padding(.vertical, 7)
-            .themedCardBackground(cornerRadius: Theme.Radius.pill)
+            FilterChip(text: period.label, icon: "calendar")
         }
-        // Takes only the width it needs, leaving the rest of the row to the segmented control.
-        .fixedSize()
         .accessibilityLabel("Time period")
         .accessibilityValue(period.label)
     }

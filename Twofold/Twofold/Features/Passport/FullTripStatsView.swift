@@ -130,16 +130,10 @@ struct FullTripStatsView: View {
                 }
             }
         } label: {
-            HStack(spacing: Theme.Spacing.xs) {
-                Text(periodLabel)
-                Image(systemName: "chevron.up.chevron.down").font(.caption2)
-            }
-            .font(.subheadline.weight(.medium))
-            .padding(.horizontal, Theme.Spacing.md)
-            .padding(.vertical, 8)
-            .background(Theme.cardBackground, in: Capsule())
-            .foregroundStyle(Theme.ink)
+            FilterChip(text: periodLabel, icon: "calendar")
         }
+        .accessibilityLabel("Time period")
+        .accessibilityValue(periodLabel)
     }
 
     private var periodLabel: String {

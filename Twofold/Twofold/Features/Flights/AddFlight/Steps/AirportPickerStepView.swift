@@ -79,10 +79,16 @@ struct AirportPickerStepView: View {
             guard !Task.isCancelled else { return }
         }
         isSearching = true
-        // Departure: nearest airports to the user only. Destination: top 10, never the
-        // airport just picked as the departure.
         let excluding = role == .destination ? model.departureAirport : nil
-        let fetched = (try? await FlightSearchIndex.searchAirports(query, near: model.nearCoordinate, excluding: excluding, limit: 10)) ?? []
+        let fetched: [Airport]
+        if query.trimmingCharacters(in: .whitespaces).isEmpty, role == .destination, let departure = model.departureAirport {
+            // Before anything is typed, the destination step offers where you would actually be
+            // flying: the rest of the departure's country, minus its own region. Typing still
+            // searches the whole world — this is only what fills the list to begin with.
+            fetched = (try? await FlightSearchIndex.domesticDestinations(from: departure, limit: 10)) ?? []
+        } else {
+            fetched = (try? await FlightSearchIndex.searchAirports(query, near: model.nearCoordinate, excluding: excluding, limit: 10)) ?? []
+        }
         guard !Task.isCancelled else { return }
         results = fetched
         isSearching = false

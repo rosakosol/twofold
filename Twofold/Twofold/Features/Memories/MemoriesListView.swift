@@ -24,7 +24,11 @@ struct MemoriesListView: View {
     var onTapAddMemory: () -> Void = {}
 
     @Environment(AppModel.self) private var appModel
-    @State private var locationFilter: Place?
+    /// A city name, not a `Place`. A memory's location is stored as the address or landmark that
+    /// was picked — "Tokyo Tower", "66A Chapel St" — so one entry per stored place turned this
+    /// menu into a list of street addresses with the same city repeated down it. Filtering on the
+    /// city groups them, and `Place.displayCity` is what resolves an address to one.
+    @State private var cityFilter: String?
     @State private var yearFilter: Int?
     @State private var currentVisibleYear: Int?
     @State private var selectedMemory: Memory?
@@ -40,7 +44,6 @@ struct MemoriesListView: View {
     init(initialLocationFilter: Place? = nil, onTapAddMemory: @escaping () -> Void = {}) {
         self.initialLocationFilter = initialLocationFilter
         self.onTapAddMemory = onTapAddMemory
-        _locationFilter = State(initialValue: initialLocationFilter)
     }
 
     private struct MonthGroup: Identifiable {
@@ -56,10 +59,23 @@ struct MemoriesListView: View {
 
     private var filteredMemories: [Memory] {
         appModel.memories.filter { memory in
-            if let locationFilter, memory.place?.id != locationFilter.id { return false }
+            // Two separate filters, because they mean different things. Pushed from a map pin, the
+            // exact place that was tapped is the subject and showing the rest of its city would be
+            // showing memories the pin doesn't stand for. The filter bar below is the opposite: it
+            // is for finding a memory when you only remember roughly where you were.
+            if let initialLocationFilter, memory.place?.id != initialLocationFilter.id { return false }
+            if let cityFilter, memory.place?.displayCity != cityFilter { return false }
             if let yearFilter, Calendar.current.component(.year, from: memory.date) != yearFilter { return false }
             return true
         }
+    }
+
+    /// One entry per city, in order of how many memories are there — the places you have been most
+    /// are the ones you are most likely to be looking for.
+    private var citiesWithMemories: [(name: String, count: Int)] {
+        Dictionary(grouping: appModel.memories.compactMap { $0.place?.displayCity }) { $0 }
+            .map { (name: $0.key, count: $0.value.count) }
+            .sorted { ($0.count, $1.name) > ($1.count, $0.name) }
     }
 
     private var monthGroups: [MonthGroup] {
@@ -202,12 +218,12 @@ struct MemoriesListView: View {
     private var filterBar: some View {
         HStack(spacing: Theme.Spacing.sm) {
             Menu {
-                Button("All locations") { locationFilter = nil }
-                ForEach(appModel.citiesWithMemories) { city in
-                    Button(city.city) { locationFilter = city }
+                Button("All locations") { cityFilter = nil }
+                ForEach(citiesWithMemories, id: \.name) { city in
+                    Button("\(city.name) (\(city.count))") { cityFilter = city.name }
                 }
             } label: {
-                filterChip(text: locationFilter?.city ?? "All locations", icon: "mappin")
+                FilterChip(text: cityFilter ?? "All locations", icon: "mappin")
             }
 
             Menu {
@@ -216,7 +232,7 @@ struct MemoriesListView: View {
                     Button(String(year)) { yearFilter = year }
                 }
             } label: {
-                filterChip(text: yearFilter.map(String.init) ?? "All time", icon: "calendar")
+                FilterChip(text: yearFilter.map(String.init) ?? "All time", icon: "calendar")
             }
 
             Spacer(minLength: 0)
@@ -224,19 +240,6 @@ struct MemoriesListView: View {
         .padding(.horizontal, Theme.Spacing.md)
         .padding(.top, Theme.Spacing.sm)
         .padding(.bottom, Theme.Spacing.xs)
-    }
-
-    private func filterChip(text: String, icon: String) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: icon).font(.caption2)
-            Text(text).font(.caption.weight(.medium))
-            Image(systemName: "chevron.down").font(.caption2)
-        }
-        .padding(.horizontal, Theme.Spacing.sm)
-        .padding(.vertical, 6)
-        .foregroundStyle(Theme.ink)
-        .background(Theme.cardBackground, in: Capsule())
-        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Year scrubber

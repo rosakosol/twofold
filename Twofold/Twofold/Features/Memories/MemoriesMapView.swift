@@ -22,6 +22,11 @@ struct MemoriesMapView: View {
     /// Drives the staggered pin entrance below — same pattern onboarding's `MapSellView` mock
     /// already uses, just against the real `citiesWithMemories` list instead of mock data.
     @State private var shownCityIDs: Set<UUID> = []
+    /// Seeded from `initialRegion` on first appearance and otherwise only written when a city is
+    /// searched. See the `Map` below for why it is bound rather than an `initialPosition`.
+    @State private var cameraPosition: MapCameraPosition = .automatic
+    @State private var didSeedCamera = false
+    @State private var showingCitySearch = false
 
     // Not private, so SheetDetentWidthTests measures the detents this view actually uses
     // rather than its own copies of them — a copy would keep passing after a revert here.
@@ -51,12 +56,12 @@ struct MemoriesMapView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            // `initialPosition` (seeded once, not a live two-way binding) rather than a
-            // continuously-rebound `.automatic` `position:` — the latter keeps refitting to
-            // content on re-render, which fights the user's own pinch/pan gestures instead of
-            // letting them take over after the initial fit. Same fix as FlightMapView's zoom
-            // bug. `interactionModes: .all` set explicitly rather than relying on the default.
-            Map(initialPosition: .region(initialRegion), interactionModes: .all) {
+            // A bound `position` seeded once, and written to only when the person asks the map to
+            // go somewhere (searching a city, below). The thing that fights pinch and pan is a
+            // `.automatic` position rebound on every render, which keeps refitting to content —
+            // same bug FlightMapView had. A binding the view leaves alone does not do that, and it
+            // is the only way to move the camera on demand.
+            Map(position: $cameraPosition, interactionModes: .all) {
                 ForEach(appModel.citiesWithMemories) { city in
                     // Labelled with the memory itself rather than the place. The pin already
                     // shows that memory's photo and sits on the map at its location, so repeating
@@ -85,7 +90,15 @@ struct MemoriesMapView: View {
             .onTapGesture {
                 selectedCity = nil
             }
-            .onAppear { animatePins() }
+            .onAppear {
+                animatePins()
+                // Once. Re-seeding on every appearance would throw away wherever the person had
+                // panned to the last time they looked at this screen.
+                if !didSeedCamera {
+                    cameraPosition = .region(initialRegion)
+                    didSeedCamera = true
+                }
+            }
             // Adding a memory presents AddMemoryView as a sheet *over* this same view instance —
             // it never disappears/reappears, so `.onAppear` doesn't fire again on dismiss. Without
             // this, a newly-added city's pin renders into the Map's content (ForEach is reactive)
@@ -97,10 +110,24 @@ struct MemoriesMapView: View {
             }
             .sensoryFeedback(.impact(weight: .light), trigger: shownCityIDs)
 
-            if appModel.citiesWithMemories.isEmpty {
-                emptyStateHint
-                    .padding(.horizontal, Theme.Spacing.md)
-                    .padding(.top, Theme.Spacing.sm)
+            VStack(spacing: Theme.Spacing.sm) {
+                searchButton
+                if appModel.citiesWithMemories.isEmpty {
+                    emptyStateHint
+                }
+            }
+            .padding(.horizontal, Theme.Spacing.md)
+            .padding(.top, Theme.Spacing.sm)
+        }
+        .sheet(isPresented: $showingCitySearch) {
+            CitySearchView { place in
+                // Wide enough to take in a city and the towns around it, so memories just outside
+                // it are on screen too rather than needing another pinch to find.
+                withAnimation(.easeInOut(duration: 0.6)) {
+                    cameraPosition = .region(
+                        MKCoordinateRegion(center: place.coordinate, latitudinalMeters: 60_000, longitudinalMeters: 60_000)
+                    )
+                }
             }
         }
         .sheet(item: $selectedCity) { city in
@@ -125,6 +152,33 @@ struct MemoriesMapView: View {
         .postHogScreenView("Memories: Map")
     }
 
+    /// Somewhere to type when the memory you want is on the other side of the world.
+    ///
+    /// The map opens on your own home city, which is the right place to start and the wrong place
+    /// to be when the memories you are looking for are your partner's. Panning there by hand across
+    /// an ocean is a lot of dragging; this jumps.
+    private var searchButton: some View {
+        Button {
+            showingCitySearch = true
+        } label: {
+            HStack(spacing: Theme.Spacing.sm) {
+                Image(systemName: "magnifyingglass")
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.subtleInk)
+                Text("Search for a place")
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.subtleInk)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, Theme.Spacing.md)
+            .padding(.vertical, Theme.Spacing.sm)
+            .themedCardBackground(cornerRadius: Theme.Radius.pill)
+            .shadow(color: .black.opacity(0.12), radius: 6, y: 3)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Search for a place on the map")
+    }
+
     /// Most recent memory's own photo, so the pin shows something real about that place
     /// instead of a generic icon — falls back to `MemoryPhotoView`'s own gradient+icon
     /// placeholder when that memory has no photo yet.
@@ -143,6 +197,11 @@ struct MemoriesMapView: View {
         return title.isEmpty ? city.displayCity : title
     }
 
+    /// A small print of the photo, framed the way the memory detail screen frames it: square,
+    /// white border, slight tilt. It used to be a 44pt circle, which is a map marker rather than a
+    /// picture — too small to make out what the photo was of, and cropped to a shape that fights
+    /// the rectangle every photo actually is. At 64pt square you can tell your memories apart
+    /// without opening them.
     private func memoryPin(for city: Place) -> some View {
         let cityMemories = appModel.memories(in: city)
         let mostRecent = cityMemories.max { $0.date < $1.date }
@@ -150,15 +209,18 @@ struct MemoriesMapView: View {
         return ZStack(alignment: .topTrailing) {
             Group {
                 if let mostRecent {
-                    MemoryPhotoView(memory: mostRecent, cornerRadius: 999)
+                    MemoryPhotoView(memory: mostRecent, cornerRadius: 6)
                 } else {
-                    Circle().fill(Theme.cardBackground)
+                    RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Theme.cardBackground)
                 }
             }
-            .frame(width: 44, height: 44)
-            .clipShape(Circle())
-            .overlay(Circle().strokeBorder(.white, lineWidth: 2))
-            .shadow(color: .black.opacity(0.2), radius: 4, y: 2)
+            .frame(width: 64, height: 64)
+            .padding(5)
+            .background(.white, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .shadow(color: .black.opacity(0.22), radius: 5, y: 3)
+            // Tilted like the detail screen's print, a touch further: two degrees reads as a
+            // rendering mistake at this size, where four reads as deliberate.
+            .rotationEffect(.degrees(-4))
 
             if cityMemories.count > 1 {
                 Text("\(cityMemories.count)")
@@ -166,6 +228,7 @@ struct MemoriesMapView: View {
                     .foregroundStyle(.white)
                     .padding(4)
                     .background(Theme.heartRed, in: Circle())
+                    .overlay(Circle().strokeBorder(.white, lineWidth: 1.5))
                     .offset(x: 6, y: -6)
             }
         }

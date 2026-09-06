@@ -17,7 +17,11 @@ struct FlightConfirmationView: View {
     @Environment(AppModel.self) private var appModel
     @Environment(\.dismiss) private var dismiss
     @State private var linkedTripID: Trip.ID?
-    @State private var travelerChoice: TravelerChoice = .notSure
+    /// Defaults to the person adding the flight. "Not sure yet" used to be here and was the
+    /// default, which meant the common case — adding your own flight — needed a tap to correct,
+    /// and any flight left alone was saved with nobody on it. A flight has someone on it; that is
+    /// what makes it worth tracking.
+    @State private var travelerChoice: TravelerChoice = .me
     @State private var shareWithPartner = true
     @State private var notifyMe = true
     @State private var isSaving = false
@@ -33,12 +37,11 @@ struct FlightConfirmationView: View {
     }
 
     private enum TravelerChoice: Hashable {
-        case notSure, me, partner, both
+        case me, partner, both
     }
 
     private var travelerIDs: [UUID] {
         switch travelerChoice {
-        case .notSure: []
         case .me: [appModel.currentUser.id]
         case .partner: [appModel.partner.id]
         case .both: [appModel.currentUser.id, appModel.partner.id]
@@ -79,7 +82,6 @@ struct FlightConfirmationView: View {
                     VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                         Text("Who's travelling?").font(.caption).foregroundStyle(Theme.subtleInk)
                         Picker("Who's travelling?", selection: $travelerChoice) {
-                            Text("Not sure yet").tag(TravelerChoice.notSure)
                             Text(appModel.currentUser.name).tag(TravelerChoice.me)
                             // Disabled rather than just warned-about — `appModel.partner` is a
                             // placeholder person pre-pairing, with no real profile row behind its

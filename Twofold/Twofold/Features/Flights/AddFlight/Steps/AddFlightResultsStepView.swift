@@ -146,7 +146,10 @@ struct AddFlightResultsStepView: View {
         } label: {
             HStack(alignment: .top, spacing: Theme.Spacing.sm) {
                 statusColumn(candidate)
-                    .frame(width: 56)
+                    // 56pt wrapped every status word longer than "IN AIR" — CANCELLED, BOARDING,
+                    // DEPARTED and DIVERTED all broke across two lines, which pushed the card's
+                    // whole right-hand column down. Wide enough for the longest of them on one row.
+                    .frame(width: 72)
 
                 VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                     HStack {
@@ -236,6 +239,11 @@ struct AddFlightResultsStepView: View {
                 }
                 Text(summary.label)
                     .font(.caption2.weight(.bold))
+                    // Never two lines. `minimumScaleFactor` rather than truncation, because a
+                    // status word clipped to "CANCELL…" is worse than a slightly smaller one, and
+                    // at the largest accessibility sizes even 72pt is not enough.
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                     // A bare countdown carries no symbol and isn't a status word — it stays in
                     // page ink, the way it always read, rather than borrowing a status colour.
                     .foregroundStyle(summary.symbol == nil ? Theme.ink : tint)
