@@ -68,7 +68,26 @@ struct CitySearchView: View {
                         }
                     }
                 } else {
-                    ForEach(completer.results, id: \.title) { completion in
+                    // The curated list stays searchable once typing starts, rather than being
+                    // replaced by live results. It is the only source that works with no network,
+                    // and the only one guaranteed to contain the cities this app suggests.
+                    if !Place.commonCities(matching: completer.queryFragment).isEmpty {
+                        Section("Suggested") {
+                            ForEach(Place.commonCities(matching: completer.queryFragment)) { place in
+                                Button {
+                                    onSelect(place)
+                                    dismiss()
+                                } label: {
+                                    cityRow(title: place.city, subtitle: place.country)
+                                }
+                            }
+                        }
+                    }
+
+                    // Identified by the completion object rather than by `title`. MapKit routinely
+                    // returns many results sharing one title — ten branches all called "Starbucks",
+                    // measured — and a ForEach with repeated ids renders one row for the lot.
+                    ForEach(completer.results, id: \.self) { completion in
                         Button {
                             resolve(completion)
                         } label: {

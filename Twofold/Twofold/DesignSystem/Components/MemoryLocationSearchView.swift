@@ -116,7 +116,29 @@ struct MemoryLocationSearchView: View {
                         }
                     }
 
-                    ForEach(completer.results, id: \.title) { completion in
+                    // The bundled cities stay searchable once typing starts. Before, "Nearby" above
+                    // was the only place they appeared and it vanished on the first keystroke, so a
+                    // city the app itself suggests could not be found by typing its name — and with
+                    // no network, where MapKit returns nothing, the list was empty entirely.
+                    let matches = Place.commonCities(matching: completer.queryFragment)
+                    if !matches.isEmpty {
+                        Section("Cities") {
+                            ForEach(matches) { place in
+                                Button {
+                                    onSelect(place)
+                                    dismiss()
+                                } label: {
+                                    locationRow(title: place.city, subtitle: place.country)
+                                }
+                            }
+                        }
+                    }
+
+                    // Identified by the completion object rather than by `title`. Address and POI
+                    // search returns many results sharing one title — ten branches all called
+                    // "Starbucks", measured — and a ForEach with repeated ids renders one row for
+                    // the lot, which is how a search could look like it had found almost nothing.
+                    ForEach(completer.results, id: \.self) { completion in
                         Button {
                             resolve(completion)
                         } label: {

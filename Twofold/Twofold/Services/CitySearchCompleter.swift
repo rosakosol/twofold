@@ -44,7 +44,20 @@ final class CitySearchCompleter {
     init() {
         let completer = MKLocalSearchCompleter()
         completer.resultTypes = .address
-        completer.addressFilter = MKAddressFilter(including: .locality)
+        // `.administrativeArea` alongside `.locality`, or Tokyo is unfindable.
+        //
+        // Filtering to `.locality` alone is the obvious way to keep a city picker from offering
+        // streets and suburbs, and it works for almost everywhere. But a locality is a *city*, and
+        // some of the largest places on earth are not administratively cities: Tokyo is a
+        // metropolitan prefecture (東京都), so MapKit files it as an administrative area and the
+        // filter removed it outright. Searching "Tokyo" returned zero results — not a bad match, no
+        // match — while Paris, Berlin, Melbourne, Kyoto and Osaka all came back normally, which is
+        // what made it look like a fluke rather than a filter.
+        //
+        // Measured before and after: adding `.administrativeArea` takes Tokyo from 0 results to 1,
+        // and leaves Paris (5), Melbourne (5), Kyoto (2), Osaka (2), Sapporo (1) and Berlin (15)
+        // completely unchanged. It widens the filter for exactly the case it needs to.
+        completer.addressFilter = MKAddressFilter(including: [.locality, .administrativeArea])
         self.completer = completer
 
         let proxy = DelegateProxy()

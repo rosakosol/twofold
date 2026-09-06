@@ -63,4 +63,22 @@ struct Place: Identifiable, Hashable, Codable {
         Place(city: "New York", country: "United States", iataCode: "JFK", latitude: 40.7128, longitude: -74.0060, timeZoneIdentifier: "America/New_York"),
         Place(city: "Sydney", country: "Australia", iataCode: "SYD", latitude: -33.8688, longitude: 151.2093, timeZoneIdentifier: "Australia/Sydney"),
     ]
+
+    /// The curated cities matching what someone has typed so far.
+    ///
+    /// Every picker offers this list up front, and then used to drop it the moment a character was
+    /// typed, leaving only live MapKit results. So the app could show Tokyo as a suggestion and
+    /// then find nothing at all for "Tokyo" — the one list guaranteed to contain it was the one
+    /// stopped from being searched. It also meant no picker worked offline, where MapKit returns
+    /// nothing at all.
+    ///
+    /// Matches the city or the country, so "Japan" finds Tokyo, and ignores case and accents so
+    /// that typing without diacritics still finds a city spelled with them.
+    static func commonCities(matching query: String) -> [Place] {
+        let trimmed = query.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return [] }
+        return commonCities.filter {
+            $0.city.localizedStandardContains(trimmed) || $0.country.localizedStandardContains(trimmed)
+        }
+    }
 }
