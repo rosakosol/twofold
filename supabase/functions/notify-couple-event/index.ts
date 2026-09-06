@@ -42,7 +42,18 @@ const VALID_EVENT_TYPES: EventType[] = [
 // Event type -> notification_preferences column, mirroring the pattern in _shared/notify.ts.
 // game_reminder is deliberately absent — it's an explicit, one-off nudge the sender chooses to
 // send, not ambient activity, so it's never muted.
-const PREFERENCE_COLUMN: Partial<Record<EventType, string>> = {
+// Spelled out as a union rather than `string`, so a typo is a compile error instead of a silent
+// behaviour change: an unrecognised column name finds no row, "no row" means "notify", and the
+// result is a notification the recipient has switched off and cannot switch off again.
+type PreferenceColumn =
+  | "partner_drawing_saved"
+  | "partner_trip_added"
+  | "partner_memory_added"
+  | "partner_game_started"
+  | "partner_game_results_ready"
+  | "partner_game_partner_finished";
+
+const PREFERENCE_COLUMN: Partial<Record<EventType, PreferenceColumn>> = {
   drawing_saved: "partner_drawing_saved",
   trip_added: "partner_trip_added",
   memory_added: "partner_memory_added",
@@ -181,9 +192,15 @@ Deno.serve(async (req) => {
 
     const prefColumn = PREFERENCE_COLUMN[input.eventType];
     if (prefColumn) {
+      // Selects the whole row rather than the one column, because the column is only known at
+      // runtime. PostgREST's types resolve a select against the literal string passed to it, so a
+      // variable column name gave back an error type instead of a row — and the cast that followed
+      // was casting *from that error type*, which is why this file has never type-checked. Reading
+      // the row properly makes the cast an honest one, and costs nothing: this is a single row of
+      // booleans, fetched one at a time either way.
       const { data: prefRow } = await serviceClient
         .from("notification_preferences")
-        .select(prefColumn)
+        .select("*")
         .eq("profile_id", partnerId)
         .maybeSingle();
       // No row yet defaults to "notify" (matches the table's own column defaults).

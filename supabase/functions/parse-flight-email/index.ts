@@ -132,7 +132,12 @@ async function extractFlight(text: string) {
     },
   });
 
-  return response.output_parsed ?? JSON.parse(response.output_text);
+  // `output_parsed` is a property of `responses.parse()`, not `responses.create()` — this call is
+  // the latter, so it was always undefined and the fallback below was doing all the work. Removing
+  // it is what makes this file type-check. Parsing is safe without it: `strict: true` on the
+  // json_schema format above means the model's output conforms to EXTRACTION_SCHEMA or the request
+  // fails outright.
+  return JSON.parse(response.output_text);
 }
 
 function hasContent(value: unknown): value is string {
