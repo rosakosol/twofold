@@ -387,54 +387,23 @@ struct FlightTrackingView: View {
 
     // MARK: - Map
 
+    /// Just the map and the camera-lock button. It used to carry a readout of the live telemetry
+    /// too — groundspeed in knots, altitude in feet, and wind before those — and none of it
+    /// answered the question this screen exists for. Someone waiting on a flight wants to know
+    /// where it is and when it lands, which the map and the cards below say plainly; a number in a
+    /// unit they don't think in was clutter sitting on top of the one thing worth looking at.
+    ///
+    /// The readings are still on `Flight` and still polled, so nothing here stops them being shown
+    /// again somewhere they earn their place.
     private var mapSection: some View {
         FlightMapView(flight: flight, recenterNonce: mapRecenterNonce, followsAircraft: $isCameraLocked)
             .frame(height: 260)
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-            .overlay(alignment: .bottomTrailing) {
-                // `hasLivePosition` only checks lat/lon — a fresh ADS-B fix can arrive with no
-                // altitude reported at all, which rendered as an empty capsule with nothing inside
-                // it. Only show the overlay once there's actually something to put in it. No
-                // position data at all (e.g. an oceanic leg outside terrestrial ADS-B receiver
-                // coverage) just means this overlay doesn't render — the map's own plane marker
-                // keeps moving via progress-based interpolation regardless (see `FlightMapView`'s
-                // own `markerCoordinate(for:)`), so nothing looks broken.
-                // Also gated on `isCurrentlyRelevant` — once a flight is truly past, its last
-                // known altitude is a stale reading from before landing, not something still
-                // worth surfacing as if it were live.
-                if flight.isCurrentlyRelevant, flight.positionAltitude != nil {
-                    liveStatsOverlay
-                }
-            }
             .overlay(alignment: .topTrailing) {
                 if flight.origin.coordinate != nil, flight.destination.coordinate != nil {
                     recenterButton
                 }
             }
-    }
-
-    /// Altitude, directly on the map, bottom-right. Dark translucent pill regardless of theme,
-    /// since it needs to stay legible sitting on top of whatever's under it on the map (ocean blue,
-    /// green terrain, ...), not whatever the app's light/dark mode happens to be.
-    ///
-    /// Groundspeed used to sit alongside it, reading "480kn". Knots are the unit the data arrives
-    /// in and not one most people think in, and the number answers a question nobody waiting for
-    /// someone was asking — what they want to know is where the plane is and when it lands, both of
-    /// which this screen already says plainly. Wind went earlier for the same reason. The values
-    /// are still stored on `Flight`; this is only about what the screen puts in front of someone.
-    private var liveStatsOverlay: some View {
-        HStack(spacing: Theme.Spacing.sm) {
-            if let altitude = flight.positionAltitude {
-                Label("\(Int(altitude))ft", systemImage: "arrow.up.to.line")
-            }
-        }
-        .font(.caption.weight(.semibold))
-        .foregroundStyle(.white)
-        .labelStyle(.titleAndIcon)
-        .padding(.horizontal, Theme.Spacing.sm)
-        .padding(.vertical, 6)
-        .background(.black.opacity(0.55), in: Capsule())
-        .padding(Theme.Spacing.sm)
     }
 
     /// Puts the camera back, and — while a flight is airborne — locks it onto the plane so it
