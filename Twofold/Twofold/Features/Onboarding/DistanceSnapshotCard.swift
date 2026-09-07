@@ -14,8 +14,13 @@
 //  fact in two visual languages, the first one seen during onboarding and the second one for the
 //  rest of the app's life.
 //
-//  Uses `DistanceShareTheme.classic` — the value `DistanceShareView` itself opens on — rather than
-//  re-tuning a matching palette by eye, so "matches" stays true when that palette changes.
+//  Coloured from `ShareCardPalette`, the same source the Game Results cards draw from — which is
+//  where its dark and light appearances come from for free. That palette's own header already
+//  named Distance as one of its intended users; this card just hadn't been moved onto it yet.
+//
+//  Both appearances matter more here than on most screens. The card is a leaf image: once shared it
+//  lives in Photos and in a Messages thread, where it has to look deliberate on its own rather than
+//  adapt to any chrome around it. So it follows the appearance it was made in and then keeps it.
 //
 //  What deliberately stays: the stat tiles and the "that's about the width of Canada" line. Those
 //  are this moment's own content, not styling — onboarding is the one place a raw number needs
@@ -37,11 +42,14 @@ struct DistanceSnapshotCard: View {
     /// Pre-fetched by `DistanceRevealShareView` via `DistanceMapView.loadMapSnapshot`.
     var mapSnapshot: MKMapSnapshotter.Snapshot? = nil
 
-    private let theme: DistanceShareTheme = .classic
+    @Environment(\.colorScheme) private var colorScheme
+
+    /// Sky, to match the blue the distance moment has always been drawn in.
+    private var palette: ShareCardPalette { .resolve(.sky, for: colorScheme) }
 
     var body: some View {
         VStack(spacing: Theme.Spacing.lg) {
-            TwofoldBrandMark(color: theme.primaryTextColor, size: 30, textStyle: .title3)
+            TwofoldBrandMark(color: palette.foreground, size: 30, textStyle: .title3)
 
             DistanceMapView(
                 myCity: myCity,
@@ -56,17 +64,17 @@ struct DistanceSnapshotCard: View {
                 Text("THE DISTANCE BETWEEN YOU")
                     .font(.caption2.weight(.semibold))
                     .tracking(1.5)
-                    .foregroundStyle(theme.secondaryTextColor)
+                    .foregroundStyle(palette.foreground.opacity(0.65))
 
                 // The eyebrow above already says what this number is, so it no longer carries
                 // "apart" — same as the in-app card.
                 Text(MeasurementPreference.distanceLabel(km: distanceKm))
                     .font(.system(size: 48, weight: .bold, design: .rounded))
-                    .foregroundStyle(theme.primaryTextColor)
+                    .foregroundStyle(palette.foreground)
 
                 Text(comparison)
                     .font(.subheadline.weight(.medium))
-                    .foregroundStyle(theme.accentTextColor)
+                    .foregroundStyle(palette.accent)
             }
             .multilineTextAlignment(.center)
 
@@ -94,27 +102,28 @@ struct DistanceSnapshotCard: View {
 
     private var backgroundGradient: some View {
         ZStack {
-            theme.backgroundGradient
-            RadialGradient(colors: [theme.glowColor.opacity(0.4), .clear], center: .top, startRadius: 10, endRadius: 340)
+            palette.canvasGradient
+            palette.glowOverlay
         }
     }
 
     // MARK: - Stats
 
-    /// Themed rather than hard-white. The old fixed white-on-white-opacity was tuned against a
-    /// gradient this card no longer uses — one of its labels had already needed bumping to 0.95
-    /// because it was unreadable against that gradient's light green bottom edge.
+    /// Palette-driven rather than hard-white. The fixed white these used to be was tuned against a
+    /// gradient this card no longer uses — one label had already needed bumping to 0.95 opacity
+    /// because it was unreadable against that gradient's light green bottom edge, and white would
+    /// be invisible on the light canvas.
     private func statTile(icon: String, value: String, label: String) -> some View {
         VStack(spacing: 4) {
             Image(systemName: icon)
                 .font(.subheadline)
-                .foregroundStyle(theme.accentTextColor)
+                .foregroundStyle(palette.accent)
             Text(value)
                 .font(.title3.weight(.bold))
-                .foregroundStyle(theme.primaryTextColor)
+                .foregroundStyle(palette.foreground)
             Text(label)
                 .font(.caption2.weight(.medium))
-                .foregroundStyle(theme.secondaryTextColor)
+                .foregroundStyle(palette.foreground.opacity(0.65))
                 .multilineTextAlignment(.center)
         }
     }

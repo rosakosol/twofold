@@ -25,14 +25,24 @@ struct DistanceRevealShareView: View {
     @Environment(\.displayScale) private var displayScale
     @Environment(\.colorScheme) private var colorScheme
     @State private var mapSnapshot: MKMapSnapshotter.Snapshot?
+    /// The card's own laid-out height at its design width. Measured rather than assumed: it varies
+    /// with whether there's a timezone difference to show and how long the comparison line runs.
+    @State private var cardHeight: CGFloat = 0
 
     var body: some View {
         NavigationStack {
             VStack(spacing: Theme.Spacing.lg) {
-                ScrollView {
+                // Scaled to fit rather than scrolled. This is the one thing on the screen and it
+                // should be seeable in one look — a share preview you have to scroll to judge isn't
+                // really a preview. The card keeps its design size for the exported image; only
+                // what's on screen is shrunk, and only when it has to be.
+                GeometryReader { proxy in
+                    let scale = fittingScale(in: proxy.size)
                     card
-                        .padding(.top, Theme.Spacing.lg)
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { cardHeight = $0 }
+                        .scaleEffect(scale, anchor: .center)
                         .shadow(color: .black.opacity(0.2), radius: 20, y: 10)
+                        .frame(width: proxy.size.width, height: proxy.size.height)
                 }
                 .padding(.horizontal, Theme.Spacing.md)
 
@@ -57,6 +67,23 @@ struct DistanceRevealShareView: View {
         }
         .postHogScreenView("Onboarding: Distance Reveal Share")
     }
+
+    /// How much the card has to shrink to sit inside the space available, never growing past its
+    /// natural size — a card that fits already is left alone rather than blown up.
+    ///
+    /// `scaleEffect` doesn't change the layout size the measurement above reports, so scaling can't
+    /// feed back into the number it was computed from.
+    private func fittingScale(in available: CGSize) -> CGFloat {
+        Self.fittingScale(cardHeight: cardHeight, in: available)
+    }
+
+    static func fittingScale(cardHeight: CGFloat, in available: CGSize) -> CGFloat {
+        guard cardHeight > 0, available.height > 0, available.width > 0 else { return 1 }
+        return min(1, min(available.height / cardHeight, available.width / cardWidth))
+    }
+
+    /// The width the card is designed at, and the width it exports at.
+    static let cardWidth: CGFloat = 340
 
     private var card: some View {
         DistanceSnapshotCard(
@@ -94,7 +121,7 @@ struct DistanceRevealShareView: View {
         // Matches `DistanceSnapshotCard`'s own outer frame width.
         // Handed the scheme explicitly for the same reason as the other share screens — see
         // GameResultsShareView's note.
-        let renderer = ImageRenderer(content: view.frame(width: 340).environment(\.colorScheme, colorScheme))
+        let renderer = ImageRenderer(content: view.frame(width: Self.cardWidth).environment(\.colorScheme, colorScheme))
         renderer.scale = displayScale
         return renderer.uiImage
     }
