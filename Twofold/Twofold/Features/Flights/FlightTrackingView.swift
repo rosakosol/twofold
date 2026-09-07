@@ -42,7 +42,12 @@ struct FlightTrackingView: View {
     @State private var flightUpdateTask: Task<Void, Never>?
     /// Incremented to explicitly re-trigger the map's camera fit/follow — see
     /// `FlightMapView.recenterNonce`/`Coordinator.apply`.
+    ///
+    /// Written by the map as well as read: touching the map releases the lock, and this follows it
+    /// so the button stops looking active the moment it stops being.
     @State private var mapRecenterNonce = 0
+    /// Whether the map's camera is locked onto the plane. See `recenterButton`.
+    @State private var isCameraLocked = false
 
     // Notification preferences — individually-bound so the toggles feel instant; saved as one
     // upsert on change.
@@ -383,21 +388,21 @@ struct FlightTrackingView: View {
     // MARK: - Map
 
     private var mapSection: some View {
-        FlightMapView(flight: flight, recenterNonce: mapRecenterNonce)
+        FlightMapView(flight: flight, recenterNonce: mapRecenterNonce, followsAircraft: $isCameraLocked)
             .frame(height: 260)
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
             .overlay(alignment: .bottomTrailing) {
                 // `hasLivePosition` only checks lat/lon — a fresh ADS-B fix can arrive with no
-                // altitude/groundspeed reported at all, which rendered as an empty capsule with
-                // nothing inside it. Only show the overlay once there's actually something to put
-                // in it. No position data at all (e.g. an oceanic leg outside terrestrial ADS-B
-                // receiver coverage) just means this overlay doesn't render — the map's own plane
-                // marker keeps moving via progress-based interpolation regardless (see
-                // `FlightMapView`'s own `markerCoordinate(for:)`), so nothing looks broken.
+                // altitude reported at all, which rendered as an empty capsule with nothing inside
+                // it. Only show the overlay once there's actually something to put in it. No
+                // position data at all (e.g. an oceanic leg outside terrestrial ADS-B receiver
+                // coverage) just means this overlay doesn't render — the map's own plane marker
+                // keeps moving via progress-based interpolation regardless (see `FlightMapView`'s
+                // own `markerCoordinate(for:)`), so nothing looks broken.
                 // Also gated on `isCurrentlyRelevant` — once a flight is truly past, its last
-                // known speed/altitude are stale readings from before landing, not something
-                // still worth surfacing as if it were live.
-                if flight.isCurrentlyRelevant, flight.positionGroundspeed != nil || flight.positionAltitude != nil {
+                // known altitude is a stale reading from before landing, not something still
+                // worth surfacing as if it were live.
+                if flight.isCurrentlyRelevant, flight.positionAltitude != nil {
                     liveStatsOverlay
                 }
             }
@@ -408,16 +413,17 @@ struct FlightTrackingView: View {
             }
     }
 
-    /// Speed/altitude readout directly on the map itself, bottom-right — alongside (not instead
-    /// of) the `StatTile` row below, which also carries heading and stays as the more detailed,
-    /// labeled version. Dark translucent pill regardless of theme, since it needs to stay legible
-    /// sitting on top of whatever's under it on the map (ocean blue, green terrain, ...), not
-    /// whatever the app's light/dark mode happens to be.
+    /// Altitude, directly on the map, bottom-right. Dark translucent pill regardless of theme,
+    /// since it needs to stay legible sitting on top of whatever's under it on the map (ocean blue,
+    /// green terrain, ...), not whatever the app's light/dark mode happens to be.
+    ///
+    /// Groundspeed used to sit alongside it, reading "480kn". Knots are the unit the data arrives
+    /// in and not one most people think in, and the number answers a question nobody waiting for
+    /// someone was asking — what they want to know is where the plane is and when it lands, both of
+    /// which this screen already says plainly. Wind went earlier for the same reason. The values
+    /// are still stored on `Flight`; this is only about what the screen puts in front of someone.
     private var liveStatsOverlay: some View {
         HStack(spacing: Theme.Spacing.sm) {
-            if let speed = flight.positionGroundspeed {
-                Label("\(Int(speed))kn", systemImage: "speedometer")
-            }
             if let altitude = flight.positionAltitude {
                 Label("\(Int(altitude))ft", systemImage: "arrow.up.to.line")
             }
@@ -431,21 +437,46 @@ struct FlightTrackingView: View {
         .padding(Theme.Spacing.sm)
     }
 
-    /// Pinch/zoom/pan already work on this map — this button just puts the camera back to its
-    /// sensible default (re-centers on the live position while en route, or refits the whole
-    /// route otherwise) after a user has panned away from it. Same dark-translucent treatment as
-    /// `liveStatsOverlay` so both read as one visual language on top of the map.
+    /// Puts the camera back, and — while a flight is airborne — locks it onto the plane so it
+    /// keeps up as the plane moves.
+    ///
+    /// That lock is why this now shows its own state. It was invisible: the button looked like a
+    /// one-shot "recentre", but tapping it also left the camera following, and a following camera
+    /// quietly overrides panning every second. Nothing on screen said which mode the map was in, so
+    /// the map felt like it sometimes ignored a drag. Lit blue means locked and the map will keep
+    /// up with the plane; dark means the camera is yours. Touching the map releases it, which is
+    /// what someone panning already means.
+    ///
+    /// For a flight that is not airborne there is nothing to lock onto, so the button stays a
+    /// one-shot refit of the whole route and never lights up — the map corrects the flag back if
+    /// the lock could not engage.
     private var recenterButton: some View {
         Button {
-            mapRecenterNonce += 1
+            if isCameraLocked {
+                isCameraLocked = false
+            } else {
+                // Both: the flag engages the lock for an airborne flight, and the nonce refits the
+                // route for one that is not. Whichever applies, the camera goes back where it
+                // belongs.
+                isCameraLocked = true
+                mapRecenterNonce += 1
+            }
         } label: {
             Image(systemName: "airplane")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.white)
                 .padding(10)
-                .background(.black.opacity(0.55), in: Circle())
+                .background(isCameraLocked ? AnyShapeStyle(Theme.skyBlue) : AnyShapeStyle(.black.opacity(0.55)), in: Circle())
+                .overlay {
+                    if isCameraLocked {
+                        Circle().strokeBorder(.white.opacity(0.85), lineWidth: 1.5)
+                    }
+                }
         }
         .padding(Theme.Spacing.sm)
+        .animation(.snappy(duration: 0.2), value: isCameraLocked)
+        .accessibilityLabel(isCameraLocked ? "Camera locked to the plane" : "Recentre the map")
+        .accessibilityHint(isCameraLocked ? "Unlocks the camera" : "Follows the plane while it's in the air")
     }
 
     // MARK: - Journey summary

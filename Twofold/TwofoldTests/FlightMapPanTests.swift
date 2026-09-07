@@ -100,3 +100,64 @@ struct FlightMapPanTests {
         #expect(scrollView.isScrollEnabled)
     }
 }
+
+//
+//  The camera lock, and why panning worked only sometimes.
+//
+//  While a flight is airborne the map recentres on the plane once a second. Whether that counted as
+//  "the user panned" was inferred from `regionDidChangeAnimated`, filtered by a single
+//  `isProgrammaticCameraChange` flag that the *next* callback consumes — so a pan whose callback
+//  arrived while one of those recentres was in flight got swallowed as the app's own, follow stayed
+//  on, and the next tick pulled the camera back. Whether a drag "worked" came down to where in the
+//  one-second cycle the finger landed.
+//
+@MainActor
+struct FlightMapCameraLockTests {
+
+    private func page() -> (scrollView: UIScrollView, map: MKMapView) {
+        let scrollView = UIScrollView(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        let map = MKMapView(frame: CGRect(x: 0, y: 300, width: 402, height: 260))
+        scrollView.addSubview(map)
+        return (scrollView, map)
+    }
+
+    /// Touching the map releases the lock, with no reference to any region callback.
+    @Test("a touch releases the camera lock")
+    func touchReleasesTheLock() {
+        let (_, map) = page()
+        let coordinator = MapKitRouteView.Coordinator()
+        coordinator.isFollowing = true
+
+        coordinator.beginTouchForTesting(on: map)
+        #expect(!coordinator.isFollowing)
+    }
+
+    /// The race, reproduced. A programmatic recentre is mid-flight — the flag that used to decide
+    /// this is set — and the user touches the map anyway. Under the old rule that touch was
+    /// indistinguishable from the app's own camera move; it must now release the lock regardless.
+    @Test("a touch during a programmatic recentre still releases the lock")
+    func touchDuringRecentreStillReleases() {
+        let (_, map) = page()
+        let coordinator = MapKitRouteView.Coordinator()
+        coordinator.isFollowing = true
+        coordinator.markProgrammaticCameraChangeForTesting()
+
+        coordinator.beginTouchForTesting(on: map)
+        #expect(!coordinator.isFollowing, "this is the case where panning silently did nothing")
+    }
+
+    /// The lock's state is reported outward, which is what lets the button show whether it is on.
+    /// Only on real changes — the button would otherwise re-animate every second as the follow
+    /// camera ticks.
+    @Test("the lock reports its state, once per change")
+    func lockReportsItsState() {
+        let coordinator = MapKitRouteView.Coordinator()
+        var reported: [Bool] = []
+        coordinator.onFollowingChanged = { reported.append($0) }
+
+        coordinator.isFollowing = true
+        coordinator.isFollowing = true
+        coordinator.isFollowing = false
+        #expect(reported == [true, false], "got \(reported)")
+    }
+}

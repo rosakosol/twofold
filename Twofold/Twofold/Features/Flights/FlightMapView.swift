@@ -36,6 +36,10 @@ struct FlightMapView: View {
     /// `Coordinator.apply`. Default `0` and never changing is a no-op, so existing call sites
     /// that don't pass this behave exactly as before.
     var recenterNonce: Int = 0
+    /// Two-way: the map writes the truth into it whenever the camera lock engages or releases, and
+    /// a caller setting it drives the lock directly. Lets the recentre button show its own state
+    /// rather than being a button that silently changes how the map behaves.
+    var followsAircraft: Binding<Bool>? = nil
 
     /// Resolved directly from the flight (set explicitly when adding it) rather than a linked
     /// trip — flights don't require one, so this is the only reliable source now. Can hold both
@@ -71,7 +75,8 @@ struct FlightMapView: View {
                 // follow zoom there.
                 followWhenEnRoute: interactive,
                 edgePadding: edgePadding,
-                recenterNonce: recenterNonce
+                recenterNonce: recenterNonce,
+                followsAircraft: followsAircraft
             )
         } else {
             fallback
@@ -136,6 +141,7 @@ struct MapKitRouteView: UIViewRepresentable {
     let followWhenEnRoute: Bool
     let edgePadding: CGFloat
     let recenterNonce: Int
+    let followsAircraft: Binding<Bool>?
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
@@ -196,12 +202,20 @@ struct MapKitRouteView: UIViewRepresentable {
             guard let mapView, let coordinator else { return }
             coordinator.layoutDidChange(mapView: mapView)
         }
-        context.coordinator.apply(route(), edgePadding: edgePadding, followWhenEnRoute: followWhenEnRoute, recenterNonce: recenterNonce)
+        context.coordinator.onFollowingChanged = { [followsAircraft] following in
+            // Async: this fires from inside `apply`, which SwiftUI calls during an update, and
+            // writing to a binding synchronously there is a modification during view update.
+            DispatchQueue.main.async { followsAircraft?.wrappedValue = following }
+        }
+        context.coordinator.apply(route(), edgePadding: edgePadding, followWhenEnRoute: followWhenEnRoute, recenterNonce: recenterNonce, requestedFollowing: followsAircraft?.wrappedValue)
         return mapView
     }
 
     func updateUIView(_ mapView: SizeAwareMapView, context: Context) {
-        context.coordinator.apply(route(), edgePadding: edgePadding, followWhenEnRoute: followWhenEnRoute, recenterNonce: recenterNonce)
+        context.coordinator.onFollowingChanged = { [followsAircraft] following in
+            DispatchQueue.main.async { followsAircraft?.wrappedValue = following }
+        }
+        context.coordinator.apply(route(), edgePadding: edgePadding, followWhenEnRoute: followWhenEnRoute, recenterNonce: recenterNonce, requestedFollowing: followsAircraft?.wrappedValue)
     }
 
     private func route() -> Coordinator.Route {
@@ -247,6 +261,20 @@ struct MapKitRouteView: UIViewRepresentable {
         @objc func mapTouched(_ recognizer: UIGestureRecognizer) {
             switch recognizer.state {
             case .began:
+                // Touching the map releases the follow camera, before any of the map's own
+                // recognisers have decided what the gesture is.
+                //
+                // This used to be inferred from `regionDidChangeAnimated` instead, filtered by a
+                // single `isProgrammaticCameraChange` flag that the *next* callback consumes. While
+                // a flight is en route the follow camera recentres once a second, so there is a
+                // programmatic region change in flight much of the time — and a pan that landed
+                // inside one had its callback swallowed as "ours", left following on, and got
+                // yanked back by the next tick. That is the "panning works sometimes" of it: it
+                // depended on where in the one-second cycle the finger landed.
+                //
+                // A touch cannot be confused with a camera call, so this needs no filtering.
+                isFollowing = false
+
                 guard suspendedScrollView == nil,
                       let scrollView = Self.enclosingScrollView(of: recognizer.view),
                       scrollView.isScrollEnabled else { return }
@@ -260,6 +288,19 @@ struct MapKitRouteView: UIViewRepresentable {
         }
 
         #if DEBUG
+        /// Test seam for the touch path. A recogniser's `state` cannot be set from outside it, so
+        /// this stands in for `.began` — the same two things that handler does.
+        /// Stands in for a recentre being in flight — the state the old rule could not tell apart
+        /// from a user's own pan.
+        func markProgrammaticCameraChangeForTesting() {
+            isProgrammaticCameraChange = true
+        }
+
+        func beginTouchForTesting(on view: UIView) {
+            isFollowing = false
+            suspendScrollForTesting(around: view)
+        }
+
         /// Test seam. The real entry point is a gesture recogniser's `.began`, and a recogniser's
         /// state cannot be set from outside it.
         func suspendScrollForTesting(around view: UIView) {
@@ -317,9 +358,19 @@ struct MapKitRouteView: UIViewRepresentable {
 
         private var hasFittedCamera = false
         /// Once true, the camera recenters on the marker as it moves without touching zoom —
-        /// turned off the moment the user manually pans/pinches (see
-        /// `mapView(_:regionDidChangeAnimated:)`), so it never fights a deliberate gesture.
-        private var isFollowing = false
+        /// turned off the moment the user touches the map (see `mapTouched`), so it never fights a
+        /// deliberate gesture.
+        ///
+        /// Reported outward as it changes so the recentre button can show whether the camera is
+        /// locked. It is the only thing on this screen that moves the map on its own, and there was
+        /// no way to tell from looking whether it was on.
+        var isFollowing = false {
+            didSet {
+                guard oldValue != isFollowing else { return }
+                onFollowingChanged?(isFollowing)
+            }
+        }
+        var onFollowingChanged: ((Bool) -> Void)?
         /// Guards `regionDidChangeAnimated` from mistaking our own programmatic camera calls
         /// (`setVisibleMapRect`/`setRegion`/`setCenter`) for user-driven ones — set immediately
         /// before each such call, consumed on the very next delegate callback.
@@ -389,8 +440,32 @@ struct MapKitRouteView: UIViewRepresentable {
             status == .departed || status == .inAir || status == .landingSoon
         }
 
-        func apply(_ route: Route, edgePadding: CGFloat, followWhenEnRoute: Bool, recenterNonce: Int) {
+        func apply(_ route: Route, edgePadding: CGFloat, followWhenEnRoute: Bool, recenterNonce: Int, requestedFollowing: Bool? = nil) {
             guard let mapView else { return }
+
+            // A caller asking for a state this map isn't in — the recentre button being used as the
+            // lock toggle it now looks like. Turning it *on* recentres as well, since a lock that
+            // engaged wherever the map happened to be sitting would look like it had done nothing.
+            // Turning it off leaves the camera exactly where it is.
+            if let requestedFollowing, requestedFollowing != isFollowing {
+                if requestedFollowing {
+                    // Only a flight that is actually airborne has something to follow. Asking on
+                    // behalf of one that isn't leaves this false, and the binding is corrected back
+                    // so the button doesn't light up for a lock that never engaged.
+                    let canFollow = followWhenEnRoute && Self.isFollowEligible(route.status)
+                    if canFollow, mapView.bounds.width > 1, mapView.bounds.height > 1 {
+                        isFollowing = true
+                        fitCamera(for: route, edgePadding: edgePadding, followWhenEnRoute: followWhenEnRoute, mapView: mapView, animated: true)
+                        hasFittedCamera = true
+                        lastFittedBoundsSize = mapView.bounds.size
+                        updateAnnotations(route, mapView: mapView)
+                    } else {
+                        onFollowingChanged?(false)
+                    }
+                } else {
+                    isFollowing = false
+                }
+            }
             pendingEdgePadding = edgePadding
             pendingFollowWhenEnRoute = followWhenEnRoute
             startAnimationTimerIfNeeded()
@@ -465,14 +540,11 @@ struct MapKitRouteView: UIViewRepresentable {
             updateAnnotations(route, mapView: mapView)
         }
 
+        /// Deliberately no longer decides whether to keep following — `mapTouched` does, from the
+        /// touch itself. This just consumes the programmatic-change flag so it does not leak into
+        /// a later callback.
         func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
-            if isProgrammaticCameraChange {
-                isProgrammaticCameraChange = false
-                return
-            }
-            // A real pinch/pan from the user — let them keep it; stop overriding their view with
-            // follow-camera recenters until the flight's en-route state changes again.
-            isFollowing = false
+            isProgrammaticCameraChange = false
         }
 
         // MARK: - Continuous animation
