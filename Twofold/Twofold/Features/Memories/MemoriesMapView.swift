@@ -220,30 +220,11 @@ struct MemoriesMapView: View {
         let cityMemories = appModel.memories(in: city)
         let mostRecent = cityMemories.max { $0.date < $1.date }
 
-        return ZStack(alignment: .topTrailing) {
-            Group {
-                if let mostRecent {
-                    MemoryPhotoView(memory: mostRecent, cornerRadius: 6)
-                } else {
-                    RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Theme.cardBackground)
-                }
-            }
-            .frame(width: 64, height: 64)
-            .padding(5)
-            .background(.white, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .shadow(color: .black.opacity(0.22), radius: 5, y: 3)
-            // Tilted like the detail screen's print, a touch further: two degrees reads as a
-            // rendering mistake at this size, where four reads as deliberate.
-            .rotationEffect(.degrees(-4))
-
-            if cityMemories.count > 1 {
-                Text("\(cityMemories.count)")
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(.white)
-                    .padding(4)
-                    .background(Theme.heartRed, in: Circle())
-                    .overlay(Circle().strokeBorder(.white, lineWidth: 1.5))
-                    .offset(x: 6, y: -6)
+        return MemoryMapPin(count: cityMemories.count) {
+            if let mostRecent {
+                MemoryPhotoView(memory: mostRecent, cornerRadius: 6)
+            } else {
+                RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Theme.cardBackground)
             }
         }
     }

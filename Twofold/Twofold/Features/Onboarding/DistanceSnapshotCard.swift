@@ -7,6 +7,20 @@
 //  `DistanceShareCard` uses and `PersonalizedInsightView` (this moment's live screen) now also
 //  uses, so all three stay visually identical rather than three separately-tuned renderings.
 //
+//  The card *around* that map now follows `DistanceShareCard` too — the one someone shares from
+//  Home once they are past onboarding. It had drifted into its own thing: a hand-picked
+//  blue-to-green gradient against the themed one, a 34pt number against 48, its own corner radius,
+//  and the wordmark at the bottom rather than the brand mark at the top. Two cards showing the same
+//  fact in two visual languages, the first one seen during onboarding and the second one for the
+//  rest of the app's life.
+//
+//  Uses `DistanceShareTheme.classic` — the value `DistanceShareView` itself opens on — rather than
+//  re-tuning a matching palette by eye, so "matches" stays true when that palette changes.
+//
+//  What deliberately stays: the stat tiles and the "that's about the width of Canada" line. Those
+//  are this moment's own content, not styling — onboarding is the one place a raw number needs
+//  making tangible, and the in-app card has no equivalent to copy.
+//
 
 import SwiftUI
 import MapKit
@@ -23,8 +37,12 @@ struct DistanceSnapshotCard: View {
     /// Pre-fetched by `DistanceRevealShareView` via `DistanceMapView.loadMapSnapshot`.
     var mapSnapshot: MKMapSnapshotter.Snapshot? = nil
 
+    private let theme: DistanceShareTheme = .classic
+
     var body: some View {
         VStack(spacing: Theme.Spacing.lg) {
+            TwofoldBrandMark(color: theme.primaryTextColor, size: 30, textStyle: .title3)
+
             DistanceMapView(
                 myCity: myCity,
                 partnerCity: partnerCity,
@@ -34,13 +52,21 @@ struct DistanceSnapshotCard: View {
                 mapSnapshot: mapSnapshot
             )
 
-            VStack(spacing: Theme.Spacing.xs) {
-                Text("\(MeasurementPreference.distanceLabel(km: distanceKm)) apart")
-                    .font(.system(size: 34, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
+            VStack(spacing: 6) {
+                Text("THE DISTANCE BETWEEN YOU")
+                    .font(.caption2.weight(.semibold))
+                    .tracking(1.5)
+                    .foregroundStyle(theme.secondaryTextColor)
+
+                // The eyebrow above already says what this number is, so it no longer carries
+                // "apart" — same as the in-app card.
+                Text(MeasurementPreference.distanceLabel(km: distanceKm))
+                    .font(.system(size: 48, weight: .bold, design: .rounded))
+                    .foregroundStyle(theme.primaryTextColor)
+
                 Text(comparison)
                     .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.white.opacity(0.85))
+                    .foregroundStyle(theme.accentTextColor)
             }
             .multilineTextAlignment(.center)
 
@@ -55,46 +81,42 @@ struct DistanceSnapshotCard: View {
                 )
             }
 
-            wordmark
         }
-        .padding(Theme.Spacing.xl)
+        .padding(.horizontal, Theme.Spacing.lg)
+        .padding(.vertical, Theme.Spacing.xl)
         .frame(width: 340)
-        .background(cardGradient)
-        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .background(backgroundGradient)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.shareCard, style: .continuous))
+        // Pinned, because this renders to a fixed-size image that leaves the device: it should look
+        // the same to whoever receives it rather than reflowing to the sender's text size.
+        .dynamicTypeSize(.large)
     }
 
-    private var cardGradient: LinearGradient {
-        LinearGradient(
-            colors: [Color(hex: "1E3A5F"), Color(hex: "3E7CA6"), Color(hex: "6FBF8B")],
-            startPoint: .top,
-            endPoint: .bottom
-        )
+    private var backgroundGradient: some View {
+        ZStack {
+            theme.backgroundGradient
+            RadialGradient(colors: [theme.glowColor.opacity(0.4), .clear], center: .top, startRadius: 10, endRadius: 340)
+        }
     }
 
     // MARK: - Stats
 
+    /// Themed rather than hard-white. The old fixed white-on-white-opacity was tuned against a
+    /// gradient this card no longer uses — one of its labels had already needed bumping to 0.95
+    /// because it was unreadable against that gradient's light green bottom edge.
     private func statTile(icon: String, value: String, label: String) -> some View {
         VStack(spacing: 4) {
             Image(systemName: icon)
                 .font(.subheadline)
-                .foregroundStyle(.white.opacity(0.95))
+                .foregroundStyle(theme.accentTextColor)
             Text(value)
                 .font(.title3.weight(.bold))
-                .foregroundStyle(.white)
-            // Was .opacity(0.7) — unreadable against the card gradient's light green bottom edge
-            // (`cardGradient`'s "6FBF8B"), which the icon/value above never sit low enough to
-            // touch.
+                .foregroundStyle(theme.primaryTextColor)
             Text(label)
                 .font(.caption2.weight(.medium))
-                .foregroundStyle(.white.opacity(0.95))
+                .foregroundStyle(theme.secondaryTextColor)
                 .multilineTextAlignment(.center)
         }
-    }
-
-    private var wordmark: some View {
-        Text("twofold")
-            .font(.system(size: 18, weight: .regular, design: .serif))
-            .foregroundStyle(.white.opacity(0.8))
     }
 
     // MARK: - Comparison copy

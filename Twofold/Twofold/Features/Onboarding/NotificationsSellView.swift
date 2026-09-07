@@ -93,7 +93,13 @@ struct NotificationsSellView: View {
             },
             primaryTitle: "Keep me updated",
             primaryAction: requestPermission,
-            primaryDisabled: isRequesting
+            primaryDisabled: isRequesting,
+            // A way past this that isn't the system dialog. Tapping the primary button is the only
+            // thing that shows the real prompt, and iOS only ever shows it once — so someone who
+            // isn't ready to decide had to either grant something they didn't want or deny it
+            // permanently. Skipping asks nothing, and leaves the question open for Settings later.
+            secondaryTitle: "Skip for now",
+            secondaryAction: skip
         )
         .sensoryFeedback(
             .impact(weight: .light),
@@ -216,6 +222,13 @@ struct NotificationsSellView: View {
     }
 
     // MARK: - Notification Permission
+
+    /// Deliberately does not touch `notificationsGranted`. Nothing was asked and nothing was
+    /// refused; leaving it at its default keeps "not granted" meaning the same thing it does when
+    /// the system prompt is genuinely declined.
+    private func skip() {
+        onboarding.path.append(.liveActivitySell)
+    }
 
     private func requestPermission() {
         isRequesting = true

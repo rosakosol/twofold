@@ -85,6 +85,9 @@ struct MapSellView: View {
 
         return Map(position: .constant(.region(region)), interactionModes: []) {
             ForEach(Array(pins.enumerated()), id: \.offset) { index, pin in
+                // Named by the memory, exactly as the real map names its pins — the picture and
+                // the caption are then about the same thing, rather than the caption repeating a
+                // place the map has already shown you.
                 Annotation(pin.memory.title, coordinate: pin.coordinate) {
                     memoryPin(pin)
                         .scaleEffect(shownPins.contains(index) ? 1 : 0.4)
@@ -98,24 +101,12 @@ struct MapSellView: View {
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
     }
 
-    /// Same structure as the real `MemoriesMapView.memoryPin` — circular photo, white ring,
-    /// drop shadow, red count badge when more than one memory shares the spot.
+    /// Literally the same pin the real Memories map draws — see `MemoryMapPin`. These two had
+    /// drifted: the app's grew into a tilted square print and this one kept drawing the circle it
+    /// replaced, so the screen selling the feature showed something the app no longer did.
     private func memoryPin(_ pin: MockPin) -> some View {
-        ZStack(alignment: .topTrailing) {
-            OnboardingMemoryImage(seed: pin.memory.photoSeed, cornerRadius: 999)
-                .frame(width: 44, height: 44)
-                .clipShape(Circle())
-                .overlay(Circle().strokeBorder(.white, lineWidth: 2))
-                .shadow(color: .black.opacity(0.2), radius: 4, y: 2)
-
-            if pin.count > 1 {
-                Text("\(pin.count)")
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(.white)
-                    .padding(4)
-                    .background(Theme.heartRed, in: Circle())
-                    .offset(x: 6, y: -6)
-            }
+        MemoryMapPin(count: pin.count) {
+            OnboardingMemoryImage(seed: pin.memory.photoSeed, cornerRadius: 6)
         }
     }
 
