@@ -57,3 +57,51 @@ struct PaywallGateTests {
         #expect(!RootView.hasAccess(backendSaysActive: false, deviceHoldsEntitlement: false, awaitingPartnerDecision: false))
     }
 }
+
+//
+//  The third state: we don't know yet.
+//
+//  `pendingOutgoingConnectionRequest == nil` means both "there is no pending request" and "we have
+//  not asked yet", and the gate has to tell those apart. At launch the lookup is a network round
+//  trip that lands after `hasCouple` flips true, so the gate evaluated in between and flashed a
+//  paywall at the one person who is explicitly exempt from it — someone who redeemed an invite and
+//  is waiting on the inviter to accept.
+//
+@MainActor
+struct PaywallExemptionResolutionTests {
+
+    /// Stands in for the launch sequence: what the gate would decide at each step.
+    private func decision(resolved: Bool, pendingRequest: Bool) -> String {
+        if RootView.hasAccess(backendSaysActive: false, deviceHoldsEntitlement: false, awaitingPartnerDecision: pendingRequest) {
+            return "app"
+        }
+        return resolved ? "paywall" : "loading"
+    }
+
+    /// The bug: mid-launch, before the lookup lands, an exempt invitee must not see a paywall.
+    @Test("an unresolved lookup shows loading, not a paywall")
+    func unresolvedShowsLoading() {
+        #expect(decision(resolved: false, pendingRequest: false) == "loading")
+    }
+
+    /// And once it lands, they go straight into the app — never having seen a price.
+    @Test("a resolved pending request opens the app")
+    func resolvedPendingOpensApp() {
+        #expect(decision(resolved: true, pendingRequest: true) == "app")
+    }
+
+    /// Someone with no request and nothing paid still gets the paywall, once we actually know.
+    @Test("a resolved absence shows the paywall")
+    func resolvedAbsenceShowsPaywall() {
+        #expect(decision(resolved: true, pendingRequest: false) == "paywall")
+    }
+
+    /// The negative control. Treating "not asked yet" as "no request" is precisely the old
+    /// behaviour, and it puts a paywall in front of the invitee.
+    @Test("treating unknown as absent is what showed the paywall")
+    func unknownAsAbsentIsTheBug() {
+        // What the gate did before: no third state, so unresolved fell through to the paywall.
+        let old = RootView.hasAccess(backendSaysActive: false, deviceHoldsEntitlement: false, awaitingPartnerDecision: false)
+        #expect(!old, "with no way to say 'unknown', an exempt invitee is shown a paywall")
+    }
+}

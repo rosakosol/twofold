@@ -109,6 +109,15 @@ final class AppModel {
     /// isn't really solo, just not accepted yet; `HomeView` shows a persistent card for it, with
     /// the option to nudge the inviter — see `sendConnectionRequestReminder()`.
     var pendingOutgoingConnectionRequest: BackendService.OutgoingConnectionRequest?
+    /// Whether `pendingOutgoingConnectionRequest` has been looked up yet this session.
+    ///
+    /// `nil` on that property means two different things — "there is no pending request" and "we
+    /// have not asked yet" — and the paywall gate has to tell them apart. Someone who redeemed an
+    /// invite and is waiting on the inviter must never be shown a paywall, and at launch the
+    /// lookup is a network round trip that lands well after `hasCouple` flips true. Without this,
+    /// the gate evaluated during that window and flashed the paywall at exactly the person it is
+    /// meant to exempt.
+    private(set) var hasResolvedOutgoingConnectionRequest = false
 
     /// Non-nil only while there's an unacknowledged "your subscription lapsed because {name}
     /// left" notice — set by `adoptSoloProfile(_:)` from `leave_couple`'s server-captured
@@ -815,9 +824,14 @@ final class AppModel {
     func refreshPendingOutgoingConnectionRequest() async {
         guard !partnerConnected else {
             pendingOutgoingConnectionRequest = nil
+            hasResolvedOutgoingConnectionRequest = true
             return
         }
         pendingOutgoingConnectionRequest = try? await BackendService.fetchMyOutgoingConnectionRequest()
+        // Set even when the fetch failed. A network error is not a reason to hold someone on a
+        // loading screen indefinitely; it resolves to "no pending request", which is what the
+        // gate assumed before this existed anyway.
+        hasResolvedOutgoingConnectionRequest = true
     }
 
     /// Nudges the inviter on `pendingOutgoingConnectionRequest`. Returns an error message on

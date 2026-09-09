@@ -77,6 +77,20 @@ struct RootView: View {
                     awaitingPartnerDecision: appModel.pendingOutgoingConnectionRequest != nil
                 ) {
                     MainTabView(selection: $selectedTab, statsSection: $pendingStatsSection)
+                } else if !appModel.hasResolvedOutgoingConnectionRequest {
+                    // Holds the loading screen rather than showing a paywall we might be about to
+                    // retract. Whether this person is exempt depends on a request lookup that is
+                    // still in flight — `restoreSession` flips `hasCouple` true and the body
+                    // re-evaluates on the next await, several awaits before that lookup lands.
+                    //
+                    // The person this protects is the one who redeemed an invite and is waiting on
+                    // the inviter: they are never meant to be asked to pay, and a paywall that
+                    // appears and then vanishes is worse than a beat of loading — it is what makes
+                    // someone reach for their card.
+                    ZStack {
+                        Theme.backgroundGradient.ignoresSafeArea()
+                        BrandLoadingView()
+                    }
                 } else if let lapsedPartnerName = appModel.partnerSubscriptionLapsedPartnerName {
                     // The payer disconnected and this profile wasn't the one backing the
                     // couple's access — see `leave_couple`'s partner_subscription_lapse_*
@@ -99,12 +113,15 @@ struct RootView: View {
         .task {
             KeyboardDismissal.installOnce()
             await appModel.restoreSession()
+            // Before `checkSubscription`, not after: this is what decides whether the person is
+            // exempt from the paywall at all, so resolving it first keeps the loading state above
+            // to a single round trip instead of two.
+            await refreshPendingOutgoingConnectionRequestIfNeeded()
             await checkSubscription()
             // Deliberately after both of the above: a notification tap that cold-launched the app
             // arrives long before either has finished, and `consumePendingRoute()` refuses to open
             // anything until they have.
             consumePendingRoute()
-            await refreshPendingOutgoingConnectionRequestIfNeeded()
             refreshCurrentCityIfNeeded()
         }
         // Entitlement changes as RevenueCat learns of them, rather than only at the next
