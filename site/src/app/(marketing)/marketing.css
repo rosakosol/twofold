@@ -584,6 +584,56 @@ section {
   box-shadow: var(--shadow-lg);
   animation: float 7s var(--ease) infinite;
 }
+
+/* Real app screenshots from public/assets/phone-screen/. These PNGs already include an iPhone
+   frame on a transparent background, so they must not take the rounded-rectangle treatment the
+   placeholders had: a box-shadow would trace the transparent bounding box rather than the phone,
+   and a border-radius would clip nothing while implying a corner that isn't there. drop-shadow
+   follows the alpha channel, so the shadow hugs the actual device outline. */
+.app-shot {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 0;
+  box-shadow: none;
+  background: none;
+  filter: drop-shadow(0 26px 46px rgba(28, 42, 56, 0.26));
+}
+/* In the hero it also inherits .art-shot's float animation and width clamp. */
+.art-shot.app-shot {
+  width: min(300px, 72%);
+}
+/* On a feature row the screenshot stands on its own rather than sitting in a .media-frame well:
+   the wells are 4/3, and a phone is roughly 0.54, so it would letterbox with more empty panel
+   than content. Capped by height so a very tall row doesn't push the copy out of view. */
+.feature-shot {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.feature-shot .app-shot {
+  width: auto;
+  max-width: 100%;
+  max-height: 520px;
+}
+/* A step's screenshot sits above its card, in a three-across row. At full width a phone would
+   stand roughly 2.5x taller than the 4/3 placeholder still used by step 1, so it's capped by
+   height and centred - close enough in mass that the row doesn't read as broken while that one
+   placeholder remains. Raise the cap once step 1 has a real screenshot too. */
+.step-shot {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  min-height: 300px;
+}
+.step-shot .app-shot {
+  width: auto;
+  max-width: 100%;
+  max-height: 300px;
+}
+@media (max-width: 820px) {
+  .feature-shot .app-shot { max-height: 420px; }
+}
 .art-shot-placeholder {
   display: grid;
   place-items: center;

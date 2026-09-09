@@ -274,5 +274,17 @@ if (!WRITE) {
 }
 
 const {client, projectId, dataset} = sanityWriteClient()
+
+// The notice banner is an editorial toggle, not authored copy: clearing `noticeText` in Studio
+// hides it (see legalPage.ts and LegalPageLayout.tsx). A blind createOrReplace would restore the
+// default draft notice on every run and silently undo that — which is exactly what happened once.
+// So the default below only applies when the document doesn't exist yet; otherwise whatever is
+// published wins.
+const existing = await client.getDocument(doc._id)
+if (existing) doc.noticeText = existing.noticeText ?? ''
+
 await client.createOrReplace(doc)
-console.log(`Replaced legalPage-privacy in ${projectId}/${dataset} - ${headings.length} sections, ${body.length} blocks.`)
+console.log(
+  `Replaced legalPage-privacy in ${projectId}/${dataset} - ${headings.length} sections, ${body.length} blocks.` +
+    (existing ? `\nKept the existing notice banner (${doc.noticeText ? 'shown' : 'hidden'}).` : '')
+)

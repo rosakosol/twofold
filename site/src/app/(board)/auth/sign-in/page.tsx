@@ -20,15 +20,23 @@ export default function SignInPage() {
 function SignInForm() {
   const searchParams = useSearchParams();
   const next = searchParams.get("next") ?? "/feedback";
+  // Set by /auth/callback when it couldn't complete the exchange. Without rendering it,
+  // a failed sign-in returns to this page looking untouched.
+  const callbackError = searchParams.get("error");
+  const callbackReason = searchParams.get("reason");
 
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState("");
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
+  // Always the origin the user is actually on, never a build-time constant. PKCE stores the
+  // code verifier in a cookie scoped to whichever origin started the flow, so sending the
+  // callback anywhere else guarantees "code verifier not found in storage" — which is what
+  // NEXT_PUBLIC_SITE_URL did here, and what Supabase's own Site URL fallback does whenever
+  // this origin is missing from the project's Redirect URLs allow-list.
   function callbackUrl() {
-    const site = process.env.NEXT_PUBLIC_SITE_URL ?? window.location.origin;
-    const url = new URL("/auth/callback", site);
+    const url = new URL("/auth/callback", window.location.origin);
     url.searchParams.set("next", next);
     return url.toString();
   }
@@ -85,6 +93,17 @@ function SignInForm() {
             </div>
           ) : (
             <>
+              {callbackError && (
+                <div className="border-destructive/40 bg-destructive/10 rounded-md border p-3">
+                  <p className="text-destructive text-sm font-medium">
+                    That sign-in didn&apos;t complete.
+                  </p>
+                  {callbackReason && (
+                    <p className="text-destructive/80 mt-1 text-xs">{callbackReason}</p>
+                  )}
+                </div>
+              )}
+
               <Button
                 type="button"
                 variant="outline"

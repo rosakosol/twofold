@@ -50,12 +50,14 @@ interface FaqWrite {
 async function writeEntry(action: "create" | "update" | "delete", id: string | null, body?: FaqWrite) {
   const table = faqSupabase.from("faq_entries");
 
+  // `count` is an option on the mutation itself, not on the trailing `select()` — postgrest-js
+  // moved it there, and `select()` now takes only a column list.
   const { error, count } =
     action === "create"
-      ? await table.insert(body!).select("id", { count: "exact" })
+      ? await table.insert(body!, { count: "exact" }).select("id")
       : action === "update"
-        ? await table.update(body!).eq("id", id!).select("id", { count: "exact" })
-        : await table.delete().eq("id", id!).select("id", { count: "exact" });
+        ? await table.update(body!, { count: "exact" }).eq("id", id!).select("id")
+        : await table.delete({ count: "exact" }).eq("id", id!).select("id");
 
   if (error) throw new Error(error.message);
   if (!count) {

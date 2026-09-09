@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Reveal } from "@/components/marketing/Reveal";
 import { FeatureTeaserGrid } from "@/components/marketing/FeatureTeaserGrid";
 import { ScrollLink } from "@/components/marketing/ScrollLink";
@@ -84,13 +85,18 @@ export default async function HomePage() {
           <div className="hero-art" aria-hidden>
             <div className="art-glow" />
             <div className="art-glow-2" />
-            {/* Rectangular placeholder for a real app-UI screenshot. To swap in the
-                real image, replace this whole <div> with:
-                  <img src="/assets/hero-app-ui.png" alt="" className="art-shot" />
-                - the .art-shot styles (size, rounding, shadow, float) apply to both. */}
-            <div className="art-shot art-shot-placeholder">
-              <span>App&nbsp;UI</span>
-            </div>
+            {/* Priority: this is the hero's largest element and the page's LCP candidate, so it
+                must not lazy-load. .app-shot drops the rounded-rectangle shadow the placeholder
+                used - see marketing.css. */}
+            <Image
+              src="/assets/phone-screen/globe-distance.png"
+              alt="The Twofold home screen, showing the distance between two partners on a 3D globe"
+              width={1019}
+              height={1877}
+              className="art-shot app-shot"
+              priority
+              sizes="(max-width: 860px) 72vw, 300px"
+            />
             <div className="hero-chip hero-chip-1">
               <span className="icon-wrap">
                 <svg className="icon">
@@ -150,8 +156,15 @@ export default async function HomePage() {
               </Reveal>
             </div>
             <div className="step">
-              <div className="step-art step-art-placeholder">
-                <span>Share flights</span>
+              <div className="step-shot">
+                <Image
+                  src="/assets/phone-screen/trips.png"
+                  alt="The Trips screen in Twofold, listing upcoming and past journeys"
+                  width={1019}
+                  height={1877}
+                  className="app-shot"
+                  sizes="(max-width: 860px) 60vw, 220px"
+                />
               </div>
               <Reveal className="step-card">
                 <span className="step-num">2</span>
@@ -160,8 +173,15 @@ export default async function HomePage() {
               </Reveal>
             </div>
             <div className="step">
-              <div className="step-art step-art-placeholder">
-                <span>Shared globe</span>
+              <div className="step-shot">
+                <Image
+                  src="/assets/phone-screen/memory-map.png"
+                  alt="Twofold's memory map, with pins marking the places a couple has been"
+                  width={1019}
+                  height={1877}
+                  className="app-shot"
+                  sizes="(max-width: 860px) 60vw, 220px"
+                />
               </div>
               <Reveal className="step-card">
                 <span className="step-num">3</span>

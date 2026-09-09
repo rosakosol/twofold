@@ -292,5 +292,14 @@ if (!WRITE) {
 }
 
 const {client, projectId, dataset} = sanityWriteClient()
+
+// See seed-privacy-policy.mjs for why: the notice banner is an editorial toggle, so a rerun of
+// this script must not resurrect it after someone has cleared it in Studio.
+const existing = await client.getDocument(doc._id)
+if (existing) doc.noticeText = existing.noticeText ?? ''
+
 await client.createOrReplace(doc)
-console.log(`Replaced legalPage-terms in ${projectId}/${dataset} - ${headings.length} sections, ${body.length} blocks.`)
+console.log(
+  `Replaced legalPage-terms in ${projectId}/${dataset} - ${headings.length} sections, ${body.length} blocks.` +
+    (existing ? `\nKept the existing notice banner (${doc.noticeText ? 'shown' : 'hidden'}).` : '')
+)
