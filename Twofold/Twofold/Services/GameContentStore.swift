@@ -12,8 +12,9 @@
 //  Two layers, in this order:
 //
 //  1. `GameContentSeed.json` in the app bundle — produced by `scripts/export-game-content.py`,
-//     ~534 KB for 191 decks and ~2,000 rows. This is what makes a device that has *never* been
-//     online still able to play.
+//     ~105 KB for 52 decks and 385 rows. This is what makes a device that has *never* been
+//     online still able to play. Plus-tier only: the bundle is readable by anyone who downloads
+//     the app, so seeding premium would give the subscription away (see the export script).
 //  2. A disk cache refreshed from the backend whenever the app is online. Content is added
 //     server-side between app releases (there are several "grow the decks" migrations), so the
 //     seed goes stale on its own; this is what keeps a shipped build current without waiting for
