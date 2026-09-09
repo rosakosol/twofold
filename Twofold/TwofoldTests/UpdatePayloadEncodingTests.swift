@@ -68,15 +68,9 @@ struct UpdatePayloadEncodingTests {
         #expect(encoded.contains("occurred_at"), "occurred_at was dropped by the hand-written encoder")
     }
 
-    /// The deliberate opposite, asserted so nobody "fixes" it to match the others. A routine
-    /// subscription re-check reconfirms `active` without knowing the tier, and must leave the tier
-    /// column alone rather than blanking it.
-    @Test("a subscription re-check with no tier omits the column, on purpose")
-    func subscriptionUpdateOmitsAbsentTier() throws {
-        let encoded = try json(
-            BackendService.subscriptionStatusUpdateForTesting(active: true, tier: nil)
-        )
-        #expect(!encoded.contains("subscription_tier"), "got \(encoded) — this one must NOT write null")
-        #expect(encoded.contains("\"subscription_active\":true"))
-    }
+    // A fourth case used to sit here: a subscription re-check that omitted a nil tier on purpose,
+    // so reconfirming `active` wouldn't blank the column. It went with the client-side subscription
+    // write — `revenuecat-webhook` owns those columns now, and the client is refused if it tries.
+    // The distinction it demonstrated is still the point of this file; the three payloads above
+    // carry it.
 }

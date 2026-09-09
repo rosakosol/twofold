@@ -655,68 +655,19 @@ enum BackendService {
             .execute()
     }
 
-    private struct SubscriptionStatusUpdate: Encodable {
-        var subscriptionActive: Bool
-        var subscriptionCheckedAt: Date
-        var subscriptionTier: String?
-        enum CodingKeys: String, CodingKey {
-            case subscriptionActive = "subscription_active"
-            case subscriptionCheckedAt = "subscription_checked_at"
-            case subscriptionTier = "subscription_tier"
-        }
-    }
+    // `subscription_active` / `subscription_tier` / `subscription_checked_at` are not written from
+    // here any more, and cannot be: migration 20260915000000 rejects a write to those three columns
+    // from `anon`/`authenticated`, so the PATCH this used to send now returns 403. The writer is
+    // `supabase/functions/revenuecat-webhook`, running as service_role — see its header for why the
+    // device's own word could not stay the source of truth (anyone with curl and the anon key that
+    // ships in the app could grant themselves, and their partner, Premium).
+    //
+    // What went with it: a `SubscriptionStatusUpdate` payload that deliberately omitted a nil tier
+    // so a routine re-check wouldn't blank the column, and an `isTrustworthyEntitlementSource`
+    // guard that stopped a Debug build's local StoreKit — which always reports "not subscribed",
+    // and which talks to production — from writing `active: false` onto a real subscriber's row.
+    // Both were answers to problems only the client-side write had.
 
-    /// Writes only the caller's own profile row with their own device's last-known local
-    /// StoreKit entitlement — never the partner's, so there's no clobbering risk between two
-    /// independently-checking devices (see `fetchSubscriptionActive`, which ORs the two).
-    /// `tier` is `nil` for a routine re-check (only reconfirming `active`, not a purchase) —
-    /// `SubscriptionStatusUpdate.subscriptionTier` being `nil` means `encodeIfPresent` omits the
-    /// key entirely, so the column is left untouched rather than being overwritten with null.
-    ///
-    /// A Debug build never persists `active: false` — see `isTrustworthyEntitlementSource`.
-    static func updateSubscriptionStatus(active: Bool, tier: String? = nil) async throws {
-        guard let userID = currentUserID else { throw BackendError.notAuthenticated }
-        guard active || isTrustworthyEntitlementSource else {
-            print("[subscription] skipped persisting active=false — a Debug build's StoreKit environment can't prove a lapse")
-            return
-        }
-        try await supabase
-            .from("profiles")
-            .update(SubscriptionStatusUpdate(subscriptionActive: active, subscriptionCheckedAt: .now, subscriptionTier: tier))
-            .eq("id", value: userID)
-            .execute()
-    }
-
-    /// Whether this build's StoreKit environment can be believed when it says "not subscribed".
-    ///
-    /// A Debug build runs under the scheme's `Twofold.storekit` configuration, which is a purely
-    /// local StoreKit: transactions are signed by Xcode's own test certificate, Apple never sees
-    /// them, and RevenueCat — which validates server-side against Apple — therefore reports no
-    /// entitlement no matter what the person is actually subscribed to. That read is not evidence
-    /// of a lapse; it's evidence of the environment.
-    ///
-    /// It would be harmless, except `SUPABASE_ENV=local` is disabled in the scheme, so a local run
-    /// talks to *production*. Signing in as a real account on a Debug build therefore wrote
-    /// `subscription_active = false` onto that real profile row — and since
-    /// `fetchCoupleSubscriptionTier` ORs both partners, it could take the partner down with it.
-    /// Observed: a subscription flag set by hand was overwritten within seconds of launching.
-    ///
-    /// Debug rather than simulator-only, deliberately: the StoreKit configuration is attached to
-    /// the scheme's *Run* action, so a debug build on a physical device has exactly the same
-    /// problem. Release builds — TestFlight and the App Store — run against the real sandbox and
-    /// production StoreKit, where a negative read means what it says.
-    ///
-    /// Only *negative* writes are suppressed. A positive one is always safe to believe, and local
-    /// UI still reflects the local read; it's the persisted couple-wide state that's protected.
-    /// The cost is that a genuine lapse can't be recorded from a Debug build, which is the right
-    /// trade: that build can't observe a genuine lapse in the first place.
-    private static var isTrustworthyEntitlementSource: Bool {
-        #if DEBUG
-        false
-        #else
-        true
-        #endif
-    }
 
     private struct SubscriptionActiveRow: Decodable {
         var subscriptionActive: Bool
@@ -802,9 +753,9 @@ enum BackendService {
             .execute()
             .value
 
-        // Only a still-active row's tier counts — a lapsed partner's `subscription_tier` column
-        // is left stale (never nulled out, see `updateSubscriptionStatus`'s doc comment), so an
-        // inactive row's tier must never block a fresh purchase.
+        // Only a still-active row's tier counts — a lapsed partner's `subscription_tier` column is
+        // left stale rather than nulled out (the webhook writes `active: false` and leaves the tier
+        // alone), so an inactive row's tier must never block a fresh purchase.
         let activeTiers = rows.compactMap { $0.subscriptionActive ? $0.subscriptionTier : nil }
         return activeTiers.contains("premium") ? "premium" : activeTiers.first
     }
@@ -1471,9 +1422,9 @@ enum BackendService {
             )
         }
 
-        // Only a still-active profile's tier counts — `subscription_tier` is left stale (never
-        // nulled out) once a subscription lapses, see `updateSubscriptionStatus`'s doc comment,
-        // so an inactive row's leftover tier must never be reported as the couple's active plan.
+        // Only a still-active profile's tier counts — `subscription_tier` is left stale rather than
+        // nulled out once a subscription lapses, so an inactive row's leftover tier must never be
+        // reported as the couple's active plan.
         let activeTiers = [meProfile, partnerProfile].compactMap { $0.subscriptionActive ? $0.subscriptionTier : nil }
         let effectiveTier: String? = activeTiers.contains("premium") ? "premium" : activeTiers.first
 
@@ -2267,9 +2218,10 @@ enum BackendService {
     /// `container.encode` rather than `encodeIfPresent` is the whole difference: `Optional`
     /// conforms to `Encodable` and writes a null.
     ///
-    /// (`SubscriptionStatusUpdate` relies on the opposite behaviour on purpose — see its own note.
-    /// The distinction is whether `nil` means "clear this" or "leave this alone", and it has to be
-    /// decided per payload rather than inherited from the synthesis.)
+    /// (The distinction is whether `nil` means "clear this" or "leave this alone", and it has to be
+    /// decided per payload rather than inherited from the synthesis. `SubscriptionStatusUpdate`
+    /// used to be the counter-example here, deliberately omitting a nil tier; it is gone with the
+    /// client-side subscription write.)
     private struct TripIDUpdate: Encodable {
         var tripId: UUID?
         enum CodingKeys: String, CodingKey { case tripId = "trip_id" }
@@ -2291,9 +2243,6 @@ enum BackendService {
     static func tripNotesUpdateForTesting(notes: String?) -> some Encodable { TripNotesUpdate(notes: notes) }
     static func memoryUpdateForTesting(placeID: UUID?, title: String, note: String) -> some Encodable {
         MemoryUpdate(placeId: placeID, title: title, note: note, occurredAt: Date(timeIntervalSince1970: 0))
-    }
-    static func subscriptionStatusUpdateForTesting(active: Bool, tier: String?) -> some Encodable {
-        SubscriptionStatusUpdate(subscriptionActive: active, subscriptionCheckedAt: Date(timeIntervalSince1970: 0), subscriptionTier: tier)
     }
     #endif
 
