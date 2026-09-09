@@ -55,7 +55,27 @@ struct RootView: View {
                 // this — the forced paywall below would otherwise be a dead end for no reason.
                 // Home shows a persistent "invite pending" card (with a reminder nudge) in place
                 // of the old full-screen `PendingConnectionApprovalView` gate this used to be.
-                if appModel.isSubscriptionActive || appModel.pendingOutgoingConnectionRequest != nil {
+                // `subscriptionStore.isSubscribed` is in this condition because the profile row is
+                // a cache, not the truth. It is written by `revenuecat-webhook`, and between a
+                // purchase completing and that webhook landing — or while it is misconfigured, or
+                // if RevenueCat never retried after a failure — the row says `false` for someone who
+                // has genuinely paid.
+                //
+                // That gap was a dead end, not just a delay: the forced paywall below has nothing to
+                // sell someone who already holds an entitlement, so it renders "Current Plan"
+                // greyed out for their own tier and "Manage Subscription" for the other one, with no
+                // way into the app at all. Reported by a real subscriber who could not get past it.
+                //
+                // Not a bypass. `customerInfo.entitlements.active` is RevenueCat's own answer,
+                // receipt-validated against Apple server-side — the same source the webhook reads,
+                // just not yet persisted. What it deliberately does not do is write that to the
+                // profile row: that write is what let a client grant itself, and its partner,
+                // Premium, and it stays the webhook's alone.
+                if Self.hasAccess(
+                    backendSaysActive: appModel.isSubscriptionActive,
+                    deviceHoldsEntitlement: subscriptionStore.isSubscribed,
+                    awaitingPartnerDecision: appModel.pendingOutgoingConnectionRequest != nil
+                ) {
                     MainTabView(selection: $selectedTab, statsSection: $pendingStatsSection)
                 } else if let lapsedPartnerName = appModel.partnerSubscriptionLapsedPartnerName {
                     // The payer disconnected and this profile wasn't the one backing the
@@ -102,7 +122,7 @@ struct RootView: View {
                     appModel.subscriptionTier = coupleTier
                 }
                 if let active = try? await BackendService.fetchSubscriptionActive() {
-                    appModel.isSubscriptionActive = active
+                    appModel.isSubscriptionActive = active || tier != nil
                 }
                 await WidgetSnapshotWriter.refresh(appModel: appModel)
             }
@@ -345,6 +365,16 @@ struct RootView: View {
     /// still must not become a way into premium gameplay — but not-ready now means *leave it
     /// pending* rather than discard. Whichever of the two triggers fires next tries again, and the
     /// route is only cleared once something has actually opened.
+    /// Whether to show the app rather than the forced paywall.
+    ///
+    /// Kept as a named decision rather than an inline condition because the middle term is the one
+    /// that is easy to drop and expensive to lose — see the comment at the call site. A forced
+    /// paywall shown to someone who already holds an entitlement is a dead end, not a prompt: it has
+    /// nothing to sell them, so it disables its own CTA and traps them.
+    static func hasAccess(backendSaysActive: Bool, deviceHoldsEntitlement: Bool, awaitingPartnerDecision: Bool) -> Bool {
+        backendSaysActive || deviceHoldsEntitlement || awaitingPartnerDecision
+    }
+
     /// Everything that has to be true before a route can be opened. `isSubscriptionActive` is
     /// part of it deliberately: this presents over the whole app, including the non-dismissable
     /// lapsed-subscription paywall, so an old notification left sitting in Notification Center
@@ -485,7 +515,11 @@ struct RootView: View {
         // Customer Center screens — but nothing is written back from it any more.
         await subscriptionStore.refreshEntitlementsOnly()
         if let active = try? await BackendService.fetchSubscriptionActive() {
-            appModel.isSubscriptionActive = active
+            // OR'd with this device's own entitlement for the same reason the gate above is: a
+            // backend `false` for someone RevenueCat says is subscribed means the webhook has not
+            // caught up, not that they stopped paying. Without this the next foreground undoes the
+            // access the gate just granted.
+            appModel.isSubscriptionActive = active || subscriptionStore.isSubscribed
             OfflineSessionCache.record(
                 active: active,
                 tier: appModel.subscriptionTier,
@@ -507,8 +541,12 @@ struct RootView: View {
             appModel.isSubscriptionActive = true
             appModel.subscriptionTier = cached.tier
         }
+        // Falls back to this device's own entitlement when the couple row has no tier yet, so a
+        // Premium subscriber isn't shown every premium deck locked while the webhook catches up.
+        // Optimistic only — `start_deck_session` enforces the tier server-side from the same
+        // profile columns, so a client that is ahead of the row cannot actually open anything.
         if let tier = try? await BackendService.fetchCoupleSubscriptionTier() {
-            appModel.subscriptionTier = tier
+            appModel.subscriptionTier = tier ?? subscriptionStore.subscribedTier?.dbValue
         }
         // Owns its own widget refresh (same convention every other state-mutating `AppModel`
         // method uses — see `performAdopt`, `refreshFlights`, `addMemory`) rather than relying on
