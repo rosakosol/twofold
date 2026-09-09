@@ -618,6 +618,23 @@ final class AppModel {
             // outright rather than just avoiding its worst consequence.
             _ = try? await Purchases.shared.logIn(userID.uuidString)
         }
+
+        // Puts the account's email on the RevenueCat customer, purely so a person is findable in
+        // that dashboard. `app_user_id` is the Supabase UUID and nothing else about the customer
+        // identifies them, so answering "why is this subscriber on Premium?" meant copying a UUID
+        // out of RevenueCat and querying Postgres with it, every time.
+        //
+        // `$email` is a reserved attribute — RevenueCat surfaces it on the customer profile rather
+        // than filing it as an arbitrary key. Sent after `logIn` on purpose: attributes attach to
+        // whichever customer is current, so setting it first would put the email on the anonymous
+        // id that `logIn` is about to leave behind.
+        //
+        // Fire-and-forget by design: the SDK queues attributes locally and flushes them with the
+        // next backend call, so there is nothing to await and a failure here must never affect
+        // whether someone can use the app.
+        if let email = BackendService.currentUserEmail {
+            Purchases.shared.attribution.setEmail(email)
+        }
     }
 
     /// Same idea as `identifyWithRevenueCat()`, for PostHog — ties analytics events to the same

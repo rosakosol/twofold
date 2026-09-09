@@ -230,6 +230,12 @@ enum BackendService {
         supabase.auth.currentSession?.user.id
     }
 
+    /// The signed-in account's email, for identifying this user in third-party dashboards that
+    /// otherwise only see the opaque Supabase UUID. Not used for anything the app itself decides.
+    static var currentUserEmail: String? {
+        supabase.auth.currentSession?.user.email
+    }
+
     /// Forwarded as the `Authorization` header when calling Edge Functions that need to know
     /// who's calling (e.g. `resolve-flight`/`add-flight`/`refresh-flight` — see
     /// `AeroFlightService`) so the function can build a request-scoped, RLS-respecting client.
