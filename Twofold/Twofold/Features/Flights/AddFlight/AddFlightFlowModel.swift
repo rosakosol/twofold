@@ -34,7 +34,24 @@ final class AddFlightFlowModel {
 
     // Flight-number path
     var airlineEntry: AirlineEntry?
-    var flightNumberDigits: String = ""
+
+    /// Digits only, enforced here rather than trusted from each writer.
+    ///
+    /// Every other path into this already filtered — `AddFlightEntryStepView` uses
+    /// `query.filter(\.isNumber)` in three places and this model's own init does the same. The one
+    /// place a person actually types, `FlightNumberStepView`'s field, bound straight to it. That
+    /// field is `.numberPad`, which shapes the on-screen keyboard and stops nothing else: a paste,
+    /// a hardware keyboard or dictation all put letters in.
+    ///
+    /// What that cost: the search sends `airline.iata + digits`, so pasting "QF123" produced
+    /// "QFQF123" — a malformed ident, a billed AeroAPI request, and "no flights found" for a
+    /// flight that exists.
+    var flightNumberDigits: String = "" {
+        didSet {
+            let digitsOnly = flightNumberDigits.filter(\.isNumber)
+            if digitsOnly != flightNumberDigits { flightNumberDigits = digitsOnly }
+        }
+    }
 
     // Route path
     var departureAirport: Airport?
@@ -72,6 +89,8 @@ final class AddFlightFlowModel {
         self.topBarTitle = topBarTitle
         self.onTopBarAction = onTopBarAction
         self.initialTripID = initialTripID
+        // `flightNumberDigits` filters on write now, so this could pass the raw value — kept
+        // explicit because the emptiness check below has to test the filtered result, not the input.
         let digitsOnly = (initialFlightNumberDigits ?? "").filter(\.isNumber)
         if !digitsOnly.isEmpty {
             mode = .flightNumber
