@@ -63,10 +63,13 @@
 //     public SDK key in RevenueCatConfig.swift, which cannot read subscriber state.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
-
-// Must match RevenueCatConfig.Entitlement — these are dashboard identifiers, spaces and all.
-const ENTITLEMENT_PLUS = "Twofold Plus";
-const ENTITLEMENT_PREMIUM = "Twofold Premium";
+import {
+  describeMissingStart,
+  resolveStartedAt,
+  resolveTier,
+  type RestSubscriber,
+  type Tier,
+} from "./subscriber.ts";
 
 const REVENUECAT_API_BASE = "https://api.revenuecat.com/v1";
 
@@ -96,22 +99,10 @@ interface WebhookPayload {
   [key: string]: unknown;
 }
 
-// One entitlement as the v1 REST API reports it. Note this endpoint returns *every* entitlement the
-// subscriber has ever held, expired ones included — unlike the SDK's `entitlements.active`, which is
-// already filtered. Deciding what counts as active is therefore our job; see isEntitlementActive.
-interface RestEntitlement {
-  expires_date?: string | null;
-  grace_period_expires_date?: string | null;
-  [key: string]: unknown;
-}
-
 interface RestSubscriberResponse {
   request_date?: string;
   request_date_ms?: number;
-  subscriber?: {
-    entitlements?: Record<string, RestEntitlement>;
-    [key: string]: unknown;
-  };
+  subscriber?: RestSubscriber;
 }
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -173,34 +164,12 @@ function collectCandidateUserIds(event: WebhookEvent): string[] {
   return [...ids];
 }
 
-// ASSUMED semantics, matching RevenueCat's documented v1 response but not verified against a live
-// subscriber: an entitlement is active while `expires_date` is in the future, or forever if it is
-// null (a lifetime/non-consumable grant). `grace_period_expires_date` extends that window — during
-// an unresolved billing issue Apple keeps serving the subscription and the SDK still reports the
-// entitlement active, so treating it as lapsed here would cut off a paying customer mid-retry.
-function isEntitlementActive(entitlement: RestEntitlement | undefined, nowMs: number): boolean {
-  if (!entitlement) return false;
-  if (entitlement.expires_date === null || entitlement.expires_date === undefined) return true;
-
-  let latestMs = 0;
-  for (const value of [entitlement.expires_date, entitlement.grace_period_expires_date]) {
-    if (typeof value !== "string") continue;
-    const parsed = Date.parse(value);
-    if (!Number.isNaN(parsed) && parsed > latestMs) latestMs = parsed;
-  }
-  return latestMs > nowMs;
-}
-
-// Premium wins if both are active — the same rule as SubscriptionTier.active(in:), for the same
-// separate-subscription-groups reason documented there.
-function resolveTier(entitlements: Record<string, RestEntitlement>, nowMs: number): "plus" | "premium" | null {
-  if (isEntitlementActive(entitlements[ENTITLEMENT_PREMIUM], nowMs)) return "premium";
-  if (isEntitlementActive(entitlements[ENTITLEMENT_PLUS], nowMs)) return "plus";
-  return null;
-}
-
 interface SubscriberState {
-  tier: "plus" | "premium" | null;
+  tier: Tier;
+  /// When the current subscription was originally bought, or null if there isn't one or RevenueCat
+  /// didn't say. Only ever used to work out which partner of two subscribers bought later; see
+  /// `resolveStartedAt`.
+  startedAt: string | null;
   /// RevenueCat's own clock at the moment it computed this state. Used as the row's
   /// `subscription_checked_at`, which makes the staleness comparison in applyState a comparison
   /// between two readings of a single clock rather than between our clock and theirs.
@@ -231,7 +200,8 @@ async function fetchSubscriberState(appUserId: string, apiKey: string): Promise<
   }
 
   const body = await response.json() as RestSubscriberResponse;
-  const entitlements = body.subscriber?.entitlements ?? {};
+  const subscriber = body.subscriber ?? {};
+  const entitlements = subscriber.entitlements ?? {};
 
   // Prefer RevenueCat's stamp for this reading; fall back to ours only if it's missing, which just
   // degrades the staleness guard to a same-clock approximation rather than breaking it.
@@ -241,7 +211,17 @@ async function fetchSubscriberState(appUserId: string, apiKey: string): Promise<
     ? Date.parse(body.request_date)
     : Date.now();
 
-  return { tier: resolveTier(entitlements, asOfMs), asOfMs };
+  const tier = resolveTier(entitlements, asOfMs);
+  const startedAt = resolveStartedAt(subscriber, tier);
+
+  // An active subscriber whose start date could not be found. Logged with field names only, never
+  // values, because `resolveStartedAt`'s reading of the v1 shape has never been checked against a
+  // real response — this is the line that turns that assumption into something answerable.
+  if (tier !== null && startedAt === null) {
+    console.warn(`[revenuecat-webhook] no purchase date for ${appUserId}: ${describeMissingStart(subscriber, tier)}`);
+  }
+
+  return { tier, startedAt, asOfMs };
 }
 
 type ApplyOutcome = "written" | "no_profile" | "stale";
@@ -291,6 +271,10 @@ async function applyState(
       subscription_active: state.tier !== null,
       subscription_tier: state.tier,
       subscription_checked_at: stateAsOf,
+      // Cleared along with the tier when a subscription lapses, so a stale start date can't
+      // outlive the subscription it belonged to and make someone look like the later buyer years
+      // after they stopped paying.
+      subscription_started_at: state.startedAt,
     })
     .eq("id", appUserId)
     .or(freshnessGuard)
