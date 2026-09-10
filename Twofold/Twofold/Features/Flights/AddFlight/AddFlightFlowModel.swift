@@ -9,6 +9,9 @@
 import CoreLocation
 import Foundation
 
+/// Which end of the route is being edited. Both ends now live on one screen
+/// (`AddFlightRouteStepView`), so this identifies the focused field rather than a step of its
+/// own — it is still `Hashable` because `@FocusState` binds to it.
 enum AirportRole: Hashable {
     case departure
     case destination
@@ -17,7 +20,7 @@ enum AirportRole: Hashable {
 enum AddFlightFlowStep: Hashable {
     case flightNumber
     case airlinePicker
-    case airport(AirportRole)
+    case route
     case date
     case results
 }

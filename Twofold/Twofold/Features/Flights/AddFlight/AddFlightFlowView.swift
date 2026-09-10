@@ -60,8 +60,8 @@ struct AddFlightFlowView: View {
             FlightNumberStepView()
         case .airlinePicker:
             AirlinePickerStepView()
-        case .airport(let role):
-            AirportPickerStepView(role: role)
+        case .route:
+            AddFlightRouteStepView()
         case .date:
             AddFlightDateStepView()
         case .results:
