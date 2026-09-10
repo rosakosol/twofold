@@ -1091,6 +1091,89 @@ enum BackendService {
             .value
     }
 
+    /// A couple's game sessions, for a data export.
+    ///
+    /// Its own fetch rather than `fetchGameSessions`, which is scoped to the signed-in user's
+    /// *current* couple through RLS and returns the full in-app model. An export can be of a
+    /// dissolved relationship, and needs only the handful of columns that go into games.csv.
+    ///
+    /// `rounds_completed` counts rounds whose discussion is finished; a session abandoned halfway
+    /// should read as halfway rather than as complete.
+    static func fetchExportedGameSessions(coupleID: UUID) async throws -> [ExportedGameSession] {
+        struct Row: Decodable {
+            var id: UUID
+            var gameType: String
+            var status: String
+            var totalRounds: Int?
+            var startedAt: Date?
+            var createdAt: Date?
+            var deckId: UUID?
+
+            enum CodingKeys: String, CodingKey {
+                case id, status
+                case gameType = "game_type"
+                case totalRounds = "total_rounds"
+                case startedAt = "started_at"
+                case createdAt = "created_at"
+                case deckId = "deck_id"
+            }
+        }
+
+        let rows: [Row] = try await supabase
+            .from("game_sessions")
+            .select("id,game_type,status,total_rounds,started_at,created_at,deck_id")
+            .eq("couple_id", value: coupleID)
+            .order("created_at", ascending: true)
+            .execute()
+            .value
+        guard !rows.isEmpty else { return [] }
+
+        // Deck titles in one round trip rather than per session.
+        struct DeckRow: Decodable { var id: UUID; var title: String }
+        let deckIDs = Array(Set(rows.compactMap(\.deckId)))
+        var titlesByID: [UUID: String] = [:]
+        if !deckIDs.isEmpty {
+            let decks: [DeckRow] = (try? await supabase
+                .from("game_decks")
+                .select("id,title")
+                .in("id", values: deckIDs)
+                .execute()
+                .value) ?? []
+            titlesByID = Dictionary(uniqueKeysWithValues: decks.map { ($0.id, $0.title) })
+        }
+
+        struct RoundRow: Decodable {
+            var sessionId: UUID
+            var discussionStatus: String?
+            enum CodingKeys: String, CodingKey {
+                case sessionId = "session_id"
+                case discussionStatus = "discussion_status"
+            }
+        }
+        let rounds: [RoundRow] = (try? await supabase
+            .from("game_session_rounds")
+            .select("session_id,discussion_status")
+            .in("session_id", values: rows.map(\.id))
+            .execute()
+            .value) ?? []
+        var completedBySession: [UUID: Int] = [:]
+        for round in rounds where round.discussionStatus == "completed" {
+            completedBySession[round.sessionId, default: 0] += 1
+        }
+
+        return rows.map { row in
+            ExportedGameSession(
+                id: row.id,
+                gameType: row.gameType,
+                deckTitle: row.deckId.flatMap { titlesByID[$0] },
+                startedAt: row.startedAt ?? row.createdAt,
+                status: row.status,
+                roundsCompleted: completedBySession[row.id] ?? 0,
+                roundsTotal: row.totalRounds ?? 0
+            )
+        }
+    }
+
     /// A past relationship with this same person that could be brought back, if there is one.
     ///
     /// Nil when they have no shared past, or when its 90 days have run out — after that the data

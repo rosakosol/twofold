@@ -144,6 +144,7 @@ enum ArchivePurgeStage: Equatable {
 
 struct ArchivedCoupleDetailView: View {
     let couple: ArchivedCouple
+    @Environment(AppModel.self) private var appModel
     /// Lets the list reload after a hide or a purge, so it never shows something that has changed
     /// underneath it.
     var onChange: () -> Void = {}
@@ -156,6 +157,10 @@ struct ArchivedCoupleDetailView: View {
     @State private var deleteError: String?
     @State private var state: BackendService.CoupleArchiveState?
     @State private var isHidden = false
+    @State private var isExporting = false
+    @State private var exportStatus = ""
+    @State private var exportResult: CoupleDataExporter.Result?
+    @State private var exportError: String?
 
     private var stage: ArchivePurgeStage { .resolve(state) }
 
@@ -227,6 +232,8 @@ struct ArchivedCoupleDetailView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
+                exportSection
+
                 deleteSection
             }
             .padding(Theme.Spacing.md)
@@ -244,6 +251,94 @@ struct ArchivedCoupleDetailView: View {
             Text(confirmMessage)
         }
         .postHogScreenView("Settings: Archived Couple Detail")
+    }
+
+    /// Getting a copy out before the deadline.
+    ///
+    /// Above the delete section deliberately. Both of the things below this lead towards losing the
+    /// archive — one on a timer nobody can stop — and someone should be offered a way to keep it
+    /// before they are offered ways to lose it.
+    @ViewBuilder
+    private var exportSection: some View {
+        SectionCard {
+            VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                Text("Export everything")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Theme.ink)
+
+                if let exportResult {
+                    Text(exportSummary(exportResult))
+                        .font(.caption)
+                        .foregroundStyle(Theme.subtleInk)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    ShareLink(
+                        item: exportResult.url,
+                        preview: SharePreview("Twofold export", image: Image(systemName: "doc.zipper"))
+                    ) {
+                        Text("Save or share")
+                            .font(.subheadline.weight(.semibold))
+                    }
+                } else {
+                    Text("Trips, memories and their photos, flights and games — as spreadsheets, image files and a readable PDF. Yours to keep whatever happens to the archive.")
+                        .font(.caption)
+                        .foregroundStyle(Theme.subtleInk)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Button(action: runExport) {
+                        HStack(spacing: Theme.Spacing.xs) {
+                            if isExporting { ProgressView().controlSize(.small) }
+                            Text(isExporting ? exportStatus : "Export everything")
+                                .font(.subheadline.weight(.semibold))
+                        }
+                    }
+                    .disabled(isExporting)
+                }
+
+                if let exportError {
+                    Text(exportError).font(.caption).foregroundStyle(Theme.heartRed)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    /// Says what actually came out, including what didn't. Someone exporting against a deadline
+    /// needs to know if their photos are incomplete while they can still do something about it.
+    private func exportSummary(_ result: CoupleDataExporter.Result) -> String {
+        var parts: [String] = []
+        if result.tripCount > 0 { parts.append("\(result.tripCount) trips") }
+        if result.memoryCount > 0 { parts.append("\(result.memoryCount) memories") }
+        if result.photoCount > 0 { parts.append("\(result.photoCount) photos") }
+        if result.flightCount > 0 { parts.append("\(result.flightCount) flights") }
+        if result.gameCount > 0 { parts.append("\(result.gameCount) games") }
+        let body = parts.isEmpty ? "Ready." : "Ready — " + parts.joined(separator: ", ") + "."
+        guard result.missingPhotoCount > 0 else { return body }
+        return body + " \(result.missingPhotoCount) photo\(result.missingPhotoCount == 1 ? "" : "s") couldn't be downloaded — try again on a better connection to get \(result.missingPhotoCount == 1 ? "it" : "them")."
+    }
+
+    private func runExport() {
+        isExporting = true
+        exportError = nil
+        exportStatus = "Starting…"
+        Task {
+            do {
+                exportResult = try await CoupleDataExporter.export(
+                    coupleID: couple.id,
+                    partnerNames: [
+                        appModel.currentUser.id: appModel.currentUser.name,
+                        appModel.partner.id: couple.partnerName,
+                    ],
+                    title: couple.partnerName,
+                    selfName: appModel.currentUser.name,
+                    partnerName: couple.partnerName,
+                    progress: { exportStatus = $0 }
+                )
+            } catch {
+                exportError = (error as? LocalizedError)?.errorDescription ?? "Couldn't build the export. Try again."
+            }
+            isExporting = false
+        }
     }
 
     /// The destructive half. Four states, and which one is showing is the entire point of the
