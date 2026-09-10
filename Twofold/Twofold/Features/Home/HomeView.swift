@@ -81,7 +81,15 @@ struct HomeView: View {
                         pendingConnectionRequestCard(incomingRequest)
                     } else if let outgoingRequest = appModel.pendingOutgoingConnectionRequest {
                         pendingOutgoingInviteCard(outgoingRequest)
-                    } else if appModel.needsPartnerInvite {
+                    } else if appModel.needsPartnerInvite && appModel.hasResolvedOutgoingConnectionRequest {
+                        // Waits to be told there is no pending request before offering to send one.
+                        //
+                        // `pendingOutgoingConnectionRequest` is nil both when there is no request and
+                        // when the lookup has not landed, and this branch read the second as the
+                        // first — so an invitee arriving at Home met "Set up your partner", the one
+                        // thing they had already done, until the fetch caught up a moment later.
+                        // Nothing takes its place in the gap: no card is better than the wrong one,
+                        // and the gap is one round trip.
                         invitePartnerCard
                     }
                     redundantSubscriptionCard

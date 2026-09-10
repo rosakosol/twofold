@@ -843,10 +843,35 @@ final class AppModel {
             hasResolvedOutgoingConnectionRequest = true
             return
         }
-        pendingOutgoingConnectionRequest = try? await BackendService.fetchMyOutgoingConnectionRequest()
-        // Set even when the fetch failed. A network error is not a reason to hold someone on a
-        // loading screen indefinitely; it resolves to "no pending request", which is what the
-        // gate assumed before this existed anyway.
+        // Retried once, because a failure here is not the same as an empty answer and the two are
+        // indistinguishable downstream.
+        //
+        // `pendingOutgoingConnectionRequest == nil` means both "there is no request" and "we could
+        // not find out". RootView reads nil as no-exemption and shows the paywall; Home reads it as
+        // not-invited and shows the generic invite card. So one failed call — a token still
+        // settling moments after sign-in is enough — flashes a paywall at someone waiting on their
+        // partner, then corrects itself when the next refresh succeeds. That is what this fixes.
+        //
+        // Still resolves after the second attempt rather than looping: a network that is genuinely
+        // down must not hold anyone on a loading screen forever, and after two tries the honest
+        // answer is that we do not know.
+        var fetched: BackendService.OutgoingConnectionRequest?
+        var succeeded = false
+        for attempt in 0..<2 {
+            do {
+                fetched = try await BackendService.fetchMyOutgoingConnectionRequest()
+                succeeded = true
+                break
+            } catch {
+                // A short pause before the retry. The failure this exists for is a session that is
+                // a moment from being usable, not one that is broken.
+                if attempt == 0 { try? await Task.sleep(for: .milliseconds(400)) }
+            }
+        }
+
+        // Only overwrite what we know with what we found if we actually found out. A failed pair of
+        // attempts leaves any previously-known request standing rather than erasing it.
+        if succeeded { pendingOutgoingConnectionRequest = fetched }
         hasResolvedOutgoingConnectionRequest = true
     }
 
