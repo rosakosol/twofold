@@ -1087,6 +1087,38 @@ enum BackendService {
             .value
     }
 
+    /// Whether this couple is paying twice for one subscription, and which of them bought later.
+    ///
+    /// See migration 20261001000000. `redundantProfileID` is nil when the two purchase dates can't
+    /// be compared — one is missing, or they are identical — which is a real answer, not a
+    /// failure: the couple is still doubled up, and the app says so without naming anyone.
+    struct RedundantSubscription: Decodable {
+        var bothSubscribed: Bool
+        var redundantProfileID: UUID?
+        var iAmRedundant: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case bothSubscribed = "both_subscribed"
+            case redundantProfileID = "redundant_profile_id"
+            case iAmRedundant = "i_am_redundant"
+        }
+
+        /// The couple is doubled up, and it is the partner rather than the caller who bought
+        /// later. Distinct from `iAmRedundant` being false, which is also true when nobody could
+        /// be identified.
+        var partnerIsRedundant: Bool { bothSubscribed && redundantProfileID != nil && !iAmRedundant }
+    }
+
+    /// Answers for the caller's own couple. Returns a single row, always — "no overlap" is a row,
+    /// so it can be told apart from a failed lookup.
+    static func redundantSubscription() async throws -> RedundantSubscription? {
+        let rows: [RedundantSubscription] = try await supabase
+            .rpc("redundant_subscription")
+            .execute()
+            .value
+        return rows.first
+    }
+
     struct PendingConnectionRequest: Identifiable, Decodable {
         var id: UUID
         var requesterId: UUID

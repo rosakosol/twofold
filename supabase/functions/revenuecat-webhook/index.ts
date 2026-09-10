@@ -67,6 +67,7 @@ import {
   describeMissingStart,
   resolveStartedAt,
   resolveTier,
+  resolveWillRenew,
   type RestSubscriber,
   type Tier,
 } from "./subscriber.ts";
@@ -170,6 +171,10 @@ interface SubscriberState {
   /// didn't say. Only ever used to work out which partner of two subscribers bought later; see
   /// `resolveStartedAt`.
   startedAt: string | null;
+  /// False once a cancellation has been detected — the entitlement is still active until the paid
+  /// period ends, but it will not renew. Null when unknown. Only used to stop asking someone to
+  /// cancel a subscription they have already cancelled; see `resolveWillRenew`.
+  willRenew: boolean | null;
   /// RevenueCat's own clock at the moment it computed this state. Used as the row's
   /// `subscription_checked_at`, which makes the staleness comparison in applyState a comparison
   /// between two readings of a single clock rather than between our clock and theirs.
@@ -213,6 +218,7 @@ async function fetchSubscriberState(appUserId: string, apiKey: string): Promise<
 
   const tier = resolveTier(entitlements, asOfMs);
   const startedAt = resolveStartedAt(subscriber, tier);
+  const willRenew = resolveWillRenew(subscriber, tier);
 
   // An active subscriber whose start date could not be found. Logged with field names only, never
   // values, because `resolveStartedAt`'s reading of the v1 shape has never been checked against a
@@ -221,7 +227,7 @@ async function fetchSubscriberState(appUserId: string, apiKey: string): Promise<
     console.warn(`[revenuecat-webhook] no purchase date for ${appUserId}: ${describeMissingStart(subscriber, tier)}`);
   }
 
-  return { tier, startedAt, asOfMs };
+  return { tier, startedAt, willRenew, asOfMs };
 }
 
 type ApplyOutcome = "written" | "no_profile" | "stale";
@@ -275,6 +281,7 @@ async function applyState(
       // outlive the subscription it belonged to and make someone look like the later buyer years
       // after they stopped paying.
       subscription_started_at: state.startedAt,
+      subscription_will_renew: state.willRenew,
     })
     .eq("id", appUserId)
     .or(freshnessGuard)

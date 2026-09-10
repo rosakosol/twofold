@@ -104,9 +104,23 @@ struct SheetDetentWidthTests {
 
     /// The expanded detent has to actually be worth expanding to — a fraction that quietly resolved
     /// to something short would keep the width and lose the point.
+    ///
+    /// Measured against `.large` rather than against the screen, because a sheet never reaches the
+    /// screen's height: it stops short of the top, and the frame this walks out to is scaled. On a
+    /// 874pt screen `.large` itself measures 820pt here. The original assertion compared against
+    /// 0.9 x screen = 786.6pt, which is above what `.fraction(0.98)` can produce — it was passing
+    /// only while this detached window reported no safe-area insets, and started failing with no
+    /// code change on either side of it. `.large` is the real ceiling, so it is the thing to
+    /// compare to, and both sides now come through the same measurement path.
     @Test("expanding still fills most of the screen")
     func expandedIsNearlyFullHeight() async {
-        let frame = await cardFrame(detents: [Self.peek, Self.expanded], at: Self.expanded)
-        #expect(frame.height > Self.screen.height * 0.9, "expanded to only \(frame.height)pt of \(Self.screen.height)pt")
+        let expandedFrame = await cardFrame(detents: [Self.peek, Self.expanded], at: Self.expanded)
+        let fullFrame = await cardFrame(detents: [Self.peek, .large], at: .large)
+
+        #expect(fullFrame.height > 0, "the sheet never presented")
+        #expect(
+            expandedFrame.height > fullFrame.height * 0.9,
+            "expanded to \(expandedFrame.height)pt of the \(fullFrame.height)pt a full sheet gets"
+        )
     }
 }

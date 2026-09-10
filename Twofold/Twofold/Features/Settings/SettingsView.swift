@@ -27,6 +27,9 @@ struct SettingsView: View {
     /// though the couple is genuinely covered. See `subscriptionStore`/`PartnerManagesSubscriptionView`.
     @State private var showingCustomerCenter = false
     @State private var showingPartnerManagesSubscription = false
+    /// Nil until looked up, and left nil if the lookup fails — this card is an FYI about money,
+    /// and a failed query is not a reason to tell anyone anything.
+    @State private var redundantSubscription: BackendService.RedundantSubscription?
     @State private var subscriptionStore = SubscriptionStore()
     @State private var showingSignOutConfirm = false
     @State private var isSigningOut = false
@@ -86,6 +89,17 @@ struct SettingsView: View {
                             }
                         } else {
                             showingPaywall = true
+                        }
+                    }
+
+                    // Directly under the banner, because the action it suggests is the one the
+                    // banner opens.
+                    if let redundantSubscription, redundantSubscription.bothSubscribed {
+                        RedundantSubscriptionCard(
+                            state: redundantSubscription,
+                            partnerName: appModel.partner.name
+                        ) {
+                            showingCustomerCenter = true
                         }
                     }
 
@@ -254,6 +268,7 @@ struct SettingsView: View {
             .postHogScreenView("Settings")
             .task {
                 await subscriptionStore.refreshEntitlementsOnly()
+                redundantSubscription = try? await BackendService.redundantSubscription()
             }
             .sheet(isPresented: $showingPaywall) {
                 NavigationStack { PaywallView() }

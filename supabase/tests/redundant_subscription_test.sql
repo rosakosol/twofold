@@ -6,7 +6,7 @@
 -- two identical ones.
 
 begin;
-select plan(13);
+select plan(17);
 
 create extension if not exists pgtap;
 
@@ -142,11 +142,80 @@ select is(
 );
 
 -- ---------------------------------------------------------------------------
+-- Someone who has already cancelled is not asked to cancel again
+-- ---------------------------------------------------------------------------
+--
+-- Cancelling doesn't end a subscription — it stops the renewal, and the entitlement runs to the
+-- end of the paid period, up to a year. `subscription_active` stays true throughout. Without this,
+-- the card would keep asking for an action that was taken months ago.
+
+reset role;
+
+update public.profiles set subscription_started_at = timestamptz '2026-06-01 00:00:00+00'
+where id = 'aaaaaaaa-2222-0000-0000-00000000000b';
+update public.profiles set subscription_started_at = timestamptz '2026-01-01 00:00:00+00'
+where id = 'aaaaaaaa-2222-0000-0000-00000000000a';
+
+-- The later purchaser cancels. Still entitled, but not renewing.
+update public.profiles set subscription_will_renew = false
+where id = 'aaaaaaaa-2222-0000-0000-00000000000b';
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"aaaaaaaa-2222-0000-0000-00000000000b","role":"authenticated"}';
+
+select is(
+  (select both_subscribed from public.redundant_subscription()),
+  false, 'the overlap stops being reported once the later subscription is cancelled'
+);
+select is(
+  (select i_am_redundant from public.redundant_subscription()),
+  false, 'and the person who cancelled is not asked to do it again'
+);
+
+-- The other way round: the EARLIER purchaser cancels instead. Their partner's subscription now
+-- carries the couple, which needs no prompting either.
+reset role;
+update public.profiles set subscription_will_renew = true
+where id = 'aaaaaaaa-2222-0000-0000-00000000000b';
+update public.profiles set subscription_will_renew = false
+where id = 'aaaaaaaa-2222-0000-0000-00000000000a';
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"aaaaaaaa-2222-0000-0000-00000000000b","role":"authenticated"}';
+
+select is(
+  (select both_subscribed from public.redundant_subscription()),
+  false, 'nor when it is the earlier subscription that was cancelled'
+);
+
+-- Unknown renewal state has to behave exactly as it did before the column existed, or every couple
+-- whose webhook has not fired since the deploy silently stops being told anything.
+reset role;
+update public.profiles set subscription_will_renew = null
+where id in ('aaaaaaaa-2222-0000-0000-00000000000a', 'aaaaaaaa-2222-0000-0000-00000000000b');
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"aaaaaaaa-2222-0000-0000-00000000000b","role":"authenticated"}';
+
+select is(
+  (select redundant_profile_id from public.redundant_subscription()),
+  'aaaaaaaa-2222-0000-0000-00000000000b'::uuid,
+  'an unknown renewal state still reports the overlap'
+);
+
+reset role;
+update public.profiles set subscription_will_renew = true
+where id in ('aaaaaaaa-2222-0000-0000-00000000000a', 'aaaaaaaa-2222-0000-0000-00000000000b');
+
+-- ---------------------------------------------------------------------------
 -- The new column is the webhook's, like the three beside it
 -- ---------------------------------------------------------------------------
 --
 -- Not an entitlement, so writing it grants nothing — but it decides which of two people is asked
 -- to stop paying, and a client that could set it could nominate their partner.
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"aaaaaaaa-2222-0000-0000-00000000000b","role":"authenticated"}';
 
 select throws_ok(
   $$ update public.profiles set subscription_started_at = timestamptz '2000-01-01 00:00:00+00'
@@ -171,13 +240,18 @@ reset role;
 -- statement is already in this repo's history as the fix for an unrelated outage. So the grant is
 -- restored here, inside the transaction, and the refusal has to still hold — which is the trigger,
 -- and only the trigger.
-grant update (subscription_started_at) on public.profiles to authenticated;
+grant update (subscription_started_at, subscription_will_renew) on public.profiles to authenticated;
 
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"aaaaaaaa-2222-0000-0000-00000000000b","role":"authenticated"}';
 
+-- A different value from the assertion above, deliberately. The guard is
+-- `is distinct from old`, so re-writing a column its current value is not a change and is
+-- correctly allowed through — which is exactly how this pair first went green for the wrong
+-- reason, after the earlier assertion ran as the owner and actually applied the write it was
+-- supposed to be refused.
 select throws_ok(
-  $$ update public.profiles set subscription_started_at = timestamptz '2000-01-01 00:00:00+00'
+  $$ update public.profiles set subscription_started_at = timestamptz '1999-01-01 00:00:00+00'
      where id = 'aaaaaaaa-2222-0000-0000-00000000000b' $$,
   '42501',
   null,

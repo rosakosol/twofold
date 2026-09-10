@@ -25,6 +25,7 @@ export interface RestEntitlement {
 export interface RestSubscription {
   original_purchase_date?: string | null;
   purchase_date?: string | null;
+  unsubscribe_detected_at?: string | null;
   [key: string]: unknown;
 }
 
@@ -103,6 +104,33 @@ export function resolveStartedAt(subscriber: RestSubscriber, tier: Tier): string
   }
 
   return null;
+}
+
+/// Whether the active subscription is going to renew — false once a cancellation has been
+/// detected, true while it is still running, null when we cannot tell.
+///
+/// The distinction exists because cancelling does not end anything. It stops the renewal, and the
+/// entitlement runs to the end of the period already paid for, up to a year for an annual plan.
+/// RevenueCat keeps reporting that entitlement active throughout, correctly — the person is still
+/// entitled. Without this, someone who cancels goes on being told to cancel for the rest of their
+/// paid year.
+///
+/// Null, not true, when the subscription record can't be found: `redundant_subscription` treats
+/// unknown as "still renewing" so behaviour is unchanged for a profile the webhook hasn't seen
+/// since this shipped, and that decision belongs in one place rather than being pre-empted here.
+export function resolveWillRenew(subscriber: RestSubscriber, tier: Tier): boolean | null {
+  if (tier === null) return null;
+
+  const entitlement = subscriber.entitlements?.[tier === "premium" ? ENTITLEMENT_PREMIUM : ENTITLEMENT_PLUS];
+  const productId = entitlement?.product_identifier;
+  if (typeof productId !== "string") return null;
+
+  const subscription = subscriber.subscriptions?.[productId];
+  if (!subscription) return null;
+
+  // Present and a string means RevenueCat has seen the cancellation. Absent or null means it has
+  // not — which for a record it does hold is a real answer, not a missing one.
+  return typeof subscription.unsubscribe_detected_at !== "string";
 }
 
 /// What to log when an active subscriber yields no start date. Turns the unverified assumption

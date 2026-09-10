@@ -12,6 +12,7 @@ import {
   isEntitlementActive,
   resolveStartedAt,
   resolveTier,
+  resolveWillRenew,
   type RestSubscriber,
 } from "./subscriber.ts";
 
@@ -148,6 +149,55 @@ Deno.test("an unreadable record yields no date rather than a guess", () => {
 /// so an old date can't sit on the row and make them look like the later buyer forever.
 Deno.test("no tier means no start date", () => {
   assertEquals(resolveStartedAt(renewedAnnual, null), null);
+});
+
+// MARK: - Whether it will renew
+
+/// Cancelling does not end a subscription — it stops the renewal, and the entitlement runs to the
+/// end of the paid period. That is why this exists separately from whether the tier is active:
+/// without it, someone who cancels an annual plan keeps being told to cancel for another year.
+Deno.test("a cancelled subscription is still active but will not renew", () => {
+  const cancelled: RestSubscriber = {
+    entitlements: {
+      [ENTITLEMENT_PREMIUM]: {
+        expires_date: "2027-03-01T00:00:00Z",
+        product_identifier: "twofold_premium_yearly",
+      },
+    },
+    subscriptions: {
+      twofold_premium_yearly: { unsubscribe_detected_at: "2026-09-01T00:00:00Z" },
+    },
+  };
+  assertEquals(resolveTier(cancelled.entitlements!, NOW), "premium", "still entitled");
+  assertEquals(resolveWillRenew(cancelled, "premium"), false, "but not renewing");
+});
+
+Deno.test("a running subscription will renew", () => {
+  assertEquals(resolveWillRenew(renewedAnnual, "premium"), true);
+});
+
+/// Absent is a real answer for a record RevenueCat does hold: it has seen no cancellation.
+Deno.test("no unsubscribe field means it is still renewing", () => {
+  const noField: RestSubscriber = {
+    entitlements: { [ENTITLEMENT_PLUS]: { product_identifier: "twofold_plus_monthly" } },
+    subscriptions: { twofold_plus_monthly: { original_purchase_date: "2026-01-01T00:00:00Z" } },
+  };
+  assertEquals(resolveWillRenew(noField, "plus"), true);
+});
+
+/// Null, not true. `redundant_subscription` reads unknown as "still renewing" so that a profile
+/// the webhook hasn't seen since this shipped behaves exactly as it did before — that decision
+/// lives in one place, and pre-empting it here would hide the distinction.
+Deno.test("an unfindable subscription record is unknown, not a yes", () => {
+  assertEquals(resolveWillRenew({ entitlements: { [ENTITLEMENT_PLUS]: {} } }, "plus"), null);
+  assertEquals(
+    resolveWillRenew(
+      { entitlements: { [ENTITLEMENT_PLUS]: { product_identifier: "gone" } }, subscriptions: {} },
+      "plus",
+    ),
+    null,
+  );
+  assertEquals(resolveWillRenew(renewedAnnual, null), null, "no tier, nothing to say");
 });
 
 // MARK: - The diagnostic
