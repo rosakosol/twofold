@@ -74,6 +74,10 @@ import {
 
 const REVENUECAT_API_BASE = "https://api.revenuecat.com/v1";
 
+// Must match RevenueCatConfig.ProductIdentifier.streakRepair and the App Store Connect product.
+// A mismatch is silent: the event arrives, nothing matches, and the buyer holds no credit.
+const STREAK_REPAIR_PRODUCT_ID = "com.orangefinch.Twofold.streak.repair";
+
 // A `subscription_checked_at` further ahead than this can't have come from us (we only ever write
 // RevenueCat's own clock, which is never meaningfully ahead of now) — it's a leftover from the old
 // client-written era, stamped by a device with a wrong clock. Without this escape hatch the
@@ -87,6 +91,11 @@ const FUTURE_STAMP_SLACK_MS = 5 * 60 * 1000;
 // identifier, and it will happily find one at the top level too if the envelope ever changes.
 interface WebhookEvent {
   type?: string;
+  /// Present on NON_RENEWING_PURCHASE. The store's own transaction id is what makes granting a
+  /// consumable idempotent — RevenueCat redelivers, and a repair granted twice is one given away.
+  id?: string;
+  transaction_id?: string;
+  product_id?: string;
   app_user_id?: string;
   original_app_user_id?: string;
   aliases?: unknown;
@@ -396,6 +405,39 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Temporary failure, retry" }, 503);
     }
     outcomes[outcome] = (outcomes[outcome] ?? 0) + 1;
+
+    // Consumables, which the subscriber-state sync above cannot see: entitlements describe what
+    // someone currently holds, and a one-off purchase grants no entitlement. This is the only
+    // place the event's *type* is acted on, and the exception is deliberate — everything else here
+    // reads current truth from RevenueCat precisely so ordering and redelivery stop mattering,
+    // but there is no "current truth" for a purchase that happened once.
+    //
+    // Redelivery is handled where it belongs instead: the transaction id is unique in
+    // `streak_repair_credits`, so a second delivery of the same purchase grants nothing.
+    if (eventType === "NON_RENEWING_PURCHASE" && event.product_id === STREAK_REPAIR_PRODUCT_ID) {
+      const transactionId = typeof event.transaction_id === "string" && event.transaction_id.length > 0
+        ? event.transaction_id
+        : eventId;
+      if (!transactionId) {
+        // Without one there is no way to be idempotent, and granting anyway would hand out a free
+        // repair on every redelivery. Logged and skipped: the purchase is recoverable by hand,
+        // silently multiplying credits is not.
+        console.error(`[revenuecat-webhook] ${eventType}: no transaction id, credit not granted`);
+      } else {
+        const { data: granted, error: grantErr } = await serviceClient.rpc("grant_streak_repair_credit", {
+          p_profile_id: userId,
+          p_transaction_id: transactionId,
+        });
+        if (grantErr) {
+          // The person has paid and holds nothing. 5xx so RevenueCat redelivers — the unique
+          // transaction id means the retry cannot double-grant.
+          console.error(`[revenuecat-webhook] ${eventType}: credit grant failed:`, grantErr.message);
+          return jsonResponse({ error: "Temporary failure, retry" }, 503);
+        }
+        // `false` means this transaction was already granted, which is a redelivery, which is fine.
+        console.log(`[revenuecat-webhook] ${eventType}: streak repair credit ${granted ? "granted" : "already held"}`);
+      }
+    }
 
     // Provenance. Not recorded for `unknown_subscriber`: RevenueCat has never heard of that id, so
     // there is no decision to attribute and no profile the row would describe.

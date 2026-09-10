@@ -29,7 +29,7 @@ enum RevenueCatConfig {
         static let premium = "Twofold Premium"
     }
 
-    /// The 4 App Store Connect / RevenueCat product identifiers this app expects to exist.
+    /// The App Store Connect / RevenueCat product identifiers this app expects to exist.
     /// `SubscriptionStore.mapToPricedPackages` switches on these exact strings (matched against
     /// each package's `StoreProduct.productIdentifier`) to resolve which `SubscriptionTier` a
     /// package belongs to — RevenueCat's own `Package.packageType` can't tell Plus from Premium,
@@ -42,6 +42,16 @@ enum RevenueCatConfig {
         static let yearlyPlus = "com.orangefinch.Twofold.plus.yearly"
         static let monthlyPremium = "com.orangefinch.Twofold.premium.monthly"
         static let yearlyPremium = "com.orangefinch.Twofold.premium.yearly"
+
+        /// A consumable, not a subscription, and the only one — bought to bridge a single missed
+        /// day (see migration 20261007000000). It must never appear among the paywall's packages:
+        /// `mapToPricedPackages` matches the four above and treats anything else as "not one of
+        /// ours", which is what keeps a one-off purchase out of a screen selling plans.
+        ///
+        /// Buying it grants nothing by itself. The credit is written by the RevenueCat webhook
+        /// against the store's transaction id, the same way entitlement is — the app's word that a
+        /// purchase happened is not what a paid repair rests on.
+        static let streakRepair = "com.orangefinch.Twofold.streak.repair"
     }
 
     static func configure() {
