@@ -78,13 +78,22 @@ struct SettingsView: View {
                         .buttonStyle(.plain)
                     }
 
-                    SubscriptionBanner(isSubscribed: appModel.isSubscriptionActive) {
-                        if appModel.isSubscriptionActive {
-                            if subscriptionStore.isSubscribed {
-                                showingCustomerCenter = true
-                            } else {
-                                showingPartnerManagesSubscription = true
-                            }
+                    // Subscribed if *either* source says so, the same three-way reading RootView's
+                    // paywall gate uses.
+                    //
+                    // This read only `isSubscriptionActive`, the column the RevenueCat webhook
+                    // writes. Between paying and that webhook landing — or while it is
+                    // misconfigured, or if it never retried — a real subscriber was told to
+                    // "Unlock Twofold Plus", something they had already done and could not do
+                    // again. `subscriptionStore.isSubscribed` is RevenueCat's own answer on this
+                    // device, receipt-validated, and it is available immediately.
+                    SubscriptionBanner(isSubscribed: appModel.isSubscriptionActive || subscriptionStore.isSubscribed) {
+                        if subscriptionStore.isSubscribed {
+                            // Bought on this device, so this is the one place it can be changed.
+                            showingCustomerCenter = true
+                        } else if appModel.isSubscriptionActive {
+                            // Covered, but not from here — the partner holds it.
+                            showingPartnerManagesSubscription = true
                         } else {
                             showingPaywall = true
                         }

@@ -57,6 +57,26 @@ struct GameResultsView: View {
 
     var body: some View {
         ZStack {
+            // A sibling layer, not a `.background` on this stack.
+            //
+            // `.background` sizes itself to its *host*, and the host here is a stack whose height
+            // and width settle as rounds reveal, the summary appears and the gauge animates. Those
+            // layout changes happen inside animated transactions, so the background was carried
+            // along with them — visibly narrower than the screen for a beat before settling, which
+            // is the flicker this had.
+            //
+            // The previous attempt at this put `.transaction { $0.animation = nil }` on the
+            // gradient. That silences animations originating *within* the gradient, which were
+            // never the problem: the gradient was not animating, it was being resized by something
+            // else that was. Nothing applied to the background's own content can fix that, because
+            // its frame is not its own to decide.
+            //
+            // As a sibling with its own fill, it takes the stack's full offered size once and stops
+            // depending on what the content does.
+            Theme.backgroundGradient
+                .ignoresSafeArea()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
             ScrollView {
                 VStack(spacing: Theme.Spacing.lg) {
                     header
@@ -91,12 +111,9 @@ struct GameResultsView: View {
             }
             ConfettiBurstView(trigger: confettiTrigger)
         }
-        // `.transaction { $0.animation = nil }` keeps this pinned to a static, full-bleed frame
-        // regardless of any animated transaction elsewhere on screen (the round-reveal spring in
-        // `animateReveal()`, the match gauge's arc animation) — without it the background was
-        // observed interpolating its own size alongside those, briefly rendering narrower than
-        // the screen before settling.
-        .background(Theme.backgroundGradient.ignoresSafeArea().transaction { $0.animation = nil })
+        // Fills whatever it is offered, so the stack's size is never a function of its content —
+        // which is what kept handing the background a changing frame to follow.
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             // A custom `.principal` item, not just relying on `.navigationTitle` above — an
