@@ -88,7 +88,11 @@ struct HomeCityView: View {
                         onboarding.inviterName = info.name
                         onboarding.inviterAvatarURL = info.avatarURL
                     }
-                    try await BackendService.redeemInviteCode(code)
+                    // `.link` because this branch is only reached from a tapped invite link —
+                    // `resetForNewInvite` puts the flow here and nothing else does. A code typed
+                    // by hand goes through EnterPartnerCodeView instead.
+                    let outcome = try await BackendService.redeemInviteCode(code, origin: .link)
+                    onboarding.connectedOnRedeem = outcome.connected
                 }
                 onboarding.path.append(.addPhoto)
             } catch {

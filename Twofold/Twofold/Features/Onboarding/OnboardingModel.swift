@@ -69,6 +69,11 @@ final class OnboardingModel {
     var selfPhotoData: Data?
     var partnerPhotoData: Data?
 
+    /// Set when redeeming connected the two of them outright, which a tapped link now does (see
+    /// migration 20261008000000). The screens that say "request sent, we'll let you know" are
+    /// wrong in that case and are skipped.
+    var connectedOnRedeem = false
+
     /// Set once the user has responded to the system notification prompt (either way) —
     /// lets the app avoid ever re-prompting.
     var notificationsGranted: Bool?

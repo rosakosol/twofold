@@ -984,28 +984,56 @@ enum BackendService {
         var id: UUID?
         var inviterId: UUID?
         var errorMessage: String?
+        /// True when a tapped link connected the two of them there and then, rather than leaving
+        /// a request for the inviter to accept. Defaulted so an older server that does not send
+        /// it reads as the safer answer — a request that still needs accepting.
+        var autoAccepted: Bool? = nil
 
         enum CodingKeys: String, CodingKey {
             case id
             case inviterId = "inviter_id"
             case errorMessage = "error_message"
+            case autoAccepted = "auto_accepted"
         }
+    }
+
+    /// How the invitee came by the code, and what happened as a result.
+    enum InviteOrigin: String {
+        /// They typed it, so it could have been seen by anyone — the inviter approves.
+        case code
+        /// They tapped a link the inviter sent them, which connects immediately. See migration
+        /// 20261008000000, including what that trades away.
+        case link
+    }
+
+    struct RedeemOutcome {
+        var requestID: UUID
+        /// Connected already. The "request sent, we'll let you know" screens do not apply.
+        var connected: Bool
     }
 
     /// Redeeming a code no longer immediately creates a couple — it creates a pending
     /// connection request only the inviter can accept (`respondToConnectionRequest`), so a
     /// brute-forced or mistyped-by-someone-else code can't silently pair an attacker as the
-    /// partner. Returns the request's id. Notifies the inviter directly (baked in here, not left
-    /// to each of the several call sites, so it can't be forgotten from one of them) — there's
-    /// no couple yet to resolve a recipient through, unlike `notifyPartner`.
+    /// partner — unless `origin` is `.link`, which connects them outright (see migration
+    /// 20261008000000). `RedeemOutcome.connected` says which happened, and the screens that talk
+    /// about waiting are wrong when it is true.
+    ///
+    /// Notifies the inviter directly, baked in here rather than left to each of the several call
+    /// sites so it cannot be forgotten from one of them — there's no couple yet to resolve a
+    /// recipient through, unlike `notifyPartner`.
     @discardableResult
-    static func redeemInviteCode(_ code: String) async throws -> UUID {
+    static func redeemInviteCode(_ code: String, origin: InviteOrigin = .code) async throws -> RedeemOutcome {
         struct Params: Encodable {
             var pCode: String
-            enum CodingKeys: String, CodingKey { case pCode = "p_code" }
+            var pOrigin: String
+            enum CodingKeys: String, CodingKey {
+                case pCode = "p_code"
+                case pOrigin = "p_origin"
+            }
         }
         let row: RedeemInviteCodeResult = try await supabase
-            .rpc("redeem_invite_code", params: Params(pCode: code))
+            .rpc("redeem_invite_code", params: Params(pCode: code, pOrigin: origin.rawValue))
             .single()
             .execute()
             .value
@@ -1019,8 +1047,19 @@ enum BackendService {
             throw BackendError.requestFailed(message: nil)
         }
         Analytics.capture(Analytics.Event.inviteRedeem)
-        Task { await notifyConnectionRequest(eventType: "connection_requested", targetProfileId: inviterID) }
-        return requestID
+
+        // Which of the two things actually happened decides what the inviter is told. Sending
+        // "someone wants to connect" to a person who is already connected would ask them to do
+        // something that is no longer possible — and being told at all is one of the two backstops
+        // the auto-accept path deliberately keeps.
+        let connected = row.autoAccepted ?? false
+        Task {
+            await notifyConnectionRequest(
+                eventType: connected ? "connection_accepted" : "connection_requested",
+                targetProfileId: inviterID
+            )
+        }
+        return RedeemOutcome(requestID: requestID, connected: connected)
     }
 
     struct OutgoingConnectionRequest: Decodable {
