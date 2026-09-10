@@ -452,6 +452,19 @@ final class AppModel {
             applyCachedSession(cached)
         }
         hasCouple = true
+        // Resolved here, not only from RootView's launch task.
+        //
+        // That task runs once, at launch. Someone who opens the app signed out gets an early
+        // return from it (`guard hasCouple`) that leaves `hasResolvedOutgoingConnectionRequest`
+        // false, and then signs in — at which point `hasCouple` flips true, RootView re-renders,
+        // and its paywall-exemption gate holds them on the loading screen forever because nothing
+        // remains to resolve the flag. A real sign-in that ends in an infinite beating heart.
+        //
+        // Tying it to `hasCouple` instead means every path that admits someone to the app resolves
+        // it: launch, manual sign-in, and password recovery all end up here. The call is cheap for
+        // a paired couple — `refreshPendingOutgoingConnectionRequest` returns without a round trip
+        // when `partnerConnected`.
+        await refreshPendingOutgoingConnectionRequest()
         Task { await WidgetSnapshotWriter.refresh(appModel: self) }
         checkReviewMilestones()
     }
