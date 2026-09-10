@@ -38,7 +38,20 @@ struct DailyActivityCard: View {
     /// Stand-in text for the skeleton. Never read: `.redacted` replaces it with bars, and the
     /// accessibility label below says what's actually happening. It exists only to give the
     /// placeholder two lines to draw.
-    private static let questionSkeletonText = "Loading today's question for the two of you"
+    ///
+    /// Long enough to overflow two lines rather than merely reach them. The previous string ran to
+    /// a full first line and a stub of a second, so the skeleton was one bar and a dash — which
+    /// reads as a rendering fault rather than as loading. Overflowing means `lineLimit(2)` truncates
+    /// it, and both bars run the full width of the card.
+    ///
+    /// Its wording still matters even though nobody sees it: at accessibility sizes `lineLimit` is
+    /// nil, so this would be drawn as however many bars it needs, and text that is roughly the
+    /// shape of a real question keeps that from looking absurd.
+    private static let questionSkeletonText =
+        """
+        Loading today's question for the two of you to answer together, wherever you both happen \
+        to be right now, so there is always something waiting when you open this
+        """
 
 
     var body: some View {
