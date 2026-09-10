@@ -18,6 +18,15 @@ struct RootView: View {
     @State private var pendingInviteCode: String?
     @State private var showingPartnerConnectedCelebration = false
     @State private var showingPaywallFromWidget = false
+    /// A broken streak this person has already been offered a repair for, as the missed date.
+    ///
+    /// Keyed on the date rather than a bare flag so a *later* break offers again — the point is one
+    /// showing per break, not one showing ever. Stored per device, which is per person in every
+    /// case that matters: both partners get their own single showing, since it is their streak too
+    /// and neither should hear about it only from the other. Someone with two devices sees it once
+    /// on each, which is the cost of not putting a row in the database for a popup.
+    @AppStorage("streakRepairOfferedForMissedDate") private var streakRepairOfferedFor = ""
+    @State private var showingStreakRepair = false
     @State private var gameDeepLink: SessionRoute?
     /// Which MainTabView tab is showing — lives here rather than inside MainTabView so a widget
     /// deep link (twofold://home, twofold://memories, twofold://passport) can switch it.
@@ -294,6 +303,10 @@ struct RootView: View {
             NavigationStack { PaywallView() }
                 .postHogScreenView("Paywall: Widget")
         }
+        // Watched rather than checked once on appear: the state arrives from a round trip that
+        // lands well after this view first draws, and on a foreground it can change again.
+        .onChange(of: appModel.streakRepair?.missedDateRaw) { _, _ in offerStreakRepairIfDue() }
+        .sheet(isPresented: $showingStreakRepair) { streakRepairSheet }
         .fullScreenCover(item: $recordDeepLink) { destination in
             NavigationStack { recordDeepLinkDestination(destination) }
         }
@@ -398,6 +411,34 @@ struct RootView: View {
     /// from before a lapse must not become a way back into premium gameplay.
     private var isReadyForNotificationRoute: Bool {
         !appModel.isLoadingSession && appModel.hasCouple && appModel.isSubscriptionActive
+    }
+
+    /// Shows the repair offer once for this break, then never again for it.
+    ///
+    /// The record is written when it is *shown*, not when it is acted on. Someone who closed the
+    /// popup has answered it, and reopening the app should not ask a second time — which is the
+    /// whole difference between an offer and a nag.
+    private func offerStreakRepairIfDue() {
+        guard let repair = appModel.streakRepair,
+              repair.repairable,
+              repair.streakAtRisk > 0,
+              // No key means no way to tell one break from another, and an offer that cannot be
+              // recorded is one that would return every launch. Better not shown at all.
+              let missedDate = repair.missedDateRaw,
+              missedDate != streakRepairOfferedFor
+        else { return }
+
+        streakRepairOfferedFor = missedDate
+        showingStreakRepair = true
+    }
+
+    /// Pulled out of `body` purely to keep it type-checkable — that expression is already at the
+    /// compiler's limit, and an inline `if let` inside the sheet tipped it over.
+    @ViewBuilder
+    private var streakRepairSheet: some View {
+        if let streak = appModel.streakRepair?.streakAtRisk {
+            StreakRepairPromptView(streak: streak)
+        }
     }
 
     private func consumePendingRoute() {

@@ -123,6 +123,48 @@ struct StreakRepairTests {
         #expect(!shouldPurchase(credits: 3))
     }
 
+    // MARK: - Shown once per break
+
+    /// `RootView.offerStreakRepairIfDue`'s condition, which decides whether a person is
+    /// interrupted. Keyed on the missed date rather than a flag, so a *later* break offers again —
+    /// the rule is one showing per break, not one showing ever.
+    private func shouldOffer(_ s: BackendService.StreakRepairState?, alreadyOfferedFor: String) -> Bool {
+        guard let s, s.repairable, s.streakAtRisk > 0, let missed = s.missedDateRaw else { return false }
+        return missed != alreadyOfferedFor
+    }
+
+    private func dated(_ missed: String?, repairable: Bool = true, streak: Int = 27) -> BackendService.StreakRepairState {
+        .init(repairable: repairable, streakAtRisk: streak, credits: 0, missedDateRaw: missed)
+    }
+
+    @Test("a new break is offered once, then not again")
+    func offeredOncePerBreak() {
+        #expect(shouldOffer(dated("2026-09-09"), alreadyOfferedFor: ""))
+        #expect(!shouldOffer(dated("2026-09-09"), alreadyOfferedFor: "2026-09-09"),
+                "reopening the app must not ask a second time")
+    }
+
+    /// The reason it is a date and not a boolean. Someone who declined in September and breaks
+    /// their streak again in October is a new question, not the same one.
+    @Test("a later break asks again")
+    func laterBreakAsksAgain() {
+        #expect(shouldOffer(dated("2026-10-14"), alreadyOfferedFor: "2026-09-09"))
+    }
+
+    /// Without a date there is no way to record that it was shown, so it would return every
+    /// launch. Not showing it is the safer failure.
+    @Test("an offer that cannot be recorded is not shown")
+    func unrecordableOfferIsSkipped() {
+        #expect(!shouldOffer(dated(nil), alreadyOfferedFor: ""))
+    }
+
+    @Test("nothing is offered outside the window")
+    func nothingOutsideTheWindow() {
+        #expect(!shouldOffer(dated("2026-09-09", repairable: false), alreadyOfferedFor: ""))
+        #expect(!shouldOffer(dated("2026-09-09", streak: 0), alreadyOfferedFor: ""))
+        #expect(!shouldOffer(nil, alreadyOfferedFor: ""))
+    }
+
     /// A cancelled purchase returns to idle — not to an error. Backing out of a payment sheet is a
     /// decision, not a fault, and showing it in red would say otherwise.
     @MainActor
