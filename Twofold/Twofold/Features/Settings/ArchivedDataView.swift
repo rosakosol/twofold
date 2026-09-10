@@ -56,6 +56,14 @@ struct ArchivedDataView: View {
                                         .font(.caption)
                                         .foregroundStyle(Theme.subtleInk)
                                 }
+                                // On the list, not just the detail screen. This is a deadline
+                                // nobody chose and nobody can stop, so it should not take a tap
+                                // to find out about.
+                                if let notice = couple.deletionNotice {
+                                    Text(notice)
+                                        .font(.caption2.weight(.semibold))
+                                        .foregroundStyle(couple.deletionIsImminent ? Theme.heartRed : Theme.subtleInk)
+                                }
                             }
                             .padding(.vertical, 2)
                         }
@@ -165,6 +173,25 @@ struct ArchivedCoupleDetailView: View {
                         Text("Ended \(dissolvedAt.formatted(date: .abbreviated, time: .omitted))")
                             .font(.caption)
                             .foregroundStyle(Theme.subtleInk)
+                    }
+                }
+
+                if let purgeDate = couple.scheduledPurgeAt {
+                    SectionCard {
+                        HStack(spacing: Theme.Spacing.sm) {
+                            Image(systemName: "clock.badge.exclamationmark")
+                                .foregroundStyle(couple.deletionIsImminent ? Theme.heartRed : Theme.skyBlue)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(couple.deletionNotice ?? "")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(Theme.ink)
+                                Text("Archived history is kept for 90 days. On \(purgeDate.formatted(date: .abbreviated, time: .omitted)) everything here is permanently deleted for both of you.")
+                                    .font(.caption)
+                                    .foregroundStyle(Theme.subtleInk)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
 

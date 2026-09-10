@@ -853,9 +853,15 @@ final class AppModel {
     /// accepting right now is to connect right now. Returns an error message on failure, nil on
     /// success (same shape as `removePartner()`).
     @discardableResult
-    func respondToConnectionRequest(_ request: BackendService.PendingConnectionRequest, accept: Bool) async -> String? {
+    func respondToConnectionRequest(
+        _ request: BackendService.PendingConnectionRequest,
+        accept: Bool,
+        restoreArchive: Bool = false
+    ) async -> String? {
         do {
-            let coupleID = try await BackendService.respondToConnectionRequest(id: request.id, accept: accept)
+            let coupleID = try await BackendService.respondToConnectionRequest(
+                id: request.id, accept: accept, restoreArchive: restoreArchive
+            )
             pendingConnectionRequests.removeAll { $0.id == request.id }
             if coupleID != nil {
                 await refreshCoupleStateIfNeeded()

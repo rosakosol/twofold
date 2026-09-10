@@ -907,6 +907,9 @@ enum BackendService {
         /// falls back to the solo-profile path, making a fully paired couple look disconnected.
         var startedDatingOnRaw: String?
         var maxDistanceKm: Double?
+        /// When this archive is permanently deleted — 90 days after it ended. Null while the
+        /// couple is active.
+        var scheduledPurgeAt: Date?
 
         enum CodingKeys: String, CodingKey {
             case id, status
@@ -916,6 +919,7 @@ enum BackendService {
             case startedDatingOnRaw = "started_dating_on"
             case createdAt = "created_at"
             case maxDistanceKm = "max_distance_km"
+            case scheduledPurgeAt = "scheduled_purge_at"
         }
 
         var startedDatingOn: Date? {
@@ -1087,6 +1091,54 @@ enum BackendService {
             .value
     }
 
+    /// A past relationship with this same person that could be brought back, if there is one.
+    ///
+    /// Nil when they have no shared past, or when its 90 days have run out — after that the data
+    /// is gone and re-pairing simply starts fresh, which needs no prompt.
+    struct RestorableArchive: Decodable {
+        var coupleID: UUID
+        var dissolvedAt: Date?
+        var scheduledPurgeAt: Date?
+        var memoryCount: Int
+        var tripCount: Int
+        var flightCount: Int
+
+        enum CodingKeys: String, CodingKey {
+            case coupleID = "couple_id"
+            case dissolvedAt = "dissolved_at"
+            case scheduledPurgeAt = "scheduled_purge_at"
+            case memoryCount = "memory_count"
+            case tripCount = "trip_count"
+            case flightCount = "flight_count"
+        }
+
+        /// Nothing worth offering to bring back. An empty archive would make the prompt a question
+        /// about nothing.
+        var isEmpty: Bool { memoryCount == 0 && tripCount == 0 && flightCount == 0 }
+
+        /// "12 memories, 3 trips and 2 flights" — only the parts that exist.
+        var summary: String {
+            var parts: [String] = []
+            if memoryCount > 0 { parts.append("\(memoryCount) \(memoryCount == 1 ? "memory" : "memories")") }
+            if tripCount > 0 { parts.append("\(tripCount) \(tripCount == 1 ? "trip" : "trips")") }
+            if flightCount > 0 { parts.append("\(flightCount) \(flightCount == 1 ? "flight" : "flights")") }
+            guard let last = parts.popLast() else { return "nothing" }
+            return parts.isEmpty ? last : parts.joined(separator: ", ") + " and " + last
+        }
+    }
+
+    static func restorableArchive(withPartner partnerID: UUID) async throws -> RestorableArchive? {
+        struct Params: Encodable {
+            var pPartnerId: UUID
+            enum CodingKeys: String, CodingKey { case pPartnerId = "p_partner_id" }
+        }
+        let rows: [RestorableArchive] = try await supabase
+            .rpc("restorable_archive_with", params: Params(pPartnerId: partnerID))
+            .execute()
+            .value
+        return rows.first
+    }
+
     /// Whether this couple is paying twice for one subscription, and which of them bought later.
     ///
     /// See migration 20261001000000. `redundantProfileID` is nil when the two purchase dates can't
@@ -1158,18 +1210,26 @@ enum BackendService {
     /// requester directly on accept (baked in here for the same reason `redeemInviteCode` bakes
     /// in its own notify call) — `row.partnerBId` is the requester, per the insert order
     /// `respond_to_connection_request` itself uses.
+    /// `restoreArchive` brings a previous relationship with this same person back rather than
+    /// starting a new one — every memory, photo, trip and flight as it was. Only possible at this
+    /// moment: restoring reuses the old couple's id, which is what keeps the storage paths and
+    /// foreign keys valid, and once a new couple row exists there is nothing to reuse. See
+    /// migration 20261004000000.
     @discardableResult
-    static func respondToConnectionRequest(id: UUID, accept: Bool) async throws -> UUID? {
+    static func respondToConnectionRequest(id: UUID, accept: Bool, restoreArchive: Bool = false) async throws -> UUID? {
         struct Params: Encodable {
             var pRequestId: UUID
             var pAccept: Bool
+            var pRestoreArchive: Bool
             enum CodingKeys: String, CodingKey {
                 case pRequestId = "p_request_id"
                 case pAccept = "p_accept"
+                case pRestoreArchive = "p_restore_archive"
             }
         }
         let row: CoupleRow? = try await supabase
-            .rpc("respond_to_connection_request", params: Params(pRequestId: id, pAccept: accept))
+            .rpc("respond_to_connection_request",
+                 params: Params(pRequestId: id, pAccept: accept, pRestoreArchive: restoreArchive))
             .execute()
             .value
         if let row {
@@ -1363,6 +1423,7 @@ enum BackendService {
                 partnerName: namesByID[partnerID] ?? "Partner",
                 startedDatingOn: row.startedDatingOn,
                 dissolvedAt: row.dissolvedAt,
+                scheduledPurgeAt: row.scheduledPurgeAt,
                 isHidden: hiddenIDs.contains(row.id)
             )
         }
