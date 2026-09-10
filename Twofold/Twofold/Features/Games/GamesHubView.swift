@@ -168,7 +168,16 @@ struct GamesHubView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: Theme.Spacing.sm) {
                     ForEach(GameType.allCases) { gameType in
-                        if appModel.partnerConnected || !gameType.requiresPartner {
+                        if gameType == .sudoku {
+                            // No decks to list — sudoku's content is generated, not curated — so
+                            // its card opens the difficulty picker that stands in for one.
+                            NavigationLink {
+                                SudokuDifficultyPickerView()
+                            } label: {
+                                GameCard(gameType: gameType, width: 220)
+                            }
+                            .buttonStyle(.plain)
+                        } else if appModel.partnerConnected || !gameType.requiresPartner {
                             NavigationLink {
                                 GameTypeDecksView(gameType: gameType)
                             } label: {

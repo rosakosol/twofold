@@ -95,6 +95,10 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
     case moreLikely = "more_likely"
     case thisOrThat = "this_or_that"
     case deepConversations = "deep_conversations"
+    /// The odd one out, deliberately. Every case above names a bank of prompts; this one names a
+    /// puzzle generated on device from the round's id, so it has no content table and
+    /// `resolveContent` has nothing to resolve for it.
+    case sudoku
 
     var id: String { rawValue }
 
@@ -104,6 +108,7 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
         case .moreLikely: "Who's More Likely To"
         case .thisOrThat: "This or That"
         case .deepConversations: "Deep Conversation"
+        case .sudoku: "Sudoku"
         }
     }
 
@@ -115,6 +120,7 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
         case .moreLikely: "MORE LIKELY"
         case .thisOrThat: "THIS OR THAT"
         case .deepConversations: "DEEP CONVERSATION"
+        case .sudoku: "SUDOKU"
         }
     }
 
@@ -124,6 +130,7 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
         case .moreLikely: "Who knows your relationship best?"
         case .thisOrThat: "Choose, reveal, and see where you match."
         case .deepConversations: "Talk through the things that matter, together."
+        case .sudoku: "The same grid, on both your phones."
         }
     }
 
@@ -141,6 +148,10 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
         case .moreLikely: 8
         case .thisOrThat: 6
         case .deepConversations: 15
+        // Wider than the others by nature — an Easy goes in five minutes and an Expert can take
+        // an evening. This is the number shown on a card before anyone has chosen a difficulty,
+        // so it is the middle of the range rather than a promise.
+        case .sudoku: 20
         }
     }
 
@@ -152,6 +163,7 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
         case .moreLikely: "person.2.wave.2.fill"
         case .thisOrThat: "arrow.left.arrow.right.circle.fill"
         case .deepConversations: "bubble.left.and.bubble.right.fill"
+        case .sudoku: "square.grid.3x3.fill"
         }
     }
 
@@ -161,6 +173,7 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
         case .moreLikely: [Theme.heartRed, .orange]
         case .thisOrThat: [.purple, Theme.skyBlue]
         case .deepConversations: [Theme.leafGreen, Theme.skyBlue]
+        case .sudoku: [.indigo, Theme.skyBlue]
         }
     }
 
@@ -271,6 +284,11 @@ struct GameSessionRound: Identifiable, Hashable {
     var roundNumber: Int
     var contentID: UUID
     var discussionStatus: DiscussionRoundStatus?
+    /// Sudoku only, and nil for every other game type. Its own column rather than a reuse of
+    /// `discussionStatus` above — that one is `text` in Postgres but a closed two-case enum here,
+    /// so a round carrying a difficulty in it would fail to decode and take the entire session
+    /// fetch with it.
+    var difficulty: SudokuDifficulty?
 }
 
 /// `game_responses.answer` is a single-key jsonb payload (`{"value": "..."}`) regardless of

@@ -223,6 +223,12 @@ struct GameResultsView: View {
     @ViewBuilder
     private var gameTypeHeader: some View {
         switch gameType {
+        // Sudoku's comparison is not a per-round answer table — it is two solve times against one
+        // grid — so it gets its own screen rather than a case here. Nothing routes a sudoku
+        // session into this view; this case exists so the switch stays exhaustive and so that if
+        // something ever does, it shows an empty header rather than another game's.
+        case .sudoku:
+            EmptyView()
         case .triviaBattle:
             let myScore = GameLogic.triviaScore(responses: store.responses, responderID: myID)
             VStack(spacing: Theme.Spacing.xs) {
@@ -364,7 +370,7 @@ struct GameResultsView: View {
                 return mine?.answerValue == partner?.answerValue && mine?.answerValue.isEmpty == false
             case .triviaBattle:
                 return mine?.isCorrect == true && partner?.isCorrect == true
-            case .deepConversations:
+            case .deepConversations, .sudoku:
                 return false
             }
         }()
@@ -470,7 +476,7 @@ struct GameResultsView: View {
     @ViewBuilder
     private var summarySection: some View {
         switch gameType {
-        case .triviaBattle:
+        case .triviaBattle, .sudoku:
             EmptyView()
         case .moreLikely, .thisOrThat:
             if isSolo {

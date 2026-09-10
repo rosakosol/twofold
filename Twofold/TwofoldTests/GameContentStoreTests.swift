@@ -38,13 +38,19 @@ struct GameContentStoreTests {
         #expect(decks.allSatisfy { $0.questionCount > 0 }, "a deck with no rounds can't be played")
     }
 
-    /// Every game type must be represented, or one of the four games is silently missing offline.
-    @Test("all four game types have decks")
+    /// Every deck-based game type must be represented, or one of them is silently missing offline.
+    ///
+    /// Sudoku is not one of them, and the exclusion is asserted rather than assumed. Its content is
+    /// generated on the device from the round's id, so there is no deck to ship and nothing for
+    /// `GameContentStore` to hold — writing this as "every case in `GameType`" made adding sudoku
+    /// fail a test about the seed file, which was the test being wrong rather than the seed.
+    @Test("every deck-based game type has decks")
     func everyGameTypeIsPresent() {
         let types = Set(GameContentStore.decks().map(\.gameType))
-        for gameType in GameType.allCases {
+        for gameType in GameType.allCases where gameType != .sudoku {
             #expect(types.contains(gameType), "no decks for \(gameType.rawValue)")
         }
+        #expect(!types.contains(.sudoku), "sudoku has no curated content — a deck here is a mistake")
     }
 
     /// The rounds themselves — this is what a locally started session is built from, so an empty

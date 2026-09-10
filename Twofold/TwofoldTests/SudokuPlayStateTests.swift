@@ -1,0 +1,246 @@
+//
+//  SudokuPlayStateTests.swift
+//  TwofoldTests
+//
+//  Two things here are worth more than the rest.
+//
+//  The decoder is a parser for a string that arrives from the network, and its failure mode is
+//  silent: a grid rebuilt out of a half-understood payload looks exactly like a grid. So it is
+//  tested by what it REFUSES, one malformation at a time, and by the rule that the puzzle's own
+//  numbers are re-imposed on whatever came back — no stored string can make a given disappear.
+//
+//  And the conflict highlight returns both offenders rather than the later one, because a board
+//  that lights up one of a duplicated pair is telling the player the other is fine.
+//
+
+import Testing
+import Foundation
+@testable import Twofold
+
+struct SudokuPlayStateTests {
+
+    private static let generated = SudokuGenerator.puzzle(seed: 4_242, difficulty: .medium)
+    private var puzzle: SudokuGrid { Self.generated.puzzle }
+    private var solution: SudokuGrid { Self.generated.solution }
+
+    /// The first empty cell, so tests write where writing is allowed.
+    private var firstEmpty: Int { (0..<81).first { puzzle[$0] == 0 }! }
+    private var firstGiven: Int { (0..<81).first { puzzle[$0] != 0 }! }
+
+    // MARK: - Round trip
+
+    @Test("a played state survives encoding and decoding")
+    func roundTrips() {
+        var state = SudokuPlayState(puzzle: puzzle)
+        state.place(5, at: firstEmpty, puzzle: puzzle)
+        state.toggleNote(3, at: (0..<81).filter { puzzle[$0] == 0 }[1], puzzle: puzzle)
+        state.toggleNote(7, at: (0..<81).filter { puzzle[$0] == 0 }[1], puzzle: puzzle)
+        state.elapsed = 137
+
+        let restored = SudokuPlayState.decoded(from: state.encoded, puzzle: puzzle)
+        #expect(restored == state)
+    }
+
+    @Test("a fresh state round trips too")
+    func freshRoundTrips() {
+        let state = SudokuPlayState(puzzle: puzzle)
+        #expect(SudokuPlayState.decoded(from: state.encoded, puzzle: puzzle) == state)
+    }
+
+    @Test("completion survives the round trip")
+    func completionRoundTrips() {
+        var state = SudokuPlayState(puzzle: puzzle)
+        state.markComplete()
+        #expect(SudokuPlayState.decoded(from: state.encoded, puzzle: puzzle)?.isComplete == true)
+    }
+
+    // MARK: - What the decoder refuses
+
+    /// Each of these is a real way a payload goes wrong: an old version still on another device, a
+    /// truncated write, a value that never came from `toggleNote`.
+    @Test("malformed payloads are refused rather than half-read", arguments: [
+        "",
+        "sudoku.v1",
+        "sudoku.v2|" + String(repeating: "0", count: 81) + "|" + String(repeating: "000", count: 81) + "|0|0",
+        // 80 cells, not 81.
+        "sudoku.v1|" + String(repeating: "0", count: 80) + "|" + String(repeating: "000", count: 81) + "|0|0",
+        // A digit outside 0...9.
+        "sudoku.v1|x" + String(repeating: "0", count: 80) + "|" + String(repeating: "000", count: 81) + "|0|0",
+        // Notes field one group short.
+        "sudoku.v1|" + String(repeating: "0", count: 81) + "|" + String(repeating: "000", count: 80) + "|0|0",
+        // Not hex.
+        "sudoku.v1|" + String(repeating: "0", count: 81) + "|zzz" + String(repeating: "000", count: 80) + "|0|0",
+        // Bit 0 set — no note can produce it.
+        "sudoku.v1|" + String(repeating: "0", count: 81) + "|001" + String(repeating: "000", count: 80) + "|0|0",
+        // Bit 10 set — likewise.
+        "sudoku.v1|" + String(repeating: "0", count: 81) + "|400" + String(repeating: "000", count: 80) + "|0|0",
+        // Negative time.
+        "sudoku.v1|" + String(repeating: "0", count: 81) + "|" + String(repeating: "000", count: 81) + "|-1|0",
+        // A completion flag that is neither.
+        "sudoku.v1|" + String(repeating: "0", count: 81) + "|" + String(repeating: "000", count: 81) + "|0|maybe",
+    ])
+    func refusesMalformed(payload: String) {
+        #expect(SudokuPlayState.decoded(from: payload, puzzle: puzzle) == nil)
+    }
+
+    /// The negative control for the list above: a payload of exactly that shape, correct, is
+    /// accepted. Without it every refusal could be a decoder that refuses everything.
+    @Test("a well-formed payload of the same shape is accepted")
+    func acceptsWellFormed() {
+        let payload = "sudoku.v1|" + String(repeating: "0", count: 81)
+            + "|" + String(repeating: "000", count: 81) + "|0|0"
+        #expect(SudokuPlayState.decoded(from: payload, puzzle: puzzle) != nil)
+    }
+
+    /// The givens are the puzzle. A payload claiming otherwise — stale, truncated mid-write, or
+    /// simply from a different puzzle — must not be able to blank one out.
+    @Test("no stored payload can erase a given")
+    func givensAreReimposed() {
+        let empty = "sudoku.v1|" + String(repeating: "0", count: 81)
+            + "|" + String(repeating: "000", count: 81) + "|0|0"
+        let restored = SudokuPlayState.decoded(from: empty, puzzle: puzzle)
+        #expect(restored != nil)
+        for index in 0..<81 where puzzle[index] != 0 {
+            #expect(restored?[index] == puzzle[index], "cell \(index) lost its given")
+        }
+    }
+
+    // MARK: - Playing
+
+    @Test("a given cannot be written over")
+    func givensAreReadOnly() {
+        var state = SudokuPlayState(puzzle: puzzle)
+        let original = state[firstGiven]
+        state.place(original == 1 ? 2 : 1, at: firstGiven, puzzle: puzzle)
+        #expect(state[firstGiven] == original)
+
+        state.erase(at: firstGiven, puzzle: puzzle)
+        #expect(state[firstGiven] == original, "erase must not empty a given either")
+
+        state.toggleNote(4, at: firstGiven, puzzle: puzzle)
+        #expect(state.note(4, at: firstGiven) == false, "nor can a given carry pencil marks")
+    }
+
+    /// The tedious bit of playing on paper, and the reason a stale note is worse than no note: it
+    /// says a cell can take a digit the board has already ruled out.
+    @Test("placing a digit rubs it out of the notes of every cell that can no longer hold it")
+    func placingClearsPeerNotes() {
+        var state = SudokuPlayState(puzzle: puzzle)
+        let target = firstEmpty
+        let peers = SudokuPlayState.peers(of: target).filter { puzzle[$0] == 0 }
+        #expect(!peers.isEmpty)
+
+        for peer in peers {
+            state.toggleNote(6, at: peer, puzzle: puzzle)
+            state.toggleNote(2, at: peer, puzzle: puzzle)
+        }
+        state.place(6, at: target, puzzle: puzzle)
+
+        for peer in peers {
+            #expect(state.note(6, at: peer) == false, "cell \(peer) kept a note the placement ruled out")
+            #expect(state.note(2, at: peer) == true, "and must keep the notes it did not rule out")
+        }
+    }
+
+    @Test("a note and a digit cannot occupy the same cell")
+    func notesAndDigitsAreExclusive() {
+        var state = SudokuPlayState(puzzle: puzzle)
+        let target = firstEmpty
+
+        state.place(8, at: target, puzzle: puzzle)
+        state.toggleNote(1, at: target, puzzle: puzzle)
+        #expect(state[target] == 0, "writing a note clears the digit")
+        #expect(state.note(1, at: target))
+
+        state.place(8, at: target, puzzle: puzzle)
+        #expect(state.note(1, at: target) == false, "and writing a digit clears the notes")
+    }
+
+    @Test("a note toggles off")
+    func notesToggle() {
+        var state = SudokuPlayState(puzzle: puzzle)
+        state.toggleNote(9, at: firstEmpty, puzzle: puzzle)
+        state.toggleNote(9, at: firstEmpty, puzzle: puzzle)
+        #expect(state.note(9, at: firstEmpty) == false)
+    }
+
+    // MARK: - Conflicts
+
+    @Test("an untouched puzzle has no conflicts")
+    func freshPuzzleIsClean() {
+        #expect(SudokuPlayState(puzzle: puzzle).conflicts().isEmpty)
+    }
+
+    /// Both cells, not one. A board that highlights only the second of a duplicated pair is saying
+    /// the first is correct.
+    @Test("a duplicate lights up both cells")
+    func conflictsIncludeBothOffenders() {
+        var state = SudokuPlayState(puzzle: puzzle)
+        // Two empty cells sharing a row.
+        let row = (0..<9).first { r in (0..<9).filter { puzzle[r * 9 + $0] == 0 }.count >= 2 }!
+        let cells = (0..<9).filter { puzzle[row * 9 + $0] == 0 }.prefix(2).map { row * 9 + $0 }
+
+        state.place(4, at: cells[0], puzzle: puzzle)
+        state.place(4, at: cells[1], puzzle: puzzle)
+
+        let conflicts = state.conflicts()
+        #expect(conflicts.contains(cells[0]))
+        #expect(conflicts.contains(cells[1]))
+    }
+
+    @Test("clearing one of the pair clears the highlight")
+    func conflictsClear() {
+        var state = SudokuPlayState(puzzle: puzzle)
+        let row = (0..<9).first { r in (0..<9).filter { puzzle[r * 9 + $0] == 0 }.count >= 2 }!
+        let cells = (0..<9).filter { puzzle[row * 9 + $0] == 0 }.prefix(2).map { row * 9 + $0 }
+        state.place(4, at: cells[0], puzzle: puzzle)
+        state.place(4, at: cells[1], puzzle: puzzle)
+        state.erase(at: cells[1], puzzle: puzzle)
+        #expect(state.conflicts().isEmpty)
+    }
+
+    // MARK: - Finishing
+
+    @Test("the solution is recognised as solved")
+    func solvedGridIsSolved() {
+        var state = SudokuPlayState(puzzle: puzzle)
+        for index in 0..<81 where puzzle[index] == 0 {
+            state.place(solution[index], at: index, puzzle: puzzle)
+        }
+        #expect(state.isSolved(solution: solution))
+        #expect(state.conflicts().isEmpty)
+    }
+
+    @Test("one wrong cell is not solved")
+    func nearlySolvedIsNotSolved() {
+        var state = SudokuPlayState(puzzle: puzzle)
+        let empties = (0..<81).filter { puzzle[$0] == 0 }
+        for index in empties { state.place(solution[index], at: index, puzzle: puzzle) }
+        let last = empties.last!
+        state.place(solution[last] == 9 ? 1 : 9, at: last, puzzle: puzzle)
+        #expect(state.isSolved(solution: solution) == false)
+    }
+
+    // MARK: - Peers
+
+    /// 20, every time: 8 along the row, 8 down the column, and 4 more from the box.
+    @Test("every cell has exactly twenty peers, and is not one of them")
+    func peersAreWellFormed() {
+        for index in 0..<81 {
+            let peers = SudokuPlayState.peers(of: index)
+            #expect(peers.count == 20, "cell \(index) has \(peers.count) peers")
+            #expect(!peers.contains(index))
+            #expect(Set(peers).count == 20, "cell \(index) lists a peer twice")
+        }
+    }
+
+    @Test("peers are exactly the shared row, column and box")
+    func peersAreTheRightCells() {
+        let index = 40 // centre of the grid, centre of its box
+        let peers = Set(SudokuPlayState.peers(of: index))
+        #expect(peers.contains(36))  // same row
+        #expect(peers.contains(4))   // same column
+        #expect(peers.contains(30))  // same box
+        #expect(!peers.contains(0))  // shares nothing with the centre
+    }
+}

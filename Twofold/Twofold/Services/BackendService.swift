@@ -2949,9 +2949,10 @@ enum BackendService {
         var roundNumber: Int
         var contentId: UUID
         var discussionStatus: DiscussionRoundStatus?
+        var difficulty: SudokuDifficulty?
 
         enum CodingKeys: String, CodingKey {
-            case id
+            case id, difficulty
             case sessionId = "session_id"
             case roundNumber = "round_number"
             case contentId = "content_id"
@@ -2959,7 +2960,7 @@ enum BackendService {
         }
 
         func toModel() -> GameSessionRound {
-            GameSessionRound(id: id, sessionID: sessionId, roundNumber: roundNumber, contentID: contentId, discussionStatus: discussionStatus)
+            GameSessionRound(id: id, sessionID: sessionId, roundNumber: roundNumber, contentID: contentId, discussionStatus: discussionStatus, difficulty: difficulty)
         }
     }
 
@@ -3173,6 +3174,47 @@ enum BackendService {
         return id
     }
 
+    /// Starts, or picks back up, a sudoku at this difficulty.
+    ///
+    /// `puzzleID` is the whole of the puzzle. There is no content row behind it and nothing to
+    /// fetch: both partners run this uuid through `SudokuGenerator` and arrive at the same grid,
+    /// which is what lets a puzzle be played with no connection at all once it has been started.
+    ///
+    /// `resumed` distinguishes "here is your half-finished Hard" from "here is a new one" — the
+    /// server decides that, since only it can see whether the couple already has one open.
+    struct SudokuSessionStart: Decodable {
+        let sessionID: UUID
+        let puzzleID: UUID
+        let difficulty: SudokuDifficulty
+        let resumed: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case difficulty, resumed
+            case sessionID = "session_id"
+            case puzzleID = "puzzle_id"
+        }
+    }
+
+    static func startSudokuSession(difficulty: SudokuDifficulty) async throws -> SudokuSessionStart {
+        struct Params: Encodable {
+            var pDifficulty: String
+            enum CodingKeys: String, CodingKey { case pDifficulty = "p_difficulty" }
+        }
+        // `returns table` comes back as a set, so this decodes as an array of one rather than a
+        // bare object.
+        let rows: [SudokuSessionStart] = try await supabase
+            .rpc("start_sudoku_session", params: Params(pDifficulty: difficulty.rawValue))
+            .execute()
+            .value
+        guard let start = rows.first else { throw BackendError.notAuthenticated }
+        Analytics.capture(Analytics.Event.sessionStart, properties: [
+            "game_type": GameType.sudoku.rawValue,
+            "difficulty": difficulty.rawValue,
+            "resumed": start.resumed
+        ])
+        return start
+    }
+
     static func abandonGameSession(id: UUID) async throws {
         struct Params: Encodable {
             var pSessionId: UUID
@@ -3339,6 +3381,10 @@ enum BackendService {
         let unique = Array(Set(contentIDs))
         guard !unique.isEmpty else { return [:] }
         switch gameType {
+        // Nothing to resolve. A sudoku's `content_id` is not a key into anything — it *is* the
+        // puzzle, generated from those 128 bits on each device, so there is no row to go and get.
+        case .sudoku:
+            return [:]
         case .triviaBattle:
             let rows: [TriviaQuestionRow] = try await supabase.from("trivia_questions").select().in("id", values: unique).execute().value
             return Dictionary(uniqueKeysWithValues: rows.map { ($0.id, GameRoundContent.trivia($0.toModel())) })
