@@ -15,6 +15,7 @@ import SwiftUI
 struct DailyActivityCard: View {
     @Environment(AppModel.self) private var appModel
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @State private var streakRepair = StreakRepairStore()
 
     /// One line of `.caption2`, measured. Both the question teaser and the streak subline reserve
     /// two of these so their height stops depending on what the text happens to say — which is the
@@ -46,6 +47,8 @@ struct DailyActivityCard: View {
         // the very top of the tab, above every flat deck/topic card below it.
         SectionCard(isHeroInDark: true) {
             streakSummary
+
+            streakRepairOffer
 
             NavigationLink {
                 dailyDestination
@@ -155,6 +158,71 @@ struct DailyActivityCard: View {
         // streak count on every cold load, which read as a glitch rather than a loading
         // state.
         .redacted(reason: appModel.dailyStreak == nil ? .placeholder : [])
+    }
+
+    /// Shown only in the day after a streak ends, and only to a couple who had one.
+    ///
+    /// Directly under the streak line, which now reads "Start a streak" — this is the moment the
+    /// loss is visible, and it is the only moment the offer makes sense. It does not follow anyone
+    /// around: `streak_repair_state` stops returning `repairable` once the window closes, so the
+    /// card goes back to normal by itself the next day.
+    @ViewBuilder
+    private var streakRepairOffer: some View {
+        if let repair = appModel.streakRepair, repair.repairable, repair.streakAtRisk > 0 {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                switch streakRepair.phase {
+                case .repaired(let streak):
+                    Label("Your \(streak)-day streak is back", systemImage: "checkmark.circle.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white)
+
+                case .purchasing, .confirming:
+                    HStack(spacing: Theme.Spacing.xs) {
+                        ProgressView().controlSize(.small).tint(.white)
+                        Text(streakRepair.phase == .confirming ? "Finishing up…" : "One moment…")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.92))
+                    }
+
+                default:
+                    // Says what was lost and what it costs, in that order, and stops. The number
+                    // is the reason someone would pay; anything more is pressure.
+                    Text("Your \(repair.streakAtRisk)-day streak ended yesterday.")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white)
+
+                    Button {
+                        Task { await repairNow() }
+                    } label: {
+                        Text(streakRepair.displayPrice.map { "Bring it back — \($0)" } ?? "Bring it back")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Theme.skyBlue)
+                            .padding(.horizontal, Theme.Spacing.sm)
+                            .padding(.vertical, 6)
+                            .background(.white, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+
+                    if case .failed(let message) = streakRepair.phase {
+                        Text(message)
+                            .font(.caption2)
+                            .foregroundStyle(.white.opacity(0.92))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .task { await streakRepair.loadPrice() }
+        }
+    }
+
+    /// Someone may already hold a credit — they paid, the app closed, the webhook landed since. In
+    /// that case there is nothing to buy and the tap should just spend it.
+    private func repairNow() async {
+        let repaired = (appModel.streakRepair?.credits ?? 0) > 0
+            ? await streakRepair.spendCredit()
+            : await streakRepair.purchaseAndRepair()
+        if repaired { await appModel.refreshDailyStreak() }
     }
 
     @ViewBuilder

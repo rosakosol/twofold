@@ -1174,6 +1174,68 @@ enum BackendService {
         }
     }
 
+    /// Whether a broken streak is still inside the window where it can be bought back, and what
+    /// is at stake. See migration 20261007000000.
+    struct StreakRepairState: Decodable {
+        var repairable: Bool
+        var streakAtRisk: Int
+        var credits: Int
+        /// A bare Postgres `date` ("2026-09-09"), kept as a string for the same reason
+        /// `CoupleRow.startedDatingOnRaw` is: decoding it straight to `Date` throws under the
+        /// client's timestamp-with-time-zone strategy, and a throw here fails the whole row — so
+        /// the offer would simply never appear, with nothing on screen to explain why.
+        var missedDateRaw: String?
+
+        var missedDate: Date? {
+            missedDateRaw.flatMap { BackendService.dateOnlyFormatter.date(from: $0) }
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case repairable
+            case streakAtRisk = "streak_at_risk"
+            case credits
+            case missedDateRaw = "missed_date"
+        }
+    }
+
+    static func streakRepairState() async throws -> StreakRepairState? {
+        let rows: [StreakRepairState] = try await supabase
+            .rpc("streak_repair_state")
+            .execute()
+            .value
+        return rows.first
+    }
+
+    /// What a repair attempt did.
+    enum StreakRepairOutcome {
+        case repaired(streak: Int)
+        /// Paid for, but the purchase has not reached us yet — RevenueCat's webhook is what grants
+        /// the credit, and it is asynchronous. Worth retrying rather than reporting.
+        case noCredit
+        case refused(String)
+    }
+
+    static func repairCoupleStreak() async throws -> StreakRepairOutcome {
+        struct Row: Decodable {
+            var repaired: Bool
+            var currentStreak: Int
+            var errorMessage: String?
+
+            enum CodingKeys: String, CodingKey {
+                case repaired
+                case currentStreak = "current_streak"
+                case errorMessage = "error_message"
+            }
+        }
+        let rows: [Row] = try await supabase.rpc("repair_couple_streak").execute().value
+        guard let row = rows.first else { return .refused("Couldn't repair that. Try again.") }
+        if row.repaired { return .repaired(streak: row.currentStreak) }
+        // The one message the server sends as a token rather than as prose, because the app acts
+        // on it instead of showing it.
+        if row.errorMessage == "no_credit" { return .noCredit }
+        return .refused(row.errorMessage ?? "Couldn't repair that. Try again.")
+    }
+
     /// A past relationship with this same person that could be brought back, if there is one.
     ///
     /// Nil when they have no shared past, or when its 90 days have run out — after that the data

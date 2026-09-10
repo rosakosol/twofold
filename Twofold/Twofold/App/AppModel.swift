@@ -62,6 +62,9 @@ final class AppModel {
     /// The instant the daily question/streak next rolls over — real local midnight, resolved
     /// server-side (see `BackendService.fetchDailyStreak`). Nil until the first fetch lands.
     var dailyStreakResetsAt: Date?
+    /// Whether a streak that just ended can still be bought back, and what it was worth. Nil until
+    /// looked up and left nil when the lookup fails — no offer is better than a wrong one.
+    var streakRepair: BackendService.StreakRepairState?
     /// Today's Daily Activity session id, once known (fetched lazily, not at launch — see
     /// `startOrResumeDailyQuestion()`).
     var todaysDailySessionID: UUID?
@@ -1011,6 +1014,17 @@ final class AppModel {
         recordGameStateForOffline()
     }
 
+    /// Only asked when there is plainly something to ask about: a streak reading zero. The
+    /// repairable window needs the couple's own local dates to evaluate, so it is a round trip, and
+    /// a couple mid-streak has no use for the answer.
+    func refreshStreakRepairState() async {
+        guard NetworkMonitor.shared.isConnected, partnerConnected, dailyStreak == 0 else {
+            streakRepair = nil
+            return
+        }
+        streakRepair = try? await BackendService.streakRepairState()
+    }
+
     func refreshDailyStreak() async {
         // `refreshAll()` runs this alongside five other fetches on every foreground and every
         // pull-to-refresh; offline it can only wait out a timeout, holding that whole group open.
@@ -1021,6 +1035,7 @@ final class AppModel {
             dailyStreakResetsAt = streak.resetsAt
             recordGameStateForOffline()
         }
+        await refreshStreakRepairState()
     }
 
     /// Today's question as of the last time it was fetched. The backend assigns one per day, so a
