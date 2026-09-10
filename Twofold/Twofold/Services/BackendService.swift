@@ -1386,33 +1386,6 @@ enum BackendService {
         enum CodingKeys: String, CodingKey { case pCoupleId = "p_couple_id" }
     }
 
-    /// What a purge request did. `awaitingPartner` is the normal first answer — a shared archive
-    /// belongs to both people, so destroying it takes both of them asking.
-    enum PurgeRequestOutcome: String, Decodable {
-        case purged
-        case awaitingPartner = "awaiting_partner"
-    }
-
-    /// Asks for a dissolved couple's shared data to be destroyed, and destroys it if that
-    /// completes the pair. See migration 20261003000000: one partner asking is never enough,
-    /// unless the other has deleted their account and so cannot be asked.
-    ///
-    /// Replaces `deleteDissolvedCoupleData`, which did it on one person's say-so.
-    static func requestCouplePurge(coupleID: UUID) async throws -> PurgeRequestOutcome {
-        let outcome: PurgeRequestOutcome = try await supabase
-            .rpc("request_couple_purge", params: CoupleIDParams(pCoupleId: coupleID))
-            .execute()
-            .value
-        return outcome
-    }
-
-    /// Takes back a request the partner hasn't met yet.
-    static func withdrawCouplePurge(coupleID: UUID) async throws {
-        try await supabase
-            .rpc("withdraw_couple_purge", params: CoupleIDParams(pCoupleId: coupleID))
-            .execute()
-    }
-
     /// Hides an archive from this person's own list, or brings it back. Destroys nothing and
     /// needs nobody else's agreement — it is entirely about one person's own view.
     static func setCoupleArchiveHidden(coupleID: UUID, hidden: Bool) async throws {
@@ -1429,24 +1402,11 @@ enum BackendService {
             .execute()
     }
 
-    /// Where an archive stands for the signed-in user: hidden or not, who has asked for a purge,
-    /// and whether the partner is still around to be asked.
+    /// Whether this person has taken an archive off their own list. Nothing else: a shared
+    /// archive is deleted when its 90 days are up, and there is no request, no agreement and no
+    /// early route for either partner to influence.
     struct CoupleArchiveState: Decodable {
         var hidden: Bool
-        var iRequestedPurge: Bool
-        var partnerRequestedPurge: Bool
-        var partnerExists: Bool
-
-        enum CodingKeys: String, CodingKey {
-            case hidden
-            case iRequestedPurge = "i_requested_purge"
-            case partnerRequestedPurge = "partner_requested_purge"
-            case partnerExists = "partner_exists"
-        }
-
-        /// The partner has asked and is waiting on this person. Confirming is what destroys it,
-        /// so this is the state the screen has to be least ambiguous about.
-        var partnerIsWaitingOnMe: Bool { partnerRequestedPurge && !iRequestedPurge }
     }
 
     static func coupleArchiveState(coupleID: UUID) async throws -> CoupleArchiveState? {

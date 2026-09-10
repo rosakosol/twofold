@@ -6,12 +6,15 @@
 //  (see SettingsView) dissolves the couple rather than deleting it, so everything shared with
 //  them lands here instead of vanishing outright.
 //
-//  Two actions, deliberately separated. This screen used to offer one — "Delete Permanently" —
-//  which destroyed the shared archive for *both* people on one person's say-so. Almost everyone
-//  reaching for that button wants an old relationship out of their sight, and was instead reaching
-//  into someone else's account. So hiding is now its own thing: unilateral, instant, and
-//  destructive of nothing. Deleting is still available, and now takes both partners agreeing (see
-//  migration 20261003000000).
+//  There is no delete button here, and that is the design rather than an omission. This screen
+//  used to offer "Delete Permanently", which destroyed the shared archive for *both* people on one
+//  person's say-so — and almost everyone reaching for it wanted an old relationship out of their
+//  own sight, not out of someone else's account.
+//
+//  So the two wishes are separated and neither is that button. Hiding takes it off your list,
+//  alone, instantly, destroying nothing. Deleting happens on its own 90 days after the
+//  relationship ended, to both copies, with nobody able to bring it forward — see migration
+//  20261005000000. What is left to do here is keep a copy, which is what the export is for.
 //
 
 import PostHog
@@ -107,41 +110,6 @@ struct ArchivedDataView: View {
     }
 }
 
-/// Which of four states the delete half of the archive screen is in.
-///
-/// Pulled out of the view so it can be tested. The thing worth pinning is not the wording but the
-/// pairing: `deletesImmediately` decides whether the confirmation says "this can't be undone", and
-/// saying that for a tap that only sends a request would teach people to skip the words on the one
-/// screen where they matter. Two of the four states destroy nothing.
-enum ArchivePurgeStage: Equatable {
-    /// Nobody has asked yet.
-    case nobodyAsked
-    /// This person has asked and is waiting on their partner.
-    case awaitingPartner
-    /// The partner has asked. Agreeing is what destroys it.
-    case partnerAsked
-    /// The partner deleted their account, so there is nobody left to ask.
-    case soleOwner
-
-    static func resolve(_ state: BackendService.CoupleArchiveState?) -> ArchivePurgeStage {
-        guard let state else { return .nobodyAsked }
-        // Checked before the request states: with the partner gone, what they did or didn't ask
-        // for before leaving no longer decides anything.
-        if !state.partnerExists { return .soleOwner }
-        if state.partnerIsWaitingOnMe { return .partnerAsked }
-        if state.iRequestedPurge { return .awaitingPartner }
-        return .nobodyAsked
-    }
-
-    /// Whether the destructive button destroys something on this tap.
-    var deletesImmediately: Bool {
-        switch self {
-        case .soleOwner, .partnerAsked: true
-        case .nobodyAsked, .awaitingPartner: false
-        }
-    }
-}
-
 struct ArchivedCoupleDetailView: View {
     let couple: ArchivedCouple
     @Environment(AppModel.self) private var appModel
@@ -152,17 +120,12 @@ struct ArchivedCoupleDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var summary: ArchivedCoupleSummary?
     @State private var isLoading = true
-    @State private var showingDeleteConfirm = false
-    @State private var isDeleting = false
-    @State private var deleteError: String?
-    @State private var state: BackendService.CoupleArchiveState?
+    @State private var hideError: String?
     @State private var isHidden = false
     @State private var isExporting = false
     @State private var exportStatus = ""
     @State private var exportResult: CoupleDataExporter.Result?
     @State private var exportError: String?
-
-    private var stage: ArchivePurgeStage { .resolve(state) }
 
     var body: some View {
         ScrollView {
@@ -212,8 +175,8 @@ struct ArchivedCoupleDetailView: View {
                     }
                 }
 
-                if let deleteError {
-                    Text(deleteError).font(.caption).foregroundStyle(Theme.heartRed)
+                if let hideError {
+                    Text(hideError).font(.caption).foregroundStyle(Theme.heartRed)
                 }
 
                 // Offered first, and as the ordinary-weight action, because it is what most people
@@ -233,8 +196,6 @@ struct ArchivedCoupleDetailView: View {
                 }
 
                 exportSection
-
-                deleteSection
             }
             .padding(Theme.Spacing.md)
         }
@@ -242,14 +203,6 @@ struct ArchivedCoupleDetailView: View {
         .navigationTitle(couple.partnerName)
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
-        .alert(confirmTitle, isPresented: $showingDeleteConfirm) {
-            Button(confirmAction, role: .destructive) {
-                Task { await delete() }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text(confirmMessage)
-        }
         .postHogScreenView("Settings: Archived Couple Detail")
     }
 
@@ -341,58 +294,6 @@ struct ArchivedCoupleDetailView: View {
         }
     }
 
-    /// The destructive half. Four states, and which one is showing is the entire point of the
-    /// screen — this used to be a single button that destroyed both people's copy on one tap.
-    @ViewBuilder
-    private var deleteSection: some View {
-        SectionCard {
-            if stage == .soleOwner {
-                // Nobody left to ask. Without this the archive would be undeletable forever by
-                // the only person who can still see it.
-                destructiveButton("Delete Permanently")
-                Text("\(couple.partnerName) has deleted their account, so this is yours alone to delete.")
-                    .font(.caption).foregroundStyle(Theme.subtleInk).fixedSize(horizontal: false, vertical: true)
-            } else if stage == .partnerAsked {
-                destructiveButton("Delete for both of us")
-                Text("\(couple.partnerName) has asked to delete everything you shared. If you agree, it's deleted for both of you and can't be undone.")
-                    .font(.caption).foregroundStyle(Theme.subtleInk).fixedSize(horizontal: false, vertical: true)
-            } else if stage == .awaitingPartner {
-                Text("Waiting for \(couple.partnerName)")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Theme.ink)
-                Text("You've asked to delete everything you shared. It stays until \(couple.partnerName) agrees too.")
-                    .font(.caption).foregroundStyle(Theme.subtleInk).fixedSize(horizontal: false, vertical: true)
-                Button("Cancel my request") {
-                    Task { await withdraw() }
-                }
-                .font(.caption.weight(.semibold))
-            } else {
-                destructiveButton("Ask to delete permanently")
-                Text("This is \(couple.partnerName)'s history too, so deleting it takes both of you. They'll be asked to agree before anything is removed.")
-                    .font(.caption).foregroundStyle(Theme.subtleInk).fixedSize(horizontal: false, vertical: true)
-            }
-        }
-    }
-
-    private func destructiveButton(_ title: String) -> some View {
-        Button(role: .destructive) {
-            showingDeleteConfirm = true
-        } label: {
-            HStack {
-                if isDeleting {
-                    ProgressView().tint(.white)
-                } else {
-                    Text(title)
-                }
-            }
-            .frame(maxWidth: .infinity)
-            .padding()
-            .foregroundStyle(.white)
-            .background(Theme.heartRed, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-        }
-        .disabled(isDeleting)
-    }
-
     private func summaryRow(_ label: String, _ count: Int) -> some View {
         HStack {
             Text(label).foregroundStyle(Theme.subtleInk)
@@ -403,68 +304,21 @@ struct ArchivedCoupleDetailView: View {
 
     private func load() async {
         summary = try? await BackendService.fetchArchivedCoupleSummary(coupleID: couple.id)
-        state = try? await BackendService.coupleArchiveState(coupleID: couple.id)
-        isHidden = state?.hidden ?? couple.isHidden
+        isHidden = (try? await BackendService.coupleArchiveState(coupleID: couple.id))?.hidden ?? couple.isHidden
         isLoading = false
     }
 
     private func setHidden(_ hidden: Bool) async {
-        deleteError = nil
+        hideError = nil
         do {
             try await BackendService.setCoupleArchiveHidden(coupleID: couple.id, hidden: hidden)
             isHidden = hidden
             onChange()
         } catch {
-            deleteError = "Couldn't update that. Try again."
+            hideError = "Couldn't update that. Try again."
         }
     }
 
-    private func withdraw() async {
-        deleteError = nil
-        do {
-            try await BackendService.withdrawCouplePurge(coupleID: couple.id)
-            await load()
-            onChange()
-        } catch {
-            deleteError = "Couldn't cancel that. Try again."
-        }
-    }
-
-    /// Asks, and only deletes if that completes the pair. The screen must not claim a deletion
-    /// that hasn't happened, so the two outcomes are handled separately rather than both being
-    /// treated as success.
-    private func delete() async {
-        isDeleting = true
-        deleteError = nil
-        do {
-            let outcome = try await BackendService.requestCouplePurge(coupleID: couple.id)
-            onChange()
-            switch outcome {
-            case .purged:
-                dismiss()
-            case .awaitingPartner:
-                await load()
-            }
-        } catch {
-            deleteError = "Couldn't do that. Try again."
-        }
-        isDeleting = false
-    }
-}
-
-private extension ArchivedCoupleDetailView {
-    /// The confirmation has to match what the tap actually does — see `ArchivePurgeStage`.
-    var confirmTitle: String {
-        stage.deletesImmediately ? "Delete this data permanently?" : "Ask \(couple.partnerName) to delete this?"
-    }
-
-    var confirmAction: String { stage.deletesImmediately ? "Delete Permanently" : "Send Request" }
-
-    var confirmMessage: String {
-        stage.deletesImmediately
-            ? "This can't be undone. All trips, memories, flights, and game sessions with \(couple.partnerName) will be permanently deleted."
-            : "Nothing is deleted yet. \(couple.partnerName) will be asked to agree, and everything stays until they do."
-    }
 }
 
 #Preview {
