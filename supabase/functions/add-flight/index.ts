@@ -187,6 +187,31 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
+  // Checked before the AeroAPI call, not after: a refusal has to cost nothing. The lookup is
+  // billed per request and every tracked flight is billed again on every poll for its whole life,
+  // so a couple that is out of allowance must not reach the provider at all.
+  //
+  // Read-only here. The addition is recorded further down, once there is actually a flight row to
+  // point at — see `record_flight_addition`. Two simultaneous adds can therefore both pass this
+  // check and both be recorded, putting a couple one flight over for the month. Accepted rather
+  // than locked against: this is a commercial allowance, not a security boundary, and one extra
+  // flight's polling is cheaper than a reservation protocol that has to compensate every lookup
+  // that fails after the slot was taken.
+  const { data: allowance } = await userClient.rpc("flight_allowance", { p_couple_id: couple.id });
+  const usedBefore = Number(allowance?.used ?? 0);
+  const monthlyLimit = Number(allowance?.limit ?? 0);
+  if (monthlyLimit > 0 && usedBefore >= monthlyLimit) {
+    return Response.json(
+      {
+        error: "monthly_flight_limit_reached",
+        message: `You've tracked ${monthlyLimit} flights this month, which is everything your plan includes. Your allowance resets on the 1st.`,
+        used: usedBefore,
+        limit: monthlyLimit,
+      },
+      { status: 403 },
+    );
+  }
+
   let aeroFlight: AeroFlight | null = null;
   let mapped: MappedAeroFields;
   if (input.faFlightId) {
@@ -320,6 +345,24 @@ Deno.serve(async (req) => {
   }
 
   const flightId = inserted.id as string;
+
+  // Records the addition, unconditionally.
+  //
+  // After the insert rather than before, so a failed lookup or an unsaveable flight does not burn
+  // someone's allowance — "any flight ever added counts" means added, not attempted. And
+  // unconditionally, because by now the flight exists and is being tracked: a record that declined
+  // to write itself would produce the one thing the ledger exists to prevent, a tracked flight
+  // nobody is charged for.
+  const { error: recordErr } = await serviceClient.rpc("record_flight_addition", {
+    p_couple_id: couple.id,
+    p_flight_id: flightId,
+    p_added_by: user.id,
+  });
+  if (recordErr) {
+    // Logged, not surfaced. The flight is saved and tracking; telling someone it both worked and
+    // failed is worse than the couple being one flight ahead for the month.
+    console.error("[add-flight] failed to record flight addition:", recordErr.message);
+  }
 
   // Baseline event — no prior row to diff against, so this is seeded directly rather than
   // through syncFlight's diff logic.
