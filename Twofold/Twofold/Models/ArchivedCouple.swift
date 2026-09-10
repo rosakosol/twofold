@@ -14,6 +14,9 @@ struct ArchivedCouple: Identifiable, Hashable {
     var partnerName: String
     var startedDatingOn: Date?
     var dissolvedAt: Date?
+    /// Hidden from this person's own archive list. Non-destructive and unilateral — it says
+    /// nothing about the partner's view, and nothing has been deleted.
+    var isHidden: Bool = false
 }
 
 struct ArchivedCoupleSummary: Hashable {

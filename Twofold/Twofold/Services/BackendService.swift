@@ -1238,18 +1238,80 @@ enum BackendService {
         return row.id
     }
 
-    /// Permanently deletes a *dissolved* couple's data — trips, memories, flights (and their
-    /// events/prefs/documents), game sessions, and the associated storage objects (memory
-    /// photos, flight documents, drawing pads). The RPC itself refuses to run on an active
-    /// couple, so this can never be triggered on live, in-use data.
-    static func deleteDissolvedCoupleData(coupleID: UUID) async throws {
+    private struct CoupleIDParams: Encodable {
+        var pCoupleId: UUID
+        enum CodingKeys: String, CodingKey { case pCoupleId = "p_couple_id" }
+    }
+
+    /// What a purge request did. `awaitingPartner` is the normal first answer — a shared archive
+    /// belongs to both people, so destroying it takes both of them asking.
+    enum PurgeRequestOutcome: String, Decodable {
+        case purged
+        case awaitingPartner = "awaiting_partner"
+    }
+
+    /// Asks for a dissolved couple's shared data to be destroyed, and destroys it if that
+    /// completes the pair. See migration 20261003000000: one partner asking is never enough,
+    /// unless the other has deleted their account and so cannot be asked.
+    ///
+    /// Replaces `deleteDissolvedCoupleData`, which did it on one person's say-so.
+    static func requestCouplePurge(coupleID: UUID) async throws -> PurgeRequestOutcome {
+        let outcome: PurgeRequestOutcome = try await supabase
+            .rpc("request_couple_purge", params: CoupleIDParams(pCoupleId: coupleID))
+            .execute()
+            .value
+        return outcome
+    }
+
+    /// Takes back a request the partner hasn't met yet.
+    static func withdrawCouplePurge(coupleID: UUID) async throws {
+        try await supabase
+            .rpc("withdraw_couple_purge", params: CoupleIDParams(pCoupleId: coupleID))
+            .execute()
+    }
+
+    /// Hides an archive from this person's own list, or brings it back. Destroys nothing and
+    /// needs nobody else's agreement — it is entirely about one person's own view.
+    static func setCoupleArchiveHidden(coupleID: UUID, hidden: Bool) async throws {
         struct Params: Encodable {
             var pCoupleId: UUID
-            enum CodingKeys: String, CodingKey { case pCoupleId = "p_couple_id" }
+            var pHidden: Bool
+            enum CodingKeys: String, CodingKey {
+                case pCoupleId = "p_couple_id"
+                case pHidden = "p_hidden"
+            }
         }
         try await supabase
-            .rpc("delete_dissolved_couple_data", params: Params(pCoupleId: coupleID))
+            .rpc("set_couple_archive_hidden", params: Params(pCoupleId: coupleID, pHidden: hidden))
             .execute()
+    }
+
+    /// Where an archive stands for the signed-in user: hidden or not, who has asked for a purge,
+    /// and whether the partner is still around to be asked.
+    struct CoupleArchiveState: Decodable {
+        var hidden: Bool
+        var iRequestedPurge: Bool
+        var partnerRequestedPurge: Bool
+        var partnerExists: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case hidden
+            case iRequestedPurge = "i_requested_purge"
+            case partnerRequestedPurge = "partner_requested_purge"
+            case partnerExists = "partner_exists"
+        }
+
+        /// The partner has asked and is waiting on this person. Confirming is what destroys it,
+        /// so this is the state the screen has to be least ambiguous about.
+        var partnerIsWaitingOnMe: Bool { partnerRequestedPurge && !iRequestedPurge }
+    }
+
+    static func coupleArchiveState(coupleID: UUID) async throws -> CoupleArchiveState? {
+        let rows: [CoupleArchiveState] = try await supabase
+            .rpc("couple_archive_state", params: CoupleIDParams(pCoupleId: coupleID))
+            .execute()
+            .value
+        return rows.first
     }
 
     /// Every couple the signed-in user has since dissolved, newest first — the source list for
@@ -1269,6 +1331,22 @@ enum BackendService {
             .value
         guard !coupleRows.isEmpty else { return [] }
 
+        // Which of these this user has hidden from their own list. Fetched rather than filtered
+        // server-side so the screen can still offer them back — a hide nothing can undo would be
+        // a delete by another name.
+        struct HiddenRow: Decodable {
+            var coupleId: UUID
+            enum CodingKeys: String, CodingKey { case coupleId = "couple_id" }
+        }
+        let hiddenRows: [HiddenRow] = (try? await supabase
+            .from("couple_archive_preferences")
+            .select("couple_id")
+            .eq("profile_id", value: userID)
+            .not("hidden_at", operator: .is, value: "null")
+            .execute()
+            .value) ?? []
+        let hiddenIDs = Set(hiddenRows.map(\.coupleId))
+
         let partnerIDs = coupleRows.map { $0.partnerAId == userID ? $0.partnerBId : $0.partnerAId }
         let profileRows: [ProfileRow] = try await supabase
             .from("profiles")
@@ -1284,7 +1362,8 @@ enum BackendService {
                 id: row.id,
                 partnerName: namesByID[partnerID] ?? "Partner",
                 startedDatingOn: row.startedDatingOn,
-                dissolvedAt: row.dissolvedAt
+                dissolvedAt: row.dissolvedAt,
+                isHidden: hiddenIDs.contains(row.id)
             )
         }
     }
