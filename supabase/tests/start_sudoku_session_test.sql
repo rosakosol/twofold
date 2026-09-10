@@ -17,7 +17,7 @@
 -- test below fails against that first version.
 
 begin;
-select plan(18);
+select plan(20);
 
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
 values
@@ -187,6 +187,33 @@ select ok(
 select ok(
   has_function_privilege('authenticated', 'public.start_sudoku_session(text)', 'execute'),
   'authenticated can'
+);
+
+-- ---------------------------------------------------------------------------
+-- Where the difficulty is kept
+-- ---------------------------------------------------------------------------
+--
+-- Its own column, not `discussion_status`. That column is `text` in Postgres but a two-case enum
+-- in the client (`DiscussionRoundStatus`), so a round holding 'hard' fails to decode and takes
+-- the whole `fetchGameSession` down with it — the puzzle plays, then never opens again. The first
+-- version of this RPC did exactly that. These two assertions are the pair: the difficulty is
+-- somewhere it can be read, and it is not somewhere it cannot.
+
+select is(
+  (select r.difficulty from public.game_session_rounds r
+   join public.game_sessions s on s.id = r.session_id
+   where s.game_type = 'sudoku' and s.couple_id = '11111111-5000-0000-0000-00000000000a'
+     and r.difficulty = 'medium' limit 1),
+  'medium',
+  'the difficulty is stored in its own column'
+);
+
+select is(
+  (select count(*)::int from public.game_session_rounds r
+   join public.game_sessions s on s.id = r.session_id
+   where s.game_type = 'sudoku' and r.discussion_status is not null),
+  0,
+  'and never in discussion_status, which the client decodes as a two-case enum'
 );
 
 select * from finish();
