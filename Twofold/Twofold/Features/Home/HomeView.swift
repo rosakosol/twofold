@@ -290,14 +290,23 @@ struct HomeView: View {
                     .accessibilityLabel("Dismiss")
                 }
 
-                if appModel.partnerConnected, appModel.needsFirstTrip {
-                    checklistRow(icon: .system("airplane.departure"), title: "Add your next trip") { showingAddTrip = true }
-                }
-                if appModel.partnerConnected, appModel.needsFirstFlight {
-                    checklistRow(icon: .asset("boarding-pass"), title: "Add your first flight") { showingAddFlight = true }
-                }
-                if appModel.needsHomeCities {
-                    checklistRow(icon: .system("location"), title: "Turn on location access") { showingLocationPermission = true }
+                // Own stack, at zero spacing. `SectionCard` spaces its children by `md` (16),
+                // which is the right gap between a card's distinct parts but not between rows of
+                // one list — each row already carries a 44pt tap target, so 16pt on top of that
+                // put three items in a card tall enough to look like it was padded by mistake,
+                // with gaps wide enough to read as tappable while hitting nothing. The rows now
+                // sit flush, their tap targets adjacent, and the `md` gap does the one job it is
+                // good at: separating the heading from the list.
+                VStack(spacing: 0) {
+                    if appModel.partnerConnected, appModel.needsFirstTrip {
+                        checklistRow(icon: .system("airplane.departure"), title: "Add your next trip") { showingAddTrip = true }
+                    }
+                    if appModel.partnerConnected, appModel.needsFirstFlight {
+                        checklistRow(icon: .asset("boarding-pass"), title: "Add your first flight") { showingAddFlight = true }
+                    }
+                    if appModel.needsHomeCities {
+                        checklistRow(icon: .system("location"), title: "Turn on location access") { showingLocationPermission = true }
+                    }
                 }
             }
         }

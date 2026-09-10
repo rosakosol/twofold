@@ -146,6 +146,20 @@ struct GameBackButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: "chevron.backward")
+                // The chevron glyph is about 13×17pt, and a custom toolbar button is hittable
+                // over roughly its own drawn bounds — unlike the *system* back button, which
+                // UIKit gives a much larger invisible target reaching to the bar's edges. So
+                // this was a target under a third the area of the one it replaced, in the exact
+                // screen position where people have years of muscle memory for the system one.
+                // Taps landed just outside it and did nothing, which reads as a back button that
+                // needs several presses.
+                //
+                // `.leading` alignment is what keeps the glyph where it already sits: the box
+                // grows right and down from the chevron rather than centring it, so the target
+                // reaches 44pt without the icon shifting inward. `contentShape` makes the grown
+                // box hittable, instead of only the glyph's own pixels.
+                .frame(width: 44, height: 44, alignment: .leading)
+                .contentShape(Rectangle())
         }
         // Shared by all four game types (DeepConversations, ThisOrThat, TriviaBattle,
         // WhosMoreLikely) — one label fixes VoiceOver reading a bare "chevron backward" on every
