@@ -62,8 +62,27 @@ enum Theme {
     /// Aurora's actual fill blue (`Accent.blueFill`, brand sky blue) at both stops rather than a
     /// lighter/darker pair of it — a button fill always carries white content per rule #1, so it
     /// doesn't need the text-safe lightening `skyBlue`'s own dark value gets.
+    /// The fill under white button labels. Deep enough that the label is legible on every part of
+    /// it, in both appearances.
+    ///
+    /// It used to run 6EC1F0 -> 3D8FC9 in light and 4FA9E0 -> 3D8FC9 in dark, which put white text
+    /// between 1.99:1 and 3.52:1 — under WCAG AA (4.5) everywhere, and under AA-large (3.0) across
+    /// most of the button. Both stops are now measured against white and against the surfaces the
+    /// button sits on:
+    ///
+    ///   #3179AE  white 4.69   on light bg 4.20   on dark card 3.45
+    ///   #2A6FA8  white 5.33   on light bg 4.78   on dark card 3.04
+    ///
+    /// The same values in both appearances, deliberately. A white-text fill and a coloured
+    /// foreground need opposite treatment in dark mode — a foreground gets *lighter* against a dark
+    /// background, a fill under white text cannot — which is why `skyBlue` could not serve both and
+    /// why `skyBlueText` exists. This is the fill half of that split.
+    ///
+    /// The window is narrow: darker reads better under the label but starts losing the button
+    /// against the dark card (#14222D), where 3.0 is the floor. #2A6FA8 is close to the deepest
+    /// blue that still clears both.
     static let primaryButtonGradient = LinearGradient(
-        colors: [Color(light: "6EC1F0", dark: "4FA9E0"), Color(light: "3D8FC9", dark: "3D8FC9")],
+        colors: [Color(hex: "3179AE"), Color(hex: "2A6FA8")],
         startPoint: .top,
         endPoint: .bottom
     )
