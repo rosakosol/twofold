@@ -38,8 +38,9 @@ struct FlightNumberStepView: View {
                     Image(systemName: "number")
                         .foregroundStyle(Theme.subtleInk)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Tip: Just The Numbers").font(.subheadline.weight(.semibold))
-                        Text("Not including airline code").font(.caption).foregroundStyle(Theme.subtleInk)
+                        Text("Just the number").font(.subheadline.weight(.semibold))
+                        Text("Leave out the airline code — that's the box on the left")
+                            .font(.caption).foregroundStyle(Theme.subtleInk)
                     }
                 }
 

@@ -3,11 +3,11 @@
 //  Twofold
 //
 //  Calls the existing AeroFlightService search functions — unchanged, just newly wired to
-//  structured input (airline+digits, or two Airports) instead of raw text fields. "Flight
-//  missing? Add Manually" from the reference design is deliberately omitted here: the live
+//  structured input (airline+digits, or two Airports) instead of raw text fields. There is
+//  deliberately no manual-entry escape hatch for a flight the search can't find: the live
 //  app's add-flight function only accepts a real AeroAPI faFlightId, so there's nothing for a
-//  manual entry to persist to in that context — flights are never self-reported anywhere in
-//  the app, onboarding included.
+//  manual entry to persist to — flights are never self-reported anywhere in the app,
+//  onboarding included.
 //
 
 import SwiftUI
@@ -42,7 +42,7 @@ struct AddFlightResultsStepView: View {
     }
 
     var body: some View {
-        AddFlightStepScaffold(subtitle: "Tap flight to add to My Flights") {
+        AddFlightStepScaffold(subtitle: "Tap a flight to start tracking it") {
             VStack(alignment: .leading, spacing: Theme.Spacing.md) {
                 routeChips
 
