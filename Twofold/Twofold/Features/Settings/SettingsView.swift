@@ -33,8 +33,6 @@ struct SettingsView: View {
     @State private var subscriptionStore = SubscriptionStore()
     @State private var showingSignOutConfirm = false
     @State private var isSigningOut = false
-    @State private var showingExportHistory = false
-    @State private var showingExportPremiumGate = false
     @State private var appLock = AppLockService()
     @State private var isAuthenticatingLockToggle = false
     /// Which way the app-lock toggle just went, non-nil while the confirmation is up. Was a plain
@@ -102,24 +100,6 @@ struct SettingsView: View {
                             showingCustomerCenter = true
                         }
                     }
-
-                    // TEMP: "Export your story" pulled from Settings for the first release —
-                    // the feature itself (`ExportHistoryView`/`CoupleHistoryPDFExporter`, the
-                    // `showingExportHistory`/`showingExportPremiumGate` state below, and their
-                    // `.navigationDestination`/`.sheet` further down) is untouched, so restoring
-                    // this row is the only thing needed to bring it back.
-                    // SectionCard {
-                    //     Button {
-                    //         if appModel.isPremiumLocked {
-                    //             showingExportPremiumGate = true
-                    //         } else {
-                    //             showingExportHistory = true
-                    //         }
-                    //     } label: {
-                    //         SettingsRow(title: "Export your story", systemImage: "square.and.arrow.up.on.square")
-                    //     }
-                    //     .buttonStyle(.plain)
-                    // }
 
                     SectionCard {
                         NavigationLink {
@@ -294,16 +274,6 @@ struct SettingsView: View {
                     showingPartnerManagesSubscription = false
                 }
                 .postHogScreenView("Settings: Partner Manages Subscription")
-            }
-            .navigationDestination(isPresented: $showingExportHistory) {
-                ExportHistoryView()
-            }
-            .sheet(isPresented: $showingExportPremiumGate) {
-                FlightPremiumGateView(
-                    icon: "square.and.arrow.up.on.square",
-                    title: "Export Your Story",
-                    description: "Turn your trips, memories, and flights into a beautiful, formatted keepsake PDF. Upgrade to Premium to export your story."
-                )
             }
             .sheet(item: $lockChangeToConfirm) { change in
                 // Detents are set inside the view — see its own comment; the choice depends on

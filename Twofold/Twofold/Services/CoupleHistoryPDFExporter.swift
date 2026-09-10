@@ -16,7 +16,8 @@
 import SwiftUI
 import PDFKit
 
-/// One selected, exportable entry — built by `ExportHistoryView` from the user's selections.
+/// One exportable entry — built by `CoupleDataExporter` from a couple's trips, memories and
+/// flights, and rendered as the `relationship-record.pdf` inside a data export.
 /// `date` drives the single chronological ordering across all three kinds combined.
 enum ExportTimelineItem: Identifiable {
     /// A flight linked to a trip (`Flight.tripID` matches) — carries the same attachment
@@ -336,7 +337,7 @@ private struct TripPageView: View {
     let description: String
     /// Passed in explicitly (rather than read straight off `trip.orderedFlights`) so this stays a
     /// pure reflection of what's actually selected/exported — `trip.orderedFlights` includes
-    /// every linked flight regardless of the user's own selection in `ExportHistoryView`.
+    /// every linked flight, since an export takes everything a couple has rather than a selection.
     let linkedFlights: [Flight]
     let linkedMemories: [Memory]
 
