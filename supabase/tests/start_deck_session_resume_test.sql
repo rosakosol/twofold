@@ -138,15 +138,28 @@ set local request.jwt.claims = '{"sub":"cccccccc-1111-0000-0000-000000000003","r
 
 select throws_ok(
   format($$select public.start_deck_session(%L)$$,
-    (select id from public.game_decks where game_type = 'more_likely' and active and tier = 'plus' limit 1)),
+    (select id from public.game_decks
+     where game_type = 'more_likely' and active and tier = 'plus'
+     order by id limit 1)),
   'P0001',
   'This game needs a partner',
   'a solo user is still refused Who''s More Likely To'
 );
 
+-- `game_type <> 'more_likely'`, and ordered, both deliberately.
+--
+-- This assertion is about the tier gate, and the caller is also solo. `start_deck_session` raises
+-- the partner refusal before it ever looks at the tier, and only for `more_likely` — so if the
+-- deck this picks happens to be a more_likely one, the call raises the *other* refusal and the
+-- test fails having proved nothing about Premium. It picked with an unordered `limit 1` over 131
+-- premium decks, 38 of them more_likely: a roughly one-in-four failure with no change to any
+-- code, which is what it did here, and it cost an afternoon being blamed on an unrelated
+-- migration before being run enough times to be recognised.
 select throws_ok(
   format($$select public.start_deck_session(%L)$$,
-    (select id from public.game_decks where tier = 'premium' and active limit 1)),
+    (select id from public.game_decks
+     where tier = 'premium' and active and game_type <> 'more_likely'
+     order by id limit 1)),
   'P0001',
   'This deck requires Premium',
   'a Plus user is still refused a Premium deck'
