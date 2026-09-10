@@ -127,7 +127,10 @@ struct HomeView: View {
                     Button {
                         showingSettings = true
                     } label: {
-                        Image(systemName: "person.crop.circle.fill")
+                        // A gear, not a person. This opens Settings, and the toolbar already
+                        // carries both faces in its centre — a second person glyph beside them
+                        // read as a profile, which is not where it goes.
+                        Image(systemName: "gearshape.fill")
                             .font(.title2)
                             .foregroundStyle(Theme.ink)
                     }
