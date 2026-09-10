@@ -418,7 +418,13 @@ Deno.serve(async (req) => {
     .eq("status", "active")
     .maybeSingle();
   if (coupleErr || !couple) {
-    return Response.json({ error: "No active couple for this user" }, { status: 403 });
+    return Response.json(
+      {
+        error: "Flight tracking starts once you and your partner are connected.",
+        code: "not_paired",
+      },
+      { status: 403 },
+    );
   }
 
   try {

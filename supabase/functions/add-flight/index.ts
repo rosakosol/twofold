@@ -168,7 +168,15 @@ Deno.serve(async (req) => {
     .eq("status", "active")
     .maybeSingle();
   if (coupleErr || !couple) {
-    return Response.json({ error: "No active couple for this user" }, { status: 403 });
+    // `code` alongside `error`, because the client shows `error` to a person and branches on
+    // `code`. Without it "No active couple for this user" is what a traveller reads.
+    return Response.json(
+      {
+        error: "Flight tracking starts once you and your partner are connected.",
+        code: "not_paired",
+      },
+      { status: 403 },
+    );
   }
 
   // Only allow tagging travelers who are actually members of this couple — never trust an
@@ -203,8 +211,8 @@ Deno.serve(async (req) => {
   if (monthlyLimit > 0 && usedBefore >= monthlyLimit) {
     return Response.json(
       {
-        error: "monthly_flight_limit_reached",
-        message: `You've tracked ${monthlyLimit} flights this month, which is everything your plan includes. Your allowance resets on the 1st.`,
+        error: `You've tracked ${monthlyLimit} flights this month, which is everything your plan includes. Your allowance resets on the 1st.`,
+        code: "monthly_flight_limit_reached",
         used: usedBefore,
         limit: monthlyLimit,
       },

@@ -164,12 +164,23 @@ struct AeroFlightCandidate: Identifiable, Decodable, Hashable {
 
 enum AeroFlightError: LocalizedError {
     case notAuthenticated
+    /// The couple has spent this calendar month's shared allowance. `used` can exceed `limit`:
+    /// two simultaneous adds can both pass the server's check (see add-flight/index.ts), so this
+    /// is reported rather than assumed to be equal.
+    case monthlyLimitReached(used: Int, limit: Int)
+    /// Flight tracking is the one thing that costs real money per couple, so it waits for the
+    /// pairing. Every entry point should gate ahead of this; this is what catches the ones that
+    /// don't.
+    case notPaired
     case requestFailed(status: Int, message: String?)
     case decodingFailed
 
     var errorDescription: String? {
         switch self {
         case .notAuthenticated: "You need to be signed in to search for flights."
+        case .monthlyLimitReached(_, let limit):
+            "You've tracked \(limit) flights this month, which is everything your plan includes. Your allowance resets on the 1st."
+        case .notPaired: "Flight tracking starts once you and your partner are connected."
         case .requestFailed(_, let message): message ?? "Couldn't reach the flight lookup service. Try again in a moment."
         case .decodingFailed: "Got an unexpected response looking up that flight."
         }
@@ -209,8 +220,29 @@ enum AeroFlightService {
         }
     }
 
-    private struct ErrorResponse: Decodable {
+    // `error` is the sentence to show; `code` is what to branch on. They are separate fields
+    // because the two used to be one, and the one case that carried a machine-readable value
+    // ("monthly_flight_limit_reached") would have been displayed to a traveller verbatim.
+    struct ErrorResponse: Decodable {
         var error: String?
+        var code: String?
+        var used: Int?
+        var limit: Int?
+    }
+
+    /// The error to throw for a non-2xx response. Separated from `call` so it can be tested
+    /// against the exact bodies the edge functions return, which is the only way to catch a
+    /// `code` string drifting apart on the two sides.
+    static func failure(status: Int, body: Data) -> AeroFlightError {
+        let failure = try? JSONDecoder().decode(ErrorResponse.self, from: body)
+        switch failure?.code {
+        case "monthly_flight_limit_reached":
+            return .monthlyLimitReached(used: failure?.used ?? 0, limit: failure?.limit ?? 0)
+        case "not_paired":
+            return .notPaired
+        default:
+            return .requestFailed(status: status, message: failure?.error)
+        }
     }
 
     private struct AddFlightResponse: Decodable {
@@ -230,8 +262,7 @@ enum AeroFlightService {
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw AeroFlightError.requestFailed(status: -1, message: nil) }
         guard (200..<300).contains(http.statusCode) else {
-            let message = (try? JSONDecoder().decode(ErrorResponse.self, from: data))?.error
-            throw AeroFlightError.requestFailed(status: http.statusCode, message: message)
+            throw failure(status: http.statusCode, body: data)
         }
 
         let decoder = JSONDecoder()

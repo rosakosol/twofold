@@ -26,6 +26,10 @@ struct FlightConfirmationView: View {
     @State private var notifyMe = true
     @State private var isSaving = false
     @State private var errorMessage: String?
+    /// Nil until the lookup returns, and left nil if it fails — an allowance we could not read is
+    /// not an allowance of zero, and the server refuses on its own anyway. Every use below treats
+    /// nil as "don't get in the way".
+    @State private var allowance: BackendService.FlightAllowance?
 
     /// Set when this search was opened from a specific trip's "Link a flight" screen's "Create
     /// new" option — preselects "Link to a trip" below to that trip, rather than leaving it at
@@ -38,6 +42,22 @@ struct FlightConfirmationView: View {
 
     private enum TravelerChoice: Hashable {
         case me, partner, both
+    }
+
+    private var isOutOfAllowance: Bool { allowance?.remaining == 0 }
+
+    /// What the allowance line says. Written as flights left rather than flights used, because
+    /// the question being asked at this exact moment is whether this one will go through.
+    private var allowanceMessage: String? {
+        guard let allowance else { return nil }
+        switch allowance.remaining {
+        case 0:
+            return "You've tracked all \(allowance.limit) flights your plan includes this month. Your allowance resets on the 1st."
+        case 1:
+            return "1 flight left this month, shared with your partner."
+        default:
+            return "\(allowance.remaining) of \(allowance.limit) flights left this month, shared with your partner."
+        }
     }
 
     private var travelerIDs: [UUID] {
@@ -150,6 +170,16 @@ struct FlightConfirmationView: View {
                         .themedCardBackground(cornerRadius: Theme.Radius.card)
                     }
 
+                    // Shown before the button rather than only after a refusal: the allowance is
+                    // the couple's, so someone can be out of flights because their partner spent
+                    // them, and finding that out by tapping Add Flight is the wrong order.
+                    if let allowanceMessage {
+                        Text(allowanceMessage)
+                            .font(.caption)
+                            .foregroundStyle(isOutOfAllowance ? Theme.heartRed : Theme.subtleInk)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
                     if let errorMessage {
                         Text(errorMessage).font(.caption).foregroundStyle(Theme.heartRed)
                     }
@@ -164,7 +194,8 @@ struct FlightConfirmationView: View {
                         .foregroundStyle(.white)
                         .background(Theme.primaryButtonGradient, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                     }
-                    .disabled(isSaving)
+                    .disabled(isSaving || isOutOfAllowance)
+                    .opacity(isOutOfAllowance ? 0.5 : 1)
                 }
                 .padding(Theme.Spacing.md)
             }
@@ -174,6 +205,9 @@ struct FlightConfirmationView: View {
                     Button("Cancel") { dismiss() }
                 }
             }
+        }
+        .task {
+            allowance = try? await BackendService.flightAllowance(coupleID: appModel.couple.id)
         }
         .postHogScreenView("Flights: Flight Confirmation")
     }

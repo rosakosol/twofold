@@ -1059,6 +1059,34 @@ enum BackendService {
         return row
     }
 
+    /// A couple's shared monthly flight allowance and how much of it is spent.
+    struct FlightAllowance: Decodable {
+        var tier: String?
+        var limit: Int
+        var used: Int
+
+        /// Never negative to show: two simultaneous adds can both pass the server's check, so
+        /// `used` can legitimately come back above `limit` (see add-flight/index.ts).
+        var remaining: Int { max(0, limit - used) }
+    }
+
+    /// Read straight from the database rather than through the edge function, so the Add Flight
+    /// screen can say how many are left before anyone starts a search that is going to be
+    /// refused. One RPC rather than a select because membership is checked inside
+    /// `flight_allowance`, and the tier it reads lives in a schema PostgREST does not serve.
+    static func flightAllowance(coupleID: UUID) async throws -> FlightAllowance {
+        struct Params: Encodable {
+            let pCoupleId: UUID
+            enum CodingKeys: String, CodingKey {
+                case pCoupleId = "p_couple_id"
+            }
+        }
+        return try await supabase
+            .rpc("flight_allowance", params: Params(pCoupleId: coupleID))
+            .execute()
+            .value
+    }
+
     struct PendingConnectionRequest: Identifiable, Decodable {
         var id: UUID
         var requesterId: UUID
