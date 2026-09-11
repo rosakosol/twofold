@@ -18,6 +18,7 @@
 		DB9AE0C9300333D800C36E3C /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DB9AE0AC3003336200C36E3C /* SwiftUI.framework */; };
 		DB9AE0DA300333DA00C36E3C /* LiveActivitiesExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = DB9AE0C7300333D700C36E3C /* LiveActivitiesExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		DBAA00023003336200C36E3C /* ActivityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DBAA00033003336200C36E3C /* ActivityKit.framework */; };
+		DBEF7C4D305412B800DE9D47 /* ChessKit in Frameworks */ = {isa = PBXBuildFile; productRef = CK02CHESSKIT0000000000002 /* ChessKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -168,6 +169,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DBEF7C4D305412B800DE9D47 /* ChessKit in Frameworks */,
 				DB8C96EA2FFEF0B400E0E71E /* GoogleSignInSwift in Frameworks */,
 				DB8C96DF2FFE743400E0E71E /* Supabase in Frameworks */,
 				DB8C96E82FFEF0B400E0E71E /* GoogleSignIn in Frameworks */,
@@ -275,6 +277,7 @@
 				A3948E5A3E10682179798BA9 /* RevenueCat */,
 				9206C26209471945B4BC1692 /* RevenueCatUI */,
 				F901F2814B160B3766805AB5 /* PostHog */,
+				CK02CHESSKIT0000000000002 /* ChessKit */,
 			);
 			productName = Twofold;
 			productReference = DB8C95012FFC501C00E0E71E /* Twofold.app */;
@@ -413,6 +416,7 @@
 				DB8C96E62FFEF0B400E0E71E /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 				6093DA4122154A4832D53F0A /* XCRemoteSwiftPackageReference "purchases-ios-spm" */,
 				C7B88F4314ECCD565C1468AF /* XCRemoteSwiftPackageReference "posthog-ios" */,
+				CK01CHESSKIT0000000000001 /* XCRemoteSwiftPackageReference "chesskit-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = DB8C95022FFC501C00E0E71E /* Products */;
@@ -1017,6 +1021,14 @@
 				minimumVersion = 3.64.6;
 			};
 		};
+		CK01CHESSKIT0000000000001 /* XCRemoteSwiftPackageReference "chesskit-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/chesskit-app/chesskit-swift";
+			requirement = {
+				kind = upToNextMinorVersion;
+				minimumVersion = 0.17.0;
+			};
+		};
 		DB8C96DD2FFE743400E0E71E /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/supabase/supabase-swift";
@@ -1045,6 +1057,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 6093DA4122154A4832D53F0A /* XCRemoteSwiftPackageReference "purchases-ios-spm" */;
 			productName = RevenueCat;
+		};
+		CK02CHESSKIT0000000000002 /* ChessKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = CK01CHESSKIT0000000000001 /* XCRemoteSwiftPackageReference "chesskit-swift" */;
+			productName = ChessKit;
 		};
 		DB8C96DE2FFE743400E0E71E /* Supabase */ = {
 			isa = XCSwiftPackageProductDependency;
