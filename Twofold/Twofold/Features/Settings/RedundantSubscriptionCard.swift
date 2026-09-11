@@ -9,10 +9,12 @@
 //  those payments immediately stops buying anything. Nothing about the app changes, which is
 //  precisely why nobody notices.
 //
-//  Shown in two places. In Settings it sits directly under the subscription banner, because the
-//  action it suggests is the one that banner opens. On Home it appears near the top and can be
-//  dismissed — a card telling someone they are wasting money has to be dismissible, or it nags
-//  forever at the couple who have decided to keep both subscriptions on purpose.
+//  Settings only, directly under the subscription banner, because the action it suggests is the
+//  one that banner opens. It used to appear on Home as well — dismissibly — on the reasoning that
+//  the people it applies to have no reason to open Settings and will otherwise keep paying twice
+//  indefinitely. That was traded away deliberately: it is a rare state, and Home's space goes to
+//  what every couple needs rather than what a few do. The cost is that this is now only found by
+//  someone already going looking.
 //
 
 import SwiftUI
