@@ -70,8 +70,7 @@ export const PLANS: Record<"plus" | "premium", Plan> = {
       "Track 5 flights live each month",
       "2000+ questions and games",
       "Premium widgets",
-      // TEMP: Relationship Record pulled from the first release — see featuresFallback.ts.
-      // "Relationship Record PDF export",
+      "Relationship Record PDF export",
     ],
   },
 };

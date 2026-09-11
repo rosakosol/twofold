@@ -46,7 +46,7 @@ export const FAQ_FALLBACK: FaqFallbackItem[] = [
     order: 1,
     question: "What's the difference between Plus and Premium?",
     answer:
-      "Plus covers everything most couples need - unlimited trips and memories, 2 live-tracked flights a month, and 500+ questions and games. Premium adds 5 live-tracked flights a month, 2000+ questions and games, and premium widgets. Either way you can save as many flights as you like - the limit is on live tracking, so a flight beyond it still appears in your trips and your Passport, it just will not send you live updates.",
+      "Plus covers everything most couples need - unlimited trips and memories, 2 live-tracked flights a month, and 500+ questions and games. Premium adds 5 live-tracked flights a month, 2000+ questions and games, premium widgets, and the Relationship Record - your whole history as one printable document. Either way you can save as many flights as you like - the limit is on live tracking, so a flight beyond it still appears in your trips and your Passport, it just will not send you live updates.",
   },
   {
     category: "subscriptions",

@@ -22,10 +22,8 @@ const FALLBACK_RESULTS: Record<"plus" | "premium", QuizResultDoc> = {
   },
   premium: {
     title: "Twofold Premium sounds like your fit",
-    // TEMP: the Relationship Record PDF export is dropped from this list while the feature is
-    // pulled from the first release - see featuresFallback.ts. The live copy is the
-    // `quizResult-premium` doc in Studio.
-    description: "The full relationship globe experience - 5 live-tracked flights a month, 2000+ questions and games, and premium widgets.",
+    // The live copy is the `quizResult-premium` doc in Studio; this is the fallback.
+    description: "The full relationship globe experience - 5 live-tracked flights a month, 2000+ questions and games, premium widgets, and your Relationship Record.",
     ctaLabel: "Get Twofold Premium",
   },
 };

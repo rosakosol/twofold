@@ -34,6 +34,7 @@ export const PLAN_COMPARISON_FALLBACK: ResolvedPlanComparison = {
     { label: "Live Activities for in-progress flights", plus: "Yes", premium: "Yes" },
     { label: "Interactive 3D globe", plus: "Yes", premium: "Yes" },
     { label: "Premium widget styles", plus: "", premium: "Yes" },
+    { label: "Relationship Record export", plus: "", premium: "Yes" },
   ],
 };
 

@@ -88,19 +88,20 @@ export const FEATURES_FALLBACK: ResolvedFeature[] = [
     icon: "icon-grid",
     tone: "tone-ink",
   },
-  // RESTORED to the marketing list, but its entry point in the app is still commented out in
-  // SettingsView.swift ("Export your story"), so the feature is unreachable for anyone who
-  // reads about it here. `ExportHistoryView`/`CoupleHistoryPDFExporter` are both intact —
-  // uncommenting that one Settings row is all that's needed to make this honest.
+  // Live, and reachable: Settings -> Your Relationship Record, Premium-gated, built by
+  // `CoupleDataExporter.relationshipRecordPDF`. It previously existed only for relationships that
+  // had *ended* (Settings -> Disconnect Partner -> Archived Data), which is why it was pulled from
+  // the marketing list — the site was promising a living couple something only an ex-couple could
+  // get. `ExportHistoryView` and the "Export your story" row this comment used to name are both
+  // gone; `RelationshipRecordView` replaced them.
   //
-  // Still not restored elsewhere, so the site currently contradicts itself on Premium's
-  // contents. Each of these was stripped when the feature was pulled:
-  //   - the "Relationship Record PDF export" bullet on `plan-premium` in Studio, and in
-  //     PLANS.premium.features in config.ts
-  //   - the export sentence in quizResult-premium (Studio) and RelationshipQuiz.tsx's
-  //     FALLBACK_RESULTS.premium
-  //   - the Plus-vs-Premium answer in Supabase `faq_entries` (Studio -> FAQ tool) and in
-  //     faqFallback.ts
+  // Every surface stripped at that time has been restored: the plan bullet in config.ts, the
+  // comparison row, the quiz result, faqFallback.ts, and the Supabase `faq_entries` answer.
+  //
+  // The Sanity copies have NOT — a Studio document overrides the fallback beside it, so wherever
+  // one exists it is what renders and these edits change nothing. Still to update in Studio: the
+  // `plan-premium` bullet, `quizResult-premium`, the FAQ tool's Plus-vs-Premium answer, and the
+  // plan comparison table.
   {
     slug: "relationship-record",
     title: "Relationship Record",
