@@ -108,6 +108,14 @@ enum PaywallLoadState: Equatable {
 final class SubscriptionStore {
     var isSubscribed: Bool { subscribedTier != nil }
     private(set) var subscribedTier: SubscriptionTier?
+    /// False until the first `refreshEntitlementsOnly()` has actually returned.
+    ///
+    /// `subscribedTier` starts nil, which reads as "not subscribed" and is indistinguishable from
+    /// "not asked yet". Anything that renders a conclusion from it — most of all a line naming
+    /// *which* partner holds the subscription — shows the wrong one first and corrects itself a
+    /// round trip later, which is how a subscriber ends up watching their own plan be attributed to
+    /// somebody else for a beat.
+    private(set) var hasResolvedEntitlements = false
 
     private(set) var loadState: PaywallLoadState = .idle
     private(set) var pricedPackages: [PricedPackage] = []
@@ -129,6 +137,7 @@ final class SubscriptionStore {
     func refreshEntitlementsOnly() async {
         guard let info = try? await Purchases.shared.customerInfo(fetchPolicy: .fetchCurrent) else { return }
         subscribedTier = SubscriptionTier.active(in: info)
+        hasResolvedEntitlements = true
     }
 
     /// Entitlement changes as RevenueCat learns of them, for the same out-of-app plan change the

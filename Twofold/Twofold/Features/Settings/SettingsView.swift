@@ -87,7 +87,10 @@ struct SettingsView: View {
                     // "Unlock Twofold Plus", something they had already done and could not do
                     // again. `subscriptionStore.isSubscribed` is RevenueCat's own answer on this
                     // device, receipt-validated, and it is available immediately.
-                    SubscriptionBanner(isSubscribed: appModel.isSubscriptionActive || subscriptionStore.isSubscribed) {
+                    SubscriptionBanner(
+                        isSubscribed: appModel.isSubscriptionActive || subscriptionStore.isSubscribed,
+                        coverageNote: subscriptionCoverageNote
+                    ) {
                         if subscriptionStore.isSubscribed {
                             // Bought on this device, so this is the one place it can be changed.
                             showingCustomerCenter = true
@@ -97,19 +100,6 @@ struct SettingsView: View {
                         } else {
                             showingPaywall = true
                         }
-                    }
-
-                    // What one subscription covering two people actually means — including the
-                    // part nobody discovers until it happens, which is that the non-paying
-                    // partner's access rests on someone else's billing.
-                    //
-                    // Suppressed while both are subscribed: the card below already covers that
-                    // state, and it is the one state where "if they cancel you both lose access"
-                    // is false — the other subscription would carry them.
-                    if appModel.partnerConnected,
-                       !(redundantSubscription?.bothSubscribed ?? false),
-                       appModel.isSubscriptionActive || subscriptionStore.isSubscribed {
-                        subscriptionCoverageNote
                     }
 
                     // Directly under the banner, because the action it suggests is the one the
@@ -313,38 +303,29 @@ struct SettingsView: View {
     /// fresh authentication (see the toggle's own comment). Only ever applies the new value to
     /// `appLock.isEnabled` after that succeeds; a cancelled or failed prompt leaves the setting
     /// exactly as it was.
-    /// Who is actually paying, and what that means for the other one.
+    /// Whose subscription the couple is running on, as the banner's subtitle.
     ///
     /// A Twofold subscription covers the couple — `private.couple_effective_tier` takes the better
-    /// of the two partners' tiers — which is easy to read as "we are subscribed" rather than "one
-    /// of us is, and the other is along for the ride". The difference only ever surfaces at the
-    /// worst moment: the payer cancels, or their card fails, and the other person loses an app
-    /// they never knew was resting on somebody else's billing.
+    /// of the two partners' tiers — which reads as "we are subscribed" rather than "one of us is".
+    /// Saying which one costs a line and saves the confusion.
     ///
-    /// `subscriptionStore.isSubscribed` is what names the payer, and it is trustworthy *here*
-    /// specifically: it reads RevenueCat's entitlement for this account rather than this device, and
-    /// this screen refreshes it on appear. Elsewhere it can still be false mid-launch, which is why
-    /// this note lives in Settings rather than anywhere the answer might not have arrived yet.
-    private var subscriptionCoverageNote: some View {
-        SectionCard {
-            HStack(alignment: .top, spacing: Theme.Spacing.sm) {
-                Image(systemName: "person.2.fill")
-                    .foregroundStyle(Theme.skyBlue)
-                Text(
-                    subscriptionStore.isSubscribed
-                        ? "One subscription covers you both, and you're the one it belongs to. "
-                          + "If you cancel, you'll both lose access to Twofold at the end of the "
-                          + "period you've paid for."
-                        : "One subscription covers you both, and it belongs to \(appModel.partner.name). "
-                          + "If they cancel, you'll both lose access to Twofold at the end of the "
-                          + "period they've paid for."
-                )
-                .font(.caption)
-                .foregroundStyle(Theme.subtleInk)
-                .fixedSize(horizontal: false, vertical: true)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
+    /// Nil until `hasResolvedEntitlements`, and that gate is the whole point. `isSubscribed` starts
+    /// false, which is indistinguishable from "not asked yet", so without it this named the partner
+    /// first and corrected itself a round trip later — a subscriber watching their own plan be
+    /// attributed to someone else for a beat.
+    ///
+    /// Nil too while both are subscribed: the redundant-subscription card below owns that state,
+    /// and a single owner is not what is happening there.
+    private var subscriptionCoverageNote: String? {
+        guard appModel.partnerConnected,
+              subscriptionStore.hasResolvedEntitlements,
+              !(redundantSubscription?.bothSubscribed ?? false),
+              appModel.isSubscriptionActive || subscriptionStore.isSubscribed
+        else { return nil }
+
+        return subscriptionStore.isSubscribed
+            ? "One subscription covers you both — this one's yours"
+            : "\(appModel.partner.name)'s subscription covers you both"
     }
 
     private func requestLockToggle(_ newValue: Bool) {

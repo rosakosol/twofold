@@ -12,6 +12,16 @@ import SwiftUI
 
 struct SubscriptionBanner: View {
     var isSubscribed: Bool
+    /// Who the couple's one subscription belongs to, shown in place of the generic subtitle.
+    ///
+    /// Lives here rather than in a card of its own beneath: it is a sentence about the thing this
+    /// banner already represents, and a separate card restated the same fact a second time with
+    /// more ceremony than it needs.
+    ///
+    /// Nil while that is still unknown — before entitlements have resolved, or for someone with no
+    /// partner to share with — and the generic subtitle stands in. Deliberately not defaulted to
+    /// either partner: guessing gets it wrong half the time, and gets it wrong about money.
+    var coverageNote: String? = nil
     var action: () -> Void
 
     var body: some View {
@@ -26,9 +36,10 @@ struct SubscriptionBanner: View {
                     Text(isSubscribed ? "Manage subscription" : "Unlock Twofold Plus")
                         .font(.subheadline.weight(.bold))
                         .foregroundStyle(.white)
-                    Text(isSubscribed ? "View or change your plan" : "Games, widgets, and more for you both")
+                    Text(coverageNote ?? (isSubscribed ? "View or change your plan" : "Games, widgets, and more for you both"))
                         .font(.caption)
                         .foregroundStyle(.white.opacity(0.85))
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Spacer()
