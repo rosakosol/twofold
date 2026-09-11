@@ -35,6 +35,10 @@ final class ConnectFourGameStore {
     /// the same way round.
     private(set) var initiatorID: UUID?
     private(set) var isFinished = false
+    /// The game ended without being played out — a player ended it, or it expired after a
+    /// fortnight of silence (see `private.expire_stale_move_games`). Distinct from finished,
+    /// because there is no winner to announce and the board is not the reason it stopped.
+    private(set) var closedWithoutResult = false
     /// Set while a move is in flight, so a second tap cannot send a second disc.
     private(set) var isPlaying = false
     /// Why the last tap did nothing, for the screen to say so and then forget.
@@ -80,14 +84,14 @@ final class ConnectFourGameStore {
 
             responderID = BackendService.currentUserID
             initiatorID = detail.session.initiatorID
-            apply(moves: fetched, sessionCompleted: detail.session.status == .completed)
+            apply(moves: fetched, status: detail.session.status)
             phase = .ready
         } catch {
             phase = .failed(error.localizedDescription)
         }
     }
 
-    private func apply(moves: [BackendService.GameMove], sessionCompleted: Bool) {
+    private func apply(moves: [BackendService.GameMove], status: GameSessionStatus) {
         self.moves = moves
         // Replayed from the log every time rather than patched incrementally. A board built by
         // applying deltas to itself is a board that can drift from the log it came from, and there
@@ -95,7 +99,10 @@ final class ConnectFourGameStore {
         board = ConnectFourBoard(droppedColumns: moves.compactMap { Int($0.move) })
         // Either is enough: the session row says so, and so does the board. Trusting only the
         // session would leave the last move's result invisible until that row's update arrived.
-        isFinished = sessionCompleted || board.isFinished
+        let isLive = status == .active || status == .waitingForPartner
+        isFinished = !isLive || board.isFinished
+        // A closed board with no four in a row and space left on it did not end by being played.
+        closedWithoutResult = !isLive && !board.isFinished
     }
 
     // MARK: - Playing
@@ -133,8 +140,10 @@ final class ConnectFourGameStore {
               let fetched = try? await BackendService.fetchGameMoves(sessionID: sessionID)
         else { return }
         let wasFinished = isFinished
-        apply(moves: fetched, sessionCompleted: detail.session.status == .completed)
-        if !wasFinished, isFinished { await notifyPartnerOfResult() }
+        apply(moves: fetched, status: detail.session.status)
+        // Only for a game that ended by being played. Nobody needs telling that a board they had
+        // already stopped looking at has expired.
+        if !wasFinished, isFinished, !closedWithoutResult { await notifyPartnerOfResult() }
     }
 
     // MARK: - Live
@@ -169,6 +178,19 @@ final class ConnectFourGameStore {
             sessionID: sessionID,
             gameType: .connectFour
         )
+    }
+
+    /// Ends the game for both of them, without a winner.
+    ///
+    /// Needed because of the fortnight. Expiry stops a dead board blocking a new game *eventually*,
+    /// and "eventually" is the wrong answer for somebody whose partner has plainly stopped playing
+    /// — one board per couple means they cannot start another until this one is closed.
+    ///
+    /// The same `abandon_game_session` every other game uses: it is one shared board, so either of
+    /// them may put it down, and the screen says as much before asking.
+    func endGame() async throws {
+        try await BackendService.abandonGameSession(id: sessionID)
+        await refresh()
     }
 
     /// Tells the partner it is their move.

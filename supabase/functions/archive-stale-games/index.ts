@@ -1,8 +1,18 @@
 // Daily cleanup: archives game sessions where the invited partner never joined at all — a
-// session sitting active for days with zero responses from the non-initiating partner just
+// session sitting active for days with zero engagement from the non-initiating partner just
 // clutters the "waiting" list forever otherwise. Never touches a session either partner has
 // actually engaged with, no matter how old. Cron-triggered only (see
 // supabase/migrations/20260712170000_games_archive_cron_and_notif_prefs.sql).
+//
+// "Engaged" means a `game_responses` row *or* a `game_moves` row. That second half was not needed
+// until Connect 4, which is turn-based and never writes a response at all — the whole game lives
+// in `game_moves`. Measuring engagement only in responses would have archived every Connect 4
+// board after three days no matter how actively it was being played, and the players would have
+// watched a live game quietly disappear.
+//
+// This is a different rule from `private.expire_stale_move_games`, and both are wanted. This one
+// closes games the invited partner never turned up for; that one closes games they both turned up
+// for and then stopped.
 //
 // Requires the service-role key as a bearer token, same explicit check refresh-due-flights
 // already uses — without this, any authenticated app user could invoke it directly and force a
@@ -51,15 +61,21 @@ Deno.serve(async (req) => {
     const invitedPartnerId = couple.partner_a_id === session.initiator_id ? couple.partner_b_id : couple.partner_a_id;
     if (!invitedPartnerId) continue;
 
-    const { count } = await serviceClient
+    const { count: responseCount } = await serviceClient
       .from("game_responses")
       .select("id", { count: "exact", head: true })
       .eq("session_id", session.id)
       .eq("responder_id", invitedPartnerId);
 
-    // The invited partner has answered at least one round — they've engaged, so this session
+    const { count: moveCount } = await serviceClient
+      .from("game_moves")
+      .select("id", { count: "exact", head: true })
+      .eq("session_id", session.id)
+      .eq("player_id", invitedPartnerId);
+
+    // The invited partner has answered a round or played a move — they've engaged, so this session
     // stays active no matter how old it is.
-    if ((count ?? 0) > 0) continue;
+    if ((responseCount ?? 0) > 0 || (moveCount ?? 0) > 0) continue;
 
     const { error: updateErr } = await serviceClient
       .from("game_sessions")

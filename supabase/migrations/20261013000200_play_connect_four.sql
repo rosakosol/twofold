@@ -231,7 +231,11 @@ begin
     raise exception 'Not your game' using errcode = '42501';
   end if;
 
-  if v_session.status = 'completed' then
+  -- Any status that is not a live game, not just 'completed'. A board can also be `abandoned` (a
+  -- player ended it) or `archived` (it expired — see 20261013000300), and both of those are just
+  -- as over. Checking only for 'completed' would have let a disc land on a game that had been
+  -- closed weeks earlier, reopening it for one player and not the other.
+  if v_session.status not in ('active', 'waiting_for_partner') then
     raise exception 'connect_four_finished' using errcode = 'P0001';
   end if;
 

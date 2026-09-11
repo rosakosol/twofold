@@ -14,8 +14,11 @@ import SwiftUI
 struct ConnectFourGameView: View {
     @Environment(AppModel.self) private var appModel
     @State private var store: ConnectFourGameStore
+    @Environment(\.dismiss) private var dismiss
     @State private var isNudging = false
     @State private var showingNudgeSent = false
+    @State private var confirmingEnd = false
+    @State private var endFailed: String?
     @State private var confettiTrigger = false
     @State private var celebratedSession: UUID?
 
@@ -43,6 +46,35 @@ struct ConnectFourGameView: View {
         }
         .navigationTitle(GameType.connectFour.displayName)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            // Only while the game is live. Once it is over there is nothing to end, and the menu
+            // would be offering to close something already closed.
+            if store.phase == .ready && !store.isFinished {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button(role: .destructive) { confirmingEnd = true } label: {
+                            Label("End this game", systemImage: "flag")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                }
+            }
+        }
+        .confirmationDialog("End this game?", isPresented: $confirmingEnd, titleVisibility: .visible) {
+            Button("End it", role: .destructive) { endGame() }
+            Button("Keep playing", role: .cancel) {}
+        } message: {
+            // Says both things it does: no winner, and the board goes. Either of them may end it —
+            // it is one shared board — so the partner needs to know this was not a resignation
+            // recorded against them.
+            Text("This ends it for both of you, with no winner, and clears the board so you can start a new game. \(appModel.partner.name) will see that it ended.")
+        }
+        .alert("Couldn't end the game", isPresented: .constant(endFailed != nil)) {
+            Button("OK") { endFailed = nil }
+        } message: {
+            Text(endFailed ?? "")
+        }
         .task(id: store.sessionID) { await store.load() }
         // Its own task: `subscribeRealtime()` loops until cancelled.
         .task(id: store.sessionID) { await store.subscribeRealtime() }
@@ -125,7 +157,7 @@ struct ConnectFourGameView: View {
             VStack(spacing: Theme.Spacing.sm) {
                 Image(systemName: resultIcon)
                     .font(.largeTitle)
-                    .foregroundStyle(store.isDraw ? Theme.subtleInk : Theme.leafGreen)
+                    .foregroundStyle(store.isDraw || store.closedWithoutResult ? Theme.subtleInk : Theme.leafGreen)
 
                 Text(resultTitle)
                     .font(.title3.weight(.bold))
@@ -143,11 +175,15 @@ struct ConnectFourGameView: View {
     }
 
     private var resultIcon: String {
+        if store.closedWithoutResult { return "flag.slash" }
         if store.isDraw { return "equal.circle.fill" }
         return store.didIWin == true ? "trophy.fill" : "hands.clap.fill"
     }
 
     private var resultTitle: String {
+        // A board that was ended or expired is not a draw, and calling it one would credit both of
+        // them with a game neither played out.
+        if store.closedWithoutResult { return "This game ended" }
         if store.isDraw { return "A draw" }
         // Named either way rather than only when it is good news. "You won" with nothing for the
         // other case leaves the loser's screen saying nothing at all about what just happened.
@@ -155,12 +191,29 @@ struct ConnectFourGameView: View {
     }
 
     private var resultDetail: String {
+        if store.closedWithoutResult {
+            // Deliberately does not say which of the two it was. The screen cannot tell an ended
+            // game from an expired one — both are just a closed session — and guessing would
+            // sometimes tell somebody their partner walked away when in fact a fortnight passed.
+            return "It was ended or left too long, so there's no winner. Start a new one from the games list."
+        }
         if store.isDraw {
             return "Forty-two discs and nowhere left to play. Start another from the games list."
         }
         return store.didIWin == true
             ? "Four in a row. Start another from the games list."
             : "They got four in a row. Start another from the games list."
+    }
+
+    private func endGame() {
+        Task {
+            do {
+                try await store.endGame()
+                dismiss()
+            } catch {
+                endFailed = error.localizedDescription
+            }
+        }
     }
 
     private var nudgeButton: some View {
