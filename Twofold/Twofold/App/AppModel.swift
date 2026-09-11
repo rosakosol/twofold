@@ -638,7 +638,7 @@ final class AppModel {
         if (try? await Purchases.shared.logIn(userID.uuidString)) == nil {
             // One retry — a `logIn` failure here (typically a network blip right at launch/sign-in)
             // is exactly what leaves RevenueCat on its anonymous ID for the rest of the session,
-            // which `RootView.checkSubscription`'s `isAnonymous` guard exists to stay safe against
+            // which `RootView.deviceHoldsEntitlement`'s `isAnonymous` check exists to stay safe against
             // regardless, but a second attempt costs nothing and fixes the common transient case
             // outright rather than just avoiding its worst consequence.
             _ = try? await Purchases.shared.logIn(userID.uuidString)

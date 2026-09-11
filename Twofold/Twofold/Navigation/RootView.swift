@@ -4,6 +4,7 @@
 //
 
 import PostHog
+import RevenueCat
 import SwiftUI
 
 struct RootView: View {
@@ -57,6 +58,16 @@ struct RootView: View {
     /// `consumePendingRoute()` and `NotificationRouter`.
     @State private var router = NotificationRouter.shared
 
+    /// RevenueCat's own answer about *this account*, and only when it knows which account that is.
+    ///
+    /// The anonymous check is the load-bearing half. An anonymous customer is whoever used this
+    /// install before anyone signed in, or whoever was here before a `logIn` that failed — never
+    /// reliably the person now looking at the screen. Treating its entitlements as theirs would
+    /// mean a device holding a subscription rather than an account.
+    private var deviceHoldsEntitlement: Bool {
+        !Purchases.shared.isAnonymous && subscriptionStore.isSubscribed
+    }
+
     var body: some View {
         ZStack {
         Group {
@@ -88,7 +99,7 @@ struct RootView: View {
                 // Premium, and it stays the webhook's alone.
                 if Self.hasAccess(
                     backendSaysActive: appModel.isSubscriptionActive,
-                    deviceHoldsEntitlement: subscriptionStore.isSubscribed,
+                    deviceHoldsEntitlement: deviceHoldsEntitlement,
                     awaitingPartnerDecision: appModel.pendingOutgoingConnectionRequest != nil
                 ) {
                     MainTabView(selection: $selectedTab, statsSection: $pendingStatsSection)
@@ -598,12 +609,13 @@ struct RootView: View {
         // Still refreshed, because `subscriptionStore.subscribedTier` drives the Settings and
         // Customer Center screens — but nothing is written back from it any more.
         await subscriptionStore.refreshEntitlementsOnly()
+
         if let active = try? await BackendService.fetchSubscriptionActive() {
             // OR'd with this device's own entitlement for the same reason the gate above is: a
             // backend `false` for someone RevenueCat says is subscribed means the webhook has not
             // caught up, not that they stopped paying. Without this the next foreground undoes the
             // access the gate just granted.
-            appModel.isSubscriptionActive = active || subscriptionStore.isSubscribed
+            appModel.isSubscriptionActive = active || deviceHoldsEntitlement
             OfflineSessionCache.record(
                 active: active,
                 tier: appModel.subscriptionTier,

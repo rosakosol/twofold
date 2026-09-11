@@ -61,10 +61,28 @@ enum RevenueCatConfig {
         Purchases.logLevel = .debug
         #endif
 
-        // No `appUserID:` here — at this point in `TwofoldApp.init()` we haven't restored the
-        // Supabase session yet, so RevenueCat starts with its own anonymous ID and gets told the
-        // real one via `Purchases.shared.logIn(_:)` from `AppModel.loadSignedInState()` the
-        // moment a signed-in user is known (see that method).
-        Purchases.configure(withAPIKey: apiKey)
+        // Configured with the signed-in user's id when there already is one, rather than always
+        // starting anonymous and being told later.
+        //
+        // `currentUserID` reads `supabase.auth.currentSession` synchronously off the locally-stored
+        // session — no network, nothing to await — which is the same thing `AppModel.restoreSession`
+        // relies on before its first await. So for anyone who has run the app before, the real id is
+        // available here, at the first line of `TwofoldApp.init()`.
+        //
+        // This used to always start anonymous and rely on `Purchases.shared.logIn(_:)` from
+        // `AppModel.loadSignedInState()` to alias the two afterwards. That leaves a window where
+        // RevenueCat is anonymous, and anything that happens inside it — a purchase, a restore, a
+        // customer-info fetch — attaches to an anonymous customer. If `logIn` then fails (a network
+        // blip at launch is enough; see `identifyWithRevenueCat`'s retry) the aliasing never
+        // happens and that customer is stranded, holding entitlements this backend will never ask
+        // about, because it only ever queries the Supabase UUID.
+        //
+        // That is not theoretical. It produced two RevenueCat customers for one person, with a
+        // lifetime entitlement granted on one and the webhook reading the other — which reported a
+        // blank subscriber and wrote "no subscription" for someone who had one.
+        //
+        // A genuinely fresh install still starts anonymous, which is correct: there is no id to use
+        // yet, and `logIn` aliases it the moment sign-in gives us one.
+        Purchases.configure(withAPIKey: apiKey, appUserID: BackendService.currentUserID?.uuidString)
     }
 }
