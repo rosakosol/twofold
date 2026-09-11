@@ -1197,6 +1197,51 @@ section {
   box-shadow: var(--shadow-lg);
   border-color: rgba(79, 169, 224, 0.4);
 }
+
+/* Tier identity, keyed off data-plan rather than .feature. `featured` says which card we are
+   pushing and can be moved in Studio; this says which tier you are looking at, which cannot.
+   With the "Most popular" badge gone the two cards were otherwise near-identical rectangles.
+   Plus reads as one colour, Premium as the blue-to-red pair the whole brand is built on. */
+.plan[data-plan] {
+  /* Clips the accent rule to the card's own corner radius. */
+  overflow: hidden;
+}
+.plan[data-plan]::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 4px;
+  background: var(--plan-accent);
+}
+.plan[data-plan="plus"] {
+  --plan-accent: linear-gradient(90deg, var(--sky-blue-light), var(--sky-blue-deep));
+}
+.plan[data-plan="premium"] {
+  --plan-accent: linear-gradient(90deg, var(--sky-blue-deep), var(--heart-red));
+  /* A wash rather than a flat tint, so the card reads as richer without competing with the
+     white Plus card beside it for attention. */
+  background: linear-gradient(170deg, var(--card-bg) 55%, rgba(232, 92, 107, 0.055));
+}
+
+/* Yearly saving, per card. In flow rather than absolutely positioned like the old badge:
+   overflow is hidden for the accent rule above, which would have clipped anything hanging
+   over the top edge. */
+.plan-save {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 14px;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  background: rgba(79, 158, 108, 0.12);
+  color: var(--leaf-green-deep);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
 .plan-badge {
   position: absolute;
   top: -13px;
@@ -1373,6 +1418,7 @@ section {
   .price-line .n { font-size: 1.55rem; }
   .price-line .per { font-size: 0.68rem; }
   .price-foot { font-size: 0.63rem; line-height: 1.3; margin: 4px 0 13px; }
+  .plan-save { font-size: 0.58rem; padding: 3px 8px; margin-bottom: 10px; letter-spacing: 0.02em; }
   .plan .check-list { gap: 6px; margin-bottom: 15px; }
   .plan .check-list li { font-size: 0.7rem; line-height: 1.3; gap: 5px; }
   .plan .check-list li .icon,

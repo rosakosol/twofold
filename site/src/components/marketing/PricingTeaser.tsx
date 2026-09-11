@@ -1,5 +1,7 @@
 import Link from "next/link";
 import type { ResolvedPlan } from "@/lib/marketing/sanity";
+import { PLANS } from "@/lib/marketing/config";
+import { savingPercent } from "@/lib/marketing/priceDisplay";
 import { Reveal } from "@/components/marketing/Reveal";
 
 // The home page's pricing preview — the counterpart to FeatureTeaserGrid, and the reader
@@ -15,8 +17,14 @@ import { Reveal } from "@/components/marketing/Reveal";
 // Yearly, matching PricingClient's own default period, so someone arriving from here sees the
 // figure they just clicked rather than a higher monthly one.
 function PlanPreviewCard({ plan }: { plan: ResolvedPlan }) {
+  // No live prices here - this is a server component and the offering is only readable from
+  // the browser SDK - so the saving comes from PLANS' own numbers. Same ratio either way
+  // unless Stripe and code have drifted, which /pricing surfaces.
+  const saving = savingPercent(PLANS[plan.id].monthly.price, PLANS[plan.id].yearly.price);
+
   return (
-    <div className={`card plan${plan.featured ? " feature" : ""}`}>
+    <div className={`card plan${plan.featured ? " feature" : ""}`} data-plan={plan.id}>
+      {saving !== null && <span className="plan-save">Save {saving}% vs monthly</span>}
       <h3>{plan.name}</h3>
       <p className="plan-sub">{plan.tagline}</p>
       <div className="price-line">

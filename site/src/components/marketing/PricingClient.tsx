@@ -74,8 +74,16 @@ function PlanCard({
       : perMonthLabelFor(livePrices, packages.yearly.packageId, plan.yearly.perMonthLabel);
   const yearlyTotal = priceLabelFor(livePrices, packages.yearly.packageId, plan.yearly.priceLabel);
 
+  // Per-plan rather than the single figure on the period toggle: the two tiers could be
+  // discounted differently, and a card claiming a saving it doesn't give is worse than no
+  // claim at all. Live prices where available, PLANS' own numbers otherwise.
+  const saving =
+    yearlySavingPercent(livePrices[packages.monthly.packageId], livePrices[packages.yearly.packageId]) ??
+    savingPercent(packages.monthly.price, packages.yearly.price);
+
   return (
-    <div className={`card plan${plan.featured ? " feature" : ""}`}>
+    <div className={`card plan${plan.featured ? " feature" : ""}`} data-plan={plan.id}>
+      {period === "yearly" && saving !== null && <span className="plan-save">Save {saving}% vs monthly</span>}
       <h3>{plan.name}</h3>
       <p className="plan-sub">{plan.tagline}</p>
       <div className="price-line">
