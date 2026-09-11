@@ -14,26 +14,37 @@
 import SwiftUI
 
 struct SudokuGameView: View {
-    let sessionID: UUID
-    /// True when `start_sudoku_session` handed back a puzzle already in progress rather than a new
-    /// one. The RPC has always reported this and nothing ever showed it, so tapping Hard silently
-    /// returned a week-old grid with the clock already running.
-    let resumed: Bool
-
     @Environment(\.scenePhase) private var scenePhase
     @Environment(AppModel.self) private var appModel
     @Environment(\.dismiss) private var dismiss
+    /// The puzzle on screen. `var`, not a fixed value built once from the initialiser, because
+    /// "play another" swaps this screen's puzzle in place rather than pushing a second copy of the
+    /// screen on top of the first — see `rematch()`.
     @State private var store: SudokuGameStore
+    /// True when `start_sudoku_session` handed back a puzzle already in progress rather than a new
+    /// one. The RPC has always reported this and nothing ever showed it, so tapping Hard silently
+    /// returned a week-old grid with the clock already running.
+    @State private var resumed: Bool
     @State private var showingShare = false
     @State private var confirmingAbandon = false
     @State private var isSendingReminder = false
     @State private var showingReminderSent = false
     @State private var abandonFailed: String?
+    @State private var isStartingRematch = false
+    @State private var rematchFailed: String?
+    /// Toggled the moment both times exist. Drives the burst and the haptic together.
+    ///
+    /// Toggled rather than set true, because `ConfettiBurstView` animates on any *change* of its
+    /// trigger. A flag that were set true and later cleared for the next puzzle would fire a second
+    /// burst on the clearing, over a grid nobody has started yet.
+    @State private var confettiTrigger = false
+    /// Which puzzle the burst above has already been spent on — so it fires once per grid, and a
+    /// rematch gets its own.
+    @State private var celebratedSession: UUID?
 
     init(sessionID: UUID, resumed: Bool = false) {
-        self.sessionID = sessionID
-        self.resumed = resumed
         _store = State(initialValue: SudokuGameStore(sessionID: sessionID))
+        _resumed = State(initialValue: resumed)
     }
 
     var body: some View {
@@ -51,6 +62,11 @@ struct SudokuGameView: View {
             case .ready:
                 board
             }
+
+            // Outside the switch, so it is mounted before the puzzle finishes loading. It animates
+            // on a *change* of `trigger`, and a burst view that appeared already-true would never
+            // see one.
+            ConfettiBurstView(trigger: confettiTrigger)
         }
         .navigationTitle("Sudoku")
         .navigationBarTitleDisplayMode(.inline)
@@ -109,13 +125,29 @@ struct SudokuGameView: View {
                 GameResultsShareView(data: shareData)
             }
         }
-        .task {
+        // Keyed on the session rather than on the view's lifetime: "play another" replaces `store`
+        // in place, and a plain `.task` would leave both of these running against the puzzle that
+        // is no longer on screen — the old clock still ticking, the old realtime stream still
+        // listening. `.task(id:)` cancels and restarts them on the swap.
+        .task(id: store.sessionID) {
             await store.load()
             store.startClock()
         }
         // Its own task: `subscribeRealtime()` loops until cancelled, so folding it into the one
         // above would mean the board waited on a stream that never ends.
-        .task { await store.subscribeRealtime() }
+        .task(id: store.sessionID) { await store.subscribeRealtime() }
+        // Both times exist, so the comparison is on screen. `initial: true` covers arriving at a
+        // puzzle that was already finished on both sides — which is a first look at the result for
+        // whoever solved first and walked away, and the burst is the point of opening it.
+        //
+        // It does mean revisiting an old puzzle bursts again. Deciding otherwise needs a stored
+        // "you have seen this one", and missing the genuine reveal is the worse of the two misses.
+        .onChange(of: store.partnerResult != nil, initial: true) { _, both in
+            guard both, celebratedSession != store.sessionID else { return }
+            celebratedSession = store.sessionID
+            confettiTrigger.toggle()
+        }
+        .sensoryFeedback(.success, trigger: confettiTrigger)
         .onDisappear {
             store.stopClock()
             store.stopRealtime()
@@ -134,7 +166,7 @@ struct SudokuGameView: View {
     /// silently swapped itself for a different one under the same screen would be the same
     /// surprise this is here to fix.
     private func abandon() {
-        let id = sessionID
+        let id = store.sessionID
         store.stopClock()
         Task {
             do {
@@ -148,6 +180,85 @@ struct SudokuGameView: View {
                 dismiss()
             } catch {
                 abandonFailed = error.localizedDescription
+            }
+        }
+    }
+
+    // MARK: - Playing another
+
+    /// The way on from a finished puzzle, named for what it actually starts: another grid at the
+    /// same difficulty.
+    ///
+    /// The other games put "Play Another Game" here and have it `dismiss()` back to the picker.
+    /// Sudoku's picker is four difficulties rather than a library of decks, so going back to choose
+    /// again from four options — having just played one of them — is a step that asks a question
+    /// already answered.
+    private var rematchButton: some View {
+        VStack(spacing: Theme.Spacing.xs) {
+            Button(action: rematch) {
+                HStack(spacing: Theme.Spacing.xs) {
+                    if isStartingRematch {
+                        ProgressView().controlSize(.small).tint(.white)
+                    }
+                    Text(
+                        store.difficulty.map { "Play another \($0.displayName.lowercased()) puzzle" }
+                            ?? "Play another puzzle"
+                    )
+                    .font(.headline)
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+            }
+            .background(Theme.primaryButtonGradient, in: Capsule())
+            .foregroundStyle(.white)
+            .disabled(isStartingRematch)
+
+            if let rematchFailed {
+                Text(rematchFailed)
+                    .font(.caption)
+                    .foregroundStyle(Theme.heartRedText)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    /// Swaps this screen's puzzle for a new one at the same difficulty.
+    ///
+    /// In place, rather than pushing a second `SudokuGameView` on top of this one: a rematch loop
+    /// that pushes leaves a back stack of finished grids to walk out through, each one still holding
+    /// a store. The two `.task(id: store.sessionID)` modifiers on the body are what make the swap
+    /// safe — they stop the old clock and the old realtime stream when the id changes.
+    ///
+    /// `resumed` is taken from the RPC rather than assumed false. If the partner tapped this button
+    /// first, `start_sudoku_session` hands back the grid they already started, which is the right
+    /// answer — both of them end up on the same puzzle — and the RESUMED chip is then telling the
+    /// truth about a clock that is not starting from zero.
+    private func rematch() {
+        guard let difficulty = store.difficulty, !isStartingRematch else { return }
+        isStartingRematch = true
+        rematchFailed = nil
+        Task {
+            defer { isStartingRematch = false }
+            do {
+                // A solo session never reaches `completed`: `advance_game_session` waits for a
+                // second responder who is never coming, so it sits in `waiting_for_partner` and
+                // `start_sudoku_session` would hand back this same solved grid. Ending it first is
+                // what makes the next one new. Paired, the session is already `completed` by the
+                // time this button exists — both times are on screen — so there is nothing to end.
+                if !appModel.hasCouple {
+                    try await BackendService.abandonGameSession(id: store.sessionID)
+                    if let me = BackendService.currentUserID {
+                        SudokuProgressCache.remove(sessionID: store.sessionID, responderID: me)
+                    }
+                }
+                let started = try await BackendService.startSudokuSession(difficulty: difficulty)
+                store.stopClock()
+                store.stopRealtime()
+                resumed = started.resumed
+                store = SudokuGameStore(sessionID: started.sessionID)
+            } catch {
+                rematchFailed = "Couldn't start another puzzle. \(error.localizedDescription)"
             }
         }
     }
@@ -220,7 +331,13 @@ struct SudokuGameView: View {
 
                 if play.isComplete {
                     if let comparison = comparison(for: play) {
-                        SudokuComparisonView(comparison: comparison)
+                        VStack(spacing: Theme.Spacing.sm) {
+                            SudokuComparisonView(comparison: comparison)
+                            // Under the times, never above them. The race is the thing they came
+                            // back for, and a button offering the next one is the first thing an
+                            // eye lands on if it is put first.
+                            rematchButton
+                        }
                         .padding(.horizontal, Theme.Spacing.md)
                     } else {
                         solvedCard(play: play)
@@ -383,7 +500,15 @@ struct SudokuGameView: View {
                 Text("Solved in \(Self.clockText(play.elapsed))")
                     .font(.title3.weight(.bold))
                     .foregroundStyle(Theme.ink)
-                Text("Your time is saved. You'll see how it compares once \(appModel.partner.name) finishes theirs.")
+                // Nobody to wait for when there is nobody paired. `start_sudoku_session` gives an
+                // unpaired player a session of their own with a null couple, so this card is what
+                // they see every time they finish — and the version naming a partner was promising
+                // a comparison that could never arrive, from a person who does not exist.
+                Text(
+                    appModel.hasCouple
+                        ? "Your time is saved. You'll see how it compares once \(appModel.partner.name) finishes theirs."
+                        : "Your time is saved."
+                )
                     .font(.caption)
                     .foregroundStyle(Theme.subtleInk)
                     .multilineTextAlignment(.center)
@@ -400,28 +525,41 @@ struct SudokuGameView: View {
                 // ignoring them while they are in fact mid-puzzle.
                 Divider().opacity(0.5)
 
-                Button(action: remindPartner) {
-                    HStack(spacing: Theme.Spacing.xs) {
-                        if isSendingReminder { ProgressView().controlSize(.small) }
-                        Text(isSendingReminder ? "Sending…" : "Nudge \(appModel.partner.name)")
-                            .font(.subheadline.weight(.semibold))
+                if appModel.hasCouple {
+                    Button(action: remindPartner) {
+                        HStack(spacing: Theme.Spacing.xs) {
+                            if isSendingReminder { ProgressView().controlSize(.small) }
+                            Text(isSendingReminder ? "Sending…" : "Nudge \(appModel.partner.name)")
+                                .font(.subheadline.weight(.semibold))
+                        }
                     }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Theme.skyBlueText)
+                    .disabled(isSendingReminder)
+                } else {
+                    // The solo player's way on. Paired, this button waits for the comparison —
+                    // leaving before your partner finishes ends the grid for both of you, which is
+                    // what the abandon line below is for. Alone there is nothing to wait for.
+                    rematchButton
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(Theme.skyBlueText)
-                .disabled(isSendingReminder)
 
                 // The difficulty stays occupied until one of them finishes or someone puts it
                 // down — `start_sudoku_session` resumes any session that is not completed — so the
                 // way out is named here rather than left to be discovered in a menu.
-                Text(store.difficulty.map { "Don't want to wait? Abandon it from the menu above to start a new \($0.displayName) puzzle." }
-                    ?? "Don't want to wait? Abandon it from the menu above to start a new puzzle.")
-                    .font(.caption2)
-                    .foregroundStyle(Theme.subtleInk)
-                    .multilineTextAlignment(.center)
-                    // Without this it is clipped to one line and ends mid-sentence — the
-                    // difficulty name makes it long enough to wrap on every device.
-                    .fixedSize(horizontal: false, vertical: true)
+                //
+                // Only while there is somebody to wait for. Solo, the button above is the way on
+                // and the abandon menu is not even there to point at: it hides once the puzzle is
+                // solved.
+                if appModel.hasCouple {
+                    Text(store.difficulty.map { "Don't want to wait? Abandon it from the menu above to start a new \($0.displayName) puzzle." }
+                        ?? "Don't want to wait? Abandon it from the menu above to start a new puzzle.")
+                        .font(.caption2)
+                        .foregroundStyle(Theme.subtleInk)
+                        .multilineTextAlignment(.center)
+                        // Without this it is clipped to one line and ends mid-sentence — the
+                        // difficulty name makes it long enough to wrap on every device.
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             .frame(maxWidth: .infinity)
         }
@@ -445,7 +583,7 @@ struct SudokuGameView: View {
                 // in the push — `wants you to complete "Hard Sudoku"` — so a nil would read as a
                 // leading space inside them rather than as nothing.
                 detail: store.difficulty.map { "\($0.displayName) Sudoku" } ?? "Sudoku",
-                sessionID: sessionID,
+                sessionID: store.sessionID,
                 gameType: .sudoku
             )
             isSendingReminder = false

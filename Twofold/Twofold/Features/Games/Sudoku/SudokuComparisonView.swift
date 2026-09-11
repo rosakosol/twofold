@@ -72,33 +72,65 @@ struct SudokuComparisonView: View {
         aids: SudokuSolveSummary?,
         isFaster: Bool
     ) -> some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 1) {
-                Text(name)
-                    // Weight, not just colour, carries "this one was quicker" — the green below is
-                    // a second signal rather than the only one, and the verdict says it in words.
-                    .font(.subheadline.weight(isFaster ? .semibold : .regular))
-                    .foregroundStyle(Theme.ink)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                // Only when something was used. "No help" under both times on the ordinary solve
-                // would turn an honest footnote into an accusation.
-                if let used = aids?.aidsDescription {
-                    Text(used)
-                        .font(.caption2)
-                        .foregroundStyle(Theme.subtleInk)
+        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+            HStack {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(name)
+                        // Weight, not just colour, carries "this one was quicker" — the green below
+                        // is a second signal rather than the only one, and the verdict says it in
+                        // words.
+                        .font(.subheadline.weight(isFaster ? .semibold : .regular))
+                        .foregroundStyle(Theme.ink)
                         .lineLimit(1)
+                        .truncationMode(.tail)
+                    // Only when something was used. "No help" under both times on the ordinary
+                    // solve would turn an honest footnote into an accusation.
+                    if let used = aids?.aidsDescription {
+                        Text(used)
+                            .font(.caption2)
+                            .foregroundStyle(Theme.subtleInk)
+                            .lineLimit(1)
+                    }
                 }
+                Spacer(minLength: Theme.Spacing.sm)
+                Text(SudokuComparison.clockText(elapsed))
+                    .font(.title3.weight(.semibold))
+                    // Without this the two times sit on different grids and read as harder to
+                    // compare than they are.
+                    .monospacedDigit()
+                    .foregroundStyle(isFaster ? Theme.leafGreenText : Theme.ink)
             }
-            Spacer(minLength: Theme.Spacing.sm)
-            Text(SudokuComparison.clockText(elapsed))
-                .font(.title3.weight(.semibold))
-                // Without this the two times sit on different grids and read as harder to compare
-                // than they are.
-                .monospacedDigit()
-                .foregroundStyle(isFaster ? Theme.leafGreenText : Theme.ink)
+            .accessibilityElement(children: .combine)
+
+            timeBar(elapsed, isFaster: isFaster)
         }
-        .accessibilityElement(children: .combine)
+    }
+
+    /// How long this solve took, against the longer of the two.
+    ///
+    /// The slower solve fills the track and the quicker one is short, which is the way round that
+    /// matches what is being measured: less time is less bar. A dead heat draws two equal bars
+    /// rather than two full ones, since the fraction is relative to the longest and the two are the
+    /// same length.
+    ///
+    /// Floored at 4%, so a solve that was very much faster still draws something — a bar of no
+    /// width reads as missing data rather than as a fast time.
+    ///
+    /// Decorative, and hidden from VoiceOver. The row above already reads the name, the time and
+    /// any help used; a bar that announced itself would repeat all of that as a percentage.
+    private func timeBar(_ elapsed: TimeInterval, isFaster: Bool) -> some View {
+        let longest = max(comparison.myElapsed, comparison.partnerElapsed, 1)
+        let fraction = max(0.04, min(1, elapsed / longest))
+        return GeometryReader { proxy in
+            ZStack(alignment: .leading) {
+                Capsule().fill(Theme.subtleInk.opacity(0.15))
+                Capsule()
+                    .fill(isFaster ? Theme.leafGreen : Theme.skyBlue)
+                    .frame(width: max(4, proxy.size.width * fraction))
+            }
+        }
+        .frame(height: 6)
+        .accessibilityHidden(true)
     }
 }
 
