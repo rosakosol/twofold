@@ -158,8 +158,25 @@ struct RedeemPartnerCodeView: View {
                 // Looked up before redeeming — the code has to still be genuinely pending for
                 // this to resolve, which it no longer is the instant redeemInviteCode succeeds.
                 let info = try? await BackendService.inviterInfo(forCode: trimmed)
-                try await BackendService.redeemInviteCode(trimmed)
+                // A prefilled code arrived from a tapped link (RootView's `onOpenURL` stashes it);
+                // an empty field was typed by a person. That is the whole distinction, and it
+                // decides whether this connects now or asks.
+                //
+                // Emptiness, not nil-ness: a prefilled value of "" is not a link anyone followed,
+                // and treating it as one would auto-pair someone who typed into a blank field.
+                let outcome = try await BackendService.redeemInviteCode(
+                    trimmed, origin: (prefilledCode?.isEmpty == false) ? .link : .code
+                )
                 isRedeeming = false
+
+                if outcome.connected {
+                    // Already partnered. Nothing to wait for, so this closes and lets the app
+                    // pick up the couple rather than showing a "request sent" that is not true.
+                    await appModel.refreshCoupleStateIfNeeded()
+                    onSuccess()
+                    dismiss()
+                    return
+                }
                 sentRequestInviterName = info?.name ?? "your partner"
             } catch {
                 errorMessage = error.localizedDescription

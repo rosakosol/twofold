@@ -430,7 +430,7 @@ struct MapKitRouteView: UIViewRepresentable {
             return min(1, max(0, elapsed / total))
         }
 
-        /// Flighty-style close tracking: statuses where the plane is genuinely airborne and its
+        /// Close tracking: statuses where the plane is genuinely airborne and its
         /// live position is worth zooming in on. Excludes `.boarding` (still at the gate — the
         /// marker just sits on the origin, nothing to zoom into yet).
         /// `nonisolated` because it's a pure test on an enum value — no state, no UI. It's called
@@ -599,8 +599,8 @@ struct MapKitRouteView: UIViewRepresentable {
 
         /// Tight zoom on the live marker for an en-route flight, close enough that the
         /// plane/avatar's motion between successive position updates is clearly visible against
-        /// nearby geography (roads, towns) — matching the close-tracking view flight-tracking
-        /// apps like Flighty use, rather than a wide regional overview.
+        /// nearby geography (roads, towns), rather than a wide regional overview where an hour of
+        /// flying barely shifts the marker.
         private static let followSpanMeters: CLLocationDistance = 25_000
 
         private func fitCamera(for route: Route, edgePadding: CGFloat, followWhenEnRoute: Bool, mapView: MKMapView, animated: Bool) {

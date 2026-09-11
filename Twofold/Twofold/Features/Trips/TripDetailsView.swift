@@ -24,6 +24,7 @@ struct TripDetailsView: View {
     @State private var showingEditSheet = false
     @State private var showingDeleteConfirm = false
     @State private var showingLinkFlightPicker = false
+    @State private var showingPartnerGate = false
     @State private var showingLinkMemoryPicker = false
     @State private var isDeleting = false
 
@@ -89,6 +90,9 @@ struct TripDetailsView: View {
             if let trip {
                 LinkFlightPickerView(trip: trip)
             }
+        }
+        .sheet(isPresented: $showingPartnerGate) {
+            PartnerRequiredGateView()
         }
         .sheet(isPresented: $showingLinkMemoryPicker) {
             if let trip {
@@ -207,7 +211,15 @@ struct TripDetailsView: View {
             HStack {
                 Text(trip.flights.count > 1 ? "Flights" : "Flight").font(.subheadline.weight(.semibold))
                 Spacer()
+                // Same partner gate the Flights tab's add button uses. Trips have a solo-first
+                // path, so someone with no partner yet can be standing on this screen — and this
+                // was the one way into the add-flight flow that didn't check, which meant they
+                // searched, picked a flight, tapped Track, and only then met a server refusal.
                 Button(trip.flights.isEmpty ? "Link a flight" : "Link another leg") {
+                    guard appModel.partnerConnected else {
+                        showingPartnerGate = true
+                        return
+                    }
                     showingLinkFlightPicker = true
                 }
                 .font(.caption.weight(.semibold))

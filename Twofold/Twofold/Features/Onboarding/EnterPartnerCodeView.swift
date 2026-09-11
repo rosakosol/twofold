@@ -53,7 +53,9 @@ struct EnterPartnerCodeView: View {
                     // Looked up before redeeming — the code has to still be genuinely pending
                     // for this to resolve, which it no longer is the instant redeem succeeds.
                     let info = try? await BackendService.inviterInfo(forCode: trimmed)
-                    try await BackendService.redeemInviteCode(trimmed)
+                    // Typed by hand, so it stays a request the inviter approves — anyone who saw
+                    // the code could have typed it.
+                    try await BackendService.redeemInviteCode(trimmed, origin: .code)
                     onboarding.inviterName = info?.name
                     onboarding.inviterAvatarURL = info?.avatarURL
                     onboarding.path.append(.connectionRequestSent)

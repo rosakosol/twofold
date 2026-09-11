@@ -65,7 +65,7 @@ struct AddFlightEntryStepView: View {
                     }
                     modeRow(icon: "arrow.triangle.swap", title: "Find by Route") {
                         model.mode = .route
-                        model.path.append(.airport(.departure))
+                        model.path.append(.route)
                     }
                 }
             }
@@ -174,10 +174,12 @@ struct AddFlightEntryStepView: View {
         isSearching = false
     }
 
+    /// Tapping an airport here fills in the departure and hands off to the route screen, which
+    /// opens focused on the destination — the one end still unanswered.
     private func selectDeparture(_ airport: Airport) {
         model.mode = .route
         model.departureAirport = airport
-        model.path.append(.airport(.destination))
+        model.path.append(.route)
     }
 
     private func routeFromQuery() {
@@ -190,7 +192,7 @@ struct AddFlightEntryStepView: View {
             model.path.append(.flightNumber)
         } else {
             model.mode = .route
-            model.path.append(.airport(.departure))
+            model.path.append(.route)
         }
     }
 

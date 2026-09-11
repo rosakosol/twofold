@@ -16,9 +16,14 @@ import {
   searchRoute,
 } from "../_shared/aeroapi.ts";
 import { airlineCodesMatch, lookupAirlineName } from "../_shared/airlines.ts";
+import { enforceRateLimit } from "../_shared/rate-limit.ts";
 import { type Candidate, mergeCandidates } from "../_shared/flight-candidates.ts";
 import { isFlightInProgress } from "../_shared/flight-schedule.ts";
 import { deriveFlightStatus } from "../_shared/flight-status.ts";
+
+// Its own bucket, so exhausting flight searches never blocks someone from parsing a booking email
+// or asking for help — the buckets are deliberately independent.
+const RATE_LIMIT = { bucket: "resolve-flight", limit: 40, window: "1 hour" };
 
 interface NumberModeInput {
   mode: "number";
@@ -418,8 +423,30 @@ Deno.serve(async (req) => {
     .eq("status", "active")
     .maybeSingle();
   if (coupleErr || !couple) {
-    return Response.json({ error: "No active couple for this user" }, { status: 403 });
+    return Response.json(
+      {
+        error: "Flight tracking starts once you and your partner are connected.",
+        code: "not_paired",
+      },
+      { status: 403 },
+    );
   }
+
+  // Every search below is one or more billed AeroAPI requests, and until now this was the only
+  // money-spending endpoint in the project without a cap — `parse-flight-email` and
+  // `submit-help-message` both use this limiter, and this one bills more per call than either.
+  //
+  // The monthly flight limit does not cover it. That meters `add-flight`, which is the *end* of
+  // the flow; a couple sitting at their cap could still search all day, each search costing a
+  // lookup, and only meet a refusal at the final tap. Searching is where the spending actually
+  // happens, so it needs its own limit.
+  //
+  // 40 an hour is deliberately generous against real use — picking a flight legitimately takes
+  // several searches, and a couple planning a trip together might take a dozen — while still
+  // bounding what one account in a loop can cost. Placed after the couple check so an unpaired
+  // caller, who can never search at all, does not consume anyone's budget.
+  const limited = await enforceRateLimit(userClient, RATE_LIMIT);
+  if (limited) return limited;
 
   try {
     let candidates: Candidate[] = [];

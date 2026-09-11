@@ -62,6 +62,9 @@ final class AppModel {
     /// The instant the daily question/streak next rolls over — real local midnight, resolved
     /// server-side (see `BackendService.fetchDailyStreak`). Nil until the first fetch lands.
     var dailyStreakResetsAt: Date?
+    /// Whether a streak that just ended can still be bought back, and what it was worth. Nil until
+    /// looked up and left nil when the lookup fails — no offer is better than a wrong one.
+    var streakRepair: BackendService.StreakRepairState?
     /// Today's Daily Activity session id, once known (fetched lazily, not at launch — see
     /// `startOrResumeDailyQuestion()`).
     var todaysDailySessionID: UUID?
@@ -109,6 +112,15 @@ final class AppModel {
     /// isn't really solo, just not accepted yet; `HomeView` shows a persistent card for it, with
     /// the option to nudge the inviter — see `sendConnectionRequestReminder()`.
     var pendingOutgoingConnectionRequest: BackendService.OutgoingConnectionRequest?
+    /// Whether `pendingOutgoingConnectionRequest` has been looked up yet this session.
+    ///
+    /// `nil` on that property means two different things — "there is no pending request" and "we
+    /// have not asked yet" — and the paywall gate has to tell them apart. Someone who redeemed an
+    /// invite and is waiting on the inviter must never be shown a paywall, and at launch the
+    /// lookup is a network round trip that lands well after `hasCouple` flips true. Without this,
+    /// the gate evaluated during that window and flashed the paywall at exactly the person it is
+    /// meant to exempt.
+    private(set) var hasResolvedOutgoingConnectionRequest = false
 
     /// Non-nil only while there's an unacknowledged "your subscription lapsed because {name}
     /// left" notice — set by `adoptSoloProfile(_:)` from `leave_couple`'s server-captured
@@ -440,6 +452,19 @@ final class AppModel {
             applyCachedSession(cached)
         }
         hasCouple = true
+        // Resolved here, not only from RootView's launch task.
+        //
+        // That task runs once, at launch. Someone who opens the app signed out gets an early
+        // return from it (`guard hasCouple`) that leaves `hasResolvedOutgoingConnectionRequest`
+        // false, and then signs in — at which point `hasCouple` flips true, RootView re-renders,
+        // and its paywall-exemption gate holds them on the loading screen forever because nothing
+        // remains to resolve the flag. A real sign-in that ends in an infinite beating heart.
+        //
+        // Tying it to `hasCouple` instead means every path that admits someone to the app resolves
+        // it: launch, manual sign-in, and password recovery all end up here. The call is cheap for
+        // a paired couple — `refreshPendingOutgoingConnectionRequest` returns without a round trip
+        // when `partnerConnected`.
+        await refreshPendingOutgoingConnectionRequest()
         Task { await WidgetSnapshotWriter.refresh(appModel: self) }
         checkReviewMilestones()
     }
@@ -617,6 +642,23 @@ final class AppModel {
             // regardless, but a second attempt costs nothing and fixes the common transient case
             // outright rather than just avoiding its worst consequence.
             _ = try? await Purchases.shared.logIn(userID.uuidString)
+        }
+
+        // Puts the account's email on the RevenueCat customer, purely so a person is findable in
+        // that dashboard. `app_user_id` is the Supabase UUID and nothing else about the customer
+        // identifies them, so answering "why is this subscriber on Premium?" meant copying a UUID
+        // out of RevenueCat and querying Postgres with it, every time.
+        //
+        // `$email` is a reserved attribute — RevenueCat surfaces it on the customer profile rather
+        // than filing it as an arbitrary key. Sent after `logIn` on purpose: attributes attach to
+        // whichever customer is current, so setting it first would put the email on the anonymous
+        // id that `logIn` is about to leave behind.
+        //
+        // Fire-and-forget by design: the SDK queues attributes locally and flushes them with the
+        // next backend call, so there is nothing to await and a failure here must never affect
+        // whether someone can use the app.
+        if let email = BackendService.currentUserEmail {
+            Purchases.shared.attribution.setEmail(email)
         }
     }
 
@@ -798,9 +840,14 @@ final class AppModel {
     func refreshPendingOutgoingConnectionRequest() async {
         guard !partnerConnected else {
             pendingOutgoingConnectionRequest = nil
+            hasResolvedOutgoingConnectionRequest = true
             return
         }
         pendingOutgoingConnectionRequest = try? await BackendService.fetchMyOutgoingConnectionRequest()
+        // Set even when the fetch failed. A network error is not a reason to hold someone on a
+        // loading screen indefinitely; it resolves to "no pending request", which is what the
+        // gate assumed before this existed anyway.
+        hasResolvedOutgoingConnectionRequest = true
     }
 
     /// Nudges the inviter on `pendingOutgoingConnectionRequest`. Returns an error message on
@@ -822,9 +869,15 @@ final class AppModel {
     /// accepting right now is to connect right now. Returns an error message on failure, nil on
     /// success (same shape as `removePartner()`).
     @discardableResult
-    func respondToConnectionRequest(_ request: BackendService.PendingConnectionRequest, accept: Bool) async -> String? {
+    func respondToConnectionRequest(
+        _ request: BackendService.PendingConnectionRequest,
+        accept: Bool,
+        restoreArchive: Bool = false
+    ) async -> String? {
         do {
-            let coupleID = try await BackendService.respondToConnectionRequest(id: request.id, accept: accept)
+            let coupleID = try await BackendService.respondToConnectionRequest(
+                id: request.id, accept: accept, restoreArchive: restoreArchive
+            )
             pendingConnectionRequests.removeAll { $0.id == request.id }
             if coupleID != nil {
                 await refreshCoupleStateIfNeeded()
@@ -974,6 +1027,17 @@ final class AppModel {
         recordGameStateForOffline()
     }
 
+    /// Only asked when there is plainly something to ask about: a streak reading zero. The
+    /// repairable window needs the couple's own local dates to evaluate, so it is a round trip, and
+    /// a couple mid-streak has no use for the answer.
+    func refreshStreakRepairState() async {
+        guard NetworkMonitor.shared.isConnected, partnerConnected, dailyStreak == 0 else {
+            streakRepair = nil
+            return
+        }
+        streakRepair = try? await BackendService.streakRepairState()
+    }
+
     func refreshDailyStreak() async {
         // `refreshAll()` runs this alongside five other fetches on every foreground and every
         // pull-to-refresh; offline it can only wait out a timeout, holding that whole group open.
@@ -984,6 +1048,7 @@ final class AppModel {
             dailyStreakResetsAt = streak.resetsAt
             recordGameStateForOffline()
         }
+        await refreshStreakRepairState()
     }
 
     /// Today's question as of the last time it was fetched. The backend assigns one per day, so a

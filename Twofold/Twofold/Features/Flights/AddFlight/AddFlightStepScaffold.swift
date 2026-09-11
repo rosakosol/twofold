@@ -31,6 +31,7 @@ struct AddFlightStepScaffold<Content: View>: View {
             }
             .padding(Theme.Spacing.lg)
         }
+        .scrollDismissesKeyboard(.interactively)
         .background(Theme.backgroundGradient.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

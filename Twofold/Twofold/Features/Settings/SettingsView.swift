@@ -27,11 +27,12 @@ struct SettingsView: View {
     /// though the couple is genuinely covered. See `subscriptionStore`/`PartnerManagesSubscriptionView`.
     @State private var showingCustomerCenter = false
     @State private var showingPartnerManagesSubscription = false
+    /// Nil until looked up, and left nil if the lookup fails — this card is an FYI about money,
+    /// and a failed query is not a reason to tell anyone anything.
+    @State private var redundantSubscription: BackendService.RedundantSubscription?
     @State private var subscriptionStore = SubscriptionStore()
     @State private var showingSignOutConfirm = false
     @State private var isSigningOut = false
-    @State private var showingExportHistory = false
-    @State private var showingExportPremiumGate = false
     @State private var appLock = AppLockService()
     @State private var isAuthenticatingLockToggle = false
     /// Which way the app-lock toggle just went, non-nil while the confirmation is up. Was a plain
@@ -89,23 +90,16 @@ struct SettingsView: View {
                         }
                     }
 
-                    // TEMP: "Export your story" pulled from Settings for the first release —
-                    // the feature itself (`ExportHistoryView`/`CoupleHistoryPDFExporter`, the
-                    // `showingExportHistory`/`showingExportPremiumGate` state below, and their
-                    // `.navigationDestination`/`.sheet` further down) is untouched, so restoring
-                    // this row is the only thing needed to bring it back.
-                    // SectionCard {
-                    //     Button {
-                    //         if appModel.isPremiumLocked {
-                    //             showingExportPremiumGate = true
-                    //         } else {
-                    //             showingExportHistory = true
-                    //         }
-                    //     } label: {
-                    //         SettingsRow(title: "Export your story", systemImage: "square.and.arrow.up.on.square")
-                    //     }
-                    //     .buttonStyle(.plain)
-                    // }
+                    // Directly under the banner, because the action it suggests is the one the
+                    // banner opens.
+                    if let redundantSubscription, redundantSubscription.bothSubscribed {
+                        RedundantSubscriptionCard(
+                            state: redundantSubscription,
+                            partnerName: appModel.partner.name
+                        ) {
+                            showingCustomerCenter = true
+                        }
+                    }
 
                     SectionCard {
                         NavigationLink {
@@ -254,6 +248,7 @@ struct SettingsView: View {
             .postHogScreenView("Settings")
             .task {
                 await subscriptionStore.refreshEntitlementsOnly()
+                redundantSubscription = try? await BackendService.redundantSubscription()
             }
             .sheet(isPresented: $showingPaywall) {
                 NavigationStack { PaywallView() }
@@ -279,16 +274,6 @@ struct SettingsView: View {
                     showingPartnerManagesSubscription = false
                 }
                 .postHogScreenView("Settings: Partner Manages Subscription")
-            }
-            .navigationDestination(isPresented: $showingExportHistory) {
-                ExportHistoryView()
-            }
-            .sheet(isPresented: $showingExportPremiumGate) {
-                FlightPremiumGateView(
-                    icon: "square.and.arrow.up.on.square",
-                    title: "Export Your Story",
-                    description: "Turn your trips, memories, and flights into a beautiful, formatted keepsake PDF. Upgrade to Premium to export your story."
-                )
             }
             .sheet(item: $lockChangeToConfirm) { change in
                 // Detents are set inside the view — see its own comment; the choice depends on

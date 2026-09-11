@@ -86,9 +86,6 @@
             ReferencedContainer = "container:Twofold.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
-      <StoreKitConfigurationFileReference
-         identifier = "../../Twofold/Twofold.storekit">
-      </StoreKitConfigurationFileReference>
       <EnvironmentVariables>
          <EnvironmentVariable
             key = "SUPABASE_ENV"

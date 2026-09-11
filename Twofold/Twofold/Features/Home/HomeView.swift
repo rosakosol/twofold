@@ -39,6 +39,14 @@ struct HomeView: View {
     @State private var myWeatherFetchedForCityID: UUID?
     @State private var flightCarouselPage: Flight.ID?
     @State private var partnerDisconnectedAlert: String?
+    /// Nil until looked up, and left nil if the lookup fails — this is an FYI about money, and a
+    /// failed query is no reason to tell anyone anything.
+    @State private var redundantSubscription: BackendService.RedundantSubscription?
+    /// Survives relaunches, because a couple can decide to keep both subscriptions on purpose —
+    /// one of them may be planning to keep their own — and a card saying "you're wasting money"
+    /// that comes back every launch is a nag rather than a notice. Settings keeps showing it
+    /// regardless; that screen is where you would go looking for it.
+    @AppStorage("redundantSubscriptionNoticeDismissed") private var redundantNoticeDismissed = false
 
     private var distanceKm: Double? {
         guard let mine = appModel.currentUser.homeCity?.coordinate, let theirs = appModel.partner.homeCity?.coordinate else { return nil }
@@ -76,6 +84,7 @@ struct HomeView: View {
                     } else if appModel.needsPartnerInvite {
                         invitePartnerCard
                     }
+                    redundantSubscriptionCard
                     setupChecklistCard
                     pendingSharesCard
                     if let partnerTimeZone = appModel.partner.homeCity?.timeZone {
@@ -118,7 +127,10 @@ struct HomeView: View {
                     Button {
                         showingSettings = true
                     } label: {
-                        Image(systemName: "person.crop.circle.fill")
+                        // A gear, not a person. This opens Settings, and the toolbar already
+                        // carries both faces in its centre — a second person glyph beside them
+                        // read as a profile, which is not where it goes.
+                        Image(systemName: "gearshape.fill")
                             .font(.title2)
                             .foregroundStyle(Theme.ink)
                     }
@@ -140,6 +152,7 @@ struct HomeView: View {
             .refreshable { await pullToRefresh() }
             .onAppear {
                 refreshPendingShares()
+                Task { await refreshRedundantSubscriptionIfNeeded() }
                 Task { await appModel.refreshCoupleStateIfNeeded() }
                 Task { await appModel.refreshTrips() }
                 Task { await appModel.refreshFlights() }
@@ -212,6 +225,27 @@ struct HomeView: View {
             } message: {
                 Text(partnerDisconnectedAlert ?? "")
             }
+        }
+    }
+
+    /// Two people paying for one subscription's worth of app. Near the top because every month it
+    /// goes unnoticed costs one of them real money, and below the connection-request cards because
+    /// those are about whether the couple exists at all.
+    @ViewBuilder
+    private var redundantSubscriptionCard: some View {
+        if let redundantSubscription, redundantSubscription.bothSubscribed, !redundantNoticeDismissed {
+            RedundantSubscriptionCard(
+                state: redundantSubscription,
+                partnerName: appModel.partner.name,
+                // Home can't open the Customer Center itself without carrying a SubscriptionStore
+                // and repeating Settings' post-Customer-Center resync — and this file already
+                // documents what piling more concurrent RevenueCat/Supabase work onto Home costs.
+                // So it goes to Settings, where the same card offers the real thing, and the label
+                // says that rather than promising a screen it doesn't open.
+                actionTitle: "Manage in Settings",
+                onManage: { showingSettings = true },
+                onDismiss: { redundantNoticeDismissed = true }
+            )
         }
     }
 
@@ -335,6 +369,23 @@ struct HomeView: View {
         async let everything: Void = appModel.refreshAll()
         async let weather: Void = refreshWeatherIfNeeded(force: true)
         _ = await (everything, weather)
+        await refreshRedundantSubscriptionIfNeeded()
+    }
+
+    /// Gated hard, and deliberately not called on every foreground.
+    ///
+    /// Two partners both holding their own subscription is a rare state, and the only people it
+    /// can apply to are paired subscribers — so everyone else pays nothing for this. `onAppear`
+    /// fires once per mount (Home mounts once), and pull-to-refresh covers the case where the
+    /// answer changes while the app is open. That leaves it well clear of the foreground path,
+    /// which this file's `onChange(of: scenePhase)` comment explains at length was already the
+    /// source of a real main-thread hang from concurrent Supabase auth calls.
+    private func refreshRedundantSubscriptionIfNeeded() async {
+        guard appModel.partnerConnected, appModel.isSubscriptionActive else {
+            redundantSubscription = nil
+            return
+        }
+        redundantSubscription = try? await BackendService.redundantSubscription()
     }
     
     enum ChecklistIcon {

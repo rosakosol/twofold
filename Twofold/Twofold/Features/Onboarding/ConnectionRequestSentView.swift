@@ -18,18 +18,37 @@ import SwiftUI
 
 struct ConnectionRequestSentView: View {
     var inviterName: String
-    var inviterAvatarURL: URL? = nil
+    /// The photo this person picked a screen or two ago, still raw JPEG — there is no session to
+    /// have uploaded it against yet, so it lives on `OnboardingModel` until account creation.
+    var selfPhotoData: Data? = nil
     var onContinue: () -> Void
-
-    private var inviterPerson: Person {
-        Person(name: inviterName, accentColor: Person.palette[0], avatarURL: inviterAvatarURL)
-    }
 
     var body: some View {
         VStack(spacing: Theme.Spacing.xl) {
             Spacer()
 
-            AvatarView(person: inviterPerson, size: 72, showsRing: true)
+            // Their own face, not the inviter's.
+            //
+            // This screen used to show the inviter, which sounds right — they are who we are
+            // waiting on — but the invite flow reaches here having never reliably had a photo for
+            // them: `inviterAvatarURL` comes from an unauthenticated lookup that is often empty,
+            // so most people met a grey circle with someone else's initial in it.
+            //
+            // What the invitee does have is the photo they chose about a minute ago, and showing
+            // it says the true thing about this moment: this is what has been sent, and it is on
+            // its way. When they skipped that step there is no face to show at all, so the brand
+            // beats instead of a placeholder standing in for a person.
+            if let selfPhotoData, let image = UIImage(data: selfPhotoData) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 72, height: 72)
+                    .clipShape(Circle())
+                    .overlay(Circle().strokeBorder(Theme.skyBlue.opacity(0.6), lineWidth: 2))
+                    .accessibilityLabel("Your photo")
+            } else {
+                PulsingGlobeHeart(size: 72, showsGlow: false)
+            }
 
             VStack(spacing: Theme.Spacing.sm) {
                 Text("Request sent")
@@ -60,7 +79,7 @@ struct ConnectionRequestSentView: View {
     }
 }
 
-#Preview {
+#Preview("No photo picked") {
     NavigationStack {
         ConnectionRequestSentView(inviterName: "Alex", onContinue: {})
     }

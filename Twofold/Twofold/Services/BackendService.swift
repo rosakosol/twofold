@@ -230,6 +230,12 @@ enum BackendService {
         supabase.auth.currentSession?.user.id
     }
 
+    /// The signed-in account's email, for identifying this user in third-party dashboards that
+    /// otherwise only see the opaque Supabase UUID. Not used for anything the app itself decides.
+    static var currentUserEmail: String? {
+        supabase.auth.currentSession?.user.email
+    }
+
     /// Forwarded as the `Authorization` header when calling Edge Functions that need to know
     /// who's calling (e.g. `resolve-flight`/`add-flight`/`refresh-flight` — see
     /// `AeroFlightService`) so the function can build a request-scoped, RLS-respecting client.
@@ -655,68 +661,19 @@ enum BackendService {
             .execute()
     }
 
-    private struct SubscriptionStatusUpdate: Encodable {
-        var subscriptionActive: Bool
-        var subscriptionCheckedAt: Date
-        var subscriptionTier: String?
-        enum CodingKeys: String, CodingKey {
-            case subscriptionActive = "subscription_active"
-            case subscriptionCheckedAt = "subscription_checked_at"
-            case subscriptionTier = "subscription_tier"
-        }
-    }
+    // `subscription_active` / `subscription_tier` / `subscription_checked_at` are not written from
+    // here any more, and cannot be: migration 20260915000000 rejects a write to those three columns
+    // from `anon`/`authenticated`, so the PATCH this used to send now returns 403. The writer is
+    // `supabase/functions/revenuecat-webhook`, running as service_role — see its header for why the
+    // device's own word could not stay the source of truth (anyone with curl and the anon key that
+    // ships in the app could grant themselves, and their partner, Premium).
+    //
+    // What went with it: a `SubscriptionStatusUpdate` payload that deliberately omitted a nil tier
+    // so a routine re-check wouldn't blank the column, and an `isTrustworthyEntitlementSource`
+    // guard that stopped a Debug build's local StoreKit — which always reports "not subscribed",
+    // and which talks to production — from writing `active: false` onto a real subscriber's row.
+    // Both were answers to problems only the client-side write had.
 
-    /// Writes only the caller's own profile row with their own device's last-known local
-    /// StoreKit entitlement — never the partner's, so there's no clobbering risk between two
-    /// independently-checking devices (see `fetchSubscriptionActive`, which ORs the two).
-    /// `tier` is `nil` for a routine re-check (only reconfirming `active`, not a purchase) —
-    /// `SubscriptionStatusUpdate.subscriptionTier` being `nil` means `encodeIfPresent` omits the
-    /// key entirely, so the column is left untouched rather than being overwritten with null.
-    ///
-    /// A Debug build never persists `active: false` — see `isTrustworthyEntitlementSource`.
-    static func updateSubscriptionStatus(active: Bool, tier: String? = nil) async throws {
-        guard let userID = currentUserID else { throw BackendError.notAuthenticated }
-        guard active || isTrustworthyEntitlementSource else {
-            print("[subscription] skipped persisting active=false — a Debug build's StoreKit environment can't prove a lapse")
-            return
-        }
-        try await supabase
-            .from("profiles")
-            .update(SubscriptionStatusUpdate(subscriptionActive: active, subscriptionCheckedAt: .now, subscriptionTier: tier))
-            .eq("id", value: userID)
-            .execute()
-    }
-
-    /// Whether this build's StoreKit environment can be believed when it says "not subscribed".
-    ///
-    /// A Debug build runs under the scheme's `Twofold.storekit` configuration, which is a purely
-    /// local StoreKit: transactions are signed by Xcode's own test certificate, Apple never sees
-    /// them, and RevenueCat — which validates server-side against Apple — therefore reports no
-    /// entitlement no matter what the person is actually subscribed to. That read is not evidence
-    /// of a lapse; it's evidence of the environment.
-    ///
-    /// It would be harmless, except `SUPABASE_ENV=local` is disabled in the scheme, so a local run
-    /// talks to *production*. Signing in as a real account on a Debug build therefore wrote
-    /// `subscription_active = false` onto that real profile row — and since
-    /// `fetchCoupleSubscriptionTier` ORs both partners, it could take the partner down with it.
-    /// Observed: a subscription flag set by hand was overwritten within seconds of launching.
-    ///
-    /// Debug rather than simulator-only, deliberately: the StoreKit configuration is attached to
-    /// the scheme's *Run* action, so a debug build on a physical device has exactly the same
-    /// problem. Release builds — TestFlight and the App Store — run against the real sandbox and
-    /// production StoreKit, where a negative read means what it says.
-    ///
-    /// Only *negative* writes are suppressed. A positive one is always safe to believe, and local
-    /// UI still reflects the local read; it's the persisted couple-wide state that's protected.
-    /// The cost is that a genuine lapse can't be recorded from a Debug build, which is the right
-    /// trade: that build can't observe a genuine lapse in the first place.
-    private static var isTrustworthyEntitlementSource: Bool {
-        #if DEBUG
-        false
-        #else
-        true
-        #endif
-    }
 
     private struct SubscriptionActiveRow: Decodable {
         var subscriptionActive: Bool
@@ -802,9 +759,9 @@ enum BackendService {
             .execute()
             .value
 
-        // Only a still-active row's tier counts — a lapsed partner's `subscription_tier` column
-        // is left stale (never nulled out, see `updateSubscriptionStatus`'s doc comment), so an
-        // inactive row's tier must never block a fresh purchase.
+        // Only a still-active row's tier counts — a lapsed partner's `subscription_tier` column is
+        // left stale rather than nulled out (the webhook writes `active: false` and leaves the tier
+        // alone), so an inactive row's tier must never block a fresh purchase.
         let activeTiers = rows.compactMap { $0.subscriptionActive ? $0.subscriptionTier : nil }
         return activeTiers.contains("premium") ? "premium" : activeTiers.first
     }
@@ -950,6 +907,9 @@ enum BackendService {
         /// falls back to the solo-profile path, making a fully paired couple look disconnected.
         var startedDatingOnRaw: String?
         var maxDistanceKm: Double?
+        /// When this archive is permanently deleted — 90 days after it ended. Null while the
+        /// couple is active.
+        var scheduledPurgeAt: Date?
 
         enum CodingKeys: String, CodingKey {
             case id, status
@@ -959,6 +919,7 @@ enum BackendService {
             case startedDatingOnRaw = "started_dating_on"
             case createdAt = "created_at"
             case maxDistanceKm = "max_distance_km"
+            case scheduledPurgeAt = "scheduled_purge_at"
         }
 
         var startedDatingOn: Date? {
@@ -1023,28 +984,56 @@ enum BackendService {
         var id: UUID?
         var inviterId: UUID?
         var errorMessage: String?
+        /// True when a tapped link connected the two of them there and then, rather than leaving
+        /// a request for the inviter to accept. Defaulted so an older server that does not send
+        /// it reads as the safer answer — a request that still needs accepting.
+        var autoAccepted: Bool? = nil
 
         enum CodingKeys: String, CodingKey {
             case id
             case inviterId = "inviter_id"
             case errorMessage = "error_message"
+            case autoAccepted = "auto_accepted"
         }
+    }
+
+    /// How the invitee came by the code, and what happened as a result.
+    enum InviteOrigin: String {
+        /// They typed it, so it could have been seen by anyone — the inviter approves.
+        case code
+        /// They tapped a link the inviter sent them, which connects immediately. See migration
+        /// 20261008000000, including what that trades away.
+        case link
+    }
+
+    struct RedeemOutcome {
+        var requestID: UUID
+        /// Connected already. The "request sent, we'll let you know" screens do not apply.
+        var connected: Bool
     }
 
     /// Redeeming a code no longer immediately creates a couple — it creates a pending
     /// connection request only the inviter can accept (`respondToConnectionRequest`), so a
     /// brute-forced or mistyped-by-someone-else code can't silently pair an attacker as the
-    /// partner. Returns the request's id. Notifies the inviter directly (baked in here, not left
-    /// to each of the several call sites, so it can't be forgotten from one of them) — there's
-    /// no couple yet to resolve a recipient through, unlike `notifyPartner`.
+    /// partner — unless `origin` is `.link`, which connects them outright (see migration
+    /// 20261008000000). `RedeemOutcome.connected` says which happened, and the screens that talk
+    /// about waiting are wrong when it is true.
+    ///
+    /// Notifies the inviter directly, baked in here rather than left to each of the several call
+    /// sites so it cannot be forgotten from one of them — there's no couple yet to resolve a
+    /// recipient through, unlike `notifyPartner`.
     @discardableResult
-    static func redeemInviteCode(_ code: String) async throws -> UUID {
+    static func redeemInviteCode(_ code: String, origin: InviteOrigin = .code) async throws -> RedeemOutcome {
         struct Params: Encodable {
             var pCode: String
-            enum CodingKeys: String, CodingKey { case pCode = "p_code" }
+            var pOrigin: String
+            enum CodingKeys: String, CodingKey {
+                case pCode = "p_code"
+                case pOrigin = "p_origin"
+            }
         }
         let row: RedeemInviteCodeResult = try await supabase
-            .rpc("redeem_invite_code", params: Params(pCode: code))
+            .rpc("redeem_invite_code", params: Params(pCode: code, pOrigin: origin.rawValue))
             .single()
             .execute()
             .value
@@ -1058,8 +1047,19 @@ enum BackendService {
             throw BackendError.requestFailed(message: nil)
         }
         Analytics.capture(Analytics.Event.inviteRedeem)
-        Task { await notifyConnectionRequest(eventType: "connection_requested", targetProfileId: inviterID) }
-        return requestID
+
+        // Which of the two things actually happened decides what the inviter is told. Sending
+        // "someone wants to connect" to a person who is already connected would ask them to do
+        // something that is no longer possible — and being told at all is one of the two backstops
+        // the auto-accept path deliberately keeps.
+        let connected = row.autoAccepted ?? false
+        Task {
+            await notifyConnectionRequest(
+                eventType: connected ? "connection_accepted" : "connection_requested",
+                targetProfileId: inviterID
+            )
+        }
+        return RedeemOutcome(requestID: requestID, connected: connected)
     }
 
     struct OutgoingConnectionRequest: Decodable {
@@ -1102,6 +1102,259 @@ enum BackendService {
         return row
     }
 
+    /// A couple's shared monthly flight allowance and how much of it is spent.
+    struct FlightAllowance: Decodable {
+        var tier: String?
+        var limit: Int
+        var used: Int
+
+        /// Never negative to show: two simultaneous adds can both pass the server's check, so
+        /// `used` can legitimately come back above `limit` (see add-flight/index.ts).
+        var remaining: Int { max(0, limit - used) }
+    }
+
+    /// Read straight from the database rather than through the edge function, so the Add Flight
+    /// screen can say how many are left before anyone starts a search that is going to be
+    /// refused. One RPC rather than a select because membership is checked inside
+    /// `flight_allowance`, and the tier it reads lives in a schema PostgREST does not serve.
+    static func flightAllowance(coupleID: UUID) async throws -> FlightAllowance {
+        struct Params: Encodable {
+            let pCoupleId: UUID
+            enum CodingKeys: String, CodingKey {
+                case pCoupleId = "p_couple_id"
+            }
+        }
+        return try await supabase
+            .rpc("flight_allowance", params: Params(pCoupleId: coupleID))
+            .execute()
+            .value
+    }
+
+    /// A couple's game sessions, for a data export.
+    ///
+    /// Its own fetch rather than `fetchGameSessions`, which is scoped to the signed-in user's
+    /// *current* couple through RLS and returns the full in-app model. An export can be of a
+    /// dissolved relationship, and needs only the handful of columns that go into games.csv.
+    ///
+    /// `rounds_completed` counts rounds whose discussion is finished; a session abandoned halfway
+    /// should read as halfway rather than as complete.
+    static func fetchExportedGameSessions(coupleID: UUID) async throws -> [ExportedGameSession] {
+        struct Row: Decodable {
+            var id: UUID
+            var gameType: String
+            var status: String
+            var totalRounds: Int?
+            var startedAt: Date?
+            var createdAt: Date?
+            var deckId: UUID?
+
+            enum CodingKeys: String, CodingKey {
+                case id, status
+                case gameType = "game_type"
+                case totalRounds = "total_rounds"
+                case startedAt = "started_at"
+                case createdAt = "created_at"
+                case deckId = "deck_id"
+            }
+        }
+
+        let rows: [Row] = try await supabase
+            .from("game_sessions")
+            .select("id,game_type,status,total_rounds,started_at,created_at,deck_id")
+            .eq("couple_id", value: coupleID)
+            .order("created_at", ascending: true)
+            .execute()
+            .value
+        guard !rows.isEmpty else { return [] }
+
+        // Deck titles in one round trip rather than per session.
+        struct DeckRow: Decodable { var id: UUID; var title: String }
+        let deckIDs = Array(Set(rows.compactMap(\.deckId)))
+        var titlesByID: [UUID: String] = [:]
+        if !deckIDs.isEmpty {
+            let decks: [DeckRow] = (try? await supabase
+                .from("game_decks")
+                .select("id,title")
+                .in("id", values: deckIDs)
+                .execute()
+                .value) ?? []
+            titlesByID = Dictionary(uniqueKeysWithValues: decks.map { ($0.id, $0.title) })
+        }
+
+        struct RoundRow: Decodable {
+            var sessionId: UUID
+            var discussionStatus: String?
+            enum CodingKeys: String, CodingKey {
+                case sessionId = "session_id"
+                case discussionStatus = "discussion_status"
+            }
+        }
+        let rounds: [RoundRow] = (try? await supabase
+            .from("game_session_rounds")
+            .select("session_id,discussion_status")
+            .in("session_id", values: rows.map(\.id))
+            .execute()
+            .value) ?? []
+        var completedBySession: [UUID: Int] = [:]
+        for round in rounds where round.discussionStatus == "completed" {
+            completedBySession[round.sessionId, default: 0] += 1
+        }
+
+        return rows.map { row in
+            ExportedGameSession(
+                id: row.id,
+                gameType: row.gameType,
+                deckTitle: row.deckId.flatMap { titlesByID[$0] },
+                startedAt: row.startedAt ?? row.createdAt,
+                status: row.status,
+                roundsCompleted: completedBySession[row.id] ?? 0,
+                roundsTotal: row.totalRounds ?? 0
+            )
+        }
+    }
+
+    /// Whether a broken streak is still inside the window where it can be bought back, and what
+    /// is at stake. See migration 20261007000000.
+    struct StreakRepairState: Decodable {
+        var repairable: Bool
+        var streakAtRisk: Int
+        var credits: Int
+        /// A bare Postgres `date` ("2026-09-09"), kept as a string for the same reason
+        /// `CoupleRow.startedDatingOnRaw` is: decoding it straight to `Date` throws under the
+        /// client's timestamp-with-time-zone strategy, and a throw here fails the whole row — so
+        /// the offer would simply never appear, with nothing on screen to explain why.
+        var missedDateRaw: String?
+
+        var missedDate: Date? {
+            missedDateRaw.flatMap { BackendService.dateOnlyFormatter.date(from: $0) }
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case repairable
+            case streakAtRisk = "streak_at_risk"
+            case credits
+            case missedDateRaw = "missed_date"
+        }
+    }
+
+    static func streakRepairState() async throws -> StreakRepairState? {
+        let rows: [StreakRepairState] = try await supabase
+            .rpc("streak_repair_state")
+            .execute()
+            .value
+        return rows.first
+    }
+
+    /// What a repair attempt did.
+    enum StreakRepairOutcome {
+        case repaired(streak: Int)
+        /// Paid for, but the purchase has not reached us yet — RevenueCat's webhook is what grants
+        /// the credit, and it is asynchronous. Worth retrying rather than reporting.
+        case noCredit
+        case refused(String)
+    }
+
+    static func repairCoupleStreak() async throws -> StreakRepairOutcome {
+        struct Row: Decodable {
+            var repaired: Bool
+            var currentStreak: Int
+            var errorMessage: String?
+
+            enum CodingKeys: String, CodingKey {
+                case repaired
+                case currentStreak = "current_streak"
+                case errorMessage = "error_message"
+            }
+        }
+        let rows: [Row] = try await supabase.rpc("repair_couple_streak").execute().value
+        guard let row = rows.first else { return .refused("Couldn't repair that. Try again.") }
+        if row.repaired { return .repaired(streak: row.currentStreak) }
+        // The one message the server sends as a token rather than as prose, because the app acts
+        // on it instead of showing it.
+        if row.errorMessage == "no_credit" { return .noCredit }
+        return .refused(row.errorMessage ?? "Couldn't repair that. Try again.")
+    }
+
+    /// A past relationship with this same person that could be brought back, if there is one.
+    ///
+    /// Nil when they have no shared past, or when its 90 days have run out — after that the data
+    /// is gone and re-pairing simply starts fresh, which needs no prompt.
+    struct RestorableArchive: Decodable {
+        var coupleID: UUID
+        var dissolvedAt: Date?
+        var scheduledPurgeAt: Date?
+        var memoryCount: Int
+        var tripCount: Int
+        var flightCount: Int
+
+        enum CodingKeys: String, CodingKey {
+            case coupleID = "couple_id"
+            case dissolvedAt = "dissolved_at"
+            case scheduledPurgeAt = "scheduled_purge_at"
+            case memoryCount = "memory_count"
+            case tripCount = "trip_count"
+            case flightCount = "flight_count"
+        }
+
+        /// Nothing worth offering to bring back. An empty archive would make the prompt a question
+        /// about nothing.
+        var isEmpty: Bool { memoryCount == 0 && tripCount == 0 && flightCount == 0 }
+
+        /// "12 memories, 3 trips and 2 flights" — only the parts that exist.
+        var summary: String {
+            var parts: [String] = []
+            if memoryCount > 0 { parts.append("\(memoryCount) \(memoryCount == 1 ? "memory" : "memories")") }
+            if tripCount > 0 { parts.append("\(tripCount) \(tripCount == 1 ? "trip" : "trips")") }
+            if flightCount > 0 { parts.append("\(flightCount) \(flightCount == 1 ? "flight" : "flights")") }
+            guard let last = parts.popLast() else { return "nothing" }
+            return parts.isEmpty ? last : parts.joined(separator: ", ") + " and " + last
+        }
+    }
+
+    static func restorableArchive(withPartner partnerID: UUID) async throws -> RestorableArchive? {
+        struct Params: Encodable {
+            var pPartnerId: UUID
+            enum CodingKeys: String, CodingKey { case pPartnerId = "p_partner_id" }
+        }
+        let rows: [RestorableArchive] = try await supabase
+            .rpc("restorable_archive_with", params: Params(pPartnerId: partnerID))
+            .execute()
+            .value
+        return rows.first
+    }
+
+    /// Whether this couple is paying twice for one subscription, and which of them bought later.
+    ///
+    /// See migration 20261001000000. `redundantProfileID` is nil when the two purchase dates can't
+    /// be compared — one is missing, or they are identical — which is a real answer, not a
+    /// failure: the couple is still doubled up, and the app says so without naming anyone.
+    struct RedundantSubscription: Decodable {
+        var bothSubscribed: Bool
+        var redundantProfileID: UUID?
+        var iAmRedundant: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case bothSubscribed = "both_subscribed"
+            case redundantProfileID = "redundant_profile_id"
+            case iAmRedundant = "i_am_redundant"
+        }
+
+        /// The couple is doubled up, and it is the partner rather than the caller who bought
+        /// later. Distinct from `iAmRedundant` being false, which is also true when nobody could
+        /// be identified.
+        var partnerIsRedundant: Bool { bothSubscribed && redundantProfileID != nil && !iAmRedundant }
+    }
+
+    /// Answers for the caller's own couple. Returns a single row, always — "no overlap" is a row,
+    /// so it can be told apart from a failed lookup.
+    static func redundantSubscription() async throws -> RedundantSubscription? {
+        let rows: [RedundantSubscription] = try await supabase
+            .rpc("redundant_subscription")
+            .execute()
+            .value
+        return rows.first
+    }
+
     struct PendingConnectionRequest: Identifiable, Decodable {
         var id: UUID
         var requesterId: UUID
@@ -1141,18 +1394,26 @@ enum BackendService {
     /// requester directly on accept (baked in here for the same reason `redeemInviteCode` bakes
     /// in its own notify call) — `row.partnerBId` is the requester, per the insert order
     /// `respond_to_connection_request` itself uses.
+    /// `restoreArchive` brings a previous relationship with this same person back rather than
+    /// starting a new one — every memory, photo, trip and flight as it was. Only possible at this
+    /// moment: restoring reuses the old couple's id, which is what keeps the storage paths and
+    /// foreign keys valid, and once a new couple row exists there is nothing to reuse. See
+    /// migration 20261004000000.
     @discardableResult
-    static func respondToConnectionRequest(id: UUID, accept: Bool) async throws -> UUID? {
+    static func respondToConnectionRequest(id: UUID, accept: Bool, restoreArchive: Bool = false) async throws -> UUID? {
         struct Params: Encodable {
             var pRequestId: UUID
             var pAccept: Bool
+            var pRestoreArchive: Bool
             enum CodingKeys: String, CodingKey {
                 case pRequestId = "p_request_id"
                 case pAccept = "p_accept"
+                case pRestoreArchive = "p_restore_archive"
             }
         }
         let row: CoupleRow? = try await supabase
-            .rpc("respond_to_connection_request", params: Params(pRequestId: id, pAccept: accept))
+            .rpc("respond_to_connection_request",
+                 params: Params(pRequestId: id, pAccept: accept, pRestoreArchive: restoreArchive))
             .execute()
             .value
         if let row {
@@ -1221,18 +1482,40 @@ enum BackendService {
         return row.id
     }
 
-    /// Permanently deletes a *dissolved* couple's data — trips, memories, flights (and their
-    /// events/prefs/documents), game sessions, and the associated storage objects (memory
-    /// photos, flight documents, drawing pads). The RPC itself refuses to run on an active
-    /// couple, so this can never be triggered on live, in-use data.
-    static func deleteDissolvedCoupleData(coupleID: UUID) async throws {
+    private struct CoupleIDParams: Encodable {
+        var pCoupleId: UUID
+        enum CodingKeys: String, CodingKey { case pCoupleId = "p_couple_id" }
+    }
+
+    /// Hides an archive from this person's own list, or brings it back. Destroys nothing and
+    /// needs nobody else's agreement — it is entirely about one person's own view.
+    static func setCoupleArchiveHidden(coupleID: UUID, hidden: Bool) async throws {
         struct Params: Encodable {
             var pCoupleId: UUID
-            enum CodingKeys: String, CodingKey { case pCoupleId = "p_couple_id" }
+            var pHidden: Bool
+            enum CodingKeys: String, CodingKey {
+                case pCoupleId = "p_couple_id"
+                case pHidden = "p_hidden"
+            }
         }
         try await supabase
-            .rpc("delete_dissolved_couple_data", params: Params(pCoupleId: coupleID))
+            .rpc("set_couple_archive_hidden", params: Params(pCoupleId: coupleID, pHidden: hidden))
             .execute()
+    }
+
+    /// Whether this person has taken an archive off their own list. Nothing else: a shared
+    /// archive is deleted when its 90 days are up, and there is no request, no agreement and no
+    /// early route for either partner to influence.
+    struct CoupleArchiveState: Decodable {
+        var hidden: Bool
+    }
+
+    static func coupleArchiveState(coupleID: UUID) async throws -> CoupleArchiveState? {
+        let rows: [CoupleArchiveState] = try await supabase
+            .rpc("couple_archive_state", params: CoupleIDParams(pCoupleId: coupleID))
+            .execute()
+            .value
+        return rows.first
     }
 
     /// Every couple the signed-in user has since dissolved, newest first — the source list for
@@ -1252,6 +1535,22 @@ enum BackendService {
             .value
         guard !coupleRows.isEmpty else { return [] }
 
+        // Which of these this user has hidden from their own list. Fetched rather than filtered
+        // server-side so the screen can still offer them back — a hide nothing can undo would be
+        // a delete by another name.
+        struct HiddenRow: Decodable {
+            var coupleId: UUID
+            enum CodingKeys: String, CodingKey { case coupleId = "couple_id" }
+        }
+        let hiddenRows: [HiddenRow] = (try? await supabase
+            .from("couple_archive_preferences")
+            .select("couple_id")
+            .eq("profile_id", value: userID)
+            .not("hidden_at", operator: .is, value: "null")
+            .execute()
+            .value) ?? []
+        let hiddenIDs = Set(hiddenRows.map(\.coupleId))
+
         let partnerIDs = coupleRows.map { $0.partnerAId == userID ? $0.partnerBId : $0.partnerAId }
         let profileRows: [ProfileRow] = try await supabase
             .from("profiles")
@@ -1267,7 +1566,9 @@ enum BackendService {
                 id: row.id,
                 partnerName: namesByID[partnerID] ?? "Partner",
                 startedDatingOn: row.startedDatingOn,
-                dissolvedAt: row.dissolvedAt
+                dissolvedAt: row.dissolvedAt,
+                scheduledPurgeAt: row.scheduledPurgeAt,
+                isHidden: hiddenIDs.contains(row.id)
             )
         }
     }
@@ -1471,9 +1772,9 @@ enum BackendService {
             )
         }
 
-        // Only a still-active profile's tier counts — `subscription_tier` is left stale (never
-        // nulled out) once a subscription lapses, see `updateSubscriptionStatus`'s doc comment,
-        // so an inactive row's leftover tier must never be reported as the couple's active plan.
+        // Only a still-active profile's tier counts — `subscription_tier` is left stale rather than
+        // nulled out once a subscription lapses, so an inactive row's leftover tier must never be
+        // reported as the couple's active plan.
         let activeTiers = [meProfile, partnerProfile].compactMap { $0.subscriptionActive ? $0.subscriptionTier : nil }
         let effectiveTier: String? = activeTiers.contains("premium") ? "premium" : activeTiers.first
 
@@ -2267,9 +2568,10 @@ enum BackendService {
     /// `container.encode` rather than `encodeIfPresent` is the whole difference: `Optional`
     /// conforms to `Encodable` and writes a null.
     ///
-    /// (`SubscriptionStatusUpdate` relies on the opposite behaviour on purpose — see its own note.
-    /// The distinction is whether `nil` means "clear this" or "leave this alone", and it has to be
-    /// decided per payload rather than inherited from the synthesis.)
+    /// (The distinction is whether `nil` means "clear this" or "leave this alone", and it has to be
+    /// decided per payload rather than inherited from the synthesis. `SubscriptionStatusUpdate`
+    /// used to be the counter-example here, deliberately omitting a nil tier; it is gone with the
+    /// client-side subscription write.)
     private struct TripIDUpdate: Encodable {
         var tripId: UUID?
         enum CodingKeys: String, CodingKey { case tripId = "trip_id" }
@@ -2291,9 +2593,6 @@ enum BackendService {
     static func tripNotesUpdateForTesting(notes: String?) -> some Encodable { TripNotesUpdate(notes: notes) }
     static func memoryUpdateForTesting(placeID: UUID?, title: String, note: String) -> some Encodable {
         MemoryUpdate(placeId: placeID, title: title, note: note, occurredAt: Date(timeIntervalSince1970: 0))
-    }
-    static func subscriptionStatusUpdateForTesting(active: Bool, tier: String?) -> some Encodable {
-        SubscriptionStatusUpdate(subscriptionActive: active, subscriptionCheckedAt: Date(timeIntervalSince1970: 0), subscriptionTier: tier)
     }
     #endif
 

@@ -684,7 +684,7 @@ struct TripsListView: View {
             Button {
                 showingPartnerGate = true
             } label: {
-                emptyHintCard(icon: "person.2.fill", title: "Invite your partner to share your first tracked flight", subtitle: "Track flights together once you're connected.")
+                emptyHintCard(icon: "person.2.fill", title: "Partner required to add your first tracked flight", subtitle: "Track flights together once you're connected.")
             }
             .buttonStyle(.plain)
             .padding(.horizontal, Theme.Spacing.md)

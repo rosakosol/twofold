@@ -6,8 +6,8 @@
 //  Pass, Flight Status), replacing the old single `ShareLink(item: shareText)` menu item in
 //  `FlightTrackingView`. `TabView(.page)` is new to this app (every other share flow — Distance,
 //  Passport, Relationship Stats — presents one card at a time with at most a flat theme picker),
-//  introduced here specifically because the reference design swipes between genuinely different
-//  card layouts, not just palette variants of one layout.
+//  used here because these three pages are genuinely different card layouts rather than palette
+//  variants of one layout, which a flat theme picker can't express.
 //
 
 import PostHog

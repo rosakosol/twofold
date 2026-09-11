@@ -14,6 +14,11 @@ struct JoinInviteView: View {
         VStack(spacing: Theme.Spacing.xl) {
             Spacer()
 
+            // Above the name, because this is the first Twofold screen an invitee ever sees —
+            // they arrived from a link with no idea what this is, and a beating mark says
+            // "something alive, shared" before the words have to.
+            PulsingGlobeHeart()
+
             VStack(spacing: Theme.Spacing.md) {
                 Text("\(inviterName) invited you\nto Twofold")
                     .font(.system(.title, design: .rounded, weight: .bold))

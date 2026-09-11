@@ -96,7 +96,7 @@ struct PaywallView: View {
     /// independently subscribing to a different tier, which
     /// is the real way this app's "one subscription per couple" design breaks (confirmed: each
     /// partner's own `subscription_tier` is written to their own profile row independently, see
-    /// `BackendService.updateSubscriptionStatus`). So the CTA routes to RevenueCat's Customer
+    /// the `revenuecat-webhook`). So the CTA routes to RevenueCat's Customer
     /// Center (a real upgrade/downgrade/cancel flow) instead of ever calling `purchase` directly
     /// in this case — see `performPurchase()`'s matching guard.
     private var isSubscribedToADifferentTier: Bool {
@@ -437,13 +437,14 @@ struct PaywallView: View {
         }
     }
 
-    /// Mirrors the pre-RevenueCat purchase/restore success path: push this device's freshest
-    /// entitlement state to the caller's own Supabase profile row, then update `AppModel`
-    /// locally (no network round-trip) — see `AppModel.markSubscriptionActive`'s doc comment for
-    /// why that local flag, not the Supabase write, is what `RootView`'s gate actually reads.
+    /// Lets this device straight in on a successful purchase or restore.
+    ///
+    /// Local only. It used to write the entitlement to the profile row first; `revenuecat-webhook`
+    /// owns those columns now and refuses the client. `markSubscriptionActive` is what `RootView`'s
+    /// gate actually reads anyway (see its doc comment), so a buyer is through the paywall the
+    /// moment the purchase completes rather than waiting on a webhook round trip.
     private func handleEntitlementChange(_ customerInfo: CustomerInfo, event: String, dismissOnCompletion: Bool = true) async {
         guard let tier = SubscriptionTier.active(in: customerInfo) else { return }
-        try? await BackendService.updateSubscriptionStatus(active: true, tier: tier.dbValue)
         appModel.markSubscriptionActive(tier: tier.dbValue)
         Analytics.capture(event, properties: ["tier": tier.dbValue])
         onSubscribed()

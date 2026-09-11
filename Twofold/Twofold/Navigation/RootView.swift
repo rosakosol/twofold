@@ -4,7 +4,6 @@
 //
 
 import PostHog
-import RevenueCat
 import SwiftUI
 
 struct RootView: View {
@@ -19,6 +18,15 @@ struct RootView: View {
     @State private var pendingInviteCode: String?
     @State private var showingPartnerConnectedCelebration = false
     @State private var showingPaywallFromWidget = false
+    /// A broken streak this person has already been offered a repair for, as the missed date.
+    ///
+    /// Keyed on the date rather than a bare flag so a *later* break offers again — the point is one
+    /// showing per break, not one showing ever. Stored per device, which is per person in every
+    /// case that matters: both partners get their own single showing, since it is their streak too
+    /// and neither should hear about it only from the other. Someone with two devices sees it once
+    /// on each, which is the cost of not putting a row in the database for a popup.
+    @AppStorage("streakRepairOfferedForMissedDate") private var streakRepairOfferedFor = ""
+    @State private var showingStreakRepair = false
     @State private var gameDeepLink: SessionRoute?
     /// Which MainTabView tab is showing — lives here rather than inside MainTabView so a widget
     /// deep link (twofold://home, twofold://memories, twofold://passport) can switch it.
@@ -56,8 +64,42 @@ struct RootView: View {
                 // this — the forced paywall below would otherwise be a dead end for no reason.
                 // Home shows a persistent "invite pending" card (with a reminder nudge) in place
                 // of the old full-screen `PendingConnectionApprovalView` gate this used to be.
-                if appModel.isSubscriptionActive || appModel.pendingOutgoingConnectionRequest != nil {
+                // `subscriptionStore.isSubscribed` is in this condition because the profile row is
+                // a cache, not the truth. It is written by `revenuecat-webhook`, and between a
+                // purchase completing and that webhook landing — or while it is misconfigured, or
+                // if RevenueCat never retried after a failure — the row says `false` for someone who
+                // has genuinely paid.
+                //
+                // That gap was a dead end, not just a delay: the forced paywall below has nothing to
+                // sell someone who already holds an entitlement, so it renders "Current Plan"
+                // greyed out for their own tier and "Manage Subscription" for the other one, with no
+                // way into the app at all. Reported by a real subscriber who could not get past it.
+                //
+                // Not a bypass. `customerInfo.entitlements.active` is RevenueCat's own answer,
+                // receipt-validated against Apple server-side — the same source the webhook reads,
+                // just not yet persisted. What it deliberately does not do is write that to the
+                // profile row: that write is what let a client grant itself, and its partner,
+                // Premium, and it stays the webhook's alone.
+                if Self.hasAccess(
+                    backendSaysActive: appModel.isSubscriptionActive,
+                    deviceHoldsEntitlement: subscriptionStore.isSubscribed,
+                    awaitingPartnerDecision: appModel.pendingOutgoingConnectionRequest != nil
+                ) {
                     MainTabView(selection: $selectedTab, statsSection: $pendingStatsSection)
+                } else if !appModel.hasResolvedOutgoingConnectionRequest {
+                    // Holds the loading screen rather than showing a paywall we might be about to
+                    // retract. Whether this person is exempt depends on a request lookup that is
+                    // still in flight — `restoreSession` flips `hasCouple` true and the body
+                    // re-evaluates on the next await, several awaits before that lookup lands.
+                    //
+                    // The person this protects is the one who redeemed an invite and is waiting on
+                    // the inviter: they are never meant to be asked to pay, and a paywall that
+                    // appears and then vanishes is worse than a beat of loading — it is what makes
+                    // someone reach for their card.
+                    ZStack {
+                        Theme.backgroundGradient.ignoresSafeArea()
+                        BrandLoadingView()
+                    }
                 } else if let lapsedPartnerName = appModel.partnerSubscriptionLapsedPartnerName {
                     // The payer disconnected and this profile wasn't the one backing the
                     // couple's access — see `leave_couple`'s partner_subscription_lapse_*
@@ -80,12 +122,15 @@ struct RootView: View {
         .task {
             KeyboardDismissal.installOnce()
             await appModel.restoreSession()
+            // Before `checkSubscription`, not after: this is what decides whether the person is
+            // exempt from the paywall at all, so resolving it first keeps the loading state above
+            // to a single round trip instead of two.
+            await refreshPendingOutgoingConnectionRequestIfNeeded()
             await checkSubscription()
             // Deliberately after both of the above: a notification tap that cold-launched the app
             // arrives long before either has finished, and `consumePendingRoute()` refuses to open
             // anything until they have.
             consumePendingRoute()
-            await refreshPendingOutgoingConnectionRequestIfNeeded()
             refreshCurrentCityIfNeeded()
         }
         // Entitlement changes as RevenueCat learns of them, rather than only at the next
@@ -95,16 +140,15 @@ struct RootView: View {
         .task {
             for await tier in subscriptionStore.entitlementUpdates() {
                 guard appModel.hasCouple else { continue }
-                // Same guard as `checkSubscription`: never write a negative read back while
-                // RevenueCat is still anonymous, since that reads "not subscribed" for everyone.
-                if tier != nil || !Purchases.shared.isAnonymous {
-                    try? await BackendService.updateSubscriptionStatus(active: tier != nil, tier: tier?.dbValue)
-                }
+                // Read-only. This used to push the new entitlement to the profile row first; the
+                // webhook does that now, and the client is refused if it tries (see
+                // `BackendService`'s note where that write used to live). RevenueCat delivers the
+                // same change to both, so the row is either already updated or about to be.
                 if let coupleTier = try? await BackendService.fetchCoupleSubscriptionTier() {
                     appModel.subscriptionTier = coupleTier
                 }
                 if let active = try? await BackendService.fetchSubscriptionActive() {
-                    appModel.isSubscriptionActive = active
+                    appModel.isSubscriptionActive = active || tier != nil
                 }
                 await WidgetSnapshotWriter.refresh(appModel: appModel)
             }
@@ -259,6 +303,10 @@ struct RootView: View {
             NavigationStack { PaywallView() }
                 .postHogScreenView("Paywall: Widget")
         }
+        // Watched rather than checked once on appear: the state arrives from a round trip that
+        // lands well after this view first draws, and on a foreground it can change again.
+        .onChange(of: appModel.streakRepair?.missedDateRaw) { _, _ in offerStreakRepairIfDue() }
+        .sheet(isPresented: $showingStreakRepair) { streakRepairSheet }
         .fullScreenCover(item: $recordDeepLink) { destination in
             NavigationStack { recordDeepLinkDestination(destination) }
         }
@@ -347,12 +395,50 @@ struct RootView: View {
     /// still must not become a way into premium gameplay — but not-ready now means *leave it
     /// pending* rather than discard. Whichever of the two triggers fires next tries again, and the
     /// route is only cleared once something has actually opened.
+    /// Whether to show the app rather than the forced paywall.
+    ///
+    /// Kept as a named decision rather than an inline condition because the middle term is the one
+    /// that is easy to drop and expensive to lose — see the comment at the call site. A forced
+    /// paywall shown to someone who already holds an entitlement is a dead end, not a prompt: it has
+    /// nothing to sell them, so it disables its own CTA and traps them.
+    static func hasAccess(backendSaysActive: Bool, deviceHoldsEntitlement: Bool, awaitingPartnerDecision: Bool) -> Bool {
+        backendSaysActive || deviceHoldsEntitlement || awaitingPartnerDecision
+    }
+
     /// Everything that has to be true before a route can be opened. `isSubscriptionActive` is
     /// part of it deliberately: this presents over the whole app, including the non-dismissable
     /// lapsed-subscription paywall, so an old notification left sitting in Notification Center
     /// from before a lapse must not become a way back into premium gameplay.
     private var isReadyForNotificationRoute: Bool {
         !appModel.isLoadingSession && appModel.hasCouple && appModel.isSubscriptionActive
+    }
+
+    /// Shows the repair offer once for this break, then never again for it.
+    ///
+    /// The record is written when it is *shown*, not when it is acted on. Someone who closed the
+    /// popup has answered it, and reopening the app should not ask a second time — which is the
+    /// whole difference between an offer and a nag.
+    private func offerStreakRepairIfDue() {
+        guard let repair = appModel.streakRepair,
+              repair.repairable,
+              repair.streakAtRisk > 0,
+              // No key means no way to tell one break from another, and an offer that cannot be
+              // recorded is one that would return every launch. Better not shown at all.
+              let missedDate = repair.missedDateRaw,
+              missedDate != streakRepairOfferedFor
+        else { return }
+
+        streakRepairOfferedFor = missedDate
+        showingStreakRepair = true
+    }
+
+    /// Pulled out of `body` purely to keep it type-checkable — that expression is already at the
+    /// compiler's limit, and an inline `if let` inside the sheet tipped it over.
+    @ViewBuilder
+    private var streakRepairSheet: some View {
+        if let streak = appModel.streakRepair?.streakAtRisk {
+            StreakRepairPromptView(streak: streak)
+        }
     }
 
     private func consumePendingRoute() {
@@ -471,31 +557,27 @@ struct RootView: View {
         )
     }
 
-    /// Writes this device's own RevenueCat entitlement state, then re-reads the OR'd truth
-    /// across both partners — see `BackendService.updateSubscriptionStatus`/
-    /// `fetchSubscriptionActive`. No-ops before onboarding is done (`hasCouple == false`),
-    /// since there's nothing to gate yet.
+    /// Re-reads the OR'd entitlement truth across both partners — see
+    /// `BackendService.fetchSubscriptionActive`. No-ops before onboarding is done
+    /// (`hasCouple == false`), since there's nothing to gate yet.
+    ///
+    /// Read-only as of the RevenueCat webhook: this used to push the device's own entitlement to
+    /// the profile row first, which is what made the client the source of truth for who had paid.
     ///
     /// Also refreshes `appModel.subscriptionTier`, which is otherwise only ever set at
     /// couple-adoption time — without this, a mid-session upgrade/downgrade left every
     /// `isPremiumLocked`/`isDeckLocked` check reading a stale tier until the next full relaunch.
     private func checkSubscription() async {
         guard appModel.hasCouple else { return }
+        // Still refreshed, because `subscriptionStore.subscribedTier` drives the Settings and
+        // Customer Center screens — but nothing is written back from it any more.
         await subscriptionStore.refreshEntitlementsOnly()
-        // Only sync a *negative* read back to the backend once RevenueCat is confirmed identified
-        // to this real user (`Purchases.shared.logIn`, called from `identifyWithRevenueCat`,
-        // succeeded at some point this session) — a still-anonymous RevenueCat ID always reads
-        // "not subscribed" regardless of the real subscriber's entitlement (e.g. `logIn` silently
-        // failed, or hasn't resolved yet right after a fresh sign-in), and trusting that blindly
-        // would overwrite a genuinely-active `subscription_active` with `false`, locking a real
-        // subscriber out at the paywall with nothing to self-correct it (there's no server-side
-        // RevenueCat webhook — this client-side write is the only path that ever sets `false`). A
-        // positive read is always safe to write regardless.
-        if subscriptionStore.isSubscribed || !Purchases.shared.isAnonymous {
-            try? await BackendService.updateSubscriptionStatus(active: subscriptionStore.isSubscribed, tier: subscriptionStore.subscribedTier?.dbValue)
-        }
         if let active = try? await BackendService.fetchSubscriptionActive() {
-            appModel.isSubscriptionActive = active
+            // OR'd with this device's own entitlement for the same reason the gate above is: a
+            // backend `false` for someone RevenueCat says is subscribed means the webhook has not
+            // caught up, not that they stopped paying. Without this the next foreground undoes the
+            // access the gate just granted.
+            appModel.isSubscriptionActive = active || subscriptionStore.isSubscribed
             OfflineSessionCache.record(
                 active: active,
                 tier: appModel.subscriptionTier,
@@ -517,8 +599,12 @@ struct RootView: View {
             appModel.isSubscriptionActive = true
             appModel.subscriptionTier = cached.tier
         }
+        // Falls back to this device's own entitlement when the couple row has no tier yet, so a
+        // Premium subscriber isn't shown every premium deck locked while the webhook catches up.
+        // Optimistic only — `start_deck_session` enforces the tier server-side from the same
+        // profile columns, so a client that is ahead of the row cannot actually open anything.
         if let tier = try? await BackendService.fetchCoupleSubscriptionTier() {
-            appModel.subscriptionTier = tier
+            appModel.subscriptionTier = tier ?? subscriptionStore.subscribedTier?.dbValue
         }
         // Owns its own widget refresh (same convention every other state-mutating `AppModel`
         // method uses — see `performAdopt`, `refreshFlights`, `addMemory`) rather than relying on
