@@ -163,7 +163,7 @@ enum GameContentStore {
         // id on the device, which is also why they play offline without this store having anything
         // to do with them. Their words travel with the app instead: `WordGuessWords` reads a
         // bundled dictionary, `WordSearchTheme` holds its pools in source.
-        case .sudoku, .wordGuess, .wordSearch:
+        case .sudoku, .wordGuess, .wordSearch, .connectFour:
             return nil
         case .triviaBattle:
             guard let question = row.question, let options = row.options,

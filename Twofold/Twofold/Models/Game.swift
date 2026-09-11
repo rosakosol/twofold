@@ -103,6 +103,9 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
     /// property but the name is somebody's trademark.
     case wordGuess = "word_guess"
     case wordSearch = "word_search"
+    /// The first game here whose state is a board rather than a puzzle — see `game_moves`. Also
+    /// the only one that cannot be played alone.
+    case connectFour = "connect_four"
 
     var id: String { rawValue }
 
@@ -115,6 +118,7 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
         case .sudoku: "Sudoku"
         case .wordGuess: "Word Guess"
         case .wordSearch: "Word Search"
+        case .connectFour: "Connect 4"
         }
     }
 
@@ -129,6 +133,7 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
         case .sudoku: "SUDOKU"
         case .wordGuess: "WORD GUESS"
         case .wordSearch: "WORD SEARCH"
+        case .connectFour: "CONNECT 4"
         }
     }
 
@@ -141,6 +146,7 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
         case .sudoku: "The same grid, on both your phones."
         case .wordGuess: "One word, six guesses, both of you."
         case .wordSearch: "Same grid, same words. Fastest finder wins."
+        case .connectFour: "One board, taking turns. Four in a row wins."
         }
     }
 
@@ -150,7 +156,11 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
     /// needed to record it (This or That), or free text (Deep Conversations) — all can be
     /// started and answered solo, with results/comparison unlocking once a partner joins.
     /// `start_deck_session`/`get_daily_question_session` enforce this same rule server-side.
-    var requiresPartner: Bool { self == .moreLikely }
+    ///
+    /// Connect 4 joins it for a different reason: More Likely's answer is which partner, so the
+    /// question has no meaning alone; Connect 4 simply has no opponent. `start_connect_four_session`
+    /// enforces this one server-side, which the client check only mirrors.
+    var requiresPartner: Bool { self == .moreLikely || self == .connectFour }
 
     var durationMinutes: Int {
         switch self {
@@ -166,6 +176,9 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
         case .wordGuess: 5
         // Eight words in a hundred letters. Quicker than a sudoku, slower than a word.
         case .wordSearch: 8
+        // A guess at best: a game played a disc at a time across a day is not 10 minutes of
+        // anybody's attention, and there is no honest single number for that.
+        case .connectFour: 10
         }
     }
 
@@ -180,6 +193,7 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
         case .sudoku: "square.grid.3x3.fill"
         case .wordGuess: "textformat.abc"
         case .wordSearch: "square.grid.4x3.fill"
+        case .connectFour: "circle.grid.3x3.fill"
         }
     }
 
@@ -192,6 +206,7 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
         case .sudoku: [.indigo, Theme.skyBlue]
         case .wordGuess: [Theme.leafGreen, .yellow]
         case .wordSearch: [.orange, Theme.heartRed]
+        case .connectFour: [Theme.heartRed, .yellow]
         }
     }
 

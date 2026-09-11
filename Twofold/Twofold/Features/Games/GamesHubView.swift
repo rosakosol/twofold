@@ -177,6 +177,17 @@ struct GamesHubView: View {
                                 GameCard(gameType: gameType, width: 220)
                             }
                             .buttonStyle(.plain)
+                        } else if gameType == .connectFour, appModel.partnerConnected {
+                            // No decks and no difficulty — one board per couple, so its card opens
+                            // a screen whose only job is to start or resume it. Unpaired, it falls
+                            // through to the partner gate below: `requiresPartner` is true for this
+                            // game, and `start_connect_four_session` refuses it server-side too.
+                            NavigationLink {
+                                ConnectFourEntryView()
+                            } label: {
+                                GameCard(gameType: gameType, width: 220)
+                            }
+                            .buttonStyle(.plain)
                         } else if gameType == .wordSearch {
                             // Themes rather than decks, for the same reason: generated content.
                             NavigationLink {

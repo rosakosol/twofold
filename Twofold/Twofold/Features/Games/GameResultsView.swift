@@ -228,7 +228,7 @@ struct GameResultsView: View {
         // own screen rather than a case here. Nothing routes either into this view; these cases
         // exist so the switch stays exhaustive and so that if something ever does, it shows an
         // empty header rather than another game's.
-        case .sudoku, .wordGuess, .wordSearch:
+        case .sudoku, .wordGuess, .wordSearch, .connectFour:
             EmptyView()
         case .triviaBattle:
             let myScore = GameLogic.triviaScore(responses: store.responses, responderID: myID)
@@ -371,7 +371,7 @@ struct GameResultsView: View {
                 return mine?.answerValue == partner?.answerValue && mine?.answerValue.isEmpty == false
             case .triviaBattle:
                 return mine?.isCorrect == true && partner?.isCorrect == true
-            case .deepConversations, .sudoku, .wordGuess, .wordSearch:
+            case .deepConversations, .sudoku, .wordGuess, .wordSearch, .connectFour:
                 return false
             }
         }()
@@ -477,7 +477,7 @@ struct GameResultsView: View {
     @ViewBuilder
     private var summarySection: some View {
         switch gameType {
-        case .triviaBattle, .sudoku, .wordGuess, .wordSearch:
+        case .triviaBattle, .sudoku, .wordGuess, .wordSearch, .connectFour:
             EmptyView()
         case .moreLikely, .thisOrThat:
             if isSolo {

@@ -34,5 +34,6 @@ func gameDestinationView(gameType: GameType, sessionID: UUID, title: String? = n
     case .sudoku: SudokuGameView(sessionID: sessionID)
     case .wordGuess: WordGuessGameView(sessionID: sessionID)
     case .wordSearch: WordSearchGameView(sessionID: sessionID)
+    case .connectFour: ConnectFourGameView(sessionID: sessionID)
     }
 }

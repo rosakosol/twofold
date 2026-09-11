@@ -24,6 +24,14 @@ enum BackendError: LocalizedError {
     /// failure — the expected end of the free allowance, which the screen answers with an upgrade
     /// rather than an error.
     case wordGuessDailyLimit
+    /// Connect 4 is the one game here that cannot be played alone — a board with one player is not
+    /// a game, so the screen says so rather than starting one nobody can answer.
+    case connectFourNeedsPartner
+    /// Ordinary outcomes of a shared board rather than failures: somebody moved first, the column
+    /// filled up, or the game ended while this screen was open.
+    case notYourTurn
+    case columnFull
+    case gameAlreadyFinished
 
     var errorDescription: String? {
         switch self {
@@ -34,6 +42,10 @@ enum BackendError: LocalizedError {
         case .requestFailed(let message): message ?? "Something went wrong. Please try again."
         case .accountDeleted: "This account has been deleted and can't be used to sign in. Create a new account to keep using Twofold."
         case .wordGuessDailyLimit: "You've played today's word. A new one arrives tomorrow."
+        case .connectFourNeedsPartner: "Connect 4 needs both of you. Invite your partner to play."
+        case .notYourTurn: "It's not your turn yet."
+        case .columnFull: "That column is full."
+        case .gameAlreadyFinished: "This game has finished."
         }
     }
 }
@@ -3341,6 +3353,142 @@ enum BackendService {
         return start
     }
 
+    // MARK: - Connect 4
+
+    /// One row of `game_moves`. The board is this list replayed in order — see `ConnectFourBoard`.
+    struct GameMove: Identifiable, Hashable, Decodable {
+        let id: UUID
+        var sessionID: UUID
+        var moveNumber: Int
+        var playerID: UUID
+        var move: String
+        var createdAt: Date
+
+        enum CodingKeys: String, CodingKey {
+            case id, move
+            case sessionID = "session_id"
+            case moveNumber = "move_number"
+            case playerID = "player_id"
+            case createdAt = "created_at"
+        }
+    }
+
+    struct ConnectFourStart: Decodable {
+        let sessionID: UUID
+        let resumed: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case resumed
+            case sessionID = "session_id"
+        }
+    }
+
+    /// What a move did. The server works this out rather than being told — see
+    /// 20261013000200_play_connect_four.sql for why ending the game is its decision and not the
+    /// client's.
+    struct ConnectFourMoveResult: Decodable {
+        let moveNumber: Int
+        let finished: Bool
+        let winnerID: UUID?
+        let isDraw: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case finished
+            case moveNumber = "move_number"
+            case winnerID = "winner_id"
+            case isDraw = "is_draw"
+        }
+    }
+
+    static func startConnectFourSession() async throws -> ConnectFourStart {
+        do {
+            let rows: [ConnectFourStart] = try await supabase
+                .rpc("start_connect_four_session")
+                .execute()
+                .value
+            guard let start = rows.first else { throw BackendError.notAuthenticated }
+            Analytics.capture(Analytics.Event.sessionStart, properties: [
+                "game_type": GameType.connectFour.rawValue,
+                "resumed": start.resumed
+            ])
+            return start
+        } catch {
+            if "\(error)".contains("connect_four_needs_partner") {
+                throw BackendError.connectFourNeedsPartner
+            }
+            throw error
+        }
+    }
+
+    /// Drops a disc, and reports whether that ended the game.
+    ///
+    /// The turn rule lives in the RPC and in a unique index on `(session_id, move_number)`. Both
+    /// matter: the check produces a useful error, and the index is what makes the outcome correct
+    /// when two moves race — see the migration's header.
+    static func playConnectFourMove(sessionID: UUID, column: Int) async throws -> ConnectFourMoveResult {
+        struct Params: Encodable {
+            var pSessionId: UUID
+            var pColumn: Int
+            enum CodingKeys: String, CodingKey {
+                case pSessionId = "p_session_id"
+                case pColumn = "p_column"
+            }
+        }
+        do {
+            let rows: [ConnectFourMoveResult] = try await supabase
+                .rpc("play_connect_four_move", params: Params(pSessionId: sessionID, pColumn: column))
+                .execute()
+                .value
+            guard let result = rows.first else { throw BackendError.notAuthenticated }
+            return result
+        } catch {
+            // These three are ordinary outcomes rather than failures — the board raced, or was
+            // finished, or the column filled up — so they are named rather than shown as errors.
+            let description = "\(error)"
+            if description.contains("connect_four_not_your_turn") { throw BackendError.notYourTurn }
+            if description.contains("connect_four_column_full") { throw BackendError.columnFull }
+            if description.contains("connect_four_finished") { throw BackendError.gameAlreadyFinished }
+            throw error
+        }
+    }
+
+    static func fetchGameMoves(sessionID: UUID) async throws -> [GameMove] {
+        try await supabase
+            .from("game_moves")
+            .select()
+            .eq("session_id", value: sessionID)
+            .order("move_number")
+            .execute()
+            .value
+    }
+
+    /// Moves as they land, for a board both people are looking at.
+    ///
+    /// Its own subscription rather than an addition to `subscribeToGameSession`: that one watches
+    /// `game_responses`, which a turn-based game never writes, and every other game would pay for a
+    /// channel filter it has no use for.
+    static func subscribeToGameMoves(sessionID: UUID) -> (channel: RealtimeChannelV2, stream: AsyncStream<Void>) {
+        let channel = supabase.channel("game_moves_\(sessionID.uuidString)")
+        let moves = channel.postgresChange(InsertAction.self, table: "game_moves", filter: .eq("session_id", value: sessionID.uuidString))
+        // The session row too: it is what says the game is over, and the move that ended it was the
+        // partner's — so this device never saw the RPC's answer.
+        let sessionUpdates = channel.postgresChange(UpdateAction.self, table: "game_sessions", filter: .eq("id", value: sessionID.uuidString))
+
+        let (stream, continuation) = AsyncStream<Void>.makeStream()
+        Task {
+            try? await channel.subscribeWithError()
+            async let moveTask: Void = {
+                for await _ in moves { continuation.yield(()) }
+            }()
+            async let sessionTask: Void = {
+                for await _ in sessionUpdates { continuation.yield(()) }
+            }()
+            _ = await (moveTask, sessionTask)
+            continuation.finish()
+        }
+        return (channel, stream)
+    }
+
     /// Every finished sudoku solve visible to this account, flattened for `SudokuStats`.
     ///
     /// Three queries whatever the history's size, rather than a session detail each: the existing
@@ -3573,7 +3721,7 @@ enum BackendService {
         // Nothing to resolve. These `content_id`s are not keys into anything — they *are* the
         // puzzle, generated from those 128 bits on each device, so there is no row to go and get.
         // For Word Guess that is also what keeps the answer off the server entirely.
-        case .sudoku, .wordGuess, .wordSearch:
+        case .sudoku, .wordGuess, .wordSearch, .connectFour:
             return [:]
         case .triviaBattle:
             let rows: [TriviaQuestionRow] = try await supabase.from("trivia_questions").select().in("id", values: unique).execute().value
