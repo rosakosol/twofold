@@ -289,38 +289,52 @@ private struct PhotoPager: View {
 /// through `ShareLink`, and that button cannot be triggered programmatically — so the export
 /// finishing has to present something that contains one, rather than presenting the share sheet
 /// itself.
+///
+/// Laid out as `ReviewPromptView` is, which is this app's shape for a peek sheet: a glyph, a
+/// headline and a subheadline centred, one filled capsule action, a plain dismiss under it, and
+/// the background gradient rather than the system's default sheet ground. A fixed height rather
+/// than `.medium`, for the same reason that one does — the content is a known size, and `.medium`
+/// leaves half a screen of empty gradient under four lines of text.
 private struct ExportReadySheet: View {
     let url: URL
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        VStack(spacing: Theme.Spacing.md) {
-            Image(systemName: "checkmark.seal.fill")
-                .font(.largeTitle)
-                .foregroundStyle(Theme.leafGreen)
-            Text("Your record is ready")
-                .font(.title3.weight(.bold))
-                .foregroundStyle(Theme.ink)
-            Text(url.lastPathComponent)
-                .font(.caption)
-                .foregroundStyle(Theme.subtleInk)
-                .lineLimit(1)
-                .truncationMode(.middle)
+        VStack(spacing: Theme.Spacing.lg) {
+            Text("📖").font(.system(size: 48))
 
-            ShareLink(item: url, preview: SharePreview("Our Story", image: Image(systemName: "book.closed"))) {
-                Text("Save or share")
-                    .font(.subheadline.weight(.semibold))
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .foregroundStyle(.white)
-                    .background(Theme.primaryButtonGradient, in: Capsule())
+            VStack(spacing: Theme.Spacing.xs) {
+                Text("Your record is ready")
+                    .font(.headline)
+                Text(url.lastPathComponent)
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.subtleInk)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
             }
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, Theme.Spacing.lg)
 
-            Button("Done") { dismiss() }
-                .font(.subheadline)
-                .foregroundStyle(Theme.subtleInk)
+            VStack(spacing: Theme.Spacing.sm) {
+                ShareLink(item: url, preview: SharePreview("Our Story", image: Image(systemName: "book.closed"))) {
+                    Text("Save or Share")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                }
+                .background(Theme.primaryButtonGradient, in: Capsule())
+                .foregroundStyle(.white)
+
+                Button("Not Right Now") { dismiss() }
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.subtleInk)
+            }
+            .padding(.horizontal, Theme.Spacing.lg)
         }
-        .padding(Theme.Spacing.lg)
-        .presentationDetents([.medium])
+        .padding(.top, Theme.Spacing.xl)
+        .padding(.bottom, Theme.Spacing.lg)
+        .frame(maxWidth: .infinity)
+        .background(Theme.backgroundGradient.ignoresSafeArea())
+        .presentationDetents([.height(300)])
     }
 }

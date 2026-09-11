@@ -279,8 +279,13 @@ struct SudokuGameView: View {
 
     // MARK: - Controls
 
+    /// Same spacing and margins as the keypad below it, so the two rows line up rather than each
+    /// finding its own edges.
+    ///
+    /// Was `.lg` with fixed 64pt buttons, which fitted three. Check and Hint made five: 320pt of
+    /// buttons and 96pt of gaps is 416pt on a 393pt screen, so the row ran off both sides.
     private var controls: some View {
-        HStack(spacing: Theme.Spacing.lg) {
+        HStack(spacing: Theme.Spacing.xs) {
             controlButton("arrow.uturn.backward", label: "Undo", enabled: store.canUndo) {
                 store.undo()
             }
@@ -302,6 +307,7 @@ struct SudokuGameView: View {
                 store.useHint()
             }
         }
+        .padding(.horizontal, Theme.Spacing.md)
     }
 
     private func controlButton(
@@ -317,7 +323,10 @@ struct SudokuGameView: View {
                 Text(label).font(.caption2)
             }
             .foregroundStyle(isActive ? Theme.skyBlueText : Theme.ink)
-            .frame(width: 64, height: 52)
+            // Flexible rather than fixed: five buttons share whatever the row has, so adding a
+            // sixth later narrows them instead of overflowing.
+            .frame(maxWidth: .infinity)
+            .frame(height: 52)
             .background(
                 Theme.cardBackground,
                 in: RoundedRectangle(cornerRadius: Theme.Spacing.sm, style: .continuous)

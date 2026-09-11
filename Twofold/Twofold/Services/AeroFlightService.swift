@@ -164,10 +164,15 @@ struct AeroFlightCandidate: Identifiable, Decodable, Hashable {
 
 enum AeroFlightError: LocalizedError {
     case notAuthenticated
-    /// The couple has spent this calendar month's shared allowance. `used` can exceed `limit`:
-    /// two simultaneous adds can both pass the server's check (see add-flight/index.ts), so this
-    /// is reported rather than assumed to be equal.
-    case monthlyLimitReached(used: Int, limit: Int)
+    /// A Premium-only endpoint asked for by a couple on Plus — `flight-delay-stats`, which is the
+    /// one that refuses rather than degrading, because the work behind it is the most expensive
+    /// request the app makes.
+    ///
+    /// This case replaced `monthlyLimitReached`, which became unreachable when the flight
+    /// allowance moved onto live tracking: `add-flight` stopped refusing over the cap and now
+    /// saves the flight untracked instead, so the server has no `monthly_flight_limit_reached` to
+    /// send. Leaving the case in place would have described a refusal that can no longer happen.
+    case premiumRequired
     /// Flight tracking is the one thing that costs real money per couple, so it waits for the
     /// pairing. Every entry point should gate ahead of this; this is what catches the ones that
     /// don't.
@@ -178,8 +183,7 @@ enum AeroFlightError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .notAuthenticated: "You need to be signed in to search for flights."
-        case .monthlyLimitReached(_, let limit):
-            "You've tracked \(limit) flights this month, which is everything your plan includes. Your allowance resets on the 1st."
+        case .premiumRequired: "That's included with Twofold Premium."
         case .notPaired: "Flight tracking starts once you and your partner are connected."
         case .requestFailed(_, let message): message ?? "Couldn't reach the flight lookup service. Try again in a moment."
         case .decodingFailed: "Got an unexpected response looking up that flight."
@@ -221,8 +225,8 @@ enum AeroFlightService {
     }
 
     // `error` is the sentence to show; `code` is what to branch on. They are separate fields
-    // because the two used to be one, and the one case that carried a machine-readable value
-    // ("monthly_flight_limit_reached") would have been displayed to a traveller verbatim.
+    // because the two used to be one, and the case that carried a machine-readable value would
+    // have been displayed to a traveller verbatim.
     struct ErrorResponse: Decodable {
         var error: String?
         var code: String?
@@ -236,8 +240,8 @@ enum AeroFlightService {
     static func failure(status: Int, body: Data) -> AeroFlightError {
         let failure = try? JSONDecoder().decode(ErrorResponse.self, from: body)
         switch failure?.code {
-        case "monthly_flight_limit_reached":
-            return .monthlyLimitReached(used: failure?.used ?? 0, limit: failure?.limit ?? 0)
+        case "premium_required":
+            return .premiumRequired
         case "not_paired":
             return .notPaired
         default:

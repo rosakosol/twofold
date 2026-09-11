@@ -2,13 +2,18 @@
 //  FlightAllowanceTests.swift
 //  TwofoldTests
 //
-//  The shared monthly flight limit, on the client side of it.
+//  Typed refusals from the flight endpoints, on the client side of them.
 //
 //  Two things are worth pinning here, and neither is arithmetic. The first is that a refusal
-//  reaches a traveller as a sentence: `add-flight` answers a spent allowance with a machine
-//  readable `code` beside a human `error`, and the two used to be one field — which meant the
-//  limit refusal, the only one carrying a slug, would have put "monthly_flight_limit_reached" on
-//  screen. The second is that an allowance the app could not read must not read as zero.
+//  reaches a traveller as a sentence: the edge functions answer with a machine-readable `code`
+//  beside a human `error`, and the two used to be one field — which meant any refusal carrying a
+//  slug would have put it on screen. The second is that an allowance the app could not read must
+//  not read as zero.
+//
+//  The subject was the monthly limit until that refusal stopped existing: the allowance moved onto
+//  live tracking, so `add-flight` saves an over-cap flight untracked rather than refusing it. The
+//  live refusal carrying a code is now `premium_required`, from `flight-delay-stats`, and the same
+//  two properties are asserted about it.
 //
 
 import Testing
@@ -17,10 +22,10 @@ import Foundation
 
 struct FlightAllowanceTests {
 
-    /// The exact body `add-flight` returns when the couple is out of flights. Kept verbatim
-    /// rather than built from constants, so this test fails if either side renames the code.
-    private static let limitBody = Data("""
-    {"error":"You've tracked 5 flights this month, which is everything your plan includes. Your allowance resets on the 1st.","code":"monthly_flight_limit_reached","used":5,"limit":5}
+    /// The exact body `flight-delay-stats` returns to a couple on Plus. Kept verbatim rather than
+    /// built from constants, so this test fails if either side renames the code.
+    private static let premiumBody = Data("""
+    {"error":"Delay analysis is included with Twofold Premium.","code":"premium_required"}
     """.utf8)
 
     /// And when the two of them aren't connected yet. Both `add-flight` and `resolve-flight`
@@ -29,31 +34,28 @@ struct FlightAllowanceTests {
     {"error":"Flight tracking starts once you and your partner are connected.","code":"not_paired"}
     """.utf8)
 
-    @Test("a spent allowance is a typed refusal, not a generic failure")
-    func limitIsRecognised() throws {
-        let error = AeroFlightService.failure(status: 403, body: Self.limitBody)
-        guard case .monthlyLimitReached(let used, let limit) = error else {
-            Issue.record("got \(error) — the limit refusal was not recognised")
+    @Test("a Premium-only endpoint refuses as a typed case, not a generic failure")
+    func premiumRefusalIsRecognised() throws {
+        let error = AeroFlightService.failure(status: 403, body: Self.premiumBody)
+        guard case .premiumRequired = error else {
+            Issue.record("got \(error) — the premium refusal was not recognised")
             return
         }
-        #expect(used == 5)
-        #expect(limit == 5)
     }
 
     /// The second half of the chain, asserted on the case rather than on a response body.
     ///
     /// Written this way after a negative control caught the first version being weaker than it
-    /// looked: asserting on `failure(status:body:)`'s message passed even with the limit case
-    /// deleted from the mapping, because the fallback shows the server's own `error` sentence,
-    /// which reads perfectly well. That made it a test of the server's copy, not of the client's
-    /// handling. Body-to-case is `limitIsRecognised` above; this is case-to-sentence, and
-    /// together they cover what one assertion appeared to.
-    @Test("the limit refusal reads as a sentence")
-    func limitReadsAsASentence() {
-        let message = AeroFlightError.monthlyLimitReached(used: 5, limit: 5).errorDescription ?? ""
+    /// looked: asserting on `failure(status:body:)`'s message passed even with the case deleted
+    /// from the mapping, because the fallback shows the server's own `error` sentence, which reads
+    /// perfectly well. That made it a test of the server's copy, not of the client's handling.
+    /// Body-to-case is the test above; this is case-to-sentence, and together they cover what one
+    /// assertion appeared to.
+    @Test("the premium refusal reads as a sentence")
+    func premiumReadsAsASentence() {
+        let message = AeroFlightError.premiumRequired.errorDescription ?? ""
         #expect(!message.contains("_"), "a machine-readable code reached the screen: \(message)")
-        #expect(message.contains("5 flights"))
-        #expect(message.contains("resets on the 1st"))
+        #expect(message.contains("Premium"))
     }
 
     @Test("an unpaired refusal explains the pairing, not the couples table")
