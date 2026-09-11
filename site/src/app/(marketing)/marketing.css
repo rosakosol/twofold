@@ -1302,7 +1302,13 @@ section {
 .compare-cell[data-state="no"] {
   color: var(--faint-ink);
 }
+/* `margin-inline: auto`, not the cell's `text-align: center`: Tailwind's preflight (imported
+   through globals.css, which this route group inherits) sets `svg { display: block }`, and a
+   block box ignores text-align — the tick sat flush left. Same reason .feature-icon centres
+   itself with an auto margin on narrow screens. */
 .compare-cell[data-state="yes"] .icon {
+  display: block;
+  margin-inline: auto;
   width: 18px;
   height: 18px;
   color: var(--leaf-green-deep);
