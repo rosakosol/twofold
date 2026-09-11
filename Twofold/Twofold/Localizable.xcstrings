@@ -1,6 +1,380 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "" : {
+
+    },
+    " %@" : {
+
+    },
+    "–" : {
+
+    },
+    "—" : {
+
+    },
+    "·" : {
+
+    },
+    "/" : {
+
+    },
+    "/%lld" : {
+
+    },
+    "%@" : {
+
+    },
+    "%@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "%@ · %@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$@ · %3$@"
+          }
+        }
+      }
+    },
+    "%@ · %@ → %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$@ → %3$@"
+          }
+        }
+      }
+    },
+    "%@ · Past 60 days" : {
+
+    },
+    "%@ (%lld)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ (%2$lld)"
+          }
+        }
+      }
+    },
+    "%@ & %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ & %2$@"
+          }
+        }
+      }
+    },
+    "%@ & %@ are now sharing Twofold together." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ & %2$@ are now sharing Twofold together."
+          }
+        }
+      }
+    },
+    "%@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ %2$@"
+          }
+        }
+      }
+    },
+    "%@ %@ to you" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ %2$@ to you"
+          }
+        }
+      }
+    },
+    "%@ %lld · %@ %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ %2$lld · %3$@ %4$lld"
+          }
+        }
+      }
+    },
+    "%@ → %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ → %2$@"
+          }
+        }
+      }
+    },
+    "%@ cleared the grid %@ faster." : {
+      "comment" : "Shareable Word Search card. First value is the winner's name, second is a duration like “48s” or “3:07”.\nWord Search comparison, the partner won. First value is their name, second is a duration like “48s” or “3:07”.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ cleared the grid %2$@ faster."
+          }
+        }
+      }
+    },
+    "%@ finished %@ ahead." : {
+      "comment" : "Shareable sudoku card. First value is the winner's name, second is a duration like “48s” or “3:07”.\nSudoku comparison, the partner won. First value is their name, second is a duration like “48s” or “3:07”.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ finished %2$@ ahead."
+          }
+        }
+      }
+    },
+    "%@ got it in %@; %@ didn't." : {
+      "comment" : "Shareable Word Guess card, only the partner solved it. Values are: partner's name, a guess count, the sender's name.\nShareable Word Guess card, only the sender solved it. Values are: sender's name, a guess count, the partner's name.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ got it in %2$@; %3$@ didn't."
+          }
+        }
+      }
+    },
+    "%@ got it in %@. You'll get the next one." : {
+      "comment" : "Word Guess comparison, only the partner solved it. First value is their name, second is a guess count.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ got it in %2$@. You'll get the next one."
+          }
+        }
+      }
+    },
+    "%@ got there in %@, %lld fewer." : {
+      "comment" : "Shareable Word Guess card, both solved it. Values are: the winner's name, a guess count, and how many fewer guesses.\nWord Guess comparison, both solved it. Values are: the winner's name or “You”, a guess count, and how many fewer guesses they used.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ got there in %2$@, %3$lld fewer."
+          }
+        }
+      }
+    },
+    "%@ has been told it's their move." : {
+
+    },
+    "%@ has been told their grid is waiting." : {
+
+    },
+    "%@ has been told their puzzle is waiting." : {
+
+    },
+    "%@ has been told their word is waiting." : {
+
+    },
+    "%@ invited you\nto Twofold" : {
+
+    },
+    "%@ is managing your couple subscription" : {
+
+    },
+    "%@ isn't in the word list." : {
+      "comment" : "Word Guess, shown when a guess is not a recognised word. The value is what they typed, in capitals."
+    },
+    "%@ needs to accept before you're connected — we'll let you know." : {
+
+    },
+    "%@ needs to accept your request before you're connected. We'll let you know the moment they do." : {
+
+    },
+    "%@ results" : {
+
+    },
+    "%@ to %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ to %2$@"
+          }
+        }
+      }
+    },
+    "%@ travelled" : {
+
+    },
+    "%@ wants to connect" : {
+
+    },
+    "%@ was covering your Twofold subscription, and your connection with them has ended. Nothing about your trips, memories, or flights has been touched — they're still saved and yours." : {
+
+    },
+    "%@ will see the same live status and get their own notifications for this flight." : {
+
+    },
+    "%@, %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$@"
+          }
+        }
+      }
+    },
+    "%@, best %@, %lld solved" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, best %2$@, %3$lld solved"
+          }
+        }
+      }
+    },
+    "%@, finished" : {
+
+    },
+    "%@, none solved" : {
+
+    },
+    "%@, not finished yet" : {
+
+    },
+    "%@: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@: %2$@"
+          }
+        }
+      }
+    },
+    "%@: yours %@, theirs %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@: yours %2$@, theirs %3$@"
+          }
+        }
+      }
+    },
+    "%@. %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@. %2$@"
+          }
+        }
+      }
+    },
+    "%@'s move" : {
+
+    },
+    "%@'s pad" : {
+
+    },
+    "%@%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@%2$@"
+          }
+        }
+      }
+    },
+    "%@%% %@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@%% %2$@ %3$@"
+          }
+        }
+      }
+    },
+    "%@%lldh" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@%2$lldh"
+          }
+        }
+      }
+    },
+    "%@x" : {
+
+    },
+    "%lld" : {
+
+    },
+    "%lld / %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld / %2$lld"
+          }
+        }
+      }
+    },
+    "%lld %@ together" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld %2$@ together"
+          }
+        }
+      }
+    },
+    "%lld %@ you've both finished" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld %2$@ you've both finished"
+          }
+        }
+      }
+    },
+    "%lld days to go" : {
+
+    },
+    "%lld draws" : {
+
+    },
+    "%lld flight emails to review" : {
+
+    },
     "%lld guesses" : {
       "comment" : "Word Guess. How many guesses a board took, e.g. “3 guesses”. Appears inside larger sentences and on its own.",
       "extractionState" : "manual",
@@ -49,6 +423,333 @@
         }
       }
     },
+    "%lld photos, swipe to see more" : {
+
+    },
+    "%lld question%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld question%2$@"
+          }
+        }
+      }
+    },
+    "%lld remaining" : {
+
+    },
+    "%lld Selected" : {
+
+    },
+    "%lld waiting for you" : {
+
+    },
+    "%lld/%lld" : {
+      "comment" : "Word Guess score: guesses used out of the six available.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld/%2$lld"
+          }
+        }
+      }
+    },
+    "%lld%%" : {
+
+    },
+    "%lld°C" : {
+
+    },
+    "%lldx" : {
+
+    },
+    "•" : {
+
+    },
+    "•  %@" : {
+
+    },
+    "×%lld" : {
+
+    },
+    "❤️" : {
+
+    },
+    "❤️ You matched %lld / %lld answers!" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "❤️ You matched %1$lld / %2$lld answers!"
+          }
+        }
+      }
+    },
+    "🎉" : {
+
+    },
+    "💌" : {
+
+    },
+    "💕" : {
+
+    },
+    "💛" : {
+
+    },
+    "📖" : {
+
+    },
+    "1 draw" : {
+
+    },
+    "1 flight email to review" : {
+
+    },
+    "1 photo" : {
+
+    },
+    "7h 35m left" : {
+
+    },
+    "30/9 or Friday" : {
+
+    },
+    "123" : {
+
+    },
+    "A" : {
+
+    },
+    "A couple of nudges in your first few days if you haven't connected yet." : {
+
+    },
+    "A dead heat — %@ each." : {
+      "comment" : "Shareable Word Guess card, both solved it in the same number of guesses.\nShareable Word Search card, both times equal. The value is a duration like “4:00”.\nShareable sudoku card, both times equal. The value is a duration like “4:00”.\nWord Guess comparison, both solved it in the same number of guesses. The value is a guess count."
+    },
+    "A dead heat — you both took %@." : {
+      "comment" : "Sudoku comparison when both solves took the same time. The value is a duration like “4:00”.\nWord Search comparison when both grids took the same time. The value is a duration like “4:00”."
+    },
+    "A new one arrives tomorrow. Premium plays as many as you like." : {
+
+    },
+    "A new word is waiting tomorrow." : {
+
+    },
+    "Abandon" : {
+
+    },
+    "Abandon this grid" : {
+
+    },
+    "Abandon this grid?" : {
+
+    },
+    "Abandon this puzzle" : {
+
+    },
+    "Abandon this puzzle?" : {
+
+    },
+    "About Us" : {
+
+    },
+    "About You" : {
+
+    },
+    "About Your Relationship" : {
+
+    },
+    "Accept" : {
+
+    },
+    "Accept to start sharing trips, flights, and memories together." : {
+
+    },
+    "Account deleted" : {
+
+    },
+    "Add" : {
+
+    },
+    "Add a document" : {
+
+    },
+    "Add a flight anytime to start your countdown." : {
+
+    },
+    "Add a location" : {
+
+    },
+    "Add a memory" : {
+
+    },
+    "Add a note (optional)" : {
+
+    },
+    "Add a trip, save a memory or track a flight, and it'll appear here in order." : {
+
+    },
+    "Add document" : {
+
+    },
+    "Add Flight" : {
+
+    },
+    "Add manually instead" : {
+
+    },
+    "Add memory" : {
+
+    },
+    "Add our next trip" : {
+
+    },
+    "Add photos" : {
+
+    },
+    "Add your first memory" : {
+
+    },
+    "Adjust photo" : {
+
+    },
+    "All" : {
+
+    },
+    "All Airlines" : {
+
+    },
+    "All Flight Stats" : {
+
+    },
+    "All Games" : {
+
+    },
+    "All locations" : {
+
+    },
+    "All nine placed" : {
+
+    },
+    "All time" : {
+
+    },
+    "All times shown in local time" : {
+
+    },
+    "All Trip Stats" : {
+
+    },
+    "Also delete our shared data" : {
+
+    },
+    "Anniversary" : {
+
+    },
+    "answer similarity" : {
+
+    },
+    "apart" : {
+
+    },
+    "Appearance" : {
+
+    },
+    "Archived data" : {
+
+    },
+    "Archived Data" : {
+
+    },
+    "Archived history is kept for 90 days. On %@ everything here is permanently deleted for both of you." : {
+
+    },
+    "Archives everything you've shared, and lets you connect with someone new." : {
+
+    },
+    "Arrival at gate" : {
+
+    },
+    "Ask your partner for the code Twofold gave them, or tap their invite link again." : {
+
+    },
+    "Average distance: %@" : {
+
+    },
+    "Back" : {
+
+    },
+    "Baggage claim" : {
+
+    },
+    "Best" : {
+
+    },
+    "Best for frequent flyers" : {
+
+    },
+    "Best: %lld day%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Best: %1$lld day%2$@"
+          }
+        }
+      }
+    },
+    "Between you" : {
+
+    },
+    "Between you: you %lld, %@ %lld, %lld drawn" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Between you: you %1$lld, %2$@ %3$lld, %4$lld drawn"
+          }
+        }
+      }
+    },
+    "BOARDING PASS" : {
+
+    },
+    "Boarding passes, itineraries, visas — anything you'll want on the day." : {
+
+    },
+    "Both" : {
+
+    },
+    "Both of us" : {
+
+    },
+    "Bring it back" : {
+
+    },
+    "Browse all decks" : {
+
+    },
+    "Camera locked to the plane" : {
+
+    },
+    "Cancel" : {
+
+    },
+    "Category" : {
+
+    },
+    "Check" : {
+
+    },
+    "Check again" : {
+
+    },
+    "Check your email" : {
+
+    },
     "checked %lld times" : {
       "comment" : "Sudoku. How many times the player checked the grid against the solution.",
       "extractionState" : "manual",
@@ -72,7 +773,1779 @@
           }
         }
       }
+    },
+    "Checking…" : {
+
+    },
+    "Chess is part of Premium" : {
+
+    },
+    "Choose a city" : {
+
+    },
+    "Choose a new password for your account." : {
+
+    },
+    "Choose File" : {
+
+    },
+    "Choose Flight" : {
+
+    },
+    "Choose Trip" : {
+
+    },
+    "Cities" : {
+
+    },
+    "City" : {
+
+    },
+    "City or airport code" : {
+
+    },
+    "Clear" : {
+
+    },
+    "Clear filters" : {
+
+    },
+    "Cleared in %@" : {
+
+    },
+    "Close" : {
+
+    },
+    "Codeshares hidden" : {
+      "comment" : "A label that describes a filter that hides codeshare flights.",
+      "isCommentAutoGenerated" : true
+    },
+    "Codeshares shown" : {
+
+    },
+    "Collapsed" : {
+
+    },
+    "Completed games" : {
+
+    },
+    "Confirm password" : {
+
+    },
+    "Connect" : {
+
+    },
+    "Connect with your partner" : {
+
+    },
+    "Connect with your partner to share trips, track flights and count down the days until you're together again." : {
+
+    },
+    "Connecting…" : {
+
+    },
+    "Connection requests" : {
+
+    },
+    "Contact Support" : {
+
+    },
+    "Continue" : {
+
+    },
+    "Continue to Premium" : {
+
+    },
+    "Continue to Twofold" : {
+
+    },
+    "Controls how distances are shown across Twofold — on this device only." : {
+
+    },
+    "Controls whether Twofold uses Light or Dark appearance, or follows your device's system setting — on this device only." : {
+
+    },
+    "Copied!" : {
+
+    },
+    "Copy link" : {
+
+    },
+    "Correct answer: %@" : {
+
+    },
+    "Couldn't abandon" : {
+
+    },
+    "Couldn't attach that" : {
+
+    },
+    "Couldn't end the game" : {
+
+    },
+    "Couldn't load subscription options" : {
+
+    },
+    "Couldn't load your notification settings." : {
+
+    },
+    "Create a new flight" : {
+
+    },
+    "Create a new memory" : {
+
+    },
+    "Create an account with email" : {
+
+    },
+    "Current city" : {
+
+    },
+    "Current language" : {
+
+    },
+    "Date and time" : {
+
+    },
+    "day" : {
+
+    },
+    "days" : {
+
+    },
+    "days until you're together 💛" : {
+
+    },
+    "Decline" : {
+
+    },
+    "Delays & cancellations" : {
+
+    },
+    "Delete" : {
+
+    },
+    "Delete (%lld)" : {
+
+    },
+    "Delete %lld %@?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Delete %1$lld %2$@?"
+          }
+        }
+      }
+    },
+    "Delete %lld memories?" : {
+
+    },
+    "Delete Account" : {
+
+    },
+    "Delete Everything" : {
+
+    },
+    "Delete My Account" : {
+
+    },
+    "Delete this %@?" : {
+
+    },
+    "Delete this memory?" : {
+
+    },
+    "Delete this trip?" : {
+
+    },
+    "Delete Trip" : {
+
+    },
+    "Delete your account permanently?" : {
+
+    },
+    "Departing" : {
+
+    },
+    "Departure" : {
+
+    },
+    "Departure date" : {
+
+    },
+    "Departures" : {
+
+    },
+    "Describe the issue" : {
+
+    },
+    "Detected flight number" : {
+
+    },
+    "Disconnect %@" : {
+
+    },
+    "Disconnect Partner" : {
+
+    },
+    "Dismiss" : {
+
+    },
+    "Distance" : {
+
+    },
+    "DISTANCE BETWEEN YOU" : {
+
+    },
+    "Documents" : {
+
+    },
+    "Don't want to wait? Abandon it from the menu above to start a new %@ puzzle." : {
+
+    },
+    "Don't want to wait? Abandon it from the menu above to start a new puzzle." : {
+
+    },
+    "Done" : {
+
+    },
+    "Drag to reposition · pinch to zoom" : {
+
+    },
+    "Drawing pad" : {
+
+    },
+    "Drops your disc here" : {
+
+    },
+    "e.g. ABCD-EFGH" : {
+
+    },
+    "Edit" : {
+
+    },
+    "Edit memory" : {
+
+    },
+    "Edit My Answers" : {
+
+    },
+    "Edit Travellers" : {
+
+    },
+    "Edit Trip" : {
+
+    },
+    "Eight words hidden in the same grid on both your phones. Find them all, then compare." : {
+
+    },
+    "Email" : {
+
+    },
+    "Enable them in iOS Settings to hear from %@." : {
+
+    },
+    "End" : {
+
+    },
+    "End it" : {
+      "comment" : "A button that ends a game.",
+      "isCommentAutoGenerated" : true
+    },
+    "End this game" : {
+
+    },
+    "End this game?" : {
+
+    },
+    "Ended %@" : {
+
+    },
+    "Enjoying Twofold so far?" : {
+
+    },
+    "Enter their code" : {
+
+    },
+    "Enter your account email and we'll send you a link to reset it." : {
+
+    },
+    "Every memory is already linked to a trip." : {
+
+    },
+    "Every tracked flight is already linked to a trip." : {
+
+    },
+    "Every trip, memory and flight you've shared, in the order it happened." : {
+
+    },
+    "Expanded" : {
+
+    },
+    "Export as PDF" : {
+
+    },
+    "Export as Word" : {
+
+    },
+    "Export everything" : {
+
+    },
+    "Finding your city…" : {
+
+    },
+    "Finish a game together and it'll show up here." : {
+
+    },
+    "Finish setting up Twofold" : {
+
+    },
+    "First name" : {
+
+    },
+    "Flight" : {
+
+    },
+    "Flight information" : {
+
+    },
+    "Flight number %@" : {
+
+    },
+    "Flight number or airport" : {
+
+    },
+    "Flight share" : {
+
+    },
+    "Flight Stats" : {
+
+    },
+    "Flight updates" : {
+
+    },
+    "Flights" : {
+
+    },
+    "Follows the plane while it's in the air" : {
+
+    },
+    "for each other" : {
+
+    },
+    "for each other ♡" : {
+
+    },
+    "Forgot password?" : {
+
+    },
+    "Forgot your password?" : {
+
+    },
+    "FROM" : {
+
+    },
+    "From your forwarded email — tap to find and confirm" : {
+
+    },
+    "Game history" : {
+
+    },
+    "Game packs need a connection — they'll load when you're back online." : {
+
+    },
+    "Games" : {
+
+    },
+    "Gate & terminal changes" : {
+
+    },
+    "Get live status updates and alerts as this flight progresses — including once tracking kicks in, if it's not trackable yet." : {
+
+    },
+    "Get started" : {
+
+    },
+    "Go to Twofold" : {
+      "comment" : "A button that takes the user to Twofold.",
+      "isCommentAutoGenerated" : true
+    },
+    "Good to know" : {
+
+    },
+    "Got it" : {
+
+    },
+    "Got it in %@" : {
+
+    },
+    "Happy Anniversary! 🎉" : {
+
+    },
+    "Have an invite code instead?" : {
+
+    },
+    "HEAD TO HEAD" : {
+
+    },
+    "Help" : {
+
+    },
+    "Hi! I'm Rosa, the founder of Twofold.\n\nI'm a 25-year-old developer based in Melbourne, Australia, with a passion for building apps that make a genuine difference. \n\nHaving experienced the highs and lows of a long-distance relationship myself, I often wished there was an easier way to keep track of my partner's flights and celebrate the journey we were sharing. \n\nThat's what inspired Twofold - a place to map, remember, and visualise the story of our relationship, and hopefully yours too.\n\nThank you so much for being part of the journey. If you're enjoying Twofold, I'd really appreciate it if you could leave a rating or review on the App Store. Your feedback helps shape the future of the app and means a lot as an independent developer.\n\nThanks for being here, and happy travels ❤️" : {
+
+    },
+    "Hidden from your list. %@ still has their copy, and so do you." : {
+
+    },
+    "Hide from my archive" : {
+
+    },
+    "Hide hidden archives" : {
+
+    },
+    "Home" : {
+
+    },
+    "I have a partner code" : {
+
+    },
+    "I have an account or invite" : {
+
+    },
+    "I've already invited my partner" : {
+
+    },
+    "If an account exists for %@, we've sent a link to reset your password." : {
+
+    },
+    "If you ever remove a partner, everything you shared with them will show up here." : {
+
+    },
+    "in %@" : {
+
+    },
+    "Invite my partner" : {
+
+    },
+    "Invite pending with %@" : {
+
+    },
+    "Invite your partner to play and compare scores." : {
+
+    },
+    "Invite your partner to see how you match up." : {
+
+    },
+    "It's %@ for %@ right now%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "It's %1$@ for %2$@ right now%3$@"
+          }
+        }
+      }
+    },
+    "It's %@ for you" : {
+
+    },
+    "It's %@ right now%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "It's %1$@ right now%2$@"
+          }
+        }
+      }
+    },
+    "Join me on Twofold" : {
+
+    },
+    "Join me on Twofold — download the app and enter code %@, or tap this link if you already have it installed:" : {
+
+    },
+    "Join Twofold" : {
+
+    },
+    "Just for you - they won't see this name or photo." : {
+
+    },
+    "Just the number" : {
+
+    },
+    "Keep looking" : {
+
+    },
+    "Keep My Subscription" : {
+
+    },
+    "Keep playing" : {
+
+    },
+    "Keep your subscription?" : {
+
+    },
+    "Kind" : {
+
+    },
+    "Landing" : {
+
+    },
+    "Language" : {
+
+    },
+    "Leave" : {
+
+    },
+    "Leave game?" : {
+
+    },
+    "Leave out the airline code — that's the box on the left" : {
+
+    },
+    "Let's go" : {
+
+    },
+    "Link a flight" : {
+
+    },
+    "Link a Flight" : {
+
+    },
+    "Link a memory" : {
+
+    },
+    "Link a Memory" : {
+
+    },
+    "Link another leg" : {
+
+    },
+    "Link expired" : {
+
+    },
+    "Link to a trip" : {
+
+    },
+    "List view" : {
+
+    },
+    "Loading today's question" : {
+
+    },
+    "Location access is off — you can still search for your city above." : {
+
+    },
+    "Location access is off. Enable it in Location Permission settings to use this." : {
+
+    },
+    "Location Permission" : {
+
+    },
+    "Location required — tap to set" : {
+
+    },
+    "Location, %@. Tap to change" : {
+
+    },
+    "Long-press your Home Screen, tap +, then search “Twofold” to add any of these." : {
+
+    },
+    "Manage subscription" : {
+
+    },
+    "Manage Subscription" : {
+
+    },
+    "Map view" : {
+
+    },
+    "Map will appear once route data is available" : {
+
+    },
+    "Measurements" : {
+
+    },
+    "Memories" : {
+
+    },
+    "Memory" : {
+
+    },
+    "Memory location" : {
+
+    },
+    "Memory title" : {
+
+    },
+    "Message sent" : {
+
+    },
+    "Missed" : {
+      "comment" : "Word Guess score when the player never got the word. Sits where a score like “3/6” otherwise goes, so it wants to be about as short."
+    },
+    "More languages are coming soon." : {
+
+    },
+    "More options" : {
+
+    },
+    "Most visited: %@" : {
+
+    },
+    "My Flight Stats" : {
+
+    },
+    "My Trip Stats" : {
+
+    },
+    "Name" : {
+
+    },
+    "Nearby" : {
+
+    },
+    "Neither of them got it this time." : {
+      "comment" : "Shareable Word Guess card, neither player solved it."
+    },
+    "Neither of you got it this time." : {
+      "comment" : "Word Guess comparison when both players ran out of guesses."
+    },
+    "New password" : {
+
+    },
+    "Next" : {
+
+    },
+    "NEXT FLIGHT" : {
+
+    },
+    "Next reunion" : {
+
+    },
+    "Nice work!" : {
+
+    },
+    "No airports match that" : {
+
+    },
+    "No archived data" : {
+
+    },
+    "No completed games yet" : {
+
+    },
+    "No decks in this topic yet." : {
+
+    },
+    "No decks yet." : {
+
+    },
+    "No distance to close right now" : {
+
+    },
+    "No flight linked yet." : {
+
+    },
+    "No flights found" : {
+
+    },
+    "No games found." : {
+
+    },
+    "No games match these filters" : {
+
+    },
+    "No longer being tracked — this flight's history is kept for reference." : {
+
+    },
+    "No memories linked yet." : {
+
+    },
+    "No memories match these filters." : {
+
+    },
+    "No photos yet" : {
+
+    },
+    "No thanks" : {
+
+    },
+    "No trips yet" : {
+
+    },
+    "No updates yet - we'll show gate changes, delays, and milestones here as they happen." : {
+
+    },
+    "None" : {
+
+    },
+    "None of the toggles below can do anything until you allow notifications for Twofold." : {
+
+    },
+    "Not being tracked" : {
+
+    },
+    "Not detected yet" : {
+
+    },
+    "Not enough letters." : {
+      "comment" : "Word Guess, shown when a guess is submitted with fewer than five letters."
+    },
+    "Not now" : {
+
+    },
+    "Not Right Now" : {
+
+    },
+    "Not trackable live yet — it's on the airline's schedule, and we'll start tracking automatically once it is (usually a few days before departure)." : {
+
+    },
+    "Notes" : {
+
+    },
+    "Nothing decided yet." : {
+
+    },
+    "Nothing drawn yet" : {
+
+    },
+    "Notification sent to %@." : {
+
+    },
+    "Notifications" : {
+
+    },
+    "Notifications are off for Twofold" : {
+
+    },
+    "Notifications aren't turned on yet" : {
+
+    },
+    "Notify me about" : {
+
+    },
+    "now" : {
+
+    },
+    "Now" : {
+
+    },
+    "Now it's %@'s turn. We've sent them an invitation. Results unlock once you've both completed the game." : {
+
+    },
+    "Nudge %@" : {
+
+    },
+    "Nudge sent" : {
+
+    },
+    "OK" : {
+
+    },
+    "On this memory" : {
+
+    },
+    "Once they join, you'll both be able to see how your answers compare." : {
+
+    },
+    "One board between you, played a move at a time. There's no clock — take as long as you like, and you'll be told when it's your turn." : {
+
+    },
+    "One board between you. Take turns dropping a disc — first to get four in a row, in any direction, wins." : {
+
+    },
+    "One subscription covers you both, so only one of you needs it." : {
+
+    },
+    "One word a day on Plus. Premium plays as many as you like." : {
+
+    },
+    "Only one of you did it unaided, so it's not quite a fair race." : {
+
+    },
+    "Only they can cancel or change your plan, from their own Apple ID." : {
+
+    },
+    "Only visible to you — %@ won't see this flight or get notified about it." : {
+
+    },
+    "Open Settings" : {
+
+    },
+    "Operated as %@" : {
+
+    },
+    "Operated by %@ as %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Operated by %1$@ as %2$@"
+          }
+        }
+      }
+    },
+    "or" : {
+
+    },
+    "Our Story" : {
+
+    },
+    "Our story so far" : {
+
+    },
+    "Our support team will get back to you by email." : {
+
+    },
+    "Out of guesses" : {
+
+    },
+    "Partner required" : {
+
+    },
+    "Partner's city" : {
+
+    },
+    "Partner's name" : {
+
+    },
+    "Password" : {
+
+    },
+    "Passwords don't match" : {
+
+    },
+    "Passwords don't match." : {
+
+    },
+    "Past" : {
+
+    },
+    "Past flights" : {
+
+    },
+    "Pen color" : {
+
+    },
+    "Period" : {
+
+    },
+    "Photo Library" : {
+
+    },
+    "Photos" : {
+
+    },
+    "Photos. %lld of them" : {
+
+    },
+    "Pick from Calendar" : {
+
+    },
+    "Pick which flight this widget counts down to. Leave unset to always show the soonest one." : {
+
+    },
+    "Pick which trip this widget counts down to. Leave unset to always show the soonest one." : {
+
+    },
+    "Plan" : {
+
+    },
+    "Play" : {
+
+    },
+    "Play another %@ puzzle" : {
+
+    },
+    "Play Another Game" : {
+
+    },
+    "Play another puzzle" : {
+
+    },
+    "Play today's word" : {
+
+    },
+    "Played a move at a time, whenever you each get to it — there's no clock. You'll be told when it's your turn." : {
+
+    },
+    "Playing now" : {
+
+    },
+    "Privacy Policy" : {
+
+    },
+    "Promote to" : {
+
+    },
+    "Qantas" : {
+
+    },
+    "Qantas or QF" : {
+
+    },
+    "QF10" : {
+
+    },
+    "Question %lld of %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Question %1$lld of %2$lld"
+          }
+        }
+      }
+    },
+    "Questions & Answers" : {
+
+    },
+    "Reading flight details…" : {
+
+    },
+    "Recentre the map" : {
+
+    },
+    "Recommended games" : {
+
+    },
+    "Refresh current city" : {
+
+    },
+    "Relationship stats" : {
+
+    },
+    "Relationship Stats" : {
+
+    },
+    "Reminder Sent" : {
+
+    },
+    "Reminders to invite my partner" : {
+
+    },
+    "Remove %@?" : {
+
+    },
+    "Remove flight %@" : {
+
+    },
+    "Remove Partner" : {
+
+    },
+    "Remove photo" : {
+
+    },
+    "Report a Problem" : {
+
+    },
+    "Request sent" : {
+
+    },
+    "Require %@" : {
+
+    },
+    "Requires a partner" : {
+
+    },
+    "Requires Twofold Premium" : {
+
+    },
+    "Reset Game" : {
+
+    },
+    "Restore Purchases" : {
+
+    },
+    "RESUMED" : {
+
+    },
+    "Resumed from an earlier session" : {
+
+    },
+    "Retry" : {
+
+    },
+    "Returning" : {
+
+    },
+    "Reunion" : {
+
+    },
+    "Review flight" : {
+
+    },
+    "Review request" : {
+
+    },
+    "SAME CITY" : {
+
+    },
+    "Same time" : {
+
+    },
+    "Save" : {
+
+    },
+    "Save or share" : {
+
+    },
+    "Save or Share" : {
+
+    },
+    "Save Password" : {
+
+    },
+    "Save this moment" : {
+
+    },
+    "Save Without Tracking" : {
+
+    },
+    "Saved for later" : {
+
+    },
+    "Saving…" : {
+
+    },
+    "Search for a city" : {
+
+    },
+    "Search for a place" : {
+
+    },
+    "Search for a place on the map" : {
+
+    },
+    "Search for an airport" : {
+
+    },
+    "Search games" : {
+
+    },
+    "Section" : {
+
+    },
+    "See all games" : {
+
+    },
+    "SEE HOW FAR YOU'VE GONE FOR EACH OTHER." : {
+
+    },
+    "SEE HOW FAR YOU'VE GONE TOGETHER." : {
+
+    },
+    "See Premium" : {
+
+    },
+    "See Subscription Plans" : {
+
+    },
+    "See the distance between you" : {
+
+    },
+    "Selected location" : {
+
+    },
+    "Send a reminder" : {
+
+    },
+    "Send Reminder" : {
+
+    },
+    "Send Reset Link" : {
+
+    },
+    "Send to Support" : {
+
+    },
+    "Sending %lld saved answer%@…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Sending %1$lld saved answer%2$@…"
+          }
+        }
+      }
+    },
+    "Sending…" : {
+
+    },
+    "Set a new password" : {
+
+    },
+    "Set a passcode on this device to turn this on." : {
+
+    },
+    "Set up your partner" : {
+
+    },
+    "Settings" : {
+
+    },
+    "Shape" : {
+
+    },
+    "Share" : {
+
+    },
+    "Share %@" : {
+
+    },
+    "Share distance" : {
+
+    },
+    "Share flight stats" : {
+
+    },
+    "Share invite" : {
+
+    },
+    "Share my invite code" : {
+
+    },
+    "Share relationship stats" : {
+
+    },
+    "Share Result" : {
+
+    },
+    "Share Text" : {
+
+    },
+    "Share this with your partner so they can join you on Twofold." : {
+
+    },
+    "Share trip stats" : {
+
+    },
+    "Share with %@" : {
+
+    },
+    "Shared from Mail — tap to add the flight" : {
+
+    },
+    "Show %lld hidden" : {
+
+    },
+    "Show all" : {
+
+    },
+    "Show all %lld" : {
+
+    },
+    "Show in my archive" : {
+
+    },
+    "Show less" : {
+
+    },
+    "Showing your %lld most recent games." : {
+
+    },
+    "Shown in your device's time — this airport's timezone is unknown" : {
+
+    },
+    "Sign In" : {
+
+    },
+    "Sign in to pick up right where you left off." : {
+
+    },
+    "Sign in with Google" : {
+
+    },
+    "Sign Out" : {
+
+    },
+    "Sign out of Twofold?" : {
+
+    },
+    "Skip" : {
+
+    },
+    "Skip for now" : {
+
+    },
+    "Small widgets also work on your Lock Screen — long-press the Lock Screen, tap Customize." : {
+
+    },
+    "Snapshot" : {
+
+    },
+    "Solved in %@" : {
+
+    },
+    "Something went wrong" : {
+
+    },
+    "Start" : {
+
+    },
+    "Start fresh" : {
+
+    },
+    "Stats" : {
+
+    },
+    "Status" : {
+
+    },
+    "Still need help?" : {
+
+    },
+    "Sudoku" : {
+
+    },
+    "Suggested" : {
+
+    },
+    "SUGGESTIONS" : {
+
+    },
+    "Support" : {
+
+    },
+    "Swap departure and destination" : {
+
+    },
+    "Swipe a side" : {
+
+    },
+    "Take Photo" : {
+
+    },
+    "Takes it off your list without deleting anything. Only affects what you see." : {
+
+    },
+    "Tap to add or remove photos" : {
+
+    },
+    "Tap to change the date and time" : {
+
+    },
+    "Tap to choose an airline" : {
+
+    },
+    "Tap to draw" : {
+
+    },
+    "Tap to save a photo from a moment together." : {
+
+    },
+    "Tap to search this date" : {
+
+    },
+    "Terms of Use" : {
+
+    },
+    "That's %@%% of the way around the earth 🌍" : {
+
+    },
+    "That's today's word done" : {
+
+    },
+    "The distance between us" : {
+
+    },
+    "THE DISTANCE BETWEEN YOU" : {
+
+    },
+    "The distance is real..." : {
+
+    },
+    "The same grid on both your phones. Solve it apart, compare when you're done." : {
+
+    },
+    "The same word on both your phones. Six guesses each, then compare." : {
+
+    },
+    "The word was %@." : {
+
+    },
+    "Their first name" : {
+
+    },
+    "They haven't accepted yet — feel free to explore Twofold while you wait, or send them a nudge." : {
+
+    },
+    "This can't be undone" : {
+
+    },
+    "This can't be undone." : {
+
+    },
+    "This can't be undone. Any linked flight or memories stay saved - they'll just no longer be linked to this trip." : {
+
+    },
+    "This deck is part of Twofold Premium. Upgrade to unlock it, plus every other Premium deck across every topic." : {
+
+    },
+    "This ends it for both of you — %@'s progress on this grid goes too. You'll be able to start a new one straight away." : {
+
+    },
+    "This ends it for both of you, with no winner, and clears the board so you can start a new game. %@ will see that it ended." : {
+
+    },
+    "This flight is on the airline's schedule — we'll start tracking it live automatically once AeroAPI makes it available, usually a few days before departure." : {
+
+    },
+    "This game was left unfinished." : {
+
+    },
+    "This is more fun together — connect with your partner to unlock it." : {
+
+    },
+    "Time not available" : {
+
+    },
+    "Time period" : {
+
+    },
+    "Title" : {
+
+    },
+    "TO" : {
+
+    },
+    "Today" : {
+
+    },
+    "Today 💛" : {
+
+    },
+    "Today's Deep Question" : {
+
+    },
+    "together" : {
+
+    },
+    "Together" : {
+
+    },
+    "together ♡" : {
+
+    },
+    "Together since" : {
+
+    },
+    "Together since %@" : {
+
+    },
+    "Topic %lld of %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Topic %1$lld of %2$lld"
+          }
+        }
+      }
+    },
+    "Topics" : {
+
+    },
+    "Track this flight" : {
+
+    },
+    "Tracked flights" : {
+
+    },
+    "TRACKING NOW" : {
+
+    },
+    "Travel" : {
+
+    },
+    "trip" : {
+
+    },
+    "Trip" : {
+
+    },
+    "Trip category" : {
+
+    },
+    "Trip Details" : {
+
+    },
+    "Trip list" : {
+
+    },
+    "Trip no longer available" : {
+
+    },
+    "Trip Stats" : {
+
+    },
+    "trips" : {
+
+    },
+    "Trips, memories and their photos, flights and games — as spreadsheets, image files and a readable PDF. Yours to keep whatever happens to the archive." : {
+
+    },
+    "Trips, memories, photos, flights, and games from every partner you've been connected to. This deletes them for your partner too, and can't be undone." : {
+
+    },
+    "Try a different date or double-check the flight number." : {
+
+    },
+    "Try again" : {
+
+    },
+    "Try Again" : {
+
+    },
+    "Turn on live tracking" : {
+
+    },
+    "Turn on location access to light up the map." : {
+
+    },
+    "Turn on notifications" : {
+
+    },
+    "Turning on…" : {
+
+    },
+    "twofold" : {
+
+    },
+    "Twofold" : {
+
+    },
+    "Twofold can use your location to suggest your home city and timezone automatically, instead of searching for it by hand — see “About you”." : {
+
+    },
+    "Twofold export" : {
+
+    },
+    "Twofold is better together" : {
+
+    },
+    "Twofold is built for couples. Connect with your partner to unlock %@ questions and games, track each other's flights, and add shared trips and memories." : {
+
+    },
+    "Twofold is currently available in English only." : {
+
+    },
+    "Twofold is even better shared. Invite your partner to see everything together." : {
+
+    },
+    "Twofold still works. Anything you add is saved on this device and sent as soon as you're back online." : {
+
+    },
+    "Type a city, an airport name, or its three-letter code." : {
+
+    },
+    "Type an address or place" : {
+
+    },
+    "Units" : {
+
+    },
+    "Unlink flight" : {
+
+    },
+    "Unlink from trip" : {
+
+    },
+    "Unlinked flights" : {
+
+    },
+    "Unlinked memories" : {
+
+    },
+    "Unlock to continue" : {
+
+    },
+    "Unlock Twofold Plus" : {
+
+    },
+    "Unlock with %@" : {
+
+    },
+    "Unlock with Premium" : {
+
+    },
+    "Unlocks the camera" : {
+
+    },
+    "Upcoming" : {
+
+    },
+    "Use “%@”" : {
+
+    },
+    "Use my current location" : {
+
+    },
+    "Use Photo" : {
+
+    },
+    "Use this spot on the map" : {
+
+    },
+    "View" : {
+
+    },
+    "View status" : {
+
+    },
+    "Visa, insurance, hotel booking…" : {
+
+    },
+    "Waiting on %@" : {
+
+    },
+    "We don't know yet" : {
+
+    },
+    "We'll help you and your partner stay connected, wherever you are." : {
+
+    },
+    "We'll keep the countdown updated for both of you." : {
+
+    },
+    "We'll let you know the moment they join." : {
+
+    },
+    "We'll let you know the moment you're connected." : {
+
+    },
+    "We'll remind you before your free trial ends." : {
+
+    },
+    "We've travelled" : {
+
+    },
+    "Weather data by Apple Weather. Opens Apple's legal attribution page." : {
+
+    },
+    "Welcome back" : {
+
+    },
+    "What is this?" : {
+
+    },
+    "What kind of trip is this?" : {
+
+    },
+    "What you shared" : {
+
+    },
+    "What's going on?" : {
+
+    },
+    "When" : {
+
+    },
+    "When will you be\ntogether next?" : {
+
+    },
+    "When?" : {
+
+    },
+    "Where to?" : {
+
+    },
+    "Who" : {
+
+    },
+    "Who's travelling?" : {
+
+    },
+    "Widgets" : {
+
+    },
+    "With %@" : {
+
+    },
+    "Write a few words about this memory" : {
+
+    },
+    "XXXX-XXXX" : {
+
+    },
+    "Yes, Rate Twofold!" : {
+
+    },
+    "You" : {
+
+    },
+    "You both cleared it" : {
+
+    },
+    "You both shared your thoughts" : {
+
+    },
+    "You both solved it" : {
+
+    },
+    "You chose: %@" : {
+
+    },
+    "You cleared the grid %@ faster." : {
+      "comment" : "Word Search comparison, this player won. The value is a duration like “48s” or “3:07”."
+    },
+    "You finished %@ ahead." : {
+      "comment" : "Sudoku comparison, this player won. The value is a duration like “48s” or “3:07”."
+    },
+    "You got %lld/%lld, %@ got %lld/%lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "You got %1$lld/%2$lld, %3$@ got %4$lld/%5$lld"
+          }
+        }
+      }
+    },
+    "You got %lld/%lld!" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "You got %1$lld/%2$lld!"
+          }
+        }
+      }
+    },
+    "You got it in %@. %@ didn't." : {
+      "comment" : "Word Guess comparison, only this player solved it. First value is a guess count like “3 guesses”, second is the partner's name.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "You got it in %1$@. %2$@ didn't."
+          }
+        }
+      }
+    },
+    "You have history with %@" : {
+
+    },
+    "You shared your thoughts" : {
+
+    },
+    "You skipped this one" : {
+
+    },
+    "You'll be able to start a new grid straight away." : {
+
+    },
+    "You're all set 💛" : {
+
+    },
+    "You're both in %@" : {
+
+    },
+    "You're both subscribed" : {
+
+    },
+    "You're connected!" : {
+
+    },
+    "You're finished!" : {
+
+    },
+    "You're offline" : {
+
+    },
+    "You're offline — your answers are saved and will send once you're back online." : {
+
+    },
+    "You're offline. Your %@ saved on this device and will send automatically once you're back online." : {
+
+    },
+    "You're still subscribed — it's just yours alone now. If you'd rather not keep paying for it, you can cancel anytime, but you'll need an active plan again to keep using Twofold once it ends." : {
+
+    },
+    "You've already tried %@." : {
+      "comment" : "Word Guess, shown when a word already on the board is submitted again. The value is that word, in capitals."
+    },
+    "You've sent your request — this unlocks the moment %@ accepts. We'll let you know." : {
+
+    },
+    "Your account and all of your shared trips, memories, and photos will be deleted — for your partner as well. This can't be undone." : {
+
+    },
+    "Your answers are saved" : {
+
+    },
+    "Your Cities" : {
+
+    },
+    "Your code is" : {
+
+    },
+    "Your connection has ended" : {
+
+    },
+    "Your guess so far, %@" : {
+
+    },
+    "Your guess, empty" : {
+
+    },
+    "Your move" : {
+
+    },
+    "Your name" : {
+
+    },
+    "Your pad" : {
+
+    },
+    "Your Partner" : {
+
+    },
+    "Your photo" : {
+
+    },
+    "Your photo of %@" : {
+
+    },
+    "Your private space for staying connected while you're apart." : {
+
+    },
+    "Your profile" : {
+
+    },
+    "Your progress on this game will be lost." : {
+
+    },
+    "Your record is ready" : {
+
+    },
+    "Your result is saved. You'll see how it compares once %@ has played theirs." : {
+
+    },
+    "Your story starts here" : {
+
+    },
+    "Your subscription has ended" : {
+
+    },
+    "Your time is saved." : {
+
+    },
+    "Your time is saved. You'll see how it compares once %@ finishes theirs." : {
+
+    },
+    "Your time is saved. You'll see how it compares once %@ has cleared theirs." : {
+
+    },
+    "Your trip together" : {
+
+    },
+    "Your turn" : {
+
     }
   },
-  "version" : "1.0"
+  "version" : "1.1"
 }
