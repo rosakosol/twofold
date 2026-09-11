@@ -209,24 +209,40 @@ enum BackendService {
             .execute()
     }
 
-    private struct TimezoneUpdate: Encodable {
+    private struct DeviceContextUpdate: Encodable {
         var timezone: String
+        var locale: String
     }
 
-    /// Reports this device's current IANA timezone, which is what the daily question and streak
-    /// use to work out when "today" ends — see
-    /// 20260908000000_local_midnight_day_boundary.sql. Best-effort (`try?` at the call site): a
-    /// failure just means the server keeps the previously-reported value, or falls back to UTC if
-    /// it has never had one, rather than blocking launch.
+    /// Reports the two things about this device the server cannot work out for itself.
     ///
-    /// Written on every foreground rather than once, deliberately — the whole point of using the
-    /// device's own zone (over a fixed home city) is that it follows someone when they travel, so
-    /// a stale value would quietly reinstate exactly the wrong-time-boundary problem this fixes.
-    static func updateTimezone() async throws {
+    /// `timezone` is the IANA identifier the daily question and streak use to decide when "today"
+    /// ends — see 20260908000000_local_midnight_day_boundary.sql.
+    ///
+    /// `locale` is the language to compose server-sent copy in. Every push this app sends is
+    /// written in an edge function, which has no other way to know what the recipient reads; see
+    /// 20261011000200_profile_locale.sql. Nothing reads it yet — it is reported now so that when
+    /// something does, the column is already filled in for everyone who has opened the app since,
+    /// rather than having to be guessed at retrospectively.
+    ///
+    /// Best-effort (`try?` at the call site): a failure just means the server keeps the previously
+    /// reported values rather than blocking launch.
+    ///
+    /// Written on every foreground rather than once, deliberately. For the timezone that is the
+    /// whole point — it has to follow someone who travels. For the locale it matters less often but
+    /// costs nothing, and someone changing their phone's language is exactly the moment the stored
+    /// value would otherwise go stale and stay stale.
+    static func updateDeviceContext() async throws {
         guard let userID = currentUserID else { throw BackendError.notAuthenticated }
         try await supabase
             .from("profiles")
-            .update(TimezoneUpdate(timezone: TimeZone.current.identifier))
+            .update(DeviceContextUpdate(
+                timezone: TimeZone.current.identifier,
+                // The full BCP 47 identifier, region included ("en-AU", "pt-BR"), rather than just
+                // the language code. Narrowing it here would throw away the information about what
+                // people actually want before anybody has looked at it.
+                locale: Locale.current.identifier(.bcp47)
+            ))
             .eq("id", value: userID)
             .execute()
     }

@@ -20,13 +20,28 @@ struct SudokuSolveSummary: Equatable {
 
     var isUnaided: Bool { hintsUsed == 0 && checksUsed == 0 }
 
-    /// "2 hints", "checked twice", "2 hints, checked once" — or nil when nothing was used, because
-    /// "no help" printed under both times is noise on the ordinary case.
+    /// "2 hints", "checked once", "2 hints, checked 3 times" — or nil when nothing was used,
+    /// because "no help" printed under both times is noise on the ordinary case.
+    ///
+    /// Each count goes through a plural key in the String Catalog rather than a Swift ternary.
+    /// English has two plural forms and the ternary quietly assumed that; Polish has three and
+    /// Arabic six, so `count == 1 ? "hint" : "hints"` is not a rule that survives translation. The
+    /// catalog is the only place that rule can live per language.
+    ///
+    /// This did say "checked twice" for exactly two. That reads better in English and has no
+    /// equivalent in most languages — it is a special case English happens to have a word for, not
+    /// a plural category — so it is gone rather than being a branch no translator could reproduce.
+    ///
+    /// The two halves are still joined with a comma here. Properly, a sentence inflected on two
+    /// counts at once wants a single key with substitutions for both; that is worth doing when
+    /// there is a translator to do it for, and the comma is honest until then.
     var aidsDescription: String? {
         var parts: [String] = []
-        if hintsUsed > 0 { parts.append(hintsUsed == 1 ? "1 hint" : "\(hintsUsed) hints") }
+        if hintsUsed > 0 {
+            parts.append(String(localized: "\(hintsUsed) hints"))
+        }
         if checksUsed > 0 {
-            parts.append(checksUsed == 1 ? "checked once" : checksUsed == 2 ? "checked twice" : "checked \(checksUsed) times")
+            parts.append(String(localized: "checked \(checksUsed) times"))
         }
         return parts.isEmpty ? nil : parts.joined(separator: ", ")
     }
@@ -78,14 +93,30 @@ struct SudokuComparison: Equatable {
         return .tie
     }
 
-    var verdict: String {
+    /// `LocalizedStringResource`, not `String`.
+    ///
+    /// A sentence returned as a plain `String` and handed to `Text` is shipped verbatim — the
+    /// `Text(_: LocalizedStringKey)` initializer that makes every literal in the app translatable
+    /// is not the one it hits, and Xcode's string extractor cannot see it either. It would be
+    /// invisible to the String Catalog forever, which for the one sentence on this screen that says
+    /// who won is not a good place to be invisible.
+    var verdict: LocalizedStringResource {
         switch outcome {
         case .tie:
-            "A dead heat — you both took \(SudokuComparison.clockText(myElapsed))."
+            LocalizedStringResource(
+                "A dead heat — you both took \(Self.clockText(myElapsed)).",
+                comment: "Sudoku comparison when both solves took the same time. The value is a duration like “4:00”."
+            )
         case .me:
-            "You finished \(Self.gapText(margin)) ahead."
+            LocalizedStringResource(
+                "You finished \(Self.gapText(margin)) ahead.",
+                comment: "Sudoku comparison, this player won. The value is a duration like “48s” or “3:07”."
+            )
         case .partner:
-            "\(partnerName) finished \(Self.gapText(-margin)) ahead."
+            LocalizedStringResource(
+                "\(partnerName) finished \(Self.gapText(-margin)) ahead.",
+                comment: "Sudoku comparison, the partner won. First value is their name, second is a duration like “48s” or “3:07”."
+            )
         }
     }
 
@@ -94,21 +125,36 @@ struct SudokuComparison: Equatable {
     /// "You" is only meaningful to whoever is holding the phone. On a shared image it names the
     /// sender to everyone else — including the partner it is most likely to be sent to, who would
     /// read someone else's win as their own — so both sides are named outright here.
-    func sharedVerdict(myName: String) -> String {
+    ///
+    /// Rendered in the sender's language, since they are the one making the picture.
+    func sharedVerdict(myName: String) -> LocalizedStringResource {
         switch outcome {
         case .tie:
-            "A dead heat — \(Self.clockText(myElapsed)) each."
-        case .me:
-            "\(myName) finished \(Self.gapText(margin)) ahead."
-        case .partner:
-            "\(partnerName) finished \(Self.gapText(-margin)) ahead."
+            LocalizedStringResource(
+                "A dead heat — \(Self.clockText(myElapsed)) each.",
+                comment: "Shareable sudoku card, both times equal. The value is a duration like “4:00”."
+            )
+        case .me, .partner:
+            // One key for both, since the card names whoever won either way — and two keys saying
+            // the same sentence is two things for a translator to keep in step.
+            LocalizedStringResource(
+                "\(outcome == .me ? myName : partnerName) finished \(Self.gapText(abs(margin))) ahead.",
+                comment: "Shareable sudoku card. First value is the winner's name, second is a duration like “48s” or “3:07”."
+            )
         }
     }
 
     /// Seconds up to a minute, clock formatting beyond it — "48s ahead" reads better than
     /// "0:48 ahead", while "3:07 ahead" reads better than "187s ahead".
+    ///
+    /// The seconds form goes through `Duration`'s own formatting rather than appending an "s".
+    /// A hardcoded suffix is a unit abbreviation in one language, and the unit is the part that
+    /// changes — the number is not. English still comes out "48s"; nothing about this screen
+    /// changes today.
     static func gapText(_ seconds: Int) -> String {
-        seconds < 60 ? "\(seconds)s" : clockText(TimeInterval(seconds))
+        seconds < 60
+            ? Duration.seconds(seconds).formatted(.units(allowed: [.seconds], width: .narrow))
+            : clockText(TimeInterval(seconds))
     }
 
     /// `m:ss`, or `h:mm:ss` once a puzzle has run past an hour — which an Expert grid left open

@@ -43,7 +43,7 @@ struct SudokuComparisonTests {
     func subSecondDifferencesAreATie() {
         #expect(comparison(mine: 134.2, theirs: 134.4).outcome == .tie)
         #expect(comparison(mine: 134.2, theirs: 134.4).margin == 0)
-        #expect(comparison(mine: 134.0, theirs: 134.49).verdict.contains("dead heat"))
+        #expect(comparison(mine: 134.0, theirs: 134.49).verdict.resolved.contains("dead heat"))
     }
 
     /// A stopwatch counts completed seconds, so 134.6 displays as 2:14. The margin has to be built
@@ -55,7 +55,7 @@ struct SudokuComparisonTests {
         #expect(SudokuComparison.clockText(close.myElapsed) == "2:14")
         #expect(SudokuComparison.clockText(close.partnerElapsed) == "2:20")
         #expect(close.margin == 6)
-        #expect(close.verdict == "You finished 6s ahead.")
+        #expect(close.verdict.resolved == "You finished 6s ahead.")
     }
 
     // MARK: - How it reads
@@ -71,13 +71,13 @@ struct SudokuComparisonTests {
 
     @Test("the verdict names whoever actually won")
     func verdictNames() {
-        #expect(comparison(mine: 134, theirs: 182).verdict == "You finished 48s ahead.")
-        #expect(comparison(mine: 604, theirs: 417).verdict == "Erin finished 3:07 ahead.")
+        #expect(comparison(mine: 134, theirs: 182).verdict.resolved == "You finished 48s ahead.")
+        #expect(comparison(mine: 604, theirs: 417).verdict.resolved == "Erin finished 3:07 ahead.")
     }
 
     @Test("a dead heat states the shared time instead of a margin")
     func tieVerdict() {
-        #expect(comparison(mine: 240, theirs: 240).verdict == "A dead heat — you both took 4:00.")
+        #expect(comparison(mine: 240, theirs: 240).verdict.resolved == "A dead heat — you both took 4:00.")
     }
 
     // MARK: - How it reads on a card that leaves the device
@@ -87,25 +87,25 @@ struct SudokuComparisonTests {
     @Test("the shared verdict names the winner instead of saying 'you'")
     func sharedVerdictNamesBothSides() {
         let iWon = comparison(mine: 134, theirs: 182)
-        #expect(iWon.verdict == "You finished 48s ahead.")
-        #expect(iWon.sharedVerdict(myName: "Rosa") == "Rosa finished 48s ahead.")
+        #expect(iWon.verdict.resolved == "You finished 48s ahead.")
+        #expect(iWon.sharedVerdict(myName: "Rosa").resolved == "Rosa finished 48s ahead.")
 
         let theyWon = comparison(mine: 604, theirs: 417)
-        #expect(theyWon.sharedVerdict(myName: "Rosa") == "Erin finished 3:07 ahead.")
+        #expect(theyWon.sharedVerdict(myName: "Rosa").resolved == "Erin finished 3:07 ahead.")
     }
 
     @Test("a shared dead heat drops 'you both' too")
     func sharedTieVerdict() {
         let tie = comparison(mine: 240, theirs: 240)
-        #expect(tie.verdict == "A dead heat — you both took 4:00.")
-        #expect(tie.sharedVerdict(myName: "Rosa") == "A dead heat — 4:00 each.")
+        #expect(tie.verdict.resolved == "A dead heat — you both took 4:00.")
+        #expect(tie.sharedVerdict(myName: "Rosa").resolved == "A dead heat — 4:00 each.")
     }
 
     /// The partner's name is whatever they typed, and it lands mid-sentence.
     @Test("an awkward partner name still produces a sentence")
     func unusualNames() {
         let odd = SudokuComparison(myElapsed: 300, partnerElapsed: 100, partnerName: "Zoë-Mae")
-        #expect(odd.verdict == "Zoë-Mae finished 3:20 ahead.")
+        #expect(odd.verdict.resolved == "Zoë-Mae finished 3:20 ahead.")
     }
 }
 
@@ -132,11 +132,19 @@ struct SudokuAidsTests {
         #expect(clean.aidsDescription == nil)
     }
 
+    /// Two of these come from the String Catalog's plural rules rather than from Swift, so this is
+    /// also the test that the catalog's plural entries are wired up and resolving — a broken
+    /// variation would show as "1 hints" here rather than as a build failure.
+    ///
+    /// Two was "checked twice" until the plural keys landed. English has a word for exactly two and
+    /// most languages do not; it is not a plural category, so it cannot be expressed as one, and
+    /// keeping it would have meant a Swift branch no translator could reproduce. Losing it is a
+    /// small cost in English for a rule that works everywhere else.
     @Test("hints and checks are counted in words", arguments: [
         (1, 0, "1 hint"),
         (3, 0, "3 hints"),
         (0, 1, "checked once"),
-        (0, 2, "checked twice"),
+        (0, 2, "checked 2 times"),
         (0, 5, "checked 5 times"),
         (2, 1, "2 hints, checked once"),
     ])

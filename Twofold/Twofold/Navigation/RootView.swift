@@ -194,8 +194,8 @@ struct RootView: View {
                     await appModel.refreshCoupleStateIfNeeded()
                     // Appended to this same sequential Task rather than a concurrent one, for the
                     // auth-lock-contention reason above. Re-reported every foreground so the day
-                    // boundary follows someone who travels — see `BackendService.updateTimezone`.
-                    if appModel.hasCouple { try? await BackendService.updateTimezone() }
+                    // boundary follows someone who travels — see `BackendService.updateDeviceContext`.
+                    if appModel.hasCouple { try? await BackendService.updateDeviceContext() }
                 }
                 Task { await refreshPendingOutgoingConnectionRequestIfNeeded() }
                 refreshCurrentCityIfNeeded()

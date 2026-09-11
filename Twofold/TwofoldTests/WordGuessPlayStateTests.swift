@@ -186,7 +186,7 @@ struct WordGuessComparisonTests {
             mine: summary(6, solved: true), theirs: summary(6, solved: false), partnerName: "Erin"
         )
         #expect(comparison.outcome == .me)
-        #expect(comparison.verdict.contains("You got it"))
+        #expect(comparison.verdict.resolved.contains("You got it"))
     }
 
     @Test func aWinInSixBeatsAMissInThree() {
@@ -206,7 +206,7 @@ struct WordGuessComparisonTests {
         )
         #expect(comparison.outcome == .tie)
         #expect(comparison.margin == 0)
-        #expect(comparison.verdict == "Neither of you got it this time.")
+        #expect(comparison.verdict.resolved == "Neither of you got it this time.")
     }
 
     @Test func equalCountsAreADeadHeat() {
@@ -214,7 +214,7 @@ struct WordGuessComparisonTests {
             mine: summary(4, solved: true), theirs: summary(4, solved: true), partnerName: "Erin"
         )
         #expect(comparison.outcome == .tie)
-        #expect(comparison.verdict.contains("dead heat"))
+        #expect(comparison.verdict.resolved.contains("dead heat"))
     }
 
     @Test func timeNeverDecidesIt() {
@@ -233,14 +233,14 @@ struct WordGuessComparisonTests {
         let comparison = WordGuessComparison(
             mine: summary(3, solved: true), theirs: summary(5, solved: true), partnerName: "Erin"
         )
-        let shared = comparison.sharedVerdict(myName: "Alex")
+        let shared = comparison.sharedVerdict(myName: "Alex").resolved
         #expect(shared.contains("Alex"))
         #expect(!shared.contains("You"))
     }
 
     @Test func theScoreReadsAsAScoreOrAMiss() {
-        #expect(WordGuessComparison.scoreText(summary(3, solved: true)) == "3/6")
-        #expect(WordGuessComparison.scoreText(summary(6, solved: false)) == "Missed")
+        #expect(WordGuessComparison.scoreText(summary(3, solved: true)).resolved == "3/6")
+        #expect(WordGuessComparison.scoreText(summary(6, solved: false)).resolved == "Missed")
     }
 
     @Test func oneGuessIsSingular() {

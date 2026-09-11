@@ -119,22 +119,44 @@ struct WordGuessGameView: View {
 
     /// Shown in the keyboard's place so the board does not jump when a guess is refused, and
     /// reserved even when empty for the same reason.
+    @ViewBuilder
     private var rejectionMessage: some View {
-        Text(rejectionText ?? " ")
-            .font(.caption.weight(.medium))
-            .foregroundStyle(Theme.heartRedText)
-            .frame(height: 18)
-            .accessibilityHidden(rejectionText == nil)
+        Group {
+            if let rejectionText {
+                Text(rejectionText)
+            } else {
+                // A space rather than nothing, so the row keeps its height and the board above it
+                // does not move the instant a guess is refused.
+                Text(verbatim: " ")
+            }
+        }
+        .font(.caption.weight(.medium))
+        .foregroundStyle(Theme.heartRedText)
+        .frame(height: 18)
+        .accessibilityHidden(rejectionText == nil)
     }
 
-    private var rejectionText: String? {
+    private var rejectionText: LocalizedStringResource? {
         switch store.rejection {
-        case .wrongLength: "Not enough letters."
+        case .wrongLength:
+            LocalizedStringResource(
+                "Not enough letters.",
+                comment: "Word Guess, shown when a guess is submitted with fewer than five letters."
+            )
         // Says which word rather than only that it was repeated — on a board of six rows the
         // duplicate is usually one the player has stopped looking at.
-        case .alreadyGuessed: "You've already tried \(store.draft.uppercased())."
-        case .notAWord: "\(store.draft.uppercased()) isn't in the word list."
-        case .boardFinished, .none: nil
+        case .alreadyGuessed:
+            LocalizedStringResource(
+                "You've already tried \(store.draft.uppercased()).",
+                comment: "Word Guess, shown when a word already on the board is submitted again. The value is that word, in capitals."
+            )
+        case .notAWord:
+            LocalizedStringResource(
+                "\(store.draft.uppercased()) isn't in the word list.",
+                comment: "Word Guess, shown when a guess is not a recognised word. The value is what they typed, in capitals."
+            )
+        case .boardFinished, .none:
+            nil
         }
     }
 
