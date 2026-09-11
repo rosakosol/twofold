@@ -489,6 +489,17 @@ verify_jwt = false
 entrypoint = "./functions/send-partner-invite-reminders/index.ts"
 
 
+# Nightly reconciliation against RevenueCat, invoked by pg_cron with the service role key. Unlike
+# the other cron entrypoints here, JWT verification stays ON: the service role key is itself a valid
+# JWT, so the platform check costs nothing and means an unauthenticated request never reaches the
+# function's own comparison at all. Nothing outside this project should be able to make it call the
+# provider on every subscriber.
+[functions.reconcile-subscriptions]
+enabled = true
+verify_jwt = true
+import_map = "./functions/reconcile-subscriptions/deno.json"
+entrypoint = "./functions/reconcile-subscriptions/index.ts"
+
 [functions.revenuecat-webhook]
 enabled = true
 verify_jwt = false
