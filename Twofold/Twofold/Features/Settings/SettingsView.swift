@@ -99,6 +99,19 @@ struct SettingsView: View {
                         }
                     }
 
+                    // What one subscription covering two people actually means — including the
+                    // part nobody discovers until it happens, which is that the non-paying
+                    // partner's access rests on someone else's billing.
+                    //
+                    // Suppressed while both are subscribed: the card below already covers that
+                    // state, and it is the one state where "if they cancel you both lose access"
+                    // is false — the other subscription would carry them.
+                    if appModel.partnerConnected,
+                       !(redundantSubscription?.bothSubscribed ?? false),
+                       appModel.isSubscriptionActive || subscriptionStore.isSubscribed {
+                        subscriptionCoverageNote
+                    }
+
                     // Directly under the banner, because the action it suggests is the one the
                     // banner opens.
                     if let redundantSubscription, redundantSubscription.bothSubscribed {
@@ -300,6 +313,40 @@ struct SettingsView: View {
     /// fresh authentication (see the toggle's own comment). Only ever applies the new value to
     /// `appLock.isEnabled` after that succeeds; a cancelled or failed prompt leaves the setting
     /// exactly as it was.
+    /// Who is actually paying, and what that means for the other one.
+    ///
+    /// A Twofold subscription covers the couple — `private.couple_effective_tier` takes the better
+    /// of the two partners' tiers — which is easy to read as "we are subscribed" rather than "one
+    /// of us is, and the other is along for the ride". The difference only ever surfaces at the
+    /// worst moment: the payer cancels, or their card fails, and the other person loses an app
+    /// they never knew was resting on somebody else's billing.
+    ///
+    /// `subscriptionStore.isSubscribed` is what names the payer, and it is trustworthy *here*
+    /// specifically: it reads RevenueCat's entitlement for this account rather than this device, and
+    /// this screen refreshes it on appear. Elsewhere it can still be false mid-launch, which is why
+    /// this note lives in Settings rather than anywhere the answer might not have arrived yet.
+    private var subscriptionCoverageNote: some View {
+        SectionCard {
+            HStack(alignment: .top, spacing: Theme.Spacing.sm) {
+                Image(systemName: "person.2.fill")
+                    .foregroundStyle(Theme.skyBlue)
+                Text(
+                    subscriptionStore.isSubscribed
+                        ? "One subscription covers you both, and you're the one it belongs to. "
+                          + "If you cancel, you'll both lose access to Twofold at the end of the "
+                          + "period you've paid for."
+                        : "One subscription covers you both, and it belongs to \(appModel.partner.name). "
+                          + "If they cancel, you'll both lose access to Twofold at the end of the "
+                          + "period they've paid for."
+                )
+                .font(.caption)
+                .foregroundStyle(Theme.subtleInk)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
     private func requestLockToggle(_ newValue: Bool) {
         guard !isAuthenticatingLockToggle else { return }
         isAuthenticatingLockToggle = true
