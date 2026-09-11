@@ -19,6 +19,10 @@ import SwiftUI
 
 struct OpenGamesSection: View {
     let games: [BackendService.OpenGame]
+    /// Named rather than "them". On a screen about one specific person, a pronoun is the one word
+    /// that could mean anybody — and this card is read at a glance, where "waiting on Erin" lands
+    /// and "waiting on them" has to be worked out.
+    let partnerName: String
 
     /// Only shown when there is something on. An empty "Playing now" heading is a section telling
     /// you about nothing, at the top of the screen, every time you open the tab.
@@ -82,9 +86,14 @@ struct OpenGamesSection: View {
 
             Spacer(minLength: 0)
 
-            Text(game.isMyTurn ? "Your turn" : "Waiting on them")
+            Text(game.isMyTurn ? "Your turn" : "Waiting on \(partnerName)")
                 .font(.caption.weight(game.isMyTurn ? .bold : .regular))
                 .foregroundStyle(game.isMyTurn ? Theme.heartRedText : Theme.subtleInk)
+                // A long name would otherwise set the card's width for the whole row. It shrinks a
+                // little before it truncates, so most names stay whole.
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .truncationMode(.tail)
         }
         .padding(Theme.Spacing.sm)
         .frame(width: 150, height: 96, alignment: .leading)

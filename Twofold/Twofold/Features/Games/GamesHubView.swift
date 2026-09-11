@@ -50,7 +50,7 @@ struct GamesHubView: View {
                     // Above everything else, because it is the only part of this screen that is
                     // about something already underway — and on a tab you open to find out whether
                     // your partner has moved, that is the answer you came for.
-                    OpenGamesSection(games: openGames)
+                    OpenGamesSection(games: openGames, partnerName: appModel.partner.name)
                     conversationGamesSection
                     puzzlesSection
                     travelSection
@@ -169,38 +169,36 @@ struct GamesHubView: View {
         return counts
     }
 
-    /// The four conversation games, still a swipeable row.
+    /// The four conversation games.
     ///
-    /// This row used to hold every game type, and by the ninth that had stopped working: four cards
-    /// swipe comfortably and nine bury the last five. Splitting them is not a new Compete/Connect
-    /// divide — that grouping failed because it was a category nobody outside the screen saw. This
-    /// one is a difference people already know without being taught: these four are questions about
-    /// the two of you, backed by decks to browse, and the ones below are puzzles.
+    /// This used to be one swipeable row holding every type, and by the ninth card that had stopped
+    /// working — four swipe comfortably and nine bury the last five. Splitting them is not a new
+    /// Compete/Connect divide: that grouping failed because it was a category nobody outside the
+    /// screen ever saw. This one is a difference people already know without being taught — these
+    /// four are questions about the two of you, backed by decks to browse, and the ones below are
+    /// puzzles.
     private var conversationGamesSection: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-            Text("Questions & Conversation")
-                .font(.title3.weight(.bold))
-                .foregroundStyle(Theme.ink)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: Theme.Spacing.sm) {
-                    ForEach(GameType.allCases.filter(\.hasDecks)) { gameType in
-                        card(for: gameType, width: 220)
-                    }
-                }
-                .padding(.vertical, 2)
-            }
-        }
+        section("Questions & Conversation", games: GameType.allCases.filter(\.hasDecks))
     }
 
-    /// The five generated and board games, as a grid.
-    ///
-    /// A grid rather than a second scrolling row: these have no decks behind them, so there is
-    /// nothing to browse *into* — the card is the whole of the choice, and five of them fit on
-    /// screen at once where a row would hide the last two behind a swipe nobody knows to make.
+    /// The five generated and board games.
     private var puzzlesSection: some View {
+        section("Puzzles & Games", games: GameType.allCases.filter { !$0.hasDecks })
+    }
+
+    /// Both lists, in one format.
+    ///
+    /// They were different shapes — a scrolling row of big cards and a grid of the same big cards —
+    /// which made two groups of the same kind of thing look like two kinds of thing. One format
+    /// says what the split actually is: same games, different subject.
+    ///
+    /// Two columns of compact tiles rather than the 170pt cards. Nine of those came to over 700pt
+    /// before anything else on the screen, so the travel decks and topics below were past two
+    /// scrolls of nothing but names; this is the same nine in roughly a third of the height, with
+    /// every one of them reachable without a horizontal swipe nobody knows to make.
+    private func section(_ title: String, games: [GameType]) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-            Text("Puzzles & Games")
+            Text(title)
                 .font(.title3.weight(.bold))
                 .foregroundStyle(Theme.ink)
 
@@ -209,33 +207,33 @@ struct GamesHubView: View {
                           GridItem(.flexible(), spacing: Theme.Spacing.sm)],
                 spacing: Theme.Spacing.sm
             ) {
-                ForEach(GameType.allCases.filter { !$0.hasDecks }) { gameType in
-                    card(for: gameType, width: nil)
+                ForEach(games) { gameType in
+                    tile(for: gameType)
                 }
             }
         }
     }
 
-    /// One card, and where it goes.
+    /// One tile, and where it goes.
     ///
     /// The destinations used to be an if/else chain inside the row, one branch per game, and by the
     /// ninth it was long enough that adding a game meant reading all of it. The lock is the same in
-    /// both sections: a card that needs a partner opens the invite sheet rather than doing nothing,
-    /// because a lock badge with no action just teaches people the card is broken.
+    /// both sections: a tile that needs a partner opens the invite sheet rather than doing nothing,
+    /// because a lock badge with no action just teaches people the tile is broken.
     @ViewBuilder
-    private func card(for gameType: GameType, width: CGFloat?) -> some View {
+    private func tile(for gameType: GameType) -> some View {
         if gameType.requiresPartner && !appModel.partnerConnected {
             Button {
                 showingPartnerGate = true
             } label: {
-                GameCard(gameType: gameType, width: width, isLocked: true)
+                GameTile(gameType: gameType, isLocked: true)
             }
             .buttonStyle(.plain)
         } else {
             NavigationLink {
                 entryView(for: gameType)
             } label: {
-                GameCard(gameType: gameType, width: width)
+                GameTile(gameType: gameType)
             }
             .buttonStyle(.plain)
         }
