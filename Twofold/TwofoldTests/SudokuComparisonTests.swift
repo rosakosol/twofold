@@ -108,3 +108,79 @@ struct SudokuComparisonTests {
         #expect(odd.verdict == "Zoë-Mae finished 3:20 ahead.")
     }
 }
+
+//
+//  What help was used, and saying so.
+//
+//  The competitive framing is the whole point of sudoku here, and it only survives if the times are
+//  comparable. A hint button that leaves no trace doesn't make the race easier — it ends it, by
+//  rewarding whoever was most willing to ask. So the counts ride alongside the times, and the one
+//  case that needs saying outright is one player solving cold while the other didn't.
+//
+struct SudokuAidsTests {
+
+    private func summary(hints: Int, checks: Int, elapsed: TimeInterval = 300) -> SudokuSolveSummary {
+        SudokuSolveSummary(elapsed: elapsed, hintsUsed: hints, checksUsed: checks)
+    }
+
+    @Test("an unaided solve says nothing rather than 'no help'")
+    func unaidedIsSilent() {
+        let clean = summary(hints: 0, checks: 0)
+        #expect(clean.isUnaided)
+        // nil, not "no help" — printed under both times on the ordinary solve it reads as an
+        // accusation rather than a footnote.
+        #expect(clean.aidsDescription == nil)
+    }
+
+    @Test("hints and checks are counted in words", arguments: [
+        (1, 0, "1 hint"),
+        (3, 0, "3 hints"),
+        (0, 1, "checked once"),
+        (0, 2, "checked twice"),
+        (0, 5, "checked 5 times"),
+        (2, 1, "2 hints, checked once"),
+    ])
+    func aidsRead(hints: Int, checks: Int, expected: String) {
+        #expect(summary(hints: hints, checks: checks).aidsDescription == expected)
+    }
+
+    @Test("one solving cold and the other not is flagged, in either direction")
+    func lopsidedBothWays() {
+        let clean = summary(hints: 0, checks: 0)
+        let helped = summary(hints: 2, checks: 0)
+
+        var mineClean = SudokuComparison(myElapsed: 300, partnerElapsed: 400, partnerName: "Erin")
+        mineClean.myAids = clean
+        mineClean.partnerAids = helped
+        #expect(mineClean.isLopsided)
+
+        var theirsClean = SudokuComparison(myElapsed: 300, partnerElapsed: 400, partnerName: "Erin")
+        theirsClean.myAids = helped
+        theirsClean.partnerAids = clean
+        #expect(theirsClean.isLopsided)
+    }
+
+    @Test("two clean solves, or two helped ones, are a fair race")
+    func evenlyMatchedIsNotFlagged() {
+        var bothClean = SudokuComparison(myElapsed: 300, partnerElapsed: 400, partnerName: "Erin")
+        bothClean.myAids = summary(hints: 0, checks: 0)
+        bothClean.partnerAids = summary(hints: 0, checks: 0)
+        #expect(!bothClean.isLopsided)
+
+        // Different amounts of help, but both asked — a matter of degree, not of kind, and not
+        // something to caption a couple's game with.
+        var bothHelped = SudokuComparison(myElapsed: 300, partnerElapsed: 400, partnerName: "Erin")
+        bothHelped.myAids = summary(hints: 1, checks: 0)
+        bothHelped.partnerAids = summary(hints: 4, checks: 3)
+        #expect(!bothHelped.isLopsided)
+    }
+
+    /// A v1 solve has no counts at all, so nothing can be claimed about fairness either way.
+    @Test("with either side's help unknown, nothing is claimed")
+    func unknownAidsAreNotLopsided() {
+        var partial = SudokuComparison(myElapsed: 300, partnerElapsed: 400, partnerName: "Erin")
+        partial.myAids = summary(hints: 0, checks: 0)
+        partial.partnerAids = nil
+        #expect(!partial.isLopsided)
+    }
+}

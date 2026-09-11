@@ -51,6 +51,9 @@ final class SudokuGameStore {
     /// incrementally — 81 cells against a 20-peer table is nothing, and an incrementally
     /// maintained highlight is a thing that goes subtly stale.
     private(set) var conflicts: Set<Int> = []
+    /// Cells a "check" turned up as wrong, cleared by the next edit. Not persisted: it is the
+    /// answer to a question asked a moment ago, not part of the puzzle's state.
+    private(set) var mistakes: Set<Int> = []
     private(set) var justSolved = false
     /// The partner's finished time, once there is one.
     ///
@@ -58,7 +61,7 @@ final class SudokuGameStore {
     /// both sides have written one, and this game writes a response only on solve (see the note at
     /// the top of this file) — so a row cannot appear here for a puzzle they are still working on,
     /// and this can never leak a half-finished grid or spoil a solve in progress.
-    private(set) var partnerElapsed: TimeInterval?
+    private(set) var partnerResult: SudokuSolveSummary?
 
     var selected: Int?
     var isNotesMode = false
@@ -119,8 +122,8 @@ final class SudokuGameStore {
             let restored = SudokuPlayState.furtherAlong(fromServer, fromDevice)
             play = restored ?? SudokuPlayState(puzzle: generated.puzzle)
             hasSubmitted = fromServer?.isComplete == true
-            partnerElapsed = me.flatMap {
-                Self.partnerElapsed(in: detail, me: $0, puzzle: generated.puzzle)
+            partnerResult = me.flatMap {
+                Self.partnerResult(in: detail, me: $0, puzzle: generated.puzzle)
             }
             recomputeConflicts()
             phase = .ready
@@ -167,12 +170,52 @@ final class SudokuGameStore {
         guard let previous = undoStack.popLast() else { return }
         play = previous
         recomputeConflicts()
+        mistakes = []
+        persistLocally()
+    }
+
+    // MARK: - Asking for help
+
+    /// Fills in one cell, preferring whichever is selected and otherwise choosing the first empty
+    /// one. Counted against the solve — see `SudokuPlayState.hintsUsed`.
+    ///
+    /// A hint lands on the selected cell even when that cell already holds a wrong digit: someone
+    /// who selects a cell and asks for help is asking about *that* cell, and refusing because they
+    /// had already guessed would be the least helpful moment to be strict.
+    func useHint() {
+        guard let generated, var play, !play.isComplete else { return }
+
+        let target = selected.flatMap { index -> Int? in
+            generated.isGiven(index) ? nil : index
+        } ?? (0..<81).first { !generated.isGiven($0) && play[$0] != generated.solution[$0] }
+
+        guard let target else { return }
+        undoStack.append(play)
+        play.revealCell(at: target, solution: generated.solution, puzzle: generated.puzzle)
+        selected = target
+        mistakes = []
+        apply(play)
+    }
+
+    /// Marks every entry that disagrees with the solution, and counts the look.
+    ///
+    /// The marks are transient — the next edit clears them — rather than sticky. A permanent
+    /// "this is wrong" badge turns one check into a running correctness display, which is a
+    /// different and much larger favour than the player asked for, and one the other partner's
+    /// solve would not have had.
+    func checkMistakes() {
+        guard let generated, var play, !play.isComplete else { return }
+        undoStack.append(play)
+        play.recordCheck()
+        self.play = play
+        mistakes = play.mistakes(solution: generated.solution)
         persistLocally()
     }
 
     private func apply(_ updated: SudokuPlayState) {
         play = updated
         recomputeConflicts()
+        mistakes = []
         checkForSolve()
         persistLocally()
     }
@@ -254,14 +297,14 @@ final class SudokuGameStore {
     private func refreshPartner() async {
         guard let generated, let me = responderID else { return }
         guard let detail = try? await BackendService.fetchGameSession(id: sessionID) else { return }
-        partnerElapsed = Self.partnerElapsed(in: detail, me: me, puzzle: generated.puzzle)
+        partnerResult = Self.partnerResult(in: detail, me: me, puzzle: generated.puzzle)
     }
 
-    private static func partnerElapsed(
+    private static func partnerResult(
         in detail: BackendService.GameSessionDetail,
         me: UUID,
         puzzle: SudokuGrid
-    ) -> TimeInterval? {
+    ) -> SudokuSolveSummary? {
         guard let theirs = detail.responses.first(where: { $0.responderID != me }),
               let state = SudokuPlayState.decoded(from: theirs.answerValue, puzzle: puzzle),
               // A response this build cannot read, or one that somehow isn't a finished grid, is no
@@ -269,7 +312,11 @@ final class SudokuGameStore {
               // we had to guess at.
               state.isComplete
         else { return nil }
-        return state.elapsed
+        return SudokuSolveSummary(
+            elapsed: state.elapsed,
+            hintsUsed: state.hintsUsed,
+            checksUsed: state.checksUsed
+        )
     }
 
     // MARK: - The clock

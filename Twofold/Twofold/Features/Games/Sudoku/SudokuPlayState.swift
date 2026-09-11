@@ -28,20 +28,44 @@ struct SudokuPlayState: Equatable {
     /// while the board is on screen — a puzzle left open overnight has not been played overnight.
     var elapsed: TimeInterval
     private(set) var isComplete: Bool
+    /// How many cells were filled in by asking, and how many times the board was checked against
+    /// the solution.
+    ///
+    /// Counted because the comparison screen puts two times side by side and calls one of them
+    /// faster. A solve with four hints in it is not the same achievement as one without, and a
+    /// race where that difference is invisible is not a race — it just rewards whoever was most
+    /// willing to ask. Counts only: which cells were hinted is not worth the payload, since nothing
+    /// needs to undo or re-show them.
+    private(set) var hintsUsed: Int
+    private(set) var checksUsed: Int
 
     init(puzzle: SudokuGrid) {
         entries = puzzle.cells
         notes = Array(repeating: 0, count: 81)
         elapsed = 0
         isComplete = false
+        hintsUsed = 0
+        checksUsed = 0
     }
 
-    private init(entries: [UInt8], notes: [UInt16], elapsed: TimeInterval, isComplete: Bool) {
+    private init(
+        entries: [UInt8],
+        notes: [UInt16],
+        elapsed: TimeInterval,
+        isComplete: Bool,
+        hintsUsed: Int,
+        checksUsed: Int
+    ) {
         self.entries = entries
         self.notes = notes
         self.elapsed = elapsed
         self.isComplete = isComplete
+        self.hintsUsed = hintsUsed
+        self.checksUsed = checksUsed
     }
+
+    /// Unassisted — nothing was revealed and nothing was checked.
+    var isUnaided: Bool { hintsUsed == 0 && checksUsed == 0 }
 
     subscript(index: Int) -> UInt8 { entries[index] }
 
@@ -113,6 +137,38 @@ struct SudokuPlayState: Equatable {
         entries == solution.cells
     }
 
+    /// Entries that disagree with the solution.
+    ///
+    /// Distinct from `conflicts()`, which only catches a digit repeated against one of its peers.
+    /// A wrong digit that happens to break no rule yet is invisible to that — and it is the worst
+    /// kind, because the board looks fine until the grid is full and nothing fits. This is the only
+    /// thing that can see it, and the only thing that needs the solution to do so.
+    func mistakes(solution: SudokuGrid) -> Set<Int> {
+        var found: Set<Int> = []
+        for index in 0..<81 where entries[index] != 0 && entries[index] != solution[index] {
+            found.insert(index)
+        }
+        return found
+    }
+
+    // MARK: - Asking for help
+
+    /// Writes the solution's digit into one cell and counts it.
+    ///
+    /// Takes the index rather than choosing one, so the caller decides what a hint means — see
+    /// `SudokuGameStore.useHint()`, which prefers the selected cell and otherwise picks for them.
+    mutating func revealCell(at index: Int, solution: SudokuGrid, puzzle: SudokuGrid) {
+        guard (0..<81).contains(index), !puzzle.isGiven(index) else { return }
+        place(solution[index], at: index, puzzle: puzzle)
+        hintsUsed += 1
+    }
+
+    /// Counts a look at the solution. The cells it turns up are the caller's to show; only the fact
+    /// that it was asked is recorded, because that is what the comparison has to be honest about.
+    mutating func recordCheck() {
+        checksUsed += 1
+    }
+
     /// The cells this one shares a row, column or box with. Never includes itself.
     static func peers(of index: Int) -> [Int] {
         precondition((0..<81).contains(index))
@@ -136,21 +192,34 @@ struct SudokuPlayState: Equatable {
 // MARK: - Persistence
 
 extension SudokuPlayState {
-    /// `sudoku.v1|<81 digits>|<81 x 3 hex>|<elapsed seconds>|<0 or 1>`
+    /// `sudoku.v2|<81 digits>|<81 x 3 hex>|<elapsed seconds>|<0 or 1>|<hints>|<checks>`
     ///
     /// Fixed-width fields and a leading version, so a future change to the shape is a new version
     /// rather than a guess about which format a given string is in.
-    private static let version = "sudoku.v1"
+    ///
+    /// v1 was the same without the last two fields, and is still read — every puzzle solved before
+    /// hints existed is a v1 row sitting in `game_responses`, and those are exactly the rows the
+    /// stats table and the resume path depend on. A v1 payload decodes as a solve with no hints and
+    /// no checks, which is true of it: there was no way to use either.
+    ///
+    /// Everything is written as v2 from here. That is deliberate rather than writing whichever
+    /// version a state came from — two live formats is the thing that eventually gets read wrong,
+    /// and an old device reading a v2 refuses it outright (see `decoded`) rather than
+    /// misinterpreting it.
+    private static let version2 = "sudoku.v2"
+    private static let version1 = "sudoku.v1"
 
     var encoded: String {
         let grid = entries.map(String.init).joined()
         let marks = notes.map { String(format: "%03x", $0) }.joined()
         return [
-            Self.version,
+            Self.version2,
             grid,
             marks,
             String(Int(elapsed.rounded())),
-            isComplete ? "1" : "0"
+            isComplete ? "1" : "0",
+            String(hintsUsed),
+            String(checksUsed)
         ].joined(separator: "|")
     }
 
@@ -164,12 +233,43 @@ extension SudokuPlayState {
     /// Deliberately as strict as `decoded` about the version and the field count, so a `sudoku.v2`
     /// is refused here too rather than being read as a v1 that happens to start the same way. The
     /// two are pinned to each other by test.
-    static func summary(from string: String) -> (elapsed: TimeInterval, isComplete: Bool)? {
+    static func summary(from string: String) -> (elapsed: TimeInterval, isComplete: Bool, hintsUsed: Int, checksUsed: Int)? {
         let fields = string.split(separator: "|", omittingEmptySubsequences: false)
-        guard fields.count == 5, fields[0] == version else { return nil }
+        guard let shape = Shape(fields: fields) else { return nil }
         guard let seconds = Int(fields[3]), seconds >= 0 else { return nil }
         guard fields[4] == "0" || fields[4] == "1" else { return nil }
-        return (TimeInterval(seconds), fields[4] == "1")
+        guard let aids = shape.aids(in: fields) else { return nil }
+        return (TimeInterval(seconds), fields[4] == "1", aids.hints, aids.checks)
+    }
+
+    /// Which version a payload claims, and what that implies about its shape. Both readers go
+    /// through this so neither can quietly start accepting a field count the other refuses.
+    private enum Shape {
+        case v1
+        case v2
+
+        init?(fields: [Substring]) {
+            guard let version = fields.first else { return nil }
+            switch (version, fields.count) {
+            case (Substring(SudokuPlayState.version1), 5): self = .v1
+            case (Substring(SudokuPlayState.version2), 7): self = .v2
+            default: return nil
+            }
+        }
+
+        /// The two counters, or zero for a payload written before either existed. Nil when the
+        /// fields are present but unreadable — a negative count, or something that isn't a number.
+        func aids(in fields: [Substring]) -> (hints: Int, checks: Int)? {
+            switch self {
+            case .v1:
+                return (0, 0)
+            case .v2:
+                guard let hints = Int(fields[5]), hints >= 0,
+                      let checks = Int(fields[6]), checks >= 0
+                else { return nil }
+                return (hints, checks)
+            }
+        }
     }
 
     /// Reads a state back, or gives up.
@@ -180,7 +280,7 @@ extension SudokuPlayState {
     /// missing or changed. The player's own entries are the only part the string gets to decide.
     static func decoded(from string: String, puzzle: SudokuGrid) -> SudokuPlayState? {
         let fields = string.split(separator: "|", omittingEmptySubsequences: false)
-        guard fields.count == 5, fields[0] == version else { return nil }
+        guard let shape = Shape(fields: fields) else { return nil }
 
         let gridField = fields[1]
         guard gridField.count == 81 else { return nil }
@@ -208,6 +308,7 @@ extension SudokuPlayState {
 
         guard let seconds = Int(fields[3]), seconds >= 0 else { return nil }
         guard fields[4] == "0" || fields[4] == "1" else { return nil }
+        guard let aids = shape.aids(in: fields) else { return nil }
 
         // The givens win, always.
         for index in 0..<81 where puzzle.isGiven(index) {
@@ -219,7 +320,9 @@ extension SudokuPlayState {
             entries: entries,
             notes: notes,
             elapsed: TimeInterval(seconds),
-            isComplete: fields[4] == "1"
+            isComplete: fields[4] == "1",
+            hintsUsed: aids.hints,
+            checksUsed: aids.checks
         )
     }
 }

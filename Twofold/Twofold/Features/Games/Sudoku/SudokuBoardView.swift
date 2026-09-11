@@ -16,6 +16,10 @@ struct SudokuBoardView: View {
     let puzzle: SudokuGrid
     let play: SudokuPlayState
     let conflicts: Set<Int>
+    /// Cells a "check" found to be wrong. Distinct from `conflicts`, which only knows about a digit
+    /// repeated against a peer — a wrong digit breaking no rule yet is invisible to that, and is
+    /// the one worth telling someone about.
+    var mistakes: Set<Int> = []
     let selected: Int?
     let onSelect: (Int) -> Void
 
@@ -49,6 +53,12 @@ struct SudokuBoardView: View {
 
         ZStack {
             highlight(for: index)
+            // Drawn over the selection wash rather than folded into it: a checked mistake is a
+            // statement about the cell, and it has to survive the cell being selected — which is
+            // the first thing anyone does on being told one of their digits is wrong.
+            if mistakes.contains(index) {
+                Theme.heartRed.opacity(0.22)
+            }
             if value != 0 {
                 Text(String(value))
                     .font(.system(size: size * 0.55, weight: isGiven ? .semibold : .regular, design: .rounded))
@@ -68,7 +78,7 @@ struct SudokuBoardView: View {
     }
 
     private func colour(index: Int, isGiven: Bool) -> Color {
-        if conflicts.contains(index) { return Theme.heartRedText }
+        if conflicts.contains(index) || mistakes.contains(index) { return Theme.heartRedText }
         // The puzzle's own numbers and the player's are deliberately different weights *and*
         // colours: knowing at a glance which cells are yours to change is most of playing.
         return isGiven ? Theme.ink : Theme.skyBlueText
@@ -149,8 +159,11 @@ struct SudokuBoardView: View {
         let value = play[index]
         if value != 0 {
             let ownership = puzzle[index] != 0 ? "given" : "your answer"
-            let clash = conflicts.contains(index) ? ", conflicts with another cell" : ""
-            return "\(position), \(value), \(ownership)\(clash)"
+            // Two different claims, and the stronger one wins: a conflict says this digit repeats
+            // somewhere, a checked mistake says it is simply not the answer.
+            let fault = mistakes.contains(index) ? ", wrong"
+                : conflicts.contains(index) ? ", conflicts with another cell" : ""
+            return "\(position), \(value), \(ownership)\(fault)"
         }
         let marks = (UInt8(1)...UInt8(9)).filter { play.note($0, at: index) }
         if marks.isEmpty { return "\(position), empty" }

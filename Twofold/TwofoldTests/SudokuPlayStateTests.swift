@@ -285,3 +285,80 @@ struct SudokuPlayStateTests {
         #expect(SudokuPlayState.decoded(from: payload, puzzle: puzzle) == nil)
     }
 }
+
+//
+//  Reading v1 after v2 exists.
+//
+//  Hints and checks added two fields, so the payload became `sudoku.v2`. Every puzzle solved before
+//  that is a v1 row already sitting in `game_responses`, and those rows are what the stats table,
+//  the head-to-head record and the resume path all read. A decoder that only understood v2 would
+//  not crash — it would return nil, and every one of those would quietly become "no history".
+//
+//  The other direction matters too: a v2 payload reaching a build that predates it must be refused
+//  outright rather than read as a v1 with extra junk on the end, which would restore a grid and a
+//  time while silently dropping the hint count that made them mean something.
+//
+struct SudokuPayloadVersionTests {
+
+    private static let generated = SudokuGenerator.puzzle(seed: 99, difficulty: .easy)
+    private var puzzle: SudokuGrid { Self.generated.puzzle }
+
+    private func v1(elapsed: Int, complete: Bool) -> String {
+        "sudoku.v1|" + String(repeating: "0", count: 81)
+            + "|" + String(repeating: "000", count: 81)
+            + "|\(elapsed)|\(complete ? 1 : 0)"
+    }
+
+    @Test("a v1 payload still decodes, as a solve with no help used")
+    func v1DecodesAsUnaided() throws {
+        let restored = try #require(SudokuPlayState.decoded(from: v1(elapsed: 754, complete: true), puzzle: puzzle))
+        #expect(restored.elapsed == 754)
+        #expect(restored.isComplete)
+        // True of it, rather than a default standing in for missing data: there was no way to use
+        // either when that row was written.
+        #expect(restored.hintsUsed == 0)
+        #expect(restored.checksUsed == 0)
+        #expect(restored.isUnaided)
+    }
+
+    @Test("summary reads v1 too — it is what the stats table runs on")
+    func v1Summarises() throws {
+        let summary = try #require(SudokuPlayState.summary(from: v1(elapsed: 312, complete: true)))
+        #expect(summary.elapsed == 312)
+        #expect(summary.isComplete)
+        #expect(summary.hintsUsed == 0)
+        #expect(summary.checksUsed == 0)
+    }
+
+    @Test("what gets written is v2, carrying the counts")
+    func writesV2() {
+        var play = SudokuPlayState(puzzle: puzzle)
+        play.revealCell(at: (0..<81).first { puzzle[$0] == 0 }!, solution: Self.generated.solution, puzzle: puzzle)
+        play.recordCheck()
+        play.recordCheck()
+
+        #expect(play.encoded.hasPrefix("sudoku.v2|"))
+        let restored = SudokuPlayState.decoded(from: play.encoded, puzzle: puzzle)
+        #expect(restored?.hintsUsed == 1)
+        #expect(restored?.checksUsed == 2)
+        #expect(restored?.isUnaided == false)
+    }
+
+    /// A v1 string with two fields bolted on is not a v2 — the version is what says how to read it,
+    /// and guessing from the field count is how a format starts being read wrong.
+    @Test("the version and the field count have to agree", arguments: [
+        // v1 claimed, v2 shape.
+        "sudoku.v1|" + String(repeating: "0", count: 81) + "|" + String(repeating: "000", count: 81) + "|10|1|0|0",
+        // v2 claimed, v1 shape.
+        "sudoku.v2|" + String(repeating: "0", count: 81) + "|" + String(repeating: "000", count: 81) + "|10|1",
+        // v2 with an unreadable count.
+        "sudoku.v2|" + String(repeating: "0", count: 81) + "|" + String(repeating: "000", count: 81) + "|10|1|x|0",
+        // v2 with a negative count.
+        "sudoku.v2|" + String(repeating: "0", count: 81) + "|" + String(repeating: "000", count: 81) + "|10|1|0|-1",
+    ])
+    func mismatchedShapesAreRefused(payload: String) {
+        #expect(SudokuPlayState.decoded(from: payload, puzzle: puzzle) == nil)
+        // And both readers agree about it, which is the property that keeps them from drifting.
+        #expect(SudokuPlayState.summary(from: payload) == nil)
+    }
+}

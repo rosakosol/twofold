@@ -150,6 +150,21 @@ struct SudokuGameView: View {
         }
     }
 
+    /// Both solves, once both exist. Carries what each of them used as well as how long they took:
+    /// see `SudokuComparison.isLopsided` for why the screen cannot show one without the other.
+    private func comparison(for play: SudokuPlayState) -> SudokuComparison? {
+        guard let partnerResult = store.partnerResult else { return nil }
+        return SudokuComparison(
+            myElapsed: play.elapsed,
+            partnerElapsed: partnerResult.elapsed,
+            partnerName: appModel.partner.name,
+            myAids: SudokuSolveSummary(
+                elapsed: play.elapsed, hintsUsed: play.hintsUsed, checksUsed: play.checksUsed
+            ),
+            partnerAids: partnerResult
+        )
+    }
+
     /// Non-nil exactly when there is a comparison on screen — both solved, so both times exist.
     ///
     /// The difficulty goes in `title` because that is the whole of what the card says about which
@@ -157,7 +172,7 @@ struct SudokuGameView: View {
     /// image more than the grid's own identity ever could.
     private var shareData: GameResultShareData? {
         guard let play = store.play, play.isComplete,
-              let partnerElapsed = store.partnerElapsed,
+              let partnerResult = store.partnerResult,
               let difficulty = store.difficulty
         else { return nil }
 
@@ -174,7 +189,7 @@ struct SudokuGameView: View {
             deepConversationRounds: nil,
             dailyStreak: nil,
             sudokuMyElapsed: play.elapsed,
-            sudokuPartnerElapsed: partnerElapsed
+            sudokuPartnerElapsed: partnerResult.elapsed
         )
     }
 
@@ -188,20 +203,15 @@ struct SudokuGameView: View {
                     puzzle: generated.puzzle,
                     play: play,
                     conflicts: store.conflicts,
+                    mistakes: store.mistakes,
                     selected: store.selected,
                     onSelect: { store.select($0) }
                 )
                 .padding(.horizontal, Theme.Spacing.sm)
 
                 if play.isComplete {
-                    if let partnerElapsed = store.partnerElapsed {
-                        SudokuComparisonView(
-                            comparison: SudokuComparison(
-                                myElapsed: play.elapsed,
-                                partnerElapsed: partnerElapsed,
-                                partnerName: appModel.partner.name
-                            )
-                        )
+                    if let comparison = comparison(for: play) {
+                        SudokuComparisonView(comparison: comparison)
                         .padding(.horizontal, Theme.Spacing.md)
                     } else {
                         solvedCard(play: play)
@@ -277,6 +287,12 @@ struct SudokuGameView: View {
                 isActive: store.isNotesMode
             ) {
                 store.isNotesMode.toggle()
+            }
+            controlButton("checkmark.circle", label: "Check", enabled: true) {
+                store.checkMistakes()
+            }
+            controlButton("lightbulb", label: "Hint", enabled: true) {
+                store.useHint()
             }
         }
     }

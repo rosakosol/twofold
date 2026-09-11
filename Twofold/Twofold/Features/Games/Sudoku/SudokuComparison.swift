@@ -12,6 +12,26 @@
 
 import Foundation
 
+/// One finished solve, as much of it as a comparison needs.
+struct SudokuSolveSummary: Equatable {
+    let elapsed: TimeInterval
+    let hintsUsed: Int
+    let checksUsed: Int
+
+    var isUnaided: Bool { hintsUsed == 0 && checksUsed == 0 }
+
+    /// "2 hints", "checked twice", "2 hints, checked once" — or nil when nothing was used, because
+    /// "no help" printed under both times is noise on the ordinary case.
+    var aidsDescription: String? {
+        var parts: [String] = []
+        if hintsUsed > 0 { parts.append(hintsUsed == 1 ? "1 hint" : "\(hintsUsed) hints") }
+        if checksUsed > 0 {
+            parts.append(checksUsed == 1 ? "checked once" : checksUsed == 2 ? "checked twice" : "checked \(checksUsed) times")
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: ", ")
+    }
+}
+
 struct SudokuComparison: Equatable {
     enum Outcome: Equatable {
         case me
@@ -22,6 +42,20 @@ struct SudokuComparison: Equatable {
     let myElapsed: TimeInterval
     let partnerElapsed: TimeInterval
     let partnerName: String
+    /// What each of them used. Defaulted so the many call sites that only care about the two times
+    /// — tests, previews, the share card's own construction — stay readable.
+    var myAids: SudokuSolveSummary?
+    var partnerAids: SudokuSolveSummary?
+
+    /// True when one of them solved it unaided and the other did not.
+    ///
+    /// This is the case the screen has to be careful about: the times are comparable arithmetic but
+    /// not comparable achievements, and showing a winner without saying why would be the race
+    /// quietly rewarding whoever was most willing to ask.
+    var isLopsided: Bool {
+        guard let mine = myAids, let theirs = partnerAids else { return false }
+        return mine.isUnaided != theirs.isUnaided
+    }
 
     /// Positive when this player was quicker, negative when the partner was, zero for a dead heat.
     ///

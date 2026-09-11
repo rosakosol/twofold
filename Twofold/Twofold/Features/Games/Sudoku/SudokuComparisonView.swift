@@ -32,35 +32,64 @@ struct SudokuComparisonView: View {
                     timeRow(
                         name: "You",
                         elapsed: comparison.myElapsed,
+                        aids: comparison.myAids,
                         isFaster: comparison.outcome == .me
                     )
                     Divider().opacity(0.5)
                     timeRow(
                         name: comparison.partnerName,
                         elapsed: comparison.partnerElapsed,
+                        aids: comparison.partnerAids,
                         isFaster: comparison.outcome == .partner
                     )
                 }
                 .padding(.top, Theme.Spacing.xs)
 
-                Text(comparison.verdict)
-                    .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
-                    .multilineTextAlignment(.center)
+                VStack(spacing: 2) {
+                    Text(comparison.verdict)
+                        .font(.caption)
+                        .foregroundStyle(Theme.subtleInk)
+                        .multilineTextAlignment(.center)
+                    // Said outright rather than left to be inferred from the two footnotes above.
+                    // One of them solved it cold and the other asked: the times are comparable
+                    // arithmetic and not comparable achievements, and a screen that shows a winner
+                    // without saying so is rewarding whoever was most willing to ask for help.
+                    if comparison.isLopsided {
+                        Text("Only one of you did it unaided, so it's not quite a fair race.")
+                            .font(.caption2)
+                            .foregroundStyle(Theme.subtleInk)
+                            .multilineTextAlignment(.center)
+                    }
+                }
             }
             .frame(maxWidth: .infinity)
         }
     }
 
-    private func timeRow(name: String, elapsed: TimeInterval, isFaster: Bool) -> some View {
+    private func timeRow(
+        name: String,
+        elapsed: TimeInterval,
+        aids: SudokuSolveSummary?,
+        isFaster: Bool
+    ) -> some View {
         HStack {
-            Text(name)
-                // Weight, not just colour, carries "this one was quicker" — the green below is a
-                // second signal rather than the only one, and the verdict says it in words besides.
-                .font(.subheadline.weight(isFaster ? .semibold : .regular))
-                .foregroundStyle(Theme.ink)
-                .lineLimit(1)
-                .truncationMode(.tail)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(name)
+                    // Weight, not just colour, carries "this one was quicker" — the green below is
+                    // a second signal rather than the only one, and the verdict says it in words.
+                    .font(.subheadline.weight(isFaster ? .semibold : .regular))
+                    .foregroundStyle(Theme.ink)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                // Only when something was used. "No help" under both times on the ordinary solve
+                // would turn an honest footnote into an accusation.
+                if let used = aids?.aidsDescription {
+                    Text(used)
+                        .font(.caption2)
+                        .foregroundStyle(Theme.subtleInk)
+                        .lineLimit(1)
+                }
+            }
             Spacer(minLength: Theme.Spacing.sm)
             Text(SudokuComparison.clockText(elapsed))
                 .font(.title3.weight(.semibold))
