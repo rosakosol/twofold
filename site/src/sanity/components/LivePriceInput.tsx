@@ -19,6 +19,9 @@ export type PriceKind = 'monthly' | 'yearlyTotal' | 'yearlyPerMonth'
 
 // Keyed off the field name rather than a schema option: Sanity's StringOptions is a closed
 // type, and augmenting it to smuggle one string through is more machinery than three names.
+//
+// Read from `props.path`, NOT `props.schemaType.name` - the latter is the underlying type
+// ("string"), so every field looked the same and all three rendered the monthly price.
 const KIND_BY_FIELD: Record<string, PriceKind> = {
   monthlyPriceLabel: 'monthly',
   yearlyPriceLabel: 'yearlyTotal',
@@ -47,7 +50,10 @@ function planIdFromDocument(documentId: unknown): PlanId | null {
 export function LivePriceInput(props: StringInputProps) {
   const documentId = useFormValue(['_id'])
   const planId = planIdFromDocument(documentId)
-  const kind = KIND_BY_FIELD[props.schemaType.name] ?? 'monthly'
+  // Last path segment is the field name. Deliberately no default: guessing a kind is what
+  // turned a wiring mistake into three fields confidently showing the wrong price.
+  const fieldName = String(props.path[props.path.length - 1] ?? '')
+  const kind: PriceKind | undefined = KIND_BY_FIELD[fieldName]
 
   const [prices, setPrices] = useState<LivePrices | null>(null)
 
@@ -60,6 +66,17 @@ export function LivePriceInput(props: StringInputProps) {
       cancelled = true
     }
   }, [])
+
+  if (!kind) {
+    return (
+      <Card padding={3} radius={2} tone="critical" border>
+        <Text size={1}>
+          LivePriceInput is attached to <code>{fieldName || '(unknown field)'}</code>, which it
+          has no price mapping for. Add it to KIND_BY_FIELD.
+        </Text>
+      </Card>
+    )
+  }
 
   const storedLabel = props.value ?? ''
   const codeDefault = planId
