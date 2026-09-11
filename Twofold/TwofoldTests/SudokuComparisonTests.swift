@@ -80,6 +80,27 @@ struct SudokuComparisonTests {
         #expect(comparison(mine: 240, theirs: 240).verdict == "A dead heat — you both took 4:00.")
     }
 
+    // MARK: - How it reads on a card that leaves the device
+
+    /// "You" on a shared image names the sender to every viewer — worst of all to the partner it
+    /// gets sent to, who would read the other person's win as their own.
+    @Test("the shared verdict names the winner instead of saying 'you'")
+    func sharedVerdictNamesBothSides() {
+        let iWon = comparison(mine: 134, theirs: 182)
+        #expect(iWon.verdict == "You finished 48s ahead.")
+        #expect(iWon.sharedVerdict(myName: "Rosa") == "Rosa finished 48s ahead.")
+
+        let theyWon = comparison(mine: 604, theirs: 417)
+        #expect(theyWon.sharedVerdict(myName: "Rosa") == "Erin finished 3:07 ahead.")
+    }
+
+    @Test("a shared dead heat drops 'you both' too")
+    func sharedTieVerdict() {
+        let tie = comparison(mine: 240, theirs: 240)
+        #expect(tie.verdict == "A dead heat — you both took 4:00.")
+        #expect(tie.sharedVerdict(myName: "Rosa") == "A dead heat — 4:00 each.")
+    }
+
     /// The partner's name is whatever they typed, and it lands mid-sentence.
     @Test("an awkward partner name still produces a sentence")
     func unusualNames() {

@@ -55,6 +55,22 @@ struct SudokuComparison: Equatable {
         }
     }
 
+    /// The same verdict for a card that leaves the device.
+    ///
+    /// "You" is only meaningful to whoever is holding the phone. On a shared image it names the
+    /// sender to everyone else — including the partner it is most likely to be sent to, who would
+    /// read someone else's win as their own — so both sides are named outright here.
+    func sharedVerdict(myName: String) -> String {
+        switch outcome {
+        case .tie:
+            "A dead heat — \(Self.clockText(myElapsed)) each."
+        case .me:
+            "\(myName) finished \(Self.gapText(margin)) ahead."
+        case .partner:
+            "\(partnerName) finished \(Self.gapText(-margin)) ahead."
+        }
+    }
+
     /// Seconds up to a minute, clock formatting beyond it — "48s ahead" reads better than
     /// "0:48 ahead", while "3:07 ahead" reads better than "187s ahead".
     static func gapText(_ seconds: Int) -> String {

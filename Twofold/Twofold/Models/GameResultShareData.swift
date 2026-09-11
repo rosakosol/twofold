@@ -52,6 +52,18 @@ struct GameResultShareData {
     var partnerAnswer: String?
     let dailyStreak: Int?
 
+    // MARK: Sudoku
+
+    /// Both finished solve times, in seconds — sudoku only, nil everywhere else. The difficulty
+    /// rides in `title` rather than a field of its own, since that is all the card does with it.
+    ///
+    /// Two plain times rather than a `SudokuComparison`: that type carries the partner's name, and
+    /// this struct already has `partner`. Storing it twice is how the two end up disagreeing.
+    /// The card rebuilds the comparison from these and `partner.name` where it needs the wording.
+    /// Defaulted so every existing call site keeps compiling without naming a sudoku field.
+    var sudokuMyElapsed: TimeInterval? = nil
+    var sudokuPartnerElapsed: TimeInterval? = nil
+
     /// The Daily Question has no score/match stat to headline — `scoreSnapshot` would render as
     /// just a brand mark and avatars — so it's skipped there in favor of the two single-Q&A
     /// layouts. Deep Conversations decks have no match/score concept either (free text, nothing

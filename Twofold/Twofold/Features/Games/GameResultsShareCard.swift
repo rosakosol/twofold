@@ -100,6 +100,29 @@ struct GameResultsShareCard: View {
                     .font(.subheadline)
                     .foregroundStyle(palette.foreground.opacity(0.85))
             }
+        } else if let mine = data.sudokuMyElapsed, let theirs = data.sudokuPartnerElapsed {
+            let comparison = SudokuComparison(
+                myElapsed: mine, partnerElapsed: theirs, partnerName: data.partner.name
+            )
+            VStack(spacing: Theme.Spacing.sm) {
+                HStack(spacing: Theme.Spacing.lg) {
+                    // Dimmed by being *slower*, not by failing to be faster — in a dead heat that
+                    // distinction is the whole difference between both times reading as won and
+                    // both reading as lost.
+                    timeColumn(
+                        mine, name: data.me.name,
+                        isDimmed: comparison.outcome == .partner, palette: palette
+                    )
+                    timeColumn(
+                        theirs, name: data.partner.name,
+                        isDimmed: comparison.outcome == .me, palette: palette
+                    )
+                }
+                Text(comparison.sharedVerdict(myName: data.me.name))
+                    .font(.subheadline)
+                    .foregroundStyle(palette.foreground.opacity(0.85))
+                    .multilineTextAlignment(.center)
+            }
         } else if let myScore = data.triviaMyScore, let partnerScore = data.triviaPartnerScore, let total = data.triviaTotalRounds {
             HStack(spacing: Theme.Spacing.xl) {
                 scoreColumn(value: "\(myScore)", label: data.me.name, palette: palette)
@@ -117,6 +140,36 @@ struct GameResultsShareCard: View {
                 .font(.system(size: 48, weight: .bold, design: .rounded))
                 .foregroundStyle(palette.foreground)
             Text(label.uppercased())
+                .font(.caption2.weight(.semibold))
+                .tracking(0.5)
+                .foregroundStyle(palette.foreground.opacity(0.75))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+    }
+
+    /// A solve time and whose it is. Separate from `scoreColumn` rather than reusing it with a
+    /// formatted string: a trivia score is one or two digits at size 48, while "1:23:20" is seven
+    /// characters, and two of those side by side overflow the card's 360pt render width. Smaller,
+    /// monospaced so the two columns line up digit for digit, and allowed to shrink for the rare
+    /// hour-long Expert solve.
+    private func timeColumn(
+        _ elapsed: TimeInterval,
+        name: String,
+        isDimmed: Bool,
+        palette: ShareCardPalette
+    ) -> some View {
+        VStack(spacing: 2) {
+            Text(SudokuComparison.clockText(elapsed))
+                .font(.system(size: 40, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                // The palette has no second accent to spend on a winner, so the slower time is
+                // simply a little quieter, with the verdict below saying it outright for anyone
+                // the difference is too subtle for.
+                .foregroundStyle(palette.foreground.opacity(isDimmed ? 0.75 : 1))
+            Text(name.uppercased())
                 .font(.caption2.weight(.semibold))
                 .tracking(0.5)
                 .foregroundStyle(palette.foreground.opacity(0.75))

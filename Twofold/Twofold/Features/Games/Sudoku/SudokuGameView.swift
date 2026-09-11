@@ -19,6 +19,7 @@ struct SudokuGameView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(AppModel.self) private var appModel
     @State private var store: SudokuGameStore
+    @State private var showingShare = false
 
     init(sessionID: UUID) {
         self.sessionID = sessionID
@@ -43,6 +44,23 @@ struct SudokuGameView: View {
         }
         .navigationTitle("Sudoku")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            // Only once there are two times to show. A solve with nobody to compare against is
+            // the "waiting for them" card, and a card of one time is not the thing this shares.
+            if let shareData {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Share", systemImage: "square.and.arrow.up") {
+                        showingShare = true
+                    }
+                    .labelStyle(.iconOnly)
+                }
+            }
+        }
+        .sheet(isPresented: $showingShare) {
+            if let shareData {
+                GameResultsShareView(data: shareData)
+            }
+        }
         .task {
             await store.load()
             store.startClock()
@@ -59,6 +77,34 @@ struct SudokuGameView: View {
             // puzzle left open in a pocket would report an afternoon's solve.
             if phase == .active { store.startClock() } else { store.stopClock() }
         }
+    }
+
+    /// Non-nil exactly when there is a comparison on screen — both solved, so both times exist.
+    ///
+    /// The difficulty goes in `title` because that is the whole of what the card says about which
+    /// puzzle this was: there is no deck name to use, and "HARD SUDOKU" tells a stranger seeing the
+    /// image more than the grid's own identity ever could.
+    private var shareData: GameResultShareData? {
+        guard let play = store.play, play.isComplete,
+              let partnerElapsed = store.partnerElapsed,
+              let difficulty = store.difficulty
+        else { return nil }
+
+        return GameResultShareData(
+            gameType: .sudoku,
+            title: "\(difficulty.displayName) Sudoku",
+            isDaily: false,
+            me: appModel.currentUser,
+            partner: appModel.partner,
+            matchPercent: nil,
+            triviaMyScore: nil,
+            triviaPartnerScore: nil,
+            triviaTotalRounds: nil,
+            deepConversationRounds: nil,
+            dailyStreak: nil,
+            sudokuMyElapsed: play.elapsed,
+            sudokuPartnerElapsed: partnerElapsed
+        )
     }
 
     @ViewBuilder
