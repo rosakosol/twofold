@@ -33,5 +33,6 @@ func gameDestinationView(gameType: GameType, sessionID: UUID, title: String? = n
     // topic, so the only honest title is the one the view sets itself.
     case .sudoku: SudokuGameView(sessionID: sessionID)
     case .wordGuess: WordGuessGameView(sessionID: sessionID)
+    case .wordSearch: WordSearchGameView(sessionID: sessionID)
     }
 }

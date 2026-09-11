@@ -102,6 +102,7 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
     /// Named for what it is rather than after the game it resembles — the mechanic is nobody's
     /// property but the name is somebody's trademark.
     case wordGuess = "word_guess"
+    case wordSearch = "word_search"
 
     var id: String { rawValue }
 
@@ -113,6 +114,7 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
         case .deepConversations: "Deep Conversation"
         case .sudoku: "Sudoku"
         case .wordGuess: "Word Guess"
+        case .wordSearch: "Word Search"
         }
     }
 
@@ -126,6 +128,7 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
         case .deepConversations: "DEEP CONVERSATION"
         case .sudoku: "SUDOKU"
         case .wordGuess: "WORD GUESS"
+        case .wordSearch: "WORD SEARCH"
         }
     }
 
@@ -137,6 +140,7 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
         case .deepConversations: "Talk through the things that matter, together."
         case .sudoku: "The same grid, on both your phones."
         case .wordGuess: "One word, six guesses, both of you."
+        case .wordSearch: "Same grid, same words. Fastest finder wins."
         }
     }
 
@@ -160,6 +164,8 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
         case .sudoku: 20
         // Six guesses is the whole game, and most boards end well before that.
         case .wordGuess: 5
+        // Eight words in a hundred letters. Quicker than a sudoku, slower than a word.
+        case .wordSearch: 8
         }
     }
 
@@ -173,6 +179,7 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
         case .deepConversations: "bubble.left.and.bubble.right.fill"
         case .sudoku: "square.grid.3x3.fill"
         case .wordGuess: "textformat.abc"
+        case .wordSearch: "square.grid.4x3.fill"
         }
     }
 
@@ -184,6 +191,7 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
         case .deepConversations: [Theme.leafGreen, Theme.skyBlue]
         case .sudoku: [.indigo, Theme.skyBlue]
         case .wordGuess: [Theme.leafGreen, .yellow]
+        case .wordSearch: [.orange, Theme.heartRed]
         }
     }
 
@@ -299,6 +307,9 @@ struct GameSessionRound: Identifiable, Hashable {
     /// so a round carrying a difficulty in it would fail to decode and take the entire session
     /// fetch with it.
     var difficulty: SudokuDifficulty?
+    /// Word Search only, nil for every other game type. Its own column for the same reason
+    /// `difficulty` has one — see 20261010000200, which is the migration that learned it.
+    var theme: WordSearchTheme?
 }
 
 /// `game_responses.answer` is a single-key jsonb payload (`{"value": "..."}`) regardless of

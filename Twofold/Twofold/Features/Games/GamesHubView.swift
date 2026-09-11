@@ -177,6 +177,14 @@ struct GamesHubView: View {
                                 GameCard(gameType: gameType, width: 220)
                             }
                             .buttonStyle(.plain)
+                        } else if gameType == .wordSearch {
+                            // Themes rather than decks, for the same reason: generated content.
+                            NavigationLink {
+                                WordSearchThemePickerView()
+                            } label: {
+                                GameCard(gameType: gameType, width: 220)
+                            }
+                            .buttonStyle(.plain)
                         } else if gameType == .wordGuess {
                             // Same reason, different stand-in: one board a day, so what this opens
                             // is a screen that can start it or say it has already been played.

@@ -29,10 +29,11 @@ struct PuzzleProgressCache {
 
     static let sudoku = PuzzleProgressCache(namespace: "sudokuProgress")
     static let wordGuess = PuzzleProgressCache(namespace: "wordGuessProgress")
+    static let wordSearch = PuzzleProgressCache(namespace: "wordSearchProgress")
 
     /// Every namespace there is, for `clear()` on sign-out. A game whose cache is not listed here
     /// leaks one account's puzzle into the next account to use the device.
-    static let all: [PuzzleProgressCache] = [.sudoku, .wordGuess]
+    static let all: [PuzzleProgressCache] = [.sudoku, .wordGuess, .wordSearch]
 
     private struct Entry: Codable {
         var sessionID: UUID

@@ -2994,9 +2994,10 @@ enum BackendService {
         var contentId: UUID
         var discussionStatus: DiscussionRoundStatus?
         var difficulty: SudokuDifficulty?
+        var theme: WordSearchTheme?
 
         enum CodingKeys: String, CodingKey {
-            case id, difficulty
+            case id, difficulty, theme
             case sessionId = "session_id"
             case roundNumber = "round_number"
             case contentId = "content_id"
@@ -3004,7 +3005,7 @@ enum BackendService {
         }
 
         func toModel() -> GameSessionRound {
-            GameSessionRound(id: id, sessionID: sessionId, roundNumber: roundNumber, contentID: contentId, discussionStatus: discussionStatus, difficulty: difficulty)
+            GameSessionRound(id: id, sessionID: sessionId, roundNumber: roundNumber, contentID: contentId, discussionStatus: discussionStatus, difficulty: difficulty, theme: theme)
         }
     }
 
@@ -3303,6 +3304,43 @@ enum BackendService {
         }
     }
 
+    /// Starts, or picks back up, a Word Search at this theme.
+    ///
+    /// `puzzleID` is the whole of the grid, as it is for the other generated games: both partners
+    /// run this uuid and the theme through `WordSearchGenerator` and arrive at the same hundred
+    /// letters, which is what lets a started grid be played with no connection at all.
+    struct WordSearchSessionStart: Decodable {
+        let sessionID: UUID
+        let puzzleID: UUID
+        let theme: WordSearchTheme
+        let resumed: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case theme, resumed
+            case sessionID = "session_id"
+            case puzzleID = "puzzle_id"
+        }
+    }
+
+    static func startWordSearchSession(theme: WordSearchTheme) async throws -> WordSearchSessionStart {
+        struct Params: Encodable {
+            var pTheme: String
+            enum CodingKeys: String, CodingKey { case pTheme = "p_theme" }
+        }
+        // `returns table` comes back as a set, so this decodes as an array of one.
+        let rows: [WordSearchSessionStart] = try await supabase
+            .rpc("start_word_search_session", params: Params(pTheme: theme.rawValue))
+            .execute()
+            .value
+        guard let start = rows.first else { throw BackendError.notAuthenticated }
+        Analytics.capture(Analytics.Event.sessionStart, properties: [
+            "game_type": GameType.wordSearch.rawValue,
+            "theme": theme.rawValue,
+            "resumed": start.resumed
+        ])
+        return start
+    }
+
     /// Every finished sudoku solve visible to this account, flattened for `SudokuStats`.
     ///
     /// Three queries whatever the history's size, rather than a session detail each: the existing
@@ -3532,10 +3570,10 @@ enum BackendService {
         let unique = Array(Set(contentIDs))
         guard !unique.isEmpty else { return [:] }
         switch gameType {
-        // Nothing to resolve. These two `content_id`s are not keys into anything — they *are* the
+        // Nothing to resolve. These `content_id`s are not keys into anything — they *are* the
         // puzzle, generated from those 128 bits on each device, so there is no row to go and get.
         // For Word Guess that is also what keeps the answer off the server entirely.
-        case .sudoku, .wordGuess:
+        case .sudoku, .wordGuess, .wordSearch:
             return [:]
         case .triviaBattle:
             let rows: [TriviaQuestionRow] = try await supabase.from("trivia_questions").select().in("id", values: unique).execute().value

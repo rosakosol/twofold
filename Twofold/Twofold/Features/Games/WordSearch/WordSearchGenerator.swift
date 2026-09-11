@@ -70,6 +70,32 @@ struct WordSearchPuzzle: Equatable {
 
     subscript(index: Int) -> Character { letters[index] }
 
+    /// The straight run of cells from one to another, or nil if they do not line up.
+    ///
+    /// A word search only accepts straight lines, and this is where that rule lives. The player
+    /// drags from a first letter to a last one; anything that is not a row, a column or a true
+    /// diagonal is not a selection at all, which is why this returns nil rather than a best guess —
+    /// a dragged finger passes over a great many cells that were never meant.
+    static func line(from start: Int, to end: Int, size: Int) -> [Int]? {
+        guard (0..<(size * size)).contains(start), (0..<(size * size)).contains(end) else { return nil }
+        let startRow = start / size, startColumn = start % size
+        let endRow = end / size, endColumn = end % size
+        let rowDelta = endRow - startRow, columnDelta = endColumn - startColumn
+
+        // A single cell is a legal line of one — it is what a tap is, before the finger moves.
+        if rowDelta == 0 && columnDelta == 0 { return [start] }
+        // Straight means one of the three: same row, same column, or an exact diagonal. Anything
+        // else — two across and one down — is a drag that has wandered.
+        guard rowDelta == 0 || columnDelta == 0 || abs(rowDelta) == abs(columnDelta) else { return nil }
+
+        let steps = max(abs(rowDelta), abs(columnDelta))
+        let rowStep = rowDelta == 0 ? 0 : rowDelta / abs(rowDelta)
+        let columnStep = columnDelta == 0 ? 0 : columnDelta / abs(columnDelta)
+        return (0...steps).map { step in
+            (startRow + rowStep * step) * size + (startColumn + columnStep * step)
+        }
+    }
+
     /// The placement occupying exactly these cells, in either direction.
     ///
     /// Matched on cells rather than on the letters they spell. A grid of a hundred letters will
