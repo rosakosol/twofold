@@ -73,18 +73,40 @@ export function FaqTool() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  const queryEntries = useCallback(
+    () => faqSupabase.from("faq_entries").select("*").order("sort_order"),
+    []
+  );
+
+  const applyResult = useCallback(
+    ({ data, error }: Awaited<ReturnType<typeof queryEntries>>) => {
+      if (error) setLoadError(error.message);
+      else setEntries((data as FaqEntryRow[] | null) ?? []);
+      setIsLoading(false);
+    },
+    []
+  );
+
+  // The initial fetch applies its result from the promise callback rather than awaiting it
+  // in the effect body: state then lands as a response from an external system, which is
+  // what effects are for, instead of as a synchronous set that schedules a second render.
+  // `isLoading` already starts true, so the mount path has nothing to set up front.
+  useEffect(() => {
+    let cancelled = false;
+    queryEntries().then((result) => {
+      if (!cancelled) applyResult(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [queryEntries, applyResult]);
+
+  // Explicit refresh after a write — unlike mount, this one does need the spinner back.
   const load = useCallback(async () => {
     setIsLoading(true);
     setLoadError(null);
-    const { data, error } = await faqSupabase.from("faq_entries").select("*").order("sort_order");
-    if (error) setLoadError(error.message);
-    else setEntries((data as FaqEntryRow[] | null) ?? []);
-    setIsLoading(false);
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+    applyResult(await queryEntries());
+  }, [queryEntries, applyResult]);
 
   const grouped = useMemo(() => {
     const byCategory = new Map<string, FaqEntryRow[]>();

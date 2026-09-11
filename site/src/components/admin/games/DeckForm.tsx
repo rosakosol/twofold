@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,16 +30,23 @@ export function DeckForm({ editingDeck, open, onOpenChange }: Props) {
   const [sortOrder, setSortOrder] = useState(0);
   const [active, setActive] = useState(true);
 
-  useEffect(() => {
-    if (!open) return;
-    setTitle(editingDeck?.title ?? "");
-    setTopic(editingDeck?.topic ?? "");
-    setEmoji(editingDeck?.emoji ?? "");
-    setGameType(editingDeck?.game_type ?? CONTENT_TYPES[0].gameType);
-    setTier((editingDeck?.tier as (typeof TIER_VALUES)[number]) ?? "plus");
-    setSortOrder(editingDeck?.sort_order ?? 0);
-    setActive(editingDeck?.active ?? true);
-  }, [open, editingDeck]);
+  // Seeded during render rather than in an effect, so the sheet doesn't paint one frame of
+  // the previously edited deck's values on the way open. Keyed on the deck id so reopening
+  // for a different row re-seeds, matching ContentForm.
+  const seedKey = open ? (editingDeck?.id ?? "new") : null;
+  const [seededKey, setSeededKey] = useState<string | null>(null);
+  if (seedKey !== seededKey) {
+    setSeededKey(seedKey);
+    if (seedKey) {
+      setTitle(editingDeck?.title ?? "");
+      setTopic(editingDeck?.topic ?? "");
+      setEmoji(editingDeck?.emoji ?? "");
+      setGameType(editingDeck?.game_type ?? CONTENT_TYPES[0].gameType);
+      setTier((editingDeck?.tier as (typeof TIER_VALUES)[number]) ?? "plus");
+      setSortOrder(editingDeck?.sort_order ?? 0);
+      setActive(editingDeck?.active ?? true);
+    }
+  }
 
   const canSave = title.trim().length > 0 && topic.trim().length > 0 && emoji.trim().length > 0;
 
