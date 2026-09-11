@@ -1179,9 +1179,19 @@ section {
   max-width: 780px;
   margin: 44px auto 0;
 }
+/* Equal height regardless of how many bullets a plan has, with the CTA on a shared line.
+   Two different nestings to cover: on /pricing each card sits inside an id wrapper (the
+   scroll target for ?plan=), so the grid stretches the wrapper and the card has to be told
+   to fill it; on the home page preview the card is the grid item itself. */
+.pricing-grid > * {
+  display: flex;
+}
 .plan {
   position: relative;
   padding: 34px 32px;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
 }
 .plan.feature {
   box-shadow: var(--shadow-lg);
@@ -1218,17 +1228,17 @@ section {
   justify-content: center;
   gap: 6px;
 }
+/* Body face, not the display serif. A price is a number to be read at a glance rather than
+   a heading, and the plan name directly above it is sans too (h3 is --font-body site-wide),
+   so the serif made the price the odd one out on its own card. "/mo" inherits the same. */
 .price-line .n {
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 3rem;
   font-weight: 600;
   color: var(--ink);
   line-height: 1;
 }
-/* Display face here too. The figure was already serif and the "/mo" beside it was not, so a
-   single price read as two typefaces butted together. */
 .price-line .per {
-  font-family: var(--font-display);
   font-size: 0.92rem;
   color: var(--faint-ink);
 }
@@ -1247,8 +1257,11 @@ section {
 .plan .check-list li {
   text-align: left;
 }
+/* margin-top:auto takes up whatever slack the shorter card has, so both buttons sit on the
+   same line instead of floating wherever the feature list happens to end. */
 .plan .btn {
   width: 100%;
+  margin-top: auto;
 }
 [data-plan].hidden {
   display: none;
