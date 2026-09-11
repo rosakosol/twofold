@@ -31,6 +31,7 @@
 
 import Foundation
 import Observation
+import Supabase
 
 @MainActor
 @Observable
@@ -51,6 +52,13 @@ final class SudokuGameStore {
     /// maintained highlight is a thing that goes subtly stale.
     private(set) var conflicts: Set<Int> = []
     private(set) var justSolved = false
+    /// The partner's finished time, once there is one.
+    ///
+    /// Non-nil always means a genuine completed solve. RLS only reveals a partner's response after
+    /// both sides have written one, and this game writes a response only on solve (see the note at
+    /// the top of this file) — so a row cannot appear here for a puzzle they are still working on,
+    /// and this can never leak a half-finished grid or spoil a solve in progress.
+    private(set) var partnerElapsed: TimeInterval?
 
     var selected: Int?
     var isNotesMode = false
@@ -59,6 +67,7 @@ final class SudokuGameStore {
     private var responderID: UUID?
     private var clock: Task<Void, Never>?
     private var hasSubmitted = false
+    private var channel: RealtimeChannelV2?
 
     var difficulty: SudokuDifficulty? { generated?.difficulty }
     var canUndo: Bool { !undoStack.isEmpty }
@@ -110,6 +119,9 @@ final class SudokuGameStore {
             let restored = SudokuPlayState.furtherAlong(fromServer, fromDevice)
             play = restored ?? SudokuPlayState(puzzle: generated.puzzle)
             hasSubmitted = fromServer?.isComplete == true
+            partnerElapsed = me.flatMap {
+                Self.partnerElapsed(in: detail, me: $0, puzzle: generated.puzzle)
+            }
             recomputeConflicts()
             phase = .ready
         } catch {
@@ -194,6 +206,11 @@ final class SudokuGameStore {
                 try await BackendService.submitGameResponse(
                     sessionID: id, roundNumber: 1, answerValue: encoded, isCorrect: true
                 )
+                // If they finished first, their response was invisible until this insert — RLS only
+                // reveals it once both sides have answered. Realtime would echo this same insert
+                // back and trigger the read anyway, but that leaves the comparison depending on a
+                // live socket to show a result both halves of which are already on the server.
+                await refreshPartner()
             } catch {
                 // The local copy still holds the finished grid, and `load()` prefers a complete
                 // state over an incomplete one, so reopening the puzzle offers the solve again
@@ -206,6 +223,53 @@ final class SudokuGameStore {
     private func persistLocally() {
         guard let play, let responderID else { return }
         SudokuProgressCache.save(play, sessionID: sessionID, responderID: responderID)
+    }
+
+    // MARK: - The partner's side
+
+    /// Subscribes to the session and re-reads the partner's result on every change, so a solve that
+    /// lands while this screen is open becomes the comparison without needing the screen reopened.
+    ///
+    /// Call from a `.task` of its own — this loops until cancelled, so sharing `load()`'s task would
+    /// mean the board never rendered. Pair with `stopRealtime()`.
+    func subscribeRealtime() async {
+        let (channel, stream) = BackendService.subscribeToGameSession(id: sessionID)
+        self.channel = channel
+        for await _ in stream {
+            await refreshPartner()
+        }
+    }
+
+    func stopRealtime() {
+        guard let channel else { return }
+        Task { await BackendService.unsubscribe(channel) }
+        self.channel = nil
+    }
+
+    /// Re-reads only the partner's half of the session.
+    ///
+    /// Deliberately leaves `play` alone. A refresh arriving mid-solve must not be able to replace
+    /// the grid under the player's hands with whatever the server last heard — which, for a puzzle
+    /// in progress, is nothing at all, since the one response row is written on solve.
+    private func refreshPartner() async {
+        guard let generated, let me = responderID else { return }
+        guard let detail = try? await BackendService.fetchGameSession(id: sessionID) else { return }
+        partnerElapsed = Self.partnerElapsed(in: detail, me: me, puzzle: generated.puzzle)
+    }
+
+    private static func partnerElapsed(
+        in detail: BackendService.GameSessionDetail,
+        me: UUID,
+        puzzle: SudokuGrid
+    ) -> TimeInterval? {
+        guard let theirs = detail.responses.first(where: { $0.responderID != me }),
+              let state = SudokuPlayState.decoded(from: theirs.answerValue, puzzle: puzzle),
+              // A response this build cannot read, or one that somehow isn't a finished grid, is no
+              // time at all — better the "waiting for them" card than a comparison against a number
+              // we had to guess at.
+              state.isComplete
+        else { return nil }
+        return state.elapsed
     }
 
     // MARK: - The clock

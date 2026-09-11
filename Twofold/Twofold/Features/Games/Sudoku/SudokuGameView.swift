@@ -17,6 +17,7 @@ struct SudokuGameView: View {
     let sessionID: UUID
 
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(AppModel.self) private var appModel
     @State private var store: SudokuGameStore
 
     init(sessionID: UUID) {
@@ -46,7 +47,13 @@ struct SudokuGameView: View {
             await store.load()
             store.startClock()
         }
-        .onDisappear { store.stopClock() }
+        // Its own task: `subscribeRealtime()` loops until cancelled, so folding it into the one
+        // above would mean the board waited on a stream that never ends.
+        .task { await store.subscribeRealtime() }
+        .onDisappear {
+            store.stopClock()
+            store.stopRealtime()
+        }
         .onChange(of: scenePhase) { _, phase in
             // The clock measures time at the board, so backgrounding stops it. Without this a
             // puzzle left open in a pocket would report an afternoon's solve.
@@ -70,7 +77,18 @@ struct SudokuGameView: View {
                 .padding(.horizontal, Theme.Spacing.sm)
 
                 if play.isComplete {
-                    solvedCard(play: play)
+                    if let partnerElapsed = store.partnerElapsed {
+                        SudokuComparisonView(
+                            comparison: SudokuComparison(
+                                myElapsed: play.elapsed,
+                                partnerElapsed: partnerElapsed,
+                                partnerName: appModel.partner.name
+                            )
+                        )
+                        .padding(.horizontal, Theme.Spacing.md)
+                    } else {
+                        solvedCard(play: play)
+                    }
                 } else {
                     controls
                     keypad
@@ -104,15 +122,12 @@ struct SudokuGameView: View {
         .padding(.horizontal, Theme.Spacing.md)
     }
 
+    /// The running clock and the comparison's finished times have to agree to the second — a solve
+    /// that ended at 2:14 on this screen cannot become 2:13 alongside a partner's. One
+    /// implementation, in `SudokuComparison`, is what makes that true by construction rather than
+    /// by two copies happening to round the same way.
     static func clockText(_ elapsed: TimeInterval) -> String {
-        let total = max(0, Int(elapsed))
-        let hours = total / 3600
-        let minutes = (total % 3600) / 60
-        let seconds = total % 60
-        if hours > 0 {
-            return String(format: "%d:%02d:%02d", hours, minutes, seconds)
-        }
-        return String(format: "%d:%02d", minutes, seconds)
+        SudokuComparison.clockText(elapsed)
     }
 
     // MARK: - Controls
