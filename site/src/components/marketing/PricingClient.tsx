@@ -8,6 +8,8 @@ import type { ResolvedPlan } from "@/lib/marketing/sanity";
 import { getSession, onAuthChange, signInWithApple, signOut } from "@/lib/marketing/auth";
 import { fetchOfferings, fetchCustomerInfo, findPackage, purchasePackage, activeEntitlements } from "@/lib/marketing/billing";
 import { Reveal } from "@/components/marketing/Reveal";
+import { PlanComparison } from "@/components/marketing/PlanComparison";
+import type { ResolvedPlanComparison } from "@/lib/marketing/planComparisonFallback";
 
 const PENDING_KEY = "twofold_pending_plan";
 type PlanId = "plus" | "premium";
@@ -76,7 +78,13 @@ function PlanCard({
   );
 }
 
-function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: ResolvedPlan } }) {
+function PricingContent({
+  plans,
+  comparison,
+}: {
+  plans: { plus: ResolvedPlan; premium: ResolvedPlan };
+  comparison: ResolvedPlanComparison;
+}) {
   const searchParams = useSearchParams();
   const requestedPlan = searchParams.get("plan");
 
@@ -293,9 +301,14 @@ function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: Resol
                   <AppStoreBadge />
                 </div>
               )}
+
+              <PlanComparison comparison={comparison} />
             </>
           )}
 
+          {/* Below the comparison table, not the cards: someone still weighing the two plans
+              scrolls the table first, and the FAQ is the next thing they want if it didn't
+              settle it. Outside the purchase-state branch above so it survives checkout too. */}
           <Reveal className="pricing-foot">
             <a className="arrow-link" href="/faq">
               More questions
@@ -310,10 +323,16 @@ function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: Resol
   );
 }
 
-export function PricingClient({ plans }: { plans: { plus: ResolvedPlan; premium: ResolvedPlan } }) {
+export function PricingClient({
+  plans,
+  comparison,
+}: {
+  plans: { plus: ResolvedPlan; premium: ResolvedPlan };
+  comparison: ResolvedPlanComparison;
+}) {
   return (
     <Suspense>
-      <PricingContent plans={plans} />
+      <PricingContent plans={plans} comparison={comparison} />
     </Suspense>
   );
 }

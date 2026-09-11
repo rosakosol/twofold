@@ -160,6 +160,23 @@ export async function getResolvedPlans(): Promise<{ plus: ResolvedPlan; premium:
   return { plus: resolvedPlus, premium: resolvedPremium };
 }
 
+export interface PlanComparisonDoc {
+  heading?: string;
+  intro?: string;
+  rows?: { label?: string; plus?: string; premium?: string }[];
+}
+
+// The row-by-row table under the plan cards on /pricing. A singleton at a fixed id, same as
+// the hero — merged over the copy in code by resolvePlanComparison(), so an empty dataset
+// still renders a complete table.
+export async function getPlanComparison(): Promise<PlanComparisonDoc | null> {
+  return sanityClient.fetch(
+    `*[_id == "planComparison"][0]{ heading, intro, rows[]{ label, plus, premium } }`,
+    {},
+    { next: { revalidate: SANITY_REVALIDATE_SECONDS } }
+  );
+}
+
 export interface QuizQuestionDoc {
   question: string;
   order: number;

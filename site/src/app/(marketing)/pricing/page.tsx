@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { PricingClient } from "@/components/marketing/PricingClient";
-import { getResolvedPlans } from "@/lib/marketing/sanity";
+import { getPlanComparison, getResolvedPlans } from "@/lib/marketing/sanity";
+import { resolvePlanComparison } from "@/lib/marketing/planComparisonFallback";
 
 export const metadata: Metadata = {
   title: "Pricing",
@@ -8,6 +9,6 @@ export const metadata: Metadata = {
 };
 
 export default async function PricingPage() {
-  const plans = await getResolvedPlans();
-  return <PricingClient plans={plans} />;
+  const [plans, comparisonDoc] = await Promise.all([getResolvedPlans(), getPlanComparison()]);
+  return <PricingClient plans={plans} comparison={resolvePlanComparison(comparisonDoc)} />;
 }

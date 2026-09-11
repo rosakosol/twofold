@@ -20,7 +20,8 @@ const {client, projectId, dataset} = sanityWriteClient()
 // Both legal pages used to be seeded here, from the short placeholder JSX bodies. They have
 // since been replaced by the long-form versions in scripts/seed-privacy-policy.mjs and
 // scripts/seed-terms.mjs - deliberately dropped from this script so that `--replace` here can
-// never revert either of them. This script now only seeds the feature cards.
+// never revert either of them. This script seeds the feature cards and the plan comparison
+// table below.
 
 // --- Features --------------------------------------------------------------
 // Same six cards as FEATURES_FALLBACK, seeded at `feature-<slug>` ids purely for
@@ -139,8 +140,32 @@ const features = FEATURE_SEED.map((meta, index) => {
   }
 })
 
+// --- Plan comparison table -------------------------------------------------
+// Singleton at a fixed id, rendered under the cards on /pricing. Seeded so Studio opens a
+// filled-in table to edit rather than an empty one; the same copy lives in
+// src/lib/marketing/planComparisonFallback.ts as the cold-start fallback.
+//
+// Values print verbatim. An empty string renders a dash (not included) and the exact word
+// "Yes" renders a tick - see the field descriptions on the schema.
+const planComparison = {
+  _id: 'planComparison',
+  _type: 'planComparison',
+  heading: 'Compare the plans',
+  intro: 'Both plans cover the essentials. Premium is for couples who want the full picture.',
+  rows: [
+    {_type: 'comparisonRow', _key: 'trips', label: 'Trips & memories', plus: 'Unlimited', premium: 'Unlimited'},
+    {_type: 'comparisonRow', _key: 'flights', label: 'Flights tracked each month', plus: '5', premium: '20'},
+    {_type: 'comparisonRow', _key: 'games', label: 'Questions & games', plus: '500+', premium: '2000+'},
+    {_type: 'comparisonRow', _key: 'widgets', label: 'Home & Lock Screen widgets', plus: 'Yes', premium: 'Yes'},
+    {_type: 'comparisonRow', _key: 'liveactivities', label: 'Live Activities for in-progress flights', plus: 'Yes', premium: 'Yes'},
+    {_type: 'comparisonRow', _key: 'globe', label: 'Interactive 3D globe', plus: '', premium: 'Yes'},
+    {_type: 'comparisonRow', _key: 'premiumwidgets', label: 'Premium widget styles', plus: '', premium: 'Yes'},
+    {_type: 'comparisonRow', _key: 'record', label: 'Relationship Record export', plus: '', premium: 'Yes'},
+  ],
+}
+
 // --- Write -----------------------------------------------------------------
-const docs = features
+const docs = [...features, planComparison]
 const existing = new Set(
   (await client.fetch('*[_id in $ids]._id', {ids: docs.map((d) => d._id)})) ?? []
 )

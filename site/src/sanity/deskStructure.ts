@@ -21,7 +21,7 @@ const PLANS = [
   {id: 'plan-premium', title: 'Premium'},
 ]
 
-const MANAGED_TYPE_NAMES = new Set(['hero', 'feature', 'legalPage', 'quizQuestion', 'quizResult', 'plan'])
+const MANAGED_TYPE_NAMES = new Set(['hero', 'feature', 'legalPage', 'quizQuestion', 'quizResult', 'plan', 'planComparison'])
 
 export const structure: StructureResolver = (S) =>
   S.list()
@@ -40,14 +40,21 @@ export const structure: StructureResolver = (S) =>
         .child(
           S.list()
             .title('Pricing Plans')
-            .items(
-              PLANS.map(({id, title}) =>
+            .items([
+              ...PLANS.map(({id, title}) =>
                 S.listItem()
                   .title(title)
                   .id(id)
                   .child(S.document().schemaType('plan').documentId(id))
-              )
-            )
+              ),
+              S.divider(),
+              // The row-by-row table under the cards on /pricing. Singleton, same fixed-id
+              // treatment as the hero and the legal pages.
+              S.listItem()
+                .title('Comparison Table')
+                .id('planComparison')
+                .child(S.document().schemaType('planComparison').documentId('planComparison')),
+            ])
         ),
       S.divider(),
       S.listItem()
