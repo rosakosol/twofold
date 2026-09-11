@@ -1201,7 +1201,7 @@ section {
 /* Tier identity, keyed off data-plan rather than .feature. `featured` says which card we are
    pushing and can be moved in Studio; this says which tier you are looking at, which cannot.
    With the "Most popular" badge gone the two cards were otherwise near-identical rectangles.
-   Plus reads as one colour, Premium as the blue-to-red pair the whole brand is built on. */
+   Plus reads as one colour, Premium as the blue-to-green pair the whole brand is built on. */
 .plan[data-plan] {
   /* Clips the accent rule to the card's own corner radius. */
   overflow: hidden;
@@ -1217,10 +1217,11 @@ section {
   --plan-accent: linear-gradient(90deg, var(--sky-blue-light), var(--sky-blue-deep));
 }
 .plan[data-plan="premium"] {
-  --plan-accent: linear-gradient(90deg, var(--sky-blue-deep), var(--heart-red));
+  --plan-accent: linear-gradient(90deg, var(--sky-blue-deep), var(--leaf-green));
   /* A wash rather than a flat tint, so the card reads as richer without competing with the
-     white Plus card beside it for attention. */
-  background: linear-gradient(170deg, var(--card-bg) 55%, rgba(232, 92, 107, 0.055));
+     white Plus card beside it for attention. Leaf green, matching the accent's far end and
+     the page's own background gradient, which also runs blue to green. */
+  background: linear-gradient(170deg, var(--card-bg) 55%, rgba(111, 191, 139, 0.07));
 }
 
 /* Yearly saving, per card. In flow rather than absolutely positioned like the old badge:
