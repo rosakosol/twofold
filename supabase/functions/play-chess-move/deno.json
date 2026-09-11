@@ -1,0 +1,6 @@
+{
+  "imports": {
+    "jsr:@supabase/supabase-js@2": "jsr:@supabase/supabase-js@2",
+    "chess.js": "npm:chess.js@1.4.0"
+  }
+}
