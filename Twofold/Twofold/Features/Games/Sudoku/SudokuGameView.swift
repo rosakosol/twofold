@@ -15,14 +15,22 @@ import SwiftUI
 
 struct SudokuGameView: View {
     let sessionID: UUID
+    /// True when `start_sudoku_session` handed back a puzzle already in progress rather than a new
+    /// one. The RPC has always reported this and nothing ever showed it, so tapping Hard silently
+    /// returned a week-old grid with the clock already running.
+    let resumed: Bool
 
     @Environment(\.scenePhase) private var scenePhase
     @Environment(AppModel.self) private var appModel
+    @Environment(\.dismiss) private var dismiss
     @State private var store: SudokuGameStore
     @State private var showingShare = false
+    @State private var confirmingAbandon = false
+    @State private var abandonFailed: String?
 
-    init(sessionID: UUID) {
+    init(sessionID: UUID, resumed: Bool = false) {
         self.sessionID = sessionID
+        self.resumed = resumed
         _store = State(initialValue: SudokuGameStore(sessionID: sessionID))
     }
 
@@ -55,6 +63,44 @@ struct SudokuGameView: View {
                     .labelStyle(.iconOnly)
                 }
             }
+            // Only while the puzzle is unsolved. Once it is finished the thing you want is the
+            // comparison, and abandoning would throw away a solve that is already submitted.
+            if store.play?.isComplete == false {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button(role: .destructive) {
+                            confirmingAbandon = true
+                        } label: {
+                            Label("Abandon this puzzle", systemImage: "trash")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                }
+            }
+        }
+        .confirmationDialog(
+            "Abandon this puzzle?",
+            isPresented: $confirmingAbandon,
+            titleVisibility: .visible
+        ) {
+            Button("Abandon", role: .destructive) { abandon() }
+            Button("Keep playing", role: .cancel) {}
+        } message: {
+            // Named plainly because the session is the couple's, not this player's:
+            // `start_sudoku_session` resumes per couple, so one grid is shared between them and
+            // ending it ends it for both. Someone abandoning what they think is their own copy
+            // would otherwise wipe out a partner's half-finished solve with no warning.
+            Text(
+                "This ends it for both of you — \(appModel.partner.name)'s progress on this grid "
+                + "goes too. You'll be able to start a new "
+                + "\(store.difficulty?.displayName.lowercased() ?? "") puzzle straight away."
+            )
+        }
+        .alert("Couldn't abandon", isPresented: .constant(abandonFailed != nil)) {
+            Button("OK") { abandonFailed = nil }
+        } message: {
+            Text(abandonFailed ?? "")
         }
         .sheet(isPresented: $showingShare) {
             if let shareData {
@@ -76,6 +122,31 @@ struct SudokuGameView: View {
             // The clock measures time at the board, so backgrounding stops it. Without this a
             // puzzle left open in a pocket would report an afternoon's solve.
             if phase == .active { store.startClock() } else { store.stopClock() }
+        }
+    }
+
+    /// Ends the shared session and goes back to the picker, where starting the same difficulty now
+    /// gets a genuinely new grid instead of this one again.
+    ///
+    /// Back rather than straight into a replacement: the picker owns navigation, and a puzzle that
+    /// silently swapped itself for a different one under the same screen would be the same
+    /// surprise this is here to fix.
+    private func abandon() {
+        let id = sessionID
+        store.stopClock()
+        Task {
+            do {
+                try await BackendService.abandonGameSession(id: id)
+                // The device's own copy goes too, or the grid would sit in the cache forever —
+                // harmless, but it is the abandoned puzzle's last trace and nothing will ever ask
+                // for it again.
+                if let me = BackendService.currentUserID {
+                    SudokuProgressCache.remove(sessionID: id, responderID: me)
+                }
+                dismiss()
+            } catch {
+                abandonFailed = error.localizedDescription
+            }
         }
     }
 
@@ -157,6 +228,19 @@ struct SudokuGameView: View {
                     .padding(.horizontal, Theme.Spacing.sm)
                     .padding(.vertical, Theme.Spacing.xs)
                     .background(Theme.cardBackground, in: Capsule())
+            }
+            // Shown until it is solved, not just for a moment on arrival: the surprise this
+            // answers is a clock that starts at 4:12, and that is just as confusing ten seconds in
+            // as it is on the first frame.
+            if resumed, !play.isComplete {
+                Text("RESUMED")
+                    .font(.caption2.weight(.bold))
+                    .tracking(0.8)
+                    .foregroundStyle(Theme.subtleInk)
+                    .padding(.horizontal, Theme.Spacing.sm)
+                    .padding(.vertical, Theme.Spacing.xs)
+                    .background(Theme.cardBackground, in: Capsule())
+                    .accessibilityLabel("Resumed from an earlier session")
             }
             Spacer()
             Label(Self.clockText(play.elapsed), systemImage: "clock")

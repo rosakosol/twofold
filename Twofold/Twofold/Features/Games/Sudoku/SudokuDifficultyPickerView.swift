@@ -16,7 +16,7 @@ struct SudokuDifficultyPickerView: View {
     @Environment(AppModel.self) private var appModel
 
     @State private var starting: SudokuDifficulty?
-    @State private var route: UUID?
+    @State private var route: StartedPuzzle?
     @State private var showingPaywall = false
     @State private var errorMessage: String?
     @State private var stats: SudokuStats?
@@ -56,8 +56,8 @@ struct SudokuDifficultyPickerView: View {
         .background(Theme.backgroundGradient.ignoresSafeArea())
         .navigationTitle("Sudoku")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationDestination(item: $route) { sessionID in
-            SudokuGameView(sessionID: sessionID)
+        .navigationDestination(item: $route) { started in
+            SudokuGameView(sessionID: started.id, resumed: started.resumed)
         }
         .sheet(isPresented: $showingPaywall) {
             NavigationStack { PaywallView(initialTier: .premium) }
@@ -191,12 +191,22 @@ struct SudokuDifficultyPickerView: View {
             defer { starting = nil }
             do {
                 let session = try await BackendService.startSudokuSession(difficulty: difficulty)
-                route = session.sessionID
+                route = StartedPuzzle(id: session.sessionID, resumed: session.resumed)
             } catch {
                 errorMessage = "Couldn't start that puzzle. \(error.localizedDescription)"
             }
         }
     }
+}
+
+/// Where a tapped difficulty leads, plus whether the RPC handed back a puzzle already underway.
+///
+/// `resumed` rides along rather than being re-derived on the play screen because only the RPC can
+/// know it: resuming is matched server-side on couple and difficulty, so the client cannot tell a
+/// fresh grid from an old one by looking at it.
+private struct StartedPuzzle: Identifiable, Hashable {
+    let id: UUID
+    let resumed: Bool
 }
 
 extension SudokuDifficulty {
