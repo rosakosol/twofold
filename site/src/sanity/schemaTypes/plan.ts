@@ -40,7 +40,7 @@ export default defineType({
       name: 'featured',
       title: 'Feature this plan',
       type: 'boolean',
-      description: 'Shows the "Most popular" badge and the highlighted card style.',
+      description: 'Highlights this plan’s card — heavier shadow, tinted border, and a solid rather than ghost button.',
       initialValue: false,
     }),
     defineField({

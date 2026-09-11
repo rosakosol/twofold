@@ -76,7 +76,6 @@ function PlanCard({
 
   return (
     <div className={`card plan${plan.featured ? " feature" : ""}`}>
-      {plan.featured && <span className="plan-badge">Most popular</span>}
       <h3>{plan.name}</h3>
       <p className="plan-sub">{plan.tagline}</p>
       <div className="price-line">

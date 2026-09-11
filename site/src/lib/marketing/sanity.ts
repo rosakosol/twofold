@@ -143,10 +143,10 @@ export async function getResolvedPlans(): Promise<{ plus: ResolvedPlan; premium:
   const resolvedPlus = resolvePlan("plus", plus, false);
   const resolvedPremium = resolvePlan("premium", premium, true);
 
-  // Guard: at most one plan may be featured (the "Most popular" badge + highlight). An
-  // editor can set the flag on both docs independently, which would show two badges — so
-  // if both are on, last edited wins and the other is quietly demoted. Uses Sanity's
-  // _updatedAt; a missing/unparseable stamp sorts oldest so a real edit always beats it.
+  // Guard: at most one plan may be featured (the highlighted card style). An editor can set
+  // the flag on both docs independently, which would highlight both and so single out
+  // neither — if both are on, last edited wins and the other is quietly demoted. Uses
+  // Sanity's _updatedAt; a missing/unparseable stamp sorts oldest so a real edit beats it.
   if (resolvedPlus.featured && resolvedPremium.featured) {
     const plusEdited = Date.parse(plus?._updatedAt ?? "") || 0;
     const premiumEdited = Date.parse(premium?._updatedAt ?? "") || 0;
