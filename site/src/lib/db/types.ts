@@ -1964,6 +1964,10 @@ export type Database = {
         Args: { p_couple_id: string }
         Returns: undefined
       }
+      delete_game_deck: {
+        Args: { p_deck_id: string }
+        Returns: Json
+      }
       fetch_my_outgoing_connection_request: {
         Args: never
         Returns: {

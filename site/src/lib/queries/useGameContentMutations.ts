@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/db/types";
-import type { ContentTypeKey, GameDeck } from "@/lib/games/contentTypes";
+import { CONTENT_TYPES, type ContentTypeKey, type GameDeck } from "@/lib/games/contentTypes";
 
 type ContentInsert<T extends ContentTypeKey> = Database["public"]["Tables"][T]["Insert"];
 type ContentUpdate<T extends ContentTypeKey> = Database["public"]["Tables"][T]["Update"];
@@ -74,15 +74,25 @@ export function useUpdateDeck() {
   });
 }
 
+/** Deletes the deck and everything in it — its questions, and the sessions couples played from
+ * it — in one transaction. Not a plain `.delete()` on game_decks: every deck_id is a NO ACTION
+ * foreign key, so that fails the moment a deck holds a single question, which is the only state
+ * a real deck is ever in. See 20261010000800_delete_game_deck.sql. */
 export function useDeleteDeck() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
       const supabase = createClient();
-      const { error } = await supabase.from("game_decks").delete().eq("id", id);
+      const { data, error } = await supabase.rpc("delete_game_deck", { p_deck_id: id });
       if (error) throw error;
+      return data as unknown as { questions_deleted: number; sessions_deleted: number };
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin", "game_decks"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "game_decks"] });
+      // The deck's questions went with it, so every content list that could have been showing
+      // them is now wrong — including the one behind the deck detail page we may be sitting on.
+      for (const { key } of CONTENT_TYPES) queryClient.invalidateQueries({ queryKey: ["admin", key] });
+    },
   });
 }
 

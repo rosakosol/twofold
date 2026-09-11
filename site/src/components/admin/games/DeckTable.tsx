@@ -32,11 +32,16 @@ function DeleteButton({ deck }: { deck: GameDeck }) {
 
   async function handleConfirm() {
     try {
-      await del.mutateAsync(deck.id);
-      toast.success("Deleted");
+      const { questions_deleted, sessions_deleted } = await del.mutateAsync(deck.id);
+      toast.success(
+        `Deleted "${deck.title}" and ${questions_deleted} ${questions_deleted === 1 ? "question" : "questions"}` +
+          (sessions_deleted > 0
+            ? `, plus ${sessions_deleted} ${sessions_deleted === 1 ? "session" : "sessions"} played from it.`
+            : "."),
+      );
       setOpen(false);
     } catch {
-      toast.error("Couldn't delete — questions may still reference this deck.");
+      toast.error("Couldn't delete this deck.");
     }
   }
 
@@ -53,8 +58,10 @@ function DeleteButton({ deck }: { deck: GameDeck }) {
         <AlertDialogHeader>
           <AlertDialogTitle>Delete &ldquo;{deck.title}&rdquo;?</AlertDialogTitle>
           <AlertDialogDescription>
-            Any questions still assigned to this deck will keep their deck_id pointing at a
-            deleted deck unless reassigned first. This can&apos;t be undone.
+            This deletes the deck&apos;s {deck.question_count}{" "}
+            {deck.question_count === 1 ? "question" : "questions"} along with it, and any sessions
+            couples have played from it. Questions that belong to no deck are untouched. This
+            can&apos;t be undone &mdash; to keep the questions, reassign them to another deck first.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
