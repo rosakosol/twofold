@@ -18,6 +18,15 @@ struct RootView: View {
     @State private var pendingInviteCode: String?
     @State private var showingPartnerConnectedCelebration = false
     @State private var showingPaywallFromWidget = false
+    /// False until `checkSubscription()` has run once this launch.
+    ///
+    /// Nothing before it can answer "is this person subscribed". `restoreSession` applies the
+    /// cached answer and then `loadSignedInState` overwrites it with the bare profile row — which
+    /// is `false` for anyone whose webhook is behind, or whose entitlement RevenueCat still holds
+    /// but Supabase has not caught up on. `checkSubscription` is the first thing to OR those two
+    /// together, and it runs last. In the window between, the gate below would otherwise show a
+    /// forced paywall to a paying subscriber and then take it away again a round trip later.
+    @State private var hasCheckedSubscription = false
     /// A broken streak this person has already been offered a repair for, as the missed date.
     ///
     /// Keyed on the date rather than a bare flag so a *later* break offers again — the point is one
@@ -52,10 +61,7 @@ struct RootView: View {
         ZStack {
         Group {
             if appModel.isLoadingSession {
-                ZStack {
-                    Theme.backgroundGradient.ignoresSafeArea()
-                    BrandLoadingView()
-                }
+                loadingScreen
             } else if appModel.hasCouple {
                 // Not really solo — redeemed a code and is waiting on the inviter's decision,
                 // with no subscription of their own to be asked for (Twofold subscriptions are
@@ -86,6 +92,13 @@ struct RootView: View {
                     awaitingPartnerDecision: appModel.pendingOutgoingConnectionRequest != nil
                 ) {
                     MainTabView(selection: $selectedTab, statsSection: $pendingStatsSection)
+                } else if !hasCheckedSubscription {
+                    // The same bargain as the branch below, for the subscription rather than the
+                    // invite: a beat of loading costs a subscriber nothing, where a paywall that
+                    // appears and is then retracted costs them their confidence that they are
+                    // actually paid up. Someone genuinely lapsed reaches the paywall one round trip
+                    // later, which is the right way round.
+                    loadingScreen
                 } else if !appModel.hasResolvedOutgoingConnectionRequest {
                     // Holds the loading screen rather than showing a paywall we might be about to
                     // retract. Whether this person is exempt depends on a request lookup that is
@@ -96,10 +109,7 @@ struct RootView: View {
                     // the inviter: they are never meant to be asked to pay, and a paywall that
                     // appears and then vanishes is worse than a beat of loading — it is what makes
                     // someone reach for their card.
-                    ZStack {
-                        Theme.backgroundGradient.ignoresSafeArea()
-                        BrandLoadingView()
-                    }
+                    loadingScreen
                 } else if let lapsedPartnerName = appModel.partnerSubscriptionLapsedPartnerName {
                     // The payer disconnected and this profile wasn't the one backing the
                     // couple's access — see `leave_couple`'s partner_subscription_lapse_*
@@ -397,6 +407,17 @@ struct RootView: View {
     /// route is only cleared once something has actually opened.
     /// Whether to show the app rather than the forced paywall.
     ///
+    /// The one loading state, shared by every branch that is waiting to find out which screen
+    /// this person should be on. Three copies of it had accumulated, one per thing that can still
+    /// be in flight at launch, and they have to stay identical: a spinner that changes appearance
+    /// depending on *why* it is waiting reads as the app flickering between screens.
+    private var loadingScreen: some View {
+        ZStack {
+            Theme.backgroundGradient.ignoresSafeArea()
+            BrandLoadingView()
+        }
+    }
+
     /// Kept as a named decision rather than an inline condition because the middle term is the one
     /// that is easy to drop and expensive to lose — see the comment at the call site. A forced
     /// paywall shown to someone who already holds an entitlement is a dead end, not a prompt: it has
@@ -568,6 +589,11 @@ struct RootView: View {
     /// couple-adoption time — without this, a mid-session upgrade/downgrade left every
     /// `isPremiumLocked`/`isDeckLocked` check reading a stale tier until the next full relaunch.
     private func checkSubscription() async {
+        // `defer`, and before the guard: every path out of here has to release the loading state
+        // the gate holds on it. An early return, a thrown fetch, or no connectivity at all must end
+        // in a real screen — a paywall this cannot decide against is still better than a spinner
+        // that never resolves.
+        defer { hasCheckedSubscription = true }
         guard appModel.hasCouple else { return }
         // Still refreshed, because `subscriptionStore.subscribedTier` drives the Settings and
         // Customer Center screens — but nothing is written back from it any more.

@@ -105,3 +105,98 @@ struct PaywallExemptionResolutionTests {
         #expect(!old, "with no way to say 'unknown', an exempt invitee is shown a paywall")
     }
 }
+
+//
+//  The same third state, for the subscription itself.
+//
+//  Both of the gate's real terms are false at launch before anything has checked them, and neither
+//  is a reliable "no":
+//
+//    * `isSubscriptionActive` is applied from the offline cache, then overwritten by
+//      `loadSignedInState` with the bare `profiles.subscription_active` row — `false` for anyone
+//      whose webhook is behind.
+//    * `subscriptionStore.isSubscribed` reads `subscribedTier`, which starts nil and is only filled
+//      by `refreshEntitlementsOnly()` — the first line of `checkSubscription()`, and a network fetch.
+//
+//  So the OR that PaywallGateTests exists to protect cannot help here: during the window both of
+//  its terms are false, for reasons that have nothing to do with whether the person has paid. A
+//  subscriber saw a forced paywall on every launch and watched it disappear a round trip later.
+//
+@MainActor
+struct SubscriptionResolutionGateTests {
+
+    /// The gate's branch order, as the launch sequence walks through it.
+    private func decision(
+        subscriptionChecked: Bool,
+        requestResolved: Bool = true,
+        backendSaysActive: Bool = false,
+        deviceHoldsEntitlement: Bool = false,
+        pendingRequest: Bool = false
+    ) -> String {
+        if RootView.hasAccess(
+            backendSaysActive: backendSaysActive,
+            deviceHoldsEntitlement: deviceHoldsEntitlement,
+            awaitingPartnerDecision: pendingRequest
+        ) {
+            return "app"
+        }
+        if !subscriptionChecked { return "loading" }
+        if !requestResolved { return "loading" }
+        return "paywall"
+    }
+
+    /// The reported bug, at the exact instant it happened: `loadSignedInState` has just written a
+    /// stale `false` over the cached answer, and `refreshEntitlementsOnly` has not returned yet.
+    @Test("mid-launch, before anything has checked, a subscriber sees loading rather than a paywall")
+    func unresolvedSubscriptionShowsLoading() {
+        #expect(decision(subscriptionChecked: false) == "loading")
+    }
+
+    /// What made this worth a third state rather than another term in the OR: during the window
+    /// both existing terms are false, so no amount of OR-ing them rescues it.
+    @Test("both gate terms are false in that window, so the OR cannot fix it")
+    func theOrCannotCoverTheWindow() {
+        let duringLaunch = RootView.hasAccess(
+            backendSaysActive: false,      // stale row, webhook behind
+            deviceHoldsEntitlement: false, // refreshEntitlementsOnly hasn't returned
+            awaitingPartnerDecision: false
+        )
+        #expect(!duringLaunch, "neither term can distinguish 'not yet known' from 'not paid'")
+        // Which is why the branch, not the condition, is what changed.
+        #expect(decision(subscriptionChecked: false) == "loading")
+    }
+
+    /// Once the check lands and confirms them, they were never shown a price.
+    @Test("a confirmed subscriber goes straight in")
+    func checkedAndActiveOpensApp() {
+        #expect(decision(subscriptionChecked: true, backendSaysActive: true) == "app")
+    }
+
+    /// And the gate still closes on someone who genuinely has not paid — one round trip later,
+    /// which is the right way round.
+    @Test("a checked absence still shows the paywall")
+    func checkedAndInactiveShowsPaywall() {
+        #expect(decision(subscriptionChecked: true) == "paywall")
+    }
+
+    /// The guard must never outlive the check that clears it. `checkSubscription` sets the flag in
+    /// a `defer` ahead of its own `guard`, so an early return or a failed fetch still resolves —
+    /// otherwise "we don't know yet" becomes a spinner nobody can get past.
+    @Test("a failed or skipped check still resolves, rather than holding the spinner")
+    func aFailedCheckStillResolves() {
+        // What the defer guarantees: checked is true even when nothing could be learned.
+        #expect(decision(subscriptionChecked: true) == "paywall")
+    }
+
+    /// The previous behaviour, kept as the negative control: with no third state the same instant
+    /// fell through to the forced paywall.
+    @Test("treating unchecked as unsubscribed is what flashed the paywall")
+    func uncheckedAsUnsubscribedIsTheBug() {
+        func oldDecision() -> String {
+            RootView.hasAccess(backendSaysActive: false, deviceHoldsEntitlement: false, awaitingPartnerDecision: false)
+                ? "app" : "paywall"
+        }
+        #expect(oldDecision() == "paywall")
+        #expect(decision(subscriptionChecked: false) == "loading")
+    }
+}
