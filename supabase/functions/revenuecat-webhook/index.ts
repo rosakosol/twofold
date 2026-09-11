@@ -65,6 +65,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import {
   describeMissingStart,
+  isBlankSubscriber,
   resolveStartedAt,
   resolveTier,
   resolveWillRenew,
@@ -215,6 +216,19 @@ async function fetchSubscriberState(appUserId: string, apiKey: string): Promise<
 
   const body = await response.json() as RestSubscriberResponse;
   const subscriber = body.subscriber ?? {};
+
+  // The 404 branch above never fires, because this endpoint creates the subscriber rather than
+  // refusing to find it. A completely bare record is the shape that arrives instead, and it means
+  // the same thing: we asked about an id that holds nothing, which is not evidence that the person
+  // behind it holds nothing. See `isBlankSubscriber`.
+  if (isBlankSubscriber(subscriber)) {
+    console.warn(
+      `[revenuecat-webhook] ${appUserId} came back with no entitlements and no subscriptions — ` +
+        "treating as unknown rather than writing inactive",
+    );
+    return null;
+  }
+
   const entitlements = subscriber.entitlements ?? {};
 
   // Prefer RevenueCat's stamp for this reading; fall back to ours only if it's missing, which just

@@ -7,6 +7,7 @@
 import { assertEquals } from "jsr:@std/assert@1";
 import {
   describeMissingStart,
+  isBlankSubscriber,
   ENTITLEMENT_PLUS,
   ENTITLEMENT_PREMIUM,
   isEntitlementActive,
@@ -217,4 +218,53 @@ Deno.test("the missing-date diagnostic carries field names and no dates", () => 
   // Both sides of the comparison that actually diagnoses a null.
   assertEquals(described.includes("productIdentifier=present"), true, described);
   assertEquals(described.includes("subscriptionKeys=[twofold_premium_yearly]"), true, described);
+});
+
+// MARK: - Blank records vs lapsed ones
+//
+// `GET /v1/subscribers/{id}` creates the subscriber rather than 404ing, so an id that holds nothing
+// comes back as a valid 200 with empty maps. The webhook cannot treat that as "no entitlement"
+// without being willing to revoke a real subscriber whose access is attached to a different
+// app_user_id — which is precisely what happened: a lifetime grant on one customer, a lookup
+// against another id belonging to the same person, and a row written saying they had nothing.
+//
+// Everything rests on blank and lapsed being genuinely distinguishable. They are, because the v1
+// endpoint returns every entitlement ever held, expired included.
+
+Deno.test("a record with nothing in it at all is blank", () => {
+  assertEquals(isBlankSubscriber({}), true);
+  assertEquals(isBlankSubscriber({ entitlements: {}, subscriptions: {} }), true);
+});
+
+Deno.test("a lapsed subscriber is NOT blank — the distinction the whole guard rests on", () => {
+  // Expired months ago: no *active* entitlement, but the record plainly holds history.
+  const lapsed = {
+    entitlements: {
+      [ENTITLEMENT_PREMIUM]: {
+        expires_date: "2025-01-01T00:00:00Z",
+        purchase_date: "2024-01-01T00:00:00Z",
+        product_identifier: "twofold_premium_yearly",
+      },
+    },
+    subscriptions: {
+      twofold_premium_yearly: { original_purchase_date: "2024-01-01T00:00:00Z" },
+    },
+  };
+  assertEquals(isBlankSubscriber(lapsed), false);
+  // And still resolves to no tier, so a real lapse is still written as inactive. The guard must not
+  // have bought safety by refusing to ever revoke anyone.
+  assertEquals(resolveTier(lapsed.entitlements, Date.parse("2026-01-01T00:00:00Z")), null);
+});
+
+Deno.test("a subscriber with history but no entitlements is not blank either", () => {
+  // A shape worth tolerating rather than assuming away: purchases recorded, entitlements map empty.
+  const historyOnly = {
+    entitlements: {},
+    subscriptions: { twofold_plus_monthly: { original_purchase_date: "2025-06-01T00:00:00Z" } },
+  };
+  assertEquals(isBlankSubscriber(historyOnly), false);
+});
+
+Deno.test("an active subscriber is never blank", () => {
+  assertEquals(isBlankSubscriber(renewedAnnual), false);
 });

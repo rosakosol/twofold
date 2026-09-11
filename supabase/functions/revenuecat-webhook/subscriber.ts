@@ -54,6 +54,34 @@ export function isEntitlementActive(entitlement: RestEntitlement | undefined, no
   return latestMs > nowMs;
 }
 
+/// A subscriber record with nothing in it at all — no entitlements, ever, and no subscriptions.
+///
+/// This is not the same as a lapsed subscriber, and telling them apart is the whole point.
+/// `GET /v1/subscribers/{id}` CREATES the subscriber if it does not exist and returns 200 with
+/// empty maps; it does not 404. So an id nobody has ever held — a typo, or more realistically a
+/// real person whose entitlements are attached to a different app_user_id — is indistinguishable
+/// from a genuine lapse, and both would be written as `active = false`.
+///
+/// That happened. A lifetime entitlement granted to one RevenueCat customer, while this backend
+/// asked about a different id belonging to the same person, produced a blank subscriber and a row
+/// saying they had nothing. The 404 branch in `fetchSubscriberState` exists to refuse exactly that
+/// ("writing active = false off the back of a 404 would revoke a real subscription") and never
+/// fires, because there is never a 404.
+///
+/// A lapse is safely distinguishable because this endpoint returns *every* entitlement a subscriber
+/// has ever held, expired ones included — so someone who genuinely stopped paying still has a
+/// non-empty `entitlements` map, and a purchase history besides. Only a record that has never held
+/// anything comes back completely bare.
+///
+/// Treating bare as "no answer" rather than "no entitlement" is strictly the safer direction: it
+/// cannot revoke someone whose access lives under an id we failed to ask about, and for a genuine
+/// never-purchaser it changes nothing, since their row is already inactive.
+export function isBlankSubscriber(subscriber: RestSubscriber): boolean {
+  const entitlements = subscriber.entitlements ?? {};
+  const subscriptions = subscriber.subscriptions ?? {};
+  return Object.keys(entitlements).length === 0 && Object.keys(subscriptions).length === 0;
+}
+
 // Premium wins if both are active — the same rule as SubscriptionTier.active(in:), for the same
 // separate-subscription-groups reason documented in index.ts.
 export function resolveTier(entitlements: Record<string, RestEntitlement>, nowMs: number): Tier {
