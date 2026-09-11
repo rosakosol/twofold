@@ -98,10 +98,13 @@ export const FEATURES_FALLBACK: ResolvedFeature[] = [
   // Every surface stripped at that time has been restored: the plan bullet in config.ts, the
   // comparison row, the quiz result, faqFallback.ts, and the Supabase `faq_entries` answer.
   //
-  // The Sanity copies have NOT — a Studio document overrides the fallback beside it, so wherever
-  // one exists it is what renders and these edits change nothing. Still to update in Studio: the
-  // `plan-premium` bullet, `quizResult-premium`, the FAQ tool's Plus-vs-Premium answer, and the
-  // plan comparison table.
+  // The Sanity copies are handled by `scripts/update-plan-copy.mjs` — a Studio document overrides
+  // the fallback beside it, so wherever one exists it is what renders and editing these files
+  // changes nothing at all. That script patches `plan-plus`, `plan-premium`, `planComparison` and
+  // both `quizResult-*` documents to match what is in this file.
+  //
+  // The FAQ is deliberately not among them: that content lives in Supabase `faq_entries`, not
+  // Sanity (see src/lib/marketing/faq.ts), and is updated by migration.
   {
     slug: "relationship-record",
     title: "Relationship Record",
