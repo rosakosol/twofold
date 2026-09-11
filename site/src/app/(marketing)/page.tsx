@@ -9,6 +9,7 @@ import { isQuizPlayable } from "@/lib/marketing/quiz";
 import { getHero, getFeatures, getQuizQuestions, getQuizResults } from "@/lib/marketing/sanity";
 import { resolveFeatures } from "@/lib/marketing/featuresFallback";
 import { APP_STORE_URL } from "@/lib/marketing/config";
+import { PHONE_SHOT_HEIGHT as SHOT_HEIGHT } from "@/lib/marketing/phoneScreens";
 
 export default async function HomePage() {
   const [hero, featureDocs, quizQuestions, quizResults] = await Promise.all([
@@ -89,10 +90,10 @@ export default async function HomePage() {
                 must not lazy-load. .app-shot drops the rounded-rectangle shadow the placeholder
                 used - see marketing.css. */}
             <Image
-              src="/assets/phone-screen/globe-distance.png"
+              src="/assets/phone-screen/Globe.png"
               alt="The Twofold home screen, showing the distance between two partners on a 3D globe"
               width={1019}
-              height={1877}
+              height={SHOT_HEIGHT}
               className="art-shot app-shot"
               priority
               sizes="(max-width: 860px) 72vw, 300px"
@@ -142,12 +143,15 @@ export default async function HomePage() {
               with overflow-x wouldn't be. */}
           <div className="steps" tabIndex={0} role="group" aria-label="How Twofold works, in three steps">
             <div className="step">
-              {/* Rectangular placeholder for a real step screenshot. To swap in the real
-                  image, replace this whole <div> with:
-                    <img src="/assets/step-connect.png" alt="" className="step-art" />
-                  - the .step-art sizing (equal width, rounding) applies to both. */}
-              <div className="step-art step-art-placeholder">
-                <span>Connect</span>
+              <div className="step-shot">
+                <Image
+                  src="/assets/phone-screen/Partner-Connected.png"
+                  alt="Twofold confirming two partners are connected, after one accepts the other's invite"
+                  width={1019}
+                  height={SHOT_HEIGHT}
+                  className="app-shot"
+                  sizes="(max-width: 860px) 60vw, 220px"
+                />
               </div>
               <Reveal className="step-card">
                 <span className="step-num">1</span>
@@ -158,10 +162,10 @@ export default async function HomePage() {
             <div className="step">
               <div className="step-shot">
                 <Image
-                  src="/assets/phone-screen/trips.png"
+                  src="/assets/phone-screen/Trips.png"
                   alt="The Trips screen in Twofold, listing upcoming and past journeys"
                   width={1019}
-                  height={1877}
+                  height={SHOT_HEIGHT}
                   className="app-shot"
                   sizes="(max-width: 860px) 60vw, 220px"
                 />
@@ -175,10 +179,10 @@ export default async function HomePage() {
             <div className="step">
               <div className="step-shot">
                 <Image
-                  src="/assets/phone-screen/memory-map.png"
+                  src="/assets/phone-screen/Memory-Map.png"
                   alt="Twofold's memory map, with pins marking the places a couple has been"
                   width={1019}
-                  height={1877}
+                  height={SHOT_HEIGHT}
                   className="app-shot"
                   sizes="(max-width: 860px) 60vw, 220px"
                 />
