@@ -28,8 +28,17 @@ struct DisconnectPartnerView: View {
     /// only here because the partner about to be disconnected is the one actually paying for it.
     /// Without a warning, disconnecting silently drops this person back to the free tier with no
     /// idea why their premium features just vanished.
+    ///
+    /// Gated on `hasResolvedEntitlements`, and that matters more here than anywhere else this
+    /// pattern appears. `subscribedTier` starts nil, which is indistinguishable from "not asked
+    /// yet" — so without the gate this is *true for the payer* until the fetch returns, and the
+    /// person actually funding the couple's plan is warned they are about to lose it. On a screen
+    /// about an irreversible action, a warning that is wrong for a beat is worse than a warning
+    /// that arrives a beat late.
     private var wouldLosePaidAccess: Bool {
-        appModel.subscriptionTier != nil && subscriptionStore.subscribedTier == nil
+        subscriptionStore.hasResolvedEntitlements
+            && appModel.subscriptionTier != nil
+            && subscriptionStore.subscribedTier == nil
     }
 
     /// The inverse of `wouldLosePaidAccess` — this device's own RevenueCat entitlement is what's
@@ -38,7 +47,9 @@ struct DisconnectPartnerView: View {
     /// "manage your now-solo subscription" offer, since `appModel.partner`'s access disappears
     /// immediately on disconnect regardless of what happens to this device's own billing.
     private var isPayer: Bool {
-        appModel.isSubscriptionActive && subscriptionStore.isSubscribed
+        subscriptionStore.hasResolvedEntitlements
+            && appModel.isSubscriptionActive
+            && subscriptionStore.isSubscribed
     }
 
     var body: some View {
