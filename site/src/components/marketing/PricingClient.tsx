@@ -226,12 +226,21 @@ function PricingContent({
           </span>
           <h1>One subscription, shared by both of you</h1>
           <p className="lead">Subscribe here on the web or right inside the app - either partner&apos;s subscription unlocks the full experience for you both.</p>
-          <div className="apple-note">
-            <svg className="icon">
-              <use href="/assets/icons.svg#icon-apple" />
-            </svg>
-            You&apos;ll sign in with Apple at checkout - it&apos;s how we match your web purchase to your Twofold account.
-          </div>
+          {/* Signed-out only. It describes something about to happen ("you'll sign in at
+              checkout"), so it's simply untrue once there's a session - and it names Apple,
+              which attemptPurchase does force for a signed-out buyer but which says nothing
+              about a Google or magic-link session carried over from the feedback board. The
+              "Signed in as …" line below replaces it, and says which account. Gated on
+              !authLoading as well so a signed-in visitor never sees it flash on first paint. */}
+          {!authLoading && !session && (
+            <div className="apple-note">
+              <svg className="icon">
+                <use href="/assets/icons.svg#icon-apple" />
+              </svg>
+              You&apos;ll sign in with Apple at checkout - it&apos;s how we match your web purchase to your
+              Twofold account.
+            </div>
+          )}
         </Reveal>
       </header>
 
