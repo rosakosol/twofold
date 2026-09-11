@@ -551,15 +551,10 @@ section {
   place-items: center;
   min-height: 420px;
 }
-.globe-glow,
-.art-glow {
-  position: absolute;
-  width: 78%;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(79, 169, 224, 0.35), rgba(111, 191, 139, 0.18) 55%, transparent 72%);
-  filter: blur(10px);
-}
+/* The blurred radial glow that sat behind the hero screenshot is gone, along with the two
+   .art-glow/.art-glow-2 divs that rendered it — the phone reads more cleanly on the plain
+   background, and .app-shot's drop-shadow already lifts it off the page. `.globe-glow` shared
+   this rule but had no markup left anywhere, so it went with it. */
 .globe-img,
 .art-globe {
   position: relative;
@@ -620,16 +615,19 @@ section {
    stand roughly 2.5x taller than the 4/3 placeholder still used by step 1, so it's capped by
    height and centred - close enough in mass that the row doesn't read as broken while that one
    placeholder remains. Raise the cap once step 1 has a real screenshot too. */
+/* Fixed height, not min-height: the card below is pulled up by an exact fraction of it, so
+   the box has to be a known size for "bottom third" to mean anything. The phone is bottom-
+   aligned within it, so it's the bottom of the device that ends up behind the card. */
 .step-shot {
   display: flex;
   justify-content: center;
   align-items: flex-end;
-  min-height: 300px;
+  height: var(--step-shot-h);
 }
 .step-shot .app-shot {
   width: auto;
   max-width: 100%;
-  max-height: 300px;
+  max-height: var(--step-shot-h);
 }
 @media (max-width: 820px) {
   .feature-shot .app-shot { max-height: 420px; }
@@ -746,9 +744,13 @@ section {
   gap: 20px;
 }
 .step {
+  /* Drives both the screenshot box and how far the card is pulled up over it, so the overlap
+     stays exactly one third if this is retuned. */
+  --step-shot-h: 420px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  /* No gap: the card deliberately overlaps the shot above it instead of clearing it. */
+  gap: 0;
 }
 .step,
 .step-card {
@@ -788,6 +790,12 @@ section {
   border: 1px solid var(--border-softer);
   padding: 28px;
   transition: transform 0.3s var(--ease), box-shadow 0.3s var(--ease);
+  /* Pulled up over the screenshot so its bottom third sits behind this card. z-index
+     because .app-shot's drop-shadow gives the image its own stacking context — without it
+     the phone's shadow bleeds over the card edge. .step-card is already position:relative
+     (see above), which is what makes z-index apply at all. */
+  margin-top: calc(var(--step-shot-h) / -3);
+  z-index: 1;
 }
 .step .num,
 .step-num {

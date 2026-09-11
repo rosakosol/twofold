@@ -84,14 +84,12 @@ export default async function HomePage() {
             </p>
           </div>
           <div className="hero-art" aria-hidden>
-            <div className="art-glow" />
-            <div className="art-glow-2" />
             {/* Priority: this is the hero's largest element and the page's LCP candidate, so it
                 must not lazy-load. .app-shot drops the rounded-rectangle shadow the placeholder
                 used - see marketing.css. */}
             <Image
-              src="/assets/phone-screen/Globe.png"
-              alt="The Twofold home screen, showing the distance between two partners on a 3D globe"
+              src="/assets/phone-screen/Lock-Widgets.png"
+              alt="Twofold's Lock Screen widgets on an iPhone, showing the distance to a partner and a countdown to the next reunion"
               width={1019}
               height={SHOT_HEIGHT}
               className="art-shot app-shot"
@@ -179,8 +177,8 @@ export default async function HomePage() {
             <div className="step">
               <div className="step-shot">
                 <Image
-                  src="/assets/phone-screen/Memory-Map.png"
-                  alt="Twofold's memory map, with pins marking the places a couple has been"
+                  src="/assets/phone-screen/Globe.png"
+                  alt="Twofold's 3D relationship globe, with lines tracing the journeys a couple has taken to each other"
                   width={1019}
                   height={SHOT_HEIGHT}
                   className="app-shot"
