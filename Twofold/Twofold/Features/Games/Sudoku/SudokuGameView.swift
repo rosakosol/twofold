@@ -379,21 +379,13 @@ struct SudokuGameView: View {
                     .accessibilityLabel("Resumed from an earlier session")
             }
             Spacer()
-            Label(Self.clockText(play.elapsed), systemImage: "clock")
+            Label(PuzzleClock.text(play.elapsed), systemImage: "clock")
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(Theme.subtleInk)
                 // Without this the whole row twitches every second as the digits change width.
                 .monospacedDigit()
         }
         .padding(.horizontal, Theme.Spacing.md)
-    }
-
-    /// The running clock and the comparison's finished times have to agree to the second — a solve
-    /// that ended at 2:14 on this screen cannot become 2:13 alongside a partner's. One
-    /// implementation, in `SudokuComparison`, is what makes that true by construction rather than
-    /// by two copies happening to round the same way.
-    static func clockText(_ elapsed: TimeInterval) -> String {
-        SudokuComparison.clockText(elapsed)
     }
 
     // MARK: - Controls
@@ -497,7 +489,7 @@ struct SudokuGameView: View {
                 Image(systemName: "checkmark.seal.fill")
                     .font(.largeTitle)
                     .foregroundStyle(Theme.leafGreen)
-                Text("Solved in \(Self.clockText(play.elapsed))")
+                Text("Solved in \(PuzzleClock.text(play.elapsed))")
                     .font(.title3.weight(.bold))
                     .foregroundStyle(Theme.ink)
                 // Nobody to wait for when there is nobody paired. `start_sudoku_session` gives an

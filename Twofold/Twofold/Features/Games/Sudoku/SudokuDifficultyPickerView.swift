@@ -129,11 +129,11 @@ struct SudokuDifficultyPickerView: View {
     private func bestTime(_ elapsed: TimeInterval?, name: String, solved: Int) -> some View {
         // "—" rather than an omitted name: which of the two has not played this difficulty is
         // itself the interesting part, and dropping their side would read as a layout bug.
-        Text("\(name) \(elapsed.map(SudokuComparison.clockText) ?? "—")")
+        Text("\(name) \(elapsed.map(PuzzleClock.text) ?? "—")")
             .foregroundStyle(elapsed == nil ? Theme.subtleInk : Theme.ink)
             .lineLimit(1)
             .accessibilityLabel(
-                elapsed.map { "\(name), best \(SudokuComparison.clockText($0)), \(solved) solved" }
+                elapsed.map { "\(name), best \(PuzzleClock.text($0)), \(solved) solved" }
                     ?? "\(name), none solved"
             )
     }

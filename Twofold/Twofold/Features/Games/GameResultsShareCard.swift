@@ -165,7 +165,7 @@ struct GameResultsShareCard: View {
         palette: ShareCardPalette
     ) -> some View {
         VStack(spacing: 2) {
-            Text(SudokuComparison.clockText(elapsed))
+            Text(PuzzleClock.text(elapsed))
                 .font(.system(size: 40, weight: .bold, design: .rounded))
                 .monospacedDigit()
                 .lineLimit(1)

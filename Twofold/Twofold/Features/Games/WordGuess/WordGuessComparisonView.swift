@@ -80,7 +80,7 @@ struct WordGuessComparisonView: View {
                         .truncationMode(.tail)
                     // Time is recorded but never decides the outcome, so it sits here as a
                     // footnote rather than alongside the score as if it were being compared.
-                    Text(SudokuComparison.clockText(summary.elapsed))
+                    Text(PuzzleClock.text(summary.elapsed))
                         .font(.caption2)
                         .foregroundStyle(Theme.subtleInk)
                         .monospacedDigit()

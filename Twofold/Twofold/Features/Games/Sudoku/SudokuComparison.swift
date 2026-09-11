@@ -74,7 +74,7 @@ struct SudokuComparison: Equatable {
 
     /// Positive when this player was quicker, negative when the partner was, zero for a dead heat.
     ///
-    /// Truncated to whole seconds the same way `clockText` truncates them, so the margin is always
+    /// Truncated to whole seconds the same way `PuzzleClock.text` truncates them, so the margin is always
     /// the gap between the two times *as the rows display them*. Two things go wrong otherwise, and
     /// both leave a verdict that contradicts the numbers directly above it:
     ///
@@ -104,17 +104,17 @@ struct SudokuComparison: Equatable {
         switch outcome {
         case .tie:
             LocalizedStringResource(
-                "A dead heat — you both took \(Self.clockText(myElapsed)).",
+                "A dead heat — you both took \(PuzzleClock.text(myElapsed)).",
                 comment: "Sudoku comparison when both solves took the same time. The value is a duration like “4:00”."
             )
         case .me:
             LocalizedStringResource(
-                "You finished \(Self.gapText(margin)) ahead.",
+                "You finished \(PuzzleClock.gapText(margin)) ahead.",
                 comment: "Sudoku comparison, this player won. The value is a duration like “48s” or “3:07”."
             )
         case .partner:
             LocalizedStringResource(
-                "\(partnerName) finished \(Self.gapText(-margin)) ahead.",
+                "\(partnerName) finished \(PuzzleClock.gapText(-margin)) ahead.",
                 comment: "Sudoku comparison, the partner won. First value is their name, second is a duration like “48s” or “3:07”."
             )
         }
@@ -131,42 +131,17 @@ struct SudokuComparison: Equatable {
         switch outcome {
         case .tie:
             LocalizedStringResource(
-                "A dead heat — \(Self.clockText(myElapsed)) each.",
+                "A dead heat — \(PuzzleClock.text(myElapsed)) each.",
                 comment: "Shareable sudoku card, both times equal. The value is a duration like “4:00”."
             )
         case .me, .partner:
             // One key for both, since the card names whoever won either way — and two keys saying
             // the same sentence is two things for a translator to keep in step.
             LocalizedStringResource(
-                "\(outcome == .me ? myName : partnerName) finished \(Self.gapText(abs(margin))) ahead.",
+                "\(outcome == .me ? myName : partnerName) finished \(PuzzleClock.gapText(abs(margin))) ahead.",
                 comment: "Shareable sudoku card. First value is the winner's name, second is a duration like “48s” or “3:07”."
             )
         }
     }
 
-    /// Seconds up to a minute, clock formatting beyond it — "48s ahead" reads better than
-    /// "0:48 ahead", while "3:07 ahead" reads better than "187s ahead".
-    ///
-    /// The seconds form goes through `Duration`'s own formatting rather than appending an "s".
-    /// A hardcoded suffix is a unit abbreviation in one language, and the unit is the part that
-    /// changes — the number is not. English still comes out "48s"; nothing about this screen
-    /// changes today.
-    static func gapText(_ seconds: Int) -> String {
-        seconds < 60
-            ? Duration.seconds(seconds).formatted(.units(allowed: [.seconds], width: .narrow))
-            : clockText(TimeInterval(seconds))
-    }
-
-    /// `m:ss`, or `h:mm:ss` once a puzzle has run past an hour — which an Expert grid left open
-    /// across a few sittings genuinely does.
-    static func clockText(_ elapsed: TimeInterval) -> String {
-        let total = max(0, Int(elapsed))
-        let hours = total / 3600
-        let minutes = (total % 3600) / 60
-        let seconds = total % 60
-        if hours > 0 {
-            return String(format: "%d:%02d:%02d", hours, minutes, seconds)
-        }
-        return String(format: "%d:%02d", minutes, seconds)
-    }
 }

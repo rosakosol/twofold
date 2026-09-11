@@ -93,7 +93,7 @@ struct SudokuComparisonView: View {
                     }
                 }
                 Spacer(minLength: Theme.Spacing.sm)
-                Text(SudokuComparison.clockText(elapsed))
+                Text(PuzzleClock.text(elapsed))
                     .font(.title3.weight(.semibold))
                     // Without this the two times sit on different grids and read as harder to
                     // compare than they are.

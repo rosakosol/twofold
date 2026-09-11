@@ -52,8 +52,8 @@ struct SudokuComparisonTests {
     @Test("the margin is the gap between the times as displayed, not as stored")
     func marginAgreesWithTheDisplayedRows() {
         let close = comparison(mine: 134.6, theirs: 140.0)
-        #expect(SudokuComparison.clockText(close.myElapsed) == "2:14")
-        #expect(SudokuComparison.clockText(close.partnerElapsed) == "2:20")
+        #expect(PuzzleClock.text(close.myElapsed) == "2:14")
+        #expect(PuzzleClock.text(close.partnerElapsed) == "2:20")
         #expect(close.margin == 6)
         #expect(close.verdict.resolved == "You finished 6s ahead.")
     }
@@ -62,11 +62,11 @@ struct SudokuComparisonTests {
 
     @Test("a gap under a minute is said in seconds, and past it as a clock")
     func gapWording() {
-        #expect(SudokuComparison.gapText(1) == "1s")
-        #expect(SudokuComparison.gapText(48) == "48s")
-        #expect(SudokuComparison.gapText(59) == "59s")
-        #expect(SudokuComparison.gapText(60) == "1:00")
-        #expect(SudokuComparison.gapText(187) == "3:07")
+        #expect(PuzzleClock.gapText(1) == "1s")
+        #expect(PuzzleClock.gapText(48) == "48s")
+        #expect(PuzzleClock.gapText(59) == "59s")
+        #expect(PuzzleClock.gapText(60) == "1:00")
+        #expect(PuzzleClock.gapText(187) == "3:07")
     }
 
     @Test("the verdict names whoever actually won")

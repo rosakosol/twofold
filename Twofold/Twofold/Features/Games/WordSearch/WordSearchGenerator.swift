@@ -1,0 +1,181 @@
+//
+//  WordSearchGenerator.swift
+//  Twofold
+//
+//  Builds a grid from a puzzle's identity, the same way `SudokuGenerator` does.
+//
+//  Same seed in, same grid out, on both partners' phones and every future version — see
+//  `PuzzleRandom`, which carries most of that weight. Nothing about the grid is ever stored or
+//  sent: both devices read the round's `content_id` and arrive at the same letters.
+//
+
+import Foundation
+
+/// One of the eight ways a word can run. Stored as a row/column step.
+///
+/// All eight, including backwards and upwards. A search restricted to left-to-right and downwards
+/// is findable by reading the grid rather than searching it, which is a different and much duller
+/// puzzle.
+enum WordSearchDirection: Int, CaseIterable, Codable, Hashable {
+    case east, west, south, north
+    case southEast, southWest, northEast, northWest
+
+    var step: (row: Int, column: Int) {
+        switch self {
+        case .east: (0, 1)
+        case .west: (0, -1)
+        case .south: (1, 0)
+        case .north: (-1, 0)
+        case .southEast: (1, 1)
+        case .southWest: (1, -1)
+        case .northEast: (-1, 1)
+        case .northWest: (-1, -1)
+        }
+    }
+}
+
+/// Where one word ended up. The cells are derived rather than stored, so a placement cannot
+/// disagree with itself.
+struct WordSearchPlacement: Equatable, Hashable {
+    let word: String
+    /// Index of the word's first letter, row-major.
+    let start: Int
+    let direction: WordSearchDirection
+
+    func cells(size: Int) -> [Int] {
+        let step = direction.step
+        var row = start / size
+        var column = start % size
+        var result: [Int] = []
+        for _ in 0..<word.count {
+            result.append(row * size + column)
+            row += step.row
+            column += step.column
+        }
+        return result
+    }
+}
+
+struct WordSearchPuzzle: Equatable {
+    static let size = 10
+    /// How many words a grid hides. Enough to take a few minutes, few enough that a ten-by-ten can
+    /// hold them all without the filler letters disappearing.
+    static let wordCount = 8
+
+    let letters: [Character]
+    let placements: [WordSearchPlacement]
+    let theme: WordSearchTheme
+
+    var words: [String] { placements.map(\.word) }
+
+    subscript(index: Int) -> Character { letters[index] }
+
+    /// The placement occupying exactly these cells, in either direction.
+    ///
+    /// Matched on cells rather than on the letters they spell. A grid of a hundred letters will
+    /// sometimes spell a hidden word somewhere it was never placed, and accepting that would light
+    /// up a run of letters that is not the word the list is pointing at — the player would see the
+    /// word tick off and the highlight land somewhere that looks wrong.
+    func placement(coveringCells cells: [Int]) -> WordSearchPlacement? {
+        placements.first { placement in
+            let placed = placement.cells(size: Self.size)
+            return placed == cells || placed == cells.reversed()
+        }
+    }
+}
+
+enum WordSearchGenerator {
+
+    /// The grid for this identity. Same id and theme, same grid — always.
+    static func puzzle(for id: UUID, theme: WordSearchTheme) -> WordSearchPuzzle {
+        var random = PuzzleRandom(puzzleID: id)
+        return generate(using: &random, theme: theme)
+    }
+
+    /// Seed-based entry point, for tests and anywhere an identity is not a UUID.
+    static func puzzle(seed: UInt64, theme: WordSearchTheme) -> WordSearchPuzzle {
+        var random = PuzzleRandom(seed: seed)
+        return generate(using: &random, theme: theme)
+    }
+
+    // MARK: -
+
+    private static func generate(using random: inout PuzzleRandom, theme: WordSearchTheme) -> WordSearchPuzzle {
+        let size = WordSearchPuzzle.size
+        var letters = [Character](repeating: " ", count: size * size)
+        var placements: [WordSearchPlacement] = []
+
+        // Longest first. A long word has the fewest places it can go, so placing it while the grid
+        // is empty is the difference between a grid that packs and one that gives up two words
+        // short. Ties broken by the shuffled order, so the choice among equal-length words is still
+        // the seed's.
+        let candidates = random.shuffled(theme.words)
+            .sorted { $0.count > $1.count }
+
+        for word in candidates where placements.count < WordSearchPuzzle.wordCount {
+            let letterArray = Array(word)
+            guard letterArray.count <= size else { continue }
+
+            // Every legal starting cell and direction, in a seeded order, and take the first that
+            // fits. Trying random placements a fixed number of times instead would make the grid
+            // depend on how many attempts happened to fail, which is the kind of thing that changes
+            // when the word lists do.
+            var options: [(start: Int, direction: WordSearchDirection)] = []
+            for start in 0..<(size * size) {
+                for direction in WordSearchDirection.allCases {
+                    options.append((start, direction))
+                }
+            }
+            options = random.shuffled(options)
+
+            for option in options {
+                if let placed = place(letterArray, at: option.start, direction: option.direction, in: letters, size: size) {
+                    placements.append(WordSearchPlacement(word: word, start: option.start, direction: option.direction))
+                    letters = placed
+                    break
+                }
+            }
+        }
+
+        // Everything still empty becomes a letter. Drawn from the placed words' own letters rather
+        // than from the alphabet: uniform random filler is visibly different from English text —
+        // it is full of Q, X and Z — and the hidden words stand out as the only ordinary-looking
+        // runs on the grid.
+        let pool = Array(placements.map(\.word).joined())
+        for index in letters.indices where letters[index] == " " {
+            letters[index] = pool.isEmpty
+                ? Character(UnicodeScalar(65 + random.next(upperBound: 26))!)
+                : pool[random.next(upperBound: pool.count)]
+        }
+
+        return WordSearchPuzzle(letters: letters, placements: placements, theme: theme)
+    }
+
+    /// Writes a word in, if it fits and agrees with everything already there.
+    ///
+    /// Returns the grid it would produce rather than mutating, so a placement that turns out not to
+    /// fit leaves nothing half-written behind. Crossing an existing word is allowed and wanted — a
+    /// grid where no two words touch is a grid where finding one tells you nothing.
+    private static func place(
+        _ word: [Character],
+        at start: Int,
+        direction: WordSearchDirection,
+        in letters: [Character],
+        size: Int
+    ) -> [Character]? {
+        let step = direction.step
+        var row = start / size
+        var column = start % size
+        var candidate = letters
+
+        for letter in word {
+            guard row >= 0, row < size, column >= 0, column < size else { return nil }
+            let index = row * size + column
+            guard candidate[index] == " " || candidate[index] == letter else { return nil }
+            candidate[index] = letter
+            row += step.row
+            column += step.column
+        }
+        return candidate
+    }
+}

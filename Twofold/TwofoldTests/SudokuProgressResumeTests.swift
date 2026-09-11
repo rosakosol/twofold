@@ -74,13 +74,13 @@ struct SudokuProgressResumeTests {
         (TimeInterval(3_671), "1:01:11"),
     ])
     func clockFormatting(elapsed: TimeInterval, expected: String) {
-        #expect(SudokuGameView.clockText(elapsed) == expected)
+        #expect(PuzzleClock.text(elapsed) == expected)
     }
 
     /// An hour is where a naive `%d:%02d` starts reading as "83:20" instead of "1:23:20", and Expert
     /// puzzles genuinely run that long.
     @Test("past an hour it grows a third field rather than counting to ninety minutes")
     func longSolves() {
-        #expect(SudokuGameView.clockText(5_000) == "1:23:20")
+        #expect(PuzzleClock.text(5_000) == "1:23:20")
     }
 }

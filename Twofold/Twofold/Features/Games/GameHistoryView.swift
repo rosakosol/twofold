@@ -378,8 +378,8 @@ struct GameHistoryView: View {
     /// Whoever finished, with a dash for whoever didn't — an unfinished side is part of the story
     /// of that puzzle, not something to hide.
     private func sudokuTimesText(_ result: (difficulty: SudokuDifficulty?, mine: TimeInterval?, partner: TimeInterval?)) -> String {
-        let mine = result.mine.map(SudokuComparison.clockText) ?? "—"
-        let theirs = result.partner.map(SudokuComparison.clockText) ?? "—"
+        let mine = result.mine.map(PuzzleClock.text) ?? "—"
+        let theirs = result.partner.map(PuzzleClock.text) ?? "—"
         return "\(appModel.currentUser.name) \(mine) · \(appModel.partner.name) \(theirs)"
     }
 
