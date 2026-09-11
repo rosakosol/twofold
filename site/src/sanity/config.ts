@@ -1,7 +1,10 @@
 import { defineConfig } from "sanity";
 import { structureTool } from "sanity/structure";
 import { visionTool } from "@sanity/vision";
-import { HelpCircleIcon } from "@sanity/icons";
+// Per-icon subpath, not the package root: @sanity/icons v5 turned the root export into a
+// lazy `icons` map and moved every component to its own entry point, so the old barrel
+// import resolves to nothing at runtime even though the types still describe it.
+import { HelpCircleIcon } from "@sanity/icons/HelpCircle";
 import { schemaTypes } from "@/sanity/schemaTypes";
 import { structure } from "@/sanity/deskStructure";
 import { FaqTool } from "@/sanity/tools/FaqTool";
