@@ -111,6 +111,14 @@ struct DeckCardRow: View {
                             .foregroundStyle(Theme.subtleInk)
                     }
                 }
+                // The title takes the width it needs before the topic label beside it gets any.
+                //
+                // Without this, both are `Text` and so equally flexible, and an `HStack` splits the
+                // row between equally-flexible children by their proposed widths rather than by
+                // what they need — so a long title truncated at two lines while a short topic like
+                // "Travel" sat next to visible empty space. The topic has `minimumScaleFactor` and
+                // a one-line cap of its own to give way with.
+                .layoutPriority(1)
 
                 Spacer(minLength: 0)
 
