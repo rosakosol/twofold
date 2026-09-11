@@ -52,7 +52,8 @@ export const PLANS: Record<"plus" | "premium", Plan> = {
     features: [
       "Everything you need for long-distance love",
       "Unlimited trips & memories",
-      "Track up to 5 flights each month",
+      "Track 2 flights live each month",
+      "Save unlimited flights to your trips",
       "500+ questions and games",
       "Home Screen & Lock Screen widgets",
     ],
@@ -66,9 +67,9 @@ export const PLANS: Record<"plus" | "premium", Plan> = {
     yearly: { packageId: "Twofold Premium Yearly", price: 119.99, priceLabel: "$119.99", perMonthLabel: "$10.00" },
     features: [
       "Everything in Twofold Plus",
-      "Track up to 20 flights each month",
+      "Track 5 flights live each month",
       "2000+ questions and games",
-      "Interactive 3D globe & premium widgets",
+      "Premium widgets",
       // TEMP: Relationship Record pulled from the first release — see featuresFallback.ts.
       // "Relationship Record PDF export",
     ],

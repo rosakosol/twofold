@@ -24,13 +24,16 @@ export const PLAN_COMPARISON_FALLBACK: ResolvedPlanComparison = {
   intro: "Both plans cover the essentials. Premium is for couples who want the full picture.",
   rows: [
     { label: "Trips & memories", plus: "Unlimited", premium: "Unlimited" },
-    { label: "Flights tracked each month", plus: "5", premium: "20" },
+    { label: "Live-tracked flights each month", plus: "2", premium: "5" },
+    // The limit is on tracking, not on flights. Without this row "2" reads as a cap on how much of
+    // their own travel a couple may record, which is not what happens and is a far meaner promise
+    // than the one being made.
+    { label: "Flights saved to your trips", plus: "Unlimited", premium: "Unlimited" },
     { label: "Questions & games", plus: "500+", premium: "2000+" },
     { label: "Home & Lock Screen widgets", plus: "Yes", premium: "Yes" },
     { label: "Live Activities for in-progress flights", plus: "Yes", premium: "Yes" },
-    { label: "Interactive 3D globe", plus: "", premium: "Yes" },
+    { label: "Interactive 3D globe", plus: "Yes", premium: "Yes" },
     { label: "Premium widget styles", plus: "", premium: "Yes" },
-    { label: "Relationship Record export", plus: "", premium: "Yes" },
   ],
 };
 

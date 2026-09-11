@@ -17,7 +17,7 @@ const LEAN_WEIGHTS: Record<string, number> = {
 const FALLBACK_RESULTS: Record<"plus" | "premium", QuizResultDoc> = {
   plus: {
     title: "Twofold Plus sounds like your fit",
-    description: "Unlimited trips and memories, up to 5 tracked flights a month, and 500+ questions and games - everything most long-distance couples need.",
+    description: "Unlimited trips and memories, 2 live-tracked flights a month, and 500+ questions and games - everything most long-distance couples need.",
     ctaLabel: "Get Twofold Plus",
   },
   premium: {
@@ -25,7 +25,7 @@ const FALLBACK_RESULTS: Record<"plus" | "premium", QuizResultDoc> = {
     // TEMP: the Relationship Record PDF export is dropped from this list while the feature is
     // pulled from the first release - see featuresFallback.ts. The live copy is the
     // `quizResult-premium` doc in Studio.
-    description: "The full relationship globe experience - more flight tracking, 2000+ questions and games, and the interactive 3D globe.",
+    description: "The full relationship globe experience - 5 live-tracked flights a month, 2000+ questions and games, and premium widgets.",
     ctaLabel: "Get Twofold Premium",
   },
 };
