@@ -4,38 +4,44 @@ import Image from "next/image";
 import { Reveal } from "@/components/marketing/Reveal";
 import { getFeatures } from "@/lib/marketing/sanity";
 import { resolveFeatures, type ResolvedFeature } from "@/lib/marketing/featuresFallback";
+import { PHONE_SHOT_HEIGHT as SHOT_HEIGHT } from "@/lib/marketing/phoneScreens";
 
 export const metadata: Metadata = {
   title: "Features",
-  // TEMP: ", and a printable relationship record" dropped while that feature is pulled from the
-  // first release - see featuresFallback.ts. This is the page's SEO description, so it was
-  // advertising the feature to search engines even though no card renders for it any more.
   description:
-    "Everything Twofold gives long-distance couples: a shared 3D relationship globe, live flight tracking, memories tied to real places, couple games, and widgets.",
+    "Everything Twofold gives long-distance couples: memories tied to real places, every trip on one shared timeline, live flight tracking, couple games, widgets, and an exportable record of your relationship.",
 };
 
 // Real app screenshots, keyed by feature slug. A slug listed here renders the screenshot on its
 // own (see `.feature-shot`); anything not listed falls back to the hand-built CSS mockup below,
-// which is why the two can coexist while the rest of the screenshots are captured. Widths differ
-// because the device frames aren't all the same crop - heights are a uniform 1877.
+// which is why the two can coexist while the rest of the screenshots are captured.
+//
+// `src` must match the file on disk exactly, case included: these resolve on a case-insensitive
+// dev filesystem but 404 on Vercel's Linux builders, so a wrong case looks fine locally and
+// ships a blank space.
 const FEATURE_SHOTS: Record<string, { src: string; alt: string; width: number }> = {
   "live-flight-tracking": {
-    src: "/assets/phone-screen/flight-tracking.png",
+    src: "/assets/phone-screen/Flight-Tracking.png",
     alt: "Live flight tracking in Twofold, showing a partner's flight status and arrival time",
     width: 1019,
   },
   memories: {
-    src: "/assets/phone-screen/memory.png",
+    src: "/assets/phone-screen/Memory-Detail.png",
     alt: "A saved memory in Twofold, with a photo and note attached to the place it happened",
     width: 1019,
   },
+  trips: {
+    src: "/assets/phone-screen/Trips.png",
+    alt: "The Trips screen in Twofold, listing upcoming and past journeys",
+    width: 1019,
+  },
   "couple-games": {
-    src: "/assets/phone-screen/games.png",
+    src: "/assets/phone-screen/Game-Screen.png",
     alt: "Twofold's couple games, showing the available question decks",
     width: 1019,
   },
   "widgets-live-activities": {
-    src: "/assets/phone-screen/live-activities.png",
+    src: "/assets/phone-screen/Live-Activities.png",
     alt: "A Twofold Live Activity on the iPhone Lock Screen, tracking a partner's flight",
     width: 1133,
   },
@@ -47,18 +53,11 @@ const FEATURE_SHOTS: Record<string, { src: string; alt: string; width: number }>
 // someone adds a matching `case` here.
 function FeatureArt({ feature }: { feature: ResolvedFeature }) {
   switch (feature.slug) {
-    case "relationship-globe":
-      return (
-        <div className="phone-mock">
-          <div className="phone-mock-notch" />
-          <div className="phone-mock-screen">
-            <div className="mock-globe" aria-hidden>
-              <div className="mock-dot" style={{ background: "var(--sky-blue)", top: "28%", left: "22%" }} />
-              <div className="mock-dot" style={{ background: "var(--heart-red)", top: "62%", left: "68%" }} />
-            </div>
-          </div>
-        </div>
-      );
+    // `relationship-globe` had a hand-built globe mock here. That feature was replaced by
+    // `trips`, which has a real screenshot in FEATURE_SHOTS and so never reaches this switch.
+    // Nothing renders .mock-globe/.mock-dot any more now that the home page's globe showcase
+    // is a pricing preview; the rules are left in marketing.css so restoring either is a
+    // markup change rather than a rewrite.
     case "live-flight-tracking":
       return (
         <div className="mock-card">
@@ -136,30 +135,29 @@ function FeatureArt({ feature }: { feature: ResolvedFeature }) {
           </div>
         </div>
       );
-    // TEMP: Relationship Record is pulled from the first release - see featuresFallback.ts.
-    // Unreachable regardless while no feature has this slug (the `default` branch below covers
-    // it), but kept commented rather than deleted so restoring the feature restores its art.
-    // case "relationship-record":
-    //   return (
-    //     <div className="mock-card" style={{ maxWidth: 220 }}>
-    //       <div className="mock-card-row">
-    //         <span className="icon-dot" style={{ background: "var(--sky-blue)" }}>
-    //           <svg className="icon">
-    //             <use href="/assets/icons.svg#icon-file-download" />
-    //           </svg>
-    //         </span>
-    //         <div>
-    //           <div style={{ fontWeight: 700, fontSize: 14 }}>Our Relationship Record</div>
-    //           <div style={{ fontSize: 12, color: "var(--subtle-ink)" }}>48 pages · PDF</div>
-    //         </div>
-    //       </div>
-    //       <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
-    //         <div className="mock-line" style={{ width: "90%" }} />
-    //         <div className="mock-line" style={{ width: "70%" }} />
-    //         <div className="mock-line" style={{ width: "80%" }} />
-    //       </div>
-    //     </div>
-    //   );
+    // No screenshot for this one: the export is a document, not a screen, so the mock below
+    // sells it better than a capture of the Settings row that produces it would.
+    case "relationship-record":
+      return (
+        <div className="mock-card" style={{ maxWidth: 220 }}>
+          <div className="mock-card-row">
+            <span className="icon-dot" style={{ background: "var(--sky-blue)" }}>
+              <svg className="icon">
+                <use href="/assets/icons.svg#icon-file-download" />
+              </svg>
+            </span>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 14 }}>Our Relationship Record</div>
+              <div style={{ fontSize: 12, color: "var(--subtle-ink)" }}>48 pages · PDF</div>
+            </div>
+          </div>
+          <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+            <div className="mock-line" style={{ width: "90%" }} />
+            <div className="mock-line" style={{ width: "70%" }} />
+            <div className="mock-line" style={{ width: "80%" }} />
+          </div>
+        </div>
+      );
     default:
       return (
         <div className="mock-card" style={{ maxWidth: 220 }}>
@@ -229,7 +227,7 @@ export default async function FeaturesPage() {
                       src={FEATURE_SHOTS[feature.slug].src}
                       alt={FEATURE_SHOTS[feature.slug].alt}
                       width={FEATURE_SHOTS[feature.slug].width}
-                      height={1877}
+                      height={SHOT_HEIGHT}
                       className="app-shot"
                       sizes="(max-width: 820px) 80vw, 380px"
                     />

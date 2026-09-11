@@ -2,20 +2,23 @@ import Link from "next/link";
 import Image from "next/image";
 import { Reveal } from "@/components/marketing/Reveal";
 import { FeatureTeaserGrid } from "@/components/marketing/FeatureTeaserGrid";
+import { PricingTeaser } from "@/components/marketing/PricingTeaser";
 import { ScrollLink } from "@/components/marketing/ScrollLink";
 import { WaitlistForm } from "@/components/marketing/WaitlistForm";
 import { RelationshipQuiz } from "@/components/marketing/RelationshipQuiz";
 import { isQuizPlayable } from "@/lib/marketing/quiz";
-import { getHero, getFeatures, getQuizQuestions, getQuizResults } from "@/lib/marketing/sanity";
+import { getHero, getFeatures, getQuizQuestions, getQuizResults, getResolvedPlans } from "@/lib/marketing/sanity";
 import { resolveFeatures } from "@/lib/marketing/featuresFallback";
 import { APP_STORE_URL } from "@/lib/marketing/config";
+import { PHONE_SHOT_HEIGHT as SHOT_HEIGHT } from "@/lib/marketing/phoneScreens";
 
 export default async function HomePage() {
-  const [hero, featureDocs, quizQuestions, quizResults] = await Promise.all([
+  const [hero, featureDocs, quizQuestions, quizResults, plans] = await Promise.all([
     getHero(),
     getFeatures(),
     getQuizQuestions(),
     getQuizResults(),
+    getResolvedPlans(),
   ]);
   const features = resolveFeatures(featureDocs);
 
@@ -83,16 +86,14 @@ export default async function HomePage() {
             </p>
           </div>
           <div className="hero-art" aria-hidden>
-            <div className="art-glow" />
-            <div className="art-glow-2" />
             {/* Priority: this is the hero's largest element and the page's LCP candidate, so it
                 must not lazy-load. .app-shot drops the rounded-rectangle shadow the placeholder
                 used - see marketing.css. */}
             <Image
-              src="/assets/phone-screen/globe-distance.png"
-              alt="The Twofold home screen, showing the distance between two partners on a 3D globe"
+              src="/assets/phone-screen/Lock-Widgets.png"
+              alt="Twofold's Lock Screen widgets on an iPhone, showing the distance to a partner and a countdown to the next reunion"
               width={1019}
-              height={1877}
+              height={SHOT_HEIGHT}
               className="art-shot app-shot"
               priority
               sizes="(max-width: 860px) 72vw, 300px"
@@ -142,12 +143,15 @@ export default async function HomePage() {
               with overflow-x wouldn't be. */}
           <div className="steps" tabIndex={0} role="group" aria-label="How Twofold works, in three steps">
             <div className="step">
-              {/* Rectangular placeholder for a real step screenshot. To swap in the real
-                  image, replace this whole <div> with:
-                    <img src="/assets/step-connect.png" alt="" className="step-art" />
-                  - the .step-art sizing (equal width, rounding) applies to both. */}
-              <div className="step-art step-art-placeholder">
-                <span>Connect</span>
+              <div className="step-shot">
+                <Image
+                  src="/assets/phone-screen/Partner-Connected.png"
+                  alt="Twofold confirming two partners are connected, after one accepts the other's invite"
+                  width={1019}
+                  height={SHOT_HEIGHT}
+                  className="app-shot"
+                  sizes="(max-width: 860px) 60vw, 220px"
+                />
               </div>
               <Reveal className="step-card">
                 <span className="step-num">1</span>
@@ -158,10 +162,10 @@ export default async function HomePage() {
             <div className="step">
               <div className="step-shot">
                 <Image
-                  src="/assets/phone-screen/trips.png"
+                  src="/assets/phone-screen/Trips.png"
                   alt="The Trips screen in Twofold, listing upcoming and past journeys"
                   width={1019}
-                  height={1877}
+                  height={SHOT_HEIGHT}
                   className="app-shot"
                   sizes="(max-width: 860px) 60vw, 220px"
                 />
@@ -175,10 +179,10 @@ export default async function HomePage() {
             <div className="step">
               <div className="step-shot">
                 <Image
-                  src="/assets/phone-screen/memory-map.png"
-                  alt="Twofold's memory map, with pins marking the places a couple has been"
+                  src="/assets/phone-screen/Globe.png"
+                  alt="Twofold's 3D relationship globe, with lines tracing the journeys a couple has taken to each other"
                   width={1019}
-                  height={1877}
+                  height={SHOT_HEIGHT}
                   className="app-shot"
                   sizes="(max-width: 860px) 60vw, 220px"
                 />
@@ -208,54 +212,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="showcase">
-        <div className="wrap">
-          <Reveal>
-            <p className="eyebrow">
-              <svg className="icon">
-                <use href="/assets/icons.svg#icon-sparkle" />
-              </svg>
-              The globe
-            </p>
-            <h2 style={{ margin: "16px 0 16px" }}>Your whole story, on one map</h2>
-            <p className="lede" style={{ marginBottom: 24 }}>
-              Every reunion draws a new arc between you. Zoom into a city to revisit the memories you made there -
-              it&apos;s the centrepiece both of you open first.
-            </p>
-            <ul className="check-list">
-              <li>
-                <svg className="icon">
-                  <use href="/assets/icons.svg#icon-check" />
-                </svg>
-                See your current distance apart, updated live
-              </li>
-              <li>
-                <svg className="icon">
-                  <use href="/assets/icons.svg#icon-check" />
-                </svg>
-                Rotate and zoom into cities to explore memories
-              </li>
-              <li>
-                <svg className="icon">
-                  <use href="/assets/icons.svg#icon-check" />
-                </svg>
-                Every reunion trip draws a new line across your history
-              </li>
-            </ul>
-          </Reveal>
-          <Reveal className="media-frame" data-delay="120">
-            <div className="phone-mock">
-              <div className="phone-mock-notch" />
-              <div className="phone-mock-screen">
-                <div className="mock-globe" aria-hidden>
-                  <div className="mock-dot" style={{ background: "var(--sky-blue)", top: "28%", left: "22%" }} />
-                  <div className="mock-dot" style={{ background: "var(--heart-red)", top: "62%", left: "68%" }} />
-                </div>
-              </div>
-            </div>
-          </Reveal>
-        </div>
-      </section>
+      <PricingTeaser plans={plans} />
 
       {isQuizPlayable(quizQuestions) ? (
         <RelationshipQuiz questions={quizQuestions} results={quizResults} />

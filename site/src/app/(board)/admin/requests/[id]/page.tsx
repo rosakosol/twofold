@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
@@ -25,13 +25,16 @@ export default function AdminEditFeaturePage({ params }: { params: Promise<{ id:
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState<FeatureCategory | "">("");
 
-  useEffect(() => {
-    if (feature) {
-      setTitle(feature.title);
-      setDescription(feature.description);
-      setCategory(feature.category as FeatureCategory);
-    }
-  }, [feature]);
+  // Seed the form once the fetch lands, and again if it resolves to a different request.
+  // Keyed on identity rather than the object, so a refetch returning equal data doesn't
+  // wipe edits the user has typed since.
+  const [seededId, setSeededId] = useState<string | null>(null);
+  if (feature && seededId !== feature.id) {
+    setSeededId(feature.id);
+    setTitle(feature.title);
+    setDescription(feature.description);
+    setCategory(feature.category as FeatureCategory);
+  }
 
   async function handleSave() {
     if (!category) {

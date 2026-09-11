@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -58,27 +58,34 @@ export function ContentForm({ contentType, decks, editingRow, open, onOpenChange
 
   // Re-seed every field whenever the sheet opens for a (possibly different) row —
   // resetting only on `open` would leave stale values if the user opens straight from
-  // one row's edit sheet into another's via the table, so this keys off `editingRow` too.
-  useEffect(() => {
-    if (!open) return;
-    const seeded: Record<string, string> = {};
-    for (const field of contentType.textFields) {
-      seeded[field.key] = editingRow ? String((editingRow as unknown as Record<string, unknown>)[field.key] ?? "") : "";
-    }
-    setTextValues(seeded);
-    setCategory(editingRow?.category ?? "");
-    setTier((editingRow?.tier as (typeof TIER_VALUES)[number]) ?? "plus");
-    setDeckId(editingRow?.deck_id ?? defaultDeckId ?? NO_DECK);
-    setActive(editingRow?.active ?? true);
+  // one row's edit sheet into another's via the table, so this keys off the row id too.
+  //
+  // Seeded during render rather than in an effect: an effect seeds on a second commit, so
+  // the sheet paints one frame of the previous row's values as it opens.
+  const seedKey = open ? `${contentType.key}:${editingRow?.id ?? "new"}` : null;
+  const [seededKey, setSeededKey] = useState<string | null>(null);
+  if (seedKey !== seededKey) {
+    setSeededKey(seedKey);
+    if (seedKey) {
+      const seeded: Record<string, string> = {};
+      for (const field of contentType.textFields) {
+        seeded[field.key] = editingRow ? String((editingRow as unknown as Record<string, unknown>)[field.key] ?? "") : "";
+      }
+      setTextValues(seeded);
+      setCategory(editingRow?.category ?? "");
+      setTier((editingRow?.tier as (typeof TIER_VALUES)[number]) ?? "plus");
+      setDeckId(editingRow?.deck_id ?? defaultDeckId ?? NO_DECK);
+      setActive(editingRow?.active ?? true);
 
-    if (contentType.isTrivia) {
-      const trivia = editingRow as TriviaQuestion | null;
-      setOptions(optionsOf(editingRow));
-      setCorrectAnswer(trivia?.correct_answer ?? "");
-      setExplanation(trivia?.explanation ?? "");
-      setDifficulty(trivia?.difficulty ?? "");
+      if (contentType.isTrivia) {
+        const trivia = editingRow as TriviaQuestion | null;
+        setOptions(optionsOf(editingRow));
+        setCorrectAnswer(trivia?.correct_answer ?? "");
+        setExplanation(trivia?.explanation ?? "");
+        setDifficulty(trivia?.difficulty ?? "");
+      }
     }
-  }, [open, editingRow, contentType, defaultDeckId]);
+  }
 
   const nonEmptyOptions = options.map((o) => o.trim()).filter(Boolean);
 

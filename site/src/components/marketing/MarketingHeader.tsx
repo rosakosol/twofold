@@ -31,9 +31,14 @@ export function MarketingHeader() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  useEffect(() => {
+  // Close the mobile menu on navigation. Done during render rather than in an effect: React
+  // restarts the render with the new state before committing, so the menu never paints open
+  // on the destination route the way an effect's extra commit would allow.
+  const [menuPathname, setMenuPathname] = useState(pathname);
+  if (menuPathname !== pathname) {
+    setMenuPathname(pathname);
     setIsOpen(false);
-  }, [pathname]);
+  }
 
   return (
     <header className={`site-nav${isScrolled ? " is-scrolled" : ""}${isOpen ? " is-open" : ""}`}>

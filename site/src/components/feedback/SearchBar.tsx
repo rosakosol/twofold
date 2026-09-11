@@ -15,7 +15,14 @@ export function SearchBar({ value, onChange, placeholder = "Search feedback…" 
   const [draft, setDraft] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => setDraft(value), [value]);
+  // Re-sync the draft when the committed value changes from outside (a cleared filter, a
+  // restored URL). During render, not in an effect, so the input never shows the stale draft
+  // for a frame first.
+  const [committedValue, setCommittedValue] = useState(value);
+  if (committedValue !== value) {
+    setCommittedValue(value);
+    setDraft(value);
+  }
 
   useEffect(() => {
     const timeout = setTimeout(() => {

@@ -1,4 +1,5 @@
 import {defineField, defineType} from 'sanity'
+import {LivePriceInput} from '@/sanity/components/LivePriceInput'
 
 export const PLAN_IDS = [
   {title: 'Plan: Plus', value: 'plus'},
@@ -9,12 +10,12 @@ export const PLAN_IDS = [
 // the pricing page and the home pricing preview fetch both by those fixed _ids, same
 // pattern as quizResult / legalPage.
 //
-// IMPORTANT: this is DISPLAY copy only. The price LABELS here (e.g. "$9.99") are what
-// visitors see, but what they're actually charged comes from RevenueCat via the
-// packageId wiring in src/lib/marketing/config.ts — editing a label here does NOT change
-// the real charge, and the two must be kept in sync by hand. Entitlement / package IDs
-// deliberately live in code (they must match the iOS app + RevenueCat exactly) and are
-// not editable here. If a field is left blank, the site falls back to the code default.
+// Copy is editable here; PRICES ARE NOT. /pricing reads what a visitor is actually charged
+// straight off the RevenueCat offering and only falls back to the stored label, so an editable
+// price field was a trap — typing "$7.99" moved the marketing copy and never the charge, and
+// nothing surfaced the disagreement. The three price fields are readOnly and render the live
+// figure instead (LivePriceInput); change a price in Stripe. Entitlement / package IDs live in
+// code for the same reason, since they must match the iOS app and RevenueCat exactly.
 export default defineType({
   name: 'plan',
   title: 'Pricing Plan',
@@ -39,26 +40,32 @@ export default defineType({
       name: 'featured',
       title: 'Feature this plan',
       type: 'boolean',
-      description: 'Shows the "Most popular" badge and the highlighted card style.',
+      description: 'Highlights this plan’s card — heavier shadow, tinted border, and a solid rather than ghost button.',
       initialValue: false,
     }),
     defineField({
       name: 'monthlyPriceLabel',
-      title: 'Monthly price label',
+      title: 'Monthly price',
       type: 'string',
-      description: 'Shown on the Monthly toggle. Display only — e.g. "$9.99". Must match RevenueCat.',
+      readOnly: true,
+      components: {input: LivePriceInput},
+      description: 'Set in Stripe. Shown here so you can see what visitors are charged.',
     }),
     defineField({
       name: 'yearlyPriceLabel',
-      title: 'Yearly total price label',
+      title: 'Yearly price (total)',
       type: 'string',
-      description: 'The full yearly charge — e.g. "$59.99". Display only; must match RevenueCat.',
+      readOnly: true,
+      components: {input: LivePriceInput},
+      description: 'The full yearly charge, from Stripe.',
     }),
     defineField({
       name: 'yearlyPerMonthLabel',
       title: 'Yearly price, per month',
       type: 'string',
-      description: 'The yearly price divided by 12, for the "/mo" figure — e.g. "$5.00".',
+      readOnly: true,
+      components: {input: LivePriceInput},
+      description: 'Derived from the yearly price, for the "/mo" figure on the card.',
     }),
     defineField({
       name: 'ctaLabel',

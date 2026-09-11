@@ -46,10 +46,14 @@ export function FeatureSubmitDialog() {
   }, [title]);
 
   // Changing the title after already confirming should re-check for duplicates -
-  // don't let a stale confirmation carry over to a materially different title.
-  useEffect(() => {
+  // don't let a stale confirmation carry over to a materially different title. Cleared
+  // during render so the duplicate warning is already correct on the first paint after
+  // the debounce lands, rather than one commit later.
+  const [confirmedTitle, setConfirmedTitle] = useState(debouncedTitle);
+  if (confirmedTitle !== debouncedTitle) {
+    setConfirmedTitle(debouncedTitle);
     setConfirmedNotDuplicate(false);
-  }, [debouncedTitle]);
+  }
 
   const duplicates = useDuplicateSearch(debouncedTitle);
   const showDuplicates = !confirmedNotDuplicate && (duplicates.data?.length ?? 0) > 0;

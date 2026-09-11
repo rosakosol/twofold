@@ -6,8 +6,21 @@ import type { Session } from "@supabase/supabase-js";
 import { PLANS } from "@/lib/marketing/config";
 import type { ResolvedPlan } from "@/lib/marketing/sanity";
 import { getSession, onAuthChange, signInWithApple, signOut } from "@/lib/marketing/auth";
-import { fetchOfferings, fetchCustomerInfo, findPackage, purchasePackage, activeEntitlements } from "@/lib/marketing/billing";
+import { providerFallbackName, providerLabel, sessionProvider } from "@/lib/marketing/provider";
+import {
+  fetchOfferings,
+  fetchCustomerInfo,
+  findPackage,
+  purchasePackage,
+  activeEntitlements,
+  fetchLivePrices,
+  anonymousAppUserId,
+  type LivePrices,
+} from "@/lib/marketing/billing";
+import { priceLabelFor, perMonthLabelFor, yearlySavingPercent, savingPercent } from "@/lib/marketing/priceDisplay";
 import { Reveal } from "@/components/marketing/Reveal";
+import { PlanComparison } from "@/components/marketing/PlanComparison";
+import type { ResolvedPlanComparison } from "@/lib/marketing/planComparisonFallback";
 
 const PENDING_KEY = "twofold_pending_plan";
 type PlanId = "plus" | "premium";
@@ -37,19 +50,40 @@ function PlanCard({
   period,
   buyingKey,
   onBuy,
+  livePrices,
 }: {
   plan: ResolvedPlan;
   period: Period;
   buyingKey: string | null;
   onBuy: (planId: PlanId, period: Period) => void;
+  livePrices: LivePrices;
 }) {
   const key = `${plan.id}-${period}`;
   const isBuying = buyingKey === key;
-  const monthlyFigure = period === "monthly" ? plan.monthly.priceLabel : plan.yearly.perMonthLabel;
+
+  // ResolvedPlan carries the editable labels; the package identifiers that key the live
+  // offering only exist in code, so they come from PLANS - same lookup attemptPurchase does.
+  const packages = PLANS[plan.id];
+
+  // Live where the offering has it, the plan's own label otherwise. The label renders first
+  // and is replaced in place once the offering resolves, so there is never an empty price -
+  // only one that may refine itself into the buyer's own currency.
+  const monthlyFigure =
+    period === "monthly"
+      ? priceLabelFor(livePrices, packages.monthly.packageId, plan.monthly.priceLabel)
+      : perMonthLabelFor(livePrices, packages.yearly.packageId, plan.yearly.perMonthLabel);
+  const yearlyTotal = priceLabelFor(livePrices, packages.yearly.packageId, plan.yearly.priceLabel);
+
+  // Per-plan rather than the single figure on the period toggle: the two tiers could be
+  // discounted differently, and a card claiming a saving it doesn't give is worse than no
+  // claim at all. Live prices where available, PLANS' own numbers otherwise.
+  const saving =
+    yearlySavingPercent(livePrices[packages.monthly.packageId], livePrices[packages.yearly.packageId]) ??
+    savingPercent(packages.monthly.price, packages.yearly.price);
 
   return (
-    <div className={`card plan${plan.featured ? " feature" : ""}`}>
-      {plan.featured && <span className="plan-badge">Most popular</span>}
+    <div className={`card plan${plan.featured ? " feature" : ""}`} data-plan={plan.id}>
+      {period === "yearly" && saving !== null && <span className="plan-save">Save {saving}% vs monthly</span>}
       <h3>{plan.name}</h3>
       <p className="plan-sub">{plan.tagline}</p>
       <div className="price-line">
@@ -57,7 +91,7 @@ function PlanCard({
         <span className="per">/mo</span>
       </div>
       <p className="price-foot">
-        {period === "yearly" ? `Billed yearly - works out to ${plan.yearly.priceLabel}/yr` : "Billed monthly · cancel anytime"}
+        {period === "yearly" ? `Billed yearly - works out to ${yearlyTotal}/yr` : "Billed monthly · cancel anytime"}
       </p>
       <ul className="check-list">
         {plan.features.map((feature) => (
@@ -76,11 +110,20 @@ function PlanCard({
   );
 }
 
-function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: ResolvedPlan } }) {
+function PricingContent({
+  plans,
+  comparison,
+}: {
+  plans: { plus: ResolvedPlan; premium: ResolvedPlan };
+  comparison: ResolvedPlanComparison;
+}) {
   const searchParams = useSearchParams();
   const requestedPlan = searchParams.get("plan");
 
-  const [period, setPeriod] = useState<Period>("yearly");
+  // Monthly by default: it is the smaller commitment and the honest headline figure, and
+  // the yearly saving is right there on the toggle for anyone it appeals to. The home page
+  // preview shows monthly for the same reason, so the price clicked is the price landed on.
+  const [period, setPeriod] = useState<Period>("monthly");
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [subscribedTier, setSubscribedTier] = useState<"Plus" | "Premium" | null>(null);
@@ -88,8 +131,24 @@ function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: Resol
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
   const [purchaseSuccess, setPurchaseSuccess] = useState(false);
   const [buyingKey, setBuyingKey] = useState<string | null>(null);
+  // Empty until the offering resolves; every read falls back to the plan's own label, so
+  // the cards are fully priced on first paint and only refine afterwards.
+  const [livePrices, setLivePrices] = useState<LivePrices>({});
   const successRef = useRef<HTMLDivElement>(null);
+  // Whatever this session was actually created with - Apple here, but equally a Google or
+  // magic-link session carried over from the feedback board, which shares this project.
+  const provider = sessionProvider(session);
   const attemptedPendingResume = useRef(false);
+
+  // "Save 50%" was typed into the markup, so a price change in Stripe would have left it
+  // advertising a discount that no longer existed. Derived from the live offering, falling
+  // back to PLANS' own numbers - both plans are priced at the same ratio, so Plus speaks for
+  // the toggle. Null hides the pill rather than showing "Save 0%".
+  const yearlySaving =
+    yearlySavingPercent(
+      livePrices[PLANS.plus.monthly.packageId],
+      livePrices[PLANS.plus.yearly.packageId]
+    ) ?? savingPercent(PLANS.plus.monthly.price, PLANS.plus.yearly.price);
 
   async function attemptPurchase(planId: PlanId, billingPeriod: Period) {
     setPurchaseError(null);
@@ -188,6 +247,25 @@ function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: Resol
     };
   }, []);
 
+  // Separate from the auth effect on purpose: prices have to be on screen for someone who
+  // has not signed in and may never sign in, so this cannot wait on a session. Re-runs once a
+  // session appears so the offering is read under the real app user id, which is what any
+  // per-customer pricing would key off.
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      const appUserId = session?.user.id ?? (await anonymousAppUserId());
+      if (!appUserId || cancelled) return;
+      const prices = await fetchLivePrices(appUserId);
+      if (!cancelled && Object.keys(prices).length) setLivePrices(prices);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session]);
+
   useEffect(() => {
     if (requestedPlan === "premium" || requestedPlan === "plus") {
       // The referring page (e.g. the Home pricing preview) named a specific plan -
@@ -214,12 +292,21 @@ function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: Resol
           </span>
           <h1>One subscription, shared by both of you</h1>
           <p className="lead">Subscribe here on the web or right inside the app - either partner&apos;s subscription unlocks the full experience for you both.</p>
-          <div className="apple-note">
-            <svg className="icon">
-              <use href="/assets/icons.svg#icon-apple" />
-            </svg>
-            You&apos;ll sign in with Apple at checkout - it&apos;s how we match your web purchase to your Twofold account.
-          </div>
+          {/* Signed-out only. It describes something about to happen ("you'll sign in at
+              checkout"), so it's simply untrue once there's a session - and it names Apple,
+              which attemptPurchase does force for a signed-out buyer but which says nothing
+              about a Google or magic-link session carried over from the feedback board. The
+              "Signed in as …" line below replaces it, and says which account. Gated on
+              !authLoading as well so a signed-in visitor never sees it flash on first paint. */}
+          {!authLoading && !session && (
+            <div className="apple-note">
+              <svg className="icon">
+                <use href="/assets/icons.svg#icon-apple" />
+              </svg>
+              You&apos;ll sign in with Apple at checkout - it&apos;s how we match your web purchase to your
+              Twofold account.
+            </div>
+          )}
         </Reveal>
       </header>
 
@@ -231,7 +318,7 @@ function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: Resol
                 <svg className="icon">
                   <use href="/assets/icons.svg#icon-check-circle" />
                 </svg>
-                Signed in as {session.user.email || "your Apple ID"}
+                Signed in as {session.user.email || providerFallbackName(provider)}
               </span>
               <button
                 type="button"
@@ -247,7 +334,8 @@ function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: Resol
           {subscribedTier ? (
             <div className="card waitlist-card" style={{ marginTop: 12, maxWidth: 520, marginLeft: "auto", marginRight: "auto" }}>
               <h3 style={{ marginBottom: 16 }}>
-                You already have Twofold {subscribedTier} - open the app and sign in with the same Apple ID to use it.
+                You already have Twofold {subscribedTier} - open the app and sign in with the same{" "}
+                {providerLabel(provider)} to use it.
               </h3>
               <AppStoreBadge label="Open on the" />
             </div>
@@ -255,8 +343,8 @@ function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: Resol
             <div ref={successRef} className="card waitlist-card" style={{ marginTop: 12, maxWidth: 560, marginLeft: "auto", marginRight: "auto" }}>
               <h2 style={{ marginBottom: 10 }}>You&apos;re all set 🎉</h2>
               <p style={{ marginBottom: 24 }}>
-                Download Twofold and sign in with the <strong>same Apple ID</strong> you just used - your subscription
-                will already be active.
+                Download Twofold and sign in with the <strong>same {providerLabel(provider)}</strong> you just
+                used - your subscription will already be active.
               </p>
               <AppStoreBadge />
             </div>
@@ -267,16 +355,17 @@ function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: Resol
                   Monthly
                 </button>
                 <button type="button" className={period === "yearly" ? "active" : undefined} onClick={() => setPeriod("yearly")}>
-                  Yearly <span className="save-pill">Save 50%</span>
+                  Yearly
+                  {yearlySaving !== null && <span className="save-pill">Save {yearlySaving}%</span>}
                 </button>
               </Reveal>
 
               <div className="pricing-grid">
                 <div id="plan-plus">
-                  <PlanCard plan={plans.plus} period={period} buyingKey={buyingKey} onBuy={attemptPurchase} />
+                  <PlanCard plan={plans.plus} period={period} buyingKey={buyingKey} onBuy={attemptPurchase} livePrices={livePrices} />
                 </div>
                 <div id="plan-premium">
-                  <PlanCard plan={plans.premium} period={period} buyingKey={buyingKey} onBuy={attemptPurchase} />
+                  <PlanCard plan={plans.premium} period={period} buyingKey={buyingKey} onBuy={attemptPurchase} livePrices={livePrices} />
                 </div>
               </div>
 
@@ -293,9 +382,14 @@ function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: Resol
                   <AppStoreBadge />
                 </div>
               )}
+
+              <PlanComparison comparison={comparison} />
             </>
           )}
 
+          {/* Below the comparison table, not the cards: someone still weighing the two plans
+              scrolls the table first, and the FAQ is the next thing they want if it didn't
+              settle it. Outside the purchase-state branch above so it survives checkout too. */}
           <Reveal className="pricing-foot">
             <a className="arrow-link" href="/faq">
               More questions
@@ -310,10 +404,16 @@ function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: Resol
   );
 }
 
-export function PricingClient({ plans }: { plans: { plus: ResolvedPlan; premium: ResolvedPlan } }) {
+export function PricingClient({
+  plans,
+  comparison,
+}: {
+  plans: { plus: ResolvedPlan; premium: ResolvedPlan };
+  comparison: ResolvedPlanComparison;
+}) {
   return (
     <Suspense>
-      <PricingContent plans={plans} />
+      <PricingContent plans={plans} comparison={comparison} />
     </Suspense>
   );
 }

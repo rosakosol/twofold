@@ -80,3 +80,60 @@ export async function purchasePackage(appUserId: string, rcPackage: Package) {
 export function activeEntitlements(customerInfo: CustomerInfo | null): string[] {
   return customerInfo ? Object.keys(customerInfo.entitlements?.active ?? {}) : [];
 }
+
+// ---------------------------------------------------------------------------
+// Live prices
+// ---------------------------------------------------------------------------
+
+/** What a package actually costs, as RevenueCat reports it for this buyer. */
+export interface LivePrice {
+  /** Already localised and currency-formatted by RevenueCat - "$9.99", "£7.99", "€8,99". */
+  formattedPrice: string;
+  /** $9.99 is 9990000. Used to derive the per-month and savings figures. */
+  amountMicros: number;
+  /** ISO 4217, for formatting figures we derive ourselves. */
+  currency: string;
+}
+
+/** Keyed by the package identifier in config.ts's PLANS[..].monthly/yearly.packageId. */
+export type LivePrices = Record<string, LivePrice>;
+
+/**
+ * Every price in the web offering, for display on the pricing cards.
+ *
+ * Called on mount with an anonymous app user id when nobody is signed in, because prices have
+ * to be on screen well before anyone authenticates. RevenueCat treats the anonymous id as a
+ * throwaway; the real purchase later runs under the Supabase user id via purchasePackage.
+ *
+ * Returns {} on any failure rather than throwing. Every caller falls back to the labels in
+ * config.ts / Studio, so a RevenueCat outage costs the localised currency, not the page.
+ */
+export async function fetchLivePrices(appUserId: string): Promise<LivePrices> {
+  const offering = await fetchOfferings(appUserId);
+  if (!offering?.availablePackages) return {};
+
+  const prices: LivePrices = {};
+  for (const pkg of offering.availablePackages) {
+    // `webBillingProduct` supersedes the deprecated `rcBillingProduct`; the SDK still
+    // populates both, so fall back for older builds of the dependency.
+    const product = pkg.webBillingProduct ?? pkg.rcBillingProduct;
+    const price = product?.price;
+    if (!price?.formattedPrice) continue;
+    prices[pkg.identifier] = {
+      formattedPrice: price.formattedPrice,
+      amountMicros: price.amountMicros,
+      currency: price.currency,
+    };
+  }
+  return prices;
+}
+
+/** An anonymous id so the offering can be read before sign-in. */
+export async function anonymousAppUserId(): Promise<string | null> {
+  try {
+    const { Purchases } = await import("@revenuecat/purchases-js");
+    return Purchases.generateRevenueCatAnonymousAppUserId();
+  } catch {
+    return null;
+  }
+}

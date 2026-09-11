@@ -9,10 +9,33 @@
  * document. Anything an editor has changed in Studio since the last run is lost, so re-read
  * /studio before running it again.
  *
- * The copy is written to match how Twofold actually behaves (RLS policies, delete_own_account,
- * delete_dissolved_couple_data, the third-party services actually called). Where a fact isn't
- * knowable from the code - legal entity, hosting regions, retention windows, minimum age - the
- * text says [TO CONFIRM] rather than inventing something.
+ * The copy is written to match how Twofold actually behaves. Every factual claim below was
+ * re-checked against the code rather than carried over from the previous draft, which had
+ * drifted from the app in seven places:
+ *
+ *   - Sign-in is Apple, Google *or* email+password (BackendService.signUp /
+ *     signInWithPassword / resetPasswordForEmail). The old text said Twofold had no password
+ *     of its own to store, which was simply wrong.
+ *   - parse-flight-email sends a forwarded email's subject, body and extracted PDF text to
+ *     OpenAI. The old text named no AI provider at all.
+ *   - _shared/adsb.ts and _shared/adsbdb.ts call adsb.lol, adsb.fi, airplanes.live and
+ *     adsbdb.com. None of the four were disclosed.
+ *   - Analytics.setOnboardingTraits sends attribution, relationship situation, travel
+ *     frequency, goals and both partners' gender to PostHog as durable person properties.
+ *     The old text described analytics as feature usage only. (GenderView's own comment is
+ *     right that gender never reaches Supabase, but it does leave the device.)
+ *   - get_feedback_public_profiles is granted to `anon`, so posting on the feedback board
+ *     publishes your app first name and avatar to signed-out strangers. Never mentioned.
+ *   - profiles.timezone is reported by the device (BackendService.updateTimezone).
+ *   - flights.shared is a per-flight toggle, so "your partner can see your flights" was
+ *     broader than what the RLS policy actually allows.
+ *
+ * Retention and region facts that ARE knowable from code are now stated outright instead of
+ * being marked unknown: invite redemption attempts purge after 1 hour (20260921000000),
+ * rate_limit_events after at most 1 day (20260918000000), and PostHog is the US cloud
+ * (AnalyticsConfig.host). Where a fact still isn't knowable from the code - registered
+ * address, Supabase/Vercel regions, backup window, PostHog retention, minimum age - the text
+ * says [TO CONFIRM] rather than inventing something.
  */
 import {sanityWriteClient} from './lib/sanity-write-client.mjs'
 import {resetKeys, h2, p, span, link, ptext, bullet} from './lib/portable-text.mjs'
@@ -30,7 +53,7 @@ const body = [
     `Twofold is an app for couples in long-distance relationships. This policy explains what we collect, why we collect it, who can see it, and what control you have over it. It covers the Twofold iOS app and twofoldapp.com.au.`
   ),
   p(
-    span(`Twofold is operated by [TO CONFIRM: legal entity name and registered address]. If anything here is unclear, email `),
+    span(`Twofold is operated by Orange Finch, [TO CONFIRM: registered address]. If anything here is unclear, email `),
     mailto(),
     span(` - we'd rather explain it than have you guess.`)
   ),
@@ -38,32 +61,43 @@ const body = [
   // ------------------------------------------------------- what you give us
   h2('Information you give us'),
   bullet(
-    `Account details. You sign in with Apple or Google, and we receive an email address and a unique identifier from them. We never receive your password - Twofold has no password of its own to store.`
+    `Account details. You can create an account with Apple, with Google, or with an email address and a password. Sign in with Apple or Google and we receive an email address and a unique identifier from them, and never see a password. Choose email and password instead and your password is stored by our authentication provider as a salted hash - we can't read it, and it is never visible to us or to your partner.`
   ),
   bullet(
-    `Your profile. Your first name, a profile photo, an accent colour, the city you call home, and the date you started dating.`
+    `Your profile. Your first name, a profile photo, an accent colour, the city you call home, and the date you started dating. Your device also reports its timezone, so daily questions and streaks roll over at your local midnight rather than ours.`
   ),
   bullet(
-    `Notes about your partner. A nickname and photo you can set for your partner. These are yours alone - your partner never sees what you've chosen.`
+    `Notes about your partner. A nickname and photo you can set for your partner, and - before you've connected - your guess at the city they're in. These are yours alone; your partner never sees what you've chosen.`
   ),
   bullet(
-    `Things you create. Trips, memories (a title, note, emoji, date, place and photos), flights (flight numbers and dates, plus any boarding passes or travel documents you add), drawings, and your answers to games and discussion prompts.`
+    `Things you create. Trips, memories (a title, note, emoji, date, place and photos), flights (flight numbers, dates and who's travelling, plus any boarding passes, itineraries or other travel documents you attach), drawings on the shared pad, and your answers to games and discussion prompts.`
   ),
   bullet(
-    `Support and sign-ups. If you use the support form we receive your name, email address, the category you pick and your message. If you join the waitlist we receive your email address. If you post on the feedback board we receive your account, votes and comments.`
+    `Setup questions. During onboarding we ask how you found Twofold, your relationship situation, how often you travel, what you're hoping to get out of the app, and your and your partner's gender - the last of these only so the app can use the right pronoun in its own wording. These answers are not saved to your Twofold account. They are sent to PostHog, our analytics provider, and attached to your analytics profile there, so we can tell which kinds of couples get the most out of Twofold. See "Information we collect automatically" below.`
+  ),
+  bullet(
+    `Support and sign-ups. If you use the support form - in the app or on the website - we receive your name, email address, the category you pick and your message. That is sent to our support inbox as an email; it isn't stored in the Twofold database. If you join the Android waitlist we store your email address and send you a confirmation. If you use the feedback board we store the requests you post, your votes, comments, bookmarks, and which requests you've chosen to follow.`
   ),
 
   // ------------------------------------------------- collected automatically
   h2('Information we collect automatically'),
   bullet(
-    `Product analytics. We use PostHog to understand which features get used and where people get stuck. Once you're signed in, those events are linked to your Twofold account identifier.`
+    `Product analytics. The iOS app sends usage events to PostHog: account creation and sign-in, paywall views, purchases and restores, adding and deleting flights, trips and memories, starting and finishing games, saving a doodle, removing a partner, generating an export, and the name of the screen you're on. Once you're signed in these are linked to your Twofold account identifier, along with the setup answers described above. We don't record your screen - session replay is switched off - and we never send the contents of your memories, notes, drawings or game answers as analytics.`
   ),
   bullet(
-    `Notification tokens. Apple issues a device token so we can send you push notifications and Live Activities.`
+    `The website collects nothing automatically. There is no analytics, no tracking pixel and no advertising cookie on twofoldapp.com.au. The only cookie it sets is the one that keeps you signed in when you use the feedback board.`
   ),
-  bullet(`Subscription status. RevenueCat tells us whether you have an active Plus or Premium subscription.`),
   bullet(
-    `Technical logs. Our servers record standard request information - IP address, timestamps, error details - needed to operate and secure the service.`
+    `Notification tokens. Apple issues a device token so we can send you push notifications, plus separate short-lived tokens for each Live Activity.`
+  ),
+  bullet(
+    `Subscription status. RevenueCat tells us whether you have an active Plus or Premium subscription, and when we last checked.`
+  ),
+  bullet(
+    `Abuse prevention. We record a timestamped row when you redeem an invite code, and when you use the support form or the flight-email reader, so that a single account can't run those in a loop. These rows hold your account identifier and the time, nothing else, and they are deleted automatically - see "How long we keep it".`
+  ),
+  bullet(
+    `Technical logs. Our hosting providers record standard request information - IP address, timestamps, error details - needed to operate and secure the service.`
   ),
 
   // ------------------------------------------------------------- location
@@ -72,22 +106,34 @@ const body = [
     `Location is optional, and only ever requested as "while using the app". Twofold never has access to your location in the background, or while the app is closed.`
   ),
   ptext(
-    `If you allow it, Twofold uses your location to work out which city you're in - when you first set your home city, and then again automatically each time you open the app, at most once an hour. If you've moved to a different city, your home city is updated to match.`
+    `If you allow it, Twofold takes a single location fix and asks iOS to turn it into a city - when you first set your home city, when you tag a memory with where you are, and then automatically when you open the app, at most once an hour and only once you're connected to a partner. If you've moved to a different city, your home city is updated to match.`
   ),
   p(
     span(`That means the city you're in is shared with your partner, and keeps up with you as you travel. `, 'strong'),
     span(
-      `What we don't do is follow your position: each check is resolved to a city and nothing finer, a new city replaces the last rather than building up a history of where you've been, and there is no live or continuous tracking at any point.`
+      `What we don't do is follow your position: the coordinates are resolved to a city on your own device and only the city and country are ever sent to us, a new city replaces the last rather than building up a history of where you've been, and there is no live or continuous tracking at any point.`
     )
   ),
   ptext(
     `You can decline the permission and type your city in by hand instead, and you can change it at any time in iOS Settings. With location declined, your home city only ever changes when you change it yourself.`
   ),
 
-  // -------------------------------------------------- camera, photos, FaceID
-  h2('Camera, photos and Face ID'),
+  // ------------------------------------------------- forwarding a flight email
+  h2('Sharing a flight email with Twofold'),
   ptext(
-    `The camera is used only when you capture a boarding pass or travel document. Photos you attach to a memory are uploaded to your shared album. If you turn on the app lock, Face ID is handled entirely by iOS on your device - we never see it and it is never sent anywhere.`
+    `You can share a booking confirmation or boarding pass into Twofold from your mail app instead of typing a flight in by hand. When you do, the app holds the shared text on your device until you open it and ask for it to be read.`
+  ),
+  p(
+    span(`If you go ahead, the email's subject line and text - and, when those aren't enough to work from, text extracted from an attached PDF - are sent to OpenAI, `, 'strong'),
+    span(
+      `which picks out the flight number, airports and departure time and sends them back to us. We send only what you shared into the app, and only at the moment you ask for it to be read. OpenAI processes it to answer that request and does not use it to train its models. Nothing is sent if you close the screen without confirming, and you can always add a flight by hand instead.`
+    )
+  ),
+
+  // -------------------------------------------------- camera, photos, app lock
+  h2('Camera, photos and the app lock'),
+  ptext(
+    `The camera is used only when you capture a boarding pass or travel document. Photos you attach to a memory are chosen through the standard iOS picker, which hands us only the photos you pick - Twofold never gets access to your photo library as a whole - and those photos are uploaded to your shared album. If you turn on the app lock, Face ID, Touch ID or your device passcode is handled entirely by iOS on your device: we never see it, the result never leaves the device, and whether the lock is on is stored only on that device.`
   ),
 
   // ---------------------------------------------------------- how we use it
@@ -95,25 +141,45 @@ const body = [
   bullet(`To run the core features: the globe, distance, trips, memories, flight tracking, games and widgets.`),
   bullet(`To send the notifications you've asked for - partner activity, flight updates, streaks and reminders.`),
   bullet(`To process and restore subscriptions, whether bought in the app or on this website.`),
-  bullet(`To answer your support requests.`),
+  bullet(`To read a flight email you've shared with us, when you ask us to.`),
+  bullet(`To answer your support requests, and to run the public feedback board.`),
   bullet(`To diagnose faults, prevent abuse, and keep accounts secure.`),
   bullet(`To understand which features are worth building on.`),
-  ptext(`We don't show ads, and we don't use your content to train machine-learning models.`),
+  ptext(
+    `We don't show ads, we don't sell your information, and we don't use your content to train machine-learning models - ours or anyone else's.`
+  ),
 
   // ------------------------------------------------- what your partner sees
   h2('What your partner can see'),
   ptext(`Sharing with your partner is the point of the app, so once you're connected they can see:`),
   bullet(
-    `The city you're in - either set by you, or updated automatically as you travel if you've allowed location access - and the distance between you.`
+    `The city you're in - either set by you, or updated automatically as you travel if you've allowed location access - your timezone, and the distance between you.`
   ),
-  bullet(`Your trips, and the flights you're tracking, including live status.`),
-  bullet(`Your memories, including their photos, notes and places.`),
+  bullet(`Your trips, and your memories, including their photos, notes and places.`),
+  bullet(
+    `Flights you've chosen to share, including live status and any boarding passes or documents attached to them. Every flight has a "share with my partner" switch, on by default; turn it off and that flight, its updates, its documents and its notifications stay yours alone.`
+  ),
   bullet(`Your answers to games and prompts, and your shared streaks.`),
   bullet(`Drawings you make on a shared pad.`),
   ptext(`These stay private to you:`),
   bullet(`The nickname and photo you've set for your partner.`),
+  bullet(`Your answers to the setup questions, including gender.`),
+  bullet(`Flights you've switched sharing off for.`),
   bullet(`Your notification preferences and app lock.`),
   bullet(`Anything you send us in a support request.`),
+  bullet(`Which feedback requests you've bookmarked or followed.`),
+
+  // ------------------------------------------------------- feedback board
+  h2('The feedback board'),
+  p(
+    span(`The feedback board on twofoldapp.com.au is public, and it uses the same Twofold account you sign in to the app with. `, 'strong'),
+    span(
+      `Anything you post there - the title and description of a request, and your comments - can be read by anyone, including people who aren't signed in and aren't Twofold users. So can the first name and profile photo from your Twofold profile, which appear next to what you post.`
+    )
+  ),
+  ptext(
+    `Nothing else from your account is exposed there. Your email address, your partner, your cities, trips, memories, flights and game answers are never visible on the board. Your votes are counted but not shown against your name, and your bookmarks and follows are private to you. If you'd rather not appear publicly, don't post or comment - reading and voting are enough to use the board.`
+  ),
 
   // -------------------------------------------- shared data & who controls it
   h2('Shared data, and who controls it'),
@@ -134,20 +200,31 @@ const body = [
   // -------------------------------------------------------- deleting account
   h2('Deleting your account'),
   ptext(`You can delete your account at any time from Settings → Delete Account. When you do:`),
-  bullet(`Your name, photo, home city and login are removed, and you won't be able to sign back in.`),
+  bullet(
+    `Your first name is replaced with "Deleted User", and your profile photo, home city, partner nickname and partner photo are erased.`
+  ),
+  bullet(
+    `Sign-in is permanently disabled. You won't be able to sign back in, and the account can't be restored or recreated.`
+  ),
   bullet(`Any active connection ends, and your partner is told you've left - the same as if you'd removed them.`),
   bullet(`Your own uploads (your profile photo, your drawings) and all your notification tokens are deleted.`),
   bullet(
     `Shared content - trips, memories, photos, flights - is not deleted by default, because it is your partner's history too.`
   ),
+  bullet(
+    `An empty profile record stays behind, holding no name, photo or city. It exists only so that the shared history above doesn't collapse along with it, and so the same account can't be signed into again.`
+  ),
   p(
     span(`Because you won't be able to sign in afterwards, `, 'strong'),
     span(
-      `deleting your account is your last opportunity to remove the shared archive yourself. The deletion screen offers to permanently delete the shared trips, memories and photos at the same time. If you choose not to, that content stays with your partner, and from then on only they can delete it.`
+      `deleting your account is your last opportunity to remove the shared archive yourself. The deletion screen offers to permanently delete the shared trips, memories, photos, flights and games at the same time - every archive you're part of, not only the most recent one. If you choose not to, that content stays with your partner, and from then on only they can delete it.`
     )
   ),
+  ptext(
+    `Deleting your account doesn't remove anything you posted publicly on the feedback board, since other people's discussions are built on it. Your name and photo stop appearing against it, and you can ask us to remove the posts themselves.`
+  ),
   p(
-    span(`If you've already deleted your account and want the shared content removed, email `),
+    span(`If you've already deleted your account and want shared or public content removed, email `),
     mailto(),
     span(` and we'll deal with it - see Your rights below.`)
   ),
@@ -158,14 +235,23 @@ const body = [
     `We do not sell your personal information, and never have. We share it only with the providers that make Twofold work:`
   ),
   bullet(`Supabase - database, authentication and file storage.`),
-  bullet(`Apple - push notifications and Live Activities, weather data, and App Store purchases.`),
+  bullet(
+    `Apple - push notifications and Live Activities, turning a location fix into a city name, weather data, and App Store purchases.`
+  ),
+  bullet(`Google - only if you choose to sign in with a Google account.`),
   bullet(`FlightAware (AeroAPI) - schedules and live status for the flights you track.`),
+  bullet(
+    `OpenAI - reads a flight email you've shared with the app, and only then. See "Sharing a flight email with Twofold" above.`
+  ),
+  bullet(
+    `adsb.lol, adsb.fi, airplanes.live and adsbdb.com - free community flight-tracking services we query for an aircraft's live position and route. We send them a flight's callsign and nothing about you.`
+  ),
   bullet(`RevenueCat - subscription management across the app and the website.`),
-  bullet(`Stripe - payment processing for subscriptions bought on the website.`),
-  bullet(`PostHog - product analytics.`),
-  bullet(`Zoho Mail - sending and receiving support and account email.`),
+  bullet(`Stripe - payment processing for subscriptions bought on the website, through RevenueCat's web billing.`),
+  bullet(`PostHog - product analytics for the iOS app.`),
+  bullet(`Zoho Mail - sending and receiving support, waitlist and account email.`),
   bullet(`Vercel - hosting for twofoldapp.com.au.`),
-  bullet(`Sanity - content management for the website's marketing pages.`),
+  bullet(`Sanity - content management for the website's marketing and legal pages.`),
   ptext(
     `Each of these processes data only as needed for that purpose. We may also disclose information where the law requires it, or to protect someone's safety - and we'll tell you when that happens unless we're legally prevented from doing so.`
   ),
@@ -183,13 +269,17 @@ const body = [
   h2('How long we keep it'),
   bullet(`Your account and content are kept for as long as your account exists.`),
   bullet(
-    `After you delete your account, your identifying profile fields are cleared straight away. Your login record is kept in a permanently disabled state so the account can't be restored or recreated.`
+    `After you delete your account, your identifying profile fields are cleared straight away. An empty profile record and a permanently disabled login are kept so the account can't be restored or recreated.`
   ),
   bullet(
     `Shared content is kept unless it's deleted, either by you at the point of deletion or by your former partner afterwards.`
   ),
+  bullet(`Invite redemption records are deleted automatically an hour after they're written.`),
+  bullet(`Rate-limiting records are deleted automatically, and none is kept longer than a day.`),
+  bullet(`Waitlist email addresses are kept until the Android app launches, or until you ask us to remove yours.`),
+  bullet(`Feedback board posts and comments stay up for as long as the board does, since they're part of a public discussion.`),
   bullet(`Backups: [TO CONFIRM: backup retention window]. Deleted content persists in backups for that period.`),
-  bullet(`Analytics: [TO CONFIRM: analytics retention period].`),
+  bullet(`Analytics: [TO CONFIRM: PostHog retention period].`),
   bullet(`Support email is kept for as long as we need it to handle your request and for our own records.`),
 
   // -------------------------------------------------------------- security
@@ -199,7 +289,10 @@ const body = [
     `Row-level security rules mean a request can only ever read data belonging to your own account or to your couple - this is enforced by the database itself, not just by the app.`
   ),
   bullet(`Uploaded files are namespaced per couple and per profile, under the same rules.`),
-  bullet(`You can add a Face ID lock to the app.`),
+  bullet(
+    `Subscription status can only be written by our own servers in response to RevenueCat, never by a device claiming to have paid.`
+  ),
+  bullet(`You can lock the app behind Face ID, Touch ID or your device passcode.`),
   bullet(`We're a small team, and access to production data is limited to what's needed to run the service.`),
   ptext(
     `No service can promise perfect security. If a breach ever affects your data, we'll contain it, investigate, and notify you and the relevant regulator as required by law.`
@@ -208,7 +301,7 @@ const body = [
   // ------------------------------------------------------------- transfers
   h2('Where your data is held'),
   ptext(
-    `Twofold is operated from Australia, and our providers store and process data in [TO CONFIRM: hosting regions]. Where data leaves your country, we rely on the transfer safeguards those providers have in place, such as Standard Contractual Clauses for transfers out of the EEA and the UK.`
+    `Twofold is operated from Australia. Our analytics provider, PostHog, stores its data in the United States. Our other providers store and process data in [TO CONFIRM: hosting regions]. Where data leaves your country, we rely on the transfer safeguards those providers have in place, such as Standard Contractual Clauses for transfers out of the EEA and the UK.`
   ),
 
   // ---------------------------------------------------------------- rights
@@ -221,7 +314,7 @@ const body = [
   bullet(`Restrict or object to how we use it.`),
   bullet(`Withdraw a consent you've previously given.`),
   ptext(
-    `Most of this you can do yourself in the app: edit your profile, delete individual trips and memories, delete a shared archive, or delete your account outright.`
+    `Most of this you can do yourself in the app: edit your profile, delete individual trips and memories, delete a shared archive, or delete your account outright. Premium subscribers can also export chosen trips, memories and flights as a PDF from Settings → Export History - that's a keepsake rather than a complete copy of your data, so ask us if you want everything.`
   ),
   p(span(`For anything else, email `), mailto(), span(`. We'll respond within 30 days.`)),
   p(
@@ -257,7 +350,7 @@ const doc = {
   _type: 'legalPage',
   pageId: 'privacy',
   title: 'Privacy Policy',
-  lastUpdated: '2026-07-31',
+  lastUpdated: '2026-09-11',
   noticeText:
     `Draft - pending legal review. This policy describes how Twofold actually works today, but it has not been reviewed by a lawyer, and the points marked [TO CONFIRM] still need a decision before Twofold is publicly released.`,
   body,

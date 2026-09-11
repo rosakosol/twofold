@@ -18,16 +18,30 @@ export interface ResolvedFeature {
 // this is a cold-start safety net rather than a per-field default.
 export const FEATURES_FALLBACK: ResolvedFeature[] = [
   {
-    slug: "relationship-globe",
-    title: "Relationship Globe",
-    teaserDescription:
-      "An interactive 3D globe showing both of you - your current distance apart, and every trip you've taken to close it.",
+    slug: "memories",
+    title: "Memories",
+    teaserDescription: "Save photos and moments to the exact places they happened, building a map of your shared story.",
     detailDescription:
-      "The centre of Twofold is an interactive 3D globe showing both of you - where you are, the distance between you right now, and every journey you've taken to close it.",
+      "Save photos and moments to the exact places they happened. Over time, your globe fills with pins - a map of everywhere your story has taken you.",
     bullets: [
-      "See your current distance apart, updated automatically",
-      "Rotate and zoom into cities to explore memories",
-      "Every reunion trip draws a new line across your shared history",
+      "Attach photos and notes to any location",
+      "Revisit memories by zooming into the globe",
+      "Private to your relationship - never public",
+    ],
+    icon: "icon-pin",
+    tone: "tone-red",
+  },
+  {
+    slug: "trips",
+    title: "Trips",
+    teaserDescription:
+      "Every journey in one shared list - business trips, holidays, and the flights you take just to see each other.",
+    detailDescription:
+      "Add a trip in seconds and your partner sees it straight away: where you're going, when you land, and how long until you're in the same place. Twofold tracks more than reunions - business travel and holidays go on the same shared timeline.",
+    bullets: [
+      "Upcoming and past journeys in one shared list",
+      "Business trips, holidays, and reunion visits alike",
+      "Every trip draws a new line across your shared globe",
     ],
     icon: "icon-globe",
     tone: "tone-sky",
@@ -45,20 +59,6 @@ export const FEATURES_FALLBACK: ResolvedFeature[] = [
     ],
     icon: "icon-plane",
     tone: "tone-sky",
-  },
-  {
-    slug: "memories",
-    title: "Memories",
-    teaserDescription: "Save photos and moments to the exact places they happened, building a map of your shared story.",
-    detailDescription:
-      "Save photos and moments to the exact places they happened. Over time, your globe fills with pins - a map of everywhere your story has taken you.",
-    bullets: [
-      "Attach photos and notes to any location",
-      "Revisit memories by zooming into the globe",
-      "Private to your relationship - never public",
-    ],
-    icon: "icon-pin",
-    tone: "tone-red",
   },
   {
     slug: "couple-games",
@@ -88,32 +88,34 @@ export const FEATURES_FALLBACK: ResolvedFeature[] = [
     icon: "icon-grid",
     tone: "tone-ink",
   },
-  // TEMP: Relationship Record (the PDF export) is pulled from the first release. Its entry
-  // point in the app is commented out in SettingsView.swift, so nothing should advertise it
-  // while it's unreachable. To restore the feature everywhere, put this entry back and also:
-  //   - re-create the Sanity `feature-relationship-record` doc: `node scripts/seed-sanity.mjs`
-  //     (its FEATURE_SEED/FEATURE_COPY entries are commented out there too)
-  //   - re-add the "Relationship Record PDF export" bullet to `plan-premium` in Studio,
-  //     and to PLANS.premium.features in config.ts
-  //   - restore the export sentence in quizResult-premium (Studio) and in
-  //     RelationshipQuiz.tsx's FALLBACK_RESULTS.premium
-  //   - restore the Plus-vs-Premium answer in Supabase `faq_entries` (Studio → FAQ tool) and
-  //     in faqFallback.ts
-  //   - uncomment the "relationship-record" case in (marketing)/features/page.tsx's FeatureArt
-  // {
-  //   slug: "relationship-record",
-  //   title: "Relationship Record",
-  //   teaserDescription: "Export a beautifully laid-out PDF keepsake of every trip, memory, and mile you've travelled for each other.",
-  //   detailDescription:
-  //     "Export a beautifully laid-out PDF of every trip, memory, and mile you've travelled for each other - a keepsake of your long-distance story, ready to print or save.",
-  //   bullets: [
-  //     "Every trip, flight, and memory in one document",
-  //     "Beautifully designed, ready to print",
-  //     "Included with Twofold Premium",
-  //   ],
-  //   icon: "icon-file-download",
-  //   tone: "tone-sky",
-  // },
+  // RESTORED to the marketing list, but its entry point in the app is still commented out in
+  // SettingsView.swift ("Export your story"), so the feature is unreachable for anyone who
+  // reads about it here. `ExportHistoryView`/`CoupleHistoryPDFExporter` are both intact —
+  // uncommenting that one Settings row is all that's needed to make this honest.
+  //
+  // Still not restored elsewhere, so the site currently contradicts itself on Premium's
+  // contents. Each of these was stripped when the feature was pulled:
+  //   - the "Relationship Record PDF export" bullet on `plan-premium` in Studio, and in
+  //     PLANS.premium.features in config.ts
+  //   - the export sentence in quizResult-premium (Studio) and RelationshipQuiz.tsx's
+  //     FALLBACK_RESULTS.premium
+  //   - the Plus-vs-Premium answer in Supabase `faq_entries` (Studio -> FAQ tool) and in
+  //     faqFallback.ts
+  {
+    slug: "relationship-record",
+    title: "Relationship Record",
+    teaserDescription:
+      "Export your whole relationship timeline - every trip, memory, and flight - as a beautifully formatted document.",
+    detailDescription:
+      "Export your whole relationship timeline as a beautifully formatted document or presentation: every trip you've taken, every memory you've saved, and every flight you've flown to be together, laid out in one keepsake you can print, save, or share.",
+    bullets: [
+      "Every trip, memory, and flight on one timeline",
+      "Beautifully formatted, ready to print or present",
+      "Included with Twofold Premium",
+    ],
+    icon: "icon-file-download",
+    tone: "tone-sky",
+  },
 ];
 
 const DEFAULT_ICON = "icon-sparkle";

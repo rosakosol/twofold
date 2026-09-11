@@ -20,22 +20,26 @@ const {client, projectId, dataset} = sanityWriteClient()
 // Both legal pages used to be seeded here, from the short placeholder JSX bodies. They have
 // since been replaced by the long-form versions in scripts/seed-privacy-policy.mjs and
 // scripts/seed-terms.mjs - deliberately dropped from this script so that `--replace` here can
-// never revert either of them. This script now only seeds the feature cards.
+// never revert either of them. This script seeds the feature cards and the plan comparison
+// table below.
 
 // --- Features --------------------------------------------------------------
 // Same six cards as FEATURES_FALLBACK, seeded at `feature-<slug>` ids purely for
 // readability - nothing in the site looks features up by _id any more, so documents
 // created later in Studio (random ids) work exactly the same.
+// Array order becomes each document's `order`, which is what both pages sort by.
+//
+// `relationship-globe` was removed in favour of `trips`. This script only ever creates or
+// replaces, never deletes, so dropping it here does NOT remove the existing
+// `feature-relationship-globe` document — that has to be deleted in Studio, or it keeps
+// rendering at whatever order it already has.
 const FEATURE_SEED = [
-  {slug: 'relationship-globe', icon: 'globe', tone: 'sky'},
-  {slug: 'live-flight-tracking', icon: 'plane', tone: 'sky'},
   {slug: 'memories', icon: 'pin', tone: 'red'},
+  {slug: 'trips', icon: 'globe', tone: 'sky'},
+  {slug: 'live-flight-tracking', icon: 'plane', tone: 'sky'},
   {slug: 'couple-games', icon: 'gamepad', tone: 'green'},
   {slug: 'widgets-live-activities', icon: 'grid', tone: 'ink'},
-  // TEMP: Relationship Record is pulled from the first release and its Sanity document has been
-  // deleted - leaving this here would silently recreate it on the next run. Uncomment (with the
-  // matching FEATURE_COPY entry below) to bring the feature back. See featuresFallback.ts.
-  // {slug: 'relationship-record', icon: 'file-download', tone: 'sky'},
+  {slug: 'relationship-record', icon: 'file-download', tone: 'sky'},
 ]
 
 // Inlined rather than imported from src/lib/marketing/featuresFallback.ts because that's
@@ -43,16 +47,16 @@ const FEATURE_SEED = [
 // script is a one-off, so the duplication doesn't outlive the seed.
 const FEATURE_COPY = [
   {
-    slug: 'relationship-globe',
-    title: 'Relationship Globe',
+    slug: 'trips',
+    title: 'Trips',
     teaserDescription:
-      "An interactive 3D globe showing both of you - your current distance apart, and every trip you've taken to close it.",
+      "Every journey in one shared list - business trips, holidays, and the flights you take just to see each other.",
     detailDescription:
-      "The centre of Twofold is an interactive 3D globe showing both of you - where you are, the distance between you right now, and every journey you've taken to close it.",
+      "Add a trip in seconds and your partner sees it straight away: where you're going, when you land, and how long until you're in the same place. Twofold tracks more than reunions - business travel and holidays go on the same shared timeline.",
     bullets: [
-      'See your current distance apart, updated automatically',
-      'Rotate and zoom into cities to explore memories',
-      'Every reunion trip draws a new line across your shared history',
+      'Upcoming and past journeys in one shared list',
+      'Business trips, holidays, and reunion visits alike',
+      'Every trip draws a new line across your shared globe',
     ],
   },
   {
@@ -104,20 +108,19 @@ const FEATURE_COPY = [
       'More widget styles unlocked on Premium',
     ],
   },
-  // TEMP: paired with the commented-out FEATURE_SEED entry above - see featuresFallback.ts.
-  // {
-  //   slug: 'relationship-record',
-  //   title: 'Relationship Record',
-  //   teaserDescription:
-  //     "Export a beautifully laid-out PDF keepsake of every trip, memory, and mile you've travelled for each other.",
-  //   detailDescription:
-  //     "Export a beautifully laid-out PDF of every trip, memory, and mile you've travelled for each other - a keepsake of your long-distance story, ready to print or save.",
-  //   bullets: [
-  //     'Every trip, flight, and memory in one document',
-  //     'Beautifully designed, ready to print',
-  //     'Included with Twofold Premium',
-  //   ],
-  // },
+  {
+    slug: 'relationship-record',
+    title: 'Relationship Record',
+    teaserDescription:
+      'Export your whole relationship timeline - every trip, memory, and flight - as a beautifully formatted document.',
+    detailDescription:
+      "Export your whole relationship timeline as a beautifully formatted document or presentation: every trip you've taken, every memory you've saved, and every flight you've flown to be together, laid out in one keepsake you can print, save, or share.",
+    bullets: [
+      'Every trip, memory, and flight on one timeline',
+      'Beautifully formatted, ready to print or present',
+      'Included with Twofold Premium',
+    ],
+  },
 ]
 
 const features = FEATURE_SEED.map((meta, index) => {
@@ -137,8 +140,32 @@ const features = FEATURE_SEED.map((meta, index) => {
   }
 })
 
+// --- Plan comparison table -------------------------------------------------
+// Singleton at a fixed id, rendered under the cards on /pricing. Seeded so Studio opens a
+// filled-in table to edit rather than an empty one; the same copy lives in
+// src/lib/marketing/planComparisonFallback.ts as the cold-start fallback.
+//
+// Values print verbatim. An empty string renders a dash (not included) and the exact word
+// "Yes" renders a tick - see the field descriptions on the schema.
+const planComparison = {
+  _id: 'planComparison',
+  _type: 'planComparison',
+  heading: 'Compare the plans',
+  intro: 'Both plans cover the essentials. Premium is for couples who want the full picture.',
+  rows: [
+    {_type: 'comparisonRow', _key: 'trips', label: 'Trips & memories', plus: 'Unlimited', premium: 'Unlimited'},
+    {_type: 'comparisonRow', _key: 'flights', label: 'Flights tracked each month', plus: '5', premium: '20'},
+    {_type: 'comparisonRow', _key: 'games', label: 'Questions & games', plus: '500+', premium: '2000+'},
+    {_type: 'comparisonRow', _key: 'widgets', label: 'Home & Lock Screen widgets', plus: 'Yes', premium: 'Yes'},
+    {_type: 'comparisonRow', _key: 'liveactivities', label: 'Live Activities for in-progress flights', plus: 'Yes', premium: 'Yes'},
+    {_type: 'comparisonRow', _key: 'globe', label: 'Interactive 3D globe', plus: '', premium: 'Yes'},
+    {_type: 'comparisonRow', _key: 'premiumwidgets', label: 'Premium widget styles', plus: '', premium: 'Yes'},
+    {_type: 'comparisonRow', _key: 'record', label: 'Relationship Record export', plus: '', premium: 'Yes'},
+  ],
+}
+
 // --- Write -----------------------------------------------------------------
-const docs = features
+const docs = [...features, planComparison]
 const existing = new Set(
   (await client.fetch('*[_id in $ids]._id', {ids: docs.map((d) => d._id)})) ?? []
 )

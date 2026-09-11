@@ -551,15 +551,10 @@ section {
   place-items: center;
   min-height: 420px;
 }
-.globe-glow,
-.art-glow {
-  position: absolute;
-  width: 78%;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(79, 169, 224, 0.35), rgba(111, 191, 139, 0.18) 55%, transparent 72%);
-  filter: blur(10px);
-}
+/* The blurred radial glow that sat behind the hero screenshot is gone, along with the two
+   .art-glow/.art-glow-2 divs that rendered it — the phone reads more cleanly on the plain
+   background, and .app-shot's drop-shadow already lifts it off the page. `.globe-glow` shared
+   this rule but had no markup left anywhere, so it went with it. */
 .globe-img,
 .art-globe {
   position: relative;
@@ -620,16 +615,19 @@ section {
    stand roughly 2.5x taller than the 4/3 placeholder still used by step 1, so it's capped by
    height and centred - close enough in mass that the row doesn't read as broken while that one
    placeholder remains. Raise the cap once step 1 has a real screenshot too. */
+/* Fixed height, not min-height: the card below is pulled up by an exact fraction of it, so
+   the box has to be a known size for "bottom third" to mean anything. The phone is bottom-
+   aligned within it, so it's the bottom of the device that ends up behind the card. */
 .step-shot {
   display: flex;
   justify-content: center;
   align-items: flex-end;
-  min-height: 300px;
+  height: var(--step-shot-h);
 }
 .step-shot .app-shot {
   width: auto;
   max-width: 100%;
-  max-height: 300px;
+  max-height: var(--step-shot-h);
 }
 @media (max-width: 820px) {
   .feature-shot .app-shot { max-height: 420px; }
@@ -746,9 +744,13 @@ section {
   gap: 20px;
 }
 .step {
+  /* Drives both the screenshot box and how far the card is pulled up over it, so the overlap
+     stays exactly one third if this is retuned. */
+  --step-shot-h: 420px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  /* No gap: the card deliberately overlaps the shot above it instead of clearing it. */
+  gap: 0;
 }
 .step,
 .step-card {
@@ -788,6 +790,12 @@ section {
   border: 1px solid var(--border-softer);
   padding: 28px;
   transition: transform 0.3s var(--ease), box-shadow 0.3s var(--ease);
+  /* Pulled up over the screenshot so its bottom third sits behind this card. z-index
+     because .app-shot's drop-shadow gives the image its own stacking context — without it
+     the phone's shadow bleeds over the card edge. .step-card is already position:relative
+     (see above), which is what makes z-index apply at all. */
+  margin-top: calc(var(--step-shot-h) / -3);
+  z-index: 1;
 }
 .step .num,
 .step-num {
@@ -1171,13 +1179,69 @@ section {
   max-width: 780px;
   margin: 44px auto 0;
 }
+/* Equal height regardless of how many bullets a plan has, with the CTA on a shared line.
+   Two different nestings to cover: on /pricing each card sits inside an id wrapper (the
+   scroll target for ?plan=), so the grid stretches the wrapper and the card has to be told
+   to fill it; on the home page preview the card is the grid item itself. */
+.pricing-grid > * {
+  display: flex;
+}
 .plan {
   position: relative;
   padding: 34px 32px;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
 }
 .plan.feature {
   box-shadow: var(--shadow-lg);
   border-color: rgba(79, 169, 224, 0.4);
+}
+
+/* Tier identity, keyed off data-plan rather than .feature. `featured` says which card we are
+   pushing and can be moved in Studio; this says which tier you are looking at, which cannot.
+   With the "Most popular" badge gone the two cards were otherwise near-identical rectangles.
+   Plus reads as one colour, Premium as the blue-to-green pair the whole brand is built on. */
+.plan[data-plan] {
+  /* Clips the accent rule to the card's own corner radius. */
+  overflow: hidden;
+}
+.plan[data-plan]::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 4px;
+  background: var(--plan-accent);
+}
+.plan[data-plan="plus"] {
+  --plan-accent: linear-gradient(90deg, var(--sky-blue-light), var(--sky-blue-deep));
+}
+.plan[data-plan="premium"] {
+  --plan-accent: linear-gradient(90deg, var(--sky-blue-deep), var(--leaf-green));
+  /* A wash rather than a flat tint, so the card reads as richer without competing with the
+     white Plus card beside it for attention. Leaf green, matching the accent's far end and
+     the page's own background gradient, which also runs blue to green. */
+  background: linear-gradient(170deg, var(--card-bg) 55%, rgba(111, 191, 139, 0.07));
+}
+
+/* Yearly saving, per card. In flow rather than absolutely positioned like the old badge:
+   overflow is hidden for the accent rule above, which would have clipped anything hanging
+   over the top edge. */
+.plan-save {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 14px;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  background: rgba(79, 158, 108, 0.12);
+  color: var(--leaf-green-deep);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 .plan-badge {
   position: absolute;
@@ -1201,13 +1265,20 @@ section {
   color: var(--faint-ink);
   margin: 0 0 22px;
 }
+/* Centred explicitly: the card sits in a text-align:center section, but this is a flex
+   container, so text-align never reached it and the price hung off the left edge while
+   everything around it was centred. */
 .price-line {
   display: flex;
   align-items: baseline;
+  justify-content: center;
   gap: 6px;
 }
+/* Body face, not the display serif. A price is a number to be read at a glance rather than
+   a heading, and the plan name directly above it is sans too (h3 is --font-body site-wide),
+   so the serif made the price the odd one out on its own card. "/mo" inherits the same. */
 .price-line .n {
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 3rem;
   font-weight: 600;
   color: var(--ink);
@@ -1226,11 +1297,102 @@ section {
 .plan .check-list {
   margin-bottom: 28px;
 }
+/* Left-aligned against the centred card. A bullet is a sentence, not a heading: centring it
+   ragged both edges, and a bullet long enough to wrap broke alignment with the tick beside
+   it. The card's other text stays centred. */
+.plan .check-list li {
+  text-align: left;
+}
+/* margin-top:auto takes up whatever slack the shorter card has, so both buttons sit on the
+   same line instead of floating wherever the feature list happens to end. */
 .plan .btn {
   width: 100%;
+  margin-top: auto;
 }
 [data-plan].hidden {
   display: none;
+}
+
+/* ============================================================
+   Plan comparison table (/pricing, under the cards)
+   ============================================================ */
+.compare-wrap {
+  max-width: 780px;
+  margin: 56px auto 0;
+  text-align: center;
+}
+.compare-intro {
+  color: var(--subtle-ink);
+  margin: 10px auto 0;
+  max-width: 60ch;
+}
+/* Scrolls inside its own box. Three columns of copy don't fit a narrow phone, and letting
+   the table widen the page would put a horizontal scrollbar on every other section too. */
+.compare-scroll {
+  margin-top: 28px;
+  overflow-x: auto;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-softer);
+  background: var(--card-bg);
+  box-shadow: var(--shadow-md);
+}
+.compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.95rem;
+}
+.compare-table th,
+.compare-table td {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-softer);
+}
+.compare-table tbody tr:last-child th,
+.compare-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.compare-table thead th {
+  background: var(--card-bg-alt);
+  /* Body face: these are small uppercase labels rather than headings, and the serif's
+     proportions fight the letter-spacing at this size. Matches the plan cards, whose prices
+     and names are both sans. */
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--subtle-ink);
+  white-space: nowrap;
+}
+/* Row headers carry the feature name, so they stay left-aligned and readable while the two
+   value columns are centred under their headings. */
+.compare-table tbody th {
+  font-weight: 600;
+  color: var(--ink);
+}
+.compare-table thead th:not(:first-child),
+.compare-cell {
+  text-align: center;
+  white-space: nowrap;
+}
+.compare-cell[data-state="no"] {
+  color: var(--faint-ink);
+}
+/* `margin-inline: auto`, not the cell's `text-align: center`: Tailwind's preflight (imported
+   through globals.css, which this route group inherits) sets `svg { display: block }`, and a
+   block box ignores text-align — the tick sat flush left. Same reason .feature-icon centres
+   itself with an auto margin on narrow screens. */
+.compare-cell[data-state="yes"] .icon {
+  display: block;
+  margin-inline: auto;
+  width: 18px;
+  height: 18px;
+  color: var(--leaf-green-deep);
+}
+@media (max-width: 720px) {
+  .compare-wrap { margin-top: 40px; }
+  .compare-table { font-size: 0.88rem; }
+  .compare-table th,
+  .compare-table td { padding: 11px 12px; }
 }
 
 .pricing-foot {
@@ -1260,6 +1422,7 @@ section {
   .price-line .n { font-size: 1.55rem; }
   .price-line .per { font-size: 0.68rem; }
   .price-foot { font-size: 0.63rem; line-height: 1.3; margin: 4px 0 13px; }
+  .plan-save { font-size: 0.58rem; padding: 3px 8px; margin-bottom: 10px; letter-spacing: 0.02em; }
   .plan .check-list { gap: 6px; margin-bottom: 15px; }
   .plan .check-list li { font-size: 0.7rem; line-height: 1.3; gap: 5px; }
   .plan .check-list li .icon,

@@ -28,7 +28,9 @@ function SignInForm() {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState("");
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  // Which OAuth provider is mid-redirect, so only the button that was pressed shows a
+  // spinner and neither can be pressed twice on a slow connection.
+  const [oauthPending, setOauthPending] = useState<"google" | "apple" | null>(null);
 
   // Always the origin the user is actually on, never a build-time constant. PKCE stores the
   // code verifier in a cookie scoped to whichever origin started the flow, so sending the
@@ -60,18 +62,23 @@ function SignInForm() {
     }
   }
 
-  async function handleGoogle() {
-    setIsGoogleLoading(true);
+  // Apple and Google both land back on /auth/callback and exchange there, so the board ends
+  // up with an ordinary Supabase session either way. Apple matters here because it's the
+  // identity the iOS app and /pricing already use - signing in with it means the feedback
+  // board, a web subscription and the app are all the same account row rather than three.
+  async function handleOAuth(provider: "google" | "apple") {
+    setOauthPending(provider);
+    setErrorMessage("");
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
+      provider,
       options: { redirectTo: callbackUrl() },
     });
     if (error) {
-      setIsGoogleLoading(false);
+      setOauthPending(null);
       setErrorMessage(error.message);
     }
-    // On success the browser navigates away to Google, so no further state needed.
+    // On success the browser navigates away to the provider, so no further state needed.
   }
 
   return (
@@ -108,10 +115,21 @@ function SignInForm() {
                 type="button"
                 variant="outline"
                 className="w-full"
-                onClick={handleGoogle}
-                disabled={isGoogleLoading}
+                onClick={() => handleOAuth("apple")}
+                disabled={oauthPending !== null}
               >
-                {isGoogleLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon />}
+                {oauthPending === "apple" ? <Loader2 className="h-4 w-4 animate-spin" /> : <AppleIcon />}
+                Continue with Apple
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => handleOAuth("google")}
+                disabled={oauthPending !== null}
+              >
+                {oauthPending === "google" ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon />}
                 Continue with Google
               </Button>
 
@@ -146,6 +164,14 @@ function SignInForm() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function AppleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true" fill="currentColor">
+      <path d="M16.365 1.43c0 1.14-.42 2.2-1.12 3.02-.85.99-2.24 1.76-3.4 1.67a3.6 3.6 0 0 1-.03-.42c0-1.1.5-2.26 1.2-3.03.79-.88 2.14-1.55 3.28-1.6.04.12.07.25.07.36zM20.9 17.05c-.55 1.27-.82 1.84-1.53 2.96-.99 1.57-2.39 3.52-4.12 3.53-1.54.02-1.94-1-4.03-.99-2.1.01-2.53 1.01-4.07.99-1.73-.01-3.05-1.77-4.04-3.33C.32 15.84-.02 10.7 1.7 7.97c1.22-1.93 3.15-3.06 4.96-3.06 1.85 0 3 1.01 4.53 1.01 1.48 0 2.38-1.01 4.52-1.01 1.61 0 3.32.88 4.54 2.4-3.99 2.19-3.34 7.89.65 9.74z" />
+    </svg>
   );
 }
 
