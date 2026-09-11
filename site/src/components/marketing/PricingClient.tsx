@@ -120,7 +120,10 @@ function PricingContent({
   const searchParams = useSearchParams();
   const requestedPlan = searchParams.get("plan");
 
-  const [period, setPeriod] = useState<Period>("yearly");
+  // Monthly by default: it is the smaller commitment and the honest headline figure, and
+  // the yearly saving is right there on the toggle for anyone it appeals to. The home page
+  // preview shows monthly for the same reason, so the price clicked is the price landed on.
+  const [period, setPeriod] = useState<Period>("monthly");
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [subscribedTier, setSubscribedTier] = useState<"Plus" | "Premium" | null>(null);
