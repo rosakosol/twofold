@@ -37,6 +37,17 @@ enum SupabaseConfig {
 
     /// Fixed defaults baked into the Supabase CLI — the same values `supabase start` prints for
     /// every project on every machine, so there's nothing machine-specific to configure.
+    ///
+    /// This URL is plain `http`, which App Transport Security blocks by default. What allows it is
+    /// `NSAppTransportSecurity` → `NSAllowsLocalNetworking` in `Info.plist`: that key relaxes ATS
+    /// for loopback and link-local addresses **only**, so it cannot weaken TLS for any remote host
+    /// and production traffic is unaffected by it.
+    ///
+    /// Recorded here rather than beside the key itself because that explanation used to be an XML
+    /// comment in `Info.plist`, and Xcode 27 rewriting the file deleted it — build settings and
+    /// generated plists have nowhere to keep a comment, so the reasoning has to live in source.
+    /// If that key ever disappears, this is what breaks: `SUPABASE_ENV=local` starts failing every
+    /// request with an ATS error rather than anything that names the real cause.
     private enum Local {
         static let url = URL(string: "http://127.0.0.1:54321")!
         static let publishableKey = "sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH"
