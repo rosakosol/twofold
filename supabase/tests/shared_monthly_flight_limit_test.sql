@@ -22,9 +22,9 @@ insert into public.couples (id, partner_a_id, partner_b_id, status)
 values ('cccccccc-0000-0000-0000-00000000000c', 'aaaaaaaa-0000-0000-0000-00000000000a', 'aaaaaaaa-0000-0000-0000-00000000000b', 'active');
 
 -- Plus by default: no active subscription resolves to 'plus', which is the free-tier floor.
-select is(public.flight_limit_for_tier('plus'), 5, 'plus allows 5 a month');
-select is(public.flight_limit_for_tier('premium'), 20, 'premium allows 20 a month');
-select is(public.flight_limit_for_tier(null), 5, 'an unknown tier falls back to the smaller allowance');
+select is(public.flight_limit_for_tier('plus'), 2, 'plus tracks 2 a month');
+select is(public.flight_limit_for_tier('premium'), 5, 'premium tracks 5');
+select is(public.flight_limit_for_tier(null), 2, 'an unknown tier falls back to the smaller allowance');
 
 select is(public.flights_used_this_month('cccccccc-0000-0000-0000-00000000000c'), 0, 'a new couple has used nothing');
 
@@ -73,7 +73,7 @@ set local request.jwt.claims = '{"sub":"aaaaaaaa-0000-0000-0000-00000000000a","r
 -- whether a search is refused are asserted exactly.
 select is(
   public.flight_allowance('cccccccc-0000-0000-0000-00000000000c') - 'tier',
-  jsonb_build_object('limit', 5, 'used', 6),
+  jsonb_build_object('limit', 2, 'used', 6),
   'a member reads their couple''s limit and usage'
 );
 

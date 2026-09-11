@@ -195,11 +195,16 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
-  // Checked before the AeroAPI call, not after: a refusal has to cost nothing. The lookup is
-  // billed per request and every tracked flight is billed again on every poll for its whole life,
-  // so a couple that is out of allowance must not reach the provider at all.
+  // The allowance decides whether this flight gets *tracked*, not whether it can be added.
   //
-  // Read-only here. The addition is recorded further down, once there is actually a flight row to
+  // Adding costs about 2c — one lookup, two airport coordinate lookups. Tracking costs about 85c,
+  // because a tracked flight is billed again on every poll for its whole life. Refusing the add
+  // outright used to control the second by withholding the first, which also withheld the couple's
+  // own record of the trip: Passport stats, trip history and the Relationship Record are all built
+  // from flights. So an over-allowance add still happens, with `tracking_enabled` false, and the
+  // couple can spend a slot on it later through `enable_flight_tracking`.
+  //
+  // Read-only here. The slot is recorded further down, once there is actually a flight row to
   // point at — see `record_flight_addition`. Two simultaneous adds can therefore both pass this
   // check and both be recorded, putting a couple one flight over for the month. Accepted rather
   // than locked against: this is a commercial allowance, not a security boundary, and one extra
@@ -208,17 +213,7 @@ Deno.serve(async (req) => {
   const { data: allowance } = await userClient.rpc("flight_allowance", { p_couple_id: couple.id });
   const usedBefore = Number(allowance?.used ?? 0);
   const monthlyLimit = Number(allowance?.limit ?? 0);
-  if (monthlyLimit > 0 && usedBefore >= monthlyLimit) {
-    return Response.json(
-      {
-        error: `You've tracked ${monthlyLimit} flights this month, which is everything your plan includes. Your allowance resets on the 1st.`,
-        code: "monthly_flight_limit_reached",
-        used: usedBefore,
-        limit: monthlyLimit,
-      },
-      { status: 403 },
-    );
-  }
+  const withinAllowance = monthlyLimit <= 0 || usedBefore < monthlyLimit;
 
   let aeroFlight: AeroFlight | null = null;
   let mapped: MappedAeroFields;
@@ -342,6 +337,9 @@ Deno.serve(async (req) => {
       traveler_ids: travelerIds,
       shared: input.shared ?? true,
       created_by: user.id,
+      // Explicit rather than relying on the column default, which is true — an over-allowance
+      // flight has to land untracked or the cap means nothing.
+      tracking_enabled: withinAllowance,
       last_refreshed_at: new Date().toISOString(),
     })
     .select("id")
@@ -354,22 +352,24 @@ Deno.serve(async (req) => {
 
   const flightId = inserted.id as string;
 
-  // Records the addition, unconditionally.
+  // Spends the slot, but only for a flight that is actually being tracked.
   //
   // After the insert rather than before, so a failed lookup or an unsaveable flight does not burn
-  // someone's allowance — "any flight ever added counts" means added, not attempted. And
-  // unconditionally, because by now the flight exists and is being tracked: a record that declined
-  // to write itself would produce the one thing the ledger exists to prevent, a tracked flight
-  // nobody is charged for.
-  const { error: recordErr } = await serviceClient.rpc("record_flight_addition", {
-    p_couple_id: couple.id,
-    p_flight_id: flightId,
-    p_added_by: user.id,
-  });
-  if (recordErr) {
-    // Logged, not surfaced. The flight is saved and tracking; telling someone it both worked and
-    // failed is worse than the couple being one flight ahead for the month.
-    console.error("[add-flight] failed to record flight addition:", recordErr.message);
+  // someone's allowance — a slot is spent by tracking, not by attempting. Conditional on
+  // `withinAllowance` because the ledger now records tracked flights specifically: writing a row
+  // for an untracked one would charge a couple for polling that never happens, and `flights_used_
+  // this_month` would drift above what is actually being billed.
+  if (withinAllowance) {
+    const { error: recordErr } = await serviceClient.rpc("record_flight_addition", {
+      p_couple_id: couple.id,
+      p_flight_id: flightId,
+      p_added_by: user.id,
+    });
+    if (recordErr) {
+      // Logged, not surfaced. The flight is saved and tracking; telling someone it both worked and
+      // failed is worse than the couple being one flight ahead for the month.
+      console.error("[add-flight] failed to record flight addition:", recordErr.message);
+    }
   }
 
   // Baseline event — no prior row to diff against, so this is seeded directly rather than
@@ -434,7 +434,15 @@ Deno.serve(async (req) => {
     console.error("[add-flight] failed to insert notification preferences:", prefErr.message);
   }
 
-  return Response.json({ flightId });
+  // `tracking` is what the client needs to explain itself: the flight saved either way, but an
+  // over-allowance one will not be polled and gets no notifications or Live Activity, and saying
+  // nothing about that would look like the app quietly failing to track a flight it accepted.
+  return Response.json({
+    flightId,
+    tracking: withinAllowance,
+    used: withinAllowance ? usedBefore + 1 : usedBefore,
+    limit: monthlyLimit,
+  });
 });
 
 /* To invoke locally:
