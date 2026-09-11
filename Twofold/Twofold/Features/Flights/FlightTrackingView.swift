@@ -33,6 +33,8 @@ struct FlightTrackingView: View {
     /// gate view, each with its own icon/copy.
     @State private var premiumGateFeature: PremiumFlightFeature?
     @State private var isRefreshing = false
+    @State private var isEnablingTracking = false
+    @State private var enableTrackingError: String?
     @State private var eventsChannel: RealtimeChannelV2?
     @State private var flightChannel: RealtimeChannelV2?
     /// Stored so `.onDisappear` can cancel these directly rather than relying solely on
@@ -130,6 +132,7 @@ struct FlightTrackingView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
+                    notTrackedCard
                     mapSection
                     documentsSection
                     journeyCard
@@ -244,6 +247,88 @@ struct FlightTrackingView: View {
     /// Compact teaser shown in place of a Premium-only card's real content — same "you can see it
     /// exists, tap to unlock" shape as the games tab's locked deck cards, adapted to a full-width
     /// card here instead of a small badge.
+    /// True when tracking stopped because the flight is done, rather than never having started.
+    ///
+    /// The two are told apart by the flight itself rather than by anything recorded about it: the
+    /// system only ever clears `trackingEnabled` once a flight has reached a terminal state (or
+    /// the couple dissolved, or the subscription lapsed — both of which leave a flight that is
+    /// also, by then, in the past). An untracked flight still ahead of its departure was never
+    /// tracked.
+    private var isPastTracking: Bool {
+        flight.status.isTerminal || flight.cancelled || flight.diverted
+    }
+
+    /// A flight saved while the couple's monthly allowance was spent.
+    ///
+    /// Above the map on purpose. Everything below it — position, status, times — is frozen at
+    /// whatever the add captured, and without this the screen looks like tracking that has simply
+    /// stopped working rather than tracking that was never turned on.
+    @ViewBuilder
+    private var notTrackedCard: some View {
+        if !flight.trackingEnabled, !isPastTracking {
+            SectionCard {
+                VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                    HStack(spacing: Theme.Spacing.sm) {
+                        Image(systemName: "dot.radiowaves.left.and.right")
+                            .foregroundStyle(Theme.subtleInk)
+                        Text("Not being tracked")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Theme.ink)
+                    }
+                    Text("This flight is saved, but it isn't being followed — no status updates, "
+                        + "alerts or Live Activity. Turning tracking on uses one of this month's "
+                        + "live-tracked flights.")
+                        .font(.caption)
+                        .foregroundStyle(Theme.subtleInk)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    if let enableTrackingError {
+                        Text(enableTrackingError).font(.caption).foregroundStyle(Theme.heartRed)
+                    }
+
+                    Button(action: enableTracking) {
+                        HStack {
+                            if isEnablingTracking { ProgressView().tint(.white).controlSize(.small) }
+                            Text(isEnablingTracking ? "Turning on…" : "Turn on live tracking")
+                        }
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, Theme.Spacing.sm)
+                        .foregroundStyle(.white)
+                        .background(Theme.primaryButtonGradient, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isEnablingTracking)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    /// Spends a slot, or explains why it could not.
+    ///
+    /// The refusal is the server's to make — `enable_flight_tracking` owns the allowance — so a
+    /// `false` here is a real answer rather than an error, and says the one thing the person can
+    /// act on: the allowance is gone until the 1st.
+    private func enableTracking() {
+        isEnablingTracking = true
+        enableTrackingError = nil
+        Task {
+            defer { isEnablingTracking = false }
+            do {
+                let enabled = try await BackendService.enableFlightTracking(flightID: flight.id)
+                if enabled {
+                    await appModel.refreshFlights()
+                } else {
+                    enableTrackingError = "You've used all your live-tracked flights this month. "
+                        + "Your allowance resets on the 1st."
+                }
+            } catch {
+                enableTrackingError = "Couldn't turn tracking on. Try again."
+            }
+        }
+    }
+
     private func premiumLockedCard(_ feature: PremiumFlightFeature) -> some View {
         Button {
             premiumGateFeature = feature
@@ -324,7 +409,13 @@ struct FlightTrackingView: View {
                     .foregroundStyle(Theme.subtleInk)
             }
 
-            if !flight.trackingEnabled {
+            // `trackingEnabled == false` means two different things now, and this line used to
+            // assume the first: a flight the system stopped following two hours after it landed.
+            // Since the allowance moved onto tracking it also means a flight that was never
+            // followed at all — for which "no longer" is wrong and "history is kept for reference"
+            // is wronger, because that flight has not happened yet. `notTrackedCard` says the
+            // right thing for that case and offers to fix it, so this stays out of its way.
+            if !flight.trackingEnabled, isPastTracking {
                 // Explains why pulling to refresh here won't visibly do anything, instead of a
                 // spinner that cycles and stops with nothing to show for it.
                 Text("No longer being tracked — this flight's history is kept for reference.")

@@ -247,6 +247,21 @@ enum AeroFlightService {
 
     private struct AddFlightResponse: Decodable {
         var flightId: UUID
+        /// False when the couple's monthly live-tracking allowance was already spent. The flight
+        /// still saved — it just will not be polled until a slot is spent on it.
+        var tracking: Bool = true
+        var used: Int = 0
+        var limit: Int = 0
+    }
+
+    /// What happened to a flight that was just added.
+    struct AddedFlight {
+        let id: UUID
+        /// False means saved but not polled: no status updates, no notifications, no Live
+        /// Activity, until `enableTracking` spends a slot on it.
+        let isTracking: Bool
+        let used: Int
+        let limit: Int
     }
 
     private static func call<Response: Decodable>(_ functionName: String, body: [String: Any]) async throws -> Response {
@@ -311,7 +326,7 @@ enum AeroFlightService {
     /// fields instead of a faFlightId, and the server's refresh-due-flights cron periodically
     /// retries resolving a real one, starting full live tracking automatically the moment it does.
     @discardableResult
-    static func addFlight(candidate: AeroFlightCandidate, tripID: UUID?, travelerIDs: [UUID] = [], shared: Bool = true, notifyMe: Bool) async throws -> UUID {
+    static func addFlight(candidate: AeroFlightCandidate, tripID: UUID?, travelerIDs: [UUID] = [], shared: Bool = true, notifyMe: Bool) async throws -> AddedFlight {
         var body: [String: Any] = ["shared": shared, "notifyMe": notifyMe]
         // Sent for both the faFlightId and pending paths — the server stores it outside the fields
         // it refreshes from AeroAPI, so it survives every later poll.
@@ -328,9 +343,16 @@ enum AeroFlightService {
             "is_shared": shared,
             "is_linked_to_trip": tripID != nil,
             "was_pending": candidate.faFlightId == nil,
+            "is_tracking": response.tracking,
         ])
-        return response.flightId
+        return AddedFlight(
+            id: response.flightId,
+            isTracking: response.tracking,
+            used: response.used,
+            limit: response.limit
+        )
     }
+
 
     // Builds a plain [String: Any] with only non-nil keys present — assigning a `String?` value
     // straight into a `[String: Any]` dictionary is a well-known Swift footgun (it can box the

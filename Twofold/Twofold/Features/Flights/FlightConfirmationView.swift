@@ -47,16 +47,23 @@ struct FlightConfirmationView: View {
     private var isOutOfAllowance: Bool { allowance?.remaining == 0 }
 
     /// What the allowance line says. Written as flights left rather than flights used, because
-    /// the question being asked at this exact moment is whether this one will go through.
+    /// the question being asked at this exact moment is whether this one will be tracked.
+    ///
+    /// Out of allowance is no longer a refusal: the flight saves either way and keeps its place in
+    /// trips, Passport and the Relationship Record — it simply is not polled, so there are no
+    /// status updates, notifications or Live Activity for it. Saying that here rather than after
+    /// the tap, because it changes what someone is agreeing to.
     private var allowanceMessage: String? {
         guard let allowance else { return nil }
         switch allowance.remaining {
         case 0:
-            return "You've tracked all \(allowance.limit) flights your plan includes this month. Your allowance resets on the 1st."
+            return "You've used all \(allowance.limit) live-tracked flights this month, so this one "
+                + "will be saved without live tracking — no status updates or alerts. You can turn "
+                + "tracking on from the flight later. Your allowance resets on the 1st."
         case 1:
-            return "1 flight left this month, shared with your partner."
+            return "1 live-tracked flight left this month, shared with your partner."
         default:
-            return "\(allowance.remaining) of \(allowance.limit) flights left this month, shared with your partner."
+            return "\(allowance.remaining) of \(allowance.limit) live-tracked flights left this month, shared with your partner."
         }
     }
 
@@ -176,7 +183,7 @@ struct FlightConfirmationView: View {
                     if let allowanceMessage {
                         Text(allowanceMessage)
                             .font(.caption)
-                            .foregroundStyle(isOutOfAllowance ? Theme.heartRed : Theme.subtleInk)
+                            .foregroundStyle(Theme.subtleInk)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
@@ -187,15 +194,16 @@ struct FlightConfirmationView: View {
                     Button(action: confirm) {
                         HStack {
                             if isSaving { ProgressView().tint(.white) }
-                            Text(isSaving ? "Saving…" : "Add Flight")
+                            Text(isSaving ? "Saving…" : (isOutOfAllowance ? "Save Without Tracking" : "Add Flight"))
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
                         .foregroundStyle(.white)
                         .background(Theme.primaryButtonGradient, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                     }
-                    .disabled(isSaving || isOutOfAllowance)
-                    .opacity(isOutOfAllowance ? 0.5 : 1)
+                    // Not disabled when out of allowance any more — the flight can still be
+                    // saved, just not tracked, and the label above says so.
+                    .disabled(isSaving)
                 }
                 .padding(Theme.Spacing.md)
             }

@@ -1130,6 +1130,29 @@ enum BackendService {
             .value
     }
 
+    /// Spends one of the couple's monthly live-tracking slots on a flight that was saved without
+    /// it — the flight a couple added after their allowance was gone.
+    ///
+    /// Returns false when there is nothing to spend, or when the flight has already arrived and
+    /// there would be nothing left to poll. The server decides both: `enable_flight_tracking` is
+    /// the only thing that may grant tracking, for the same reason the subscription columns are
+    /// the webhook's alone — a client that could grant itself a slot has no allowance at all.
+    @discardableResult
+    static func enableFlightTracking(flightID: UUID) async throws -> Bool {
+        struct Params: Encodable {
+            let pFlightId: UUID
+            enum CodingKeys: String, CodingKey {
+                case pFlightId = "p_flight_id"
+            }
+        }
+        struct Result: Decodable { var enabled: Bool }
+        let result: Result = try await supabase
+            .rpc("enable_flight_tracking", params: Params(pFlightId: flightID))
+            .execute()
+            .value
+        return result.enabled
+    }
+
     /// A couple's game sessions, for a data export.
     ///
     /// Its own fetch rather than `fetchGameSessions`, which is scoped to the signed-in user's
