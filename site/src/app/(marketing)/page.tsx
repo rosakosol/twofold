@@ -2,21 +2,23 @@ import Link from "next/link";
 import Image from "next/image";
 import { Reveal } from "@/components/marketing/Reveal";
 import { FeatureTeaserGrid } from "@/components/marketing/FeatureTeaserGrid";
+import { PricingTeaser } from "@/components/marketing/PricingTeaser";
 import { ScrollLink } from "@/components/marketing/ScrollLink";
 import { WaitlistForm } from "@/components/marketing/WaitlistForm";
 import { RelationshipQuiz } from "@/components/marketing/RelationshipQuiz";
 import { isQuizPlayable } from "@/lib/marketing/quiz";
-import { getHero, getFeatures, getQuizQuestions, getQuizResults } from "@/lib/marketing/sanity";
+import { getHero, getFeatures, getQuizQuestions, getQuizResults, getResolvedPlans } from "@/lib/marketing/sanity";
 import { resolveFeatures } from "@/lib/marketing/featuresFallback";
 import { APP_STORE_URL } from "@/lib/marketing/config";
 import { PHONE_SHOT_HEIGHT as SHOT_HEIGHT } from "@/lib/marketing/phoneScreens";
 
 export default async function HomePage() {
-  const [hero, featureDocs, quizQuestions, quizResults] = await Promise.all([
+  const [hero, featureDocs, quizQuestions, quizResults, plans] = await Promise.all([
     getHero(),
     getFeatures(),
     getQuizQuestions(),
     getQuizResults(),
+    getResolvedPlans(),
   ]);
   const features = resolveFeatures(featureDocs);
 
@@ -210,54 +212,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="showcase">
-        <div className="wrap">
-          <Reveal>
-            <p className="eyebrow">
-              <svg className="icon">
-                <use href="/assets/icons.svg#icon-sparkle" />
-              </svg>
-              The globe
-            </p>
-            <h2 style={{ margin: "16px 0 16px" }}>Your whole story, on one map</h2>
-            <p className="lede" style={{ marginBottom: 24 }}>
-              Every reunion draws a new arc between you. Zoom into a city to revisit the memories you made there -
-              it&apos;s the centrepiece both of you open first.
-            </p>
-            <ul className="check-list">
-              <li>
-                <svg className="icon">
-                  <use href="/assets/icons.svg#icon-check" />
-                </svg>
-                See your current distance apart, updated live
-              </li>
-              <li>
-                <svg className="icon">
-                  <use href="/assets/icons.svg#icon-check" />
-                </svg>
-                Rotate and zoom into cities to explore memories
-              </li>
-              <li>
-                <svg className="icon">
-                  <use href="/assets/icons.svg#icon-check" />
-                </svg>
-                Every reunion trip draws a new line across your history
-              </li>
-            </ul>
-          </Reveal>
-          <Reveal className="media-frame" data-delay="120">
-            <div className="phone-mock">
-              <div className="phone-mock-notch" />
-              <div className="phone-mock-screen">
-                <div className="mock-globe" aria-hidden>
-                  <div className="mock-dot" style={{ background: "var(--sky-blue)", top: "28%", left: "22%" }} />
-                  <div className="mock-dot" style={{ background: "var(--heart-red)", top: "62%", left: "68%" }} />
-                </div>
-              </div>
-            </div>
-          </Reveal>
-        </div>
-      </section>
+      <PricingTeaser plans={plans} />
 
       {isQuizPlayable(quizQuestions) ? (
         <RelationshipQuiz questions={quizQuestions} results={quizResults} />
