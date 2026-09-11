@@ -51,7 +51,19 @@ export default defineType({
                 name: 'link',
                 type: 'object',
                 title: 'Link',
-                fields: [{name: 'href', type: 'url', title: 'URL', validation: (Rule) => Rule.required()}],
+                fields: [
+                  {
+                    name: 'href',
+                    type: 'url',
+                    title: 'URL',
+                    // `type: 'url'` permits only http/https unless the schemes are listed, and
+                    // these two pages link to hello@/support@ more than anywhere else. Needs
+                    // Studio >= 6.7.0: before that, a custom `scheme` was ignored whenever
+                    // uri() was combined with another rule, so mailto: was rejected anyway.
+                    validation: (Rule) =>
+                      Rule.required().uri({scheme: ['http', 'https', 'mailto', 'tel']}),
+                  },
+                ],
               },
             ],
           },
