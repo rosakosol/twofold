@@ -63,6 +63,14 @@ struct GameResultShareData {
     /// Defaulted so every existing call site keeps compiling without naming a sudoku field.
     var sudokuMyElapsed: TimeInterval? = nil
     var sudokuPartnerElapsed: TimeInterval? = nil
+    /// What each of them used getting there.
+    ///
+    /// On the card for the same reason it is on the comparison: two times side by side with one
+    /// called faster is only a race if both solves cost the same. A card that leaves this off is
+    /// the version of that claim most likely to be seen by other people, and the one its subject
+    /// has least chance to correct.
+    var sudokuMyAids: SudokuSolveSummary? = nil
+    var sudokuPartnerAids: SudokuSolveSummary? = nil
 
     /// The Daily Question has no score/match stat to headline — `scoreSnapshot` would render as
     /// just a brand mark and avatars — so it's skipped there in favor of the two single-Q&A

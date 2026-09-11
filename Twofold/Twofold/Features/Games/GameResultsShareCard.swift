@@ -102,7 +102,11 @@ struct GameResultsShareCard: View {
             }
         } else if let mine = data.sudokuMyElapsed, let theirs = data.sudokuPartnerElapsed {
             let comparison = SudokuComparison(
-                myElapsed: mine, partnerElapsed: theirs, partnerName: data.partner.name
+                myElapsed: mine,
+                partnerElapsed: theirs,
+                partnerName: data.partner.name,
+                myAids: data.sudokuMyAids,
+                partnerAids: data.sudokuPartnerAids
             )
             VStack(spacing: Theme.Spacing.sm) {
                 HStack(spacing: Theme.Spacing.lg) {
@@ -110,11 +114,11 @@ struct GameResultsShareCard: View {
                     // distinction is the whole difference between both times reading as won and
                     // both reading as lost.
                     timeColumn(
-                        mine, name: data.me.name,
+                        mine, name: data.me.name, aids: data.sudokuMyAids,
                         isDimmed: comparison.outcome == .partner, palette: palette
                     )
                     timeColumn(
-                        theirs, name: data.partner.name,
+                        theirs, name: data.partner.name, aids: data.sudokuPartnerAids,
                         isDimmed: comparison.outcome == .me, palette: palette
                     )
                 }
@@ -156,6 +160,7 @@ struct GameResultsShareCard: View {
     private func timeColumn(
         _ elapsed: TimeInterval,
         name: String,
+        aids: SudokuSolveSummary?,
         isDimmed: Bool,
         palette: ShareCardPalette
     ) -> some View {
@@ -175,6 +180,15 @@ struct GameResultsShareCard: View {
                 .foregroundStyle(palette.foreground.opacity(0.75))
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
+            // Only when something was used — an unaided solve says nothing rather than "no help",
+            // which under both times would read as an accusation rather than a footnote.
+            if let used = aids?.aidsDescription {
+                Text(used)
+                    .font(.system(size: 9))
+                    .foregroundStyle(palette.foreground.opacity(0.6))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
         }
     }
 

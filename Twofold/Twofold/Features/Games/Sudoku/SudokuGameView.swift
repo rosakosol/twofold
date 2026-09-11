@@ -189,7 +189,11 @@ struct SudokuGameView: View {
             deepConversationRounds: nil,
             dailyStreak: nil,
             sudokuMyElapsed: play.elapsed,
-            sudokuPartnerElapsed: partnerResult.elapsed
+            sudokuPartnerElapsed: partnerResult.elapsed,
+            sudokuMyAids: SudokuSolveSummary(
+                elapsed: play.elapsed, hintsUsed: play.hintsUsed, checksUsed: play.checksUsed
+            ),
+            sudokuPartnerAids: partnerResult
         )
     }
 
@@ -207,7 +211,10 @@ struct SudokuGameView: View {
                     selected: store.selected,
                     onSelect: { store.select($0) }
                 )
-                .padding(.horizontal, Theme.Spacing.sm)
+                // `.md`, matching the status bar above and the comparison card below. It was `.sm`,
+                // which left the grid and the keypad noticeably wider than everything else on the
+                // screen and put the outer keys hard against the edges.
+                .padding(.horizontal, Theme.Spacing.md)
 
                 if play.isComplete {
                     if let comparison = comparison(for: play) {
@@ -351,7 +358,7 @@ struct SudokuGameView: View {
                 .accessibilityHint(placed ? "All nine placed" : "\(store.remaining(of: value)) remaining")
             }
         }
-        .padding(.horizontal, Theme.Spacing.sm)
+        .padding(.horizontal, Theme.Spacing.md)
     }
 
     // MARK: - Solved
