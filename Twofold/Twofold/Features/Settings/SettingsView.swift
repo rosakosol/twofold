@@ -113,6 +113,31 @@ struct SettingsView: View {
                         }
                     }
 
+                    // Premium, and partner-only: it is a record of a shared history, so there
+                    // has to be one. Locked rather than hidden — someone on Plus should be able to
+                    // see what they would be getting.
+                    if appModel.partnerConnected {
+                        SectionCard {
+                            if appModel.isPremiumLocked {
+                                Button { showingPaywall = true } label: {
+                                    SettingsRow(
+                                        title: "Your Relationship Record",
+                                        systemImage: "book.closed.fill",
+                                        value: "Premium"
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                            } else {
+                                NavigationLink {
+                                    RelationshipRecordView()
+                                } label: {
+                                    SettingsRow(title: "Your Relationship Record", systemImage: "book.closed.fill")
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+
                     SectionCard {
                         NavigationLink {
                             AppearanceSettingsView()

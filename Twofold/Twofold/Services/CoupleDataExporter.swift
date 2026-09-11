@@ -186,7 +186,9 @@ enum CoupleDataExporter {
         memories: [Memory],
         flights: [Flight],
         selfName: String,
-        partnerName: String
+        partnerName: String,
+        selfPhotoURL: URL? = nil,
+        partnerPhotoURL: URL? = nil
     ) async -> URL? {
         let memoriesByTrip = Dictionary(grouping: memories.filter { $0.tripID != nil }, by: { $0.tripID! })
         let flightsByTrip = Dictionary(grouping: flights.filter { $0.tripID != nil }, by: { $0.tripID! })
@@ -211,9 +213,53 @@ enum CoupleDataExporter {
         return try? await CoupleHistoryPDFExporter.generate(
             selfName: selfName,
             partnerName: partnerName,
-            selfPhotoURL: nil,
-            partnerPhotoURL: nil,
+            selfPhotoURL: selfPhotoURL,
+            partnerPhotoURL: partnerPhotoURL,
             items: items
+        )
+    }
+
+    /// The record on its own, for a couple who are still together.
+    ///
+    /// `export` above builds this as one file inside a folder of CSVs, photos and a README, because
+    /// it is written for a relationship that has ended with a deletion deadline on it: the point
+    /// there is that everything survives, in formats anyone can open in ten years. A couple who are
+    /// still together want the document, not the archive — a zip of spreadsheets is not a keepsake,
+    /// and packaging one would be answering a question nobody asked.
+    ///
+    /// So this shares the renderer and skips the rest: no CSVs, no photo downloads, no zip. It also
+    /// passes both avatars, which `export` leaves nil — the cover page has always accepted them,
+    /// and a record of a living relationship should have their faces on the front.
+    ///
+    /// Nil when there is nothing to record yet, rather than a cover page with no pages behind it.
+    static func relationshipRecordPDF(
+        coupleID: UUID,
+        selfName: String,
+        partnerName: String,
+        selfPhotoURL: URL?,
+        partnerPhotoURL: URL?,
+        progress: @MainActor (String) -> Void = { _ in }
+    ) async -> URL? {
+        await progress("Gathering your history…")
+
+        // Same tolerance as `export`: one failed fetch should cost that section, not the document.
+        async let tripsTask = (try? await BackendService.fetchTrips(coupleID: coupleID)) ?? []
+        async let memoriesTask = (try? await BackendService.fetchMemories(coupleID: coupleID)) ?? []
+        async let flightsTask = (try? await BackendService.fetchFlights(coupleID: coupleID)) ?? []
+
+        let trips = await tripsTask
+        let memories = await memoriesTask
+        let flights = await flightsTask
+
+        await progress("Writing your record…")
+        return await relationshipRecord(
+            trips: trips,
+            memories: memories,
+            flights: flights,
+            selfName: selfName,
+            partnerName: partnerName,
+            selfPhotoURL: selfPhotoURL,
+            partnerPhotoURL: partnerPhotoURL
         )
     }
 
