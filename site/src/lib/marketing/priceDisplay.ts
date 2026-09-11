@@ -14,19 +14,34 @@ import type { LivePrice, LivePrices } from "@/lib/marketing/billing";
 
 /** Live price if the offering had one, otherwise the label already in the plan. */
 export function priceLabelFor(live: LivePrices, packageId: string, fallback: string): string {
-  return live[packageId]?.formattedPrice || fallback;
+  const price = live[packageId];
+  if (!price) return fallback;
+  // RevenueCat's own formattedPrice is the last resort rather than the first choice — it is
+  // the one that carries the "A$" prefix. See format() above.
+  return format(price.amountMicros, price.currency) ?? price.formattedPrice ?? fallback;
 }
 
+/**
+ * Formats an amount ourselves rather than using RevenueCat's `formattedPrice`.
+ *
+ * The products are priced in AUD, and the default currency display renders that as "A$9.99" —
+ * accurate, but the site has always said "$9.99" and the prefix reads as a foreign-currency
+ * warning to an Australian visitor. `narrowSymbol` drops it to "$" while leaving genuinely
+ * distinct symbols alone: GBP stays "£", EUR stays "€", JPY stays "¥".
+ *
+ * Falls back through plain `symbol` before giving up, since `narrowSymbol` throws rather than
+ * degrades on an engine that doesn't know it.
+ */
 function format(amountMicros: number, currency: string): string | null {
-  try {
-    return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(
-      amountMicros / 1_000_000
-    );
-  } catch {
-    // An unrecognised currency code throws rather than degrading, and a wrong-currency figure
-    // next to a right-currency one is worse than falling back to the label.
-    return null;
+  const amount = amountMicros / 1_000_000;
+  for (const currencyDisplay of ["narrowSymbol", "symbol"] as const) {
+    try {
+      return new Intl.NumberFormat(undefined, { style: "currency", currency, currencyDisplay }).format(amount);
+    } catch {
+      // An unrecognised currency code or display mode throws rather than degrading.
+    }
   }
+  return null;
 }
 
 /** A yearly plan's cost per month - the headline figure on the card when Yearly is selected. */
