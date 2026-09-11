@@ -243,4 +243,45 @@ struct SudokuPlayStateTests {
         #expect(peers.contains(30))  // same box
         #expect(!peers.contains(0))  // shares nothing with the centre
     }
+
+    // MARK: - The stats-side reader
+
+    /// `summary` exists so stats can read a time without regenerating the puzzle `decoded` needs.
+    /// Two readers of one format is exactly how a format drifts, so this pins them together: every
+    /// payload they both accept has to yield the same two fields.
+    @Test("summary agrees with decoded about the time and whether it was finished")
+    func summaryMatchesDecoded() throws {
+        var play = SudokuPlayState(puzzle: puzzle)
+        play.elapsed = 754
+        let midway = play.encoded
+        let decodedMidway = try #require(SudokuPlayState.decoded(from: midway, puzzle: puzzle))
+        let summaryMidway = try #require(SudokuPlayState.summary(from: midway))
+        #expect(summaryMidway.elapsed == decodedMidway.elapsed)
+        #expect(summaryMidway.isComplete == decodedMidway.isComplete)
+        #expect(summaryMidway.isComplete == false)
+
+        play.markComplete()
+        let finished = play.encoded
+        let decodedFinished = try #require(SudokuPlayState.decoded(from: finished, puzzle: puzzle))
+        let summaryFinished = try #require(SudokuPlayState.summary(from: finished))
+        #expect(summaryFinished.elapsed == decodedFinished.elapsed)
+        #expect(summaryFinished.isComplete == decodedFinished.isComplete)
+        #expect(summaryFinished.isComplete)
+    }
+
+    /// Both readers have to refuse the same rubbish. A `summary` that were laxer would let a
+    /// payload `decoded` rejects still reach the stats table — as a best time, where a wrong small
+    /// number is unbeatable and permanent.
+    @Test("summary refuses everything decoded refuses", arguments: [
+        "",
+        "sudoku.v2|0|0|10|1",
+        "sudoku.v1|0|0|10",
+        "sudoku.v1|0|0|-5|1",
+        "sudoku.v1|0|0|10|2",
+        "not a payload at all",
+    ])
+    func summaryIsAsStrictAsDecoded(payload: String) {
+        #expect(SudokuPlayState.summary(from: payload) == nil)
+        #expect(SudokuPlayState.decoded(from: payload, puzzle: puzzle) == nil)
+    }
 }

@@ -23,6 +23,10 @@ struct GameHistoryView: View {
     /// actually need it (every other game type/session shows fine from the list alone).
     @State private var scores: [UUID: (mine: Int, partner: Int)] = [:]
     @State private var dailyQuestionText: [UUID: String] = [:]
+    /// Sudoku's equivalent of `scores` — the difficulty that names the puzzle, and whichever of the
+    /// two times exist. Either can be nil: a session one of them never finished still belongs in
+    /// history.
+    @State private var sudokuResults: [UUID: (difficulty: SudokuDifficulty?, mine: TimeInterval?, partner: TimeInterval?)] = [:]
     /// nil = every game type. Independent of `dailyOnly` below — the two combine (e.g. "Trivia
     /// Battle" + daily-only yields nothing, since only Deep Conversations sessions are ever
     /// daily), rather than one being a sub-option of the other.
@@ -225,7 +229,10 @@ struct GameHistoryView: View {
                     // deck to name it after, and the actual question is the more useful thing to
                     // show anyway. Falls back to the generic game type name for older, pre-deck
                     // sessions with no deckID or resolved question text to show instead.
-                    Text(session.isDaily ? (dailyQuestionText[session.id] ?? session.gameType.displayName) : (deck?.title ?? session.gameType.displayName))
+                    // A sudoku has no deck to be named after, so its difficulty stands in — "Hard
+                    // Sudoku" rather than four identical "Sudoku" rows with nothing telling them
+                    // apart but a date.
+                    Text(sudokuTitle(for: session) ?? (session.isDaily ? (dailyQuestionText[session.id] ?? session.gameType.displayName) : (deck?.title ?? session.gameType.displayName)))
                         .font(.subheadline.weight(.semibold))
                         .lineLimit(2)
                     HStack(spacing: 4) {
@@ -238,6 +245,12 @@ struct GameHistoryView: View {
                     // Trivia is the one game type with an actual right/wrong score — the match
                     // games show a match percentage instead (on the results screen itself, not
                     // here), and Deep Conversations has no score concept at all.
+                    if let result = sudokuResults[session.id], result.mine != nil || result.partner != nil {
+                        Text(sudokuTimesText(result))
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Theme.skyBlue)
+                            .lineLimit(1)
+                    }
                     if let score = scores[session.id] {
                         Text("\(appModel.currentUser.name) \(score.mine) · \(appModel.partner.name) \(score.partner)")
                             .font(.caption.weight(.semibold))
@@ -353,8 +366,25 @@ struct GameHistoryView: View {
     /// Scoped to one page's sessions rather than the whole list. It used to run across everything
     /// loaded, so each new page re-requested detail for every session already on screen — work that
     /// grew with the list and that had already been done.
+    /// "Hard Sudoku", once the difficulty has been fetched. Nil for every other game type, and for
+    /// a sudoku whose detail hasn't landed yet — the generic name covers that beat.
+    private func sudokuTitle(for session: GameSession) -> String? {
+        guard session.gameType == .sudoku,
+              let difficulty = sudokuResults[session.id]?.difficulty
+        else { return nil }
+        return "\(difficulty.displayName) Sudoku"
+    }
+
+    /// Whoever finished, with a dash for whoever didn't — an unfinished side is part of the story
+    /// of that puzzle, not something to hide.
+    private func sudokuTimesText(_ result: (difficulty: SudokuDifficulty?, mine: TimeInterval?, partner: TimeInterval?)) -> String {
+        let mine = result.mine.map(SudokuComparison.clockText) ?? "—"
+        let theirs = result.partner.map(SudokuComparison.clockText) ?? "—"
+        return "\(appModel.currentUser.name) \(mine) · \(appModel.partner.name) \(theirs)"
+    }
+
     private func loadExtraDetails(for pageSessions: [GameSession]) async {
-        let needsDetail = pageSessions.filter { $0.gameType == .triviaBattle || $0.isDaily }
+        let needsDetail = pageSessions.filter { $0.gameType == .triviaBattle || $0.gameType == .sudoku || $0.isDaily }
         guard !needsDetail.isEmpty else { return }
         await withTaskGroup(of: (UUID, BackendService.GameSessionDetail?).self) { group in
             var pending = needsDetail.makeIterator()
@@ -385,6 +415,22 @@ struct GameHistoryView: View {
                 }
                 if session.isDaily, let round = detail.rounds.first, case .deepConversation(let topic)? = detail.content[round.contentID] {
                     dailyQuestionText[sessionID] = topic.topic
+                }
+                if session.gameType == .sudoku {
+                    // `summary`, not `decoded` — the grid itself is never shown here, and `decoded`
+                    // would mean regenerating the whole puzzle from its content id to read a time.
+                    func time(for responderID: UUID) -> TimeInterval? {
+                        guard let response = detail.responses.first(where: { $0.responderID == responderID }),
+                              let summary = SudokuPlayState.summary(from: response.answerValue),
+                              summary.isComplete
+                        else { return nil }
+                        return summary.elapsed
+                    }
+                    sudokuResults[sessionID] = (
+                        difficulty: detail.rounds.first?.difficulty,
+                        mine: time(for: appModel.currentUser.id),
+                        partner: time(for: appModel.partner.id)
+                    )
                 }
             }
         }

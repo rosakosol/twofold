@@ -3215,6 +3215,69 @@ enum BackendService {
         return start
     }
 
+    /// Every finished sudoku solve visible to this account, flattened for `SudokuStats`.
+    ///
+    /// Three queries whatever the history's size, rather than a session detail each: the existing
+    /// `fetchGameSession(id:)` is per-id, and stats are all-time by nature, so fetching them that
+    /// way would grow a round trip per puzzle ever played.
+    ///
+    /// Times are read with `SudokuPlayState.summary` rather than `decoded`, which would need each
+    /// puzzle regenerated from its `content_id` purely to re-impose givens on entries nothing here
+    /// looks at. Anything that fails to parse — a payload from a future version, most plausibly —
+    /// is skipped rather than counted as a zero, which would otherwise install an unbeatable best
+    /// time of 0:00.
+    ///
+    /// RLS still decides what comes back: a partner's response is only visible once both have
+    /// answered, so an unfinished puzzle of theirs cannot appear here.
+    static func fetchSudokuSolves(limit: Int = 500) async throws -> [SudokuSolve] {
+        struct SudokuSessionIDRow: Decodable { var id: UUID }
+
+        let sessionRows: [SudokuSessionIDRow] = try await supabase
+            .from("game_sessions")
+            .select("id")
+            .eq("game_type", value: GameType.sudoku.rawValue)
+            .order("created_at", ascending: false)
+            .limit(limit)
+            .execute()
+            .value
+        let sessionIDs = sessionRows.map(\.id)
+        guard !sessionIDs.isEmpty else { return [] }
+
+        let roundRows: [GameSessionRoundRow] = try await supabase
+            .from("game_session_rounds")
+            .select()
+            .in("session_id", values: sessionIDs)
+            .execute()
+            .value
+        // A sudoku session has exactly one round, so this is a lookup rather than a grouping.
+        var difficultyBySession: [UUID: SudokuDifficulty] = [:]
+        for row in roundRows {
+            guard let difficulty = row.difficulty else { continue }
+            difficultyBySession[row.sessionId] = difficulty
+        }
+
+        let responseRows: [GameResponseRow] = try await supabase
+            .from("game_responses")
+            .select()
+            .in("session_id", values: sessionIDs)
+            .execute()
+            .value
+
+        return responseRows.compactMap { row in
+            let response = row.toModel()
+            guard let difficulty = difficultyBySession[response.sessionID],
+                  let summary = SudokuPlayState.summary(from: response.answerValue),
+                  summary.isComplete
+            else { return nil }
+            return SudokuSolve(
+                sessionID: response.sessionID,
+                difficulty: difficulty,
+                responderID: response.responderID,
+                elapsed: summary.elapsed
+            )
+        }
+    }
+
     static func abandonGameSession(id: UUID) async throws {
         struct Params: Encodable {
             var pSessionId: UUID

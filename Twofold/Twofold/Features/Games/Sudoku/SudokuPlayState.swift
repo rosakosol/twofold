@@ -154,6 +154,24 @@ extension SudokuPlayState {
         ].joined(separator: "|")
     }
 
+    /// Just the time and whether it was finished, for a caller that has the string but not the
+    /// puzzle it belongs to.
+    ///
+    /// `decoded` needs a `SudokuGrid` only to re-impose the givens on the entries it read — which
+    /// is the right thing when the grid is going back on screen, and pure waste for stats, where
+    /// every row would mean generating a whole puzzle to reach two fields at the end of the string.
+    ///
+    /// Deliberately as strict as `decoded` about the version and the field count, so a `sudoku.v2`
+    /// is refused here too rather than being read as a v1 that happens to start the same way. The
+    /// two are pinned to each other by test.
+    static func summary(from string: String) -> (elapsed: TimeInterval, isComplete: Bool)? {
+        let fields = string.split(separator: "|", omittingEmptySubsequences: false)
+        guard fields.count == 5, fields[0] == version else { return nil }
+        guard let seconds = Int(fields[3]), seconds >= 0 else { return nil }
+        guard fields[4] == "0" || fields[4] == "1" else { return nil }
+        return (TimeInterval(seconds), fields[4] == "1")
+    }
+
     /// Reads a state back, or gives up.
     ///
     /// `puzzle` is not decoration. The stored grid is whatever was last written, and the givens are
