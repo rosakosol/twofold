@@ -6,6 +6,7 @@ import type { Session } from "@supabase/supabase-js";
 import { PLANS } from "@/lib/marketing/config";
 import type { ResolvedPlan } from "@/lib/marketing/sanity";
 import { getSession, onAuthChange, signInWithApple, signOut } from "@/lib/marketing/auth";
+import { providerFallbackName, providerLabel, sessionProvider } from "@/lib/marketing/provider";
 import { fetchOfferings, fetchCustomerInfo, findPackage, purchasePackage, activeEntitlements } from "@/lib/marketing/billing";
 import { Reveal } from "@/components/marketing/Reveal";
 import { PlanComparison } from "@/components/marketing/PlanComparison";
@@ -97,6 +98,9 @@ function PricingContent({
   const [purchaseSuccess, setPurchaseSuccess] = useState(false);
   const [buyingKey, setBuyingKey] = useState<string | null>(null);
   const successRef = useRef<HTMLDivElement>(null);
+  // Whatever this session was actually created with - Apple here, but equally a Google or
+  // magic-link session carried over from the feedback board, which shares this project.
+  const provider = sessionProvider(session);
   const attemptedPendingResume = useRef(false);
 
   async function attemptPurchase(planId: PlanId, billingPeriod: Period) {
@@ -239,7 +243,7 @@ function PricingContent({
                 <svg className="icon">
                   <use href="/assets/icons.svg#icon-check-circle" />
                 </svg>
-                Signed in as {session.user.email || "your Apple ID"}
+                Signed in as {session.user.email || providerFallbackName(provider)}
               </span>
               <button
                 type="button"
@@ -255,7 +259,8 @@ function PricingContent({
           {subscribedTier ? (
             <div className="card waitlist-card" style={{ marginTop: 12, maxWidth: 520, marginLeft: "auto", marginRight: "auto" }}>
               <h3 style={{ marginBottom: 16 }}>
-                You already have Twofold {subscribedTier} - open the app and sign in with the same Apple ID to use it.
+                You already have Twofold {subscribedTier} - open the app and sign in with the same{" "}
+                {providerLabel(provider)} to use it.
               </h3>
               <AppStoreBadge label="Open on the" />
             </div>
@@ -263,8 +268,8 @@ function PricingContent({
             <div ref={successRef} className="card waitlist-card" style={{ marginTop: 12, maxWidth: 560, marginLeft: "auto", marginRight: "auto" }}>
               <h2 style={{ marginBottom: 10 }}>You&apos;re all set 🎉</h2>
               <p style={{ marginBottom: 24 }}>
-                Download Twofold and sign in with the <strong>same Apple ID</strong> you just used - your subscription
-                will already be active.
+                Download Twofold and sign in with the <strong>same {providerLabel(provider)}</strong> you just
+                used - your subscription will already be active.
               </p>
               <AppStoreBadge />
             </div>
