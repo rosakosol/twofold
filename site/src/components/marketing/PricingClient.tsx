@@ -7,7 +7,17 @@ import { PLANS } from "@/lib/marketing/config";
 import type { ResolvedPlan } from "@/lib/marketing/sanity";
 import { getSession, onAuthChange, signInWithApple, signOut } from "@/lib/marketing/auth";
 import { providerFallbackName, providerLabel, sessionProvider } from "@/lib/marketing/provider";
-import { fetchOfferings, fetchCustomerInfo, findPackage, purchasePackage, activeEntitlements } from "@/lib/marketing/billing";
+import {
+  fetchOfferings,
+  fetchCustomerInfo,
+  findPackage,
+  purchasePackage,
+  activeEntitlements,
+  fetchLivePrices,
+  anonymousAppUserId,
+  type LivePrices,
+} from "@/lib/marketing/billing";
+import { priceLabelFor, perMonthLabelFor, yearlySavingPercent, savingPercent } from "@/lib/marketing/priceDisplay";
 import { Reveal } from "@/components/marketing/Reveal";
 import { PlanComparison } from "@/components/marketing/PlanComparison";
 import type { ResolvedPlanComparison } from "@/lib/marketing/planComparisonFallback";
@@ -40,15 +50,29 @@ function PlanCard({
   period,
   buyingKey,
   onBuy,
+  livePrices,
 }: {
   plan: ResolvedPlan;
   period: Period;
   buyingKey: string | null;
   onBuy: (planId: PlanId, period: Period) => void;
+  livePrices: LivePrices;
 }) {
   const key = `${plan.id}-${period}`;
   const isBuying = buyingKey === key;
-  const monthlyFigure = period === "monthly" ? plan.monthly.priceLabel : plan.yearly.perMonthLabel;
+
+  // ResolvedPlan carries the editable labels; the package identifiers that key the live
+  // offering only exist in code, so they come from PLANS - same lookup attemptPurchase does.
+  const packages = PLANS[plan.id];
+
+  // Live where the offering has it, the plan's own label otherwise. The label renders first
+  // and is replaced in place once the offering resolves, so there is never an empty price -
+  // only one that may refine itself into the buyer's own currency.
+  const monthlyFigure =
+    period === "monthly"
+      ? priceLabelFor(livePrices, packages.monthly.packageId, plan.monthly.priceLabel)
+      : perMonthLabelFor(livePrices, packages.yearly.packageId, plan.yearly.perMonthLabel);
+  const yearlyTotal = priceLabelFor(livePrices, packages.yearly.packageId, plan.yearly.priceLabel);
 
   return (
     <div className={`card plan${plan.featured ? " feature" : ""}`}>
@@ -60,7 +84,7 @@ function PlanCard({
         <span className="per">/mo</span>
       </div>
       <p className="price-foot">
-        {period === "yearly" ? `Billed yearly - works out to ${plan.yearly.priceLabel}/yr` : "Billed monthly · cancel anytime"}
+        {period === "yearly" ? `Billed yearly - works out to ${yearlyTotal}/yr` : "Billed monthly · cancel anytime"}
       </p>
       <ul className="check-list">
         {plan.features.map((feature) => (
@@ -97,11 +121,24 @@ function PricingContent({
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
   const [purchaseSuccess, setPurchaseSuccess] = useState(false);
   const [buyingKey, setBuyingKey] = useState<string | null>(null);
+  // Empty until the offering resolves; every read falls back to the plan's own label, so
+  // the cards are fully priced on first paint and only refine afterwards.
+  const [livePrices, setLivePrices] = useState<LivePrices>({});
   const successRef = useRef<HTMLDivElement>(null);
   // Whatever this session was actually created with - Apple here, but equally a Google or
   // magic-link session carried over from the feedback board, which shares this project.
   const provider = sessionProvider(session);
   const attemptedPendingResume = useRef(false);
+
+  // "Save 50%" was typed into the markup, so a price change in Stripe would have left it
+  // advertising a discount that no longer existed. Derived from the live offering, falling
+  // back to PLANS' own numbers - both plans are priced at the same ratio, so Plus speaks for
+  // the toggle. Null hides the pill rather than showing "Save 0%".
+  const yearlySaving =
+    yearlySavingPercent(
+      livePrices[PLANS.plus.monthly.packageId],
+      livePrices[PLANS.plus.yearly.packageId]
+    ) ?? savingPercent(PLANS.plus.monthly.price, PLANS.plus.yearly.price);
 
   async function attemptPurchase(planId: PlanId, billingPeriod: Period) {
     setPurchaseError(null);
@@ -200,6 +237,25 @@ function PricingContent({
     };
   }, []);
 
+  // Separate from the auth effect on purpose: prices have to be on screen for someone who
+  // has not signed in and may never sign in, so this cannot wait on a session. Re-runs once a
+  // session appears so the offering is read under the real app user id, which is what any
+  // per-customer pricing would key off.
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      const appUserId = session?.user.id ?? (await anonymousAppUserId());
+      if (!appUserId || cancelled) return;
+      const prices = await fetchLivePrices(appUserId);
+      if (!cancelled && Object.keys(prices).length) setLivePrices(prices);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session]);
+
   useEffect(() => {
     if (requestedPlan === "premium" || requestedPlan === "plus") {
       // The referring page (e.g. the Home pricing preview) named a specific plan -
@@ -289,16 +345,17 @@ function PricingContent({
                   Monthly
                 </button>
                 <button type="button" className={period === "yearly" ? "active" : undefined} onClick={() => setPeriod("yearly")}>
-                  Yearly <span className="save-pill">Save 50%</span>
+                  Yearly
+                  {yearlySaving !== null && <span className="save-pill">Save {yearlySaving}%</span>}
                 </button>
               </Reveal>
 
               <div className="pricing-grid">
                 <div id="plan-plus">
-                  <PlanCard plan={plans.plus} period={period} buyingKey={buyingKey} onBuy={attemptPurchase} />
+                  <PlanCard plan={plans.plus} period={period} buyingKey={buyingKey} onBuy={attemptPurchase} livePrices={livePrices} />
                 </div>
                 <div id="plan-premium">
-                  <PlanCard plan={plans.premium} period={period} buyingKey={buyingKey} onBuy={attemptPurchase} />
+                  <PlanCard plan={plans.premium} period={period} buyingKey={buyingKey} onBuy={attemptPurchase} livePrices={livePrices} />
                 </div>
               </div>
 
