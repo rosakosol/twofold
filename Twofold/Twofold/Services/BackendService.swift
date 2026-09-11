@@ -3499,6 +3499,41 @@ enum BackendService {
         return (channel, stream)
     }
 
+    // MARK: - Games already on
+
+    /// One unfinished generated or board game, for the top of the Games hub.
+    ///
+    /// `isMyTurn` means two different things depending on the game, and both are the actionable
+    /// reading: on a board it is whose move it is, and on a puzzle it is whether *you* have still
+    /// to play it. See `list_open_puzzle_games`.
+    struct OpenGame: Identifiable, Decodable {
+        let id: UUID
+        let gameType: GameType
+        /// The difficulty or theme, where the game has one.
+        let label: String?
+        let isMyTurn: Bool
+        let updatedAt: Date
+
+        enum CodingKeys: String, CodingKey {
+            case label
+            case id = "session_id"
+            case gameType = "game_type"
+            case isMyTurn = "is_my_turn"
+            case updatedAt = "updated_at"
+        }
+    }
+
+    /// Best-effort: the hub shows this section or it does not, and a failure here must not take the
+    /// rest of the screen with it.
+    static func fetchOpenGames() async -> [OpenGame] {
+        guard currentUserID != nil else { return [] }
+        do {
+            return try await supabase.rpc("list_open_puzzle_games").execute().value
+        } catch {
+            return []
+        }
+    }
+
     // MARK: - Chess
 
     struct ChessStart: Decodable {

@@ -167,6 +167,19 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
     /// enforces this one server-side, which the client check only mirrors.
     var requiresPartner: Bool { self == .moreLikely || self == .connectFour || self == .chess }
 
+    /// Whether this game's content comes from a curated deck.
+    ///
+    /// The four conversation games draw rounds from a bank and so have a deck list to browse; the
+    /// five below generate their own or keep a board, and each has a small entry screen standing in
+    /// for one. The Games hub splits on exactly this — a swipeable row of decks reads nothing like
+    /// a grid of puzzles, and nine cards in one row buries the last five.
+    var hasDecks: Bool {
+        switch self {
+        case .triviaBattle, .moreLikely, .thisOrThat, .deepConversations: true
+        case .sudoku, .wordGuess, .wordSearch, .connectFour, .chess: false
+        }
+    }
+
     var durationMinutes: Int {
         switch self {
         case .triviaBattle: 12

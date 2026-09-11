@@ -28,6 +28,9 @@ struct GamesHubView: View {
     /// `PartnerRequiredGateView`'s share/redeem code UI, not the full `PartnerSetupView` profile
     /// editor — the user's already told us they want to unlock something, not edit a profile.
     @State private var showingPartnerGate = false
+    /// Unfinished puzzles and boards, for the section at the top. Loaded every time the tab
+    /// appears rather than once: coming back here after playing is exactly when it has changed.
+    @State private var openGames: [BackendService.OpenGame] = []
 
     /// Once both partners have finished a Travel deck it drops off this carousel — Travel is
     /// the app's front-door showcase, so it stays focused on what's still playable rather than
@@ -44,7 +47,12 @@ struct GamesHubView: View {
                 VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
                     searchAndFilterBar
                     DailyActivityCard()
-                    gameTypesSection
+                    // Above everything else, because it is the only part of this screen that is
+                    // about something already underway — and on a tab you open to find out whether
+                    // your partner has moved, that is the answer you came for.
+                    OpenGamesSection(games: openGames)
+                    conversationGamesSection
+                    puzzlesSection
                     travelSection
                     TopicsSection()
                 }
@@ -77,7 +85,11 @@ struct GamesHubView: View {
                 PartnerRequiredGateView()
             }
             .task { await appModel.loadGameDecksIfNeeded() }
-            .refreshable { await appModel.refreshAll() }
+            .task { openGames = await BackendService.fetchOpenGames() }
+            .refreshable {
+                await appModel.refreshAll()
+                openGames = await BackendService.fetchOpenGames()
+            }
         }
     }
 
@@ -157,82 +169,94 @@ struct GamesHubView: View {
         return counts
     }
 
-    /// All 4 game types in one swipeable row — replaces the old Compete/Connect split, which
-    /// grouped them by a category nobody outside this screen ever saw or needed.
-    private var gameTypesSection: some View {
+    /// The four conversation games, still a swipeable row.
+    ///
+    /// This row used to hold every game type, and by the ninth that had stopped working: four cards
+    /// swipe comfortably and nine bury the last five. Splitting them is not a new Compete/Connect
+    /// divide — that grouping failed because it was a category nobody outside the screen saw. This
+    /// one is a difference people already know without being taught: these four are questions about
+    /// the two of you, backed by decks to browse, and the ones below are puzzles.
+    private var conversationGamesSection: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-            Text("Game Types")
+            Text("Questions & Conversation")
                 .font(.title3.weight(.bold))
                 .foregroundStyle(Theme.ink)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: Theme.Spacing.sm) {
-                    ForEach(GameType.allCases) { gameType in
-                        if gameType == .sudoku {
-                            // No decks to list — sudoku's content is generated, not curated — so
-                            // its card opens the difficulty picker that stands in for one.
-                            NavigationLink {
-                                SudokuDifficultyPickerView()
-                            } label: {
-                                GameCard(gameType: gameType, width: 220)
-                            }
-                            .buttonStyle(.plain)
-                        } else if gameType == .chess, appModel.partnerConnected {
-                            // Premium, but the card still opens: the entry screen explains what it
-                            // is and offers the paywall, where a lock that leads nowhere would just
-                            // teach people the card is broken.
-                            NavigationLink {
-                                ChessEntryView()
-                            } label: {
-                                GameCard(gameType: gameType, width: 220)
-                            }
-                            .buttonStyle(.plain)
-                        } else if gameType == .connectFour, appModel.partnerConnected {
-                            // No decks and no difficulty — one board per couple, so its card opens
-                            // a screen whose only job is to start or resume it. Unpaired, it falls
-                            // through to the partner gate below: `requiresPartner` is true for this
-                            // game, and `start_connect_four_session` refuses it server-side too.
-                            NavigationLink {
-                                ConnectFourEntryView()
-                            } label: {
-                                GameCard(gameType: gameType, width: 220)
-                            }
-                            .buttonStyle(.plain)
-                        } else if gameType == .wordSearch {
-                            // Themes rather than decks, for the same reason: generated content.
-                            NavigationLink {
-                                WordSearchThemePickerView()
-                            } label: {
-                                GameCard(gameType: gameType, width: 220)
-                            }
-                            .buttonStyle(.plain)
-                        } else if gameType == .wordGuess {
-                            // Same reason, different stand-in: one board a day, so what this opens
-                            // is a screen that can start it or say it has already been played.
-                            NavigationLink {
-                                WordGuessEntryView()
-                            } label: {
-                                GameCard(gameType: gameType, width: 220)
-                            }
-                            .buttonStyle(.plain)
-                        } else if appModel.partnerConnected || !gameType.requiresPartner {
-                            NavigationLink {
-                                GameTypeDecksView(gameType: gameType)
-                            } label: {
-                                GameCard(gameType: gameType, width: 220)
-                            }
-                            .buttonStyle(.plain)
-                        } else {
-                            Button {
-                                showingPartnerGate = true
-                            } label: {
-                                GameCard(gameType: gameType, width: 220, isLocked: true)
-                            }
-                            .buttonStyle(.plain)
-                        }
+                    ForEach(GameType.allCases.filter(\.hasDecks)) { gameType in
+                        card(for: gameType, width: 220)
                     }
                 }
+                .padding(.vertical, 2)
             }
+        }
+    }
+
+    /// The five generated and board games, as a grid.
+    ///
+    /// A grid rather than a second scrolling row: these have no decks behind them, so there is
+    /// nothing to browse *into* — the card is the whole of the choice, and five of them fit on
+    /// screen at once where a row would hide the last two behind a swipe nobody knows to make.
+    private var puzzlesSection: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+            Text("Puzzles & Games")
+                .font(.title3.weight(.bold))
+                .foregroundStyle(Theme.ink)
+
+            LazyVGrid(
+                columns: [GridItem(.flexible(), spacing: Theme.Spacing.sm),
+                          GridItem(.flexible(), spacing: Theme.Spacing.sm)],
+                spacing: Theme.Spacing.sm
+            ) {
+                ForEach(GameType.allCases.filter { !$0.hasDecks }) { gameType in
+                    card(for: gameType, width: nil)
+                }
+            }
+        }
+    }
+
+    /// One card, and where it goes.
+    ///
+    /// The destinations used to be an if/else chain inside the row, one branch per game, and by the
+    /// ninth it was long enough that adding a game meant reading all of it. The lock is the same in
+    /// both sections: a card that needs a partner opens the invite sheet rather than doing nothing,
+    /// because a lock badge with no action just teaches people the card is broken.
+    @ViewBuilder
+    private func card(for gameType: GameType, width: CGFloat?) -> some View {
+        if gameType.requiresPartner && !appModel.partnerConnected {
+            Button {
+                showingPartnerGate = true
+            } label: {
+                GameCard(gameType: gameType, width: width, isLocked: true)
+            }
+            .buttonStyle(.plain)
+        } else {
+            NavigationLink {
+                entryView(for: gameType)
+            } label: {
+                GameCard(gameType: gameType, width: width)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    /// Where a game type's card leads.
+    ///
+    /// The deck games open their deck list. The other five have no decks, so each opens the small
+    /// screen standing in for one — a difficulty, a theme, today's word, or a board. Chess opens
+    /// even without Premium: its entry screen explains what it is and offers the paywall, where a
+    /// card that refused to open would only teach people it is broken.
+    @ViewBuilder
+    private func entryView(for gameType: GameType) -> some View {
+        switch gameType {
+        case .sudoku: SudokuDifficultyPickerView()
+        case .wordGuess: WordGuessEntryView()
+        case .wordSearch: WordSearchThemePickerView()
+        case .connectFour: ConnectFourEntryView()
+        case .chess: ChessEntryView()
+        case .triviaBattle, .moreLikely, .thisOrThat, .deepConversations:
+            GameTypeDecksView(gameType: gameType)
         }
     }
 
