@@ -1209,9 +1209,13 @@ section {
   color: var(--faint-ink);
   margin: 0 0 22px;
 }
+/* Centred explicitly: the card sits in a text-align:center section, but this is a flex
+   container, so text-align never reached it and the price hung off the left edge while
+   everything around it was centred. */
 .price-line {
   display: flex;
   align-items: baseline;
+  justify-content: center;
   gap: 6px;
 }
 .price-line .n {
@@ -1221,7 +1225,10 @@ section {
   color: var(--ink);
   line-height: 1;
 }
+/* Display face here too. The figure was already serif and the "/mo" beside it was not, so a
+   single price read as two typefaces butted together. */
 .price-line .per {
+  font-family: var(--font-display);
   font-size: 0.92rem;
   color: var(--faint-ink);
 }
@@ -1233,6 +1240,12 @@ section {
 }
 .plan .check-list {
   margin-bottom: 28px;
+}
+/* Left-aligned against the centred card. A bullet is a sentence, not a heading: centring it
+   ragged both edges, and a bullet long enough to wrap broke alignment with the tick beside
+   it. The card's other text stays centred. */
+.plan .check-list li {
+  text-align: left;
 }
 .plan .btn {
   width: 100%;
