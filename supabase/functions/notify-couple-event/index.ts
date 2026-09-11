@@ -9,8 +9,8 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { sendAPNs } from "../_shared/apns.ts";
-
-type EventType = "drawing_saved" | "trip_added" | "memory_added" | "game_started" | "game_results_ready" | "game_partner_finished" | "game_reminder";
+// The sentences themselves live next door so they can be tested without standing up this server.
+import { buildMessage, buildSelfMessage, type EventType } from "../_shared/couple-event-copy.ts";
 
 interface Input {
   eventType: EventType;
@@ -19,6 +19,14 @@ interface Input {
   /// deep-link straight into that session instead of just opening the app.
   sessionId?: string;
   gameType?: string;
+  /// True for the couple's Daily Question. Only changes the wording, and only for
+  /// game_results_ready/game_partner_finished — that session is the one whose completion moves
+  /// the streak, and "a game" is the wrong word for the thing somebody is about to lose.
+  ///
+  /// Sent by the client rather than worked out here: a daily session is an ordinary 1-round
+  /// `deep_conversations` session (see `get_daily_question_session`), so nothing else in this
+  /// payload tells it apart from a deck of the same type.
+  isDaily?: boolean;
   /// "partner" (default) notifies the caller's partner about the caller's activity, same as
   /// always. "self" notifies the caller's *own* devices instead — added as a deliberately
   /// controllable way to exercise the real end-to-end push pipeline (device registration →
@@ -62,62 +70,6 @@ const PREFERENCE_COLUMN: Partial<Record<EventType, PreferenceColumn>> = {
   game_partner_finished: "partner_game_partner_finished",
 };
 
-function buildMessage(eventType: EventType, actorName: string, detail?: string): { title: string; body: string } {
-  switch (eventType) {
-    case "drawing_saved":
-      return { title: "New doodle", body: `${actorName} saved a new drawing` };
-    case "trip_added":
-      return { title: "New trip", body: detail ? `${actorName} added a trip: ${detail}.` : `${actorName} added a new trip.` };
-    case "memory_added":
-      return { title: "New memory", body: detail ? `${actorName} added a memory: ${detail}.` : `${actorName} added a new memory.` };
-    case "game_started":
-      return { title: "Game time", body: detail ? `${actorName} started a game: ${detail}.` : `${actorName} started a game.` };
-    case "game_results_ready":
-      return {
-        title: "Results are ready!",
-        body: detail
-          ? `You and ${actorName} both finished "${detail}" - see how you matched.`
-          : `You and ${actorName} both finished - see how you matched.`,
-      };
-    case "game_partner_finished":
-      return {
-        title: "Your turn!",
-        body: detail
-          ? `${actorName} finished "${detail}" - it's your turn to play.`
-          : `${actorName} finished their answers - it's your turn to play.`,
-      };
-    case "game_reminder":
-      return { title: "Reminder", body: detail ? `${actorName} wants you to complete "${detail}".` : `${actorName} sent you a reminder to complete your game.` };
-  }
-}
-
-// Second-person copy for `target: "self"` — the recipient is the actor themselves, not their
-// partner, so this deliberately doesn't reuse buildMessage's "{actorName} did X" phrasing.
-function buildSelfMessage(eventType: EventType, detail?: string): { title: string; body: string } {
-  switch (eventType) {
-    case "drawing_saved":
-      return { title: "Doodle saved", body: "Your new drawing was saved." };
-    case "trip_added":
-      return { title: "Trip saved", body: detail ? `Your trip "${detail}" was saved.` : "Your new trip was saved." };
-    case "memory_added":
-      return { title: "Memory saved", body: detail ? `Your memory "${detail}" was saved.` : "Your new memory was saved." };
-    case "game_started":
-      return { title: "Game started", body: detail ? `You started "${detail}".` : "You started a new game." };
-    case "game_results_ready":
-      return {
-        title: "Results are ready!",
-        body: detail ? `See how you and your partner matched on "${detail}".` : "See how you and your partner matched.",
-      };
-    case "game_partner_finished":
-      return {
-        title: "Your turn!",
-        body: detail ? `It's your turn to play "${detail}".` : "It's your turn to play.",
-      };
-    case "game_reminder":
-      return { title: "Reminder", body: detail ? `Complete "${detail}".` : "Complete your game." };
-  }
-}
-
 Deno.serve(async (req) => {
   if (req.method !== "POST") {
     return Response.json({ error: "Method not allowed" }, { status: 405 });
@@ -160,7 +112,11 @@ Deno.serve(async (req) => {
         .eq("profile_id", user.id);
       if (!tokens || tokens.length === 0) return Response.json({ ok: true });
 
-      const { title, body } = buildSelfMessage(input.eventType, input.detail);
+      const { title, body } = buildSelfMessage(input.eventType, {
+        detail: input.detail,
+        gameType: input.gameType,
+        isDaily: input.isDaily,
+      });
       const data = input.sessionId
         ? { sessionId: input.sessionId, gameType: input.gameType, eventType: input.eventType }
         : input.eventType === "drawing_saved"
@@ -214,7 +170,11 @@ Deno.serve(async (req) => {
       .eq("profile_id", partnerId);
     if (!tokens || tokens.length === 0) return Response.json({ ok: true });
 
-    const { title, body } = buildMessage(input.eventType, actorName, input.detail);
+    const { title, body } = buildMessage(input.eventType, actorName, {
+      detail: input.detail,
+      gameType: input.gameType,
+      isDaily: input.isDaily,
+    });
     const data = input.sessionId
       ? { sessionId: input.sessionId, gameType: input.gameType, eventType: input.eventType }
       : input.eventType === "drawing_saved"

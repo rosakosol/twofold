@@ -331,14 +331,14 @@ final class GameSessionStore {
             // per session, from whoever's answer was the couple's last one.
             if !wasRevealed, isRevealed {
                 Analytics.capture(Analytics.Event.sessionComplete, properties: ["game_type": session.gameType.rawValue])
-                await BackendService.notifyPartner(event: .gameResultsReady, detail: deckTitle, sessionID: session.id, gameType: session.gameType)
+                await BackendService.notifyPartner(event: .gameResultsReady, detail: deckTitle, sessionID: session.id, gameType: session.gameType, isDaily: session.isDaily)
             } else if !wasAllMineAnsweredBefore, !isRevealed, let myID, hasAnsweredAllRounds(myID: myID) {
                 // I just answered my own last round, but the session isn't fully complete (my
                 // partner hasn't finished theirs yet) — let them know it's their turn, distinct
                 // from `.gameResultsReady` above which only fires once *both* sides are done.
                 // Never fires while re-editing an already-completed session: in that case
                 // `wasAllMineAnsweredBefore` is already true going in, since nothing was deleted.
-                await BackendService.notifyPartner(event: .gamePartnerFinished, detail: deckTitle, sessionID: session.id, gameType: session.gameType)
+                await BackendService.notifyPartner(event: .gamePartnerFinished, detail: deckTitle, sessionID: session.id, gameType: session.gameType, isDaily: session.isDaily)
             }
             return true
         } catch {
@@ -413,11 +413,11 @@ final class GameSessionStore {
             applyOptimistic(item)
         }
         if !wasRevealed, isRevealed {
-            await BackendService.notifyPartner(event: .gameResultsReady, detail: deckTitle, sessionID: session.id, gameType: session.gameType)
+            await BackendService.notifyPartner(event: .gameResultsReady, detail: deckTitle, sessionID: session.id, gameType: session.gameType, isDaily: session.isDaily)
         } else if !wasAllMineAnsweredBefore, !isRevealed, let myID, hasAnsweredAllRounds(myID: myID) {
             // Mirrors the same detection in `performSubmit` — the offline queue just finished
             // flushing my last unanswered round.
-            await BackendService.notifyPartner(event: .gamePartnerFinished, detail: deckTitle, sessionID: session.id, gameType: session.gameType)
+            await BackendService.notifyPartner(event: .gamePartnerFinished, detail: deckTitle, sessionID: session.id, gameType: session.gameType, isDaily: session.isDaily)
         }
     }
 

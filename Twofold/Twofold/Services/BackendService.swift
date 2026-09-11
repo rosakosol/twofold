@@ -3558,12 +3558,18 @@ enum BackendService {
         case selfDevice = "self"
     }
 
-    static func notifyPartner(event: CoupleNotificationEvent, detail: String? = nil, sessionID: UUID? = nil, gameType: GameType? = nil, target: NotifyTarget = .partner) async {
+    /// `isDaily` is only meaningful for `.gameResultsReady`/`.gamePartnerFinished`, and only
+    /// changes the wording: the Daily Question is the one session whose completion moves the
+    /// couple's streak, and a push that calls it "a game" is describing the wrong stakes. The flag
+    /// is sent rather than inferred from `gameType`, since a daily session is an ordinary
+    /// `deep_conversations` session under the hood and nothing in the payload distinguishes it.
+    static func notifyPartner(event: CoupleNotificationEvent, detail: String? = nil, sessionID: UUID? = nil, gameType: GameType? = nil, isDaily: Bool = false, target: NotifyTarget = .partner) async {
         guard let accessToken = currentAccessToken else { return }
         var body: [String: Any] = ["eventType": event.rawValue]
         if let detail { body["detail"] = detail }
         if let sessionID { body["sessionId"] = sessionID.uuidString }
         if let gameType { body["gameType"] = gameType.rawValue }
+        if isDaily { body["isDaily"] = true }
         if target != .partner { body["target"] = target.rawValue }
 
         var request = URLRequest(url: SupabaseConfig.projectURL.appendingPathComponent("functions/v1/notify-couple-event"))

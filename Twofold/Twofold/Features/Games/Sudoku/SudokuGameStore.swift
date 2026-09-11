@@ -254,6 +254,7 @@ final class SudokuGameStore {
                 // back and trigger the read anyway, but that leaves the comparison depending on a
                 // live socket to show a result both halves of which are already on the server.
                 await refreshPartner()
+                await notifyPartnerOfSolve()
             } catch {
                 // The local copy still holds the finished grid, and `load()` prefers a complete
                 // state over an incomplete one, so reopening the puzzle offers the solve again
@@ -261,6 +262,33 @@ final class SudokuGameStore {
                 hasSubmitted = false
             }
         }
+    }
+
+    /// Tells the other side that a grid was just finished — the same two pushes the other four
+    /// games send from `GameSessionStore.performSubmit`, which this game does not go through.
+    ///
+    /// Without them a sudoku was a game you could only discover had been played by opening it. The
+    /// pitch is "solve it apart, compare when you're done", and both halves of that were left to
+    /// chance: the partner was never told a grid was waiting, and whoever solved first — having
+    /// seen "waiting for them" and put the phone down — was never told the comparison had arrived.
+    /// The Nudge button covered only the first, and only if the person who finished remembered.
+    ///
+    /// Which of the two goes out is decided by the `refreshPartner()` that ran just above. Their
+    /// result being visible at all means both responses are in, since RLS reveals a partner's row
+    /// only once both sides have written one.
+    ///
+    /// Sent unconditionally for a solo player too, exactly as the other games do: `couple_id` is
+    /// null, `notify-couple-event` finds no couple and returns without sending anything.
+    private func notifyPartnerOfSolve() async {
+        // The difficulty is the whole of what names a sudoku — there is no deck title — and it
+        // lands inside the push copy, so a nil reads better as an omission than as an empty string.
+        let detail = difficulty.map { "\($0.displayName) Sudoku" }
+        await BackendService.notifyPartner(
+            event: partnerResult == nil ? .gamePartnerFinished : .gameResultsReady,
+            detail: detail,
+            sessionID: sessionID,
+            gameType: .sudoku
+        )
     }
 
     private func persistLocally() {
