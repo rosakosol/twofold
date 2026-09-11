@@ -177,6 +177,16 @@ struct GamesHubView: View {
                                 GameCard(gameType: gameType, width: 220)
                             }
                             .buttonStyle(.plain)
+                        } else if gameType == .chess, appModel.partnerConnected {
+                            // Premium, but the card still opens: the entry screen explains what it
+                            // is and offers the paywall, where a lock that leads nowhere would just
+                            // teach people the card is broken.
+                            NavigationLink {
+                                ChessEntryView()
+                            } label: {
+                                GameCard(gameType: gameType, width: 220)
+                            }
+                            .buttonStyle(.plain)
                         } else if gameType == .connectFour, appModel.partnerConnected {
                             // No decks and no difficulty — one board per couple, so its card opens
                             // a screen whose only job is to start or resume it. Unpaired, it falls

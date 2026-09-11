@@ -46,7 +46,7 @@ struct GameContentStoreTests {
     /// adding sudoku fail a test about the seed file, which was the test being wrong rather than
     /// the seed. Word Guess landed in the same place, which is why this is now a named set: a third
     /// generated game should update one line here, not rediscover the same argument.
-    private static let generated: Set<GameType> = [.sudoku, .wordGuess, .wordSearch, .connectFour]
+    private static let generated: Set<GameType> = [.sudoku, .wordGuess, .wordSearch, .connectFour, .chess]
 
     @Test("every deck-based game type has decks")
     func everyGameTypeIsPresent() {

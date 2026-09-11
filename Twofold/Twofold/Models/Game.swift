@@ -106,6 +106,8 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
     /// The first game here whose state is a board rather than a puzzle — see `game_moves`. Also
     /// the only one that cannot be played alone.
     case connectFour = "connect_four"
+    /// The other board game, and the only one behind Premium — see `start_chess_session`.
+    case chess
 
     var id: String { rawValue }
 
@@ -119,6 +121,7 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
         case .wordGuess: "Word Guess"
         case .wordSearch: "Word Search"
         case .connectFour: "Connect 4"
+        case .chess: "Chess"
         }
     }
 
@@ -134,6 +137,7 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
         case .wordGuess: "WORD GUESS"
         case .wordSearch: "WORD SEARCH"
         case .connectFour: "CONNECT 4"
+        case .chess: "CHESS"
         }
     }
 
@@ -147,6 +151,7 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
         case .wordGuess: "One word, six guesses, both of you."
         case .wordSearch: "Same grid, same words. Fastest finder wins."
         case .connectFour: "One board, taking turns. Four in a row wins."
+        case .chess: "A game you can take all week over."
         }
     }
 
@@ -160,7 +165,7 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
     /// Connect 4 joins it for a different reason: More Likely's answer is which partner, so the
     /// question has no meaning alone; Connect 4 simply has no opponent. `start_connect_four_session`
     /// enforces this one server-side, which the client check only mirrors.
-    var requiresPartner: Bool { self == .moreLikely || self == .connectFour }
+    var requiresPartner: Bool { self == .moreLikely || self == .connectFour || self == .chess }
 
     var durationMinutes: Int {
         switch self {
@@ -179,6 +184,9 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
         // A guess at best: a game played a disc at a time across a day is not 10 minutes of
         // anybody's attention, and there is no honest single number for that.
         case .connectFour: 10
+        // As honest as the Connect 4 number, which is to say not very: a game played a move at a
+        // time across a week is not 20 minutes of anybody's attention.
+        case .chess: 20
         }
     }
 
@@ -194,6 +202,7 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
         case .wordGuess: "textformat.abc"
         case .wordSearch: "square.grid.4x3.fill"
         case .connectFour: "circle.grid.3x3.fill"
+        case .chess: "checkerboard.rectangle"
         }
     }
 
@@ -207,6 +216,7 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
         case .wordGuess: [Theme.leafGreen, .yellow]
         case .wordSearch: [.orange, Theme.heartRed]
         case .connectFour: [Theme.heartRed, .yellow]
+        case .chess: [Theme.ink, Theme.subtleInk]
         }
     }
 
