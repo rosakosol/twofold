@@ -168,9 +168,23 @@ Deno.serve(async (req) => {
   const state = describe(chess);
 
   if (state.finished) {
+    // The outcome is written here because it cannot be recovered later. Connect 4's result can
+    // always be recomputed — replay the discs, look for four in a row — but working out that a
+    // chess position is checkmate needs the rules, and the rules are in this file's dependency
+    // rather than in Postgres. A running record of wins cannot be built from a fact nobody wrote
+    // down. See 20261015000100_game_outcomes.sql.
     await db
       .from("game_sessions")
-      .update({ status: "completed", completed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .update({
+        status: "completed",
+        completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        winner_id: state.hasWinner ? user.id : null,
+        // "win" for a checkmate; every other ending keeps the specific draw it was, because "the
+        // same position three times over" and "neither of you has enough left to mate" are
+        // different games to have played.
+        outcome: state.hasWinner ? "win" : state.outcome,
+      })
       .eq("id", sessionId);
   }
 

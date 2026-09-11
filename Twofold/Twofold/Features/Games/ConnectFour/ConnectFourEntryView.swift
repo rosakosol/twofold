@@ -19,6 +19,7 @@ struct ConnectFourEntryView: View {
     @State private var isStarting = false
     @State private var route: StartedConnectFour?
     @State private var errorMessage: String?
+    @State private var records: [GameRecord] = []
 
     var body: some View {
         ScrollView {
@@ -27,6 +28,13 @@ struct ConnectFourEntryView: View {
                     .font(.subheadline)
                     .foregroundStyle(Theme.subtleInk)
                     .fixedSize(horizontal: false, vertical: true)
+
+                // No bests for a board game: there is no time or score to keep, only the record.
+                GameRecordCard(
+                    records: records.filter { $0.gameType == .connectFour },
+                    partnerName: appModel.partner.name,
+                    formatBest: nil
+                )
 
                 howItLooks
 
@@ -49,6 +57,9 @@ struct ConnectFourEntryView: View {
         .background(Theme.backgroundGradient.ignoresSafeArea())
         .navigationTitle(GameType.connectFour.displayName)
         .navigationBarTitleDisplayMode(.inline)
+        // Reloaded every time the screen appears: coming back after a game is exactly when the
+        // record has changed.
+        .task { records = await BackendService.fetchGameRecords() }
         .navigationDestination(item: $route) { started in
             ConnectFourGameView(sessionID: started.id)
         }

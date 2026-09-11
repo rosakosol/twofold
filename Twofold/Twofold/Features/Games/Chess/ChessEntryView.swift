@@ -18,6 +18,7 @@ struct ChessEntryView: View {
     @State private var route: StartedChess?
     @State private var showingPaywall = false
     @State private var errorMessage: String?
+    @State private var records: [GameRecord] = []
 
     private var isPremium: Bool { appModel.subscriptionTier == "premium" }
 
@@ -28,6 +29,13 @@ struct ChessEntryView: View {
                     .font(.subheadline)
                     .foregroundStyle(Theme.subtleInk)
                     .fixedSize(horizontal: false, vertical: true)
+
+                // No bests for a board game: there is no time or score to keep, only the record.
+                GameRecordCard(
+                    records: records.filter { $0.gameType == .chess },
+                    partnerName: appModel.partner.name,
+                    formatBest: nil
+                )
 
                 ChessBoardView(
                     board: Self.illustration,
@@ -58,6 +66,9 @@ struct ChessEntryView: View {
         .background(Theme.backgroundGradient.ignoresSafeArea())
         .navigationTitle(GameType.chess.displayName)
         .navigationBarTitleDisplayMode(.inline)
+        // Reloaded every time the screen appears: coming back after a game is exactly when the
+        // record has changed.
+        .task { records = await BackendService.fetchGameRecords() }
         .navigationDestination(item: $route) { started in
             ChessGameView(sessionID: started.id)
         }

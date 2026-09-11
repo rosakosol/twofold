@@ -19,6 +19,7 @@ struct WordGuessEntryView: View {
     @State private var route: UUID?
     @State private var showingPaywall = false
     @State private var errorMessage: String?
+    @State private var records: [GameRecord] = []
     @State private var limitReached = false
 
     private var isPremium: Bool { appModel.subscriptionTier == "premium" }
@@ -29,6 +30,12 @@ struct WordGuessEntryView: View {
                 Text("The same word on both your phones. Six guesses each, then compare.")
                     .font(.subheadline)
                     .foregroundStyle(Theme.subtleInk)
+
+                GameRecordCard(
+                    records: records.filter { $0.gameType == .wordGuess },
+                    partnerName: appModel.partner.name,
+                    formatBest: { WordGuessComparison.guessText(Int($0)) }
+                )
 
                 howItWorks
 
@@ -52,6 +59,9 @@ struct WordGuessEntryView: View {
         .background(Theme.backgroundGradient.ignoresSafeArea())
         .navigationTitle(GameType.wordGuess.displayName)
         .navigationBarTitleDisplayMode(.inline)
+        // Reloaded every time the screen appears, not once: coming back here after playing is
+        // exactly when the numbers have changed.
+        .task { records = await BackendService.fetchGameRecords() }
         .navigationDestination(item: $route) { sessionID in
             WordGuessGameView(sessionID: sessionID)
         }

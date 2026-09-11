@@ -3534,6 +3534,23 @@ enum BackendService {
         }
     }
 
+    /// The running record for the four games that keep one server-side.
+    ///
+    /// A query rather than a download: Connect 4 and chess keep their results in
+    /// `game_sessions.outcome`, and Word Guess's and Word Search's are inside response payloads, so
+    /// aggregating on the device would mean fetching every response either of them has ever
+    /// written to draw one line of text.
+    ///
+    /// Best-effort: the card appears or it does not, and a failure must not take the screen with it.
+    static func fetchGameRecords() async -> [GameRecord] {
+        guard currentUserID != nil else { return [] }
+        do {
+            return try await supabase.rpc("get_game_stats").execute().value
+        } catch {
+            return []
+        }
+    }
+
     // MARK: - Chess
 
     struct ChessStart: Decodable {

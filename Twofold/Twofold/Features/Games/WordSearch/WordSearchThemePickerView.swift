@@ -18,6 +18,7 @@ struct WordSearchThemePickerView: View {
     @State private var route: StartedWordSearch?
     @State private var showingPaywall = false
     @State private var errorMessage: String?
+    @State private var records: [GameRecord] = []
 
     private var isPremium: Bool { appModel.subscriptionTier == "premium" }
 
@@ -27,6 +28,12 @@ struct WordSearchThemePickerView: View {
                 Text("Eight words hidden in the same grid on both your phones. Find them all, then compare.")
                     .font(.subheadline)
                     .foregroundStyle(Theme.subtleInk)
+
+                GameRecordCard(
+                    records: records.filter { $0.gameType == .wordSearch },
+                    partnerName: appModel.partner.name,
+                    formatBest: { PuzzleClock.text($0) }
+                )
 
                 ForEach(WordSearchTheme.allCases, id: \.self) { theme in
                     row(theme)
@@ -44,6 +51,9 @@ struct WordSearchThemePickerView: View {
         .background(Theme.backgroundGradient.ignoresSafeArea())
         .navigationTitle(GameType.wordSearch.displayName)
         .navigationBarTitleDisplayMode(.inline)
+        // Reloaded every time the screen appears, not once: coming back here after playing is
+        // exactly when the numbers have changed.
+        .task { records = await BackendService.fetchGameRecords() }
         .navigationDestination(item: $route) { started in
             WordSearchGameView(sessionID: started.id)
         }
