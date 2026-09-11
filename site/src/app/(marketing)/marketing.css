@@ -1353,7 +1353,10 @@ section {
 }
 .compare-table thead th {
   background: var(--card-bg-alt);
-  font-family: var(--font-display);
+  /* Body face: these are small uppercase labels rather than headings, and the serif's
+     proportions fight the letter-spacing at this size. Matches the plan cards, whose prices
+     and names are both sans. */
+  font-family: var(--font-body);
   font-size: 0.9rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
