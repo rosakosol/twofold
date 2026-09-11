@@ -26,6 +26,8 @@ struct SudokuGameView: View {
     @State private var store: SudokuGameStore
     @State private var showingShare = false
     @State private var confirmingAbandon = false
+    @State private var isSendingReminder = false
+    @State private var showingReminderSent = false
     @State private var abandonFailed: String?
 
     init(sessionID: UUID, resumed: Bool = false) {
@@ -381,13 +383,73 @@ struct SudokuGameView: View {
                 Text("Solved in \(Self.clockText(play.elapsed))")
                     .font(.title3.weight(.bold))
                     .foregroundStyle(Theme.ink)
-                Text("Your time is saved. You'll be able to see how it compares once your partner finishes theirs.")
+                Text("Your time is saved. You'll see how it compares once \(appModel.partner.name) finishes theirs.")
                     .font(.caption)
                     .foregroundStyle(Theme.subtleInk)
                     .multilineTextAlignment(.center)
+                    // Both of this card's sentences carry a name or a difficulty, so both are long
+                    // enough to wrap — and a card that is being compressed truncates whichever one
+                    // does not insist on its own height.
+                    .fixedSize(horizontal: false, vertical: true)
+
+                // Deliberately says "hasn't finished", never "hasn't started".
+                //
+                // RLS only reveals a partner's response once both have answered, so from here
+                // their half is invisible whether they are three cells from the end or have not
+                // opened it. Guessing between those is how an app tells someone their partner is
+                // ignoring them while they are in fact mid-puzzle.
+                Divider().opacity(0.5)
+
+                Button(action: remindPartner) {
+                    HStack(spacing: Theme.Spacing.xs) {
+                        if isSendingReminder { ProgressView().controlSize(.small) }
+                        Text(isSendingReminder ? "Sending…" : "Nudge \(appModel.partner.name)")
+                            .font(.subheadline.weight(.semibold))
+                    }
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Theme.skyBlueText)
+                .disabled(isSendingReminder)
+
+                // The difficulty stays occupied until one of them finishes or someone puts it
+                // down — `start_sudoku_session` resumes any session that is not completed — so the
+                // way out is named here rather than left to be discovered in a menu.
+                Text(store.difficulty.map { "Don't want to wait? Abandon it from the menu above to start a new \($0.displayName) puzzle." }
+                    ?? "Don't want to wait? Abandon it from the menu above to start a new puzzle.")
+                    .font(.caption2)
+                    .foregroundStyle(Theme.subtleInk)
+                    .multilineTextAlignment(.center)
+                    // Without this it is clipped to one line and ends mid-sentence — the
+                    // difficulty name makes it long enough to wrap on every device.
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity)
         }
         .padding(.horizontal, Theme.Spacing.md)
+        .alert("Nudge sent", isPresented: $showingReminderSent) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("\(appModel.partner.name) has been told their puzzle is waiting.")
+        }
+    }
+
+    /// The same `gameReminder` push the other four games send from `GameCompletionView`, rather
+    /// than a sudoku-specific one — it is the identical situation, and a second notification type
+    /// saying the same thing is a second thing to keep in step with the copy.
+    private func remindPartner() {
+        isSendingReminder = true
+        Task {
+            await BackendService.notifyPartner(
+                event: .gameReminder,
+                // The difficulty is always set in practice, but it lands inside quotation marks
+                // in the push — `wants you to complete "Hard Sudoku"` — so a nil would read as a
+                // leading space inside them rather than as nothing.
+                detail: store.difficulty.map { "\($0.displayName) Sudoku" } ?? "Sudoku",
+                sessionID: sessionID,
+                gameType: .sudoku
+            )
+            isSendingReminder = false
+            showingReminderSent = true
+        }
     }
 }
