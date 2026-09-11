@@ -190,23 +190,10 @@ enum CoupleDataExporter {
         selfPhotoURL: URL? = nil,
         partnerPhotoURL: URL? = nil
     ) async -> URL? {
-        let memoriesByTrip = Dictionary(grouping: memories.filter { $0.tripID != nil }, by: { $0.tripID! })
-        let flightsByTrip = Dictionary(grouping: flights.filter { $0.tripID != nil }, by: { $0.tripID! })
-
-        var items: [ExportTimelineItem] = trips.map { trip in
-            .trip(
-                trip,
-                description: trip.notes ?? "",
-                linkedFlights: (flightsByTrip[trip.id] ?? []).map {
-                    .init(flight: $0, includeAttachments: false, attachments: [])
-                },
-                linkedMemories: (memoriesByTrip[trip.id] ?? []).map {
-                    .init(memory: $0, description: $0.note)
-                }
-            )
-        }
-        items += memories.filter { $0.tripID == nil }.map { .memory($0, description: $0.note) }
-        items += flights.filter { $0.tripID == nil }.map { .flight($0, includeAttachments: false, attachments: []) }
+        // One definition of what the record contains, shared with the timeline screen and the
+        // Word export — see `RelationshipRecord.timeline`. It used to be assembled here, which was
+        // fine while the PDF was the only reader of it.
+        let items = RelationshipRecord.timeline(trips: trips, memories: memories, flights: flights)
 
         guard !items.isEmpty else { return nil }
 

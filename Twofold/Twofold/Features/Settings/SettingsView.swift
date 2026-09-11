@@ -129,7 +129,7 @@ struct SettingsView: View {
                                 .buttonStyle(.plain)
                             } else {
                                 NavigationLink {
-                                    RelationshipRecordView()
+                                    RelationshipTimelineView()
                                 } label: {
                                     SettingsRow(title: "Your Relationship Record", systemImage: "book.closed.fill")
                                 }
