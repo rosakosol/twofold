@@ -5,7 +5,7 @@
 -- would refund a deleted flight, and a rolling window would not reset on the 1st.
 
 begin;
-select plan(14);
+select plan(17);
 
 create extension if not exists pgtap;
 
@@ -113,6 +113,50 @@ select throws_ok(
 select is(
   (select count(*)::integer from public.flight_additions),
   0, 'a stranger sees no ledger rows at all'
+);
+
+reset role;
+-- MARK: the tier field, which `flight-delay-stats` now gates on
+--
+-- The assertion above deliberately drops `tier` from the comparison, because the couple it uses
+-- has no subscription state. That left the one field nothing tested — and the delay-stats edge
+-- function now refuses the request unless it reads 'premium', because that endpoint makes the most
+-- expensive call in the app (ten chunked /history/flights per designator) and was gated only by
+-- the client choosing not to ask.
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"aaaaaaaa-0000-0000-0000-00000000000a","role":"authenticated"}';
+
+-- Neither partner subscribed: the floor, never null, never premium.
+select is(
+  public.flight_allowance('cccccccc-0000-0000-0000-00000000000c') ->> 'tier',
+  'plus',
+  'a couple with no subscription reads as plus, so delay analysis is refused'
+);
+
+reset role;
+update public.profiles set subscription_active = true, subscription_tier = 'premium'
+where id = 'aaaaaaaa-0000-0000-0000-00000000000a';
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"aaaaaaaa-0000-0000-0000-00000000000a","role":"authenticated"}';
+select is(
+  public.flight_allowance('cccccccc-0000-0000-0000-00000000000c') ->> 'tier',
+  'premium',
+  'one partner on premium covers the couple, so delay analysis is allowed'
+);
+
+-- The lapse case, and the reason `couple_effective_tier` checks `subscription_active` at all:
+-- `subscription_tier` is never cleared when a subscription ends, so reading it bare would leave
+-- delay analysis open to someone who stopped paying months ago.
+reset role;
+update public.profiles set subscription_active = false
+where id = 'aaaaaaaa-0000-0000-0000-00000000000a';
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"aaaaaaaa-0000-0000-0000-00000000000a","role":"authenticated"}';
+select is(
+  public.flight_allowance('cccccccc-0000-0000-0000-00000000000c') ->> 'tier',
+  'plus',
+  'a lapsed premium tier does not keep the couple premium'
 );
 
 reset role;

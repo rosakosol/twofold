@@ -4,7 +4,8 @@
 // refresh-flight, then does the real work with the service role key.
 //
 // Requires an `Authorization: Bearer <user access token>` header (the caller's Supabase auth
-// session). Requires the AeroAPI account to be on Standard tier or above — Personal tier doesn't
+// session), and a couple on Premium — see the tier check below. Requires the AeroAPI account to
+// be on Standard tier or above — Personal tier doesn't
 // include historical data access at all, and AeroAPI will error accordingly; that error just
 // propagates as a non-2xx response, which the caller already treats as "don't show this card."
 
@@ -45,11 +46,42 @@ Deno.serve(async (req) => {
   // proves membership — this doubles as the 403 check, same as refresh-flight.
   const { data: visibleFlight, error: visibleErr } = await userClient
     .from("flights")
-    .select("id")
+    .select("id, couple_id")
     .eq("id", input.flightId)
     .maybeSingle();
   if (visibleErr || !visibleFlight) {
     return Response.json({ error: "Flight not found" }, { status: 403 });
+  }
+
+  // Delay analysis is a Premium card, and until now that was enforced only by
+  // `FlightTrackingView` declining to call this. Every other Premium gate in the app has a
+  // server behind it — `start_deck_session` and `start_sudoku_session` both check the couple's
+  // tier — and this one needed it most: the work below is the most expensive request the app
+  // makes, ten chunked `/history/flights` calls per designator. A client that simply called it
+  // anyway got Premium data and spent real money doing so.
+  //
+  // Via `flight_allowance` rather than reading profiles here. It is a public, membership-checked
+  // function that already resolves the couple's effective tier through
+  // `private.couple_effective_tier` — a schema PostgREST does not serve, so there is no way to
+  // ask for the tier directly. Its name is about flights rather than tiers, which is the one
+  // awkward part; re-deriving the rule here would be the worse trade, since "which tier is this
+  // couple on" would then live in a third place and be free to disagree with the other two.
+  //
+  // Called with the *user* client so the membership check inside it applies to the caller.
+  const { data: allowance, error: allowanceErr } = await userClient
+    .rpc("flight_allowance", { p_couple_id: visibleFlight.couple_id });
+  if (allowanceErr) {
+    console.error("[flight-delay-stats] could not resolve tier:", allowanceErr.message);
+    return Response.json({ error: "Could not verify your plan" }, { status: 500 });
+  }
+  if (allowance?.tier !== "premium") {
+    // 403 rather than an empty result: the caller's own UI does not offer this on Plus, so
+    // reaching here at all means something is asking for what it was not offered, and saying so
+    // plainly is better than silently returning nothing that looks like a provider outage.
+    return Response.json(
+      { error: "Delay analysis is included with Twofold Premium.", code: "premium_required" },
+      { status: 403 },
+    );
   }
 
   const serviceClient = createClient(
