@@ -177,6 +177,15 @@ struct GamesHubView: View {
                                 GameCard(gameType: gameType, width: 220)
                             }
                             .buttonStyle(.plain)
+                        } else if gameType == .wordGuess {
+                            // Same reason, different stand-in: one board a day, so what this opens
+                            // is a screen that can start it or say it has already been played.
+                            NavigationLink {
+                                WordGuessEntryView()
+                            } label: {
+                                GameCard(gameType: gameType, width: 220)
+                            }
+                            .buttonStyle(.plain)
                         } else if appModel.partnerConnected || !gameType.requiresPartner {
                             NavigationLink {
                                 GameTypeDecksView(gameType: gameType)

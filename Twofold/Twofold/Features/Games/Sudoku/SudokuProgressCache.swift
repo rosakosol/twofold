@@ -4,58 +4,32 @@
 //
 //  The half-finished grid, kept on the device.
 //
-//  Deliberately not `PendingGameResponseStore`. That queue appends every answer and drains them in
-//  order, which is right for a game where each round's answer is its own fact. A sudoku produces a
-//  new state on every single tap, all of them describing the same one round — queued, they would
-//  pile up hundreds deep and then replay the puzzle keystroke by keystroke. Only the newest matters,
-//  so this replaces in place.
-//
-//  Keyed by responder as well as session, for the reason `PendingGameResponseStore.clear()` spells
-//  out: anything left here by one account would otherwise be picked up by the next person to sign
-//  in on this device — here, as their half-solved puzzle.
+//  The storage is `PuzzleProgressCache`, shared with every other generated game and documented
+//  there. What lives here is the sudoku-shaped half: a state goes in, and comes back out decoded
+//  against the grid it was played on.
 //
 
 import Foundation
 
+/// Sudoku's own view of `PuzzleProgressCache` — the same store, with the decoding this game needs.
+///
+/// Kept as a type rather than folded into the call sites because decoding wants the puzzle, and a
+/// cache that hands back a string every caller then has to remember to decode against the *right*
+/// grid is a cache that will eventually be decoded against the wrong one.
 enum SudokuProgressCache {
-    private static let key = "sudokuProgress"
-
-    private struct Entry: Codable {
-        var sessionID: UUID
-        var responderID: UUID
-        var encoded: String
-        var savedAt: Date
-    }
+    private static let store = PuzzleProgressCache.sudoku
 
     static func save(_ state: SudokuPlayState, sessionID: UUID, responderID: UUID) {
-        var entries = all().filter { !($0.sessionID == sessionID && $0.responderID == responderID) }
-        entries.append(Entry(sessionID: sessionID, responderID: responderID, encoded: state.encoded, savedAt: .now))
-        write(entries)
+        store.save(state.encoded, sessionID: sessionID, responderID: responderID)
     }
 
     static func load(sessionID: UUID, responderID: UUID, puzzle: SudokuGrid) -> SudokuPlayState? {
-        guard let entry = all().first(where: { $0.sessionID == sessionID && $0.responderID == responderID })
-        else { return nil }
-        return SudokuPlayState.decoded(from: entry.encoded, puzzle: puzzle)
+        guard let encoded = store.load(sessionID: sessionID, responderID: responderID) else { return nil }
+        return SudokuPlayState.decoded(from: encoded, puzzle: puzzle)
     }
 
     static func remove(sessionID: UUID, responderID: UUID) {
-        write(all().filter { !($0.sessionID == sessionID && $0.responderID == responderID) })
-    }
-
-    /// Signing out takes these with it, exactly as the pending-answer queue does.
-    static func clear() {
-        UserDefaults.standard.removeObject(forKey: key)
-    }
-
-    private static func all() -> [Entry] {
-        guard let data = UserDefaults.standard.data(forKey: key) else { return [] }
-        return (try? JSONDecoder().decode([Entry].self, from: data)) ?? []
-    }
-
-    private static func write(_ entries: [Entry]) {
-        guard let data = try? JSONEncoder().encode(entries) else { return }
-        UserDefaults.standard.set(data, forKey: key)
+        store.remove(sessionID: sessionID, responderID: responderID)
     }
 }
 

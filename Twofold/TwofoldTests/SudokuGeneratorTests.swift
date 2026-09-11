@@ -25,7 +25,7 @@ struct SudokuGeneratorTests {
     ///
     /// This is not a unit test so much as a version-to-version contract, and it is meant to be
     /// annoying to change. If it fails, something altered the generator's arithmetic — a constant in
-    /// `SudokuRandom`, the shuffle, the order cells are carved — and every partner on a different
+    /// `PuzzleRandom`, the shuffle, the order cells are carved — and every partner on a different
     /// app version is now solving a different puzzle from the person next to them.
     ///
     /// Updating the expected string to make it pass is almost always the wrong fix. The right one is
@@ -143,8 +143,8 @@ struct SudokuGeneratorTests {
     /// be true across Swift versions. Same seed, same permutation.
     @Test("the shuffle is reproducible")
     func shuffleIsReproducible() {
-        var a = SudokuRandom(seed: 42)
-        var b = SudokuRandom(seed: 42)
+        var a = PuzzleRandom(seed: 42)
+        var b = PuzzleRandom(seed: 42)
         let items = Array(0..<20)
         #expect(a.shuffled(items) == b.shuffled(items))
     }
@@ -152,7 +152,7 @@ struct SudokuGeneratorTests {
     /// A shuffle that returned the input unchanged would still pass the test above.
     @Test("the shuffle actually shuffles")
     func shuffleActuallyShuffles() {
-        var random = SudokuRandom(seed: 42)
+        var random = PuzzleRandom(seed: 42)
         let items = Array(0..<20)
         let shuffled = random.shuffled(items)
         #expect(shuffled != items)
@@ -162,7 +162,7 @@ struct SudokuGeneratorTests {
     /// Bounds are respected, including the degenerate one.
     @Test("bounded draws stay in range")
     func boundedDrawsStayInRange() {
-        var random = SudokuRandom(seed: 3)
+        var random = PuzzleRandom(seed: 3)
         for _ in 0..<500 {
             let value = random.next(upperBound: 9)
             #expect(value >= 0 && value < 9)

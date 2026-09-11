@@ -159,10 +159,11 @@ enum GameContentStore {
         let category = row.category ?? ""
         let tier = row.tier ?? "plus"
         switch gameType {
-        // Sudoku ships no content to cache — the puzzle is generated on the device from the
-        // round's id, which is also why it plays offline without this store having anything to
-        // do with it.
-        case .sudoku:
+        // Neither generated game ships content to cache — the puzzle comes from the round's id on
+        // the device, which is also why both play offline without this store having anything to do
+        // with it. Word Guess carries its own dictionary in the bundle instead; see
+        // `WordGuessWords`.
+        case .sudoku, .wordGuess:
             return nil
         case .triviaBattle:
             guard let question = row.question, let options = row.options,

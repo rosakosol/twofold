@@ -1,5 +1,5 @@
 //
-//  SudokuRandom.swift
+//  PuzzleRandom.swift
 //  Twofold
 //
 //  A random number generator that gives the same numbers on both partners' phones, forever.
@@ -7,6 +7,10 @@
 //  Puzzles are generated on device rather than fetched, so two people opening the same game must
 //  derive an identical grid without talking to each other. Everything about that rests on this
 //  file: same seed in, same sequence out, on every device and every future version of the app.
+//
+//  Shared by every generated game rather than owned by one — it was `SudokuRandom` while sudoku was
+//  the only one. Sudoku shuffles it into a grid and Word Guess indexes a word list with it; both
+//  need the same guarantee, and two copies of a compatibility contract is one copy too many.
 //
 //  Which is why it is written out rather than taken from the standard library.
 //  `SystemRandomNumberGenerator` is explicitly not reproducible, and `shuffled(using:)` — which
@@ -27,7 +31,7 @@ import Foundation
 /// Changing any constant in here changes every puzzle every seed produces. That is a compatibility
 /// break, not a refactor — see `SudokuGeneratorTests.knownSeedProducesKnownPuzzle`, which exists to
 /// fail loudly if it ever happens.
-struct SudokuRandom: RandomNumberGenerator {
+struct PuzzleRandom: RandomNumberGenerator {
     private var state: UInt64
 
     init(seed: UInt64) {

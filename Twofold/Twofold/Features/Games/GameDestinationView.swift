@@ -29,8 +29,9 @@ func gameDestinationView(gameType: GameType, sessionID: UUID, title: String? = n
     case .moreLikely: WhosMoreLikelyGameView(sessionID: sessionID, title: title)
     case .thisOrThat: ThisOrThatGameView(sessionID: sessionID, title: title)
     case .deepConversations: DeepConversationsGameView(sessionID: sessionID, title: title, topic: topic)
-    // Ignores `title` and `topic`: a sudoku has no deck to be named after and no topic, so the
-    // only honest title is the one the view sets itself.
+    // Both ignore `title` and `topic`: a generated puzzle has no deck to be named after and no
+    // topic, so the only honest title is the one the view sets itself.
     case .sudoku: SudokuGameView(sessionID: sessionID)
+    case .wordGuess: WordGuessGameView(sessionID: sessionID)
     }
 }

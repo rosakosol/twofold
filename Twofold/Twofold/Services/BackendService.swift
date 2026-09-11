@@ -20,6 +20,10 @@ enum BackendError: LocalizedError {
     case providerNotConfigured
     case requestFailed(message: String?)
     case accountDeleted
+    /// Today's word has already been played, and this couple's plan includes one a day. Not a
+    /// failure — the expected end of the free allowance, which the screen answers with an upgrade
+    /// rather than an error.
+    case wordGuessDailyLimit
 
     var errorDescription: String? {
         switch self {
@@ -29,6 +33,7 @@ enum BackendError: LocalizedError {
         case .providerNotConfigured: "This sign-in option isn't set up yet."
         case .requestFailed(let message): message ?? "Something went wrong. Please try again."
         case .accountDeleted: "This account has been deleted and can't be used to sign in. Create a new account to keep using Twofold."
+        case .wordGuessDailyLimit: "You've played today's word. A new one arrives tomorrow."
         }
     }
 }
@@ -3238,6 +3243,50 @@ enum BackendService {
         return start
     }
 
+    /// Starts, or picks back up, the couple's Word Guess board.
+    ///
+    /// `puzzleID` is the whole of the puzzle, as it is for sudoku: both partners run this uuid
+    /// through `WordGuessWords.answer(for:)` and land on the same word, which the server never
+    /// learns and never stores — it is readable by both partners wherever it is put.
+    ///
+    /// Throws `BackendError.wordGuessDailyLimit` when a Plus couple has already had today's word.
+    /// That is an ordinary outcome rather than a failure, and the picker says so.
+    struct WordGuessSessionStart: Decodable {
+        let sessionID: UUID
+        let puzzleID: UUID
+        let resumed: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case resumed
+            case sessionID = "session_id"
+            case puzzleID = "puzzle_id"
+        }
+    }
+
+    static func startWordGuessSession() async throws -> WordGuessSessionStart {
+        do {
+            // `returns table` comes back as a set, so this decodes as an array of one.
+            let rows: [WordGuessSessionStart] = try await supabase
+                .rpc("start_word_guess_session")
+                .execute()
+                .value
+            guard let start = rows.first else { throw BackendError.notAuthenticated }
+            Analytics.capture(Analytics.Event.sessionStart, properties: [
+                "game_type": GameType.wordGuess.rawValue,
+                "resumed": start.resumed
+            ])
+            return start
+        } catch {
+            // The RPC raises a bare `word_guess_daily_limit`, which arrives as a generic Postgres
+            // error. Recognising it here keeps the string in one place rather than having the two
+            // call sites match on message text.
+            if "\(error)".contains("word_guess_daily_limit") {
+                throw BackendError.wordGuessDailyLimit
+            }
+            throw error
+        }
+    }
+
     /// Every finished sudoku solve visible to this account, flattened for `SudokuStats`.
     ///
     /// Three queries whatever the history's size, rather than a session detail each: the existing
@@ -3467,9 +3516,10 @@ enum BackendService {
         let unique = Array(Set(contentIDs))
         guard !unique.isEmpty else { return [:] }
         switch gameType {
-        // Nothing to resolve. A sudoku's `content_id` is not a key into anything — it *is* the
+        // Nothing to resolve. These two `content_id`s are not keys into anything — they *are* the
         // puzzle, generated from those 128 bits on each device, so there is no row to go and get.
-        case .sudoku:
+        // For Word Guess that is also what keeps the answer off the server entirely.
+        case .sudoku, .wordGuess:
             return [:]
         case .triviaBattle:
             let rows: [TriviaQuestionRow] = try await supabase.from("trivia_questions").select().in("id", values: unique).execute().value

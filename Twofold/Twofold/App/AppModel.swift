@@ -719,7 +719,9 @@ final class AppModel {
         OfflineGameStateCache.clear()
         LocalGameSessionStore.clear()
         PendingGameResponseStore.clear()
-        SudokuProgressCache.clear()
+        // Every generated game's saved progress at once. One call rather than one per game, so a
+        // game added later cannot leave its half-finished puzzle behind for the next account.
+        PuzzleProgressCache.clearAll()
         // The catalogue itself, not just this account's view of it — the next person signing in
         // falls back to the bundled seed until their own refresh runs, rather than inheriting a
         // copy fetched under someone else's subscription tier.

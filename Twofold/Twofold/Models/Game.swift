@@ -95,10 +95,13 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
     case moreLikely = "more_likely"
     case thisOrThat = "this_or_that"
     case deepConversations = "deep_conversations"
-    /// The odd one out, deliberately. Every case above names a bank of prompts; this one names a
-    /// puzzle generated on device from the round's id, so it has no content table and
-    /// `resolveContent` has nothing to resolve for it.
+    /// The odd ones out, deliberately. Every case above names a bank of prompts; these two name a
+    /// puzzle generated on device from the round's id, so they have no content table and
+    /// `resolveContent` has nothing to resolve for them.
     case sudoku
+    /// Named for what it is rather than after the game it resembles — the mechanic is nobody's
+    /// property but the name is somebody's trademark.
+    case wordGuess = "word_guess"
 
     var id: String { rawValue }
 
@@ -109,6 +112,7 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
         case .thisOrThat: "This or That"
         case .deepConversations: "Deep Conversation"
         case .sudoku: "Sudoku"
+        case .wordGuess: "Word Guess"
         }
     }
 
@@ -121,6 +125,7 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
         case .thisOrThat: "THIS OR THAT"
         case .deepConversations: "DEEP CONVERSATION"
         case .sudoku: "SUDOKU"
+        case .wordGuess: "WORD GUESS"
         }
     }
 
@@ -131,6 +136,7 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
         case .thisOrThat: "Choose, reveal, and see where you match."
         case .deepConversations: "Talk through the things that matter, together."
         case .sudoku: "The same grid, on both your phones."
+        case .wordGuess: "One word, six guesses, both of you."
         }
     }
 
@@ -152,6 +158,8 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
         // an evening. This is the number shown on a card before anyone has chosen a difficulty,
         // so it is the middle of the range rather than a promise.
         case .sudoku: 20
+        // Six guesses is the whole game, and most boards end well before that.
+        case .wordGuess: 5
         }
     }
 
@@ -164,6 +172,7 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
         case .thisOrThat: "arrow.left.arrow.right.circle.fill"
         case .deepConversations: "bubble.left.and.bubble.right.fill"
         case .sudoku: "square.grid.3x3.fill"
+        case .wordGuess: "textformat.abc"
         }
     }
 
@@ -174,6 +183,7 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
         case .thisOrThat: [.purple, Theme.skyBlue]
         case .deepConversations: [Theme.leafGreen, Theme.skyBlue]
         case .sudoku: [.indigo, Theme.skyBlue]
+        case .wordGuess: [Theme.leafGreen, .yellow]
         }
     }
 

@@ -12,7 +12,7 @@
 //
 //    1. The same seed always gives the same puzzle. Not just today, but after a Swift upgrade and a
 //       year of refactors — otherwise two partners on different app versions solve different grids
-//       and compare nonsense. `SudokuRandom` carries most of that weight.
+//       and compare nonsense. `PuzzleRandom` carries most of that weight.
 //    2. Every puzzle has exactly one solution. A grid with two is not a hard sudoku, it is a broken
 //       one: a player fills it in correctly and is told they are wrong.
 //
@@ -65,19 +65,19 @@ enum SudokuGenerator {
 
     /// The puzzle for this identity. Same id, same difficulty, same grid — always.
     static func puzzle(for id: UUID, difficulty: SudokuDifficulty) -> SudokuPuzzle {
-        var random = SudokuRandom(puzzleID: id)
+        var random = PuzzleRandom(puzzleID: id)
         return generate(using: &random, difficulty: difficulty)
     }
 
     /// Seed-based entry point, for tests and for anywhere an identity is not a UUID.
     static func puzzle(seed: UInt64, difficulty: SudokuDifficulty) -> SudokuPuzzle {
-        var random = SudokuRandom(seed: seed)
+        var random = PuzzleRandom(seed: seed)
         return generate(using: &random, difficulty: difficulty)
     }
 
     // MARK: -
 
-    private static func generate(using random: inout SudokuRandom, difficulty: SudokuDifficulty) -> SudokuPuzzle {
+    private static func generate(using random: inout PuzzleRandom, difficulty: SudokuDifficulty) -> SudokuPuzzle {
         let solution = completedGrid(using: &random)
         let puzzle = carve(from: solution, using: &random, difficulty: difficulty)
         return SudokuPuzzle(puzzle: puzzle, solution: solution, difficulty: difficulty)
@@ -87,13 +87,13 @@ enum SudokuGenerator {
     ///
     /// The shuffle is the only source of variety — the search itself is plain backtracking — and it
     /// is what makes the seed decide the whole grid.
-    private static func completedGrid(using random: inout SudokuRandom) -> SudokuGrid {
+    private static func completedGrid(using random: inout PuzzleRandom) -> SudokuGrid {
         var grid = SudokuGrid()
         _ = fill(&grid, from: 0, using: &random)
         return grid
     }
 
-    private static func fill(_ grid: inout SudokuGrid, from index: Int, using random: inout SudokuRandom) -> Bool {
+    private static func fill(_ grid: inout SudokuGrid, from index: Int, using random: inout PuzzleRandom) -> Bool {
         guard index < 81 else { return true }
         guard grid[index] == 0 else { return fill(&grid, from: index + 1, using: &random) }
 
@@ -116,7 +116,7 @@ enum SudokuGenerator {
     /// remaining cell has been tried — whichever comes first, which is why the range has a ceiling.
     private static func carve(
         from solution: SudokuGrid,
-        using random: inout SudokuRandom,
+        using random: inout PuzzleRandom,
         difficulty: SudokuDifficulty
     ) -> SudokuGrid {
         var puzzle = solution
