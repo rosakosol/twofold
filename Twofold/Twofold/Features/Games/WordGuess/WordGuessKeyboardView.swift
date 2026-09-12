@@ -18,12 +18,8 @@ struct WordGuessKeyboardView: View {
     /// False once the board is finished, so the keys go quiet rather than accepting taps that do
     /// nothing.
     let isEnabled: Bool
-    /// Greyed until the row is full — there is nothing to submit before that, and a live Enter
-    /// invites a tap that can only be refused.
-    let canSubmit: Bool
     let onLetter: (Character) -> Void
     let onBackspace: () -> Void
-    let onSubmit: () -> Void
     /// How tall each key is. The caller decides, because only it knows how much screen is left
     /// after the board — a keyboard sized in isolation either leaves the bottom of a big phone
     /// empty or crowds a small one. `defaultKeyHeight` is what it was when this was fixed, and is
@@ -46,8 +42,13 @@ struct WordGuessKeyboardView: View {
     /// fatter than the letters directly above — which reads as a rendering bug rather than a
     /// layout.
     private static let unitsPerRow: CGFloat = 10
-    /// ENTER needs its word to fit, so it takes one and a half keys. ⌫ matches it, or the bottom
-    /// row is lopsided.
+    /// ⌫ takes one and a half keys, and an equal half-key sits opposite it so the bottom row stays
+    /// centred under the two above.
+    ///
+    /// ENTER used to live on the other side. A full row now submits itself the moment its fifth
+    /// letter lands (see `WordGuessGameStore.type`), so ENTER could never be anything but greyed
+    /// out — a key whose only state is "not available" is worse than no key, and removing it gives
+    /// the letters the room instead.
     private static let actionKeyUnits: CGFloat = 1.5
 
     var body: some View {
@@ -62,9 +63,9 @@ struct WordGuessKeyboardView: View {
                         // sit it centred under the row above, the way every keyboard of this kind
                         // is laid out.
                         if index == 1 { Spacer(minLength: 0).frame(width: (unit + Self.keySpacing) / 2) }
-                        if index == 2 {
-                            actionKey("ENTER", width: action, enabled: isEnabled && canSubmit, action: onSubmit)
-                        }
+                        // The bottom row is centred the same way the middle one is, now that ENTER
+                        // is gone and only backspace sits beside the letters.
+                        if index == 2 { Spacer(minLength: 0).frame(width: (action + Self.keySpacing) / 2) }
 
                         ForEach(Array(Self.rows[index]), id: \.self) { letter in
                             letterKey(letter, width: unit)
@@ -122,10 +123,8 @@ struct WordGuessKeyboardView: View {
     WordGuessKeyboardView(
         marks: WordGuessEvaluation.keyboardMarks(guesses: ["crane", "solid"], answer: "roast"),
         isEnabled: true,
-        canSubmit: true,
         onLetter: { _ in },
-        onBackspace: {},
-        onSubmit: {}
+        onBackspace: {}
     )
     .padding()
     .background(Theme.backgroundGradient)

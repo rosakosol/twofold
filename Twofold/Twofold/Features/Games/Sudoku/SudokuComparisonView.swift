@@ -15,6 +15,9 @@
 import SwiftUI
 
 struct SudokuComparisonView: View {
+    // Both faces, so a result screen says who at a glance rather than only in words.
+    @Environment(AppModel.self) private var appModel
+
     let comparison: SudokuComparison
 
     var body: some View {
@@ -30,6 +33,7 @@ struct SudokuComparisonView: View {
 
                 VStack(spacing: Theme.Spacing.xs) {
                     timeRow(
+                        person: appModel.currentUser,
                         name: "You",
                         elapsed: comparison.myElapsed,
                         aids: comparison.myAids,
@@ -37,6 +41,7 @@ struct SudokuComparisonView: View {
                     )
                     Divider().opacity(0.5)
                     timeRow(
+                        person: appModel.partner,
                         name: comparison.partnerName,
                         elapsed: comparison.partnerElapsed,
                         aids: comparison.partnerAids,
@@ -67,6 +72,7 @@ struct SudokuComparisonView: View {
     }
 
     private func timeRow(
+        person: Person,
         name: String,
         elapsed: TimeInterval,
         aids: SudokuSolveSummary?,
@@ -74,6 +80,7 @@ struct SudokuComparisonView: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
             HStack {
+                AvatarView(person: person, size: 32)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(name)
                         // Weight, not just colour, carries "this one was quicker" — the green below

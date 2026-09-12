@@ -13,6 +13,7 @@ import SwiftUI
 
 struct WordGuessGameView: View {
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.dismiss) private var dismiss
     @Environment(AppModel.self) private var appModel
     @State private var store: WordGuessGameStore
     @State private var isSendingReminder = false
@@ -48,6 +49,20 @@ struct WordGuessGameView: View {
         }
         .navigationTitle(GameType.wordGuess.displayName)
         .navigationBarTitleDisplayMode(.inline)
+        // Its own back button, not the system one.
+        //
+        // A notification opens a game through `RootView`'s `fullScreenCover`, which wraps it in a
+        // fresh `NavigationStack` — and at the root of a fresh stack there is nothing to pop, so
+        // the system back button is simply absent. That left every one of these screens with no
+        // way out at all: the only exit was force-quitting the app. `dismiss()` is right in both
+        // contexts, popping when pushed and closing the cover when it is the root, which is what
+        // the four deck games have always done.
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                GameBackButton(action: { dismiss() })
+            }
+        }
         .task(id: store.sessionID) {
             await store.load()
             store.startClock()
@@ -142,7 +157,22 @@ struct WordGuessGameView: View {
             // (a smaller tap target than before would be a regression, not a layout) and never so
             // tall they turn into buttons. 8.5% of the usable height lands near 46 on an SE and
             // near 60 on a Pro Max.
-            let keyHeight = min(64, max(WordGuessKeyboardView.defaultKeyHeight, usable * 0.085))
+            // The board is width-limited on any ordinary phone — square tiles, five across — so it
+            // cannot use height beyond `boardNeeds` however much it is given. Everything past that
+            // belongs to the keyboard rather than sitting as dead space between the two.
+            //
+            // The previous rule handed the keyboard a flat 8.5% of the screen and left the
+            // remainder unclaimed, which is why the keys still read as small next to 72pt tiles.
+            let widthLimitedTile = WordGuessBoardView.tileSide(forWidth: proxy.size.width - Theme.Spacing.sm * 2)
+            let boardNeeds = WordGuessBoardView.boardHeight(forTileSide: widthLimitedTile)
+            let keyboardBudget = max(0, usable - boardNeeds)
+            // Still floored at the height the keys had when this was fixed, so a small phone gives
+            // up keyboard before it gives up tap target. Capped so a tall phone does not turn the
+            // bottom third of the screen into three rows of buttons.
+            let keyHeight = min(
+                76,
+                max(WordGuessKeyboardView.defaultKeyHeight, (keyboardBudget - Theme.Spacing.xs * 2) / 3)
+            )
 
             // The tile is the smaller of what the width allows and what the height left over from
             // the keyboard allows, so the board always fits both ways and stays square either way.
@@ -159,7 +189,7 @@ struct WordGuessGameView: View {
                     draft: store.draft,
                     isDraftRejected: store.rejection != nil,
                     rejectionNudge: store.rejectionNudge,
-                    tileSide: side
+                    tileSide: min(side, widthLimitedTile)
                 )
                 // Takes whatever the keyboard doesn't. The board draws at its own measured size
                 // and centres inside this, so spare height reads as margin rather than stretching
@@ -171,10 +201,8 @@ struct WordGuessGameView: View {
                 WordGuessKeyboardView(
                     marks: play.keyboardMarks,
                     isEnabled: store.canType,
-                    canSubmit: store.draft.count == WordGuessWords.length,
                     onLetter: { store.type($0) },
                     onBackspace: { store.backspace() },
-                    onSubmit: { store.submitGuess() },
                     keyHeight: keyHeight
                 )
                 .padding(.horizontal, Theme.Spacing.sm)

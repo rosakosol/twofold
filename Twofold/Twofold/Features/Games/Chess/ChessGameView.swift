@@ -44,6 +44,20 @@ struct ChessGameView: View {
         }
         .navigationTitle(GameType.chess.displayName)
         .navigationBarTitleDisplayMode(.inline)
+        // Its own back button, not the system one.
+        //
+        // A notification opens a game through `RootView`'s `fullScreenCover`, which wraps it in a
+        // fresh `NavigationStack` — and at the root of a fresh stack there is nothing to pop, so
+        // the system back button is simply absent. That left every one of these screens with no
+        // way out at all: the only exit was force-quitting the app. `dismiss()` is right in both
+        // contexts, popping when pushed and closing the cover when it is the root, which is what
+        // the four deck games have always done.
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                GameBackButton(action: { dismiss() })
+            }
+        }
         .toolbar {
             if store.phase == .ready && !store.isFinished {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -142,6 +156,10 @@ struct ChessGameView: View {
                     .fill(store.sideToMove == .white ? ChessBoardView.whitePiece : ChessBoardView.blackPiece)
                     .overlay(Circle().strokeBorder(Theme.subtleInk.opacity(0.5), lineWidth: 1))
                     .frame(width: 14, height: 14)
+                // Whose move, as a face rather than only a name. Two people who play each other
+                // repeatedly read the avatar faster than the sentence beside it, and "Your move"
+                // never carried a name to read in the first place.
+                AvatarView(person: store.isMyTurn ? appModel.currentUser : appModel.partner, size: 26)
                 Text(store.isMyTurn ? "Your move" : "\(appModel.partner.name)'s move")
                     .font(.headline)
                     .foregroundStyle(Theme.ink)

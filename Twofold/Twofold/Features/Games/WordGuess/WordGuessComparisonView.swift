@@ -14,6 +14,9 @@
 import SwiftUI
 
 struct WordGuessComparisonView: View {
+    // Both faces, so a result screen says who at a glance rather than only in words.
+    @Environment(AppModel.self) private var appModel
+
     let comparison: WordGuessComparison
 
     var body: some View {
@@ -29,9 +32,10 @@ struct WordGuessComparisonView: View {
                     .multilineTextAlignment(.center)
 
                 VStack(spacing: Theme.Spacing.xs) {
-                    resultRow(name: "You", summary: comparison.mine, isLeader: comparison.outcome == .me)
+                    resultRow(person: appModel.currentUser, name: "You", summary: comparison.mine, isLeader: comparison.outcome == .me)
                     Divider().opacity(0.5)
                     resultRow(
+                        person: appModel.partner,
                         name: comparison.partnerName,
                         summary: comparison.theirs,
                         isLeader: comparison.outcome == .partner
@@ -67,9 +71,10 @@ struct WordGuessComparisonView: View {
         }
     }
 
-    private func resultRow(name: String, summary: WordGuessSummary, isLeader: Bool) -> some View {
+    private func resultRow(person: Person, name: String, summary: WordGuessSummary, isLeader: Bool) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
             HStack {
+                AvatarView(person: person, size: 32)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(name)
                         // Weight as well as colour, so "who did better" is not carried by hue

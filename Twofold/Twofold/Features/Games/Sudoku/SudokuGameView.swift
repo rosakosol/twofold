@@ -70,6 +70,20 @@ struct SudokuGameView: View {
         }
         .navigationTitle("Sudoku")
         .navigationBarTitleDisplayMode(.inline)
+        // Its own back button, not the system one.
+        //
+        // A notification opens a game through `RootView`'s `fullScreenCover`, which wraps it in a
+        // fresh `NavigationStack` — and at the root of a fresh stack there is nothing to pop, so
+        // the system back button is simply absent. That left every one of these screens with no
+        // way out at all: the only exit was force-quitting the app. `dismiss()` is right in both
+        // contexts, popping when pushed and closing the cover when it is the root, which is what
+        // the four deck games have always done.
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                GameBackButton(action: { dismiss() })
+            }
+        }
         .toolbar {
             // Only once there are two times to show. A solve with nobody to compare against is
             // the "waiting for them" card, and a card of one time is not the thing this shares.

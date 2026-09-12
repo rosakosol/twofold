@@ -11,6 +11,9 @@
 import SwiftUI
 
 struct WordSearchComparisonView: View {
+    // Both faces, so a result screen says who at a glance rather than only in words.
+    @Environment(AppModel.self) private var appModel
+
     let comparison: WordSearchComparison
 
     var body: some View {
@@ -26,12 +29,14 @@ struct WordSearchComparisonView: View {
 
                 VStack(spacing: Theme.Spacing.xs) {
                     timeRow(
+                        person: appModel.currentUser,
                         name: "You",
                         elapsed: comparison.myElapsed,
                         isFaster: comparison.outcome == .me
                     )
                     Divider().opacity(0.5)
                     timeRow(
+                        person: appModel.partner,
                         name: comparison.partnerName,
                         elapsed: comparison.partnerElapsed,
                         isFaster: comparison.outcome == .partner
@@ -49,9 +54,10 @@ struct WordSearchComparisonView: View {
         }
     }
 
-    private func timeRow(name: String, elapsed: TimeInterval, isFaster: Bool) -> some View {
+    private func timeRow(person: Person, name: String, elapsed: TimeInterval, isFaster: Bool) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
             HStack {
+                AvatarView(person: person, size: 32)
                 Text(name)
                     // Weight as well as colour, so the quicker of the two is not carried by hue
                     // alone — and the verdict underneath says it in words regardless.

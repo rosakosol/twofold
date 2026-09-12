@@ -128,6 +128,19 @@ final class WordGuessGameStore {
         guard canType, draft.count < WordGuessWords.length else { return }
         rejection = nil
         draft.append(Character(letter.uppercased()))
+
+        // Five letters is a guess. There was nothing else the row could do at this point — it is
+        // full, so the only inputs left were ENTER and backspace — and asking for a second key to
+        // confirm the word just typed is a step that existed because the keyboard had a button
+        // spare, not because the game needed it.
+        //
+        // A word that is not in the list still costs nothing: `submitGuess` refuses it, leaves the
+        // letters on the board and shakes the row, so backspacing to fix a typo works exactly as
+        // it did. Only a *valid* word commits, which is the one case where pressing ENTER would
+        // have been a formality.
+        if draft.count == WordGuessWords.length {
+            submitGuess()
+        }
     }
 
     func backspace() {

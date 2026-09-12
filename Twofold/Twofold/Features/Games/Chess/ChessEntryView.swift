@@ -14,6 +14,8 @@ import SwiftUI
 struct ChessEntryView: View {
     @Environment(AppModel.self) private var appModel
 
+    @Environment(\.dismiss) private var dismiss
+
     @State private var isStarting = false
     @State private var route: StartedChess?
     @State private var showingPaywall = false
@@ -69,6 +71,15 @@ struct ChessEntryView: View {
         // Reloaded every time the screen appears: coming back after a game is exactly when the
         // record has changed.
         .task { records = await BackendService.fetchGameRecords() }
+        // Leaving the board goes back to the games list, not to here.
+        //
+        // This screen's whole job is starting or resuming a game. Once one is running it has
+        // nothing left to offer, so landing on it after backing out of a live board means being
+        // shown the door you just came through and pressing back a second time. `route` returning
+        // to nil is the board closing, which is the moment to get out of the way.
+        .onChange(of: route) { previous, current in
+            if previous != nil, current == nil { dismiss() }
+        }
         .navigationDestination(item: $route) { started in
             ChessGameView(sessionID: started.id)
         }
