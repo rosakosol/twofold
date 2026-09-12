@@ -80,7 +80,7 @@ const body = [
     `Twofold is an app for couples in long-distance relationships. This policy explains what we collect, why we collect it, who can see it, and what control you have over it. It covers the Twofold iOS app and twofoldapp.com.au.`
   ),
   p(
-    span(`Twofold is operated by Orange Finch, [TO CONFIRM: registered address]. If anything here is unclear, email `),
+    span(`Twofold is operated by Orange Finch. If anything here is unclear, email `),
     mailto(),
     span(` - we'd rather explain it than have you guess.`)
   ),
@@ -323,7 +323,7 @@ const body = [
   bullet(`Waitlist email addresses are kept until the Android app launches, or until you ask us to remove yours.`),
   bullet(`Feedback board posts and comments stay up for as long as the board does, since they're part of a public discussion.`),
   bullet(`Backups: [TO CONFIRM: backup retention window]. Deleted content persists in backups for that period.`),
-  bullet(`Analytics: [TO CONFIRM: PostHog retention period].`),
+  bullet(`Analytics events are kept for 30 days, and then deleted.`),
   bullet(`Support email is kept for as long as we need it to handle your request and for our own records.`),
 
   // -------------------------------------------------------------- security
@@ -345,7 +345,7 @@ const body = [
   // ------------------------------------------------------------- transfers
   h2('Where your data is held'),
   ptext(
-    `Twofold is operated from Australia. Our analytics provider, PostHog, stores its data in the United States. Our other providers store and process data in [TO CONFIRM: hosting regions]. Where data leaves your country, we rely on the transfer safeguards those providers have in place, such as Standard Contractual Clauses for transfers out of the EEA and the UK.`
+    `Twofold is operated from Australia, and your account and your content are stored here: your profile, trips, memories, photos, flights, drawings and game answers all live in our provider's Sydney region. Our analytics provider holds its data in the United States, and the providers that handle payments, flight data and reading a shared flight email are United States based. [TO CONFIRM: regions for website hosting and email]. Where data leaves your country, we rely on the transfer safeguards those providers have in place, such as Standard Contractual Clauses for transfers out of the EEA and the UK.`
   ),
 
   // ---------------------------------------------------------------- rights
@@ -377,7 +377,7 @@ const body = [
   // -------------------------------------------------------------- children
   h2("Children's privacy"),
   ptext(
-    `Twofold isn't intended for children. You must be at least [TO CONFIRM: minimum age] to create an account. If we learn that we've collected information from someone younger, we'll delete it. Parents and guardians can contact us at the address below.`
+    `Twofold isn't intended for children. You must be at least 16 to create an account. If we learn that we've collected information from someone younger, we'll delete it. Parents and guardians can contact us at the address below.`
   ),
 
   // --------------------------------------------------------------- changes

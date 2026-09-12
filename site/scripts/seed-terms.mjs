@@ -55,7 +55,7 @@ const body = [
     `These terms are the agreement between you and Twofold. They cover the Twofold iOS app, twofoldapp.com.au, and everything you can do with either. By creating an account or using the app or the site, you're agreeing to them.`
   ),
   p(
-    span(`Twofold is operated by [TO CONFIRM: legal entity name and registered address]. `),
+    span(`Twofold is operated by Orange Finch. `),
     span(`They work alongside our `),
     link('Privacy Policy', 'https://twofoldapp.com.au/privacy'),
     span(`, which explains what we do with your information.`)
@@ -64,7 +64,7 @@ const body = [
   // ------------------------------------------------------------- eligibility
   h2('Who can use Twofold'),
   ptext(
-    `You need to be at least [TO CONFIRM: minimum age] to use Twofold, and old enough to enter a binding agreement where you live. Twofold is built for two people in a relationship - it isn't a social network, a dating app, or a way to monitor somebody.`
+    `You need to be at least 16 to use Twofold, and old enough to enter a binding agreement where you live. Twofold is built for two people in a relationship - it isn't a social network, a dating app, or a way to monitor somebody.`
   ),
   ptext(`You can't use Twofold if we've previously terminated your account.`),
 
@@ -286,7 +286,7 @@ const body = [
   // ---------------------------------------------------------- governing law
   h2('Governing law'),
   ptext(
-    `These terms are governed by the laws of [TO CONFIRM: Australian state or territory], Australia, and you and we submit to the non-exclusive jurisdiction of the courts there. If you're a consumer somewhere else, you keep the benefit of any mandatory protections your local law gives you.`
+    `These terms are governed by the laws of Victoria, Australia, and you and we submit to the non-exclusive jurisdiction of the courts there. If you're a consumer somewhere else, you keep the benefit of any mandatory protections your local law gives you.`
   ),
   ptext(
     `If there's a problem, contact us first - we'd much rather sort it out directly than have either of us go anywhere near a court.`
