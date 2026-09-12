@@ -229,12 +229,33 @@ struct MemoriesMapView: View {
         }
     }
 
+    /// The gap between one pin appearing and the next, for a set of `count` pins.
+    ///
+    /// The beat was a flat 0.12s per pin, which makes time-to-finished a straight multiple of how
+    /// many places a couple has been: ten places took 1.2s, forty took **4.8s** — and a pin sits
+    /// at `opacity(0)` until its delay elapses, so that is 4.8s of a half-empty map no matter how
+    /// fast the data arrived. The nicety scaled into a penalty for exactly the couples with the
+    /// most to show.
+    ///
+    /// Capping the whole sequence instead keeps the effect and bounds the wait. Ten or fewer pins
+    /// are unchanged — they already finish inside the window, so the beat stays exactly 0.12s and
+    /// the animation looks as it always did; only larger sets compress.
+    static func pinRevealStagger(count: Int) -> Double {
+        guard count > 1 else { return 0 }
+        return min(0.12, pinRevealWindow / Double(count - 1))
+    }
+
+    /// The longest the whole reveal may take, last pin included.
+    static let pinRevealWindow: Double = 1.08
+
     /// Same staggered-reveal timing `MapSellView`'s onboarding mock uses — each pin scales/fades
     /// in a beat after the last, rather than the whole set popping onto the map at once.
     private func animatePins() {
         shownCityIDs.removeAll()
-        for (index, city) in appModel.citiesWithMemories.enumerated() {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.65).delay(0.15 + Double(index) * 0.12)) {
+        let cities = appModel.citiesWithMemories
+        let stagger = Self.pinRevealStagger(count: cities.count)
+        for (index, city) in cities.enumerated() {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.65).delay(0.15 + Double(index) * stagger)) {
                 _ = shownCityIDs.insert(city.id)
             }
         }
@@ -246,8 +267,9 @@ struct MemoriesMapView: View {
     private func revealNewPins(_ cityIDs: [UUID]) {
         let newIDs = cityIDs.filter { !shownCityIDs.contains($0) }
         guard !newIDs.isEmpty else { return }
+        let stagger = Self.pinRevealStagger(count: newIDs.count)
         for (index, id) in newIDs.enumerated() {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.65).delay(Double(index) * 0.12)) {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.65).delay(Double(index) * stagger)) {
                 _ = shownCityIDs.insert(id)
             }
         }

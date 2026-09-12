@@ -1139,10 +1139,16 @@ final class AppModel {
         #endif
         // The only "…IfNeeded" that stays: its guard is `hasCouple`, not a staleness check, so
         // it already re-fetches every time it's called.
+        //
+        // For a couple it is also the *only* one of the four needed. `fetchCoupleState` already
+        // returns trips, flights and memories — so pairing it with `refreshTrips`/`refreshFlights`
+        // /`refreshMemories` fetched all three twice per pull, and signed every photo the couple
+        // has ever added a second time along with them. Solo, it returns early on `hasCouple`,
+        // and the individual refreshes are the only thing that fetches anything at all.
         async let coupleState: Void = refreshCoupleStateIfNeeded()
-        async let trips: Void = refreshTrips()
-        async let flights: Void = refreshFlights()
-        async let memories: Void = refreshMemories()
+        async let trips: Void = hasCouple ? () : refreshTrips()
+        async let flights: Void = hasCouple ? () : refreshFlights()
+        async let memories: Void = hasCouple ? () : refreshMemories()
         async let decks: Void = refreshGameDecks()
         async let streak: Void = refreshDailyStreak()
         async let pads: Void = loadDrawingPads()
@@ -1348,6 +1354,12 @@ final class AppModel {
         trips = state.trips
         memories = state.memories
         flights = state.flights
+        // These three assignments replace the arrays wholesale, so an optimistic edit made while
+        // the fetch was in the air is overwritten by the server's older copy. `refreshTrips`,
+        // `refreshFlights` and `refreshMemories` have always reapplied here; this one never did,
+        // and `refreshAll` only got away with it because it called those three afterwards and
+        // they reapplied on its behalf. It no longer does — see `refreshAll`.
+        reapplyInFlightMutations()
         Task { [weak self] in await self?.resolveMissingAirportTimezones() }
         partnerConnected = true
         hasCouple = true

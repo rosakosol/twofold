@@ -1731,15 +1731,51 @@ enum BackendService {
 
         guard let coupleRow = coupleRows.first else { return nil }
 
-        let profileRows: [ProfileRow] = try await supabase
+        // Four independent reads, started together rather than one after another.
+        //
+        // Each of them needs nothing but `coupleRow`, and they were simply `await`ed in source
+        // order — so every launch paid four sequential round trips where it owed one. On a slow
+        // connection that is most of a second before the app has anything to draw, and this is
+        // the call that gates first paint for the whole couple.
+        //
+        // `archivedCoupleSummary`, sixty lines up, already fires its couple-scoped selects with
+        // `async let`. This is that pattern applied to the path that actually matters.
+        async let profileRowsTask: [ProfileRow] = supabase
             .from("profiles")
             .select()
             .in("id", values: [coupleRow.partnerAId, coupleRow.partnerBId])
             .execute()
             .value
 
+        async let tripRowsTask: [TripRow] = supabase
+            .from("trips")
+            .select()
+            .eq("couple_id", value: coupleRow.id)
+            .execute()
+            .value
+
+        // Flights are couple-scoped directly (not joined through trips) — a flight can exist
+        // with no trip link at all.
+        async let flightRowsTask: [FlightRow] = supabase
+            .from("flights")
+            .select()
+            .eq("couple_id", value: coupleRow.id)
+            .execute()
+            .value
+
+        async let memoryRowsTask: [MemoryRow] = supabase
+            .from("memories")
+            .select()
+            .eq("couple_id", value: coupleRow.id)
+            .execute()
+            .value
+
+        let profileRows = try await profileRowsTask
+
         guard let partnerAProfile = profileRows.first(where: { $0.id == coupleRow.partnerAId }),
               let partnerBProfile = profileRows.first(where: { $0.id == coupleRow.partnerBId }) else {
+            // The three reads still in flight are cancelled and awaited by `async let`'s own
+            // scope exit, so returning here strands nothing.
             return nil
         }
 
@@ -1749,69 +1785,60 @@ enum BackendService {
         let meProfile = partnerAProfile.id == userID ? partnerAProfile : partnerBProfile
         let partnerProfile = partnerAProfile.id == userID ? partnerBProfile : partnerAProfile
 
-        let tripRows: [TripRow] = try await supabase
-            .from("trips")
-            .select()
-            .eq("couple_id", value: coupleRow.id)
-            .execute()
-            .value
+        let tripRows = try await tripRowsTask
+        let flightRows = try await flightRowsTask
+        let memoryRows = try await memoryRowsTask
 
-        // Flights are couple-scoped directly (not joined through trips) — a flight can exist
-        // with no trip link at all.
-        let flightRows: [FlightRow] = try await supabase
-            .from("flights")
-            .select()
-            .eq("couple_id", value: coupleRow.id)
-            .execute()
-            .value
-
-        let memoryRows: [MemoryRow] = try await supabase
-            .from("memories")
-            .select()
-            .eq("couple_id", value: coupleRow.id)
-            .execute()
-            .value
-
-        let memoryPhotoRows: [MemoryPhotoRow]
-        if memoryRows.isEmpty {
-            memoryPhotoRows = []
-        } else {
-            memoryPhotoRows = try await supabase
+        // Second wave, also concurrent: the photo rows need the memory ids, and the places need
+        // ids gathered from the profiles, the trips and the memories — but neither needs the
+        // other, so they overlap too.
+        async let memoryPhotoRowsTask: [MemoryPhotoRow] = {
+            guard !memoryRows.isEmpty else { return [] }
+            return try await supabase
                 .from("memory_photos")
                 .select()
                 .in("memory_id", values: memoryRows.map(\.id))
                 .order("position")
                 .execute()
                 .value
-        }
+        }()
 
         var placeIDs = Set([partnerAProfile.homePlaceId, partnerBProfile.homePlaceId].compactMap { $0 })
         for row in tripRows { placeIDs.insert(row.originId); placeIDs.insert(row.destinationId) }
         for row in memoryRows { if let placeId = row.placeId { placeIDs.insert(placeId) } }
-        let places = try await fetchPlaces(ids: Array(placeIDs))
+        async let placesTask = fetchPlaces(ids: Array(placeIDs))
 
-        func person(for profile: ProfileRow, nameOverride: String?, avatarOverridePath: String?, paletteIndex: Int) async -> Person {
-            let avatarPath = avatarOverridePath ?? profile.avatarPath
+        let memoryPhotoRows = try await memoryPhotoRowsTask
+        let places = try await placesTask
+
+        // Both avatars signed together. `person(for:)` used to `await` the signing inside itself,
+        // and the two calls building the couple below are arguments to the same initialiser — so
+        // Swift evaluated them in order and my avatar's round trip finished before my partner's
+        // began. Two independent files, two sequential requests, for no reason.
+        async let myAvatarURL = avatarSignedURLOrNil(meProfile.avatarPath)
+        async let partnerAvatarURL = avatarSignedURLOrNil(meProfile.partnerAvatarPath ?? partnerProfile.avatarPath)
+
+        func person(for profile: ProfileRow, nameOverride: String?, avatarURL: URL?, paletteIndex: Int) -> Person {
             let name = (nameOverride?.isEmpty == false) ? nameOverride! : (profile.firstName.isEmpty ? "Partner" : profile.firstName)
             return Person(
                 id: profile.id,
                 name: name,
                 homeCity: profile.homePlaceId.flatMap { places[$0] },
                 accentColor: Person.palette[paletteIndex],
-                avatarURL: await avatarSignedURLOrNil(avatarPath)
+                avatarURL: avatarURL
             )
         }
 
         let couple = Couple(
             id: coupleRow.id,
             // Nobody overrides how I see myself — my own name and avatar are always my own.
-            partnerA: await person(for: meProfile, nameOverride: nil, avatarOverridePath: nil, paletteIndex: 1),
+            partnerA: person(for: meProfile, nameOverride: nil, avatarURL: await myAvatarURL, paletteIndex: 1),
             // My partner, as *I* personally see them: a nickname if I've set one (independent
             // of whatever nickname, if any, they've set for me — each side's `partner_name`
             // lives on their own profile row), otherwise their real first name. Same idea for
             // the avatar — my own custom photo of them if I've set one, otherwise their own.
             // Home city is never overridden — that one's always shared/real once paired.
-            partnerB: await person(for: partnerProfile, nameOverride: meProfile.partnerName, avatarOverridePath: meProfile.partnerAvatarPath, paletteIndex: 0),
+            partnerB: person(for: partnerProfile, nameOverride: meProfile.partnerName, avatarURL: await partnerAvatarURL, paletteIndex: 0),
             // Couple-level once paired (`redeem_invite_code` seeds it from whichever partner set
             // one during onboarding) — `.now` is only a last-resort fallback for the rare case
             // neither partner ever set one.
@@ -1845,27 +1872,20 @@ enum BackendService {
 
         let photoRowsByMemory = Dictionary(grouping: memoryPhotoRows, by: \.memoryId)
 
-        // Every photo across every memory is signed concurrently — this used to be one
-        // sequential signed-URL round-trip per photo (each with its own retry/backoff on
-        // failure), so the whole couple-state load scaled linearly with total photo count. A
-        // TaskGroup fetches all of them in parallel, so N photos cost roughly as long as the
-        // slowest single fetch rather than the sum of all of them.
-        var signedURLsByPhotoID: [UUID: URL] = [:]
-        await withTaskGroup(of: (UUID, URL?).self) { group in
-            for photoRow in memoryPhotoRows {
-                group.addTask { (photoRow.id, await memoryPhotoSignedURLWithRetry(path: photoRow.photoPath)) }
-            }
-            for await (photoID, url) in group {
-                if let url { signedURLsByPhotoID[photoID] = url }
-            }
-        }
+        // One request for every photo in the couple's history — see `memoryPhotoSignedURLs`.
+        //
+        // Concurrency was already fixed here once, from N sequential round trips to N parallel
+        // ones. Parallel N is still N: a couple with 200 memories averaging three photos opened
+        // 600 connections, which queue against the client's connection limit and land on the
+        // server all at once, and first paint waited for the slowest of them.
+        let signedURLsByPath = await memoryPhotoSignedURLs(paths: memoryPhotoRows.map(\.photoPath))
 
         var memories: [Memory] = []
         for row in memoryRows {
             let place = row.placeId.flatMap { places[$0] }
             let photoRows = (photoRowsByMemory[row.id] ?? []).sorted { $0.position < $1.position }
             let photos = photoRows.compactMap { photoRow -> MemoryPhoto? in
-                guard let url = signedURLsByPhotoID[photoRow.id] else { return nil }
+                guard let url = signedURLsByPath[photoRow.photoPath] else { return nil }
                 return MemoryPhoto(id: photoRow.id, path: photoRow.photoPath, url: url)
             }
             memories.append(
@@ -2843,6 +2863,58 @@ enum BackendService {
     /// callers' `try?` silently dropped the photo forever — the underlying file and DB row
     /// were both fine, but the photo just never showed up, looking exactly like "the image
     /// wasn't saved" even though it was. Retries a few times before actually giving up.
+    /// Signs a whole set of photo paths in one request, keyed by path.
+    ///
+    /// `createSignedURLs` is a single POST to `object/sign/{bucket}`, where the previous approach
+    /// was one `createSignedURL` per photo. Those were already concurrent, but concurrent N is
+    /// still N: a couple with 200 memories averaging three photos opened 600 connections, which
+    /// queue against the client's connection limit and arrive at the server together — and
+    /// `fetchCoupleState` cannot publish anything until the slowest of them returns.
+    ///
+    /// Keyed by path rather than by photo id because that is what the API returns, and because
+    /// two rows pointing at the same file should not be signed twice.
+    ///
+    /// Anything the batch could not sign falls back to the per-path retry, which is exactly what
+    /// every photo used to do. So a partial failure — or a batch that fails outright — costs the
+    /// affected photos a slower path rather than costing them their URL. That matters: a photo
+    /// with no URL is dropped from the model entirely by the callers below.
+    static func memoryPhotoSignedURLs(paths: [String]) async -> [String: URL] {
+        let unique = Array(Set(paths))
+        guard !unique.isEmpty else { return [:] }
+
+        var signed: [String: URL] = [:]
+
+        if let results = try? await supabase.storage
+            .from("memory-photos")
+            .createSignedURLs(paths: unique, expiresIn: 3600) {
+            for result in results {
+                guard let url = result.signedURL else { continue }
+                // Matched by name, not by position — the API makes no ordering promise. The
+                // returned path can also carry a leading slash or a bucket prefix, so an exact
+                // hit is tried first and a suffix match second.
+                let returned = result.path.hasPrefix("/") ? String(result.path.dropFirst()) : result.path
+                if unique.contains(returned) {
+                    signed[returned] = url
+                } else if let match = unique.first(where: { returned.hasSuffix($0) }) {
+                    signed[match] = url
+                }
+            }
+        }
+
+        let missing = unique.filter { signed[$0] == nil }
+        guard !missing.isEmpty else { return signed }
+
+        await withTaskGroup(of: (String, URL?).self) { group in
+            for path in missing {
+                group.addTask { (path, await memoryPhotoSignedURLWithRetry(path: path)) }
+            }
+            for await (path, url) in group {
+                if let url { signed[path] = url }
+            }
+        }
+        return signed
+    }
+
     static func memoryPhotoSignedURLWithRetry(path: String, attempts: Int = 3) async -> URL? {
         for attempt in 1...attempts {
             if let url = try? await memoryPhotoSignedURL(path: path) {
@@ -2885,21 +2957,16 @@ enum BackendService {
         let places = try await fetchPlaces(ids: placeIDs)
 
         let photoRowsByMemory = Dictionary(grouping: memoryPhotoRows, by: \.memoryId)
-        var signedURLsByPhotoID: [UUID: URL] = [:]
-        await withTaskGroup(of: (UUID, URL?).self) { group in
-            for photoRow in memoryPhotoRows {
-                group.addTask { (photoRow.id, await memoryPhotoSignedURLWithRetry(path: photoRow.photoPath)) }
-            }
-            for await (photoID, url) in group {
-                if let url { signedURLsByPhotoID[photoID] = url }
-            }
-        }
+        // One request for the whole set — see `memoryPhotoSignedURLs`. This path runs on every
+        // foreground refresh, so it was re-signing every photo the couple has ever added each
+        // time the app came back.
+        let signedURLsByPath = await memoryPhotoSignedURLs(paths: memoryPhotoRows.map(\.photoPath))
 
         return memoryRows.map { row in
             let place = row.placeId.flatMap { places[$0] }
             let photoRows = (photoRowsByMemory[row.id] ?? []).sorted { $0.position < $1.position }
             let photos = photoRows.compactMap { photoRow -> MemoryPhoto? in
-                guard let url = signedURLsByPhotoID[photoRow.id] else { return nil }
+                guard let url = signedURLsByPath[photoRow.photoPath] else { return nil }
                 return MemoryPhoto(id: photoRow.id, path: photoRow.photoPath, url: url)
             }
             return Memory(
@@ -2984,17 +3051,9 @@ enum BackendService {
             .execute()
             .value
 
-        var signedURLsByPhotoID: [UUID: URL] = [:]
-        await withTaskGroup(of: (UUID, URL?).self) { group in
-            for row in rows {
-                group.addTask { (row.id, await memoryPhotoSignedURLWithRetry(path: row.photoPath)) }
-            }
-            for await (photoID, url) in group {
-                if let url { signedURLsByPhotoID[photoID] = url }
-            }
-        }
+        let signedURLsByPath = await memoryPhotoSignedURLs(paths: rows.map(\.photoPath))
         return rows.sorted(by: { $0.position < $1.position }).compactMap { row in
-            signedURLsByPhotoID[row.id].map { MemoryPhoto(id: row.id, path: row.photoPath, url: $0) }
+            signedURLsByPath[row.photoPath].map { MemoryPhoto(id: row.id, path: row.photoPath, url: $0) }
         }
     }
 
