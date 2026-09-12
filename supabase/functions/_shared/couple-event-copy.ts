@@ -14,7 +14,8 @@ export type EventType =
   | "game_started"
   | "game_results_ready"
   | "game_partner_finished"
-  | "game_reminder";
+  | "game_reminder"
+  | "game_turn";
 
 /// What a session was, for the two events whose copy depends on it. A sudoku is a race against a
 /// clock and a daily question is the couple's streak; "see how you matched" is true of neither.
@@ -89,6 +90,25 @@ export function buildMessage(eventType: EventType, actorName: string, game: Game
       };
     case "game_reminder":
       return { title: "Reminder", body: detail ? `${actorName} wants you to complete "${detail}".` : `${actorName} sent you a reminder to complete your game.` };
+    case "game_turn":
+      // Names the game, because these two are the only ones that can be waiting on you and a
+      // couple may well have both going at once — "it's your turn" alone would not say where.
+      return {
+        title: "Your move",
+        body: turnGameName(gameType)
+          ? `${actorName} moved in ${turnGameName(gameType)} - it's your turn.`
+          : `${actorName} moved - it's your turn.`,
+      };
+  }
+}
+
+/// The turn-based games, by name. Returns null for anything else: this event should only ever
+/// carry `chess` or `connect_four`, and inventing a label for a third would be guessing.
+function turnGameName(gameType?: string): string | null {
+  switch (gameType) {
+    case "chess": return "Chess";
+    case "connect_four": return "Connect 4";
+    default: return null;
   }
 }
 
@@ -138,5 +158,7 @@ export function buildSelfMessage(eventType: EventType, game: GameContext = {}): 
       };
     case "game_reminder":
       return { title: "Reminder", body: detail ? `Complete "${detail}".` : "Complete your game." };
+    case "game_turn":
+      return { title: "Move played", body: "Your move was played." };
   }
 }
