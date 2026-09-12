@@ -171,4 +171,43 @@ struct WordSearchGeneratorTests {
             "only \(seedsWithCrossings) of \(seeds.count) grids had any word crossing another"
         )
     }
+
+    /// Two grids of the same theme should not be the same eight words in different places.
+    ///
+    /// They were, for most of this game's life, and no existing test noticed: every one of them
+    /// checks a single grid, and a single grid built from the eight longest words is perfectly
+    /// valid. The fault only shows across seeds.
+    ///
+    /// Cities is the case that exposed it. Its pool holds nine six-letter names and a grid takes
+    /// eight, so while selection was "shuffle the pool, sort by length, take what fits", the
+    /// choice was C(9,8) — nine possible word sets in the entire theme, and a player saw the same
+    /// eight cities every time with only the layout moved. Travel was 35. Picking the words before
+    /// sorting them took both past 400.
+    ///
+    /// Sampled rather than exhaustive, so this stays fast enough to live in the suite; the bar is
+    /// set well below what the fix achieves and well above what the bug allowed.
+    @Test("two grids of a theme are not the same eight words rearranged", arguments: [WordSearchTheme.cities, .travel, .music])
+    func wordSetsVaryAcrossSeeds(theme: WordSearchTheme) {
+        let sampleCount = 60
+        var sets = Set<String>()
+        var shortGrids = 0
+
+        for i in 1...sampleCount {
+            let id = UUID(uuidString: String(format: "00000000-0000-0000-0000-%012d", i))!
+            let puzzle = WordSearchGenerator.puzzle(for: id, theme: theme)
+            sets.insert(puzzle.placements.map(\.word).sorted().joined(separator: ","))
+            if puzzle.placements.count < WordSearchPuzzle.wordCount { shortGrids += 1 }
+        }
+
+        #expect(
+            sets.count >= sampleCount / 2,
+            "\(theme.rawValue): only \(sets.count) distinct word sets across \(sampleCount) seeds"
+        )
+
+        // The other half of the change. Narrowing the pool to twelve picked words made grids
+        // possible that could not fit all eight — one Love seed in five hundred — so the rest of
+        // the pool stays on as a fallback. A grid short of a word is still playable, which is
+        // exactly why it would go unnoticed.
+        #expect(shortGrids == 0, "\(theme.rawValue): \(shortGrids) grids could not fit all eight words")
+    }
 }
