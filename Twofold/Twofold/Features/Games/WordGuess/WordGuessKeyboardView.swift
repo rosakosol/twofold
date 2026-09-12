@@ -71,10 +71,7 @@ struct WordGuessKeyboardView: View {
                             letterKey(letter, width: unit)
                         }
 
-                        if index == 2 {
-                            actionKey("⌫", width: action, enabled: isEnabled, action: onBackspace)
-                                .accessibilityLabel("Delete")
-                        }
+                        if index == 2 { backspaceKey(width: action) }
                         if index == 1 { Spacer(minLength: 0).frame(width: (unit + Self.keySpacing) / 2) }
                     }
                 }
@@ -85,18 +82,34 @@ struct WordGuessKeyboardView: View {
         .frame(height: Self.height(forKeyHeight: keyHeight))
     }
 
+    /// Glyph size for a key of this width.
+    ///
+    /// The letters were a fixed `.callout` — about 16pt — from back when a key was 46pt tall and
+    /// roughly square. Keys now grow with the screen, and a 16pt letter adrift in a 34x70 key is
+    /// what "the keyboard is too small" actually looks like: the keys were already large, the
+    /// writing on them was not. Scaled off width because width is the binding dimension; the
+    /// system keyboard's own letters sit at a similar fraction of their key.
+    private func glyphSize(forKeyWidth width: CGFloat) -> CGFloat { max(13, width * 0.62) }
+
+    /// Corners scale too. A 5pt radius reads as sharp on a 46pt key and as an accident on a 70pt
+    /// one, because the curve stops being a noticeable share of the edge.
+    private func cornerRadius(forKeyWidth width: CGFloat) -> CGFloat { max(5, min(width, keyHeight) * 0.22) }
+
     private func letterKey(_ letter: Character, width: CGFloat) -> some View {
         let mark = marks[letter]
+        let radius = cornerRadius(forKeyWidth: width)
         return Button {
             onLetter(letter)
         } label: {
             Text(String(letter).uppercased())
-                .font(.callout.weight(.semibold))
+                .font(.system(size: glyphSize(forKeyWidth: width), weight: .semibold, design: .rounded))
+                .minimumScaleFactor(0.6)
+                .lineLimit(1)
                 .foregroundStyle(mark?.tileTextColor ?? Theme.ink)
                 .frame(width: width, height: keyHeight)
-                .background(mark?.tileColor ?? Theme.cardBackground, in: RoundedRectangle(cornerRadius: 5))
+                .background(mark?.tileColor ?? Theme.cardBackground, in: RoundedRectangle(cornerRadius: radius))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(KeyPressStyle(cornerRadius: radius))
         .disabled(!isEnabled)
         // A greyed-out key is still tappable, deliberately: ruling a letter out does not stop it
         // being part of a word you want to try, and a keyboard that removes keys is a keyboard
@@ -104,18 +117,55 @@ struct WordGuessKeyboardView: View {
         .accessibilityLabel(mark.map { "\(letter), \($0.accessibilityDescription)" } ?? String(letter))
     }
 
-    private func actionKey(_ title: String, width: CGFloat, enabled: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.caption2.weight(.bold))
-                .minimumScaleFactor(0.7)
-                .lineLimit(1)
-                .foregroundStyle(enabled ? Theme.ink : Theme.subtleInk)
+    /// Backspace, as a symbol rather than the "⌫" character.
+    ///
+    /// That character was set in `.caption2` — 11pt — which on a key this size was a smudge. It is
+    /// also a glyph whose rendering is at the mercy of whatever font has it, where
+    /// `delete.backward` is drawn by SF Symbols at whatever weight and size it is asked for.
+    private func backspaceKey(width: CGFloat) -> some View {
+        let radius = cornerRadius(forKeyWidth: width)
+        return Button(action: onBackspace) {
+            Image(systemName: "delete.backward")
+                .font(.system(size: glyphSize(forKeyWidth: width) * 0.85, weight: .semibold))
+                .foregroundStyle(isEnabled ? Theme.ink : Theme.subtleInk)
                 .frame(width: width, height: keyHeight)
-                .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: 5))
+                .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: radius))
         }
-        .buttonStyle(.plain)
-        .disabled(!enabled)
+        .buttonStyle(KeyPressStyle(cornerRadius: radius))
+        .disabled(!isEnabled)
+        .accessibilityLabel("Delete")
+    }
+}
+
+/// What a key does while your thumb is on it.
+///
+/// A phone keyboard answers the moment it is touched rather than when it is let go, and a key that
+/// looks identical mid-press reads as one that did not register — which on a board where a mistyped
+/// letter costs a guess is worth more than decoration.
+///
+/// Deliberately not the system pop-up above the key: that exists because a thumb covers what it is
+/// pressing on a full QWERTY, and it is also the thing people turn off. This is the quieter half —
+/// the key itself dips and lights.
+private struct KeyPressStyle: ButtonStyle {
+    let cornerRadius: CGFloat
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .overlay {
+                // Over the label, so it tints a coloured key (one already marked green or grey by
+                // a previous guess) as readily as a plain one.
+                if configuration.isPressed {
+                    RoundedRectangle(cornerRadius: cornerRadius)
+                        .fill(Color.primary.opacity(0.2))
+                }
+            }
+            .scaleEffect(configuration.isPressed ? 0.9 : 1)
+            // Down fast, back slowly. A press that eased *in* would feel like lag, which is the one
+            // thing this is here to disprove.
+            .animation(
+                configuration.isPressed ? .easeOut(duration: 0.04) : .spring(response: 0.3, dampingFraction: 0.55),
+                value: configuration.isPressed
+            )
     }
 }
 

@@ -85,6 +85,10 @@ struct WordGuessGameView: View {
         .sensoryFeedback(.success, trigger: confettiTrigger)
         // Same counter as the shake, so a repeat of the same bad word is felt again too.
         .sensoryFeedback(.error, trigger: store.rejectionNudge)
+        // The other half of a key that feels pressed. `draft` changes on every letter and every
+        // backspace, which is exactly the set of taps that should be felt — and nothing else
+        // touches it, so a partner's move arriving cannot buzz somebody's thumb.
+        .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.5), trigger: store.draft)
         .onDisappear {
             store.stopClock()
             store.stopRealtime()
