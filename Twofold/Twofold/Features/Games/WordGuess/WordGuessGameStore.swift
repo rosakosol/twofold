@@ -39,6 +39,12 @@ final class WordGuessGameStore {
     /// Why the last submission bounced, for the board to say so and then forget. Cleared by the
     /// next keystroke — it answers a question asked a moment ago.
     private(set) var rejection: WordGuessPlayState.Rejection?
+    /// Bumped on every refusal, including a repeat of the same one.
+    ///
+    /// `rejection` on its own cannot drive an animation: submitting the same non-word twice leaves
+    /// it identical, so `onChange`/`sensoryFeedback` never fire the second time — which is exactly
+    /// when somebody is most likely to be staring at the board wondering whether the button works.
+    private(set) var rejectionNudge = 0
     /// The partner's finished board, once there is one.
     ///
     /// Non-nil always means a genuinely finished board — won or lost. RLS reveals a partner's
@@ -139,6 +145,7 @@ final class WordGuessGameStore {
         guard var current = play, current.canGuessAgain else { return }
         if let why = current.commit(draft) {
             rejection = why
+            rejectionNudge += 1
             return
         }
         rejection = nil

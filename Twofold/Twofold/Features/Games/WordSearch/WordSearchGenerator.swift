@@ -154,12 +154,32 @@ enum WordSearchGenerator {
             }
             options = random.shuffled(options)
 
+            // Of the placements that fit, prefer the one sharing the most letters with what is
+            // already on the grid.
+            //
+            // Taking the first fit put nearly every word in empty space — on a mostly-empty grid
+            // the first shuffled option almost always is empty — and only nine grids in twenty
+            // had a single crossing anywhere. A grid of parallel runs is a worse puzzle: crossings
+            // are what make a letter ambiguous, and ambiguity is the whole search.
+            //
+            // Scored rather than required. A word whose only fits are in free space still gets
+            // placed, because the best score among fitting options may legitimately be zero, and
+            // refusing it would cost the grid a word to gain a crossing.
+            var best: (start: Int, direction: WordSearchDirection, grid: [Character], shared: Int)?
             for option in options {
-                if let placed = place(letterArray, at: option.start, direction: option.direction, in: letters, size: size) {
-                    placements.append(WordSearchPlacement(word: word, start: option.start, direction: option.direction))
-                    letters = placed
-                    break
+                guard let placed = place(letterArray, at: option.start, direction: option.direction, in: letters, size: size) else { continue }
+                let shared = sharedLetterCount(letterArray, at: option.start, direction: option.direction, in: letters, size: size)
+                if best == nil || shared > best!.shared {
+                    best = (option.start, option.direction, placed, shared)
+                    // Nothing can beat every letter shared, and the options are already in seeded
+                    // order, so there is no reason to keep scoring.
+                    if shared == letterArray.count { break }
                 }
+            }
+
+            if let best {
+                placements.append(WordSearchPlacement(word: word, start: best.start, direction: best.direction))
+                letters = best.grid
             }
         }
 
@@ -175,6 +195,30 @@ enum WordSearchGenerator {
         }
 
         return WordSearchPuzzle(letters: letters, placements: placements, theme: theme)
+    }
+
+    /// How many of this word's letters would land on a letter already written, rather than on empty
+    /// space. Only meaningful for a placement `place` has already accepted — it assumes agreement,
+    /// and counts occupied cells rather than re-checking them.
+    private static func sharedLetterCount(
+        _ word: [Character],
+        at start: Int,
+        direction: WordSearchDirection,
+        in letters: [Character],
+        size: Int
+    ) -> Int {
+        let step = direction.step
+        var row = start / size
+        var column = start % size
+        var shared = 0
+
+        for _ in word {
+            guard row >= 0, row < size, column >= 0, column < size else { return shared }
+            if letters[row * size + column] != " " { shared += 1 }
+            row += step.row
+            column += step.column
+        }
+        return shared
     }
 
     /// Writes a word in, if it fits and agrees with everything already there.

@@ -42,7 +42,18 @@ struct WordSearchPlayState: Equatable {
 
     func isFound(_ word: String) -> Bool { found.contains(word) }
 
-    /// Every cell belonging to a word already found, for the grid to keep highlighted.
+    /// The placements of the words found, in the order they were found.
+    ///
+    /// The grid draws a loop around each one rather than shading their cells, so it needs the runs
+    /// themselves — where each word starts, which way it goes — and not the flat set of cells
+    /// `foundCells` gives. Ordered so a word keeps the same loop colour for the whole game: the
+    /// colours are what tell two crossing words apart, and a set would reshuffle them on every
+    /// find.
+    var foundPlacements: [WordSearchPlacement] {
+        found.compactMap { word in puzzle.placements.first { $0.word == word } }
+    }
+
+    /// Every cell belonging to a word already found.
     var foundCells: Set<Int> {
         var cells: Set<Int> = []
         for placement in puzzle.placements where found.contains(placement.word) {

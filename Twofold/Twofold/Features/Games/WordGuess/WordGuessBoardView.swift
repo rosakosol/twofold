@@ -48,6 +48,9 @@ struct WordGuessBoardView: View {
     /// Set when the last guess bounced, so the row can flag itself rather than only relying on a
     /// message elsewhere on the screen.
     let isDraftRejected: Bool
+    /// Increments on every refusal. Drives the shake — see `WordGuessGameStore.rejectionNudge` for
+    /// why this is a counter and not just `isDraftRejected`.
+    var rejectionNudge: Int = 0
     /// The edge length of every tile, in points. Passed in rather than derived here, because the
     /// caller is the only one that knows how much height is left once the keyboard has taken its
     /// share — see `tileSide(forWidth:)` and `boardHeight(forTileSide:)` for the two halves of it.
@@ -129,6 +132,13 @@ struct WordGuessBoardView: View {
                 )
             }
         }
+        // The row itself refuses, rather than only the message below the board. A red border is a
+        // state you have to notice; a shake is the board saying no in the moment you pressed, in
+        // the place you were looking — and it costs nothing to somebody who did not see it.
+        //
+        // Driven off a counter so pressing ENTER on the same bad word twice shakes twice.
+        .modifier(ShakeEffect(animatableData: CGFloat(rejectionNudge)))
+        .animation(.linear(duration: 0.35), value: rejectionNudge)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(draft.isEmpty ? "Your guess, empty" : "Your guess so far, \(Array(draft.uppercased()).map(String.init).joined(separator: " "))")
     }
@@ -159,6 +169,26 @@ struct WordGuessBoardView: View {
             .frame(width: tileSide, height: tileSide)
             .background(fill, in: RoundedRectangle(cornerRadius: 6))
             .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(border, lineWidth: 2))
+    }
+}
+
+/// A horizontal wobble that settles back where it started.
+///
+/// A `GeometryEffect` rather than an animated `.offset`, because the value being animated is a
+/// plain counter: SwiftUI interpolates `animatableData` from the old count to the new one, and the
+/// sine turns that single step into a there-and-back-again. Interpolating an offset directly would
+/// slide the row sideways and leave it there.
+struct ShakeEffect: GeometryEffect {
+    var animatableData: CGFloat
+    /// Far enough to read as a refusal, not so far it looks broken.
+    var amplitude: CGFloat = 9
+    /// Whole wobbles per rejection.
+    var shakes: CGFloat = 3
+
+    func effectValue(size: CGSize) -> ProjectionTransform {
+        ProjectionTransform(
+            CGAffineTransform(translationX: amplitude * sin(animatableData * .pi * shakes * 2), y: 0)
+        )
     }
 }
 

@@ -68,6 +68,8 @@ struct WordGuessGameView: View {
             confettiTrigger.toggle()
         }
         .sensoryFeedback(.success, trigger: confettiTrigger)
+        // Same counter as the shake, so a repeat of the same bad word is felt again too.
+        .sensoryFeedback(.error, trigger: store.rejectionNudge)
         .onDisappear {
             store.stopClock()
             store.stopRealtime()
@@ -156,6 +158,7 @@ struct WordGuessGameView: View {
                     play: play,
                     draft: store.draft,
                     isDraftRejected: store.rejection != nil,
+                    rejectionNudge: store.rejectionNudge,
                     tileSide: side
                 )
                 // Takes whatever the keyboard doesn't. The board draws at its own measured size

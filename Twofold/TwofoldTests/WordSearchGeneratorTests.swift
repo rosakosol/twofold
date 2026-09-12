@@ -136,4 +136,39 @@ struct WordSearchGeneratorTests {
         // A run of cells that is not a placement finds nothing, even if the letters happen to work.
         #expect(puzzle.placement(coveringCells: [0]) == nil)
     }
+
+    /// Crossings are the point of a word search, and the grid now draws a loop per word partly so
+    /// that a shared letter reads as belonging to both. If the generator stopped producing them —
+    /// a stricter `place`, a different search order — the loops would still be correct and the
+    /// puzzles would quietly become a set of parallel lines nobody has to think about.
+    @Test("generated grids actually cross their words")
+    func gridsContainCrossings() {
+        var seedsWithCrossings = 0
+        let seeds = (1...20).map { UUID(uuidString: String(format: "00000000-0000-0000-0000-%012d", $0))! }
+
+        for seed in seeds {
+            let puzzle = WordSearchGenerator.puzzle(for: seed, theme: .travel)
+            var seen: [Int: Int] = [:]
+            var crossings = 0
+            for placement in puzzle.placements {
+                for cell in placement.cells(size: WordSearchPuzzle.size) {
+                    seen[cell, default: 0] += 1
+                    if seen[cell] == 2 { crossings += 1 }
+                }
+            }
+            if crossings > 0 { seedsWithCrossings += 1 }
+        }
+
+        // Every grid, which is what scoring placements by shared letters buys: before that the
+        // generator took the first fit and only nine of these twenty seeds crossed anywhere.
+        //
+        // Seeded, so this is a fact about these twenty grids rather than a probability. If a word
+        // list or the placement order changes and some seed can genuinely only fit in free space,
+        // this is allowed to be relaxed — but it should be relaxed deliberately, not by deleting
+        // it, because a grid of parallel runs still passes every other test in this file.
+        #expect(
+            seedsWithCrossings >= seeds.count,
+            "only \(seedsWithCrossings) of \(seeds.count) grids had any word crossing another"
+        )
+    }
 }
