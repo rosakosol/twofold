@@ -8,9 +8,30 @@
  * overwrite rather than a sync, and it touches no other document.
  *
  * Written against how Twofold actually works - the two subscription tiers and both purchase
- * channels, 14-day invite codes, what removing a partner and deleting an account really do,
+ * channels, invite code expiry, what removing a partner and deleting an account really do,
  * which third parties supply flight and weather data. Where a fact isn't knowable from the
  * code (legal entity, minimum age, governing state) the text says [TO CONFIRM].
+ *
+ * Revised 2026-09-13. These had drifted further than the privacy policy, having gone six weeks
+ * longer without a pass:
+ *
+ *   - Sign-in was described as "Apple or Google". Email and password has existed the whole time
+ *     (BackendService.signUp / signIn / requestPasswordReset); the privacy policy caught this in
+ *     September and these did not.
+ *   - Invite codes expire after 3 days, not 14 - 20260829000900 shortened them.
+ *   - Shared content. 20261004000000 put every dissolved couple on a 90-day clock and
+ *     20261005000000 removed every client-callable route to deleting shared data, so "either of
+ *     you can then permanently delete the entire shared archive" and the account-deletion offer
+ *     beneath it were both describing functions that no longer exist. Rewritten around the timer,
+ *     including the undertaking that we won't delete early on request either - which is a promise
+ *     about our own conduct and belongs here rather than only in the policy.
+ *   - Prices are set in AUD and shown in the buyer's own currency (see priceDisplay.ts, which
+ *     exists precisely because a London visitor was shown "$9.99" and charged in GBP). The old
+ *     text said USD.
+ *   - The feedback board is readable by anyone, signed in or not - get_feedback_public_profiles
+ *     is granted to `anon`. "Visible to other users" understated it.
+ *   - Live position and route come from adsb.lol, adsb.fi, airplanes.live and adsbdb.com, none of
+ *     which the accuracy disclaimer named.
  *
  * Deliberately NOT included, despite being in the reference policy this was modelled on:
  * a mandatory-arbitration clause and a class-action waiver. Twofold is an Australian
@@ -19,7 +40,7 @@
  * disclaimer sections instead carry an explicit ACL carve-out. Worth a lawyer's view.
  */
 import {sanityWriteClient} from './lib/sanity-write-client.mjs'
-import {resetKeys, h2, p, span, link, ptext, bullet} from './lib/portable-text.mjs'
+import {resetKeys, h2, p, span, link, ptext, bullet, li} from './lib/portable-text.mjs'
 
 const WRITE = process.argv.includes('--write')
 const EMAIL = 'hello@twofoldapp.com.au'
@@ -50,7 +71,7 @@ const body = [
   // ---------------------------------------------------------------- account
   h2('Your account'),
   bullet(
-    `You sign in with Apple or Google. Keeping that account secure is your responsibility - anyone who can sign in as you can see everything you and your partner have shared.`
+    `You sign in with Apple, with Google, or with an email address and a password. Keeping that account secure is your responsibility - anyone who can sign in as you can see everything you and your partner have shared.`
   ),
   bullet(`Give us accurate information, and keep it up to date.`),
   bullet(`One account per person. Don't share it, and don't sign in as someone else.`),
@@ -58,7 +79,7 @@ const body = [
 
   // ------------------------------------------------------- partner connection
   h2('Connecting with a partner'),
-  bullet(`You connect by sending an invite code. Codes expire 14 days after they're created.`),
+  bullet(`You connect by sending an invite code. Codes expire 3 days after they're created.`),
   bullet(
     `Only connect with someone who wants to be connected to you. Everything shared in Twofold is visible to your partner, so this only works if both of you agree to it.`
   ),
@@ -86,7 +107,9 @@ const body = [
   bullet(
     `A subscription started on the web is tied to the Apple ID you sign in with at checkout. Sign in with that same Apple ID in the app to get what you've paid for.`
   ),
-  bullet(`Prices are shown in USD, and tax may be added depending on where you are.`),
+  bullet(
+    `Our prices are set in Australian dollars, and are shown to you in your own currency wherever the App Store or our web checkout supports it. The amount shown at checkout is the amount you pay; tax may be included in it or added to it depending on where you are.`
+  ),
   ptext(
     `If we change our prices, we'll tell you before the change applies to you, and you'll be able to cancel before it takes effect.`
   ),
@@ -120,18 +143,33 @@ const body = [
   ptext(
     `Content you and your partner create together belongs to the relationship rather than to one of you individually. That has consequences worth being clear about:`
   ),
-  bullet(`Both of you can see all of it, for as long as the account exists.`),
+  bullet(`While you're connected, both of you can see all of it.`),
   bullet(
-    `Ending a connection archives it. It stays readable to both of you, but neither of you can change it any more.`
+    `Ending a connection - by removing your partner, or by either of you deleting an account - archives it. It stays readable to both of you in Settings → Archived Data, but neither of you can change it any more.`
+  ),
+  li(
+    span(`An archive is kept for 90 days, and is then permanently deleted for both of you. `, 'strong'),
+    span(
+      `That happens automatically, on a date shown on the archive itself. Neither of you can bring it forward and neither of you can put it off: there is nothing in Twofold, for either partner, that deletes shared content early, and we won't do it on request either.`
+    )
   ),
   bullet(
-    `Either of you can then permanently delete the entire shared archive from Settings → Archived Data. That deletes it for both of you, without needing the other's agreement, and it can't be undone.`
+    `If the two of you reconnect within those 90 days, you're offered your shared history back and the deletion date goes away.`
   ),
   bullet(
-    `Deleting your account doesn't delete shared content by default, because it's your partner's history too - but the deletion screen offers to delete it at the same time, and that's your last chance to do so, since you won't be able to sign in afterwards.`
+    `Either of you can hide an archive from your own list at any time. That affects only your own view and deletes nothing.`
+  ),
+  bullet(
+    `Deleting your account doesn't delete shared content, because it's your partner's history too. It ends your connection, which starts the same 90-day clock.`
+  ),
+  p(
+    span(`Export anything you want to keep before the 90 days are up, and before you delete your account. `, 'strong'),
+    span(
+      `Settings → Archived Data will give you the trips, memories, flights and games as files you can open without Twofold, with the photos alongside them. Once an archive is deleted it is gone for both of you, and we cannot recover it.`
+    )
   ),
   ptext(
-    `By using Twofold with a partner, you accept that they have this same ability over content you both contributed to. If that isn't what you want, don't share it here.`
+    `By using Twofold with a partner, you accept that a shared history is on this timer whether or not you would have chosen it, and that neither of you can change that for the other. If that isn't what you want, don't share it here.`
   ),
 
   // ---------------------------------------------------------- acceptable use
@@ -147,7 +185,7 @@ const body = [
   bullet(`Resell or commercialise access, or use Twofold on someone else's behalf as a service.`),
   bullet(`Interfere with the service, or with anyone else's use of it.`),
   ptext(
-    `Twofold shows your partner the city you've set - not your live position. Don't use it, or ask a partner to use it, as a surveillance tool.`
+    `Twofold shows your partner the city you're in - either set by you, or updated automatically as you travel if you've allowed location access. It is a city, never a live position and never a trail of where you've been, and you can turn location access off and set your city by hand. Don't use it, and don't pressure a partner into allowing it, as a way of keeping track of someone.`
   ),
 
   // --------------------------------------------------------- our content
@@ -159,7 +197,7 @@ const body = [
   // --------------------------------------------- third-party information
   h2('Flight, weather and other third-party information'),
   ptext(
-    `Flight schedules and status come from FlightAware, and weather from Apple WeatherKit. We pass that information on as we receive it - we don't verify it and can't guarantee it's accurate, complete or on time.`
+    `Flight schedules and status come from FlightAware, and weather from Apple WeatherKit. An aircraft's live position and route may instead come from free community flight-tracking services - adsb.lol, adsb.fi, airplanes.live and adsbdb.com - which run without any guarantee of availability or accuracy. We pass all of it on as we receive it: we don't verify it and can't guarantee it's accurate, complete or on time.`
   ),
   p(
     span(`Don't rely on Twofold for anything that matters. `, 'strong'),
@@ -191,7 +229,7 @@ const body = [
   // -------------------------------------------------------------- feedback
   h2('Feedback and the feedback board'),
   ptext(
-    `Anything you post on our feedback board is visible to other users, so don't put anything private in it. If you send us an idea or suggestion - there or by email - you're giving us permission to use it without owing you anything for it. We're not agreeing to build it.`
+    `Anything you post on our feedback board is public - readable by anyone, including people who aren't signed in and aren't Twofold users - and so is the first name and profile photo shown against it. Don't put anything private in it. If you send us an idea or suggestion - there or by email - you're giving us permission to use it without owing you anything for it. We're not agreeing to build it.`
   ),
 
   // ------------------------------------------------------------ disclaimers
@@ -275,7 +313,7 @@ const doc = {
   _type: 'legalPage',
   pageId: 'terms',
   title: 'Terms of Use',
-  lastUpdated: '2026-07-26',
+  lastUpdated: '2026-09-13',
   noticeText:
     `Draft - pending legal review. These terms describe how Twofold actually works today, but they have not been reviewed by a lawyer, and the points marked [TO CONFIRM] still need a decision before Twofold is publicly released.`,
   body,
