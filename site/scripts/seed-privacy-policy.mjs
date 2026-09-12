@@ -262,13 +262,12 @@ const body = [
       `Deleting your account does not delete the shared archive, and neither you nor your former partner can delete it early - it goes when its 90 days are up. What is yours alone is removed straight away, as above, and cannot be recovered.`
     )
   ),
-  ptext(
-    `Deleting your account doesn't remove anything you posted publicly on the feedback board, since other people's discussions are built on it. Your name and photo stop appearing against it, and you can ask us to remove the posts themselves.`
-  ),
   p(
-    span(`If you've already deleted your account and want shared or public content removed, email `),
+    span(
+      `Deleting your account doesn't remove anything you posted publicly on the feedback board, since other people's discussions are built on it. Your name and photo stop appearing against it, and you can ask us to remove the posts themselves - email `
+    ),
     mailto(),
-    span(` and we'll deal with it - see Your rights below.`)
+    span(`, including after you've deleted your account.`)
   ),
 
   // -------------------------------------------------------------- sharing
