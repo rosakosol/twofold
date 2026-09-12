@@ -325,7 +325,9 @@ const body = [
   bullet(`Rate-limiting records are deleted automatically, and none is kept longer than a day.`),
   bullet(`Waitlist email addresses are kept until the Android app launches, or until you ask us to remove yours.`),
   bullet(`Feedback board posts and comments stay up for as long as the board does, since they're part of a public discussion.`),
-  bullet(`Backups: [TO CONFIRM: backup retention window]. Deleted content persists in backups for that period.`),
+  bullet(
+    `Backups are kept for 7 days. Anything you delete goes from Twofold immediately, but can survive in a backup until that backup ages out - so for up to 7 days after you delete it, and no longer.`
+  ),
   bullet(`Analytics events are kept for 30 days, and then deleted.`),
   bullet(`Support email is kept for as long as we need it to handle your request and for our own records.`),
 

@@ -675,7 +675,7 @@ Live Activities, Home/Lock Screen widgets, and push notifications are all wired 
 Known gaps before submission:
 
 * `APP_STORE_URL` in `site/src/lib/marketing/config.ts` is still the placeholder `id0000000000` — every download link on the website points at it
-* The privacy policy and terms carry a "pending legal review" notice and `[TO CONFIRM]` placeholders that need answers before either can be published — the policy wants a registered address, hosting regions, a backup retention window, PostHog's retention period and a minimum age; the terms want a legal entity name and registered address, a minimum age, and the Australian state whose law governs them. Both are seeded by `site/scripts/seed-privacy-policy.mjs` and `seed-terms.mjs`, which are dry-run unless passed `--write`
+* The privacy policy and terms still carry a "pending legal review" notice. Every `[TO CONFIRM]` placeholder is now answered, so both are complete and unpublished — `site/scripts/seed-privacy-policy.mjs` and `seed-terms.mjs` are dry-run unless passed `--write`
 
 ### Flight Data APIs
 
