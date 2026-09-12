@@ -1290,6 +1290,17 @@ enum BackendService {
         /// client's timestamp-with-time-zone strategy, and a throw here fails the whole row — so
         /// the offer would simply never appear, with nothing on screen to explain why.
         var missedDateRaw: String?
+        /// Optional for the same reason `missedDateRaw` is a string: a synthesised `Decodable`
+        /// ignores default values, so declaring this as a plain `Bool = false` made the key
+        /// *required* — and a server that had not yet been redeployed would fail to decode the
+        /// whole row, taking the repair offer off the screen entirely with nothing to explain why.
+        /// Caught by `StreakRepairTests`, whose fixtures are exactly that older payload.
+        var monthlyFreezeAvailableRaw: Bool?
+
+        /// Whether the couple's included monthly repair is still unspent. False for anyone not on
+        /// Premium, and false against a server that does not know about it yet — so the screen
+        /// offers the paid route rather than a button that would refuse.
+        var monthlyFreezeAvailable: Bool { monthlyFreezeAvailableRaw ?? false }
 
         var missedDate: Date? {
             missedDateRaw.flatMap { BackendService.dateOnlyFormatter.date(from: $0) }
@@ -1300,6 +1311,7 @@ enum BackendService {
             case streakAtRisk = "streak_at_risk"
             case credits
             case missedDateRaw = "missed_date"
+            case monthlyFreezeAvailableRaw = "monthly_freeze_available"
         }
     }
 
@@ -1339,6 +1351,37 @@ enum BackendService {
         // on it instead of showing it.
         if row.errorMessage == "no_credit" { return .noCredit }
         return .refused(row.errorMessage ?? "Couldn't repair that. Try again.")
+    }
+
+    /// Spends the couple's included monthly repair.
+    ///
+    /// A separate call from `repairCoupleStreak` because it spends a different thing — one included
+    /// rather than one bought. The server grants and consumes the credit in a single transaction,
+    /// so a repair it refuses costs the couple nothing.
+    static func repairStreakWithMonthlyFreeze() async throws -> StreakRepairOutcome {
+        struct Row: Decodable {
+            var repaired: Bool
+            var currentStreak: Int
+            var errorMessage: String?
+
+            enum CodingKeys: String, CodingKey {
+                case repaired
+                case currentStreak = "current_streak"
+                case errorMessage = "error_message"
+            }
+        }
+        let rows: [Row] = try await supabase.rpc("repair_streak_with_monthly_freeze").execute().value
+        guard let row = rows.first else { return .refused("Couldn't repair that. Try again.") }
+        if row.repaired { return .repaired(streak: row.currentStreak) }
+
+        // Two tokens the app acts on rather than shows. `freeze_used` means this month's is gone —
+        // which is a real answer, not a failure — and `premium_required` means the client thought
+        // they were Premium and the server disagreed.
+        switch row.errorMessage {
+        case "freeze_used": return .refused("You've already used this month's repair.")
+        case "premium_required": return .refused("A monthly repair is part of Twofold Premium.")
+        default: return .refused(row.errorMessage ?? "Couldn't repair that. Try again.")
+        }
     }
 
     /// A past relationship with this same person that could be brought back, if there is one.

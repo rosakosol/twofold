@@ -90,6 +90,34 @@ final class StreakRepairStore {
     /// Also the path for someone who paid, closed the app, and came back — they hold a credit and
     /// have nothing to buy, so this is called on its own.
     @discardableResult
+    /// Uses the couple's included monthly repair.
+    ///
+    /// No retry loop, unlike `spendCredit`. That one waits because a purchase and its credit are
+    /// separated by a webhook, so `no_credit` right after paying means "not yet" rather than "no".
+    /// Nothing is asynchronous here: the server grants and consumes the credit in one transaction,
+    /// so its answer is final the first time.
+    func useMonthlyFreeze() async -> Bool {
+        phase = .confirming
+        do {
+            switch try await BackendService.repairStreakWithMonthlyFreeze() {
+            case .repaired(let streak):
+                phase = .repaired(streak: streak)
+                return true
+            case .refused(let message):
+                phase = .failed(message)
+                return false
+            case .noCredit:
+                // Not a state this call produces — the credit is created by the same transaction
+                // that spends it — but the enum is shared with the paid route.
+                phase = .failed("Couldn't use this month's repair. Try again.")
+                return false
+            }
+        } catch {
+            phase = .failed(error.localizedDescription)
+            return false
+        }
+    }
+
     func spendCredit() async -> Bool {
         let deadline = Date().addingTimeInterval(Self.confirmationWindow)
 

@@ -128,17 +128,37 @@ struct StreakRepairPromptView: View {
         }
     }
 
+    /// True when the couple's included monthly repair is still unspent — in which case this popup
+    /// is not an offer to buy anything.
+    private var hasFreeze: Bool { appModel.streakRepair?.monthlyFreezeAvailable == true }
+
     private var primaryTitle: String {
         if isWorking { return "One moment…" }
+        // No price on the button when the repair is included. Naming one, or even saying "bring it
+        // back" next to a price elsewhere, would be asking somebody to pay for something their plan
+        // already covers — which is worse than never offering it.
+        if hasFreeze { return "Use this month's repair" }
         return store.displayPrice.map { "Bring it back — \($0)" } ?? "Bring it back"
     }
 
-    /// Someone may already hold a credit — they paid, the app closed, the webhook landed since. In
-    /// that case there is nothing to buy and this should just spend it.
+    /// Three routes, in order of what it would be wrong to skip.
+    ///
+    /// The included monthly repair first: a Premium couple has already paid for this, and charging
+    /// them again because the popup only knew how to sell is the one outcome worth writing code to
+    /// prevent. Then a credit they are already holding — they paid, the app closed, the webhook
+    /// landed since, and there is nothing left to buy. Only then a purchase.
     private func repairNow() async {
-        let repaired = (appModel.streakRepair?.credits ?? 0) > 0
-            ? await store.spendCredit()
-            : await store.purchaseAndRepair()
-        if repaired { await appModel.refreshDailyStreak() }
+        let repaired: Bool
+        if hasFreeze {
+            repaired = await store.useMonthlyFreeze()
+        } else if (appModel.streakRepair?.credits ?? 0) > 0 {
+            repaired = await store.spendCredit()
+        } else {
+            repaired = await store.purchaseAndRepair()
+        }
+        if repaired {
+            await appModel.refreshDailyStreak()
+            await appModel.refreshStreakRepairState()
+        }
     }
 }

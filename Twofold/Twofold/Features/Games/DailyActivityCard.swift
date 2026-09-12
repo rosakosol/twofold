@@ -21,6 +21,11 @@ struct DailyActivityCard: View {
     /// whole reason the card used to jump.
     @ScaledMetric(relativeTo: .caption2) private var captionLineHeight: CGFloat = 13.5
 
+    /// Drives the repair row below the streak.
+    @State private var repairStore = StreakRepairStore()
+    @State private var isRepairing = false
+    @State private var showingRepairSheet = false
+
     /// A skeleton is only right before there's anything to show. `startOrResumeDailyQuestion()`
     /// runs on every appearance of this card, so keying purely off the in-flight flag would flash
     /// placeholder bars over a question that's already on screen every time the tab is revisited.
@@ -59,6 +64,8 @@ struct DailyActivityCard: View {
         // the very top of the tab, above every flat deck/topic card below it.
         SectionCard(isHeroInDark: true) {
             streakSummary
+
+            repairRow
 
             NavigationLink {
                 dailyDestination
@@ -206,6 +213,50 @@ struct DailyActivityCard: View {
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
             }
+        }
+    }
+
+    /// The offer to bring a broken streak back, when there is one to bring back.
+    ///
+    /// `repairable` is the server's word — see `streak_repair_state`, which offers it only for a
+    /// streak that lapsed exactly one day ago. A streak still running has nothing to repair, and one
+    /// broken for longer is past offering, so neither shows anything here.
+    ///
+    /// The popup this duplicates is shown once per person per break and then never again. That is
+    /// right for telling somebody, and no use at all to somebody who dismissed it or was not looking
+    /// — this is where they come back to.
+    @ViewBuilder
+    private var repairRow: some View {
+        if let repair = appModel.streakRepair, repair.repairable, repair.streakAtRisk > 0 {
+            StreakRepairRow(
+                streak: repair.streakAtRisk,
+                freezeAvailable: repair.monthlyFreezeAvailable,
+                onUseFreeze: { useFreeze() },
+                // Everything that costs money stays in the sheet, which already handles the
+                // purchase, the webhook wait and the prices. A buy button on a hub card would be a
+                // second copy of the most delicate flow in the app.
+                onBuy: { showingRepairSheet = true },
+                isWorking: isRepairing
+            )
+            .sheet(isPresented: $showingRepairSheet) {
+                StreakRepairPromptView(streak: repair.streakAtRisk)
+            }
+        }
+    }
+
+    /// Spends the couple's included monthly repair.
+    ///
+    /// Refreshes whether it worked or not: on success the streak and the offer have both changed,
+    /// and on refusal the reason is usually that the other partner got there first — in which case
+    /// the honest thing to show is the state they are actually in.
+    private func useFreeze() {
+        guard !isRepairing else { return }
+        isRepairing = true
+        Task {
+            _ = await repairStore.useMonthlyFreeze()
+            await appModel.refreshStreakRepairState()
+            await appModel.refreshDailyStreak()
+            isRepairing = false
         }
     }
 
