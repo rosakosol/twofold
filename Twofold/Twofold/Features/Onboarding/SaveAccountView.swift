@@ -29,6 +29,8 @@ struct SaveAccountView: View {
     /// into *this* form, which almost always isn't that account's real password.
     @State private var emailAlreadyExists = false
     @State private var showingSignIn = false
+    /// Gates every route off this screen, email and provider alike — see `LegalConsentCheckbox`.
+    @State private var hasAcceptedTerms = false
 
     private var passwordsMismatch: Bool {
         !confirmPassword.isEmpty && confirmPassword != password
@@ -39,6 +41,7 @@ struct SaveAccountView: View {
             && password.count >= 6
             && confirmPassword == password
             && PasswordStrength.evaluate(password) > .weak
+            && hasAcceptedTerms
     }
 
     var body: some View {
@@ -47,6 +50,10 @@ struct SaveAccountView: View {
             subtitle: "Sign in with Apple or Google, or create an account with email, so you can invite \(onboarding.partnerName)",
             content: {
                 VStack(spacing: Theme.Spacing.md) {
+                    LegalConsentCheckbox(isAccepted: $hasAcceptedTerms)
+
+                    // Signing in with a provider creates the account just as the form does, so
+                    // it waits on the same box.
                     AppleGoogleSignInButtons(
                         onSuccess: { userID, providedFirstName in
                             Task { await finish(userID: userID, providedFirstName: providedFirstName) }
@@ -55,6 +62,8 @@ struct SaveAccountView: View {
                         onAccountDeleted: { handleAccountDeleted() },
                         isSubmitting: $isSubmitting
                     )
+                    .disabled(!hasAcceptedTerms)
+                    .opacity(hasAcceptedTerms ? 1 : 0.4)
 
                     if showingEmailForm {
                         VStack(spacing: Theme.Spacing.md) {

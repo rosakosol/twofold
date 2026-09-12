@@ -23,6 +23,8 @@ struct CreateAccountView: View {
     /// into *this* form, which almost always isn't that account's real password.
     @State private var emailAlreadyExists = false
     @State private var showingSignIn = false
+    /// Gates every route off this screen, email and provider alike — see `LegalConsentCheckbox`.
+    @State private var hasAcceptedTerms = false
 
     private var isInvitee: Bool { onboarding.role == .invitee }
 
@@ -36,6 +38,7 @@ struct CreateAccountView: View {
             && password.count >= 6
             && confirmPassword == password
             && PasswordStrength.evaluate(password) > .weak
+            && hasAcceptedTerms
     }
 
     var body: some View {
@@ -97,6 +100,8 @@ struct CreateAccountView: View {
                     }
                     .padding(.vertical, Theme.Spacing.xs)
 
+                    // Signing in with a provider creates the account just as the form does, so
+                    // it waits on the same box.
                     AppleGoogleSignInButtons(
                         onSuccess: { userID, providedFirstName in
                             Task { await finishSignIn(userID: userID, providedFirstName: providedFirstName) }
@@ -105,11 +110,14 @@ struct CreateAccountView: View {
                         onAccountDeleted: { handleAccountDeleted() },
                         isSubmitting: $isSubmitting
                     )
+                    .disabled(!hasAcceptedTerms)
+                    .opacity(hasAcceptedTerms ? 1 : 0.4)
                 }
             },
             primaryTitle: "Continue",
             primaryAction: continueTapped,
-            primaryDisabled: !canContinue || isSubmitting
+            primaryDisabled: !canContinue || isSubmitting,
+            footer: AnyView(LegalConsentCheckbox(isAccepted: $hasAcceptedTerms))
         )
         .sheet(isPresented: $showingSignIn) {
             SignInView(initialEmail: email)

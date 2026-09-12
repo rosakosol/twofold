@@ -120,6 +120,11 @@ struct SignInView: View {
                             }
                             .padding(.top, Theme.Spacing.sm)
                         }
+
+                        // Signing in cannot create an account; the two provider buttons above
+                        // can, for an address that has none. See `LegalConsentNotice`.
+                        LegalConsentNotice()
+                            .padding(.top, Theme.Spacing.md)
                     }
                     .padding(.horizontal, Theme.Spacing.lg)
                 }
