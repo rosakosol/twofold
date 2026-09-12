@@ -24,11 +24,23 @@ struct WordGuessKeyboardView: View {
     let onLetter: (Character) -> Void
     let onBackspace: () -> Void
     let onSubmit: () -> Void
+    /// How tall each key is. The caller decides, because only it knows how much screen is left
+    /// after the board — a keyboard sized in isolation either leaves the bottom of a big phone
+    /// empty or crowds a small one. `defaultKeyHeight` is what it was when this was fixed, and is
+    /// still the floor the caller clamps to.
+    var keyHeight: CGFloat = WordGuessKeyboardView.defaultKeyHeight
+
+    static let defaultKeyHeight: CGFloat = 46
+
+    /// The height this keyboard occupies for a given key height — so a caller can subtract it from
+    /// the screen before deciding what is left for the board, without re-deriving the row maths.
+    static func height(forKeyHeight keyHeight: CGFloat) -> CGFloat {
+        keyHeight * 3 + Theme.Spacing.xs * 2
+    }
 
     private static let rows = ["qwertyuiop", "asdfghjkl", "zxcvbnm"]
 
     private static let keySpacing: CGFloat = 4
-    private static let keyHeight: CGFloat = 46
     /// The top row's ten keys set the unit every other key is measured in. Without this the bottom
     /// row's seven letters simply divide whatever ENTER and ⌫ leave them, and come out visibly
     /// fatter than the letters directly above — which reads as a rendering bug rather than a
@@ -69,7 +81,7 @@ struct WordGuessKeyboardView: View {
         }
         // A `GeometryReader` fills whatever it is offered, so the keyboard has to state its own
         // height or it takes the rest of the screen and pushes the board off the top.
-        .frame(height: Self.keyHeight * 3 + Theme.Spacing.xs * 2)
+        .frame(height: Self.height(forKeyHeight: keyHeight))
     }
 
     private func letterKey(_ letter: Character, width: CGFloat) -> some View {
@@ -80,7 +92,7 @@ struct WordGuessKeyboardView: View {
             Text(String(letter).uppercased())
                 .font(.callout.weight(.semibold))
                 .foregroundStyle(mark?.tileTextColor ?? Theme.ink)
-                .frame(width: width, height: Self.keyHeight)
+                .frame(width: width, height: keyHeight)
                 .background(mark?.tileColor ?? Theme.cardBackground, in: RoundedRectangle(cornerRadius: 5))
         }
         .buttonStyle(.plain)
@@ -98,7 +110,7 @@ struct WordGuessKeyboardView: View {
                 .minimumScaleFactor(0.7)
                 .lineLimit(1)
                 .foregroundStyle(enabled ? Theme.ink : Theme.subtleInk)
-                .frame(width: width, height: Self.keyHeight)
+                .frame(width: width, height: keyHeight)
                 .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: 5))
         }
         .buttonStyle(.plain)

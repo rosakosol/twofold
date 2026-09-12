@@ -87,35 +87,89 @@ struct WordGuessGameView: View {
     @ViewBuilder
     private var content: some View {
         if let play = store.play {
-            VStack(spacing: Theme.Spacing.md) {
+            if play.isComplete {
+                // Finished: no keyboard, and the comparison card can outgrow the screen, so this
+                // half scrolls. It is the one state that isn't trying to fit a fixed board and
+                // keyboard into whatever height the phone has.
+                ScrollView {
+                    VStack(spacing: Theme.Spacing.md) {
+                        WordGuessBoardView(
+                            play: play,
+                            draft: store.draft,
+                            isDraftRejected: store.rejection != nil
+                        )
+                        .padding(.horizontal, Theme.Spacing.md)
+
+                        finishedSection(play: play)
+                            .padding(.horizontal, Theme.Spacing.md)
+                    }
+                    .padding(.vertical, Theme.Spacing.md)
+                }
+            } else {
+                playingLayout(play: play)
+            }
+        }
+    }
+
+    /// Board and keyboard sharing the screen's full height between them.
+    ///
+    /// This used to be a plain `VStack` with a trailing `Spacer`, which meant every point the phone
+    /// had spare became dead space under the keyboard rather than a bigger board or bigger keys —
+    /// worse the larger the phone, since the keyboard's height was a constant and the board's was
+    /// decided entirely by its width.
+    ///
+    /// Now the keyboard is sized from what's actually available and the board takes the rest. The
+    /// board still draws square tiles fitted to whatever box it is handed (see `WordGuessBoardView`),
+    /// so a taller box only ever helps it: it stops being the constraint before the width does.
+    private func playingLayout(play: WordGuessPlayState) -> some View {
+        GeometryReader { proxy in
+            // Everything that isn't board or keyboard, taken off the top before either is sized.
+            let chrome = Theme.Spacing.sm * 2 + Theme.Spacing.sm * 2 + Self.rejectionRowHeight
+            let usable = max(0, proxy.size.height - chrome)
+            // Keys grow with the screen, but never below the height they had when this was fixed
+            // (a smaller tap target than before would be a regression, not a layout) and never so
+            // tall they turn into buttons. 8.5% of the usable height lands near 46 on an SE and
+            // near 60 on a Pro Max.
+            let keyHeight = min(64, max(WordGuessKeyboardView.defaultKeyHeight, usable * 0.085))
+
+            VStack(spacing: Theme.Spacing.sm) {
                 WordGuessBoardView(
                     play: play,
                     draft: store.draft,
                     isDraftRejected: store.rejection != nil
                 )
-                .padding(.horizontal, Theme.Spacing.lg)
+                // `sm`, not `lg` — and `sm` specifically because it is what the keyboard below
+                // uses, so the board and the keys now line up on the same two edges instead of
+                // the board sitting inset from them.
+                //
+                // It is also the whole of the tile-size change. The tiles are square and sized by
+                // the width they are given, so with height to spare the side margins were the only
+                // thing deciding how big the board could be: 24pt a side cost about 10% of every
+                // tile's edge, in both directions.
+                .padding(.horizontal, Theme.Spacing.sm)
+                // Takes whatever the keyboard doesn't.
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                if play.isComplete {
-                    finishedSection(play: play)
-                        .padding(.horizontal, Theme.Spacing.md)
-                } else {
-                    rejectionMessage
-                    WordGuessKeyboardView(
-                        marks: play.keyboardMarks,
-                        isEnabled: store.canType,
-                        canSubmit: store.draft.count == WordGuessWords.length,
-                        onLetter: { store.type($0) },
-                        onBackspace: { store.backspace() },
-                        onSubmit: { store.submitGuess() }
-                    )
-                    .padding(.horizontal, Theme.Spacing.sm)
-                }
+                rejectionMessage
 
-                Spacer(minLength: 0)
+                WordGuessKeyboardView(
+                    marks: play.keyboardMarks,
+                    isEnabled: store.canType,
+                    canSubmit: store.draft.count == WordGuessWords.length,
+                    onLetter: { store.type($0) },
+                    onBackspace: { store.backspace() },
+                    onSubmit: { store.submitGuess() },
+                    keyHeight: keyHeight
+                )
+                .padding(.horizontal, Theme.Spacing.sm)
             }
-            .padding(.vertical, Theme.Spacing.md)
+            .padding(.vertical, Theme.Spacing.sm)
         }
     }
+
+    /// Kept in one place because `playingLayout` subtracts it before sizing anything and
+    /// `rejectionMessage` draws it — two copies of 18 would drift.
+    private static let rejectionRowHeight: CGFloat = 18
 
     /// Shown in the keyboard's place so the board does not jump when a guess is refused, and
     /// reserved even when empty for the same reason.
@@ -132,7 +186,7 @@ struct WordGuessGameView: View {
         }
         .font(.caption.weight(.medium))
         .foregroundStyle(Theme.heartRedText)
-        .frame(height: 18)
+        .frame(height: Self.rejectionRowHeight)
         .accessibilityHidden(rejectionText == nil)
     }
 
