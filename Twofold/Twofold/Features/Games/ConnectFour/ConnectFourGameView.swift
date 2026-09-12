@@ -90,7 +90,7 @@ struct ConnectFourGameView: View {
         // partner's move arriving is the event worth feeling.
         .sensoryFeedback(.impact(weight: .light), trigger: store.moves.count)
         .onDisappear { store.stopRealtime() }
-        .alert("Nudge sent", isPresented: $showingNudgeSent) {
+        .alert("Reminder Sent", isPresented: $showingNudgeSent) {
             Button("OK", role: .cancel) {}
         } message: {
             Text("\(appModel.partner.name) has been told it's their move.")

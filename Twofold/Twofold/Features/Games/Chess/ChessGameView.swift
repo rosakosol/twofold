@@ -68,7 +68,7 @@ struct ChessGameView: View {
         } message: {
             Text(endFailed ?? "")
         }
-        .alert("Nudge sent", isPresented: $showingNudgeSent) {
+        .alert("Reminder Sent", isPresented: $showingNudgeSent) {
             Button("OK", role: .cancel) {}
         } message: {
             Text("\(appModel.partner.name) has been told it's their move.")

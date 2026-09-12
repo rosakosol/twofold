@@ -497,7 +497,7 @@ struct SudokuGameView: View {
         }
         // On the stack rather than the card, so the button below it is inset to match.
         .padding(.horizontal, Theme.Spacing.md)
-        .alert("Nudge sent", isPresented: $showingReminderSent) {
+        .alert("Reminder Sent", isPresented: $showingReminderSent) {
             Button("OK", role: .cancel) {}
         } message: {
             Text("\(appModel.partner.name) has been told their puzzle is waiting.")

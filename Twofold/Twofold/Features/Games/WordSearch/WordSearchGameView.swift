@@ -86,7 +86,7 @@ struct WordSearchGameView: View {
         } message: {
             Text(abandonFailed ?? "")
         }
-        .alert("Nudge sent", isPresented: $showingReminderSent) {
+        .alert("Reminder Sent", isPresented: $showingReminderSent) {
             Button("OK", role: .cancel) {}
         } message: {
             Text("\(appModel.partner.name) has been told their grid is waiting.")

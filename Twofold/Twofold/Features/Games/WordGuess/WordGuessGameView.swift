@@ -76,7 +76,7 @@ struct WordGuessGameView: View {
             // The clock measures time at the board, so backgrounding stops it.
             if phase == .active { store.startClock() } else { store.stopClock() }
         }
-        .alert("Nudge sent", isPresented: $showingReminderSent) {
+        .alert("Reminder Sent", isPresented: $showingReminderSent) {
             Button("OK", role: .cancel) {}
         } message: {
             Text("\(appModel.partner.name) has been told their word is waiting.")
