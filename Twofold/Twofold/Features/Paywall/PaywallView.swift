@@ -221,7 +221,11 @@ struct PaywallView: View {
                         .pickerStyle(.segmented)
                     }
 
-                    VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+                    // `sm`, not `md`. This list carries eight lines for Premium rather than the
+                    // four it was written for, and at 16pt apart that is 128pt of pure gap between
+                    // the reader and the buttons they came to press — the whole thing is inside
+                    // `OnboardingScaffold`'s scroll view, prices included.
+                    VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
                         ForEach(selectedTier.features, id: \.self) { feature in
                             HStack(alignment: .top, spacing: Theme.Spacing.xs) {
                                 Image(systemName: "checkmark.circle.fill")
@@ -229,6 +233,11 @@ struct PaywallView: View {
                                     .accessibilityHidden(true)
                                 Text(feature)
                                     .foregroundStyle(Theme.ink)
+                                    // These lines are long enough to wrap now, and a wrapping
+                                    // `Text` in a stack that is being compressed truncates instead
+                                    // unless it insists on its own height.
+                                    .fixedSize(horizontal: false, vertical: true)
+                                Spacer(minLength: 0)
                             }
                             .font(.subheadline)
                         }
