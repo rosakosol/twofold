@@ -12,6 +12,11 @@ import SwiftUI
 struct DrawingPadFullScreenView: View {
     let title: String
     let url: URL?
+    /// The navigation title, when the possessive form built below isn't the right one. Defaults to
+    /// nil, which keeps "<name>'s pad" — correct for the partner's pad, which is what this screen
+    /// was built for and still its usual caller. `DrawingPadPairView` also opens *your* pad from
+    /// here, where that same composition would read "You's pad".
+    var screenTitle: String?
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -41,7 +46,7 @@ struct DrawingPadFullScreenView: View {
                     emptyState
                 }
             }
-            .navigationTitle("\(title)'s pad")
+            .navigationTitle(screenTitle ?? "\(title)'s pad")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {

@@ -14,6 +14,17 @@ private struct DistanceShareContext: Identifiable {
     let distanceKm: Double
 }
 
+/// Same reason as `DistanceShareContext` — `.fullScreenCover(item:)` needs `Identifiable`, and the
+/// globe needs both cities and the distance, none of which are in scope where the cover is
+/// attached. Carrying them from the tap also means the screen that opens shows the figures the
+/// card showed, rather than re-deriving them a moment later from somewhere else.
+private struct GlobeFullScreenContext: Identifiable {
+    let id = UUID()
+    let myCity: Place
+    let partnerCity: Place
+    let distanceKm: Double
+}
+
 struct HomeView: View {
     /// Set by `MainTabView` to flip its own tab selection to Games, passed straight through to
     /// `RecommendedGamesSection`'s "See all games" — defaults to a no-op so the preview below
@@ -24,6 +35,7 @@ struct HomeView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var showingSnapshot = false
     @State private var distanceShareContext: DistanceShareContext?
+    @State private var globeFullScreenContext: GlobeFullScreenContext?
     @State private var showingSettings = false
     @State private var showingPartnerSetup = false
     @State private var reviewingConnectionRequest: BackendService.PendingConnectionRequest?
@@ -183,6 +195,18 @@ struct HomeView: View {
             .sheet(isPresented: $showingSnapshot) { SnapshotShareView() }
             .sheet(item: $distanceShareContext) { context in
                 DistanceShareView(couple: appModel.couple, myCity: context.myCity, partnerCity: context.partnerCity, distanceKm: context.distanceKm)
+            }
+            // A cover rather than a sheet: a sheet keeps Home's cards visible behind a rounded
+            // card of its own, and this is a globe you turn — the grabber and the inset edges
+            // would both be things to catch a drag meant for the earth.
+            .fullScreenCover(item: $globeFullScreenContext) { context in
+                RelationshipGlobeFullScreenView(
+                    couple: appModel.couple,
+                    myCity: context.myCity,
+                    partnerCity: context.partnerCity,
+                    activeTrip: appModel.activeTrip,
+                    distanceKm: context.distanceKm
+                )
             }
             .sheet(isPresented: $showingSettings) { SettingsView() }
             .sheet(isPresented: $showingLocationPermission) { NavigationStack { LocationPermissionView() } }
@@ -629,7 +653,37 @@ struct HomeView: View {
 
             RelationshipGlobeView(couple: appModel.couple, partnerACity: myCity, partnerBCity: partnerCity, activeTrip: appModel.activeTrip)
                 .frame(height: 260)
+                // A preview, not a globe you turn here. Two reasons, and the first one predates
+                // this card being tappable at all: a live `Map` inside a `ScrollView` competes for
+                // every drag, so a swipe that meant "scroll Home" as often nudged the earth
+                // instead. The second is that the tap below has to reach the card, and a `Map`
+                // consumes taps whether or not it does anything with them. Turning it is what the
+                // full-screen view exists for.
+                .allowsHitTesting(false)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                // Added after `allowsHitTesting(false)`, so the badge is a sibling layered on top
+                // of the inert map and takes taps normally. Order matters here: modifying the map
+                // first and overlaying second is what keeps the button live.
+                .overlay(alignment: .topTrailing) {
+                    Button {
+                        globeFullScreenContext = GlobeFullScreenContext(myCity: myCity, partnerCity: partnerCity, distanceKm: distanceKm)
+                    } label: {
+                        Image(systemName: "arrow.up.left.and.arrow.down.right")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(Theme.ink)
+                            .padding(Theme.Spacing.sm)
+                            .background(.regularMaterial, in: Circle())
+                            .padding(Theme.Spacing.sm)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("See the globe full screen")
+                }
+        }
+        // The whole card, as asked. The share button keeps its own taps — it's a `Button`, so it
+        // is hit first — and the globe above is inert by the time this gesture sees anything.
+        .contentShape(Rectangle())
+        .onTapGesture {
+            globeFullScreenContext = GlobeFullScreenContext(myCity: myCity, partnerCity: partnerCity, distanceKm: distanceKm)
         }
     }
 
