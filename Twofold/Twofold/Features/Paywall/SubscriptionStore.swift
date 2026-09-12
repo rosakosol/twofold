@@ -38,7 +38,7 @@ enum SubscriptionTier: String, CaseIterable {
             [
                 "Unlimited trips & memories",
                 "Track 2 flights live each month",
-                "500+ questions and games",
+                "500+ questions and conversation starters",
                 "Sudoku, Word Guess, Word Search & Connect 4",
                 "Home Screen & Lock Screen widgets",
             ]
@@ -46,7 +46,7 @@ enum SubscriptionTier: String, CaseIterable {
             [
                 "Everything in Twofold Plus",
                 "Track 5 flights live each month",
-                "2000+ questions and games, including premium decks",
+                "2000+ questions, including premium decks",
                 "Chess, and Sudoku on Hard & Expert",
                 "Every Word Search theme, and unlimited Word Guess",
                 "Flight delay analysis, gate & aircraft details",

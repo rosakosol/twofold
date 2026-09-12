@@ -63,11 +63,12 @@ export const FEATURES_FALLBACK: ResolvedFeature[] = [
   {
     slug: "couple-games",
     title: "Couple Games",
-    teaserDescription: "Bite-sized questions and games built for two, made to close the distance even when apart.",
+    teaserDescription: "Questions, puzzles and board games built for two, made to close the distance even when apart.",
     detailDescription:
-      "Bite-sized questions and games built for two, made to close the distance even when you can't be in the same room - from quick “this or that” rounds to deeper discussion prompts.",
+      "Questions, puzzles and board games built for two, made to close the distance even when you can't be in the same room - from quick “this or that” rounds to deeper discussion prompts, and puzzles you each solve to compare afterwards.",
     bullets: [
-      "500+ questions and games, 2000+ on Premium",
+      "500+ questions and conversation starters, 2000+ on Premium",
+      "Sudoku, Word Guess, Word Search and Connect 4 - Chess on Premium",
       "Play async - answer whenever you both have a moment",
       "New topics and decks added regularly",
     ],

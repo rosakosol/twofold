@@ -35,12 +35,22 @@ import {sanityWriteClient} from './lib/sanity-write-client.mjs'
 const DRY = process.argv.includes('--dry')
 const {client, projectId, dataset} = sanityWriteClient()
 
+// Kept word for word in step with `SubscriptionTier.features` in the app
+// (Twofold/Twofold/Features/Paywall/SubscriptionStore.swift). Somebody comparing the pricing page
+// against the paywall before paying should not find two different lists.
+//
+// "questions" and "games" are separate lines now. One "2000+ questions and games" row was the only
+// thing either surface said about nine games, which read as a catalogue size and undersold the lot
+// of them — the number counts conversation decks and always did.
 const PREMIUM_FEATURES = [
   'Everything in Twofold Plus',
   'Track 5 flights live each month',
-  '2000+ questions and games',
-  'Premium widgets',
-  'Relationship Record PDF export',
+  '2000+ questions, including premium decks',
+  'Chess, and Sudoku on Hard & Expert',
+  'Every Word Search theme, and unlimited Word Guess',
+  'Flight delay analysis, gate & aircraft details',
+  'Your Relationship Record, exported as a keepsake',
+  'A monthly streak repair, and the Smart Rotating widget',
 ]
 
 const PLUS_FEATURES = [
@@ -48,7 +58,8 @@ const PLUS_FEATURES = [
   'Unlimited trips & memories',
   'Track 2 flights live each month',
   'Save unlimited flights to your trips',
-  '500+ questions and games',
+  '500+ questions and conversation starters',
+  'Sudoku, Word Guess, Word Search & Connect 4',
   'Home Screen & Lock Screen widgets',
 ]
 
@@ -56,20 +67,32 @@ const COMPARISON_ROWS = [
   {_type: 'comparisonRow', _key: 'trips', label: 'Trips & memories', plus: 'Unlimited', premium: 'Unlimited'},
   {_type: 'comparisonRow', _key: 'flights', label: 'Live-tracked flights each month', plus: '2', premium: '5'},
   {_type: 'comparisonRow', _key: 'flightssaved', label: 'Flights saved to your trips', plus: 'Unlimited', premium: 'Unlimited'},
-  {_type: 'comparisonRow', _key: 'games', label: 'Questions & games', plus: '500+', premium: '2000+'},
+  {_type: 'comparisonRow', _key: 'games', label: 'Questions & conversation decks', plus: '500+', premium: '2000+'},
+  // The five puzzle/board games, each on its own row. Every one of these splits is enforced
+  // server-side (see the `start_*_session` RPCs), so the table can state them as facts.
+  {_type: 'comparisonRow', _key: 'puzzles', label: 'Sudoku, Word Guess, Word Search & Connect 4', plus: 'Yes', premium: 'Yes'},
+  {_type: 'comparisonRow', _key: 'sudokudifficulty', label: 'Sudoku difficulties', plus: 'Easy & Medium', premium: 'All four'},
+  {_type: 'comparisonRow', _key: 'wordguess', label: 'Word Guess boards', plus: '1 a day', premium: 'Unlimited'},
+  {_type: 'comparisonRow', _key: 'wordsearchthemes', label: 'Word Search themes', plus: '2', premium: 'All 6'},
+  {_type: 'comparisonRow', _key: 'chess', label: 'Chess', plus: '', premium: 'Yes'},
+  {_type: 'comparisonRow', _key: 'streakrepair', label: 'Streak repair', plus: '', premium: '1 a month'},
   {_type: 'comparisonRow', _key: 'widgets', label: 'Home & Lock Screen widgets', plus: 'Yes', premium: 'Yes'},
   {_type: 'comparisonRow', _key: 'liveactivities', label: 'Live Activities for in-progress flights', plus: 'Yes', premium: 'Yes'},
-  // Available on both — not gated anywhere in the app.
+  // Available on both — not gated anywhere in the app, and deliberately staying that way: it has
+  // been free for the app's whole life, and taking it back from existing Plus subscribers costs
+  // more than listing it here would gain.
   {_type: 'comparisonRow', _key: 'globe', label: 'Interactive 3D globe', plus: 'Yes', premium: 'Yes'},
-  {_type: 'comparisonRow', _key: 'premiumwidgets', label: 'Premium widget styles', plus: '', premium: 'Yes'},
+  {_type: 'comparisonRow', _key: 'delaystats', label: 'Flight delay analysis & gate details', plus: '', premium: 'Yes'},
+  // Singular. There is exactly one, and "styles" implied a set.
+  {_type: 'comparisonRow', _key: 'premiumwidgets', label: 'Smart Rotating widget', plus: '', premium: 'Yes'},
   {_type: 'comparisonRow', _key: 'record', label: 'Relationship Record export', plus: '', premium: 'Yes'},
 ]
 
 const QUIZ_PREMIUM_DESCRIPTION =
-  'The full relationship globe experience - 5 live-tracked flights a month, 2000+ questions and games, premium widgets, and your Relationship Record.'
+  'Everything in Plus, plus 5 live-tracked flights a month, 2000+ questions, Chess and the harder puzzles, flight delay analysis, and your Relationship Record.'
 
 const QUIZ_PLUS_DESCRIPTION =
-  'Unlimited trips and memories, 2 live-tracked flights a month, and 500+ questions and games - everything most long-distance couples need.'
+  'Unlimited trips and memories, 2 live-tracked flights a month, 500+ questions, and Sudoku, Word Guess, Word Search and Connect 4 - everything most long-distance couples need.'
 
 const patches = [
   {id: 'plan-plus', fields: {features: PLUS_FEATURES}},
