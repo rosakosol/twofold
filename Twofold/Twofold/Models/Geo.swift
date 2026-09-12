@@ -97,19 +97,39 @@ enum Geo {
         return (bearingDegrees + 360).truncatingRemainder(dividingBy: 360)
     }
 
+    /// `majorCities`' coordinates as `CLLocation`s, built once.
+    ///
+    /// `distanceKm` allocates a `CLLocation` for *each* side of every comparison, and the scan
+    /// below runs one comparison per city — so a single `nearestMajorCity` allocated two hundred
+    /// and fifty pairs of objects, half of which were the same fixed coordinates as the call
+    /// before it. This is that half, hoisted. Lazy and immutable, like every other `static let`.
+    private static let majorCityLocations: [CLLocation] = majorCities.map {
+        CLLocation(latitude: $0.coordinate.latitude, longitude: $0.coordinate.longitude)
+    }
+
     /// The closest entry in `majorCities` to `coordinate`, provided it's actually close — a
-    /// simple linear scan (a few hundred `distanceKm` calls, trivially cheap) rather than
-    /// anything spatially indexed, since the list is small and this only runs on user-facing
-    /// display, not in a hot loop.
+    /// simple linear scan rather than anything spatially indexed, since the list is small.
+    ///
+    /// The doc comment used to call this "trivially cheap" and say it does not run in a hot loop.
+    /// Both were wrong by the time anyone measured: `Place.displayCity` calls it, the memories map
+    /// calls `displayCity` once per pin for the accessibility label, and `MemoriesListView` calls
+    /// it once per *memory* to build its filter menu — every SwiftUI body evaluation. At 200
+    /// memories that was 50,000 great-circle comparisons and 100,000 object allocations, per pass.
+    ///
+    /// Same arithmetic as before: the same `CLLocation.distance(from:)` between the same two
+    /// coordinates. Only the allocation is gone — one object per call rather than two per city.
     static func nearestMajorCity(to coordinate: CLLocationCoordinate2D, maxDistanceKm: Double = 90) -> MajorCity? {
-        var best: (city: MajorCity, distanceKm: Double)?
-        for city in majorCities {
-            let distance = distanceKm(coordinate, city.coordinate)
-            if best == nil || distance < best!.distanceKm {
-                best = (city, distance)
+        let query = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+        var bestIndex: Int?
+        var bestDistanceKm = Double.greatestFiniteMagnitude
+        for (index, cityLocation) in majorCityLocations.enumerated() {
+            let distance = query.distance(from: cityLocation) / 1000
+            if distance < bestDistanceKm {
+                bestDistanceKm = distance
+                bestIndex = index
             }
         }
-        guard let best, best.distanceKm <= maxDistanceKm else { return nil }
-        return best.city
+        guard let bestIndex, bestDistanceKm <= maxDistanceKm else { return nil }
+        return majorCities[bestIndex]
     }
 }
