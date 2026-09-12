@@ -6,6 +6,7 @@
 //  placeholder otherwise — same fallback pattern as AvatarView.
 //
 
+import ImageIO
 import SwiftUI
 
 /// In-memory only, keyed by the photo's stable storage `path` rather than its signed `url` — the
@@ -32,6 +33,15 @@ final class MemoryPhotoImageCache {
 struct MemoryPhotoView: View {
     let memory: Memory
     var cornerRadius: CGFloat = 16
+    /// Decode the photo down to roughly this many pixels on its longest side, instead of at
+    /// whatever size it was uploaded. `nil` keeps the full image, which is what a screen actually
+    /// showing the photo wants.
+    ///
+    /// Uploads are capped at 1600px (`MemoryEditingKit`), so a full decode is a ~10MB bitmap.
+    /// Drawing that into a 64pt map pin means decoding about seventy times more pixels than end
+    /// up on screen, and holding all of them in `MemoryPhotoImageCache` afterwards — twenty pins
+    /// is some 200MB of bitmaps to draw twenty thumbnails.
+    var thumbnailPixelSize: CGFloat?
 
     /// Only ever set by `load()` on a cache miss — a cache hit is read straight into
     /// `resolvedImage` below without waiting on this, same pattern as `AvatarView`.
@@ -41,7 +51,15 @@ struct MemoryPhotoView: View {
 
     private var cacheKey: String? {
         guard let photo = primaryPhoto else { return nil }
-        return photo.path == "pending" ? photo.url.absoluteString : photo.path
+        let base = photo.path == "pending" ? photo.url.absoluteString : photo.path
+        // The size belongs in the key. Without it a pin's 192px thumbnail and the detail screen's
+        // full-size decode are the same entry, and whichever loads first is what the other gets —
+        // either a blurry detail view or the full-size decode this exists to avoid.
+        //
+        // Only the *decoded* cache is keyed this way. `MemoryPhotoDiskCache` still stores the
+        // original bytes under the plain path, so a thumbnail and a full decode share one download.
+        guard let thumbnailPixelSize else { return base }
+        return "\(base)@\(Int(thumbnailPixelSize))"
     }
 
     private var resolvedImage: UIImage? {
@@ -114,15 +132,49 @@ struct MemoryPhotoView: View {
         // `PendingMemoryStore`, so there's nothing to cache a second copy of.
         let isUploaded = photo.path != "pending"
 
-        if isUploaded, let data = MemoryPhotoDiskCache.read(path: photo.path), let image = UIImage(data: data) {
+        if isUploaded, let data = MemoryPhotoDiskCache.read(path: photo.path), let image = await decoded(data) {
             MemoryPhotoImageCache.shared.store(image, for: key)
             loadedImage = image
             return
         }
 
-        guard let (data, _) = try? await URLSession.shared.data(from: photo.url), let image = UIImage(data: data) else { return }
+        guard let (data, _) = try? await URLSession.shared.data(from: photo.url), let image = await decoded(data) else { return }
         if isUploaded { MemoryPhotoDiskCache.write(data, path: photo.path) }
         MemoryPhotoImageCache.shared.store(image, for: key)
         loadedImage = image
+    }
+
+    /// Decodes off the main actor, at `thumbnailPixelSize` when one is set.
+    ///
+    /// The project sets `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, so `load()` — and therefore
+    /// the `UIImage(data:)` that used to sit in it — runs on the main actor. On a cold launch with
+    /// an empty `NSCache` that is a full-size JPEG decode per visible pin, on the thread drawing
+    /// the map.
+    private func decoded(_ data: Data) async -> UIImage? {
+        let target = thumbnailPixelSize
+        return await Task.detached(priority: .userInitiated) {
+            guard let target else { return UIImage(data: data) }
+            return MemoryPhotoView.downsampled(data, maxPixelSize: target)
+        }.value
+    }
+
+    /// `nonisolated` deliberately: without it this inherits MainActor isolation and the detached
+    /// task above would hop straight back to the main thread to do the work.
+    nonisolated static func downsampled(_ data: Data, maxPixelSize: CGFloat) -> UIImage? {
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            // Decode now, on this thread. Otherwise the work is merely deferred to first draw,
+            // which is the main thread again.
+            kCGImageSourceShouldCacheImmediately: true,
+            // Honour EXIF orientation, which `UIImage(data:)` did for us.
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
+        ]
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let thumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+            // A file the decoder cannot read at all — fall back rather than show nothing.
+            return UIImage(data: data)
+        }
+        return UIImage(cgImage: thumbnail)
     }
 }

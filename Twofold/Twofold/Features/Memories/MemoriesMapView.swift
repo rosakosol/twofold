@@ -222,7 +222,9 @@ struct MemoriesMapView: View {
     private func memoryPin(for pin: CityPin) -> some View {
         MemoryMapPin(count: pin.count) {
             if let newest = pin.newest {
-                MemoryPhotoView(memory: newest, cornerRadius: 6)
+                // The pin draws at `MemoryMapPin.photoSize` (64pt), so 192px covers it at 3x.
+                // Without this the map decodes a full 1600px upload per pin to fill a thumbnail.
+                MemoryPhotoView(memory: newest, cornerRadius: 6, thumbnailPixelSize: 192)
             } else {
                 RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Theme.cardBackground)
             }
