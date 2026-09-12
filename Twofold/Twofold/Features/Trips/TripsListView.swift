@@ -26,18 +26,18 @@ struct TripsListView: View {
     /// Tapping the solo-state empty hints below opens this rather than the add-trip/add-flight
     /// sheet — there's a real partner-required blocker before either of those would even work.
     @State private var showingPartnerGate = false
-    @State private var isExpanded = false
+    @State private var detent: PanelDetent = .peek
     /// True for the exact duration of an active drag — set/cleared by `DraggablePanelHost`'s
     /// `UIPanGestureRecognizer`, entirely outside SwiftUI's own state-mutation/body-recompute
     /// pipeline (see that file's own header comment for why: every purely-SwiftUI-composed
     /// version of this drag glitched on slow/paused drags, regardless of how the gesture/state
     /// code was arranged). Still used the same way it always was — a guard against anything
-    /// reacting to `showingExpandedContent`/`isExpanded` mid-gesture instead of only at rest.
+    /// reacting to `settledDetent`/`detent` mid-gesture instead of only at rest.
     @State private var isDragging = false
     /// Which content the panel shows — only ever changed at rest, in `DraggablePanelHost`'s
-    /// `onSettle` callback, alongside `isExpanded` — never mid-drag, since the live-tracking phase
+    /// `onSettle` callback, alongside `detent` — never mid-drag, since the live-tracking phase
     /// no longer touches SwiftUI state at all.
-    @State private var showingExpandedContent = false
+    @State private var settledDetent: PanelDetent = .peek
     @State private var selectedTrip: Trip?
     @State private var selectedFlight: Flight?
 
@@ -60,7 +60,16 @@ struct TripsListView: View {
     // to make room for `peekBottomClearance` replacing the old flat `.lg` bottom padding below the
     // card — without a matching height increase, that extra padding would just have shoved the
     // card upward against the header instead of actually growing the panel to fit it.
-    private let peekHeight: CGFloat = 416
+    // Grown from 416, which was sized for a single card, to hold the second one `peekContent`
+    // now shows plus the `md` between them. Set by eye against the card's own intrinsic height
+    // (it has no fixed one — date range, duration line and travellers row), the same way every
+    // earlier value of this constant was, and like those it wants a look on device.
+    private let peekHeight: CGFloat = 583
+    /// Handle only — `browsePanelContent` renders nothing else at this detent. 44 is the handle's
+    /// own frame; the rest is the floating tab bar's clearance, for the same reason
+    /// `peekBottomClearance` exists: the tab bar sits outside this panel, so nothing here gets
+    /// bottom-safe-area inset from it, and a 44pt panel would sit behind it and be untouchable.
+    private let minimisedHeight: CGFloat = 44 + 100
     /// Same idea (and same value) as `bottomListClearance` below, just for the peek-height card
     /// instead of the expanded list — the floating tab bar sits *outside* this panel entirely (see
     /// this file's own header comment), so nothing here gets automatic bottom-safe-area clearance
@@ -72,6 +81,26 @@ struct TripsListView: View {
     enum TripsTab: String, CaseIterable {
         case trips = "Trips"
         case flights = "Flights"
+    }
+
+    /// The one place `detent` and `settledDetent` move together outside a drag. They are separate
+    /// so that content only swaps at rest (see `settledDetent`), which means every non-drag route
+    /// to a new detent — the globe tap, the VoiceOver action — has to set both or the panel
+    /// resizes while still showing the previous detent's content.
+    private func settle(_ newDetent: PanelDetent) {
+        guard newDetent != detent else { return }
+        withAnimation(panelAnimation) {
+            detent = newDetent
+            settledDetent = newDetent
+        }
+    }
+
+    private var detentDescription: String {
+        switch detent {
+        case .minimised: "Minimised"
+        case .peek: "Collapsed"
+        case .expanded: "Expanded"
+        }
     }
 
     private func travelers(for trip: Trip) -> [Person] {
@@ -137,23 +166,35 @@ struct TripsListView: View {
                         fallbackCenter: appModel.currentUser.homeCity?.coordinate
                     )
                     .equatable()
+                    // Tap the globe and the panel gets out of its way. One-directional on
+                    // purpose: a tap on the map bringing the panel *back* would fire on every
+                    // stray tap while you were trying to look at the thing you just uncovered.
+                    // The handle drags it back up.
+                    //
+                    // `simultaneousGesture` rather than `onTapGesture`, because the map owns its
+                    // own recognisers — an exclusive tap here would either be swallowed by them
+                    // or, worse, win and stop the panning and zooming this screen is mostly for.
+                    .simultaneousGesture(
+                        TapGesture().onEnded { settle(.minimised) }
+                    )
 
                     // Live height (during an active drag) and settled height (peek/expanded, at
                     // rest) are both owned by `DraggablePanelHost` itself now — see that file's
                     // own header comment for why the drag specifically has to escape SwiftUI's
                     // own diffing/layout pipeline, not just be reorganized within it.
                     DraggablePanelHost(
-                        content: browsePanelContent(showingExpandedContent: showingExpandedContent, expandedHeight: expandedHeight)
+                        content: browsePanelContent(settledDetent: settledDetent, expandedHeight: expandedHeight)
                             .background(Theme.backgroundGradient),
+                        minimisedHeight: minimisedHeight,
                         peekHeight: peekHeight,
                         expandedHeight: expandedHeight,
                         cornerRadius: panelCornerRadius,
-                        isExpanded: $isExpanded,
+                        detent: $detent,
                         isDragging: $isDragging,
-                        onSettle: { newExpanded in
+                        onSettle: { newDetent in
                             withAnimation(panelAnimation) {
-                                isExpanded = newExpanded
-                                showingExpandedContent = newExpanded
+                                detent = newDetent
+                                settledDetent = newDetent
                             }
                         }
                     )
@@ -233,25 +274,34 @@ struct TripsListView: View {
     /// heavily-used UIKit capability (this is exactly how e.g. Apple Maps' own bottom sheet nests
     /// a scrollable list inside a pannable card), not the ad-hoc arbitration two independent
     /// SwiftUI `DragGesture`s were stuck with.
-    private func browsePanelContent(showingExpandedContent: Bool, expandedHeight: CGFloat) -> some View {
+    private func browsePanelContent(settledDetent: PanelDetent, expandedHeight: CGFloat) -> some View {
         VStack(spacing: 0) {
             dragHandle
-            browseHeader
 
-            if !showingExpandedContent {
-                peekContent
-                    .transition(.opacity)
-            }
+            // Minimised is the handle and nothing else — the point of the state is that the globe
+            // underneath is unobstructed, and a header peeking out of a panel that is meant to be
+            // out of the way is just a smaller obstruction. The trailing `Spacer` is what keeps
+            // the panel's bottom corners rounded; see `peekContent` for why that is not obvious.
+            if settledDetent == .minimised {
+                Spacer(minLength: 0)
+            } else {
+                browseHeader
 
-            if showingExpandedContent {
-                expandedContent
-                    .transition(.opacity)
+                if settledDetent == .peek {
+                    peekContent
+                        .transition(.opacity)
+                }
+
+                if settledDetent == .expanded {
+                    expandedContent
+                        .transition(.opacity)
+                }
             }
         }
         // Explicit, so the peek-card/full-list swap always cross-fades rather than popping —
-        // `showingExpandedContent` now only ever changes once, at rest (`DraggablePanelHost`'s
+        // `settledDetent` now only ever changes once, at rest (`DraggablePanelHost`'s
         // `onSettle`), but this still keeps that one transition smooth.
-        .animation(.easeInOut(duration: 0.2), value: showingExpandedContent)
+        .animation(.easeInOut(duration: 0.2), value: settledDetent)
     }
 
     /// Purely a visual affordance now — the drag itself is recognized across the whole panel
@@ -267,13 +317,13 @@ struct TripsListView: View {
             .contentShape(Rectangle())
             .accessibilityElement()
             .accessibilityLabel("Trip list")
-            .accessibilityValue(isExpanded ? "Expanded" : "Collapsed")
+            .accessibilityValue(detentDescription)
             .accessibilityAddTraits(.isButton)
+            // Cycles rather than toggles, now that there are three of them — activating from
+            // expanded wraps back to minimised, so every detent is reachable by VoiceOver without
+            // a drag, which is the whole reason this action exists.
             .accessibilityAction {
-                withAnimation(panelAnimation) {
-                    isExpanded.toggle()
-                    showingExpandedContent = isExpanded
-                }
+                settle(detent == .expanded ? .minimised : detent.taller)
             }
     }
 
@@ -367,11 +417,14 @@ struct TripsListView: View {
         }
     }
 
-    /// Exactly one card — the single soonest upcoming trip/flight, not a scrollable row of them —
-    /// with the rest reachable only by expanding to the full list below. A horizontal carousel
-    /// here (even a non-paging, freely-scrolling one) still read as "swipe to see your other
-    /// trips", which duplicated what expanding already does and made peek feel like its own
-    /// separate browsing mode instead of a quick glance at what's next.
+    /// How many trips/flights the peek height shows before the rest need the expanded list.
+    ///
+    /// Was one, on the reasoning that a *scrollable* row of them read as "swipe to see your other
+    /// trips" and so duplicated what expanding already does. That still holds — these are stacked,
+    /// not scrollable, so peek stays a glance at what's next rather than a browsing mode of its
+    /// own. It just shows two of them, which is what most couples have in flight at once anyway.
+    private let peekItemLimit = 2
+
     @ViewBuilder
     private var peekContent: some View {
         switch tab {
@@ -379,13 +432,18 @@ struct TripsListView: View {
             if appModel.trips.isEmpty {
                 emptyTripsHint
                 Spacer(minLength: 0)
-            } else if let trip = appModel.upcomingTrips.first {
-                Button {
-                    selectedTrip = trip
-                } label: {
-                    TripCarouselCard(trip: trip, travelers: travelers(for: trip))
+            } else {
+                let trips = Array(appModel.upcomingTrips.prefix(peekItemLimit))
+                VStack(spacing: Theme.Spacing.md) {
+                    ForEach(trips) { trip in
+                        Button {
+                            selectedTrip = trip
+                        } label: {
+                            TripCarouselCard(trip: trip, travelers: travelers(for: trip))
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
-                .buttonStyle(.plain)
                 // `.lg`, not `.md` — `TripCarouselCard`'s own shadow (radius 12) bleeds past its
                 // edges, and `.md` alone wasn't enough clearance from the panel's own 40pt corner
                 // radius: the shadow visibly muddied the rounded top corners, reading as "cut
@@ -409,14 +467,19 @@ struct TripsListView: View {
             if appModel.activeOrUpcomingFlights.isEmpty {
                 emptyFlightsHint
                 Spacer(minLength: 0)
-            } else if let flight = appModel.activeOrUpcomingFlights.first {
-                Button {
-                    selectedFlight = flight
-                } label: {
-                    FlightCarouselCard(flight: flight)
+            } else {
+                let flights = Array(appModel.activeOrUpcomingFlights.prefix(peekItemLimit))
+                VStack(spacing: Theme.Spacing.md) {
+                    ForEach(flights) { flight in
+                        Button {
+                            selectedFlight = flight
+                        } label: {
+                            FlightCarouselCard(flight: flight)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
-                .buttonStyle(.plain)
-                // See the matching `TripCarouselCard` button's own comments above — same shadow-
+                // See the matching `TripCarouselCard` stack's own comments above — same shadow-
                 // into-corner-radius issue and same missing-bottom-rounding issue, same fixes.
                 .padding(.horizontal, Theme.Spacing.lg)
                 .padding(.bottom, peekBottomClearance)

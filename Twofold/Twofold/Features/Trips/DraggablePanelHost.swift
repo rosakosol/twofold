@@ -27,16 +27,60 @@
 import SwiftUI
 import UIKit
 
+/// The heights the travel panel rests at.
+///
+/// This was a `Bool` — peek or expanded — until the globe underneath needed a state where it
+/// isn't half covered. `minimised` is that state: the panel shrinks to its own grab handle, the
+/// map gets the whole screen, and dragging the handle back up returns to the other two.
+///
+/// `Comparable` by height, so "one step shorter" and "one step taller" are expressible; the
+/// release logic below uses them for flicks.
+enum PanelDetent: Int, CaseIterable, Comparable {
+    case minimised = 0
+    case peek = 1
+    case expanded = 2
+
+    static func < (lhs: PanelDetent, rhs: PanelDetent) -> Bool { lhs.rawValue < rhs.rawValue }
+
+    var shorter: PanelDetent { PanelDetent(rawValue: rawValue - 1) ?? .minimised }
+    var taller: PanelDetent { PanelDetent(rawValue: rawValue + 1) ?? .expanded }
+}
+
+/// Points per second past which a release counts as a throw rather than a placement. Roughly
+/// where a deliberate flick sits, and comfortably above the drift at the end of a slow drag, so
+/// releasing gently never skips past a detent you were aiming for.
+///
+/// At file scope because `Coordinator` is nested inside a generic type, and Swift allows no
+/// static stored properties there.
+private let panelFlickVelocity: CGFloat = 600
+
 struct DraggablePanelHost<Content: View>: UIViewRepresentable {
     var content: Content
+    let minimisedHeight: CGFloat
     let peekHeight: CGFloat
     let expandedHeight: CGFloat
     let cornerRadius: CGFloat
-    @Binding var isExpanded: Bool
+    @Binding var detent: PanelDetent
     @Binding var isDragging: Bool
-    /// Fires exactly once per gesture, at release, with the direction it resolved to — the one
+    /// Fires exactly once per gesture, at release, with the detent it resolved to — the one
     /// moment this hands control back to SwiftUI.
-    var onSettle: (Bool) -> Void
+    var onSettle: (PanelDetent) -> Void
+
+    func height(for detent: PanelDetent) -> CGFloat {
+        switch detent {
+        case .minimised: minimisedHeight
+        case .peek: peekHeight
+        case .expanded: expandedHeight
+        }
+    }
+
+    /// The detent whose height is closest to `height` — where a slow drag, released without any
+    /// real throw behind it, ends up.
+    func nearestDetent(to height: CGFloat) -> PanelDetent {
+        PanelDetent.allCases.min {
+            abs(self.height(for: $0) - height) < abs(self.height(for: $1) - height)
+        } ?? .peek
+    }
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
@@ -46,7 +90,7 @@ struct DraggablePanelHost<Content: View>: UIViewRepresentable {
         let view = HostView()
         view.hostingController.rootView = AnyView(content)
         view.cornerRadius = cornerRadius
-        view.setHeight(isExpanded ? expandedHeight : peekHeight)
+        view.setHeight(height(for: detent))
 
         let pan = UIPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePan(_:)))
         pan.delegate = context.coordinator
@@ -63,7 +107,7 @@ struct DraggablePanelHost<Content: View>: UIViewRepresentable {
         // re-render elsewhere in the app, landing mid-drag, would snap the panel back to its
         // pre-drag height for a frame, the exact bug this file exists to avoid).
         guard !context.coordinator.isPanning else { return }
-        uiView.setHeight(isExpanded ? expandedHeight : peekHeight)
+        uiView.setHeight(height(for: detent))
     }
 
     static func dismantleUIView(_ uiView: HostView, coordinator: Coordinator) {
@@ -138,8 +182,6 @@ struct DraggablePanelHost<Content: View>: UIViewRepresentable {
         weak var hostView: HostView?
         fileprivate var isPanning = false
         private var restingHeight: CGFloat = 0
-        private var minOffset: CGFloat = 0
-        private var maxOffset: CGFloat = 0
         private var startTranslation: CGFloat?
 
         init(parent: DraggablePanelHost) {
@@ -162,15 +204,15 @@ struct DraggablePanelHost<Content: View>: UIViewRepresentable {
             case .began:
                 isPanning = true
                 parent.isDragging = true
-                restingHeight = parent.isExpanded ? parent.expandedHeight : parent.peekHeight
-                minOffset = restingHeight - parent.expandedHeight
-                maxOffset = restingHeight - parent.peekHeight
+                restingHeight = parent.height(for: parent.detent)
                 startTranslation = translationY
 
             case .changed:
                 let adjusted = translationY - (startTranslation ?? translationY)
-                let dragOffset = min(max(adjusted, minOffset), maxOffset)
-                let newHeight = min(parent.expandedHeight, max(parent.peekHeight, restingHeight - dragOffset))
+                // Clamped to the full range now rather than to the two detents either side of
+                // where the drag started, so one gesture can cross from expanded all the way to
+                // minimised without stopping at peek on the way.
+                let newHeight = min(parent.expandedHeight, max(parent.minimisedHeight, restingHeight - adjusted))
                 // Disables the implicit `CALayer` animation `.frame`/`.shadowPath` changes would
                 // otherwise pick up — without this, each live update would lag behind by one
                 // implicit animation's duration instead of tracking the finger 1:1.
@@ -180,22 +222,28 @@ struct DraggablePanelHost<Content: View>: UIViewRepresentable {
                 CATransaction.commit()
 
             case .ended, .cancelled:
-                // Baseline-adjusted the same way `.changed` is — using the raw, unadjusted
-                // `gesture.translation` here (as an earlier version of this did) silently made
-                // the commit threshold a few points more sensitive than what `.changed` had
-                // actually been live-tracking, since the "already traveled before `.began`
-                // fired" baseline was still baked into it.
-                let translation = translationY - (startTranslation ?? translationY)
-                var newExpanded = parent.isExpanded
-                if translation < -40 {
-                    newExpanded = true
-                } else if translation > 40 {
-                    newExpanded = false
+                // Two detents could be decided by a distance threshold. Three can't: "past 40
+                // points" doesn't say *which* of the two remaining ones you meant, and with peek
+                // in the middle, the old rule would have made minimised reachable only by
+                // dragging all the way through peek and releasing twice.
+                //
+                // So release resolves the way system sheets do. A throw moves exactly one detent
+                // in the direction it was thrown, however far the finger actually got — that is
+                // what makes a flick down from peek land on minimised. Anything slower is a
+                // placement rather than a throw, and goes to whichever detent it was left nearest.
+                let velocity = gesture.velocity(in: superview).y
+                let target: PanelDetent
+                if velocity > panelFlickVelocity {
+                    target = parent.detent.shorter
+                } else if velocity < -panelFlickVelocity {
+                    target = parent.detent.taller
+                } else {
+                    target = parent.nearestDetent(to: hostView.currentHeight)
                 }
                 startTranslation = nil
                 isPanning = false
                 parent.isDragging = false
-                parent.onSettle(newExpanded)
+                parent.onSettle(target)
 
             default:
                 break
