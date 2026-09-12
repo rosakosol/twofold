@@ -30,6 +30,33 @@
  *   - flights.shared is a per-flight toggle, so "your partner can see your flights" was
  *     broader than what the RLS policy actually allows.
  *
+ * Revised again on 2026-09-13, after ~60 migrations had landed since the pass above. The drift was
+ * concentrated in one place and it was the most consequential one in the app:
+ *
+ *   - Shared archives. 20261004000000 gave every dissolved couple a 90-day clock; 20261005000000
+ *     then dropped request_couple_purge/withdraw_couple_purge outright, so there is no call any
+ *     client can make that deletes shared data. The policy still said "either of you can then
+ *     permanently delete the entire shared archive from Settings", which was false in both
+ *     halves - and the 90-day deletion, the single most important fact about disconnecting, was
+ *     disclosed nowhere. The per-person hide and the restore-on-re-pair were missing too.
+ *   - Account deletion. delete_own_account's p_delete_shared_data has ignored its argument since
+ *     20261005000000. The policy described the toggle it fed in detail; the toggle has since been
+ *     removed from DeleteAccountView rather than reconnected.
+ *   - Location. "only the city and country are ever sent to us" was not true - HomeLocationService
+ *     put the raw fix into the Place, and findOrCreatePlaceID wrote it to public.places, which is
+ *     world-readable. The code was fixed rather than the sentence softened
+ *     (cityLevelCoordinate(for:)), and the text now says plainly that a city-level coordinate is
+ *     sent, because one still is.
+ *   - Export History no longer exists; it is Settings -> Your Relationship Record (Premium, PDF or
+ *     Word). The bigger omission was the *ungated* full export in Archived Data, which is the
+ *     better answer to a portability request and went unmentioned.
+ *   - Two analytics events were undisclosed (password_reset_request, invite_redeem) and one listed
+ *     event is now dead code (export_history_generated). PostHog's own automatic metadata - device,
+ *     OS, app version, locale, lifecycle, IP-derived region - was described as if only the named
+ *     events were sent.
+ *   - profiles.locale (20261011000200) joins timezone as a device-reported field.
+ *   - images.kiwi.com was missing from the sub-processor list.
+ *
  * Retention and region facts that ARE knowable from code are now stated outright instead of
  * being marked unknown: invite redemption attempts purge after 1 hour (20260921000000),
  * rate_limit_events after at most 1 day (20260918000000), and PostHog is the US cloud
@@ -38,7 +65,7 @@
  * says [TO CONFIRM] rather than inventing something.
  */
 import {sanityWriteClient} from './lib/sanity-write-client.mjs'
-import {resetKeys, h2, p, span, link, ptext, bullet} from './lib/portable-text.mjs'
+import {resetKeys, h2, p, span, link, ptext, bullet, li} from './lib/portable-text.mjs'
 
 const WRITE = process.argv.includes('--write')
 const EMAIL = 'hello@twofoldapp.com.au'
@@ -64,7 +91,7 @@ const body = [
     `Account details. You can create an account with Apple, with Google, or with an email address and a password. Sign in with Apple or Google and we receive an email address and a unique identifier from them, and never see a password. Choose email and password instead and your password is stored by our authentication provider as a salted hash - we can't read it, and it is never visible to us or to your partner.`
   ),
   bullet(
-    `Your profile. Your first name, a profile photo, an accent colour, the city you call home, and the date you started dating. Your device also reports its timezone, so daily questions and streaks roll over at your local midnight rather than ours.`
+    `Your profile. Your first name, a profile photo, an accent colour, the city you call home, and the date you started dating. Your device also reports its timezone, so daily questions and streaks roll over at your local midnight rather than ours, and the language it is set to, so notifications we send from our servers can be written in it.`
   ),
   bullet(
     `Notes about your partner. A nickname and photo you can set for your partner, and - before you've connected - your guess at the city they're in. These are yours alone; your partner never sees what you've chosen.`
@@ -82,7 +109,10 @@ const body = [
   // ------------------------------------------------- collected automatically
   h2('Information we collect automatically'),
   bullet(
-    `Product analytics. The iOS app sends usage events to PostHog: account creation and sign-in, paywall views, purchases and restores, adding and deleting flights, trips and memories, starting and finishing games, saving a doodle, removing a partner, generating an export, and the name of the screen you're on. Once you're signed in these are linked to your Twofold account identifier, along with the setup answers described above. We don't record your screen - session replay is switched off - and we never send the contents of your memories, notes, drawings or game answers as analytics.`
+    `Product analytics. The iOS app sends usage events to PostHog: account creation, sign-in and password-reset requests, redeeming a partner invite code, paywall views, purchases and restores, adding and deleting flights, trips and memories, starting and finishing games, saving a doodle, removing a partner, and the name of the screen you're on. Once you're signed in these are linked to your Twofold account identifier, along with the setup answers described above. We don't record your screen - session replay is switched off - and we never send the contents of your memories, notes, drawings or game answers as analytics.`
+  ),
+  bullet(
+    `Analytics our provider adds by itself. Alongside the events above, PostHog's own software records the technical details of each one: your device model, iOS version, the version of Twofold you're running, your language and timezone, and when the app is opened and closed. It also derives an approximate location from the IP address the event arrives from - a country and region, not a street - which is separate from, and coarser than, the home city you set in the app.`
   ),
   bullet(
     `The website collects nothing automatically. There is no analytics, no tracking pixel and no advertising cookie on twofoldapp.com.au. The only cookie it sets is the one that keeps you signed in when you use the feedback board.`
@@ -111,7 +141,7 @@ const body = [
   p(
     span(`That means the city you're in is shared with your partner, and keeps up with you as you travel. `, 'strong'),
     span(
-      `What we don't do is follow your position: the coordinates are resolved to a city on your own device and only the city and country are ever sent to us, a new city replaces the last rather than building up a history of where you've been, and there is no live or continuous tracking at any point.`
+      `What we don't do is follow your position. The reading itself never leaves your phone: it is turned into a city on the device, and what we receive is the city, the country, and a coordinate for that city rather than for you - the centre of the nearest large city we know of, or, where we don't know one nearby, your position rounded to about 11 kilometres. That coordinate is what draws the two of you on the globe and measures the distance between you, so we do need one; it is deliberately too coarse to identify a home. A new city replaces the last rather than building up a history of where you've been, and there is no live or continuous tracking at any point.`
     )
   ),
   ptext(
@@ -186,15 +216,27 @@ const body = [
   ptext(
     `Content you and your partner create together belongs to the relationship rather than to one of you individually. In practice that means:`
   ),
-  bullet(`Either of you can see all of it, for as long as the account exists.`),
+  bullet(`While you're connected, either of you can see all of it.`),
   bullet(
-    `Ending a connection archives it rather than deleting it. It stays readable to both of you, but neither of you can change it any more.`
+    `Ending a connection - by removing your partner, or by either of you deleting an account - archives it rather than deleting it. It stays readable to both of you in Settings → Archived Data, but neither of you can change it any more.`
+  ),
+  li(
+    span(`An archive is kept for 90 days, and is then permanently deleted for both of you. `, 'strong'),
+    span(
+      `That happens automatically, on a date the app shows you on the archive itself. Neither of you can bring it forward and neither of you can put it off - there is no button anywhere in Twofold, for either partner, that deletes shared content early.`
+    )
   ),
   bullet(
-    `Either of you can then permanently delete the entire shared archive from Settings → Archived Data. That deletes it for both of you, and it can't be undone.`
+    `If the two of you reconnect within those 90 days, you're offered your shared history back, and the deletion date goes away.`
+  ),
+  bullet(
+    `Either of you can hide an archive from your own list at any time. That affects only your own view - it deletes nothing, and your former partner still sees theirs.`
+  ),
+  bullet(
+    `Either of you can export an archive while it lasts, which is how you keep what was in it. See Your rights below.`
   ),
   ptext(
-    `We designed it this way so that one person can't quietly erase a shared history the other person also lived - and so neither person is locked out of it.`
+    `We settled on this because the alternative was worse in both directions. Letting one person delete the archive meant either of you could destroy the other's only copy of a history you both lived, without warning and without consent. Letting nobody delete it meant it lived forever. A fixed period that applies to both of you equally, that neither of you can aim at the other, is the one rule we could explain in a sentence - and the export means nobody has to keep the archive in order to keep what was in it.`
   ),
 
   // -------------------------------------------------------- deleting account
@@ -209,15 +251,15 @@ const body = [
   bullet(`Any active connection ends, and your partner is told you've left - the same as if you'd removed them.`),
   bullet(`Your own uploads (your profile photo, your drawings) and all your notification tokens are deleted.`),
   bullet(
-    `Shared content - trips, memories, photos, flights - is not deleted by default, because it is your partner's history too.`
+    `Shared content - trips, memories, photos, flights - is not deleted along with your account, because it is your partner's history too. Ending your connection starts the same 90-day archive clock described above, and it is permanently deleted for both of you when that runs out.`
   ),
   bullet(
     `An empty profile record stays behind, holding no name, photo or city. It exists only so that the shared history above doesn't collapse along with it, and so the same account can't be signed into again.`
   ),
   p(
-    span(`Because you won't be able to sign in afterwards, `, 'strong'),
+    span(`Because you won't be able to sign in afterwards, export anything you want to keep before you delete your account. `, 'strong'),
     span(
-      `deleting your account is your last opportunity to remove the shared archive yourself. The deletion screen offers to permanently delete the shared trips, memories, photos, flights and games at the same time - every archive you're part of, not only the most recent one. If you choose not to, that content stays with your partner, and from then on only they can delete it.`
+      `Deleting your account does not delete the shared archive, and neither you nor your former partner can delete it early - it goes when its 90 days are up. What is yours alone is removed straight away, as above, and cannot be recovered.`
     )
   ),
   ptext(
@@ -246,6 +288,9 @@ const body = [
   bullet(
     `adsb.lol, adsb.fi, airplanes.live and adsbdb.com - free community flight-tracking services we query for an aircraft's live position and route. We send them a flight's callsign and nothing about you.`
   ),
+  bullet(
+    `images.kiwi.com - a public logo service our servers fetch airline logos from, by airline code. Nothing about you is sent, and your device never contacts it directly.`
+  ),
   bullet(`RevenueCat - subscription management across the app and the website.`),
   bullet(`Stripe - payment processing for subscriptions bought on the website, through RevenueCat's web billing.`),
   bullet(`PostHog - product analytics for the iOS app.`),
@@ -272,7 +317,7 @@ const body = [
     `After you delete your account, your identifying profile fields are cleared straight away. An empty profile record and a permanently disabled login are kept so the account can't be restored or recreated.`
   ),
   bullet(
-    `Shared content is kept unless it's deleted, either by you at the point of deletion or by your former partner afterwards.`
+    `Shared content is kept for as long as you're connected. Once a connection ends, the archive of it is kept for 90 days and then permanently deleted for both of you, automatically - unless you reconnect within that time, in which case it becomes live again and the deletion date goes away.`
   ),
   bullet(`Invite redemption records are deleted automatically an hour after they're written.`),
   bullet(`Rate-limiting records are deleted automatically, and none is kept longer than a day.`),
@@ -314,7 +359,10 @@ const body = [
   bullet(`Restrict or object to how we use it.`),
   bullet(`Withdraw a consent you've previously given.`),
   ptext(
-    `Most of this you can do yourself in the app: edit your profile, delete individual trips and memories, delete a shared archive, or delete your account outright. Premium subscribers can also export chosen trips, memories and flights as a PDF from Settings → Export History - that's a keepsake rather than a complete copy of your data, so ask us if you want everything.`
+    `Most of this you can do yourself in the app: edit your profile, delete individual trips and memories, or delete your account outright.`
+  ),
+  ptext(
+    `There are two ways to take a copy with you. From Settings → Archived Data, "Export everything" gives you a past relationship's trips, memories, flights and games as spreadsheets, the photos as ordinary image files, and a readable PDF alongside them - openable by anyone, with or without Twofold, and available to everyone at no charge. Separately, Premium subscribers can export a Relationship Record of a current relationship from Settings → Your Relationship Record, as a PDF or a Word document; that one is a keepsake rather than a complete copy. If you want everything we hold, including anything not covered by either, just ask.`
   ),
   p(span(`For anything else, email `), mailto(), span(`. We'll respond within 30 days.`)),
   p(
@@ -350,7 +398,7 @@ const doc = {
   _type: 'legalPage',
   pageId: 'privacy',
   title: 'Privacy Policy',
-  lastUpdated: '2026-09-11',
+  lastUpdated: '2026-09-13',
   noticeText:
     `Draft - pending legal review. This policy describes how Twofold actually works today, but it has not been reviewed by a lawyer, and the points marked [TO CONFIRM] still need a decision before Twofold is publicly released.`,
   body,
