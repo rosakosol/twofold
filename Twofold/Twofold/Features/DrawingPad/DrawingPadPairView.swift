@@ -21,6 +21,12 @@ struct DrawingPadPairView: View {
     let partnerName: String
     let partnerURL: URL?
 
+    /// Width-to-height of each pane. Deliberately *not* the canvas's own ~3:5: at half the screen
+    /// each, two panes of that shape are tall thin columns, which is the thing this shape exists to
+    /// avoid. 3:4 reads as a picture rather than a strip, and leaves the gradient visible above and
+    /// below the pair instead of running them the full height of the screen.
+    private let paneAspectRatio: CGFloat = 3.0 / 4.0
+
     @Environment(\.dismiss) private var dismiss
 
     /// Tapping a pane opens that drawing on its own. Side by side on a phone gives each one less
@@ -70,19 +76,26 @@ struct DrawingPadPairView: View {
                 focused = FocusedPad(name: name, screenTitle: screenTitle, url: url)
             } label: {
                 ZStack {
-                    // The paper. Fills the pane rather than taking the drawing's own aspect ratio,
-                    // which isn't known until the image loads — two panes that resized themselves
-                    // the moment their images arrived would be a comparison view that jumps.
+                    // The paper.
                     RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
                         .fill(.white)
+                    // Filled and cropped to the pane rather than fitted inside it. The canvas these
+                    // come off is roughly 3:5 — the editor's whole screen less its toolbar — so two
+                    // of them *fitted* at half width each were a pair of tall thin columns.
                     CachedRemoteImage(url: url) { image in
-                        image.resizable().scaledToFit()
+                        image.resizable().scaledToFill()
                     } placeholder: {
                         emptyState
                     }
-                    .padding(Theme.Spacing.sm)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                // Cropping gives up the top and bottom of each drawing in exchange for a pane you
+                // can read at a glance, which is the trade this screen wants — it exists to put the
+                // two next to each other, and the whole drawing is one tap away on the pane itself.
+                //
+                // This is also what stops the overdraw escaping: a `scaledToFill` image reports the
+                // size it was offered and then paints past it, so the stack needs a size of its own
+                // to hand down — and the `clipShape` below then has something real to crop to.
+                .aspectRatio(paneAspectRatio, contentMode: .fit)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
