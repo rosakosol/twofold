@@ -348,7 +348,13 @@ const body = [
   // ------------------------------------------------------------- transfers
   h2('Where your data is held'),
   ptext(
-    `Twofold is operated from Australia, and your account and your content are stored here: your profile, trips, memories, photos, flights, drawings and game answers all live in our provider's Sydney region. Our analytics provider holds its data in the United States, and the providers that handle payments, flight data and reading a shared flight email are United States based. [TO CONFIRM: regions for website hosting and email]. Where data leaves your country, we rely on the transfer safeguards those providers have in place, such as Standard Contractual Clauses for transfers out of the EEA and the UK.`
+    `Twofold is operated from Australia, and the things that are most yours are stored here. Your account, your profile, and everything you and your partner create - trips, memories, photos, flights, drawings and game answers - live in our provider's Sydney region, and anything you email us is held in Australia too.`
+  ),
+  ptext(
+    `Some things are held in the United States: our website is served from there, our analytics provider stores its data there, and so do the providers that handle payments, flight information, and reading a flight email you've shared with us.`
+  ),
+  ptext(
+    `Where data leaves your country, we rely on the transfer safeguards those providers have in place, such as Standard Contractual Clauses for transfers out of the EEA and the UK.`
   ),
 
   // ---------------------------------------------------------------- rights
