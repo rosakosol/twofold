@@ -216,23 +216,17 @@ struct ConnectFourGameView: View {
         }
     }
 
+    /// Already sits on the page rather than inside a card, which is where `GameReminderButton`
+    /// needs to be — it is filled with `Theme.cardBackground` to read as raised.
     private var nudgeButton: some View {
-        Button {
+        GameReminderButton(isSending: isNudging) {
             isNudging = true
             Task {
                 await store.nudgePartner()
                 isNudging = false
                 showingNudgeSent = true
             }
-        } label: {
-            HStack(spacing: Theme.Spacing.xs) {
-                if isNudging { ProgressView().controlSize(.small) }
-                Text(isNudging ? "Sending…" : "Nudge \(appModel.partner.name)")
-                    .font(.subheadline.weight(.semibold))
-            }
         }
-        .buttonStyle(.plain)
-        .foregroundStyle(Theme.skyBlueText)
-        .disabled(isNudging)
+        .padding(.horizontal, Theme.Spacing.md)
     }
 }

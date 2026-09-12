@@ -68,21 +68,9 @@ struct GameCompletionView: View {
             }
 
             VStack(spacing: Theme.Spacing.sm) {
-                Button(action: onSendReminder) {
-                    HStack {
-                        if isSendingReminder {
-                            ProgressView()
-                        } else {
-                            Text("Send Reminder")
-                        }
-                    }
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .foregroundStyle(Theme.ink)
-                    .background(Theme.cardBackground, in: Capsule())
-                }
-                .disabled(isSendingReminder)
+                // Unchanged to look at — `GameReminderButton` is this button, lifted out so the
+                // five puzzle games can stop each drawing their own.
+                GameReminderButton(isSending: isSendingReminder, action: onSendReminder)
 
                 Button(action: onPlayAnother) {
                     Text("Play Another Game")

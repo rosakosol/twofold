@@ -483,7 +483,28 @@ struct SudokuGameView: View {
 
     // MARK: - Solved
 
+    @ViewBuilder
     private func solvedCard(play: SudokuPlayState) -> some View {
+        VStack(spacing: Theme.Spacing.sm) {
+            solvedSummary(play: play)
+
+            // Below the card rather than inside it: `GameReminderButton` is filled with
+            // `Theme.cardBackground` to read as raised against the page, which is the one colour
+            // it would vanish into within a `SectionCard`. Same placement the deck games use.
+            if appModel.hasCouple {
+                GameReminderButton(isSending: isSendingReminder, action: remindPartner)
+            }
+        }
+        // On the stack rather than the card, so the button below it is inset to match.
+        .padding(.horizontal, Theme.Spacing.md)
+        .alert("Nudge sent", isPresented: $showingReminderSent) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("\(appModel.partner.name) has been told their puzzle is waiting.")
+        }
+    }
+
+    private func solvedSummary(play: SudokuPlayState) -> some View {
         SectionCard {
             VStack(spacing: Theme.Spacing.sm) {
                 Image(systemName: "checkmark.seal.fill")
@@ -509,57 +530,19 @@ struct SudokuGameView: View {
                     // does not insist on its own height.
                     .fixedSize(horizontal: false, vertical: true)
 
-                // Deliberately says "hasn't finished", never "hasn't started".
+                // The solo player's way on. Paired, there is a comparison coming and the reminder
+                // button below the card is the thing to do about it; alone there is nothing to
+                // wait for.
                 //
-                // RLS only reveals a partner's response once both have answered, so from here
-                // their half is invisible whether they are three cells from the end or have not
-                // opened it. Guessing between those is how an app tells someone their partner is
-                // ignoring them while they are in fact mid-puzzle.
-                Divider().opacity(0.5)
-
-                if appModel.hasCouple {
-                    Button(action: remindPartner) {
-                        HStack(spacing: Theme.Spacing.xs) {
-                            if isSendingReminder { ProgressView().controlSize(.small) }
-                            Text(isSendingReminder ? "Sending…" : "Nudge \(appModel.partner.name)")
-                                .font(.subheadline.weight(.semibold))
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(Theme.skyBlueText)
-                    .disabled(isSendingReminder)
-                } else {
-                    // The solo player's way on. Paired, this button waits for the comparison —
-                    // leaving before your partner finishes ends the grid for both of you, which is
-                    // what the abandon line below is for. Alone there is nothing to wait for.
+                // The line that used to sit here — "Don't want to wait? Abandon it from the menu
+                // above…" — pointed at a menu that isn't on screen once the puzzle is solved, so
+                // it named a way out nobody could take from where they were standing.
+                if !appModel.hasCouple {
+                    Divider().opacity(0.5)
                     rematchButton
-                }
-
-                // The difficulty stays occupied until one of them finishes or someone puts it
-                // down — `start_sudoku_session` resumes any session that is not completed — so the
-                // way out is named here rather than left to be discovered in a menu.
-                //
-                // Only while there is somebody to wait for. Solo, the button above is the way on
-                // and the abandon menu is not even there to point at: it hides once the puzzle is
-                // solved.
-                if appModel.hasCouple {
-                    Text(store.difficulty.map { "Don't want to wait? Abandon it from the menu above to start a new \($0.displayName) puzzle." }
-                        ?? "Don't want to wait? Abandon it from the menu above to start a new puzzle.")
-                        .font(.caption2)
-                        .foregroundStyle(Theme.subtleInk)
-                        .multilineTextAlignment(.center)
-                        // Without this it is clipped to one line and ends mid-sentence — the
-                        // difficulty name makes it long enough to wrap on every device.
-                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
             .frame(maxWidth: .infinity)
-        }
-        .padding(.horizontal, Theme.Spacing.md)
-        .alert("Nudge sent", isPresented: $showingReminderSent) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("\(appModel.partner.name) has been told their puzzle is waiting.")
         }
     }
 

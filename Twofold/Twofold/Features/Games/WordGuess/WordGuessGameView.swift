@@ -245,6 +245,19 @@ struct WordGuessGameView: View {
     }
 
     private func waitingCard(play: WordGuessPlayState) -> some View {
+        VStack(spacing: Theme.Spacing.sm) {
+            waitingSummary(play: play)
+
+            // Outside the card: `GameReminderButton` is filled with `Theme.cardBackground` so it
+            // reads as raised against the page, which is the one colour it would disappear into
+            // inside a `SectionCard`. Same placement the deck games use.
+            if appModel.hasCouple {
+                GameReminderButton(isSending: isSendingReminder, action: remindPartner)
+            }
+        }
+    }
+
+    private func waitingSummary(play: WordGuessPlayState) -> some View {
         SectionCard {
             VStack(spacing: Theme.Spacing.sm) {
                 Image(systemName: play.isSolved ? "checkmark.seal.fill" : "clock.badge.xmark")
@@ -271,22 +284,6 @@ struct WordGuessGameView: View {
                         .foregroundStyle(Theme.subtleInk)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
-
-                    Divider().opacity(0.5)
-
-                    // Deliberately says "hasn't played", never "hasn't started" — RLS hides their
-                    // half either way, and guessing between the two is how an app tells somebody
-                    // their partner is ignoring them while they are in fact mid-board.
-                    Button(action: remindPartner) {
-                        HStack(spacing: Theme.Spacing.xs) {
-                            if isSendingReminder { ProgressView().controlSize(.small) }
-                            Text(isSendingReminder ? "Sending…" : "Nudge \(appModel.partner.name)")
-                                .font(.subheadline.weight(.semibold))
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(Theme.skyBlueText)
-                    .disabled(isSendingReminder)
                 } else {
                     Text("A new word is waiting tomorrow.")
                         .font(.caption)
