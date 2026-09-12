@@ -31,6 +31,12 @@ struct SettingsView: View {
     /// and a failed query is not a reason to tell anyone anything.
     @State private var redundantSubscription: BackendService.RedundantSubscription?
     @State private var subscriptionStore = SubscriptionStore()
+    /// True once *both* of the `.task`'s awaits have returned — the entitlement refresh and the
+    /// redundant-subscription lookup. `subscriptionStore` is a fresh instance every time Settings
+    /// is presented and `refreshEntitlementsOnly()` is a real network round trip, so every open
+    /// starts from "nothing known" and the banner's subtitle is computed twice more as the two
+    /// answers land. Gating on the pair means it settles once instead of changing under the reader.
+    @State private var hasLoadedSubscriptionContext = false
     @State private var showingSignOutConfirm = false
     @State private var isSigningOut = false
     @State private var appLock = AppLockService()
@@ -286,6 +292,7 @@ struct SettingsView: View {
             .task {
                 await subscriptionStore.refreshEntitlementsOnly()
                 redundantSubscription = try? await BackendService.redundantSubscription()
+                hasLoadedSubscriptionContext = true
             }
             .sheet(isPresented: $showingPaywall) {
                 NavigationStack { PaywallView() }
@@ -324,35 +331,39 @@ struct SettingsView: View {
         }
     }
 
-    /// Shared by both directions of the toggle — enabling and disabling each need their own
-    /// fresh authentication (see the toggle's own comment). Only ever applies the new value to
-    /// `appLock.isEnabled` after that succeeds; a cancelled or failed prompt leaves the setting
-    /// exactly as it was.
-    /// Whose subscription the couple is running on, as the banner's subtitle.
+    /// Names the partner whose subscription is covering the couple, as the banner's subtitle.
     ///
     /// A Twofold subscription covers the couple — `private.couple_effective_tier` takes the better
-    /// of the two partners' tiers — which reads as "we are subscribed" rather than "one of us is".
-    /// Saying which one costs a line and saves the confusion.
+    /// of the two partners' tiers — so for the person who did not buy it, the banner's default
+    /// subtitle ("View or change your plan") describes something they cannot actually do from
+    /// here; tapping it explains the partner holds it. Naming them up front saves that detour.
     ///
-    /// Nil until `hasResolvedEntitlements`, and that gate is the whole point. `isSubscribed` starts
-    /// false, which is indistinguishable from "not asked yet", so without it this named the partner
-    /// first and corrected itself a round trip later — a subscriber watching their own plan be
-    /// attributed to someone else for a beat.
+    /// Only that direction. This used to have a matching "One subscription covers you both — this
+    /// one's yours" for the person who *did* buy it, which said nothing the banner above it wasn't
+    /// already saying, and paid for it by being the one line on the screen that arrived late.
+    ///
+    /// Nil until `hasLoadedSubscriptionContext`. Both of the values below start at their
+    /// "not subscribed / no redundancy" defaults, which are indistinguishable from "not asked
+    /// yet", so an ungated read names nobody, then names the partner, then possibly takes it back
+    /// when the redundancy lookup lands — the flicker this gate exists to stop.
     ///
     /// Nil too while both are subscribed: the redundant-subscription card below owns that state,
     /// and a single owner is not what is happening there.
     private var subscriptionCoverageNote: String? {
         guard appModel.partnerConnected,
-              subscriptionStore.hasResolvedEntitlements,
+              hasLoadedSubscriptionContext,
               !(redundantSubscription?.bothSubscribed ?? false),
-              appModel.isSubscriptionActive || subscriptionStore.isSubscribed
+              appModel.isSubscriptionActive,
+              !subscriptionStore.isSubscribed
         else { return nil }
 
-        return subscriptionStore.isSubscribed
-            ? "One subscription covers you both — this one's yours"
-            : "\(appModel.partner.name)'s subscription covers you both"
+        return "\(appModel.partner.name)'s subscription covers you both"
     }
 
+    /// Shared by both directions of the toggle — enabling and disabling each need their own
+    /// fresh authentication (see the toggle's own comment). Only ever applies the new value to
+    /// `appLock.isEnabled` after that succeeds; a cancelled or failed prompt leaves the setting
+    /// exactly as it was.
     private func requestLockToggle(_ newValue: Bool) {
         guard !isAuthenticatingLockToggle else { return }
         isAuthenticatingLockToggle = true
