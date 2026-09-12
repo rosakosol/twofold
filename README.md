@@ -330,25 +330,33 @@ display copy — changing one in Studio does not change what anyone is charged.
 
 ### Twofold Plus
 
-**US$9.99/month** · **US$59.99/year**
+**A$9.99/month** · **A$59.99/year**
 
 * Unlimited trips & memories
-* Up to 5 tracked flights each month
+* Up to 2 live-tracked flights each month
 * 500+ questions and games
 * Home Screen & Lock Screen widgets
 
 ### Twofold Premium
 
-**US$19.99/month** · **US$119.99/year**
+**A$19.99/month** · **A$119.99/year**
 
 * Everything in Twofold Plus
-* Up to 20 tracked flights each month
+* Up to 5 live-tracked flights each month
 * 2000+ questions and games
 * Exclusive Home Screen and Lock Screen widgets
+* Your Relationship Record — every trip, memory and flight as one document
 
-Both are auto-renewing, and can be bought either in the app (App Store) or on
-twofoldapp.com.au (Stripe via RevenueCat). A web purchase is tied to the Apple ID used at
-checkout, so signing into the app with that same Apple ID unlocks it.
+The monthly allowance is on *live tracking*, not on saving: a flight beyond the limit still
+appears in your trips and your Passport, it just won't send live updates. `flight_limit_for_tier`
+(`20261010000400_track_limit_and_untracked_flights.sql`) is the source of truth for both numbers,
+and `private.flight_limit_overrides` can raise them per account.
+
+Prices are set in Australian dollars and shown to each buyer in their own currency where the store
+supports it — see `site/src/lib/marketing/priceDisplay.ts`. Both are auto-renewing, and can be
+bought either in the app (App Store) or on twofoldapp.com.au (Stripe via RevenueCat). A web
+purchase is tied to the Apple ID used at checkout, so signing into the app with that same Apple ID
+unlocks it.
 
 ### Flight Allowances
 
@@ -544,6 +552,55 @@ Update trip and partner travel state
 
 Twofold should use event-driven flight tracking rather than continuously polling flight status.
 
+## Shared Data Lifecycle
+
+What happens to a couple's shared history when they come apart. This is the app's one
+irreversible data rule, so it is worth having written down in one place.
+
+**Unpairing does not delete anything.** `leave_couple` flips `couples.status` to `dissolved`;
+everything stays readable to both people in Settings → Archived Data, frozen rather than removed.
+Deleting an account does the same thing to any couple the account was still active in — so a
+breakup is never a button one person can press to destroy the other's copy of a shared decade.
+
+**An archive lives 90 days.** A `before insert or update` trigger
+(`private.stamp_couple_archive_clock`) stamps `couples.scheduled_purge_at` on *any* transition into
+`dissolved`, whatever caused it. A daily pg_cron job at 03:00
+(`private.purge_expired_couple_archives`) calls `purge_couple_data` on everything whose date has
+passed, deleting the storage objects by prefix and the `couples` row, with the rest cascading.
+`archive_retention_interval()` is the single definition of the 90 days.
+
+**Nothing else deletes shared data.** `request_couple_purge` and `withdraw_couple_purge` were
+dropped in `20261005000000_purge_is_only_ever_the_timer.sql`, and
+`delete_own_account(p_delete_shared_data)` ignores its argument — the parameter survives only so
+installed builds keep working. There is no call a client can make that destroys a couple's shared
+content: not a policy that refuses, but no such function. Anything in the UI that appears to offer
+one is a bug (there was one — see the delete-account screen's header comment).
+
+**Re-pairing inside the window restores it.** `status` goes back to `active` and the stamp is
+cleared. The original `couples` row is revived rather than a new one created, because every memory
+photo lives at `memory-photos/{couple_id}/...` and moving content to a new row would leave every
+file under a path the new couple has no claim to.
+
+**A hide is not a delete.** `couple_archive_preferences.hidden_at` takes an archive out of one
+person's own list and destroys nothing — the other partner still sees theirs. It exists because
+"I don't want to look at this any more" and "I want this gone for both of us" are different wishes
+that a single Delete button was conflating.
+
+**Keeping a copy.** `CoupleDataExporter` (Settings → Archived Data → "Export everything", ungated)
+writes the trips, memories, flights and games as CSV, the photos as ordinary files, and a readable
+PDF, zipped — openable in ten years by someone who has never heard of Twofold. That export is what
+makes a fixed deletion window defensible: nobody has to keep the archive to keep what was in it.
+Separately, `RelationshipTimelineView` (Settings → Your Relationship Record, Premium, partner-only)
+exports a current relationship as PDF or Word.
+
+**Where users are told.** `ArchivedDataView` prints the exact deletion date on each archive;
+`DeleteAccountView` states the rule before you confirm. The privacy policy, the terms and FAQ
+entries 110/115 all describe this same lifecycle — if the behaviour here changes, those four are
+the copy that goes stale with it.
+
+Relevant migrations: `20261003000000` (both-partners consent, since superseded), `20261004000000`
+(the clock, the cron and restore-on-re-pair), `20261005000000` (the timer as the only route).
+
 ## Current Implementation
 
 This section documents the actual native iOS codebase as it exists today (SwiftUI, Xcode project at `Twofold/Twofold.xcodeproj`), as distinct from the product vision above. Some of what's described above is fully real and backend-connected already; other parts are still UI-only groundwork waiting to be wired up.
@@ -584,7 +641,7 @@ This section documents the actual native iOS codebase as it exists today (SwiftU
 * `Features/Settings/` — profile, notifications, app lock, archived data, account deletion, support
 * `DesignSystem/` — `Theme.swift` and the shared component library
 * `Models/` — backend-agnostic value types (`Person`, `Couple`, `Trip`, `Flight`, `Place`, `Memory`, `Geo`)
-* `Services/` — every backend and platform integration, including `BackendService.swift` (all Supabase calls), `AeroFlightService`, `LiveActivityManager`, `WidgetSnapshotWriter`, `HomeLocationService`, `AppLockService`, `WeatherService`, `HelpService`, `CoupleHistoryPDFExporter`
+* `Services/` — every backend and platform integration, including `BackendService.swift` (all Supabase calls), `AeroFlightService`, `LiveActivityManager`, `WidgetSnapshotWriter`, `HomeLocationService`, `AppLockService`, `WeatherService`, `HelpService`, `CoupleDataExporter`/`CoupleHistoryPDFExporter`
 * `Mock/` — `MockData.swift`, used by SwiftUI previews
 
 ### Onboarding
@@ -618,8 +675,7 @@ Live Activities, Home/Lock Screen widgets, and push notifications are all wired 
 Known gaps before submission:
 
 * `APP_STORE_URL` in `site/src/lib/marketing/config.ts` is still the placeholder `id0000000000` — every download link on the website points at it
-* "Export your story" (`ExportHistoryView`/`CoupleHistoryPDFExporter`) is built but deliberately pulled from the first release; its Settings row is commented out in `SettingsView.swift`
-* The privacy policy and terms carry a "pending legal review" notice and several `[TO CONFIRM]` placeholders (legal entity, hosting regions, retention windows, minimum age)
+* The privacy policy and terms carry a "pending legal review" notice and `[TO CONFIRM]` placeholders that need answers before either can be published — the policy wants a registered address, hosting regions, a backup retention window, PostHog's retention period and a minimum age; the terms want a legal entity name and registered address, a minimum age, and the Australian state whose law governs them. Both are seeded by `site/scripts/seed-privacy-policy.mjs` and `seed-terms.mjs`, which are dry-run unless passed `--write`
 
 ### Flight Data APIs
 
