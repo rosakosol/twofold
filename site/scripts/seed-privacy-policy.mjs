@@ -100,7 +100,7 @@ const body = [
     `Things you create. Trips, memories (a title, note, emoji, date, place and photos), flights (flight numbers, dates and who's travelling, plus any boarding passes, itineraries or other travel documents you attach), drawings on the shared pad, and your answers to games and discussion prompts.`
   ),
   bullet(
-    `Setup questions. During onboarding we ask how you found Twofold, your relationship situation, how often you travel, what you're hoping to get out of the app, and your and your partner's gender - the last of these only so the app can use the right pronoun in its own wording. These answers are not saved to your Twofold account. They are sent to PostHog, our analytics provider, and attached to your analytics profile there, so we can tell which kinds of couples get the most out of Twofold. See "Information we collect automatically" below.`
+    `Setup questions. During onboarding we ask how you found Twofold, your relationship situation, how often you travel, what you're hoping to get out of the app, and your and your partner's gender - the last of these only so the app can use the right pronoun in its own wording. These answers are not saved to your Twofold account. They are sent to our analytics provider and attached to your analytics profile there, so we can tell which kinds of couples get the most out of Twofold. See "Information we collect automatically" below.`
   ),
   bullet(
     `Support and sign-ups. If you use the support form - in the app or on the website - we receive your name, email address, the category you pick and your message. That is sent to our support inbox as an email; it isn't stored in the Twofold database. If you join the Android waitlist we store your email address and send you a confirmation. If you use the feedback board we store the requests you post, your votes, comments, bookmarks, and which requests you've chosen to follow.`
@@ -109,10 +109,10 @@ const body = [
   // ------------------------------------------------- collected automatically
   h2('Information we collect automatically'),
   bullet(
-    `Product analytics. The iOS app sends usage events to PostHog: account creation, sign-in and password-reset requests, redeeming a partner invite code, paywall views, purchases and restores, adding and deleting flights, trips and memories, starting and finishing games, saving a doodle, removing a partner, and the name of the screen you're on. Once you're signed in these are linked to your Twofold account identifier, along with the setup answers described above. We don't record your screen - session replay is switched off - and we never send the contents of your memories, notes, drawings or game answers as analytics.`
+    `Product analytics. The iOS app sends usage events to our analytics provider: account creation, sign-in and password-reset requests, redeeming a partner invite code, paywall views, purchases and restores, adding and deleting flights, trips and memories, starting and finishing games, saving a doodle, removing a partner, and the name of the screen you're on. Once you're signed in these are linked to your Twofold account identifier, along with the setup answers described above. We don't record your screen - session replay is switched off - and we never send the contents of your memories, notes, drawings or game answers as analytics.`
   ),
   bullet(
-    `Analytics our provider adds by itself. Alongside the events above, PostHog's own software records the technical details of each one: your device model, iOS version, the version of Twofold you're running, your language and timezone, and when the app is opened and closed. It also derives an approximate location from the IP address the event arrives from - a country and region, not a street - which is separate from, and coarser than, the home city you set in the app.`
+    `Analytics our provider adds by itself. Alongside the events above, their own software records the technical details of each one: your device model, iOS version, the version of Twofold you're running, your language and timezone, and when the app is opened and closed. It also derives an approximate location from the IP address the event arrives from - a country and region, not a street - which is separate from, and coarser than, the home city you set in the app.`
   ),
   bullet(
     `The website collects nothing automatically. There is no analytics, no tracking pixel and no advertising cookie on twofoldapp.com.au. The only cookie it sets is the one that keeps you signed in when you use the feedback board.`
@@ -121,7 +121,7 @@ const body = [
     `Notification tokens. Apple issues a device token so we can send you push notifications, plus separate short-lived tokens for each Live Activity.`
   ),
   bullet(
-    `Subscription status. RevenueCat tells us whether you have an active Plus or Premium subscription, and when we last checked.`
+    `Subscription status. Our subscription provider tells us whether you have an active Plus or Premium subscription, and when we last checked.`
   ),
   bullet(
     `Abuse prevention. We record a timestamped row when you redeem an invite code, and when you use the support form or the flight-email reader, so that a single account can't run those in a loop. These rows hold your account identifier and the time, nothing else, and they are deleted automatically - see "How long we keep it".`
@@ -275,29 +275,32 @@ const body = [
   ptext(
     `We do not sell your personal information, and never have. We share it only with the providers that make Twofold work:`
   ),
-  bullet(`Supabase - database, authentication and file storage.`),
+  bullet(`Our cloud platform provider - the database, your sign-in, and the files you upload. Stored in Sydney, Australia.`),
   bullet(
     `Apple - push notifications and Live Activities, turning a location fix into a city name, weather data, and App Store purchases.`
   ),
   bullet(`Google - only if you choose to sign in with a Google account.`),
-  bullet(`FlightAware (AeroAPI) - schedules and live status for the flights you track.`),
+  bullet(`Our flight data provider - schedules and live status for the flights you track, in the United States. We send a flight number, never anything about you.`),
   bullet(
     `OpenAI - reads a flight email you've shared with the app, and only then. See "Sharing a flight email with Twofold" above.`
   ),
   bullet(
-    `adsb.lol, adsb.fi, airplanes.live and adsbdb.com - free community flight-tracking services we query for an aircraft's live position and route. We send them a flight's callsign and nothing about you.`
+    `Free community flight-tracking services - queried for an aircraft's live position and route. We send them a flight's callsign and nothing about you.`
   ),
   bullet(
-    `images.kiwi.com - a public logo service our servers fetch airline logos from, by airline code. Nothing about you is sent, and your device never contacts it directly.`
+    `A public airline-logo service - our servers fetch logos from it by airline code. Nothing about you is sent, and your device never contacts it directly.`
   ),
-  bullet(`RevenueCat - subscription management across the app and the website.`),
-  bullet(`Stripe - payment processing for subscriptions bought on the website, through RevenueCat's web billing.`),
-  bullet(`PostHog - product analytics for the iOS app.`),
-  bullet(`Zoho Mail - sending and receiving support, waitlist and account email.`),
-  bullet(`Vercel - hosting for twofoldapp.com.au.`),
-  bullet(`Sanity - content management for the website's marketing and legal pages.`),
+  bullet(`Our subscription management provider - keeps track of whether your subscription is active, across the app and the website. United States.`),
+  bullet(`Stripe - payment processing for subscriptions bought on the website. You see Stripe by name at checkout.`),
+  bullet(`Our product analytics provider - usage analytics for the iOS app, held in the United States.`),
+  bullet(`Our email provider - sending and receiving support, waitlist and account email.`),
+  bullet(`Our website host - serving twofoldapp.com.au.`),
+  bullet(`Our content management provider - the website's marketing and legal pages. It holds no personal information.`),
   ptext(
-    `Each of these processes data only as needed for that purpose. We may also disclose information where the law requires it, or to protect someone's safety - and we'll tell you when that happens unless we're legally prevented from doing so.`
+    `Each of these processes data only as needed for that purpose. Where we've described a provider by what it does rather than naming it, that's to keep this list readable and to avoid it going stale every time we change supplier - email us and we'll tell you exactly who they are.`
+  ),
+  ptext(
+    `We may also disclose information where the law requires it, or to protect someone's safety - and we'll tell you when that happens unless we're legally prevented from doing so.`
   ),
   ptext(`Twofold never sees or stores your card details. Those go directly to Apple or to Stripe.`),
 
@@ -334,7 +337,7 @@ const body = [
   ),
   bullet(`Uploaded files are namespaced per couple and per profile, under the same rules.`),
   bullet(
-    `Subscription status can only be written by our own servers in response to RevenueCat, never by a device claiming to have paid.`
+    `Subscription status can only be written by our own servers in response to our subscription provider, never by a device claiming to have paid.`
   ),
   bullet(`You can lock the app behind Face ID, Touch ID or your device passcode.`),
   bullet(`We're a small team, and access to production data is limited to what's needed to run the service.`),

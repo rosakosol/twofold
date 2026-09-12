@@ -102,7 +102,7 @@ const body = [
     `App Store subscriptions renew automatically at the end of each billing period unless cancelled at least 24 hours before renewal, and are managed from your device's Settings → Apple ID → Subscriptions, under Apple's standard terms.`
   ),
   bullet(
-    `Web subscriptions renew automatically at the end of each billing period and can be cancelled at any time. Payment is processed by Stripe via RevenueCat - we never see or store your card details.`
+    `Web subscriptions renew automatically at the end of each billing period and can be cancelled at any time. Payment is processed by Stripe - we never see or store your card details.`
   ),
   bullet(
     `A subscription started on the web is tied to the Apple ID you sign in with at checkout. Sign in with that same Apple ID in the app to get what you've paid for.`
@@ -197,7 +197,7 @@ const body = [
   // --------------------------------------------- third-party information
   h2('Flight, weather and other third-party information'),
   ptext(
-    `Flight schedules and status come from FlightAware, and weather from Apple WeatherKit. An aircraft's live position and route may instead come from free community flight-tracking services - adsb.lol, adsb.fi, airplanes.live and adsbdb.com - which run without any guarantee of availability or accuracy. We pass all of it on as we receive it: we don't verify it and can't guarantee it's accurate, complete or on time.`
+    `Flight schedules and status come from a commercial flight data provider, and weather from Apple WeatherKit. An aircraft's live position and route may instead come from free, community-run flight-tracking services, which operate with no guarantee of availability or accuracy and can be wrong or silent without warning. We pass all of it on as we receive it: we don't verify it and can't guarantee it's accurate, complete or on time.`
   ),
   p(
     span(`Don't rely on Twofold for anything that matters. `, 'strong'),
