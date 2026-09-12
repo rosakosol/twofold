@@ -102,14 +102,14 @@ export const FAQ_FALLBACK: FaqFallbackItem[] = [
     order: 3,
     question: "What happens to shared data if we disconnect?",
     answer:
-      "Removing a partner archives your shared data rather than deleting it immediately, so either of you can permanently delete it afterward from Settings.",
+      "Removing a partner archives your shared data rather than deleting it. Your trips, memories, photos, flights and games all stay readable to both of you in Settings -> Archived Data, but neither of you can add to them or change them any more. An archive is kept for 90 days and is then permanently deleted, automatically, for both of you - the exact date is shown on the archive itself. Neither partner can bring that date forward or push it back. If you reconnect with the same partner inside those 90 days, you will be offered your shared history back. You can also hide an archive from your own list at any time: that changes only your view and deletes nothing for either of you. If you want to keep what is in an archive, export it before the 90 days are up - you will get your trips, memories, flights and games as files you can open anywhere, with the photos alongside them.",
   },
   {
     category: "privacy",
     order: 4,
     question: "What happens to our shared data if I delete my account?",
     answer:
-      "By default it stays with your partner - shared trips, memories, and photos are their history too, so deleting your account doesn't erase their side of it. Because you won't be able to sign back in afterwards, the delete screen offers to permanently delete the shared data at the same time. That removes it for both of you and can't be undone. If you skip it, only your former partner can delete it from then on.",
+      "It stays with your partner. Shared trips, memories and photos are their history too, so deleting your account does not erase their side of it. Deleting your account does end your connection, and that starts the same 90-day clock as removing a partner: the shared history is permanently deleted for both of you once it runs out. There is no way for either of you to delete it sooner. Because you will not be able to sign back in afterwards, export anything you want to keep before you delete your account - everything that is yours alone (your name, your photo, your login) is removed straight away and cannot be recovered.",
   },
   {
     category: "flights",
