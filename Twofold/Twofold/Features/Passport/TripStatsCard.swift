@@ -94,14 +94,7 @@ struct TripStatsCard: View {
                 }
 
                 if let onShare {
-                    Button(action: onShare) {
-                        Image(systemName: "square.and.arrow.up")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(Theme.subtleInk)
-                            .padding(8)
-                            .background(Theme.backgroundGradient, in: Circle())
-                    }
-                    .accessibilityLabel("Share trip stats")
+                    StatsShareButton(label: "Share trip stats", action: onShare)
                 }
             }
         }

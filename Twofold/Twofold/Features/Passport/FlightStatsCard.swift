@@ -73,14 +73,7 @@ struct FlightStatsCard: View {
                 }
 
                 if let onShare {
-                    Button(action: onShare) {
-                        Image(systemName: "square.and.arrow.up")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(Theme.subtleInk)
-                            .padding(8)
-                            .background(Theme.backgroundGradient, in: Circle())
-                    }
-                    .accessibilityLabel("Share flight stats")
+                    StatsShareButton(label: "Share flight stats", action: onShare)
                 }
             }
         }
