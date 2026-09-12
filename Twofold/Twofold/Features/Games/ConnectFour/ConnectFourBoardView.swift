@@ -18,6 +18,14 @@ struct ConnectFourBoardView: View {
     /// Columns still open, and whether tapping does anything at all.
     let isInteractive: Bool
     let onDrop: (Int) -> Void
+    /// The column the most recent disc went into, and how many moves have been played.
+    ///
+    /// Together they pick out the one disc that should fall. The column alone is not enough: the
+    /// board is rebuilt from the whole move list on every refresh, so without a move count to
+    /// change with it, a disc would either animate again on an unrelated reload or never animate
+    /// twice in the same column.
+    var lastDropColumn: Int?
+    var moveCount: Int = 0
 
     /// The four that won it, dimmed against everything else once there is a winner.
     private var winningCells: Set<Int> {
@@ -63,9 +71,24 @@ struct ConnectFourBoardView: View {
         let isWinning = winningCells.contains(index)
         let hasWinner = !winningCells.isEmpty
 
-        return Circle()
-            .fill(fill(for: occupant))
-            .padding(slot * 0.09)
+        // A disc lands on top of whatever is already in its column, so the newest one in a column
+        // is always the highest occupied cell in it. That is cheaper and more robust than tracking
+        // a row alongside the column, and it cannot disagree with the board it is drawn from.
+        let isNewest = occupant != nil
+            && column == lastDropColumn
+            && row == topmostOccupiedRow(in: column)
+
+        return DroppingDisc(
+            color: fill(for: occupant),
+            inset: slot * 0.09,
+            // From above the board's top edge, so it enters the frame rather than appearing inside
+            // it — the distance grows with how far down the disc ends up.
+            fallHeight: CGFloat(row + 1) * slot,
+            animates: isNewest
+        )
+        // A fresh identity for the falling disc each move, which is what re-runs its `onAppear`.
+        // Every other cell keeps a stable one so nothing else is rebuilt.
+        .id("\(index)-\(isNewest ? moveCount : 0)")
             .frame(width: slot, height: slot)
             // Once the game is won, everything outside the line steps back so the four that did it
             // read as the answer to "why".
@@ -77,6 +100,11 @@ struct ConnectFourBoardView: View {
                         .padding(slot * 0.09)
                 }
             }
+    }
+
+    /// The highest occupied row in a column, or nil if it is empty. Row 0 is the top.
+    private func topmostOccupiedRow(in column: Int) -> Int? {
+        (0..<ConnectFourBoard.rows).first { board[$0, column] != nil }
     }
 
     private func fill(for disc: ConnectFourBoard.Disc?) -> Color {
@@ -124,4 +152,33 @@ struct ConnectFourBoardView: View {
     )
     .padding()
     .background(Theme.backgroundGradient)
+}
+
+/// One disc, which falls into place if it is the one that was just played.
+///
+/// Its own view because the animation needs state of its own: the offset has to be non-zero for a
+/// frame before it animates to zero, and a `@State` flag flipped in `onAppear` is what gives it
+/// that frame. The caller re-creates this view per move (see the `.id` above), which is what makes
+/// `onAppear` fire again for a second disc in the same column.
+private struct DroppingDisc: View {
+    let color: Color
+    let inset: CGFloat
+    let fallHeight: CGFloat
+    let animates: Bool
+
+    @State private var landed = false
+
+    var body: some View {
+        Circle()
+            .fill(color)
+            .padding(inset)
+            .offset(y: landed || !animates ? 0 : -fallHeight)
+            .onAppear {
+                guard animates else { return }
+                // Overshoots slightly and settles, the way a real counter drops into a slot and
+                // knocks against the one below it. A plain ease would read as the disc being
+                // lowered rather than dropped.
+                withAnimation(.spring(response: 0.42, dampingFraction: 0.62)) { landed = true }
+            }
+    }
 }

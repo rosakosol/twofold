@@ -120,7 +120,11 @@ struct ConnectFourGameView: View {
                 board: store.board,
                 myDisc: store.myDisc,
                 isInteractive: store.isMyTurn && !store.isPlaying,
-                onDrop: { column in Task { await store.play(column: column) } }
+                onDrop: { column in Task { await store.play(column: column) } },
+                // Taken from the move list rather than from `lastMoveColumn`, which is only set by
+                // this device's own `play` — so a partner's disc appeared without falling.
+                lastDropColumn: store.moves.last.flatMap { Int($0.move) },
+                moveCount: store.moves.count
             )
             .padding(.horizontal, Theme.Spacing.md)
             // Dimmed while it is not your move, so "you cannot play right now" is visible before a
