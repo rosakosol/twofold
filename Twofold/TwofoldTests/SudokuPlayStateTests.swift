@@ -17,6 +17,50 @@ import Testing
 import Foundation
 @testable import Twofold
 
+/// The malformed payloads for `refusesMalformed`, hoisted out of the `@Test` attribute and given
+/// an explicit type.
+///
+/// Inline, this is eleven elements of chained `+` over `String(repeating:count:)`, and the type
+/// checker solves an array literal as a single expression — every `+` overload across all eleven
+/// at once. That intermittently blew its time limit ("unable to type-check this expression in
+/// reasonable time"), which fails the *build* rather than the test, so the whole suite stopped
+/// compiling and nothing else in it ran either. Annotating `[String]` gives each element a
+/// contextual type and removes the combinatorial part.
+private let malformedSudokuPayloads: [String] = [
+    "",
+    "sudoku.v1",
+    "sudoku.v2|" + String(repeating: "0", count: 81) + "|" + String(repeating: "000", count: 81) + "|0|0",
+    // 80 cells, not 81.
+    "sudoku.v1|" + String(repeating: "0", count: 80) + "|" + String(repeating: "000", count: 81) + "|0|0",
+    // A digit outside 0...9.
+    "sudoku.v1|x" + String(repeating: "0", count: 80) + "|" + String(repeating: "000", count: 81) + "|0|0",
+    // Notes field one group short.
+    "sudoku.v1|" + String(repeating: "0", count: 81) + "|" + String(repeating: "000", count: 80) + "|0|0",
+    // Not hex.
+    "sudoku.v1|" + String(repeating: "0", count: 81) + "|zzz" + String(repeating: "000", count: 80) + "|0|0",
+    // Bit 0 set — no note can produce it.
+    "sudoku.v1|" + String(repeating: "0", count: 81) + "|001" + String(repeating: "000", count: 80) + "|0|0",
+    // Bit 10 set — likewise.
+    "sudoku.v1|" + String(repeating: "0", count: 81) + "|400" + String(repeating: "000", count: 80) + "|0|0",
+    // Negative time.
+    "sudoku.v1|" + String(repeating: "0", count: 81) + "|" + String(repeating: "000", count: 81) + "|-1|0",
+    // A completion flag that is neither.
+    "sudoku.v1|" + String(repeating: "0", count: 81) + "|" + String(repeating: "000", count: 81) + "|0|maybe",
+]
+
+/// The version/field-count mismatches for `mismatchedShapesAreRefused`, hoisted and typed for the
+/// same reason as `malformedSudokuPayloads` above.
+private let mismatchedShapeSudokuPayloads: [String] = [
+    // v1 claimed, v2 shape.
+    "sudoku.v1|" + String(repeating: "0", count: 81) + "|" + String(repeating: "000", count: 81) + "|10|1|0|0",
+    // v2 claimed, v1 shape.
+    "sudoku.v2|" + String(repeating: "0", count: 81) + "|" + String(repeating: "000", count: 81) + "|10|1",
+    // v2 with an unreadable count.
+    "sudoku.v2|" + String(repeating: "0", count: 81) + "|" + String(repeating: "000", count: 81) + "|10|1|x|0",
+    // v2 with a negative count.
+    "sudoku.v2|" + String(repeating: "0", count: 81) + "|" + String(repeating: "000", count: 81) + "|10|1|0|-1",
+]
+
 struct SudokuPlayStateTests {
 
     private static let generated = SudokuGenerator.puzzle(seed: 4_242, difficulty: .medium)
@@ -58,27 +102,7 @@ struct SudokuPlayStateTests {
 
     /// Each of these is a real way a payload goes wrong: an old version still on another device, a
     /// truncated write, a value that never came from `toggleNote`.
-    @Test("malformed payloads are refused rather than half-read", arguments: [
-        "",
-        "sudoku.v1",
-        "sudoku.v2|" + String(repeating: "0", count: 81) + "|" + String(repeating: "000", count: 81) + "|0|0",
-        // 80 cells, not 81.
-        "sudoku.v1|" + String(repeating: "0", count: 80) + "|" + String(repeating: "000", count: 81) + "|0|0",
-        // A digit outside 0...9.
-        "sudoku.v1|x" + String(repeating: "0", count: 80) + "|" + String(repeating: "000", count: 81) + "|0|0",
-        // Notes field one group short.
-        "sudoku.v1|" + String(repeating: "0", count: 81) + "|" + String(repeating: "000", count: 80) + "|0|0",
-        // Not hex.
-        "sudoku.v1|" + String(repeating: "0", count: 81) + "|zzz" + String(repeating: "000", count: 80) + "|0|0",
-        // Bit 0 set — no note can produce it.
-        "sudoku.v1|" + String(repeating: "0", count: 81) + "|001" + String(repeating: "000", count: 80) + "|0|0",
-        // Bit 10 set — likewise.
-        "sudoku.v1|" + String(repeating: "0", count: 81) + "|400" + String(repeating: "000", count: 80) + "|0|0",
-        // Negative time.
-        "sudoku.v1|" + String(repeating: "0", count: 81) + "|" + String(repeating: "000", count: 81) + "|-1|0",
-        // A completion flag that is neither.
-        "sudoku.v1|" + String(repeating: "0", count: 81) + "|" + String(repeating: "000", count: 81) + "|0|maybe",
-    ])
+    @Test("malformed payloads are refused rather than half-read", arguments: malformedSudokuPayloads)
     func refusesMalformed(payload: String) {
         #expect(SudokuPlayState.decoded(from: payload, puzzle: puzzle) == nil)
     }
@@ -346,16 +370,7 @@ struct SudokuPayloadVersionTests {
 
     /// A v1 string with two fields bolted on is not a v2 — the version is what says how to read it,
     /// and guessing from the field count is how a format starts being read wrong.
-    @Test("the version and the field count have to agree", arguments: [
-        // v1 claimed, v2 shape.
-        "sudoku.v1|" + String(repeating: "0", count: 81) + "|" + String(repeating: "000", count: 81) + "|10|1|0|0",
-        // v2 claimed, v1 shape.
-        "sudoku.v2|" + String(repeating: "0", count: 81) + "|" + String(repeating: "000", count: 81) + "|10|1",
-        // v2 with an unreadable count.
-        "sudoku.v2|" + String(repeating: "0", count: 81) + "|" + String(repeating: "000", count: 81) + "|10|1|x|0",
-        // v2 with a negative count.
-        "sudoku.v2|" + String(repeating: "0", count: 81) + "|" + String(repeating: "000", count: 81) + "|10|1|0|-1",
-    ])
+    @Test("the version and the field count have to agree", arguments: mismatchedShapeSudokuPayloads)
     func mismatchedShapesAreRefused(payload: String) {
         #expect(SudokuPlayState.decoded(from: payload, puzzle: puzzle) == nil)
         // And both readers agree about it, which is the property that keeps them from drifting.
