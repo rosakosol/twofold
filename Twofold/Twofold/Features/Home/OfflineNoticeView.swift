@@ -37,12 +37,15 @@ struct OfflineNoticeView: View {
     ///   * Connect 4 and Chess do not work at all. Every move is validated and stored server-side
     ///     before the board moves; there is nothing to queue, because a move's legality isn't this
     ///     device's to decide.
-    private let available: [(icon: String, text: String)] = [
-        ("gamecontroller.fill", "Play question and conversation decks"),
-        ("square.grid.3x3.fill", "Carry on a Sudoku, Word Guess or Word Search you've started"),
-        ("photo.on.rectangle.angled", "Add memories, with photos"),
-        ("airplane", "Add trips"),
-        ("scribble.variable", "Draw on your pad"),
+    /// Text only, unlike `unavailable`. Every row here draws the same checkmark, so an icon per
+    /// row would be — and until now was — data nothing read: the section drew `symbol` when it had
+    /// one and fell back to `row.icon`, and this list always supplied the symbol.
+    private let available: [String] = [
+        "Play question and conversation decks",
+        "Carry on a Sudoku, Word Guess or Word Search you've started",
+        "Add memories, with photos",
+        "Add trips",
+        "Draw on your pad",
     ]
 
     private let unavailable: [(icon: String, text: String)] = [
@@ -81,8 +84,14 @@ struct OfflineNoticeView: View {
                             .padding(.horizontal, Theme.Spacing.lg)
                     }
 
-                    section(title: "You can still", rows: available, tint: Theme.leafGreen, symbol: "checkmark")
-                    section(title: "Not until you're back", rows: unavailable, tint: Theme.subtleInk, symbol: nil)
+                    // The checkmark is applied here rather than hidden in `section` — one glyph
+                    // for "yes, this works", against the per-row icons the other list carries.
+                    section(
+                        title: "You can still",
+                        rows: available.map { (icon: "checkmark", text: $0) },
+                        tint: Theme.leafGreen
+                    )
+                    section(title: "Not until you're back", rows: unavailable, tint: Theme.subtleInk)
                 }
                 .padding(.top, Theme.Spacing.xl)
             }
@@ -104,7 +113,7 @@ struct OfflineNoticeView: View {
         .background(Theme.backgroundGradient.ignoresSafeArea())
     }
 
-    private func section(title: String, rows: [(icon: String, text: String)], tint: Color, symbol: String?) -> some View {
+    private func section(title: String, rows: [(icon: String, text: String)], tint: Color) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             Text(title.uppercased())
                 .font(.caption2.weight(.bold))
@@ -113,7 +122,7 @@ struct OfflineNoticeView: View {
 
             ForEach(rows, id: \.text) { row in
                 HStack(spacing: Theme.Spacing.sm) {
-                    Image(systemName: symbol ?? row.icon)
+                    Image(systemName: row.icon)
                         .font(.subheadline)
                         .foregroundStyle(tint)
                         .frame(width: 22)
