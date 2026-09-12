@@ -48,6 +48,31 @@ struct WordGuessBoardView: View {
     /// Set when the last guess bounced, so the row can flag itself rather than only relying on a
     /// message elsewhere on the screen.
     let isDraftRejected: Bool
+    /// The edge length of every tile, in points. Passed in rather than derived here, because the
+    /// caller is the only one that knows how much height is left once the keyboard has taken its
+    /// share — see `tileSide(forWidth:)` and `boardHeight(forTileSide:)` for the two halves of it.
+    let tileSide: CGFloat
+
+    /// The largest square tile that fits `width` once the four gaps between five tiles are taken
+    /// out of it.
+    static func tileSide(forWidth width: CGFloat) -> CGFloat {
+        let gaps = Theme.Spacing.xs * CGFloat(WordGuessWords.length - 1)
+        return max(0, (width - gaps) / CGFloat(WordGuessWords.length))
+    }
+
+    /// The largest square tile that fits `height` once the five gaps between six rows are taken
+    /// out of it. The counterpart to `tileSide(forWidth:)` — a caller takes the smaller of the two
+    /// so the board fits both ways.
+    static func tileSide(forHeight height: CGFloat) -> CGFloat {
+        let gaps = Theme.Spacing.xs * CGFloat(WordGuessWords.maxGuesses - 1)
+        return max(0, (height - gaps) / CGFloat(WordGuessWords.maxGuesses))
+    }
+
+    /// What the board measures with tiles that size — six rows and the five gaps between them.
+    static func boardHeight(forTileSide side: CGFloat) -> CGFloat {
+        side * CGFloat(WordGuessWords.maxGuesses)
+            + Theme.Spacing.xs * CGFloat(WordGuessWords.maxGuesses - 1)
+    }
 
     var body: some View {
         VStack(spacing: Theme.Spacing.xs) {
@@ -120,11 +145,18 @@ struct WordGuessBoardView: View {
     private func tile(letter: Character, fill: Color, textColor: Color, border: Color) -> some View {
         Text(String(letter))
             .font(.title.weight(.bold))
+            // The tile is a fixed square now, so a letter at an accessibility text size has to give
+            // way rather than stretch it back into a rectangle.
+            .minimumScaleFactor(0.5)
+            .lineLimit(1)
             .foregroundStyle(textColor)
-            .frame(maxWidth: .infinity)
-            // Square, and driven by the width it is given — so the board fits the phone rather than
-            // the phone having to fit a fixed tile size.
-            .aspectRatio(1, contentMode: .fit)
+            // Stated outright, both dimensions. This used to be `.frame(maxWidth: .infinity)`
+            // followed by `.aspectRatio(1, contentMode: .fit)`, which looks like it makes a square
+            // and does not: `aspectRatio` proposes a square to its child, but that frame only
+            // stretches horizontally, so it answered with the *text's* line height and the tile
+            // came out a wide, short rectangle. Asking for the size directly has no such gap
+            // between what it reads like and what it does.
+            .frame(width: tileSide, height: tileSide)
             .background(fill, in: RoundedRectangle(cornerRadius: 6))
             .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(border, lineWidth: 2))
     }
@@ -134,13 +166,13 @@ struct WordGuessBoardView: View {
     var state = WordGuessPlayState(answer: "roast")
     _ = state.commit("crane")
     _ = state.commit("solid")
-    return WordGuessBoardView(play: state, draft: "TRO", isDraftRejected: false)
+    return WordGuessBoardView(play: state, draft: "TRO", isDraftRejected: false, tileSide: 64)
         .padding()
         .background(Theme.backgroundGradient)
 }
 
 #Preview("Rejected guess") {
-    WordGuessBoardView(play: WordGuessPlayState(answer: "roast"), draft: "ZZZZZ", isDraftRejected: true)
+    WordGuessBoardView(play: WordGuessPlayState(answer: "roast"), draft: "ZZZZZ", isDraftRejected: true, tileSide: 64)
         .padding()
         .background(Theme.backgroundGradient)
 }
@@ -150,7 +182,7 @@ struct WordGuessBoardView: View {
     _ = state.commit("crane")
     _ = state.commit("toads")
     _ = state.commit("roast")
-    return WordGuessBoardView(play: state, draft: "", isDraftRejected: false)
+    return WordGuessBoardView(play: state, draft: "", isDraftRejected: false, tileSide: 64)
         .padding()
         .background(Theme.backgroundGradient)
 }

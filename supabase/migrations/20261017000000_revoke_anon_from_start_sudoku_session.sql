@@ -1,0 +1,36 @@
+-- ---------------------------------------------------------------------------
+-- `start_sudoku_session` was still executable by `anon`
+-- ---------------------------------------------------------------------------
+--
+-- 20261010000100 and 20261010000200 both end with:
+--
+--   revoke all on function public.start_sudoku_session(text) from public;
+--   grant execute on function public.start_sudoku_session(text) to authenticated;
+--
+-- which reads like it closes the function to everyone but signed-in users, and does not. Supabase
+-- ships `alter default privileges in schema public grant all on functions to anon, authenticated`,
+-- so every `create or replace function` here hands `anon` an EXECUTE grant of its own. Revoking
+-- from `public` drops the implicit grant and leaves that explicit one untouched.
+--
+-- Confirmed against the live project rather than assumed: calling this RPC with the publishable
+-- key and no user JWT returned the function's own `Not authenticated` error, which it can only do
+-- after being allowed to start. `start_word_search_session`, which revokes `from public, anon`,
+-- answered `permission denied for function` at the grant instead — the two responses are how you
+-- tell the difference from outside.
+--
+-- This was defence-in-depth rather than an open door: the first thing the body does is
+--
+--   if v_me is null then raise exception 'Not authenticated' using errcode = '42501';
+--
+-- so an anon caller could never get past it to a couple, a tier check or a row. The reason to
+-- close it anyway is that the guard is now the *only* thing standing there, and a future edit that
+-- moves work above it — or a new branch that reads a profile before checking the caller — turns a
+-- harmless refusal into a real one. The grant should not be what fails second.
+--
+-- Scope is deliberately this one function. Thirty-odd others in this schema share the same
+-- `from public;` line, and a blanket revoke across all of them is a separate change that needs
+-- checking one at a time: some of the invite-code lookups are reachable before sign-in on purpose,
+-- and revoking `anon` there would break accepting an invite rather than harden it.
+
+revoke all on function public.start_sudoku_session(text) from public, anon;
+grant execute on function public.start_sudoku_session(text) to authenticated;

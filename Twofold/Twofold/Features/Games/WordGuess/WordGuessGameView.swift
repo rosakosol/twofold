@@ -91,19 +91,29 @@ struct WordGuessGameView: View {
                 // Finished: no keyboard, and the comparison card can outgrow the screen, so this
                 // half scrolls. It is the one state that isn't trying to fit a fixed board and
                 // keyboard into whatever height the phone has.
-                ScrollView {
-                    VStack(spacing: Theme.Spacing.md) {
-                        WordGuessBoardView(
-                            play: play,
-                            draft: store.draft,
-                            isDraftRejected: store.rejection != nil
-                        )
-                        .padding(.horizontal, Theme.Spacing.md)
+                //
+                // The `GeometryReader` is outside the `ScrollView` on purpose. A scroll view
+                // proposes unbounded height to its content, so a reader *inside* one has no
+                // height to report and the board would size its tiles off nothing.
+                GeometryReader { proxy in
+                    let side = WordGuessBoardView.tileSide(
+                        forWidth: proxy.size.width - Theme.Spacing.md * 2
+                    )
+                    ScrollView {
+                        VStack(spacing: Theme.Spacing.md) {
+                            WordGuessBoardView(
+                                play: play,
+                                draft: store.draft,
+                                isDraftRejected: store.rejection != nil,
+                                tileSide: side
+                            )
 
-                        finishedSection(play: play)
-                            .padding(.horizontal, Theme.Spacing.md)
+                            finishedSection(play: play)
+                                .padding(.horizontal, Theme.Spacing.md)
+                        }
+                        .padding(.vertical, Theme.Spacing.md)
+                        .frame(maxWidth: .infinity)
                     }
-                    .padding(.vertical, Theme.Spacing.md)
                 }
             } else {
                 playingLayout(play: play)
@@ -132,22 +142,25 @@ struct WordGuessGameView: View {
             // near 60 on a Pro Max.
             let keyHeight = min(64, max(WordGuessKeyboardView.defaultKeyHeight, usable * 0.085))
 
+            // The tile is the smaller of what the width allows and what the height left over from
+            // the keyboard allows, so the board always fits both ways and stays square either way.
+            // Width usually wins; height only becomes the binding constraint on a short screen.
+            let boardBox = usable - WordGuessKeyboardView.height(forKeyHeight: keyHeight)
+            let side = min(
+                WordGuessBoardView.tileSide(forWidth: proxy.size.width - Theme.Spacing.sm * 2),
+                WordGuessBoardView.tileSide(forHeight: boardBox)
+            )
+
             VStack(spacing: Theme.Spacing.sm) {
                 WordGuessBoardView(
                     play: play,
                     draft: store.draft,
-                    isDraftRejected: store.rejection != nil
+                    isDraftRejected: store.rejection != nil,
+                    tileSide: side
                 )
-                // `sm`, not `lg` — and `sm` specifically because it is what the keyboard below
-                // uses, so the board and the keys now line up on the same two edges instead of
-                // the board sitting inset from them.
-                //
-                // It is also the whole of the tile-size change. The tiles are square and sized by
-                // the width they are given, so with height to spare the side margins were the only
-                // thing deciding how big the board could be: 24pt a side cost about 10% of every
-                // tile's edge, in both directions.
-                .padding(.horizontal, Theme.Spacing.sm)
-                // Takes whatever the keyboard doesn't.
+                // Takes whatever the keyboard doesn't. The board draws at its own measured size
+                // and centres inside this, so spare height reads as margin rather than stretching
+                // anything out of square.
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 rejectionMessage
