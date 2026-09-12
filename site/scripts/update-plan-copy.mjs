@@ -94,6 +94,27 @@ const QUIZ_PREMIUM_DESCRIPTION =
 const QUIZ_PLUS_DESCRIPTION =
   'Unlimited trips and memories, 2 live-tracked flights a month, 500+ questions, and Sudoku, Word Guess, Word Search and Connect 4 - everything most long-distance couples need.'
 
+// Compares by value, not by the order a JSON object happens to list its keys in.
+//
+// A plain `JSON.stringify` is key-order sensitive, and Sanity does not return an object's keys in
+// the order they were written: `comparisonRow` literals here start `{_type, _key, ...}` and come
+// back `{_key, _type, ...}`. So every run reported the comparison table as needing an update, had
+// just written it, and reported it again — which makes `--dry` useless for the one thing it is
+// for, and makes a real pending change indistinguishable from the noise.
+//
+// Array order is deliberately preserved: the order of the rows is the order they render in.
+function stableStringify(value) {
+  return JSON.stringify(value, (_key, val) =>
+    val && typeof val === 'object' && !Array.isArray(val)
+      ? Object.fromEntries(
+          Object.keys(val)
+            .sort()
+            .map((k) => [k, val[k]]),
+        )
+      : val,
+  )
+}
+
 const patches = [
   {id: 'plan-plus', fields: {features: PLUS_FEATURES}},
   {id: 'plan-premium', fields: {features: PREMIUM_FEATURES}},
@@ -118,8 +139,8 @@ for (const {id, fields} of patches) {
     continue
   }
 
-  const before = JSON.stringify(Object.fromEntries(Object.keys(fields).map((k) => [k, existing[k]])))
-  const after = JSON.stringify(fields)
+  const before = stableStringify(Object.fromEntries(Object.keys(fields).map((k) => [k, existing[k]])))
+  const after = stableStringify(fields)
   if (before === after) {
     console.log(`- ${id}: already correct`)
     continue
