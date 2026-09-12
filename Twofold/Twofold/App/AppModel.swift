@@ -693,11 +693,12 @@ final class AppModel {
     /// out state. Rethrows so the caller (the confirmation screen) can show a real error instead
     /// of silently doing nothing if the request fails.
     ///
-    /// - Parameter deleteSharedData: also permanently delete the shared archives (trips,
-    ///   memories, photos, flights) for both partners — see `BackendService.deleteAccount()`.
-    func deleteAccount(deleteSharedData: Bool = false) async throws {
+    /// Deletes this account only. Shared history stays with the former partner and is removed by
+    /// the 90-day archive timer, which nothing here (and no client call anywhere) can bring
+    /// forward — see `DeleteAccountView`'s header.
+    func deleteAccount() async throws {
         await stopFlightsRealtimeSubscription()
-        try await BackendService.deleteAccount(deleteSharedData: deleteSharedData)
+        try await BackendService.deleteAccount()
         await clearLocalSessionState()
     }
 

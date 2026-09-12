@@ -303,12 +303,13 @@ enum BackendService {
     /// profile is part of is dissolved (not destroyed), so a partner's shared trip/memory
     /// history is never lost just because the other person deleted their own account.
     ///
-    /// - Parameter deleteSharedData: when `true`, also permanently deletes every shared archive
-    ///   this profile belongs to — trips, memories, photos, flights, games — for *both* partners.
-    ///   Off by default. This is the same destructive action Settings → Archived Data already
-    ///   offers either partner; it's surfaced here because deleting the account is the last
-    ///   moment this user can reach it (they can never sign in again afterwards).
-    static func deleteAccount(deleteSharedData: Bool = false) async throws {
+    /// Sends no body. This used to pass `{"deleteSharedData": ...}` from the toggle on
+    /// `DeleteAccountView`, which reached `delete_own_account(p_delete_shared_data)` — a
+    /// parameter that has ignored its argument since
+    /// 20261005000000_purge_is_only_ever_the_timer.sql made the 90-day archive clock the only
+    /// route to deleting shared data. The flag was removed rather than reconnected; see that
+    /// view's header.
+    static func deleteAccount() async throws {
         guard let accessToken = currentAccessToken else { throw BackendError.notAuthenticated }
 
         var request = URLRequest(url: SupabaseConfig.projectURL.appendingPathComponent("functions/v1/delete-account"))
@@ -316,7 +317,6 @@ enum BackendService {
         request.setValue(SupabaseConfig.publishableKey, forHTTPHeaderField: "apiKey")
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(["deleteSharedData": deleteSharedData])
 
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw BackendError.requestFailed(message: nil) }
