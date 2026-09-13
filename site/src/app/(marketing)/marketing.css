@@ -204,9 +204,6 @@ a:hover {
 section {
   padding: 84px 0;
 }
-.section-tight {
-  padding: 56px 0;
-}
 .section-head {
   max-width: 640px;
   margin: 0 auto 44px;
@@ -299,24 +296,6 @@ section {
   box-shadow: var(--shadow-md), inset 0 0 0 1px var(--border-soft);
   color: var(--ink);
 }
-.btn-outline {
-  color: var(--ink);
-  background: transparent;
-  border: 1.5px solid var(--ink);
-}
-.btn-outline:hover {
-  background: var(--ink);
-  color: #fff;
-}
-.btn-dark {
-  color: #fff;
-  background: var(--ink);
-}
-.btn-dark:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-  color: #fff;
-}
 /* Solid white — for a button sitting on top of a saturated color background (e.g.
    .quiz-teaser-card below), where .btn-ghost's translucent white would pick up a tint
    from what's behind it instead of reading as a clean, high-contrast pill. */
@@ -337,9 +316,6 @@ section {
 .btn-lg {
   padding: 15px 30px;
   font-size: 1rem;
-}
-.btn-block {
-  width: 100%;
 }
 
 .appstore-badge {
@@ -410,10 +386,6 @@ section {
   padding: 28px;
   transition: transform 0.3s var(--ease), box-shadow 0.3s var(--ease);
 }
-.card-hover:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-lg);
-}
 
 .icon-badge,
 .feature-icon {
@@ -434,20 +406,16 @@ section {
   width: 22px;
   height: 22px;
 }
-.ib-blue,
-.tone-sky {
+.tone-sky{
   background: linear-gradient(160deg, var(--sky-blue-light), var(--sky-blue-deep));
 }
-.ib-green,
-.tone-green {
+.tone-green{
   background: linear-gradient(160deg, var(--leaf-green), var(--leaf-green-deep));
 }
-.ib-red,
-.tone-red {
+.tone-red{
   background: linear-gradient(160deg, var(--heart-red), var(--heart-red-deep));
 }
-.ib-ink,
-.tone-ink {
+.tone-ink{
   background: linear-gradient(160deg, #33455a, var(--ink));
 }
 
@@ -522,8 +490,7 @@ section {
   max-width: 480px;
   margin-bottom: 30px;
 }
-.hero-cta,
-.cta-row {
+.cta-row{
   display: flex;
   align-items: center;
   gap: 14px;
@@ -544,28 +511,13 @@ section {
   color: var(--leaf-green-deep);
 }
 
-.globe-stage,
-.hero-art {
+.hero-art{
   position: relative;
   display: grid;
   place-items: center;
   min-height: 420px;
 }
-/* The blurred radial glow that sat behind the hero screenshot is gone, along with the two
-   .art-glow/.art-glow-2 divs that rendered it — the phone reads more cleanly on the plain
-   background, and .app-shot's drop-shadow already lifts it off the page. `.globe-glow` shared
-   this rule but had no markup left anywhere, so it went with it. */
-.globe-img,
-.art-globe {
-  position: relative;
-  width: min(430px, 80%);
-  filter: drop-shadow(0 30px 50px rgba(28, 42, 56, 0.22));
-  animation: float 7s var(--ease) infinite;
-}
-@keyframes float {
-  0%, 100% { transform: translateY(0) rotate(-1deg); }
-  50% { transform: translateY(-16px) rotate(1deg); }
-}
+
 /* App-UI screenshot in the hero (replaced the floating globe-heart). .art-shot styles
    BOTH the placeholder <div> and a real <img> swapped in later, so the size/rounding/
    shadow/float carry over untouched. A real <img class="art-shot"> keeps its own
@@ -634,73 +586,13 @@ section {
 @media (max-width: 820px) {
   .feature-shot .app-shot { max-height: 420px; }
 }
-.art-shot-placeholder {
-  display: grid;
-  place-items: center;
-  aspect-ratio: 3 / 4;
-  background: linear-gradient(160deg, var(--card-bg-alt), #dcecf7);
-  border: 2px dashed var(--border-soft);
-}
-.art-shot-placeholder span {
-  font-family: var(--font-display);
-  font-size: 0.95rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--faint-ink);
-}
-.floaty {
-  position: absolute;
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--border-softer);
-  box-shadow: var(--shadow-md);
-  border-radius: var(--radius-pill);
-  padding: 9px 15px;
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: var(--ink);
-}
-.floaty .dot {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  color: #fff;
-  flex: none;
-}
-.floaty .dot .icon {
-  width: 12px;
-  height: 12px;
-}
-.floaty.a {
-  top: 14%;
-  left: -4%;
-  animation: float 6s var(--ease) infinite;
-}
-.floaty.a .dot {
-  background: linear-gradient(160deg, var(--sky-blue-light), var(--sky-blue-deep));
-}
-.floaty.b {
-  bottom: 16%;
-  right: -2%;
-  animation: float 8s var(--ease) infinite reverse;
-}
-.floaty.b .dot {
-  background: linear-gradient(160deg, var(--heart-red), var(--heart-red-deep));
-}
-@media (prefers-reduced-motion: reduce) {
-  .globe-img, .art-globe, .floaty { animation: none; }
-}
 
 @media (max-width: 860px) {
-  .hero .wrap, .hero-inner, .showcase .wrap {
+  .hero .wrap,
+.hero-inner{
     grid-template-columns: 1fr;
   }
-  .globe-stage, .hero-art {
+  .hero-art{
     min-height: 340px;
     margin-top: 10px;
   }
@@ -710,21 +602,18 @@ section {
    Stat bar
    ============================================================ */
 
-.statbar,
-.stat-strip {
+.stat-strip{
   text-align: center;
   padding: 22px 0;
   border-top: 1px solid var(--border-softer);
   border-bottom: 1px solid var(--border-softer);
   background: rgba(255, 255, 255, 0.4);
 }
-.statbar span,
-.stat-strip p {
+.stat-strip p{
   font-size: 0.98rem;
   color: var(--subtle-ink);
 }
-.statbar b,
-.stat-strip strong {
+.stat-strip strong{
   color: var(--heart-red);
   font-weight: 600;
 }
@@ -751,29 +640,7 @@ section {
 .step-card {
   position: relative;
 }
-/* Placeholder for a real step screenshot, above each step-card — same illustrative
-   convention as .art-shot-placeholder in the hero (dashed border, gradient fill,
-   uppercase label). Sized by .steps' own grid columns, so all 3 stay equal width;
-   swap each <div class="step-art step-art-placeholder"> for a real
-   <img class="step-art" src="..." alt="" /> once screenshots exist. */
-.step-art {
-  width: 100%;
-  border-radius: var(--radius-lg);
-}
-.step-art-placeholder {
-  aspect-ratio: 4 / 3;
-  display: grid;
-  place-items: center;
-  background: linear-gradient(160deg, var(--card-bg-alt), #dcecf7);
-  border: 2px dashed var(--border-soft);
-}
-.step-art-placeholder span {
-  font-family: var(--font-display);
-  font-size: 0.85rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--faint-ink);
-}
+
 /* .step-card / .feature-card render standalone in this codebase's JSX (not paired
    with a literal "card" class the way the reference's .step.card / .card.feature-card
    markup does) — give them the base card look directly so that pairing is never load-
@@ -792,8 +659,7 @@ section {
   margin-top: calc(var(--step-shot-h) / -3);
   z-index: 1;
 }
-.step .num,
-.step-num {
+.step-num{
   width: 30px;
   height: 30px;
   border-radius: 50%;
@@ -910,11 +776,6 @@ section {
     display: none;
   }
 }
-
-.center-link {
-  text-align: center;
-  margin-top: 34px;
-}
 .arrow-link {
   display: inline-flex;
   align-items: center;
@@ -936,20 +797,6 @@ section {
 .arrow-link:hover .icon,
 .arrow-link:hover svg {
   transform: translateX(4px);
-}
-
-/* ============================================================
-   Showcase (globe deep-dive)
-   ============================================================ */
-
-.showcase .wrap {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 48px;
-  align-items: center;
-}
-.showcase .media-frame {
-  aspect-ratio: 4 / 3;
 }
 
 /* ============================================================
@@ -1238,19 +1085,6 @@ section {
   text-transform: uppercase;
   white-space: nowrap;
 }
-.plan-badge {
-  position: absolute;
-  top: -13px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: linear-gradient(160deg, var(--heart-red), var(--heart-red-deep));
-  color: #fff;
-  font-size: 0.72rem;
-  font-weight: 600;
-  padding: 5px 14px;
-  border-radius: var(--radius-pill);
-  box-shadow: var(--shadow-sm);
-}
 .plan h3 {
   font-size: 1.3rem;
   margin-bottom: 4px;
@@ -1425,7 +1259,6 @@ section {
   /* .btn is nowrap by default, which would push "Opening checkout…" straight out of a
      ~105px-wide card and give the page a horizontal scrollbar mid-purchase. */
   .plan .btn { padding: 9px 7px; font-size: 0.74rem; line-height: 1.25; white-space: normal; }
-  .plan-badge { font-size: 0.56rem; padding: 3px 8px; top: -10px; }
 }
 
 /* Auth / purchase status states (functionality the reference doesn't show, since it
@@ -1474,14 +1307,12 @@ section {
   margin: 0 0 18px;
   padding-left: 4px;
 }
-.acc-list,
-.faq-list {
+.acc-list{
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
-.acc-item,
-.faq-item {
+.acc-item{
   background: var(--card-bg);
   border: 1px solid var(--border-softer);
   border-radius: var(--radius-card);
@@ -1891,29 +1722,6 @@ section {
   border-radius: 14px;
   z-index: 2;
 }
-.mock-globe {
-  position: relative;
-  width: 150px;
-  height: 150px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 32% 28%, #dff2ff, var(--sky-blue) 60%, var(--sky-blue-deep) 100%);
-  box-shadow: inset -14px -14px 30px rgba(28, 42, 56, 0.25), 0 16px 30px rgba(28, 42, 56, 0.2);
-}
-.mock-globe::before, .mock-globe::after {
-  content: "";
-  position: absolute;
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  border-radius: 50%;
-}
-.mock-globe::before { inset: 10%; }
-.mock-globe::after { inset: 28%; }
-.mock-dot {
-  position: absolute;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.55);
-}
 .mock-card {
   background: #fff;
   border-radius: var(--radius-card);
@@ -2031,23 +1839,19 @@ html.is-desktop .hide-on-desktop { display: none !important; }
    Page head (Features / Pricing / FAQ)
    ============================================================ */
 
-.page-head,
-.page-hero {
+.page-head{
   padding: 70px 0 20px;
   text-align: center;
 }
-.page-head .eyebrow,
-.page-hero .eyebrow {
+.page-head .eyebrow{
   justify-content: center;
   margin-bottom: 16px;
 }
-.page-head h1,
-.page-hero h1 {
+.page-head h1{
   max-width: 760px;
   margin: 0 auto 18px;
 }
-.page-head .lead,
-.page-hero p {
+.page-head .lead{
   max-width: 540px;
   margin: 0 auto;
   color: var(--subtle-ink);

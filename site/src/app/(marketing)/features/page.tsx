@@ -55,9 +55,6 @@ function FeatureArt({ feature }: { feature: ResolvedFeature }) {
   switch (feature.slug) {
     // `relationship-globe` had a hand-built globe mock here. That feature was replaced by
     // `trips`, which has a real screenshot in FEATURE_SHOTS and so never reaches this switch.
-    // Nothing renders .mock-globe/.mock-dot any more now that the home page's globe showcase
-    // is a pricing preview; the rules are left in marketing.css so restoring either is a
-    // markup change rather than a rewrite.
     case "live-flight-tracking":
       return (
         <div className="mock-card">
