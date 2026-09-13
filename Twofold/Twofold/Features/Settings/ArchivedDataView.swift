@@ -126,6 +126,12 @@ struct ArchivedCoupleDetailView: View {
     @State private var exportStatus = ""
     @State private var exportResult: CoupleDataExporter.Result?
     @State private var exportError: String?
+    /// Off by default, and Premium-only. The archive export used to include the Relationship
+    /// Record unconditionally, which handed every Plus subscriber the Premium document the moment
+    /// a relationship ended — the same side door the data export had, opened by a breakup instead
+    /// of a tap. The data itself stays free; the keepsake is the thing being sold.
+    @State private var includeRecord = false
+    @State private var showingPaywall = false
 
     var body: some View {
         ScrollView {
@@ -203,6 +209,9 @@ struct ArchivedCoupleDetailView: View {
         .navigationTitle(couple.partnerName)
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
+        .sheet(isPresented: $showingPaywall) {
+            NavigationStack { PaywallView() }
+        }
         .postHogScreenView("Settings: Archived Couple Detail")
     }
 
@@ -233,10 +242,33 @@ struct ArchivedCoupleDetailView: View {
                             .font(.subheadline.weight(.semibold))
                     }
                 } else {
-                    Text("Trips, memories and their photos, flights and games — as spreadsheets, image files and a readable PDF. Yours to keep whatever happens to the archive.")
+                    Text("Trips, memories and their photos, flights and games — as spreadsheets and image files. Yours to keep whatever happens to the archive.")
                         .font(.caption)
                         .foregroundStyle(Theme.subtleInk)
                         .fixedSize(horizontal: false, vertical: true)
+
+                    // Shown and disabled rather than hidden for someone on Plus, the same way the
+                    // Relationship Record screen handles its own export: a control that is not
+                    // there explains nothing.
+                    Toggle(isOn: $includeRecord) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Include your Relationship Record")
+                                .font(.subheadline)
+                            Text(appModel.isPremiumLocked
+                                 ? "A PDF of your story together. Premium only — the data above is free either way."
+                                 : "A PDF of your story together, alongside the data.")
+                                .font(.caption2)
+                                .foregroundStyle(Theme.subtleInk)
+                        }
+                    }
+                    .tint(Theme.skyBlue)
+                    .disabled(appModel.isPremiumLocked)
+
+                    if appModel.isPremiumLocked {
+                        Button("See Premium") { showingPaywall = true }
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Theme.skyBlueText)
+                    }
 
                     Button(action: runExport) {
                         HStack(spacing: Theme.Spacing.xs) {
@@ -271,6 +303,11 @@ struct ArchivedCoupleDetailView: View {
                     title: couple.partnerName,
                     selfName: appModel.currentUser.name,
                     partnerName: couple.partnerName,
+                    // Belt and braces: the toggle is disabled for Plus, but the value it carries
+                    // is the one that reaches the exporter, so the tier is checked here too.
+                    options: CoupleDataExporter.Options(
+                        document: (includeRecord && !appModel.isPremiumLocked) ? .pdf : .none
+                    ),
                     progress: { exportStatus = $0 }
                 )
             } catch {

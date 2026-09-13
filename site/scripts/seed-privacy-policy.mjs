@@ -375,7 +375,7 @@ const body = [
     `You can take a copy with you at any time, on any plan, from Settings → Help → Export your data: your trips, memories, flights and games as spreadsheets or as a data file, with the photos as ordinary image files. Nothing about it is charged for or held back.`
   ),
   ptext(
-    `Once a relationship has ended, the same export sits on its archive in Settings → Archived Data, alongside a readable PDF - worth doing before that archive's 90 days are up. And Premium subscribers can export a Relationship Record of a current relationship from Settings → Your Relationship Record, as a PDF or a Word document; that one is a keepsake rather than a copy of your data, and nothing in it is missing from the export above. If you want anything we hold that none of these covers, just ask.`
+    `Once a relationship has ended, the same export sits on its archive in Settings → Archived Data - worth doing before that archive's 90 days are up. Premium subscribers can also export a Relationship Record: your story written out as a PDF or a Word document, from Settings → Your Relationship Record while you're together, or as part of an archive export afterwards. That one is a keepsake rather than a copy of your data, and nothing in it is missing from the exports above. If you want anything we hold that none of these covers, just ask.`
   ),
   p(span(`For anything else, email `), mailto(), span(`. We'll respond within 30 days.`)),
   p(
