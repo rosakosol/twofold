@@ -100,13 +100,27 @@ export const FAQ_FALLBACK: FaqFallbackItem[] = [
   {
     category: "privacy",
     order: 3,
+    question: "What happens to a flight email I share with Twofold?",
+    answer:
+      "You can share a booking confirmation or boarding pass into Twofold instead of typing a flight in by hand. The app holds it on your device until you open it and ask for it to be read. If you go ahead, the email's subject and text - and, when those are not enough, text pulled from an attached PDF - are sent to OpenAI, which picks out the flight number, airports and times and sends them back. Only what you shared is sent, only at the moment you ask, and OpenAI does not use it to train its models. Close the screen without confirming and nothing leaves your phone. You can always add a flight by hand instead.",
+  },
+  {
+    category: "privacy",
+    order: 4,
+    question: "How do I report or block someone?",
+    answer:
+      "If someone sends you something abusive, or is using Twofold to harm or monitor you, tell us. \"Report Abuse\" is on a connection request before you accept it, and on your partner in Settings -> Disconnect Partner; you can also email hello@twofoldapp.com.au. We aim to respond within 48 hours, and we never tell the person that you reported them. You can block someone whether or not you report them: blocking a request stops them sending another, and blocking a partner disconnects you first. Either way they are not told and cannot reach you again. What the two of you shared is archived as normal and deleted on the usual 90-day timer - blocking does not delete it sooner or keep it longer.",
+  },
+  {
+    category: "privacy",
+    order: 5,
     question: "What happens to shared data if we disconnect?",
     answer:
       "Removing a partner archives your shared data rather than deleting it. Your trips, memories, photos, flights and games all stay readable to both of you in Settings -> Archived Data, but neither of you can add to them or change them any more. An archive is kept for 90 days and is then permanently deleted, automatically, for both of you - the exact date is shown on the archive itself. Neither partner can bring that date forward or push it back. If you reconnect with the same partner inside those 90 days, you will be offered your shared history back. You can also hide an archive from your own list at any time: that changes only your view and deletes nothing for either of you. If you want to keep what is in an archive, export it before the 90 days are up - you will get your trips, memories, flights and games as files you can open anywhere, with the photos alongside them.",
   },
   {
     category: "privacy",
-    order: 4,
+    order: 6,
     question: "What happens to our shared data if I delete my account?",
     answer:
       "It stays with your partner. Shared trips, memories and photos are their history too, so deleting your account does not erase their side of it. Deleting your account does end your connection, and that starts the same 90-day clock as removing a partner: the shared history is permanently deleted for both of you once it runs out. There is no way for either of you to delete it sooner. Because you will not be able to sign back in afterwards, export anything you want to keep before you delete your account - everything that is yours alone (your name, your photo, your login) is removed straight away and cannot be recovered.",

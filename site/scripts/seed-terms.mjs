@@ -175,7 +175,9 @@ const body = [
   // ---------------------------------------------------------- acceptable use
   h2('What you can and can’t do'),
   ptext(`Use Twofold for your own relationship, lawfully, and don't:`),
-  bullet(`Use it to harass, threaten, monitor, coerce or harm anyone - including your partner.`),
+  bullet(
+    `Use it to harass, threaten, monitor, coerce or harm anyone - including your partner. If someone does this to you, see "Reporting someone, and blocking them" below.`
+  ),
   bullet(`Connect to someone under false pretences, or pressure someone into connecting.`),
   bullet(`Upload anything unlawful, abusive, or that infringes somebody else's rights.`),
   bullet(`Upload someone else's personal information without their agreement.`),
@@ -186,6 +188,24 @@ const body = [
   bullet(`Interfere with the service, or with anyone else's use of it.`),
   ptext(
     `Twofold shows your partner the city you're in - either set by you, or updated automatically as you travel if you've allowed location access. It is a city, never a live position and never a trail of where you've been, and you can turn location access off and set your city by hand. Don't use it, and don't pressure a partner into allowing it, as a way of keeping track of someone.`
+  ),
+
+  // ------------------------------------------------- reporting and blocking
+  h2('Reporting someone, and blocking them'),
+  ptext(
+    `If someone sends you something abusive, or uses Twofold to harm or monitor you, tell us. In the app, "Report Abuse" is on the request before you accept it, and on your partner in Settings → Disconnect Partner. You can also email us.`
+  ),
+  p(
+    span(`We aim to respond to a report within 48 hours. `, 'strong'),
+    span(
+      `We never tell the person that you reported them. Depending on what we find, we may remove content, suspend an account, or end it entirely - see Suspension and termination below.`
+    )
+  ),
+  ptext(
+    `You can block someone at any time, whether or not you report them. Blocking a request stops them sending another; blocking a partner disconnects you first. Either way they aren't told, and they can't reach you again. What the two of you shared is archived as normal and deleted on the usual 90-day timer - blocking doesn't delete it early, and doesn't keep it longer.`
+  ),
+  ptext(
+    `Don't use reporting to harass someone. Reports made in bad faith are themselves a breach of these terms.`
   ),
 
   // --------------------------------------------------------- our content
