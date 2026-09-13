@@ -3,7 +3,7 @@
 // stays as plain exports; anything environment-specific (API keys, Sanity project)
 // moved to env vars instead of being hardcoded in source — see .env.local.example.
 
-export const APP_STORE_URL = "https://apps.apple.com/app/id0000000000"; // TODO: real App Store id once listed
+export const APP_STORE_URL = "https://apps.apple.com/app/id6789054723";
 
 // Mirrors Twofold/Twofold/Services/RevenueCatConfig.swift — same entitlement
 // identifiers the iOS app already checks, so a web purchase unlocks the app instantly

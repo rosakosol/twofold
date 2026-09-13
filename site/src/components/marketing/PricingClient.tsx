@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
-import { PLANS } from "@/lib/marketing/config";
+import { APP_STORE_URL, PLANS } from "@/lib/marketing/config";
 import type { ResolvedPlan } from "@/lib/marketing/sanity";
 import { getSession, onAuthChange, signInWithApple, signOut } from "@/lib/marketing/auth";
 import { providerFallbackName, providerLabel, sessionProvider } from "@/lib/marketing/provider";
@@ -33,7 +33,7 @@ interface Pending {
 
 function AppStoreBadge({ label = "Download on the" }: { label?: string }) {
   return (
-    <a className="appstore-badge" data-appstore-link href="https://apps.apple.com/app/id0000000000" style={{ margin: "0 auto" }}>
+    <a className="appstore-badge" data-appstore-link href={APP_STORE_URL} style={{ margin: "0 auto" }}>
       <svg className="icon">
         <use href="/assets/icons.svg#icon-apple" />
       </svg>

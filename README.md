@@ -674,7 +674,7 @@ Live Activities, Home/Lock Screen widgets, and push notifications are all wired 
 
 Known gaps before submission:
 
-* `APP_STORE_URL` in `site/src/lib/marketing/config.ts` is still the placeholder `id0000000000` — every download link on the website points at it
+* `APP_STORE_URL` in `site/src/lib/marketing/config.ts` now holds the real Apple ID (`id6789054723`), assigned when the App Store Connect record was created. It 404s until the app is actually live, so the download buttons shouldn't go in front of anyone until then — but no code change is needed at that point, the links simply start working
 * The privacy policy and terms still carry a "pending legal review" notice. Every `[TO CONFIRM]` placeholder is now answered, so both are complete and unpublished — `site/scripts/seed-privacy-policy.mjs` and `seed-terms.mjs` are dry-run unless passed `--write`
 
 ### Flight Data APIs
