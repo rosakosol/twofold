@@ -98,22 +98,6 @@ export default async function HomePage() {
               priority
               sizes="(max-width: 860px) 72vw, 300px"
             />
-            <div className="hero-chip hero-chip-1">
-              <span className="icon-wrap">
-                <svg className="icon">
-                  <use href="/assets/icons.svg#icon-plane" />
-                </svg>
-              </span>
-              Landed in Singapore 🇸🇬
-            </div>
-            <div className="hero-chip hero-chip-2">
-              <span className="icon-wrap">
-                <svg className="icon">
-                  <use href="/assets/icons.svg#icon-pin" />
-                </svg>
-              </span>
-              +1 memory saved
-            </div>
           </div>
         </div>
       </section>
