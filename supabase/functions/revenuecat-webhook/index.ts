@@ -79,6 +79,18 @@ const REVENUECAT_API_BASE = "https://api.revenuecat.com/v1";
 // A mismatch is silent: the event arrives, nothing matches, and the buyer holds no credit.
 const STREAK_REPAIR_PRODUCT_ID = "com.orangefinch.Twofold.streak.repair";
 
+// Must match RevenueCatConfig.ProductIdentifier.recordExport and the App Store Connect product.
+// Same silence on a mismatch as above: the event arrives, nothing matches, the buyer holds no
+// credit and nothing says so.
+const RECORD_EXPORT_PRODUCT_ID = "com.orangefinch.Twofold.record.export";
+
+/// The consumables this function knows how to grant, and the RPC that grants each. Both are
+/// idempotent on the store transaction id, so a redelivery grants nothing and reports success.
+const CONSUMABLE_GRANTS: Record<string, { rpc: string; label: string }> = {
+  [STREAK_REPAIR_PRODUCT_ID]: { rpc: "grant_streak_repair_credit", label: "streak repair" },
+  [RECORD_EXPORT_PRODUCT_ID]: { rpc: "grant_record_export_credit", label: "record export" },
+};
+
 // A `subscription_checked_at` further ahead than this can't have come from us (we only ever write
 // RevenueCat's own clock, which is never meaningfully ahead of now) — it's a leftover from the old
 // client-written era, stamped by a device with a wrong clock. Without this escape hatch the
@@ -428,28 +440,31 @@ Deno.serve(async (req) => {
     //
     // Redelivery is handled where it belongs instead: the transaction id is unique in
     // `streak_repair_credits`, so a second delivery of the same purchase grants nothing.
-    if (eventType === "NON_RENEWING_PURCHASE" && event.product_id === STREAK_REPAIR_PRODUCT_ID) {
+    const consumable = eventType === "NON_RENEWING_PURCHASE" && typeof event.product_id === "string"
+      ? CONSUMABLE_GRANTS[event.product_id]
+      : undefined;
+    if (consumable) {
       const transactionId = typeof event.transaction_id === "string" && event.transaction_id.length > 0
         ? event.transaction_id
         : eventId;
       if (!transactionId) {
         // Without one there is no way to be idempotent, and granting anyway would hand out a free
-        // repair on every redelivery. Logged and skipped: the purchase is recoverable by hand,
+        // one on every redelivery. Logged and skipped: the purchase is recoverable by hand,
         // silently multiplying credits is not.
         console.error(`[revenuecat-webhook] ${eventType}: no transaction id, credit not granted`);
       } else {
-        const { data: granted, error: grantErr } = await serviceClient.rpc("grant_streak_repair_credit", {
+        const { data: granted, error: grantErr } = await serviceClient.rpc(consumable.rpc, {
           p_profile_id: userId,
           p_transaction_id: transactionId,
         });
         if (grantErr) {
           // The person has paid and holds nothing. 5xx so RevenueCat redelivers — the unique
           // transaction id means the retry cannot double-grant.
-          console.error(`[revenuecat-webhook] ${eventType}: credit grant failed:`, grantErr.message);
+          console.error(`[revenuecat-webhook] ${eventType}: ${consumable.label} grant failed:`, grantErr.message);
           return jsonResponse({ error: "Temporary failure, retry" }, 503);
         }
         // `false` means this transaction was already granted, which is a redelivery, which is fine.
-        console.log(`[revenuecat-webhook] ${eventType}: streak repair credit ${granted ? "granted" : "already held"}`);
+        console.log(`[revenuecat-webhook] ${eventType}: ${consumable.label} credit ${granted ? "granted" : "already held"}`);
       }
     }
 

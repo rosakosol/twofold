@@ -132,6 +132,20 @@ struct ArchivedCoupleDetailView: View {
     /// of a tap. The data itself stays free; the keepsake is the thing being sold.
     @State private var includeRecord = false
     @State private var showingPaywall = false
+    /// Bought-and-unspent single exports. This screen has to honour them, and not only for
+    /// consistency: `RelationshipTimelineView` is behind `partnerConnected`, so once a
+    /// relationship has ended the archive is the *only* place a Record can be had at all. Refusing
+    /// a purchased export here would make it unbuyable exactly when someone wants it most — a
+    /// keepsake of something that ended, on a 90-day clock.
+    @State private var credits: Int?
+    @State private var isBuyingRecord = false
+    @State private var subscriptionStore = SubscriptionStore()
+    @State private var purchaseError: String?
+
+    /// Premium exports without limit; everyone else needs a credit in hand.
+    private var canIncludeRecord: Bool {
+        !appModel.isPremiumLocked || (credits ?? 0) > 0
+    }
 
     var body: some View {
         ScrollView {
@@ -208,7 +222,12 @@ struct ArchivedCoupleDetailView: View {
         .background(Theme.backgroundGradient.ignoresSafeArea())
         .navigationTitle(couple.partnerName)
         .navigationBarTitleDisplayMode(.inline)
-        .task { await load() }
+        .task {
+            await load()
+            // Only for people who pay per export — Premium has no balance to report.
+            guard appModel.isPremiumLocked else { return }
+            credits = (try? await BackendService.recordExportCreditCount()) ?? 0
+        }
         .sheet(isPresented: $showingPaywall) {
             NavigationStack { PaywallView() }
         }
@@ -262,12 +281,27 @@ struct ArchivedCoupleDetailView: View {
                         }
                     }
                     .tint(Theme.skyBlue)
-                    .disabled(appModel.isPremiumLocked)
+                    .disabled(!canIncludeRecord)
 
-                    if appModel.isPremiumLocked {
-                        Button("See Premium") { showingPaywall = true }
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(Theme.skyBlueText)
+                    if appModel.isPremiumLocked && (credits ?? 0) == 0 {
+                        Button { buyOneRecordExport() } label: {
+                            HStack(spacing: Theme.Spacing.xs) {
+                                if isBuyingRecord { ProgressView().controlSize(.small) }
+                                Text(isBuyingRecord ? "Just a moment…" : "Buy this export")
+                                    .font(.caption.weight(.semibold))
+                            }
+                        }
+                        .foregroundStyle(Theme.skyBlueText)
+                        .disabled(isBuyingRecord)
+
+                        Button("Or see Premium, for unlimited exports") { showingPaywall = true }
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(Theme.subtleInk)
+                            .disabled(isBuyingRecord)
+                    }
+
+                    if let purchaseError {
+                        Text(purchaseError).font(.caption).foregroundStyle(Theme.heartRed)
                     }
 
                     Button(action: runExport) {
@@ -285,6 +319,38 @@ struct ArchivedCoupleDetailView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    /// The purchase only opens the till. The credit is written by the RevenueCat webhook against
+    /// the store's transaction id, so this polls for it rather than assuming.
+    private func buyOneRecordExport() {
+        isBuyingRecord = true
+        purchaseError = nil
+        Task {
+            do {
+                let bought = try await subscriptionStore.purchaseConsumable(
+                    RevenueCatConfig.ProductIdentifier.recordExport
+                )
+                if bought {
+                    let deadline = Date.now.addingTimeInterval(15)
+                    while Date.now < deadline {
+                        if let count = try? await BackendService.recordExportCreditCount(), count > 0 {
+                            credits = count
+                            includeRecord = true
+                            break
+                        }
+                        try? await Task.sleep(for: .milliseconds(750))
+                    }
+                    if (credits ?? 0) == 0 {
+                        purchaseError = "Your purchase went through, but it's taking a moment to arrive. Come back shortly."
+                    }
+                }
+            } catch {
+                purchaseError = (error as? LocalizedError)?.errorDescription
+                    ?? "That didn't go through. Try again in a moment."
+            }
+            isBuyingRecord = false
         }
     }
 
@@ -306,10 +372,17 @@ struct ArchivedCoupleDetailView: View {
                     // Belt and braces: the toggle is disabled for Plus, but the value it carries
                     // is the one that reaches the exporter, so the tier is checked here too.
                     options: CoupleDataExporter.Options(
-                        document: (includeRecord && !appModel.isPremiumLocked) ? .pdf : .none
+                        document: (includeRecord && canIncludeRecord) ? .pdf : .none
                     ),
                     progress: { exportStatus = $0 }
                 )
+                // Charged after the zip exists, never before — and only when the Record was
+                // actually included. A failed export must not take somebody's purchase.
+                if includeRecord && appModel.isPremiumLocked {
+                    if (try? await BackendService.spendRecordExportCredit()) == true {
+                        credits = max((credits ?? 1) - 1, 0)
+                    }
+                }
             } catch {
                 exportError = (error as? LocalizedError)?.errorDescription ?? "Couldn't build the export. Try again."
             }

@@ -52,6 +52,15 @@ enum RevenueCatConfig {
         /// against the store's transaction id, the same way entitlement is — the app's word that a
         /// purchase happened is not what a paid repair rests on.
         static let streakRepair = "com.orangefinch.Twofold.streak.repair"
+
+        /// The second consumable, and the same rules apply: never a paywall package, and buying it
+        /// grants nothing until the RevenueCat webhook writes a credit against the store's
+        /// transaction id (see 20261026000000). One purchase, one Relationship Record export.
+        ///
+        /// Premium never reaches this. It exports without limit, which is a tier check rather than
+        /// a credit — this exists for the people who would otherwise have to change plan to keep a
+        /// document once.
+        static let recordExport = "com.orangefinch.Twofold.record.export"
     }
 
     static func configure() {

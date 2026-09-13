@@ -199,6 +199,35 @@ final class SubscriptionStore {
         return result.customerInfo
     }
 
+    /// Buys a consumable by product identifier, outside the offering entirely.
+    ///
+    /// Offerings are how plans are sold, and `mapToPricedPackages` drops anything that is not one
+    /// of the four subscription products — which is what keeps a one-off purchase off a screen
+    /// selling plans. A consumable therefore has to be fetched on its own. `products(_:)` returns
+    /// only what the store recognises, so an identifier missing from App Store Connect comes back
+    /// as an empty array rather than a crash.
+    ///
+    /// Returns `false` when the buyer cancels, which is a normal outcome and not an error. Does not
+    /// touch `subscribedTier`: a consumable grants no entitlement, and the credit it pays for is
+    /// written server-side by the webhook, not here — the app's word that a purchase happened is
+    /// not what a paid export rests on.
+    func purchaseConsumable(_ productIdentifier: String) async throws -> Bool {
+        let products = await Purchases.shared.products([productIdentifier])
+        guard let product = products.first else { throw ConsumableError.unavailable }
+        let result = try await Purchases.shared.purchase(product: product)
+        return !result.userCancelled
+    }
+
+    enum ConsumableError: LocalizedError {
+        case unavailable
+
+        var errorDescription: String? {
+            switch self {
+            case .unavailable: "That's not available to buy right now. Please try again later."
+            }
+        }
+    }
+
     func restore() async throws -> CustomerInfo {
         let info = try await Purchases.shared.restorePurchases()
         subscribedTier = SubscriptionTier.active(in: info)

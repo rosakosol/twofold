@@ -25,6 +25,17 @@ struct RelationshipTimelineView: View {
     @State private var exportStatus = ""
     @State private var exportError: String?
     @State private var showingPaywall = false
+    @State private var subscriptionStore = SubscriptionStore()
+    /// Bought-and-unspent single exports. Nil until looked up, so the card can say nothing rather
+    /// than say "0" while it is still counting.
+    @State private var credits: Int?
+    @State private var isBuying = false
+    @State private var purchaseError: String?
+
+    /// Premium exports without limit; everyone else needs a credit in hand.
+    private var canExport: Bool {
+        !appModel.isPremiumLocked || (credits ?? 0) > 0
+    }
 
     /// A finished file, identified so `.sheet(item:)` presents it once it exists rather than being
     /// driven off a separate boolean that can disagree with it.
@@ -48,7 +59,7 @@ struct RelationshipTimelineView: View {
                     emptyState
                 } else {
                     header
-                    if appModel.isPremiumLocked { premiumExportCard }
+                    if appModel.isPremiumLocked { exportPurchaseCard }
                     ForEach(items) { item in
                         TimelineEntryView(item: item)
                     }
@@ -75,7 +86,7 @@ struct RelationshipTimelineView: View {
                             Image(systemName: "square.and.arrow.up")
                         }
                     }
-                    .disabled(isExporting || appModel.isPremiumLocked)
+                    .disabled(isExporting || !canExport)
                 }
             }
         }
@@ -90,42 +101,114 @@ struct RelationshipTimelineView: View {
                 statusBar
             }
         }
+        .task {
+            // Only for people who pay per export — Premium has no balance to report.
+            guard appModel.isPremiumLocked else { return }
+            credits = (try? await BackendService.recordExportCreditCount()) ?? 0
+        }
         .postHogScreenView("Settings: Relationship Timeline")
     }
 
     /// Sits under the header, above the timeline. Near the top because it explains a control in
     /// the toolbar directly above it, and because burying it under a decade of entries would mean
     /// only the people who scrolled to the end ever learned what the greyed-out button was.
-    private var premiumExportCard: some View {
+    /// Two ways out, and they answer different questions. "I want this document" is a purchase;
+    /// "I want this app to keep doing this" is a subscription, and offering only the second to
+    /// someone who wants the first is how you sell neither.
+    ///
+    /// The single export leads because it is the smaller ask and the one this screen prompted.
+    private var exportPurchaseCard: some View {
         SectionCard {
             VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-                Label("Keeping a copy is a Premium feature", systemImage: "book.closed.fill")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Theme.ink)
+                if (credits ?? 0) > 0 {
+                    Label("You have an export to use", systemImage: "checkmark.seal.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Theme.leafGreenText)
 
-                Text("Your record is yours to read whenever you like. Premium adds exporting it as a PDF or a Word document — one file with every trip, memory and flight in it, to keep or to print.")
-                    .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
-                    .fixedSize(horizontal: false, vertical: true)
+                    Text("Use the share button above to save your record as a PDF or a Word document. It'll be used when the file is ready, not before.")
+                        .font(.caption)
+                        .foregroundStyle(Theme.subtleInk)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Label("Keeping a copy", systemImage: "book.closed.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Theme.ink)
 
-                // Says what else is in it, because someone deciding on an upgrade from here should
-                // not have to go and find that out on another screen.
-                Text("You can still export your trips, memories, flights and games as data at any time, on any plan — Settings → Help → Export your data.")
+                    Text("Your record is yours to read whenever you like. Saving it as a PDF or a Word document — one file with every trip, memory and flight in it, to keep or to print — is a Premium feature, or you can buy this one export on its own.")
+                        .font(.caption)
+                        .foregroundStyle(Theme.subtleInk)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Button { buyOneExport() } label: {
+                        HStack(spacing: Theme.Spacing.xs) {
+                            if isBuying { ProgressView().controlSize(.small).tint(.white) }
+                            Text(isBuying ? "Just a moment…" : "Buy this export")
+                                .font(.subheadline.weight(.semibold))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, Theme.Spacing.sm)
+                    }
+                    .background(Theme.primaryButtonGradient, in: Capsule())
+                    .foregroundStyle(.white)
+                    .disabled(isBuying)
+
+                    Button { showingPaywall = true } label: {
+                        Text("Or see Premium, for unlimited exports")
+                            .font(.caption.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                    }
+                    .foregroundStyle(Theme.skyBlueText)
+                    .disabled(isBuying)
+                }
+
+                // Says what is already free, because someone deciding on a purchase from here
+                // should not have to go and find that out on another screen.
+                Text("Your trips, memories, flights and games can be exported as data at any time, on any plan — Settings → Help → Export your data.")
                     .font(.caption2)
                     .foregroundStyle(Theme.subtleInk)
                     .fixedSize(horizontal: false, vertical: true)
 
-                Button { showingPaywall = true } label: {
-                    Text("See Premium")
-                        .font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, Theme.Spacing.sm)
+                if let purchaseError {
+                    Text(purchaseError).font(.caption).foregroundStyle(Theme.heartRed)
                 }
-                .background(Theme.primaryButtonGradient, in: Capsule())
-                .foregroundStyle(.white)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    /// The purchase only opens the till. The credit itself is written by the RevenueCat webhook
+    /// against the store's transaction id, so this polls for it rather than assuming — the app's
+    /// word that a purchase happened is not what a paid export rests on.
+    private func buyOneExport() {
+        isBuying = true
+        purchaseError = nil
+        Task {
+            do {
+                let bought = try await subscriptionStore.purchaseConsumable(
+                    RevenueCatConfig.ProductIdentifier.recordExport
+                )
+                if bought { await awaitCredit() }
+            } catch {
+                purchaseError = (error as? LocalizedError)?.errorDescription
+                    ?? "That didn't go through. You haven't been charged twice — try again in a moment."
+            }
+            isBuying = false
+        }
+    }
+
+    /// Webhook delivery is quick but not instant, and a buyer staring at an unchanged screen
+    /// assumes their money went nowhere. Polls for a few seconds, then says so plainly rather than
+    /// spinning forever — the credit is theirs whether or not this screen saw it arrive.
+    private func awaitCredit() async {
+        let deadline = Date.now.addingTimeInterval(15)
+        while Date.now < deadline {
+            if let count = try? await BackendService.recordExportCreditCount(), count > 0 {
+                credits = count
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(750))
+        }
+        purchaseError = "Your purchase went through, but it's taking a moment to arrive. Close this screen and come back shortly."
     }
 
     private var header: some View {
@@ -190,11 +273,25 @@ struct RelationshipTimelineView: View {
                     partnerName: appModel.partner.name
                 )
             }
-            if let url {
-                exportURL = ExportedDocument(url: url)
-            } else {
+            guard let url else {
                 exportError = "Couldn't build that file. Try again."
+                return
             }
+
+            // Charged after the file exists, never before. Spending first and then failing to
+            // render would take someone's purchase and hand them nothing — and the export is
+            // local work that can fail on its own. Premium skips this entirely: it has no ledger.
+            if appModel.isPremiumLocked {
+                let spent = (try? await BackendService.spendRecordExportCredit()) ?? false
+                guard spent else {
+                    exportError = "Couldn't find your purchased export. Nothing has been charged — try again in a moment."
+                    credits = 0
+                    return
+                }
+                credits = max((credits ?? 1) - 1, 0)
+            }
+
+            exportURL = ExportedDocument(url: url)
         }
     }
 }

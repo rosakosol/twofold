@@ -296,6 +296,34 @@ enum BackendService {
         try await supabase.auth.signOut()
     }
 
+    // MARK: - Record export credits
+
+    /// How many bought-and-unspent Relationship Record exports this profile holds.
+    ///
+    /// Read straight from the table rather than through an RPC — the select policy already limits
+    /// it to your own rows, so there is nothing an RPC would add but a round trip.
+    static func recordExportCreditCount() async throws -> Int {
+        guard let userID = currentUserID else { throw BackendError.notAuthenticated }
+        struct Row: Decodable { let id: UUID }
+        let rows: [Row] = try await supabase
+            .from("record_export_credits")
+            .select("id")
+            .eq("profile_id", value: userID)
+            .is("consumed_at", value: nil)
+            .execute()
+            .value
+        return rows.count
+    }
+
+    /// Spends one credit. `false` means there was none to spend, which is a normal answer and not
+    /// an error — the caller exports only on `true`.
+    ///
+    /// Premium never calls this: it exports without limit, and that is a tier check rather than a
+    /// ledger entry. See 20261026000000.
+    static func spendRecordExportCredit() async throws -> Bool {
+        try await supabase.rpc("spend_record_export_credit").execute().value
+    }
+
     // MARK: - Blocking
 
     /// Blocks a profile, disconnecting them first if they are the current partner.
