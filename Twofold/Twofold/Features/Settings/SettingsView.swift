@@ -119,6 +119,22 @@ struct SettingsView: View {
                         }
                     }
 
+                    // Ungated and partner-only, unlike the Relationship Record below it. That one
+                    // is a keepsake and can be a Premium perk; this is the complete copy, and a
+                    // portability request does not care what anyone is paying. Until it existed
+                    // the full export lived only in Archived Data, which meant you could not have
+                    // your own data until the relationship had ended.
+                    if appModel.partnerConnected {
+                        SectionCard {
+                            NavigationLink {
+                                ExportDataView()
+                            } label: {
+                                SettingsRow(title: "Export your data", systemImage: "square.and.arrow.down")
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+
                     // Premium, and partner-only: it is a record of a shared history, so there
                     // has to be one. Locked rather than hidden — someone on Plus should be able to
                     // see what they would be getting.

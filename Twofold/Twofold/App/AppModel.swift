@@ -139,7 +139,9 @@ final class AppModel {
     var pendingPartnerInviteNudge = false
 
     /// Set once a real `couples` row exists for this user.
-    private var backendCoupleID: UUID?
+    /// `private(set)` rather than `private`: `ExportDataView` needs the id to export the couple
+    /// that is still together, and every writer of it is still in this file.
+    private(set) var backendCoupleID: UUID?
     /// Kept alive for as long as a couple is loaded (started in `adopt`, torn down whenever
     /// `backendCoupleID` is cleared) — without this, `flights` only ever learned about a
     /// server-side change (a landed flight the cron just archived, a new flight the partner

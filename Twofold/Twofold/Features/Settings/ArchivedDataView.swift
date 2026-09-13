@@ -220,7 +220,7 @@ struct ArchivedCoupleDetailView: View {
                     .foregroundStyle(Theme.ink)
 
                 if let exportResult {
-                    Text(exportSummary(exportResult))
+                    Text(exportResult.summary)
                         .font(.caption)
                         .foregroundStyle(Theme.subtleInk)
                         .fixedSize(horizontal: false, vertical: true)
@@ -254,20 +254,6 @@ struct ArchivedCoupleDetailView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-    }
-
-    /// Says what actually came out, including what didn't. Someone exporting against a deadline
-    /// needs to know if their photos are incomplete while they can still do something about it.
-    private func exportSummary(_ result: CoupleDataExporter.Result) -> String {
-        var parts: [String] = []
-        if result.tripCount > 0 { parts.append("\(result.tripCount) trips") }
-        if result.memoryCount > 0 { parts.append("\(result.memoryCount) memories") }
-        if result.photoCount > 0 { parts.append("\(result.photoCount) photos") }
-        if result.flightCount > 0 { parts.append("\(result.flightCount) flights") }
-        if result.gameCount > 0 { parts.append("\(result.gameCount) games") }
-        let body = parts.isEmpty ? "Ready." : "Ready — " + parts.joined(separator: ", ") + "."
-        guard result.missingPhotoCount > 0 else { return body }
-        return body + " \(result.missingPhotoCount) photo\(result.missingPhotoCount == 1 ? "" : "s") couldn't be downloaded — try again on a better connection to get \(result.missingPhotoCount == 1 ? "it" : "them")."
     }
 
     private func runExport() {
