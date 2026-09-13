@@ -50,18 +50,33 @@ struct DeleteAccountView: View {
                         explainerRow(icon: "person.crop.circle.badge.xmark", text: "Your name, photo, and login are permanently removed. You won't be able to sign back in.")
                         explainerRow(icon: "heart.slash.fill", text: appModel.partnerConnected ? "\(appModel.partner.name) will see that you've left, the same as if you removed them today." : "You're not currently connected to a partner.")
 
-                        if hasSharedData {
-                            explainerRow(icon: "photo.on.rectangle.angled", text: "Trips, memories, and photos you shared with a partner stay with them for now — deleting your account doesn't erase their side of a shared history.")
-                            explainerRow(icon: "calendar.badge.clock", text: "Shared history is permanently deleted for both of you 90 days after your connection ends. Nobody can bring that forward, and nobody can extend it.")
-                            // The difference between this and removing a partner, which the rest of
-                            // this screen otherwise presents as equivalent. An archive is restored
-                            // by matching the two profile ids that made it
+                        // Split rather than written once with the partner's name interpolated.
+                        // `appModel.partner` is reset to a placeholder literally named "Partner"
+                        // when a couple unpairs (AppModel.swift), so a single version of this copy
+                        // reads "If you removed Partner instead…" to anyone who has already
+                        // disconnected — and that is exactly the person most likely to be on this
+                        // screen. The two situations also differ in substance, not just in wording:
+                        // for someone already unpaired the 90 days are running, the date is fixed
+                        // and visible, and their archive is the only place their history is.
+                        if appModel.partnerConnected {
+                            explainerRow(icon: "photo.on.rectangle.angled", text: "Trips, memories, and photos you shared with \(appModel.partner.name) stay with them — deleting your account doesn't erase their side of a shared history.")
+                            explainerRow(icon: "calendar.badge.clock", text: "Deleting your account ends your connection, and your shared history is permanently deleted for both of you 90 days after that. Nobody can bring that forward, and nobody can extend it.")
+                            // An archive is restored by matching the two profile ids that made it
                             // (`restorable_archive_with`), and a deleted account can never be one
                             // of them again — so this is the point of no return for the shared
                             // history too, not because it deletes it but because it ends the only
                             // way back.
                             explainerRow(icon: "arrow.uturn.backward.circle", text: "If you removed \(appModel.partner.name) instead, getting back together within those 90 days would bring your history back. Deleting your account can't be undone that way — your account won't exist to reconnect with.")
-                            explainerRow(icon: "square.and.arrow.down", text: "If you want to keep a copy, save it from Settings before you delete your account — you won't be able to sign in to get it afterwards.")
+                            explainerRow(icon: "square.and.arrow.down", text: "If you want to keep a copy, export it from Settings before you delete your account — you won't be able to sign in to get it afterwards.")
+                        } else if archivedCoupleCount > 0 {
+                            explainerRow(icon: "archivebox", text: archivedCoupleCount == 1
+                                ? "Your archived history stays with the person you shared it with. Deleting your account doesn't erase their side of it."
+                                : "Your archived histories stay with the people you shared them with. Deleting your account doesn't erase their side of them.")
+                            explainerRow(icon: "calendar.badge.clock", text: archivedCoupleCount == 1
+                                ? "It's already counting down to the date shown on it in Archived Data, and is permanently deleted then. Deleting your account doesn't change that date."
+                                : "They're already counting down to the dates shown on them in Archived Data, and are permanently deleted then. Deleting your account doesn't change those dates.")
+                            explainerRow(icon: "arrow.uturn.backward.circle", text: "Reconnecting with someone before their archive expires would offer it back to you. Deleting your account ends that — your account won't exist to reconnect with.")
+                            explainerRow(icon: "square.and.arrow.down", text: "If you want to keep a copy, export it from Settings → Archived Data before you delete your account — you won't be able to sign in to get it afterwards.")
                         }
                     }
                 }
