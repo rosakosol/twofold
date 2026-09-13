@@ -25,6 +25,9 @@ struct ConnectionRequestReviewView: View {
     /// has created a new one there is nothing left to reuse, so there is no later screen that
     /// could offer this.
     @State private var showingRestoreChoice = false
+    /// A request is the one place a stranger's chosen name and photo reach someone who has agreed
+    /// to nothing, so this is where reporting has to be available — before accepting, not after.
+    @State private var showingReport = false
 
     private var requesterPerson: Person {
         Person(
@@ -103,6 +106,28 @@ struct ConnectionRequestReviewView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Close") { dismiss() }
                 }
+                // In the toolbar rather than beside Accept and Decline: it is not a third way of
+                // answering the request, and giving it equal weight would suggest it is.
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button("Report Abuse", systemImage: "exclamationmark.shield", role: .destructive) {
+                            showingReport = true
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                            .accessibilityLabel("More options")
+                    }
+                }
+            }
+            .sheet(isPresented: $showingReport) {
+                SendSupportRequestView(
+                    initialCategory: .reportAbuse,
+                    reportContext: ReportedPersonContext(
+                        profileID: request.requesterId,
+                        displayName: request.requesterFirstName,
+                        surface: .connectionRequest
+                    )
+                )
             }
             .task {
                 restorable = try? await BackendService.restorableArchive(withPartner: request.requesterId)

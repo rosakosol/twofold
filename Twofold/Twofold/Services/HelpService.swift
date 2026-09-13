@@ -23,6 +23,7 @@ enum SupportRequestCategory: String, CaseIterable, Identifiable {
     case gameIssue = "Game Issue"
     case featureRequest = "Feature Request"
     case feedback = "Feedback"
+    case reportAbuse = "Report Abuse"
     case other = "Other"
 
     var id: String { rawValue }
@@ -63,6 +64,42 @@ struct GameIssueContext {
         if let roundNumber { dict["roundNumber"] = roundNumber }
         if let sessionID { dict["sessionID"] = sessionID.uuidString }
         return dict
+    }
+}
+
+/// Attached automatically when the form was opened from a "Report Abuse" action, so a report names
+/// who it is about without the reporter having to describe them.
+///
+/// Same shape and reasoning as `GameIssueContext` above: the id carries the weight, because a
+/// first name can be changed the moment someone realises they have been reported, and a report
+/// that says only "Alex" pins to nothing.
+///
+/// `surface` matters more than it looks. A report from a connection request is about somebody the
+/// reporter has never agreed to hear from and who may have sent nothing but a name and a picture;
+/// a report about a partner is about shared history. They need different handling, and the
+/// reporter should not have to explain which one this is.
+struct ReportedPersonContext {
+    enum Surface: String {
+        case connectionRequest = "connection request"
+        case partner = "partner"
+    }
+
+    var profileID: UUID
+    var displayName: String
+    var surface: Surface
+
+    /// Shown in the form, so the reporter can see exactly what is being attached rather than it
+    /// going invisibly. Same principle as `GameIssueContext.summary`.
+    var summary: String {
+        "\(displayName) — \(surface.rawValue)"
+    }
+
+    var payload: [String: Any] {
+        [
+            "profile_id": profileID.uuidString,
+            "display_name": displayName,
+            "surface": surface.rawValue,
+        ]
     }
 }
 
@@ -112,13 +149,15 @@ enum HelpService {
         category: SupportRequestCategory,
         message: String,
         subject: String? = nil,
-        game: GameIssueContext? = nil
+        game: GameIssueContext? = nil,
+        report: ReportedPersonContext? = nil
     ) async throws {
         try await submit(body: [
             "category": category.rawValue,
             "message": message,
             "subject": subject as Any? ?? NSNull(),
             "game": game?.payload as Any? ?? NSNull(),
+            "report": report?.payload as Any? ?? NSNull(),
         ])
     }
 

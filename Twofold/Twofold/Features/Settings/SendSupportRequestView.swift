@@ -16,6 +16,8 @@ struct SendSupportRequestView: View {
     /// Preset by the caller (e.g. .gameIssue from a game screen) but still user-changeable —
     /// someone who opened it mid-game may well want to file something else.
     private let gameContext: GameIssueContext?
+    /// Set when this was opened from a "Report Abuse" action, naming who the report is about.
+    private let reportContext: ReportedPersonContext?
 
     @Environment(\.dismiss) private var dismiss
     /// Optional so the field can start on a "Select a category" placeholder. It used to default
@@ -28,8 +30,13 @@ struct SendSupportRequestView: View {
     @State private var errorMessage: String?
     @State private var didSend = false
 
-    init(initialCategory: SupportRequestCategory? = nil, gameContext: GameIssueContext? = nil) {
+    init(
+        initialCategory: SupportRequestCategory? = nil,
+        gameContext: GameIssueContext? = nil,
+        reportContext: ReportedPersonContext? = nil
+    ) {
         self.gameContext = gameContext
+        self.reportContext = reportContext
         _category = State(initialValue: initialCategory)
     }
 
@@ -75,6 +82,21 @@ struct SendSupportRequestView: View {
 
                     // Shown rather than attached silently — the reporter can see exactly which
                     // deck/card is going along with their message.
+                    // Same principle as the game context below: shown, not attached silently.
+                    // More so here — someone reporting a person should be able to see that the
+                    // report names them, and which of them it names.
+                    if let reportContext {
+                        HStack(alignment: .top, spacing: Theme.Spacing.xs) {
+                            Image(systemName: "exclamationmark.shield")
+                            Text("Reporting \(reportContext.summary)")
+                        }
+                        .font(.caption)
+                        .foregroundStyle(Theme.subtleInk)
+                        .padding(Theme.Spacing.sm)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .themedCardBackground(cornerRadius: Theme.Radius.card)
+                    }
+
                     if let gameContext {
                         HStack(alignment: .top, spacing: Theme.Spacing.xs) {
                             Image(systemName: "paperclip")
@@ -146,7 +168,12 @@ struct SendSupportRequestView: View {
         errorMessage = nil
         Task {
             do {
-                try await HelpService.submitSupportRequest(category: category, message: message, game: gameContext)
+                try await HelpService.submitSupportRequest(
+                    category: category,
+                    message: message,
+                    game: gameContext,
+                    report: reportContext
+                )
                 isSaving = false
                 didSend = true
             } catch {

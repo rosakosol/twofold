@@ -16,6 +16,7 @@ struct DisconnectPartnerView: View {
     @Environment(AppModel.self) private var appModel
     @Environment(\.dismiss) private var dismiss
 
+    @State private var showingReport = false
     @State private var showingRemovePartnerConfirm = false
     @State private var isRemovingPartner = false
     @State private var removePartnerError: String?
@@ -64,6 +65,22 @@ struct DisconnectPartnerView: View {
                     .buttonStyle(.plain)
                 }
 
+                // Above Disconnect, because someone who needs this needs it before they need to
+                // decide what happens to a shared history — and because reporting should not
+                // require ending the relationship first.
+                SectionCard {
+                    Button {
+                        showingReport = true
+                    } label: {
+                        SettingsRow(title: "Report Abuse", systemImage: "exclamationmark.shield")
+                    }
+                    .buttonStyle(.plain)
+                    Text("Tell us if \(appModel.partner.name) has shared something abusive, or is using Twofold to harm you. We aim to respond within 48 hours, and we never tell them you got in touch.")
+                        .font(.caption2)
+                        .foregroundStyle(Theme.subtleInk)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
                 SectionCard {
                     Button(role: .destructive) {
                         showingRemovePartnerConfirm = true
@@ -92,6 +109,16 @@ struct DisconnectPartnerView: View {
         .background(Theme.backgroundGradient.ignoresSafeArea())
         .navigationTitle("Disconnect Partner")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showingReport) {
+            SendSupportRequestView(
+                initialCategory: .reportAbuse,
+                reportContext: ReportedPersonContext(
+                    profileID: appModel.partner.id,
+                    displayName: appModel.partner.name,
+                    surface: .partner
+                )
+            )
+        }
         .task {
             await subscriptionStore.refreshEntitlementsOnly()
         }

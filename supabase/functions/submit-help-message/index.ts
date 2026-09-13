@@ -42,6 +42,7 @@ const SUPPORT_CATEGORIES = [
   "Game Issue",
   "Feature Request",
   "Feedback",
+  "Report Abuse",
   "Other",
 ] as const;
 type SupportCategory = typeof SUPPORT_CATEGORIES[number];
@@ -102,11 +103,21 @@ interface GameContext {
   sessionID?: string;
 }
 
+/// Who a "Report Abuse" report is about. Attached automatically by the app so a report identifies
+/// its subject without the reporter having to describe them — and by id, because a display name
+/// can be changed the moment someone realises they have been reported.
+interface ReportContext {
+  profile_id?: string;
+  display_name?: string;
+  surface?: string;
+}
+
 interface Input {
   category?: string;
   subject?: string;
   message: string;
   game?: GameContext;
+  report?: ReportContext;
 }
 
 function smtpClient(): SMTPClient {
@@ -124,6 +135,19 @@ function smtpClient(): SMTPClient {
 
 /// Rendered as a labelled block above the message so whoever reads the email can jump straight
 /// to the offending deck/question without asking the reporter follow-up questions.
+/// Rendered before the reporter's own words, because whoever opens this needs to know who it is
+/// about before they read what happened. `singleLine` throughout: these values reach an SMTP body
+/// and a display name is attacker-controlled, so a newline in one must not be able to forge a
+/// header or a line of our own formatting.
+function reportContextLines(report: ReportContext): string[] {
+  const lines = ["*** ABUSE REPORT ***"];
+  if (report.display_name) lines.push(`Reported: ${singleLine(report.display_name)}`);
+  if (report.profile_id) lines.push(`Reported profile ID: ${singleLine(report.profile_id)}`);
+  if (report.surface) lines.push(`Reached the reporter via: ${singleLine(report.surface)}`);
+  lines.push("");
+  return lines;
+}
+
 function gameContextLines(game: GameContext): string[] {
   const lines: string[] = [];
   if (game.gameType) lines.push(`Game: ${singleLine(game.gameType)}`);
@@ -197,6 +221,7 @@ Deno.serve(async (req) => {
     `Category: ${input.category}`,
     `Account: ${user.email ?? "(no email on file)"} - ${user.id}`,
     "",
+    ...(input.report ? reportContextLines(input.report) : []),
     ...(input.game ? gameContextLines(input.game) : []),
     input.message.trim(),
   ];
