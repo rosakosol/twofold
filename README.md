@@ -334,7 +334,7 @@ display copy — changing one in Studio does not change what anyone is charged.
 
 * Unlimited trips & memories
 * Up to 2 live-tracked flights each month
-* 500+ questions and games
+* 500+ questions, and Sudoku, Word Guess, Word Search and Connect 4
 * Home Screen & Lock Screen widgets
 
 ### Twofold Premium
@@ -343,14 +343,21 @@ display copy — changing one in Studio does not change what anyone is charged.
 
 * Everything in Twofold Plus
 * Up to 5 live-tracked flights each month
-* 2000+ questions and games
-* Exclusive Home Screen and Lock Screen widgets
-* Your Relationship Record — every trip, memory and flight as one document
+* 2000+ questions, including premium decks
+* Chess, Sudoku on Hard and Expert, every Word Search theme, unlimited Word Guess
+* Flight delay analysis
+* A streak repair each month
+* The Smart Rotating widget
+* Your Relationship Record — every trip, memory and milestone as one printable document
 
 The monthly allowance is on *live tracking*, not on saving: a flight beyond the limit still
 appears in your trips and your Passport, it just won't send live updates. `flight_limit_for_tier`
 (`20261010000400_track_limit_and_untracked_flights.sql`) is the source of truth for both numbers,
-and `private.flight_limit_overrides` can raise them per account.
+and `private.flight_limit_overrides` can raise them per account. The feature split above is kept
+in step with the FAQ answer seeded by
+`20261019000000_faq_plan_difference_names_every_premium_feature.sql`, which is what the app and
+the pricing page actually show — if a game gains or loses a gate, that answer is the one to change
+first, and this list follows it.
 
 Prices are set in Australian dollars and shown to each buyer in their own currency where the store
 supports it — see `site/src/lib/marketing/priceDisplay.ts`. Both are auto-renewing, and can be
