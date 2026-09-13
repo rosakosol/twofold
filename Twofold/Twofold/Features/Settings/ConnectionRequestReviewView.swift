@@ -28,6 +28,8 @@ struct ConnectionRequestReviewView: View {
     /// A request is the one place a stranger's chosen name and photo reach someone who has agreed
     /// to nothing, so this is where reporting has to be available — before accepting, not after.
     @State private var showingReport = false
+    @State private var showingBlockConfirm = false
+    @State private var isBlocking = false
 
     private var requesterPerson: Person {
         Person(
@@ -113,11 +115,24 @@ struct ConnectionRequestReviewView: View {
                         Button("Report Abuse", systemImage: "exclamationmark.shield", role: .destructive) {
                             showingReport = true
                         }
+                        Button("Block \(request.requesterFirstName)", systemImage: "hand.raised", role: .destructive) {
+                            showingBlockConfirm = true
+                        }
                     } label: {
                         Image(systemName: "ellipsis.circle")
                             .accessibilityLabel("More options")
                     }
                 }
+            }
+            .confirmationDialog(
+                "Block \(request.requesterFirstName)?",
+                isPresented: $showingBlockConfirm,
+                titleVisibility: .visible
+            ) {
+                Button("Block", role: .destructive) { block() }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("They won't be able to send you another request, and they won't be told.")
             }
             .sheet(isPresented: $showingReport) {
                 SendSupportRequestView(
@@ -158,6 +173,18 @@ struct ConnectionRequestReviewView: View {
             return "From before, you still have \(what) together. Bring it back, or start fresh and leave it in Archived Data."
         }
         return "From before \(ended.formatted(date: .abbreviated, time: .omitted)), you still have \(what) together. Bring it back, or start fresh and leave it in Archived Data."
+    }
+
+    /// Declining and blocking are different answers, so this does not also decline: the request is
+    /// left as it is and the block stops anything further. `dismiss` regardless of outcome — a
+    /// failure here is not worth holding someone on a screen about a person they want gone.
+    private func block() {
+        isBlocking = true
+        Task {
+            try? await BackendService.blockProfile(request.requesterId)
+            isBlocking = false
+            dismiss()
+        }
     }
 
     private func respond(accept: Bool, restoreArchive: Bool = false) {

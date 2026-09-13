@@ -17,6 +17,8 @@ struct DisconnectPartnerView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var showingReport = false
+    @State private var showingBlockConfirm = false
+    @State private var isBlocking = false
     @State private var showingRemovePartnerConfirm = false
     @State private var isRemovingPartner = false
     @State private var removePartnerError: String?
@@ -79,6 +81,25 @@ struct DisconnectPartnerView: View {
                         .font(.caption2)
                         .foregroundStyle(Theme.subtleInk)
                         .fixedSize(horizontal: false, vertical: true)
+
+                    Divider().padding(.vertical, Theme.Spacing.xs)
+
+                    Button(role: .destructive) {
+                        showingBlockConfirm = true
+                    } label: {
+                        HStack {
+                            if isBlocking {
+                                ProgressView().frame(maxWidth: .infinity)
+                            } else {
+                                Text("Block \(appModel.partner.name)").frame(maxWidth: .infinity)
+                            }
+                        }
+                    }
+                    .disabled(isBlocking)
+                    Text("Disconnects you and stops them reaching you again. They aren't told. What you shared is archived as usual, and is deleted 90 days from now like any other archive.")
+                        .font(.caption2)
+                        .foregroundStyle(Theme.subtleInk)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 SectionCard {
@@ -109,6 +130,32 @@ struct DisconnectPartnerView: View {
         .background(Theme.backgroundGradient.ignoresSafeArea())
         .navigationTitle("Disconnect Partner")
         .navigationBarTitleDisplayMode(.inline)
+        .confirmationDialog(
+            "Block \(appModel.partner.name)?",
+            isPresented: $showingBlockConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Disconnect and block", role: .destructive) {
+                // `block_profile` disconnects first when they are the current partner — see
+                // 20261023000000 — so this does not call `removePartner()` as well and cannot
+                // disagree with it about the order.
+                Task {
+                    isBlocking = true
+                    removePartnerError = nil
+                    do {
+                        try await BackendService.blockProfile(appModel.partner.id)
+                        isBlocking = false
+                        dismiss()
+                    } catch {
+                        isBlocking = false
+                        removePartnerError = "Couldn't block them. Please try again."
+                    }
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("You'll be disconnected, and they won't be able to reach you again. Your shared history is archived, not deleted — it goes on the usual 90-day timer.")
+        }
         .sheet(isPresented: $showingReport) {
             SendSupportRequestView(
                 initialCategory: .reportAbuse,
