@@ -250,3 +250,17 @@ enum TripTraveler: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 }
+
+#if DEBUG
+extension OnboardingStep {
+    /// Maps `-onboardingStep <case>` to a step. Only the account screens are listed: this exists
+    /// to reach them for `LegalConsentUITests`, not to become a second, drifting copy of the flow.
+    init?(debugArgument: String) {
+        switch debugArgument {
+        case "saveAccount": self = .saveAccount
+        case "createAccount": self = .createAccount
+        default: return nil
+        }
+    }
+}
+#endif

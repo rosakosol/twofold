@@ -112,12 +112,18 @@ struct CreateAccountView: View {
                     )
                     .disabled(!hasAcceptedTerms)
                     .opacity(hasAcceptedTerms ? 1 : 0.4)
+
+                    // Last thing in the content, so it sits directly above the pinned Continue
+                    // and below the two buttons it has just greyed out. In the scaffold's footer
+                    // it rendered *under* Continue, which meant reading the reason a button was
+                    // disabled only after having tried it.
+                    LegalConsentCheckbox(isAccepted: $hasAcceptedTerms)
+                        .padding(.top, Theme.Spacing.sm)
                 }
             },
             primaryTitle: "Continue",
             primaryAction: continueTapped,
-            primaryDisabled: !canContinue || isSubmitting,
-            footer: AnyView(LegalConsentCheckbox(isAccepted: $hasAcceptedTerms))
+            primaryDisabled: !canContinue || isSubmitting
         )
         .sheet(isPresented: $showingSignIn) {
             SignInView(initialEmail: email)

@@ -14,6 +14,27 @@ final class OnboardingModel {
     var path: [OnboardingStep] = []
     var role: OnboardingRole = .inviter
 
+    init() {
+        #if DEBUG
+        // Opens onboarding straight at one step, from `-onboardingStep <case>` — the same
+        // DEBUG-only launch-argument trick `NotificationRouter` uses to exercise a cold-launch
+        // notification tap, and for the same reason: the screen worth testing is otherwise
+        // nineteen screens and a dozen text fields away, or (for `createAccount`) behind a live
+        // invite code. `SignInUITests`' own header is about exactly this cost.
+        //
+        // Seeds the two names as well, since the screens it reaches read them for their subtitles
+        // and an empty one renders a sentence with a hole in it. DEBUG-only, so it cannot exist in
+        // a shipped build. Used by `LegalConsentUITests`.
+        let arguments = ProcessInfo.processInfo.arguments
+        if let flag = arguments.firstIndex(of: "-onboardingStep"), flag + 1 < arguments.count,
+           let step = OnboardingStep(debugArgument: arguments[flag + 1]) {
+            firstName = "Sam"
+            partnerName = "Alex"
+            path = [step]
+        }
+        #endif
+    }
+
     // Account
     var firstName: String = ""
     var email: String = ""
