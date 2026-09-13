@@ -22,6 +22,23 @@ struct HelpView: View {
                     }
                     .buttonStyle(.plain)
 
+                    // Ungated and partner-only, unlike the Relationship Record on the main
+                    // Settings screen. That one is a keepsake and can be a Premium perk; this is
+                    // the complete copy, and a portability request does not care what anyone is
+                    // paying. It sits here rather than out front for the same reason Delete
+                    // Account does: rarely needed, and wanted at the moment someone is looking for
+                    // help rather than browsing settings.
+                    if appModel.partnerConnected {
+                        Divider()
+
+                        NavigationLink {
+                            ExportDataView()
+                        } label: {
+                            SettingsRow(title: "Export your data", systemImage: "square.and.arrow.down")
+                        }
+                        .buttonStyle(.plain)
+                    }
+
                     // Only meaningful once there's an actual partner to disconnect from —
                     // reachable pre-connection otherwise makes no sense.
                     if appModel.partnerConnected {

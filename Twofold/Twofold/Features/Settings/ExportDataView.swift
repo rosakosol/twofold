@@ -18,6 +18,12 @@
 //  a deletion date and should hand over everything without asking questions. This one is someone
 //  deciding what they want, so it asks.
 //
+//  It offers no readable document, only the data. `CoupleDataExporter` can write the Relationship
+//  Record as a PDF or a Word file, and offering that here handed every Plus subscriber the Premium
+//  feature through a side door — the same document, produced by the same code, reached from a
+//  screen with no tier check on it. Portability is about getting your data out in a form something
+//  else can read; the Record is a keepsake, and it stays where it is priced.
+//
 
 import PostHog
 import SwiftUI
@@ -25,7 +31,10 @@ import SwiftUI
 struct ExportDataView: View {
     @Environment(AppModel.self) private var appModel
 
-    @State private var options = CoupleDataExporter.Options()
+    /// `document: .none` and not offered — see this file's header. `ArchivedDataView` still gets
+    /// the Record in its export, because that one is about not losing an archive before it expires
+    /// rather than about handing over a keepsake.
+    @State private var options = CoupleDataExporter.Options(document: .none)
     @State private var isExporting = false
     @State private var status = ""
     @State private var result: CoupleDataExporter.Result?
@@ -75,22 +84,6 @@ struct ExportDataView: View {
                             .font(.caption)
                             .foregroundStyle(Theme.subtleInk)
 
-                        Divider().padding(.vertical, Theme.Spacing.xs)
-
-                        Text("Also include a readable copy")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(Theme.ink)
-
-                        Picker("Document", selection: $options.document) {
-                            ForEach(CoupleDataExporter.Options.Document.allCases) { document in
-                                Text(document.label).tag(document)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-
-                        Text("Your story written out, for reading rather than working with.")
-                            .font(.caption)
-                            .foregroundStyle(Theme.subtleInk)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -189,7 +182,6 @@ struct ExportDataView: View {
                 )
                 Analytics.capture(Analytics.Event.exportHistoryGenerated, properties: [
                     "format": options.dataFormat.rawValue,
-                    "document": options.document.rawValue,
                     "photos": options.photos && options.memories,
                 ])
             } catch {

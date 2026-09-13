@@ -119,44 +119,25 @@ struct SettingsView: View {
                         }
                     }
 
-                    // Ungated and partner-only, unlike the Relationship Record below it. That one
-                    // is a keepsake and can be a Premium perk; this is the complete copy, and a
-                    // portability request does not care what anyone is paying. Until it existed
-                    // the full export lived only in Archived Data, which meant you could not have
-                    // your own data until the relationship had ended.
+                    // Partner-only: it is a record of a shared history, so there has to be one.
+                    //
+                    // Opens for everyone, Plus included. This used to be a paywall button for
+                    // anyone without Premium, which asked people to buy something they had never
+                    // seen — and what is behind it is their own history, which is a strange thing
+                    // to refuse to show them. Reading it is not what Premium sells. Exporting it
+                    // is, and that is where the gate sits now, inside the screen.
                     if appModel.partnerConnected {
                         SectionCard {
                             NavigationLink {
-                                ExportDataView()
+                                RelationshipTimelineView()
                             } label: {
-                                SettingsRow(title: "Export your data", systemImage: "square.and.arrow.down")
+                                SettingsRow(
+                                    title: "Your Relationship Record",
+                                    systemImage: "book.closed.fill",
+                                    value: appModel.isPremiumLocked ? "Premium" : nil
+                                )
                             }
                             .buttonStyle(.plain)
-                        }
-                    }
-
-                    // Premium, and partner-only: it is a record of a shared history, so there
-                    // has to be one. Locked rather than hidden — someone on Plus should be able to
-                    // see what they would be getting.
-                    if appModel.partnerConnected {
-                        SectionCard {
-                            if appModel.isPremiumLocked {
-                                Button { showingPaywall = true } label: {
-                                    SettingsRow(
-                                        title: "Your Relationship Record",
-                                        systemImage: "book.closed.fill",
-                                        value: "Premium"
-                                    )
-                                }
-                                .buttonStyle(.plain)
-                            } else {
-                                NavigationLink {
-                                    RelationshipTimelineView()
-                                } label: {
-                                    SettingsRow(title: "Your Relationship Record", systemImage: "book.closed.fill")
-                                }
-                                .buttonStyle(.plain)
-                            }
                         }
                     }
 

@@ -24,6 +24,7 @@ struct RelationshipTimelineView: View {
     @State private var isExporting = false
     @State private var exportStatus = ""
     @State private var exportError: String?
+    @State private var showingPaywall = false
 
     /// A finished file, identified so `.sheet(item:)` presents it once it exists rather than being
     /// driven off a separate boolean that can disagree with it.
@@ -47,6 +48,7 @@ struct RelationshipTimelineView: View {
                     emptyState
                 } else {
                     header
+                    if appModel.isPremiumLocked { premiumExportCard }
                     ForEach(items) { item in
                         TimelineEntryView(item: item)
                     }
@@ -60,6 +62,9 @@ struct RelationshipTimelineView: View {
         .toolbar {
             if !items.isEmpty {
                 ToolbarItem(placement: .topBarTrailing) {
+                    // Shown and disabled rather than hidden, for someone on Plus. A control that
+                    // is not there explains nothing; one that is there and will not move says what
+                    // the upgrade is for, and the card below it says why.
                     Menu {
                         Button { export(.pdf) } label: { Label("Export as PDF", systemImage: "doc.richtext") }
                         Button { export(.word) } label: { Label("Export as Word", systemImage: "doc.text") }
@@ -70,12 +75,15 @@ struct RelationshipTimelineView: View {
                             Image(systemName: "square.and.arrow.up")
                         }
                     }
-                    .disabled(isExporting)
+                    .disabled(isExporting || appModel.isPremiumLocked)
                 }
             }
         }
         .sheet(item: $exportURL) { document in
             ExportReadySheet(url: document.url)
+        }
+        .sheet(isPresented: $showingPaywall) {
+            NavigationStack { PaywallView() }
         }
         .overlay(alignment: .bottom) {
             if isExporting || exportError != nil {
@@ -83,6 +91,41 @@ struct RelationshipTimelineView: View {
             }
         }
         .postHogScreenView("Settings: Relationship Timeline")
+    }
+
+    /// Sits under the header, above the timeline. Near the top because it explains a control in
+    /// the toolbar directly above it, and because burying it under a decade of entries would mean
+    /// only the people who scrolled to the end ever learned what the greyed-out button was.
+    private var premiumExportCard: some View {
+        SectionCard {
+            VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                Label("Keeping a copy is a Premium feature", systemImage: "book.closed.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Theme.ink)
+
+                Text("Your record is yours to read whenever you like. Premium adds exporting it as a PDF or a Word document — one file with every trip, memory and flight in it, to keep or to print.")
+                    .font(.caption)
+                    .foregroundStyle(Theme.subtleInk)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                // Says what else is in it, because someone deciding on an upgrade from here should
+                // not have to go and find that out on another screen.
+                Text("You can still export your trips, memories, flights and games as data at any time, on any plan — Settings → Help → Export your data.")
+                    .font(.caption2)
+                    .foregroundStyle(Theme.subtleInk)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Button { showingPaywall = true } label: {
+                    Text("See Premium")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, Theme.Spacing.sm)
+                }
+                .background(Theme.primaryButtonGradient, in: Capsule())
+                .foregroundStyle(.white)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 
     private var header: some View {
