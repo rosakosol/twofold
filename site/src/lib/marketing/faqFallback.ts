@@ -114,13 +114,20 @@ export const FAQ_FALLBACK: FaqFallbackItem[] = [
   {
     category: "privacy",
     order: 5,
+    question: "Can I download a copy of my data?",
+    answer:
+      "Yes, on any plan and at any time. Go to Settings -> Help -> Export your data. You choose what to include - trips, memories and their photos, flights, games - and whether you want spreadsheets (CSV, which open in Numbers, Excel or Google Sheets) or a data file (JSON, for moving your information somewhere else). Photos come out as ordinary image files. Large exports download the photos as they go, so they are best done on Wi-Fi. If a relationship has ended, the same export is on each archive in Settings -> Archived Data, and is worth doing before its 90 days are up. The Relationship Record - your story written out as a PDF or Word document to keep or print - is a separate, Premium feature, and is not part of a data export.",
+  },
+  {
+    category: "privacy",
+    order: 6,
     question: "What happens to shared data if we disconnect?",
     answer:
       "Removing a partner archives your shared data rather than deleting it. Your trips, memories, photos, flights and games all stay readable to both of you in Settings -> Archived Data, but neither of you can add to them or change them any more. An archive is kept for 90 days and is then permanently deleted, automatically, for both of you - the exact date is shown on the archive itself. Neither partner can bring that date forward or push it back. If you reconnect with the same partner inside those 90 days, you will be offered your shared history back. You can also hide an archive from your own list at any time: that changes only your view and deletes nothing for either of you. If you want to keep what is in an archive, export it before the 90 days are up - you will get your trips, memories, flights and games as files you can open anywhere, with the photos alongside them.",
   },
   {
     category: "privacy",
-    order: 6,
+    order: 7,
     question: "What happens to our shared data if I delete my account?",
     answer:
       "It stays with your partner. Shared trips, memories and photos are their history too, so deleting your account does not erase their side of it. Deleting your account does end your connection, and that starts the same 90-day clock as removing a partner: the shared history is permanently deleted for both of you once it runs out. There is no way for either of you to delete it sooner. Because you will not be able to sign back in afterwards, export anything you want to keep before you delete your account - everything that is yours alone (your name, your photo, your login) is removed straight away and cannot be recovered.",

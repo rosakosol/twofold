@@ -46,7 +46,13 @@ enum Analytics {
         static let partnerRemove = "partner:partner_remove"
 
         // Settings
-        static let exportHistoryGenerated = "settings:export_history_generated"
+        /// Renamed from `export_history_generated`. That name came from "Export your story", a
+        /// screen that no longer exists — the event outlived it as dead code, then was wired to
+        /// the data export, which is a different thing: `ExportDataView` writes CSV or JSON, and
+        /// the history document it was named for is now the Premium Relationship Record. A name
+        /// describing the wrong feature is worse than no name once someone is reading a funnel.
+        /// Deliberately a new key rather than a relabel, so old rows and new ones don't pool.
+        static let dataExportGenerated = "settings:data_export_generated"
     }
 
     static func capture(_ event: String, properties: [String: Any]? = nil) {

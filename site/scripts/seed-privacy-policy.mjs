@@ -372,7 +372,10 @@ const body = [
     `Most of this you can do yourself in the app: edit your profile, delete individual trips and memories, or delete your account outright.`
   ),
   ptext(
-    `There are two ways to take a copy with you. From Settings → Archived Data, "Export everything" gives you a past relationship's trips, memories, flights and games as spreadsheets, the photos as ordinary image files, and a readable PDF alongside them - openable by anyone, with or without Twofold, and available to everyone at no charge. Separately, Premium subscribers can export a Relationship Record of a current relationship from Settings → Your Relationship Record, as a PDF or a Word document; that one is a keepsake rather than a complete copy. If you want everything we hold, including anything not covered by either, just ask.`
+    `You can take a copy with you at any time, on any plan, from Settings → Help → Export your data: your trips, memories, flights and games as spreadsheets or as a data file, with the photos as ordinary image files. Nothing about it is charged for or held back.`
+  ),
+  ptext(
+    `Once a relationship has ended, the same export sits on its archive in Settings → Archived Data, alongside a readable PDF - worth doing before that archive's 90 days are up. And Premium subscribers can export a Relationship Record of a current relationship from Settings → Your Relationship Record, as a PDF or a Word document; that one is a keepsake rather than a copy of your data, and nothing in it is missing from the export above. If you want anything we hold that none of these covers, just ask.`
   ),
   p(span(`For anything else, email `), mailto(), span(`. We'll respond within 30 days.`)),
   p(

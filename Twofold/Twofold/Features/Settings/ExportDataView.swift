@@ -180,7 +180,7 @@ struct ExportDataView: View {
                     options: options,
                     progress: { status = $0 }
                 )
-                Analytics.capture(Analytics.Event.exportHistoryGenerated, properties: [
+                Analytics.capture(Analytics.Event.dataExportGenerated, properties: [
                     "format": options.dataFormat.rawValue,
                     "photos": options.photos && options.memories,
                 ])
