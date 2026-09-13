@@ -92,6 +92,17 @@ struct AppearancePreferenceTests {
     @MainActor
     @Test("an open sheet follows the preference, including back to System")
     func anOpenSheetFollowsThePreference() async throws {
+        // The only test in this suite that awaits, and so the only one another suite can interleave
+        // with. The rest set a style and read it back in one synchronous MainActor block, which
+        // nothing can get inside. This one presents a sheet and waits on trait propagation while
+        // PanelSwapTests and SheetDetentWidthTests may be making their own windows key.
+        try await WindowPresentationTestLock.withExclusiveWindow {
+            try await anOpenSheetFollowsThePreferenceLocked()
+        }
+    }
+
+    @MainActor
+    private func anOpenSheetFollowsThePreferenceLocked() async throws {
         let original = AppearancePreference.current
         defer { AppearancePreference.current = original; AppearancePreference.applyToWindows() }
 
@@ -124,8 +135,17 @@ struct AppearancePreferenceTests {
     /// unchanged sheet.
     ///
     /// Polled rather than waiting a fixed number of turns: a single turn was enough on one
-    /// simulator and not on another, which made this fail on device size alone. Gives up after a
-    /// second so a genuinely stuck trait still fails rather than hanging.
+    /// simulator and not on another, which made this fail on device size alone.
+    ///
+    /// Bounded by wall clock rather than by a count of iterations. The count was fifty turns with a
+    /// 20ms sleep between them — about a second when a turn is instant, and far less useful when it
+    /// is not, because a loaded machine makes each turn slower *and* the trait propagation slower
+    /// at the same time. That is exactly when the budget needs to be generous, and an iteration
+    /// count shrinks it instead. This suite passed alone and failed in a full run for that reason:
+    /// the sheet's trait was on its way and the poll gave up first, reporting it as a stuck trait.
+    ///
+    /// Five seconds, still bounded, so a genuinely stuck trait fails rather than hangs — and costs
+    /// five seconds only when it is about to fail anyway.
     @MainActor
     private func resolvedStyle(
         of controller: UIViewController,
@@ -134,7 +154,8 @@ struct AppearancePreferenceTests {
     ) async -> UIUserInterfaceStyle {
         AppearancePreference.current = appearance
         AppearancePreference.applyToWindows()
-        for _ in 0..<50 {
+        let deadline = Date.now.addingTimeInterval(5)
+        while Date.now < deadline {
             await withCheckedContinuation { continuation in
                 DispatchQueue.main.async { continuation.resume() }
             }

@@ -41,6 +41,14 @@ struct SheetDetentWidthTests {
 
     /// Presents a sheet for real and returns the card's frame in window coordinates.
     private func cardFrame(detents: Set<PresentationDetent>, at selection: PresentationDetent) async -> CGRect {
+        // `makeKeyAndVisible` below takes key status from whatever holds it, and this measures a
+        // presented card — both of which other suites are also doing. See WindowPresentationTestLock.
+        await WindowPresentationTestLock.withExclusiveWindow {
+            await cardFrameLocked(detents: detents, at: selection)
+        }
+    }
+
+    private func cardFrameLocked(detents: Set<PresentationDetent>, at selection: PresentationDetent) async -> CGRect {
         let window = UIWindow(frame: CGRect(origin: .zero, size: Self.screen))
         var current = selection
         let host = UIHostingController(

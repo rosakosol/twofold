@@ -26,6 +26,15 @@ struct PanelSwapTests {
 
     /// Presents, swaps the selection, and reports whether the same sheet stayed up.
     private func sheetSurvivesSwap(_ content: @escaping (Model) -> AnyView) async -> (survived: Bool, stillPresented: Bool) {
+        // Exclusive for the whole harness, not just the presentation: another suite dismissing on
+        // this process's one window mid-measurement is what made the negative control below report
+        // that a rebuilt panel had survived. See WindowPresentationTestLock.
+        await WindowPresentationTestLock.withExclusiveWindow {
+            await sheetSurvivesSwapLocked(content)
+        }
+    }
+
+    private func sheetSurvivesSwapLocked(_ content: @escaping (Model) -> AnyView) async -> (survived: Bool, stillPresented: Bool) {
         let model = Model()
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
         let host = UIHostingController(rootView: content(model))
@@ -33,17 +42,37 @@ struct PanelSwapTests {
         window.isHidden = false
         window.makeKeyAndVisible()
 
-        for _ in 0..<40 where host.presentedViewController == nil {
-            try? await Task.sleep(for: .milliseconds(50))
-        }
+        await waitUntil(within: 5) { host.presentedViewController != nil }
         let before = host.presentedViewController
 
         model.selection = Selection(id: 2)
-        try? await Task.sleep(for: .milliseconds(1200))
+        // Waits for the identity to *change*, rather than sleeping a fixed 1200ms and looking once.
+        //
+        // That sleep was a guess at how long SwiftUI takes to tear a sheet down and put a new one
+        // up, and it was wrong in the one situation that matters: under a full-suite run the
+        // rebuild had not happened yet, so `after` was still `before`, and the negative control
+        // below — which exists to prove `sheet(item:)` rebuilds — reported that it had survived.
+        // Green in isolation, red in a full run, and blaming SwiftUI for it.
+        //
+        // Polling for the change also makes the two cases cost what they should: a rebuild returns
+        // as soon as it lands, and only the survival case spends the whole budget, which is
+        // unavoidable — proving something did not happen means waiting long enough to be sure.
+        await waitUntil(within: 3) { host.presentedViewController !== before }
         let after = host.presentedViewController
 
         window.isHidden = true
         return (survived: before != nil && before === after, stillPresented: after != nil)
+    }
+
+    /// Polls `condition` until it holds or `seconds` elapse. Wall clock, not a count of naps: a
+    /// loaded machine makes each nap longer *and* the thing being waited for slower, so an
+    /// iteration count shrinks the budget exactly when it needs to grow.
+    private func waitUntil(within seconds: TimeInterval, _ condition: () -> Bool) async {
+        let deadline = Date.now.addingTimeInterval(seconds)
+        while Date.now < deadline {
+            if condition() { return }
+            try? await Task.sleep(for: .milliseconds(25))
+        }
     }
 
     /// What the map now uses.

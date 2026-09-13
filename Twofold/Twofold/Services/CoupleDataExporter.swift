@@ -80,8 +80,6 @@ enum CoupleDataExporter {
 
         /// Nothing to build. The UI disables the button on this rather than producing an empty zip.
         var isEmpty: Bool { !trips && !memories && !flights && !games && document == .none }
-
-        static let everything = Options()
     }
 
     /// What was gathered, so the caller can say what it did rather than just handing over a file.
@@ -122,7 +120,11 @@ enum CoupleDataExporter {
         title: String,
         selfName: String,
         partnerName: String,
-        options: Options = .everything,
+        // `Options()` rather than a `static let everything`. That static was main-actor isolated
+        // by the enclosing type, and a default argument is evaluated in a nonisolated context —
+        // a warning today and an error under the Swift 6 language mode. The memberwise init has
+        // the same defaults and no isolation, so this says the same thing and keeps compiling.
+        options: Options = Options(),
         progress: @MainActor (String) -> Void = { _ in }
     ) async throws -> Result {
         let root = FileManager.default.temporaryDirectory
