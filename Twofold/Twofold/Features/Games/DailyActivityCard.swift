@@ -24,7 +24,26 @@ struct DailyActivityCard: View {
     /// Drives the repair row below the streak.
     @State private var repairStore = StreakRepairStore()
     @State private var isRepairing = false
-    @State private var showingRepairSheet = false
+    /// The streak a repair is being bought for, and the sheet's whole reason to exist.
+    ///
+    /// Driven off its own state rather than `appModel.streakRepair`, and attached to the card
+    /// rather than to `repairRow`, because both of those disappear the instant a repair succeeds.
+    /// The sheet used to hang off `StreakRepairRow` inside `if repair.repairable` — so the moment
+    /// `repairNow()` refreshed the state, the row's condition went false, the row left the
+    /// hierarchy, and the sheet went with it. What that looked like was paying, seeing the success
+    /// screen for a frame, and being dropped back on the games screen with no idea whether it had
+    /// worked — the one screen somebody needs to see after handing over money.
+    ///
+    /// It holds its own copy of the streak for the same reason: reading `repair.streakAtRisk`
+    /// while the sheet is up means reading a value that becomes 0 underneath it.
+    @State private var repairingStreakAtRisk: RepairingStreak?
+
+    /// A wrapper rather than a bare `Int` because `.sheet(item:)` needs `Identifiable` — same
+    /// shape as `RelationshipTimelineView`'s `ExportedDocument`, and for the same reason.
+    private struct RepairingStreak: Identifiable {
+        let id = UUID()
+        let streak: Int
+    }
 
     /// A skeleton is only right before there's anything to show. `startOrResumeDailyQuestion()`
     /// runs on every appearance of this card, so keying purely off the in-flight flag would flash
@@ -116,6 +135,10 @@ struct DailyActivityCard: View {
             .buttonStyle(.plain)
         }
         .task { await appModel.startOrResumeDailyQuestion() }
+        // On the card, not on `repairRow` — see `repairingStreakAtRisk` for why that mattered.
+        .sheet(item: $repairingStreakAtRisk) { repairing in
+            StreakRepairPromptView(streak: repairing.streak)
+        }
     }
 
     /// Flame, streak wording, both partners' answered-today ticks and the countdown, all on one
@@ -235,12 +258,9 @@ struct DailyActivityCard: View {
                 // Everything that costs money stays in the sheet, which already handles the
                 // purchase, the webhook wait and the prices. A buy button on a hub card would be a
                 // second copy of the most delicate flow in the app.
-                onBuy: { showingRepairSheet = true },
+                onBuy: { repairingStreakAtRisk = RepairingStreak(streak: repair.streakAtRisk) },
                 isWorking: isRepairing
             )
-            .sheet(isPresented: $showingRepairSheet) {
-                StreakRepairPromptView(streak: repair.streakAtRisk)
-            }
         }
     }
 

@@ -154,13 +154,13 @@ const body = [
     )
   ),
   bullet(
-    `If the two of you reconnect within those 90 days, you're offered your shared history back and the deletion date goes away.`
+    `If the two of you reconnect within those 90 days, you're offered your shared history back and the deletion date goes away. That applies to a connection you ended - not to an account you deleted, since a deleted account can't be signed into again and the archive belongs to the two accounts that made it.`
   ),
   bullet(
     `Either of you can hide an archive from your own list at any time. That affects only your own view and deletes nothing.`
   ),
   bullet(
-    `Deleting your account doesn't delete shared content, because it's your partner's history too. It ends your connection, which starts the same 90-day clock.`
+    `Deleting your account doesn't delete shared content, because it's your partner's history too. It ends your connection, which starts the same 90-day clock - and unlike removing a partner, getting back together can't bring it back, because the account it was tied to is gone.`
   ),
   p(
     span(`Export anything you want to keep before the 90 days are up, and before you delete your account. `, 'strong'),
