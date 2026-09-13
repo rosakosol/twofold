@@ -27,13 +27,13 @@ on conflict do nothing;
 -- ---------------------------------------------------------------------------
 
 select is(
-  private.grant_record_export_credit('cccccccc-8888-0000-0000-00000000000a', 'txn-rec-1'),
+  public.grant_record_export_credit('cccccccc-8888-0000-0000-00000000000a', 'txn-rec-1'),
   true,
   'a new transaction grants a credit'
 );
 
 select is(
-  private.grant_record_export_credit('cccccccc-8888-0000-0000-00000000000a', 'txn-rec-1'),
+  public.grant_record_export_credit('cccccccc-8888-0000-0000-00000000000a', 'txn-rec-1'),
   false,
   'redelivering the same transaction grants nothing and says so'
 );
@@ -74,7 +74,7 @@ select is(
 -- ---------------------------------------------------------------------------
 
 reset role;
-select private.grant_record_export_credit('cccccccc-8888-0000-0000-00000000000a', 'txn-rec-2');
+select public.grant_record_export_credit('cccccccc-8888-0000-0000-00000000000a', 'txn-rec-2');
 
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"cccccccc-8888-0000-0000-00000000000b","role":"authenticated"}';
