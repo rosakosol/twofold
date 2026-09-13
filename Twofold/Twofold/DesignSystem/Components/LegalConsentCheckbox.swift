@@ -25,17 +25,23 @@
 
 import SwiftUI
 
-/// The sentence itself, with the two links wired to open in-app.
+/// Styles a legal sentence and wires its `legal://` links to open in-app.
 ///
-/// Markdown inside a single `Text` rather than buttons spliced into an `HStack` so that it wraps
-/// like a sentence at any Dynamic Type size.
-private struct LegalSentence: View {
-    let markdown: String
-    let plain: String
+/// A modifier rather than a view wrapping the `Text`, so that the sentence stays a literal
+/// *inside* `Text` at each call site. That is the only shape Xcode's string extractor reliably
+/// picks up: this was first an `AttributedString(markdown:)` built from a `String`, then a
+/// `LocalizedStringKey` passed as a parameter, and neither ever reached the catalogue — while the
+/// checkbox's accessibility label, an ordinary literal, did. A French reader would have had an
+/// English sentence with a translated screen-reader label, on the one control in the app where
+/// understanding the words is the whole point.
+///
+/// `Text` has rendered markdown from a `LocalizedStringKey` since iOS 15, so writing the links
+/// inline costs nothing and nothing has to be parsed by hand.
+private struct LegalSentenceStyle: ViewModifier {
     @Binding var presentedDocument: LegalDocument?
 
-    var body: some View {
-        Text((try? AttributedString(markdown: markdown)) ?? AttributedString(plain))
+    func body(content: Content) -> some View {
+        content
             .font(.footnote)
             .foregroundStyle(Theme.subtleInk)
             .tint(Theme.skyBlueText)
@@ -47,6 +53,12 @@ private struct LegalSentence: View {
                 presentedDocument = document
                 return .handled
             })
+    }
+}
+
+private extension View {
+    func legalSentence(presenting document: Binding<LegalDocument?>) -> some View {
+        modifier(LegalSentenceStyle(presentedDocument: document))
     }
 }
 
@@ -62,12 +74,11 @@ struct LegalConsentNotice: View {
     @State private var presentedDocument: LegalDocument?
 
     var body: some View {
-        LegalSentence(
-            markdown: "By continuing you confirm you're 16 or over, and agree to the [Terms of Use](legal://terms) and [Privacy Policy](legal://privacy).",
-            plain: "By continuing you confirm you're 16 or over, and agree to the Terms of Use and Privacy Policy.",
-            presentedDocument: $presentedDocument
-        )
-        .multilineTextAlignment(.center)
+        // Keep the two markdown links, legal:// addresses and all — they are what opens the
+        // documents inside the app.
+        Text("By continuing you confirm you're 16 or over, and agree to the [Terms of Use](legal://terms) and [Privacy Policy](legal://privacy).")
+            .legalSentence(presenting: $presentedDocument)
+            .multilineTextAlignment(.center)
         .frame(maxWidth: .infinity)
         .sheet(item: $presentedDocument) { document in
             LegalDocumentSheet(document: document).ignoresSafeArea()
@@ -94,11 +105,10 @@ struct LegalConsentCheckbox: View {
             .accessibilityLabel("I'm 16 or over, and I agree to the Terms of Use and Privacy Policy")
             .accessibilityAddTraits(.isToggle)
 
-            LegalSentence(
-                markdown: "I'm 16 or over, and I agree to the [Terms of Use](legal://terms) and [Privacy Policy](legal://privacy).",
-                plain: "I'm 16 or over, and I agree to the Terms of Use and Privacy Policy.",
-                presentedDocument: $presentedDocument
-            )
+            // Keep the two markdown links, legal:// addresses and all — they are what opens the
+            // documents inside the app.
+            Text("I'm 16 or over, and I agree to the [Terms of Use](legal://terms) and [Privacy Policy](legal://privacy).")
+                .legalSentence(presenting: $presentedDocument)
 
             Spacer(minLength: 0)
         }
