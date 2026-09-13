@@ -53,6 +53,14 @@ struct DeleteAccountView: View {
                         if hasSharedData {
                             explainerRow(icon: "photo.on.rectangle.angled", text: "Trips, memories, and photos you shared with a partner stay with them for now — deleting your account doesn't erase their side of a shared history.")
                             explainerRow(icon: "calendar.badge.clock", text: "Shared history is permanently deleted for both of you 90 days after your connection ends. Nobody can bring that forward, and nobody can extend it.")
+                            // The difference between this and removing a partner, which the rest of
+                            // this screen otherwise presents as equivalent. An archive is restored
+                            // by matching the two profile ids that made it
+                            // (`restorable_archive_with`), and a deleted account can never be one
+                            // of them again — so this is the point of no return for the shared
+                            // history too, not because it deletes it but because it ends the only
+                            // way back.
+                            explainerRow(icon: "arrow.uturn.backward.circle", text: "If you removed \(appModel.partner.name) instead, getting back together within those 90 days would bring your history back. Deleting your account can't be undone that way — your account won't exist to reconnect with.")
                             explainerRow(icon: "square.and.arrow.down", text: "If you want to keep a copy, save it from Settings before you delete your account — you won't be able to sign in to get it afterwards.")
                         }
                     }

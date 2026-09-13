@@ -227,7 +227,7 @@ const body = [
     )
   ),
   bullet(
-    `If the two of you reconnect within those 90 days, you're offered your shared history back, and the deletion date goes away.`
+    `If the two of you reconnect within those 90 days, you're offered your shared history back, and the deletion date goes away. This works when a connection was ended - it can't when either of you has deleted an account, because a deleted account can never be signed into again, and the archive is tied to the two accounts that made it.`
   ),
   bullet(
     `Either of you can hide an archive from your own list at any time. That affects only your own view - it deletes nothing, and your former partner still sees theirs.`
@@ -252,6 +252,9 @@ const body = [
   bullet(`Your own uploads (your profile photo, your drawings) and all your notification tokens are deleted.`),
   bullet(
     `Shared content - trips, memories, photos, flights - is not deleted along with your account, because it is your partner's history too. Ending your connection starts the same 90-day archive clock described above, and it is permanently deleted for both of you when that runs out.`
+  ),
+  bullet(
+    `Unlike simply removing a partner, this can't be undone by getting back together. An archive can be restored when the two accounts that made it reconnect, and deleting yours means one of them no longer exists - so the archive stays with your partner until its 90 days are up, and then goes.`
   ),
   bullet(
     `An empty profile record stays behind, holding no name, photo or city. It exists only so that the shared history above doesn't collapse along with it, and so the same account can't be signed into again.`
