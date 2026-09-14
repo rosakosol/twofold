@@ -296,6 +296,18 @@ enum BackendService {
         try await supabase.auth.signOut()
     }
 
+    /// Thrown when an update matched no row. Distinct from a thrown refusal because PostgREST does
+    /// not raise one: an UPDATE blocked by RLS is not an error, it simply sees no rows and reports
+    /// success with none affected. Verified against the policies — an INSERT gives 42501, an
+    /// UPDATE gives zero rows and nothing else.
+    ///
+    /// Which means a caller that only catches errors will believe a refused edit saved. That is
+    /// exactly the silent loss this whole change is about, so the absence has to be turned into a
+    /// presence here, once, rather than remembered at each call site.
+    struct WriteAffectedNoRows: LocalizedError {
+        var errorDescription: String? { "That change wasn't saved." }
+    }
+
     // MARK: - Classifying a failed write
 
     /// True when the server refused a write outright, rather than failing to hear it.
@@ -311,9 +323,9 @@ enum BackendService {
     /// temporary, because guessing wrong in that direction only costs a retry, where guessing wrong
     /// the other way throws away somebody's writing.
     static func isPermanentRefusal(_ error: Error) -> Bool {
-        if let urlError = error as? URLError {
+        if error is WriteAffectedNoRows { return true }
+        if error is URLError {
             // A transport failure is never a refusal, whatever else it is.
-            _ = urlError
             return false
         }
         let text = String(describing: error)
@@ -2584,13 +2596,30 @@ enum BackendService {
             // label is how you tell rows apart.
             customLabel: docType == .other ? customLabel : nil
         )
-        let rows: [FlightDocumentRow] = try await supabase
-            .from("flight_documents")
-            .insert(insert)
-            .select()
-            .execute()
-            .value
-        guard let row = rows.first else { throw BackendError.avatarURLFailed }
+        // The blob is already in storage by the time the row is attempted, and the row is what
+        // `flight_documents_insert_members_active` gates on a subscription (20261028000000). A
+        // refusal here would otherwise leave the file behind forever: paid for in storage, reachable
+        // by nothing, and invisible to the person who uploaded it. So the upload is undone before
+        // the error is rethrown.
+        //
+        // `removeFlightDocumentObjects` and not a thrown cleanup — a failure to tidy up must not
+        // replace the error that explains what actually happened.
+        let rows: [FlightDocumentRow]
+        do {
+            rows = try await supabase
+                .from("flight_documents")
+                .insert(insert)
+                .select()
+                .execute()
+                .value
+        } catch {
+            await removeFlightDocumentObjects([path])
+            throw error
+        }
+        guard let row = rows.first else {
+            await removeFlightDocumentObjects([path])
+            throw BackendError.avatarURLFailed
+        }
         let url = try? await flightDocumentSignedURL(path: row.filePath)
         return FlightDocument(id: row.id, flightID: row.flightId, tripID: row.tripId, uploadedBy: row.uploadedBy, docType: row.docType, filePath: row.filePath, originalFilename: row.originalFilename, contentType: row.contentType, customLabel: row.customLabel, createdAt: row.createdAt, url: url)
     }
@@ -2766,9 +2795,10 @@ enum BackendService {
     /// resolves origin/destination against `places` fresh, same as `insertTrip`, since either
     /// city could have changed.
     static func updateTrip(_ trip: Trip) async throws {
+        let rows: [TripRow]
         let originID = try await findOrCreatePlaceID(trip.origin)
         let destinationID = try await findOrCreatePlaceID(trip.destination)
-        try await supabase
+        rows = try await supabase
             .from("trips")
             .update(
                 TripUpdate(
@@ -2783,7 +2813,11 @@ enum BackendService {
                 )
             )
             .eq("id", value: trip.id)
+            // See `updateMemory` — without `.select()` a refused update looks like a saved one.
+            .select()
             .execute()
+            .value as [TripRow]
+        guard !rows.isEmpty else { throw WriteAffectedNoRows() }
     }
 
     /// `flights.trip_id`/`memories.trip_id` both have `on delete set null`, so any linked
@@ -3130,10 +3164,11 @@ enum BackendService {
 
     static func updateMemory(_ memory: Memory) async throws {
         var placeID: UUID?
+        let rows: [MemoryRow]
         if let place = memory.place {
             placeID = try await findOrCreatePlaceID(place)
         }
-        try await supabase
+        rows = try await supabase
             .from("memories")
             .update(
                 MemoryUpdate(
@@ -3144,7 +3179,12 @@ enum BackendService {
                 )
             )
             .eq("id", value: memory.id)
+            // `.select()` so the response carries the rows it touched. Without it a policy refusal
+            // is indistinguishable from success — see `WriteAffectedNoRows`.
+            .select()
             .execute()
+            .value as [MemoryRow]
+        guard !rows.isEmpty else { throw WriteAffectedNoRows() }
     }
 
     /// Appends photos to an existing memory (used both for the initial save and later edits),

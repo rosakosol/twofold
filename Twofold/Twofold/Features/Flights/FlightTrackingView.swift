@@ -1324,7 +1324,12 @@ struct FlightTrackingView: View {
             )
             documents.insert(document, at: 0)
         } catch {
-            documentError = "Couldn't upload that document. Check your connection and try again."
+            // Told apart, because the advice is opposite. A refusal means the subscription, and
+            // "check your connection and try again" sends somebody to look at their wifi forever
+            // over something retrying will never fix.
+            documentError = BackendService.isPermanentRefusal(error)
+                ? "Adding documents needs an active subscription. Nothing was uploaded."
+                : "Couldn't upload that document. Check your connection and try again."
         }
     }
 
