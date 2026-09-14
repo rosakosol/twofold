@@ -42,6 +42,15 @@ final class AppModel {
     /// an active local StoreKit entitlement (see `BackendService.fetchSubscriptionActive`).
     /// `RootView` gates all of `MainTabView` behind this once `hasCouple` is true.
     var isSubscriptionActive = false
+
+    /// Set when a write was refused outright rather than merely failing to send — an RLS denial,
+    /// which since 20261028000000 is what an unsubscribed couple gets for adding or editing.
+    ///
+    /// Exists because the optimistic-local-edit pattern these paths use is right for a dropped
+    /// connection and wrong for a refusal. Offline, the edit is correct and lands later; refused,
+    /// it is already gone and staying on screen is a lie that unwinds at the next relaunch.
+    /// Cleared by whoever shows it.
+    var writeRefusedMessage: String?
     /// "plus"/"premium", the higher of the two partners' tiers — nil for pre-existing
     /// subscribers from before this column existed (`start_game_session` treats that the same
     /// as "plus" server-side, so this being nil never actually locks anyone out of content).
@@ -1895,6 +1904,7 @@ final class AppModel {
     /// this edits).
     func updateTrip(_ trip: Trip) async {
         guard let index = trips.firstIndex(where: { $0.id == trip.id }) else { return }
+        let original = trips[index]
         var updated = trip
         updated.distanceKm = Geo.distanceKm(trip.origin.coordinate, trip.destination.coordinate)
         updated.flights = trips[index].flights
@@ -1906,7 +1916,23 @@ final class AppModel {
             self.trips[index] = reapplied
         }
         defer { clearInFlightMutation(mutationID) }
-        try? await BackendService.updateTrip(updated)
+        do {
+            try await BackendService.updateTrip(updated)
+        } catch {
+            // `try?` used to swallow this, which was fine while every failure here was a dropped
+            // connection: the local edit is right and the write lands later, which is what makes
+            // editing work offline. A policy refusal is not that. It will never land, so leaving
+            // the change on screen shows somebody an edit that exists nowhere and disappears at
+            // the next launch — silently, with no reason to suspect it.
+            guard BackendService.isPermanentRefusal(error) else { return }
+            // The copy taken before the mutation, not a refetch: this has to work with no network
+            // (a refusal can arrive while the connection is fine and the subscription is not) and
+            // a refetch would be a second thing to fail while undoing the first.
+            if let index = trips.firstIndex(where: { $0.id == trip.id }) {
+                trips[index] = original
+            }
+            writeRefusedMessage = "Changes to your trips need an active subscription. Nothing was saved."
+        }
     }
 
     func deleteTrip(_ trip: Trip) async {
@@ -2130,6 +2156,7 @@ final class AppModel {
             return
         }
 
+        let original = memories[index]
         memories[index] = memory
 
         do {
@@ -2143,7 +2170,16 @@ final class AppModel {
                 memories[index].photos.append(contentsOf: newPhotos)
             }
         } catch {
-            // Best-effort for now; local edit stands even if the write failed.
+            // Best-effort *for a dropped connection* — the local edit is right and the write lands
+            // later, which is what makes editing work offline. Not for a refusal: that one will
+            // never land, so the edit on screen is already gone and would vanish at the next
+            // launch without ever saying so. Photos are worse again — somebody picks three, watches
+            // them appear, and loses them.
+            guard BackendService.isPermanentRefusal(error) else { return }
+            memories[index] = original
+            writeRefusedMessage = newImagesData.isEmpty
+                ? "Changes to your memories need an active subscription. Nothing was saved."
+                : "Adding photos needs an active subscription. Nothing was saved."
         }
     }
 

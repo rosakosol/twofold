@@ -53,6 +53,24 @@ struct MainTabView: View {
             }
         }
         .tint(Theme.skyBlue)
+        // Here rather than on any one screen: a refused write can come from Trips, Memories or a
+        // sheet presented over either, and the alert has to outlive whichever of those the person
+        // is dismissing when it arrives.
+        //
+        // It is an alert rather than a toast because something was taken back. The edit was on
+        // screen and is now gone, and the previous behaviour — keeping it and saying nothing — is
+        // what this exists to stop.
+        .alert(
+            "Not saved",
+            isPresented: Binding(
+                get: { appModel.writeRefusedMessage != nil },
+                set: { if !$0 { appModel.writeRefusedMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(appModel.writeRefusedMessage ?? "")
+        }
         #if DEBUG
         // A 1pt, invisible carrier for `refreshAllCount` — see its doc comment for why the test
         // reads a counter rather than looking for the refresh spinner. Sits here rather than in

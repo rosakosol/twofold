@@ -296,6 +296,35 @@ enum BackendService {
         try await supabase.auth.signOut()
     }
 
+    // MARK: - Classifying a failed write
+
+    /// True when the server refused a write outright, rather than failing to hear it.
+    ///
+    /// The difference decides whether an optimistic local edit may stand. A dropped connection is
+    /// temporary — the edit is right and the write will land later, which is why `updateTrip` and
+    /// `updateMemory` keep their local change on failure and why editing works offline. An RLS
+    /// refusal is permanent: retrying changes nothing, so keeping the edit on screen shows somebody
+    /// a change that no longer exists anywhere and will vanish at the next relaunch.
+    ///
+    /// Matched on PostgREST's `42501` (insufficient_privilege) and on HTTP 401/403, which is what a
+    /// policy denial surfaces as. Anything else — including every network error — is treated as
+    /// temporary, because guessing wrong in that direction only costs a retry, where guessing wrong
+    /// the other way throws away somebody's writing.
+    static func isPermanentRefusal(_ error: Error) -> Bool {
+        if let urlError = error as? URLError {
+            // A transport failure is never a refusal, whatever else it is.
+            _ = urlError
+            return false
+        }
+        let text = String(describing: error)
+        if text.contains("42501") { return true }
+        if let http = (error as NSError?)?.userInfo["statusCode"] as? Int, http == 401 || http == 403 {
+            return true
+        }
+        return text.contains("\"code\":401") || text.contains("\"code\":403")
+            || text.contains("row-level security") || text.contains("violates row-level security")
+    }
+
     // MARK: - Subscription sync
 
     /// Asks the server to re-read this account's entitlement from RevenueCat now, rather than
