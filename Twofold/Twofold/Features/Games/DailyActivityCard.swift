@@ -299,7 +299,15 @@ struct DailyActivityCard: View {
 
     @ViewBuilder
     private var dailyDestination: some View {
-        if let sessionID = appModel.todaysDailySessionID {
+        // Answering writes a `game_responses` row, which RLS refuses for a couple without a
+        // subscription (20261028000000). Without this, the most-tapped thing in the app — the
+        // daily question is on the Games hub's hero card — would open normally for a lapsed couple
+        // and then fail on submit with a generic error, after they had written an answer. Gating
+        // the destination rather than hiding the row keeps the card looking the same for everyone
+        // and puts the explanation where the refusal would have been.
+        if !appModel.canAddContent {
+            PaywallView()
+        } else if let sessionID = appModel.todaysDailySessionID {
             DeepConversationsGameView(sessionID: sessionID)
         } else if let error = appModel.dailyQuestionError {
             VStack(spacing: Theme.Spacing.md) {

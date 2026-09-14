@@ -41,6 +41,7 @@ struct HomeView: View {
     @State private var reviewingConnectionRequest: BackendService.PendingConnectionRequest?
     @State private var showingPendingOutgoingDetail = false
     @State private var showingAddTrip = false
+    @State private var showingPaywall = false
     @State private var showingAddFlight = false
     @State private var showingLocationPermission = false
     @State private var pendingShares: [PendingFlightShare] = []
@@ -81,6 +82,10 @@ struct HomeView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: Theme.Spacing.md) {
+                    if let lapsedPartnerName = appModel.partnerSubscriptionLapsedPartnerName {
+                        subscriptionLapsedCard(partnerName: lapsedPartnerName)
+                    }
+
                     if let incomingRequest = appModel.pendingConnectionRequests.first {
                         pendingConnectionRequestCard(incomingRequest)
                     } else if let outgoingRequest = appModel.pendingOutgoingConnectionRequest {
@@ -211,6 +216,9 @@ struct HomeView: View {
             .sheet(isPresented: $showingSettings) { SettingsView() }
             .sheet(isPresented: $showingLocationPermission) { NavigationStack { LocationPermissionView() } }
             .addContentSheet(isPresented: $showingAddFlight, canAdd: appModel.canAddContent) { AddFlightView() }
+            .sheet(isPresented: $showingPaywall) {
+                NavigationStack { PaywallView() }
+            }
             .sheet(isPresented: $showingPartnerSetup) {
                 PartnerSetupView()
             }
@@ -247,6 +255,54 @@ struct HomeView: View {
             } message: {
                 Text(partnerDisconnectedAlert ?? "")
             }
+        }
+    }
+
+    /// Why access changed, for somebody who did not choose it.
+    ///
+    /// `leave_couple` records this on the non-payer's profile when the partner who was covering the
+    /// subscription disconnects. It used to be a full-screen takeover shown in place of the forced
+    /// paywall — which was the right instinct in the wrong shape: the takeover appeared once, and
+    /// its "Not now" cleared the flag permanently, so anyone who tapped it and came back a week
+    /// later found a paywall and no explanation. With the wall gone there is nothing to take over
+    /// anyway.
+    ///
+    /// A card instead, sitting above the partner cards because it explains something that has just
+    /// happened where those are about what to do next. It stays until dismissed, and dismissing it
+    /// costs nothing now: the app is still there underneath.
+    private func subscriptionLapsedCard(partnerName: String) -> some View {
+        SectionCard {
+            VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                Label("Your subscription has ended", systemImage: "person.badge.minus")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Theme.ink)
+
+                Text("\(partnerName) was covering your Twofold subscription, and your connection with them has ended. Nothing has been deleted — your trips, memories and photos are in Settings → Archived Data, and you can export them from there.")
+                    .font(.caption)
+                    .foregroundStyle(Theme.subtleInk)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                // Named rather than left to be discovered. An archive is deleted ninety days after
+                // the connection ends, and somebody who has just been told their subscription
+                // stopped is exactly the person who will not go looking for that date.
+                Text("An archive is kept for 90 days and then permanently deleted. The date is shown on it.")
+                    .font(.caption2)
+                    .foregroundStyle(Theme.subtleInk)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: Theme.Spacing.md) {
+                    Button("See plans") { showingPaywall = true }
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Theme.skyBlueText)
+
+                    Spacer()
+
+                    Button("Dismiss") { appModel.markPartnerSubscriptionLapseAcknowledged() }
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.subtleInk)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
