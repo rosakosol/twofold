@@ -296,6 +296,37 @@ enum BackendService {
         try await supabase.auth.signOut()
     }
 
+    // MARK: - Subscription sync
+
+    /// Asks the server to re-read this account's entitlement from RevenueCat now, rather than
+    /// waiting for the purchase webhook to arrive.
+    ///
+    /// Since 20261028000000 the subscription check lives in RLS, and policies see the profile row
+    /// rather than RevenueCat — so between a purchase completing and the webhook landing, somebody
+    /// who has just paid cannot write anything. `markSubscriptionActive` gets them past the app's
+    /// own gate immediately, but it deliberately does not touch those columns (that write is the
+    /// webhook's alone), so it cannot help with the database's.
+    ///
+    /// Returns whether the row says active afterwards. Failure is not an error worth surfacing:
+    /// the webhook or the nightly reconcile will get there, this only makes it sooner.
+    @discardableResult
+    static func syncSubscriptionFromStore() async -> Bool {
+        guard let accessToken = currentAccessToken else { return false }
+
+        var request = URLRequest(url: SupabaseConfig.projectURL.appendingPathComponent("functions/v1/sync-my-subscription"))
+        request.httpMethod = "POST"
+        request.setValue(SupabaseConfig.publishableKey, forHTTPHeaderField: "apiKey")
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            return false
+        }
+        struct Row: Decodable { var active: Bool }
+        return (try? JSONDecoder().decode(Row.self, from: data))?.active ?? false
+    }
+
     // MARK: - Record export credits
 
     /// How many bought-and-unspent Relationship Record exports this profile holds.

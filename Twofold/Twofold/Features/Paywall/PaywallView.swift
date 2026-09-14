@@ -41,6 +41,7 @@ struct PaywallView: View {
     @State private var isPurchasing = false
     @State private var isRestoring = false
     @State private var showingSignOutConfirm = false
+    @State private var showingSettings = false
     /// Only actually shown when this device's own RevenueCat entitlement is what's backing
     /// `effectiveActiveTier` — `CustomerCenterView` only knows this device's own purchase
     /// history, so when the couple's access instead comes from the partner's separate purchase
@@ -124,6 +125,9 @@ struct PaywallView: View {
             }
         }
         .toolbar { toolbarContent }
+        .sheet(isPresented: $showingSettings) {
+            SettingsView()
+        }
         .alert("Something went wrong", isPresented: isShowingError) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -377,6 +381,26 @@ struct PaywallView: View {
                 }
             }
         } else {
+            // A way out that is not signing out.
+            //
+            // This is the forced gate, and until now its only exits were "subscribe" and "Sign
+            // Out" — which leaves the account, the profile row and the shared archive exactly where
+            // they were, and signing back in returns to this same screen. Somebody who lapsed
+            // could not reach their own archive, could not export it before its ninety days ran
+            // out, and could not delete the account they no longer wanted. The privacy policy
+            // promises deletion "at any time from Settings", and for this person that was false.
+            //
+            // Settings rather than a Delete Account button on its own: the same person usually
+            // wants to take their history with them first, and Export and Archived Data live
+            // there too.
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showingSettings = true
+                } label: {
+                    Image(systemName: "gearshape")
+                }
+                .accessibilityLabel("Settings")
+            }
             ToolbarItem(placement: .topBarLeading) {
                 Button("Sign Out", role: .destructive) {
                     showingSignOutConfirm = true
@@ -456,6 +480,20 @@ struct PaywallView: View {
         guard let tier = SubscriptionTier.active(in: customerInfo) else { return }
         appModel.markSubscriptionActive(tier: tier.dbValue)
         Analytics.capture(event, properties: ["tier": tier.dbValue])
+
+        // Gets this buyer past the *database's* gate as well as the app's.
+        //
+        // `markSubscriptionActive` above is local, and deliberately writes nothing to the
+        // subscription columns — those are the webhook's alone. That was enough while the row only
+        // decided which screen to show; since 20261028000000 it also decides whether RLS will
+        // accept a write, so a buyer who is through this screen could still be unable to add a
+        // memory until the webhook turned up. This asks the server to go and read RevenueCat now.
+        //
+        // Not awaited before continuing: the person has paid and should not be held on a spinner
+        // for a round trip that only makes their next action a second earlier. Failure is fine —
+        // the webhook and the nightly reconcile both still apply.
+        Task { await BackendService.syncSubscriptionFromStore() }
+
         onSubscribed()
         // Only when reached as a dismissable sheet/push — RootView's forced gate has nothing to
         // dismiss to and already routes itself off `appModel.isSubscriptionActive` flipping.

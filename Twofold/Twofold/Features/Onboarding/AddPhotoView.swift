@@ -72,9 +72,12 @@ struct AddPhotoView: View {
             },
             primaryTitle: "Continue",
             primaryAction: advance,
-            primaryDisabled: isUploadingSelf || isUploadingPartnerView,
-            secondaryTitle: "Skip for now",
-            secondaryAction: advance
+            // No "Skip for now" beside it. It called `advance` too — the same function, under a
+            // second name, offering a choice that did not exist. Photos are uploaded as they are
+            // picked, so Continue on an empty screen already is skipping; the only thing the extra
+            // button added was a moment spent deciding which of two identical doors to walk
+            // through, and a suggestion that one of them cost something.
+            primaryDisabled: isUploadingSelf || isUploadingPartnerView
         )
     }
 

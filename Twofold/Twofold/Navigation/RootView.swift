@@ -121,15 +121,29 @@ struct RootView: View {
                     // appears and then vanishes is worse than a beat of loading — it is what makes
                     // someone reach for their card.
                     loadingScreen
-                } else if let lapsedPartnerName = appModel.partnerSubscriptionLapsedPartnerName {
-                    // The payer disconnected and this profile wasn't the one backing the
-                    // couple's access — see `leave_couple`'s partner_subscription_lapse_*
-                    // columns. Shown once instead of falling straight into the generic
-                    // "resubscribe" paywall with no context for why access just disappeared.
-                    NavigationStack {
-                        SubscriptionLapsedFromDisconnectView(partnerName: lapsedPartnerName)
-                    }
-                    .postHogScreenView("Paywall: Subscription Lapsed From Disconnect")
+                } else if !appModel.partnerConnected {
+                    // Unpaired and unsubscribed — into the app, not into a wall.
+                    //
+                    // There is nothing here to withhold. `loadSignedInState` clears trips,
+                    // memories and flights when it finds no active couple, so this person's tabs
+                    // are empty whatever we do; their history lives in the archive, which is
+                    // readable and exportable through Settings and counts down to its own deletion
+                    // date. Almost everything that creates content guards on having a couple, so
+                    // "read-only" is the natural state of this screen rather than a mode anyone has
+                    // to build.
+                    //
+                    // What the wall did instead was trap them. `PaywallView(isDismissable: false)`
+                    // offers plans, Restore, and Sign Out — and nothing else, so somebody whose
+                    // partner left could not reach their own archive, could not export it before
+                    // its ninety days ran out, and could not delete the account they no longer
+                    // wanted. The policy promises deletion "at any time from Settings"; for this
+                    // person that was not true. Signing out did not help either: the account
+                    // remains, and signing back in returns to the same wall.
+                    //
+                    // Subscribing is still required to do anything that matters — inviting a new
+                    // partner is gated, and every tier check server-side is unchanged. This decides
+                    // where somebody lands, not what they are entitled to.
+                    MainTabView(selection: $selectedTab, statsSection: $pendingStatsSection)
                 } else {
                     NavigationStack {
                         PaywallView(isDismissable: false)

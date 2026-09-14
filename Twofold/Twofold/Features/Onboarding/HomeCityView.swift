@@ -57,9 +57,10 @@ struct HomeCityView: View {
             },
             primaryTitle: "Continue",
             primaryAction: { advance() },
-            primaryDisabled: isSaving,
-            secondaryTitle: "Skip for now",
-            secondaryAction: { advance() }
+            // Same as `AddPhotoView`: the skip button called `advance()` as well. `advance` saves
+            // a city only `if let selected`, so Continue with nothing chosen has always been the
+            // skip — there was never a second behaviour for the second button to reach.
+            primaryDisabled: isSaving
         )
         .onAppear {
             if selected == nil {
