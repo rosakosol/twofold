@@ -88,10 +88,13 @@ struct HomeCityView: View {
                         onboarding.inviterName = info.name
                         onboarding.inviterAvatarURL = info.avatarURL
                     }
-                    // `.link` because this branch is only reached from a tapped invite link —
-                    // `resetForNewInvite` puts the flow here and nothing else does. A code typed
-                    // by hand goes through EnterPartnerCodeView instead.
-                    let outcome = try await BackendService.redeemInviteCode(code, origin: .link)
+                    // Carried on the model rather than assumed here. This used to hardcode
+                    // `.link`, on the strength of a comment claiming only a tapped link could
+                    // reach it — but `EnterPartnerCodeView` appends `.joinInvite` for anyone
+                    // typing a code before they have an account, and that lands here too. So
+                    // signing up fresh with a typed code paired immediately, with no approval,
+                    // which is the whole distinction the two origins exist to draw.
+                    let outcome = try await BackendService.redeemInviteCode(code, origin: onboarding.inviteOrigin)
                     onboarding.connectedOnRedeem = outcome.connected
                 }
                 onboarding.path.append(.addPhoto)

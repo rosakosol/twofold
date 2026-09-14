@@ -45,6 +45,21 @@ final class OnboardingModel {
 
     // Partner connection
     var inviteCode: String?
+
+    /// How `inviteCode` reached us, and therefore whether redeeming it pairs immediately or raises
+    /// a request the inviter approves (see migration 20261008000000).
+    ///
+    /// It has to be carried rather than inferred. `HomeCityView` does the redeeming for anyone who
+    /// arrives without an account, and both routes land there: a tapped deep link via
+    /// `resetForNewInvite`, and a typed code via `EnterPartnerCodeView`, which appends `.joinInvite`
+    /// when there is no account yet. That screen used to hardcode `.link` on the strength of a
+    /// comment saying only a link could get there. It was wrong, and the effect was that anybody
+    /// signing up fresh with a typed code was paired with no approval at all — the one thing typing
+    /// a code is supposed to require.
+    ///
+    /// Defaults to `.code`, which is the safe end: the worst a wrong `.code` does is ask someone to
+    /// confirm a pairing they wanted.
+    var inviteOrigin: BackendService.InviteOrigin = .code
     var inviterName: String?
     var inviterAvatarURL: URL?
     /// True once account creation has happened — lets `EnterPartnerCodeView` decide
@@ -166,6 +181,8 @@ final class OnboardingModel {
     func resetForNewInvite(code: String) {
         role = .invitee
         inviteCode = code
+        // The only caller is a tapped invite link.
+        inviteOrigin = .link
         path = [.joinInvite]
         // `get_invite_code_inviter_info` deliberately works without an authenticated session
         // (see its migration's own comment) specifically so this — a cold deep-link tap, before

@@ -42,6 +42,9 @@ struct EnterPartnerCodeView: View {
     private func continueTapped() {
         let trimmed = code.trimmingCharacters(in: .whitespaces).uppercased()
         onboarding.inviteCode = trimmed
+        // Typed by hand, so it stays a request the inviter approves — whichever of the two
+        // branches below ends up doing the redeeming.
+        onboarding.inviteOrigin = .code
 
         if onboarding.hasAccount {
             // Already mid-way through the inviter flow ("I have a partner code") — account

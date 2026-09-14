@@ -365,6 +365,22 @@ struct RootView: View {
         // AppModel.partnerConnectedCelebrationShown — survives a reinstall, unlike UserDefaults).
         .onChange(of: appModel.partnerConnected) { wasConnected, isConnected in
             guard !wasConnected, isConnected else { return }
+
+            // Re-check access the moment a couple exists, because until now nothing did.
+            //
+            // `checkSubscription()` opens with `guard appModel.hasCouple`, so for a brand-new
+            // account it returns immediately at launch — and sets `hasCheckedSubscription`, which
+            // is what the loading branch waits on. Pairing a minute later makes the couple-wide
+            // lookup meaningful for the first time, and nothing ran it again until the next
+            // foreground.
+            //
+            // So somebody who joined a partner already paying for Premium was shown the
+            // non-dismissable lapsed-subscription paywall the instant they connected: their own
+            // `subscription_active` is false, this device holds no entitlement, and there is no
+            // pending request to exempt them. Backgrounding the app and returning fixed it, which
+            // is not a thing anyone should have to discover.
+            Task { await checkSubscription() }
+
             guard !appModel.partnerConnectedCelebrationShown else { return }
             appModel.markPartnerConnectedCelebrationShown()
             showingPartnerConnectedCelebration = true
