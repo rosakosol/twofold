@@ -215,7 +215,7 @@ struct TripsListView: View {
                 FlightTrackingView(flight: flight)
             }
         }
-        .sheet(isPresented: $showingAddTrip) {
+        .addContentSheet(isPresented: $showingAddTrip, canAdd: appModel.canAddContent) {
             NavigationStack {
                 AddTripDetailsView(mode: .standalone, partnerName: appModel.partner.name) { _ in
                     showingAddTrip = false
@@ -232,7 +232,7 @@ struct TripsListView: View {
             // the Travel tab), and until now it fired with no screen event at all.
             .postHogScreenView("Travel: Add Trip")
         }
-        .sheet(isPresented: $showingAddFlight) {
+        .addContentSheet(isPresented: $showingAddFlight, canAdd: appModel.canAddContent) {
             AddFlightView()
         }
         .sheet(isPresented: $showingPartnerGate) {

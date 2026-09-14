@@ -74,82 +74,30 @@ struct RootView: View {
             if appModel.isLoadingSession {
                 loadingScreen
             } else if appModel.hasCouple {
-                // Not really solo — redeemed a code and is waiting on the inviter's decision,
-                // with no subscription of their own to be asked for (Twofold subscriptions are
-                // shared; they'll inherit the couple's plan once accepted). The inviter always
-                // subscribes before ever inviting anyone, so someone will always be covering
-                // this — the forced paywall below would otherwise be a dead end for no reason.
-                // Home shows a persistent "invite pending" card (with a reminder nudge) in place
-                // of the old full-screen `PendingConnectionApprovalView` gate this used to be.
-                // `subscriptionStore.isSubscribed` is in this condition because the profile row is
-                // a cache, not the truth. It is written by `revenuecat-webhook`, and between a
-                // purchase completing and that webhook landing — or while it is misconfigured, or
-                // if RevenueCat never retried after a failure — the row says `false` for someone who
-                // has genuinely paid.
+                // Everyone signed in gets the app. There is no longer a gate here at all.
                 //
-                // That gap was a dead end, not just a delay: the forced paywall below has nothing to
-                // sell someone who already holds an entitlement, so it renders "Current Plan"
-                // greyed out for their own tier and "Manage Subscription" for the other one, with no
-                // way into the app at all. Reported by a real subscriber who could not get past it.
+                // There used to be: a non-dismissable paywall for anyone whose subscription was
+                // not active, which is what actually enforced paying. It trapped people. Its only
+                // exits were "subscribe" and "Sign Out", so somebody whose partner left — a
+                // decision they did not make — could not reach their own archive, could not export
+                // it before its ninety days ran out, and could not delete their account. Signing
+                // out did not help: the account remained, and signing back in returned to the same
+                // wall. The privacy policy promises deletion "at any time from Settings", and for
+                // that person it was false.
                 //
-                // Not a bypass. `customerInfo.entitlements.active` is RevenueCat's own answer,
-                // receipt-validated against Apple server-side — the same source the webhook reads,
-                // just not yet persisted. What it deliberately does not do is write that to the
-                // profile row: that write is what let a client grant itself, and its partner,
-                // Premium, and it stays the webhook's alone.
-                if Self.hasAccess(
-                    backendSaysActive: appModel.isSubscriptionActive,
-                    deviceHoldsEntitlement: deviceHoldsEntitlement,
-                    awaitingPartnerDecision: appModel.pendingOutgoingConnectionRequest != nil
-                ) {
-                    MainTabView(selection: $selectedTab, statsSection: $pendingStatsSection)
-                } else if !hasCheckedSubscription {
-                    // The same bargain as the branch below, for the subscription rather than the
-                    // invite: a beat of loading costs a subscriber nothing, where a paywall that
-                    // appears and is then retracted costs them their confidence that they are
-                    // actually paid up. Someone genuinely lapsed reaches the paywall one round trip
-                    // later, which is the right way round.
-                    loadingScreen
-                } else if !appModel.hasResolvedOutgoingConnectionRequest {
-                    // Holds the loading screen rather than showing a paywall we might be about to
-                    // retract. Whether this person is exempt depends on a request lookup that is
-                    // still in flight — `restoreSession` flips `hasCouple` true and the body
-                    // re-evaluates on the next await, several awaits before that lookup lands.
-                    //
-                    // The person this protects is the one who redeemed an invite and is waiting on
-                    // the inviter: they are never meant to be asked to pay, and a paywall that
-                    // appears and then vanishes is worse than a beat of loading — it is what makes
-                    // someone reach for their card.
-                    loadingScreen
-                } else if !appModel.partnerConnected {
-                    // Unpaired and unsubscribed — into the app, not into a wall.
-                    //
-                    // There is nothing here to withhold. `loadSignedInState` clears trips,
-                    // memories and flights when it finds no active couple, so this person's tabs
-                    // are empty whatever we do; their history lives in the archive, which is
-                    // readable and exportable through Settings and counts down to its own deletion
-                    // date. Almost everything that creates content guards on having a couple, so
-                    // "read-only" is the natural state of this screen rather than a mode anyone has
-                    // to build.
-                    //
-                    // What the wall did instead was trap them. `PaywallView(isDismissable: false)`
-                    // offers plans, Restore, and Sign Out — and nothing else, so somebody whose
-                    // partner left could not reach their own archive, could not export it before
-                    // its ninety days ran out, and could not delete the account they no longer
-                    // wanted. The policy promises deletion "at any time from Settings"; for this
-                    // person that was not true. Signing out did not help either: the account
-                    // remains, and signing back in returns to the same wall.
-                    //
-                    // Subscribing is still required to do anything that matters — inviting a new
-                    // partner is gated, and every tier check server-side is unchanged. This decides
-                    // where somebody lands, not what they are entitled to.
-                    MainTabView(selection: $selectedTab, statsSection: $pendingStatsSection)
-                } else {
-                    NavigationStack {
-                        PaywallView(isDismissable: false)
-                    }
-                    .postHogScreenView("Paywall: Lapsed Subscription")
-                }
+                // The rule now lives in the database instead (20261028000000): reading and
+                // deleting are open to everybody, and adding or editing needs a subscription. So
+                // this screen no longer has to decide anything — a lapsed couple sees their whole
+                // history and cannot add to it, which is the difference between a subscription and
+                // a hostage.
+                //
+                // An interim version of this let unpaired people in and kept the wall for paired
+                // ones, on the reasoning that an unpaired account has nothing to withhold. That
+                // was worse than either: it made being in a relationship *cost* access, and it
+                // meant a lapsed couple's quickest way back into the app was to unpair — which
+                // archives their history and starts a ninety-day clock on deleting it. A product
+                // should not nudge anyone towards destroying their own data to get past a paywall.
+                MainTabView(selection: $selectedTab, statsSection: $pendingStatsSection)
             } else {
                 OnboardingCoordinatorView()
             }

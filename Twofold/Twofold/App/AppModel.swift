@@ -1270,6 +1270,25 @@ final class AppModel {
     /// Same "Plus can see it exists, Premium unlocks it" shape as `isDeckLocked`, for
     /// non-deck features (e.g. the Flight Details screen's delay analysis/good-to-know/flight
     /// information cards) that are Premium-only but not backed by a `GameDeck` row.
+    /// Whether this couple may add to their story — the client-side mirror of the RLS rule in
+    /// 20261028000000.
+    ///
+    /// Reading and deleting are open to everyone; adding and editing need a subscription. The
+    /// database is what actually enforces that, and this exists so somebody meets a paywall that
+    /// explains itself rather than a write that fails for no stated reason. If the two ever
+    /// disagree the database wins, which is the right way round — the worst this can do is offer
+    /// a purchase to somebody who did not need one.
+    ///
+    /// `isSubscriptionActive` alone, deliberately. `subscriptionTier` survives a lapse — it is the
+    /// name of the plan somebody had, not proof they still have it — so ORing it in would hand
+    /// every lapsed subscriber the thing this gate exists to withhold.
+    ///
+    /// The webhook-lag window is already covered: `markSubscriptionActive(tier:)` sets this flag
+    /// locally the moment a purchase completes, well before the row is written.
+    var canAddContent: Bool {
+        isSubscriptionActive
+    }
+
     var isPremiumLocked: Bool {
         subscriptionTier != "premium"
     }

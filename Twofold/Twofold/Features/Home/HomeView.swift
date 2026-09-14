@@ -210,7 +210,7 @@ struct HomeView: View {
             }
             .sheet(isPresented: $showingSettings) { SettingsView() }
             .sheet(isPresented: $showingLocationPermission) { NavigationStack { LocationPermissionView() } }
-            .sheet(isPresented: $showingAddFlight) { AddFlightView() }
+            .addContentSheet(isPresented: $showingAddFlight, canAdd: appModel.canAddContent) { AddFlightView() }
             .sheet(isPresented: $showingPartnerSetup) {
                 PartnerSetupView()
             }
@@ -222,7 +222,7 @@ struct HomeView: View {
                     PendingConnectionApprovalView(request: request)
                 }
             }
-            .sheet(isPresented: $showingAddTrip) {
+            .addContentSheet(isPresented: $showingAddTrip, canAdd: appModel.canAddContent) {
                 NavigationStack {
                     AddTripDetailsView(mode: .standalone, partnerName: appModel.partner.name) { _ in
                         showingAddTrip = false
