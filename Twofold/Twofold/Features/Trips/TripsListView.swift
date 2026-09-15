@@ -104,6 +104,15 @@ struct TripsListView: View {
     /// from it. The old flat `Theme.Spacing.lg` wasn't real tab-bar clearance, just ordinary
     /// breathing room, so the card's own bottom edge ended up sitting behind/under the tab bar.
     private let peekBottomClearance: CGFloat = 100
+
+    /// What the empty-state hint gets instead of `peekBottomClearance`.
+    ///
+    /// That constant is the tab bar plus ordinary breathing room, and the room is worth having
+    /// under a card. Under a one-line hint it is not: the panel is only as tall as this hint makes
+    /// it, so the slack is a visible fraction of the whole thing rather than a margin inside it.
+    /// Measured against the tab bar itself — its buttons start 79pt above the panel's bottom edge,
+    /// so this clears them with a little to spare and nothing more.
+    private let emptyPeekBottomClearance: CGFloat = 88
     private let panelAnimation: Animation = .spring(response: 0.35, dampingFraction: 0.86)
 
     enum TripsTab: String, CaseIterable {
@@ -315,7 +324,10 @@ struct TripsListView: View {
             // actually produced was a slab of gradient with no title and nothing in it, which
             // reads as a screen that failed to draw rather than as a panel that collapsed.
             VStack(spacing: 0) {
-                browseHeader(showingControls: settledDetent != .minimised)
+                browseHeader(
+                    showingControls: settledDetent != .minimised,
+                    rhythm: headerRhythm(for: settledDetent)
+                )
 
                 if settledDetent == .peek {
                     peekContent
@@ -383,13 +395,11 @@ struct TripsListView: View {
     }
 
     /// `showingControls` is false at the minimised detent, where the picker, the add button and
-    /// the selection bar all go and the title alone stays — see `minimisedHeight`.
-    private func browseHeader(showingControls: Bool) -> some View {
-        // `lg` between title and tabs, and again between the header and whatever's below (see
-        // this view's own `.padding(.bottom, lg)`) — matches the Stats tab's own title/tabs/card
-        // rhythm (`PassportView`'s `VStack(spacing: Theme.Spacing.lg)`), rather than the tighter
-        // `xs` this used before, which read noticeably more cramped side by side with Stats.
-        VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
+    /// the selection bar all go and the title alone stays — see `minimisedHeight`. `rhythm` is the
+    /// spacing between the header's own rows and the gap to whatever sits below it; see
+    /// `headerRhythm(for:)`.
+    private func browseHeader(showingControls: Bool, rhythm: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: rhythm) {
             // Multi-select is only enterable from a row, so it can't be entered while minimised —
             // but it can be left running *into* minimised, and a Cancel/Delete bar on a panel
             // showing neither the rows it acts on nor a way back to them is worse than the title.
@@ -452,9 +462,9 @@ struct TripsListView: View {
         // edge to the middle on the way down and back again on the way up.
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, Theme.Spacing.md)
-        // Nothing sits below the title at minimised, so the gap that separates the header from
-        // the content would just be dead space above the tab bar clearance.
-        .padding(.bottom, showingControls ? Theme.Spacing.lg : 0)
+        // Nothing sits below the title at minimised, so this would only be dead space above the
+        // tab bar's clearance.
+        .padding(.bottom, showingControls ? rhythm : 0)
     }
 
     /// Replaces the title/picker/add-button row while multi-selecting — this panel doesn't sit
@@ -497,6 +507,30 @@ struct TripsListView: View {
     /// own. It just shows two of them, which is what most couples have in flight at once anyway.
     private let peekItemLimit = 2
 
+    /// True when peek is showing an empty-state hint rather than cards. Mirrors `peekContent`'s
+    /// own two branches exactly — Trips on "any trip at all", Flights on *tracked* flights, since
+    /// a couple with only completed ones still gets the hint.
+    private var peekShowsEmptyHint: Bool {
+        switch tab {
+        case .trips: appModel.trips.isEmpty
+        case .flights: appModel.activeOrUpcomingFlights.isEmpty
+        }
+    }
+
+    /// The header's own row spacing, and the gap from it to whatever sits below.
+    ///
+    /// `lg` normally: title, then tabs, then content, matching the Stats tab's own title/tabs/card
+    /// rhythm (`PassportView`'s `VStack(spacing: Theme.Spacing.lg)`). That replaced a much tighter
+    /// `xs` here, which read noticeably cramped side by side with Stats.
+    ///
+    /// Tighter again when peek is showing an empty-state hint, because at that size the rhythm is
+    /// most of what is holding the panel open. A card can carry a `lg` above it and still look
+    /// deliberate; a title, a picker and one line of text separated by the same gaps just leave a
+    /// panel mostly made of space, which is what this state looked like.
+    private func headerRhythm(for detent: PanelDetent) -> CGFloat {
+        detent == .peek && peekShowsEmptyHint ? Theme.Spacing.sm : Theme.Spacing.lg
+    }
+
     @ViewBuilder
     private var peekContent: some View {
         switch tab {
@@ -505,7 +539,7 @@ struct TripsListView: View {
                 // The cards below carry this; the hint needs it for the same reason — the
                 // floating tab bar sits outside this panel, so nothing here is inset from it.
                 emptyTripsHint
-                    .padding(.bottom, peekBottomClearance)
+                    .padding(.bottom, emptyPeekBottomClearance)
             } else {
                 let trips = Array(appModel.upcomingTrips.prefix(peekItemLimit))
                 VStack(spacing: Theme.Spacing.md) {
@@ -534,7 +568,7 @@ struct TripsListView: View {
                 // The cards below carry this; the hint needs it for the same reason — the
                 // floating tab bar sits outside this panel, so nothing here is inset from it.
                 emptyFlightsHint
-                    .padding(.bottom, peekBottomClearance)
+                    .padding(.bottom, emptyPeekBottomClearance)
             } else {
                 let flights = Array(appModel.activeOrUpcomingFlights.prefix(peekItemLimit))
                 VStack(spacing: Theme.Spacing.md) {
