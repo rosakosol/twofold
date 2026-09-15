@@ -33,6 +33,11 @@ struct DeckCardRow: View {
     /// topic, or the all-decks browser), where which topic a deck belongs to isn't already implied
     /// by the screen around it. The game type is shown either way.
     var showsTopic = false
+    /// Off for Home's recommendation carousel, whose cards are 220pt wide — narrow enough that a
+    /// long title and the trailing topic/emoji group could not both fit, and the group won. Titles
+    /// there were pushing the emoji off the edge of the card. Separate from `showsTopic` because
+    /// every other list wants the emoji whether or not it wants the topic.
+    var showsEmoji = true
 
     @Environment(AppModel.self) private var appModel
     @Environment(\.colorScheme) private var colorScheme
@@ -128,7 +133,7 @@ struct DeckCardRow: View {
                         Image(systemName: "lock.fill").font(.caption).foregroundStyle(Theme.subtleInk)
                     }
                     .frame(width: 30, height: 30)
-                } else {
+                } else if showsTopic || showsEmoji {
                     HStack(spacing: 6) {
                         if showsTopic, let topic = GameTopic(rawValue: deck.topic) {
                             // Plain text rather than a second pill: two chips side by side read as
@@ -141,7 +146,9 @@ struct DeckCardRow: View {
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.8)
                         }
-                        Text(deck.emoji).font(.title2)
+                        if showsEmoji {
+                            Text(deck.emoji).font(.title2)
+                        }
                     }
                 }
             }

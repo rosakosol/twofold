@@ -146,8 +146,9 @@ final class AppModel {
     /// Non-nil only while there's an unacknowledged "your subscription lapsed because {name}
     /// left" notice — set by `adoptSoloProfile(_:)` from `leave_couple`'s server-captured
     /// snapshot (the ex-partner's name is already gone from `partner_name` by the time this
-    /// loads). `RootView` shows `SubscriptionLapsedFromDisconnectView` in place of the generic
-    /// non-dismissable paywall while this is set — see `markPartnerSubscriptionLapseAcknowledged()`.
+    /// loads). `HomeView` shows its `subscriptionLapsedCard` while this is set — see
+    /// `markPartnerSubscriptionLapseAcknowledged()`. It used to be a whole screen shown by
+    /// `RootView` in place of the non-dismissable paywall; both went when the paywall did.
     var partnerSubscriptionLapsedPartnerName: String?
 
     /// Set whenever a newly-crossed, not-yet-shown review milestone is detected — RootView
@@ -657,6 +658,11 @@ final class AppModel {
     func markSubscriptionActive(tier: String) {
         isSubscriptionActive = true
         subscriptionTier = tier
+        // Subscribing is the end of the situation the lapse notice describes, so retire it here
+        // rather than waiting for somebody to dismiss it — the card has no dismiss any more. Home
+        // hides it the moment `canAddContent` flips; this is what stops a stale name coming back
+        // if the same account lapses again later for an unrelated reason.
+        markPartnerSubscriptionLapseAcknowledged()
         Task { await WidgetSnapshotWriter.refresh(appModel: self) }
     }
 
@@ -668,8 +674,8 @@ final class AppModel {
         Task { await BackendService.markPartnerConnectedCelebrationShown() }
     }
 
-    /// Same pattern as `markPartnerConnectedCelebrationShown()` — instant local flip (so
-    /// `SubscriptionLapsedFromDisconnectView` never shows twice in one session), persisted
+    /// Same pattern as `markPartnerConnectedCelebrationShown()` — instant local flip (so the
+    /// notice never comes back in the same session), persisted
     /// server-side in the background. Re-armable: `leave_couple` can set the underlying flag back
     /// to `false` again later, for a different relationship's same non-payer outcome.
     func markPartnerSubscriptionLapseAcknowledged() {

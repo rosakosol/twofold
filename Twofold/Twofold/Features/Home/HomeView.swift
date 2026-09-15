@@ -82,13 +82,19 @@ struct HomeView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: Theme.Spacing.md) {
-                    if let lapsedPartnerName = appModel.partnerSubscriptionLapsedPartnerName {
-                        // The specific reason, when there is one. Shown instead of the general card
-                        // below rather than as well as it — two cards saying "you have no
-                        // subscription" one above the other is noise, and this one says more.
-                        subscriptionLapsedCard(partnerName: lapsedPartnerName)
-                    } else if !appModel.canAddContent {
-                        noSubscriptionCard
+                    // Neither card is dismissable, so the subscription state is what takes them
+                    // away: resubscribing clears both without anything having to be acknowledged.
+                    // Nested rather than two sibling conditions so the lapsed card cannot outlive
+                    // the situation it describes.
+                    if !appModel.canAddContent {
+                        if let lapsedPartnerName = appModel.partnerSubscriptionLapsedPartnerName {
+                            // The specific reason, when there is one. Shown instead of the general
+                            // card rather than as well as it — two cards saying "you have no
+                            // subscription" one above the other is noise, and this one says more.
+                            subscriptionLapsedCard(partnerName: lapsedPartnerName)
+                        } else {
+                            noSubscriptionCard
+                        }
                     }
 
                     if let incomingRequest = appModel.pendingConnectionRequests.first {
@@ -300,17 +306,18 @@ struct HomeView: View {
                     .foregroundStyle(Theme.subtleInk)
                     .fixedSize(horizontal: false, vertical: true)
 
-                HStack(spacing: Theme.Spacing.md) {
-                    Button("See plans") { showingPaywall = true }
+                // One action, and no dismiss. This is the state of the account rather than an
+                // announcement that has been made and is over, so it goes when the state does —
+                // see the `canAddContent` check that now wraps both of these cards. Same shape as
+                // `noSubscriptionCard`, which it stands in for.
+                Button { showingPaywall = true } label: {
+                    Text("See plans")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Theme.skyBlueText)
-
-                    Spacer()
-
-                    Button("Dismiss") { appModel.markPartnerSubscriptionLapseAcknowledged() }
-                        .font(.subheadline)
-                        .foregroundStyle(Theme.subtleInk)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, Theme.Spacing.sm)
                 }
+                .background(Theme.primaryButtonGradient, in: Capsule())
+                .foregroundStyle(.white)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }

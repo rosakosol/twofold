@@ -53,8 +53,16 @@ struct RecommendedGamesSection: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: Theme.Spacing.sm) {
                     ForEach(randomDecks) { deck in
-                        DeckCardRow(deck: deck, progress: appModel.deckProgress?[deck.id], showsTopic: true)
-                            .frame(width: 220)
+                        // No topic, no emoji. These cards are 220pt wide and the trailing group
+                        // was winning the row against the title, pushing the emoji off the card's
+                        // edge on anything with a long name.
+                        DeckCardRow(
+                            deck: deck,
+                            progress: appModel.deckProgress?[deck.id],
+                            showsTopic: false,
+                            showsEmoji: false
+                        )
+                        .frame(width: 220)
                     }
                 }
                 .padding(.vertical, 2)
