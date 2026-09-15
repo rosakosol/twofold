@@ -29,13 +29,17 @@ extension View {
     func addContentSheet<C: View>(
         isPresented: Binding<Bool>,
         canAdd: Bool,
+        feature: GatedFeature,
         @ViewBuilder content: @escaping () -> C
     ) -> some View {
         sheet(isPresented: isPresented) {
             if canAdd {
                 content()
             } else {
-                NavigationStack { PaywallView() }
+                // Not the paywall directly. Somebody who tapped "Add memory" wanted to add a
+                // memory, and a list of prices does not tell them why that did not happen — see
+                // `SubscriptionRequiredView`.
+                SubscriptionRequiredView(feature: feature)
             }
         }
     }

@@ -44,7 +44,7 @@ struct MemoriesView: View {
                     .accessibilityLabel("Add memory")
                 }
             }
-            .addContentSheet(isPresented: $showingAddMemory, canAdd: appModel.canAddContent) {
+            .addContentSheet(isPresented: $showingAddMemory, canAdd: appModel.canAddContent, feature: .memories) {
                 AddMemoryView()
             }
         }

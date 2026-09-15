@@ -306,7 +306,7 @@ struct DailyActivityCard: View {
         // the destination rather than hiding the row keeps the card looking the same for everyone
         // and puts the explanation where the refusal would have been.
         if !appModel.canAddContent {
-            PaywallView()
+            SubscriptionRequiredView(feature: .dailyQuestion)
         } else if let sessionID = appModel.todaysDailySessionID {
             DeepConversationsGameView(sessionID: sessionID)
         } else if let error = appModel.dailyQuestionError {

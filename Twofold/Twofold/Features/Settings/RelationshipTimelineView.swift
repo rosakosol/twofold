@@ -441,6 +441,8 @@ private struct ExportReadySheet: View {
 
     var body: some View {
         VStack(spacing: Theme.Spacing.lg) {
+            Spacer(minLength: 0)
+
             Text("📖").font(.system(size: 48))
 
             VStack(spacing: Theme.Spacing.xs) {
@@ -470,10 +472,13 @@ private struct ExportReadySheet: View {
                     .foregroundStyle(Theme.subtleInk)
             }
             .padding(.horizontal, Theme.Spacing.lg)
+
+            Spacer(minLength: 0)
         }
-        .padding(.top, Theme.Spacing.xl)
-        .padding(.bottom, Theme.Spacing.lg)
-        .frame(maxWidth: .infinity)
+        .padding(.vertical, Theme.Spacing.lg)
+        // See `ReviewPromptView` for why the height has to be filled before the background is
+        // applied: without it the gradient covers only the content, not the 300pt detent.
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.backgroundGradient.ignoresSafeArea())
         .presentationDetents([.height(300)])
     }

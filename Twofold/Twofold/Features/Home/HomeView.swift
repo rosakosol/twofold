@@ -83,7 +83,12 @@ struct HomeView: View {
             ScrollView {
                 VStack(spacing: Theme.Spacing.md) {
                     if let lapsedPartnerName = appModel.partnerSubscriptionLapsedPartnerName {
+                        // The specific reason, when there is one. Shown instead of the general card
+                        // below rather than as well as it — two cards saying "you have no
+                        // subscription" one above the other is noise, and this one says more.
                         subscriptionLapsedCard(partnerName: lapsedPartnerName)
+                    } else if !appModel.canAddContent {
+                        noSubscriptionCard
                     }
 
                     if let incomingRequest = appModel.pendingConnectionRequests.first {
@@ -215,7 +220,7 @@ struct HomeView: View {
             }
             .sheet(isPresented: $showingSettings) { SettingsView() }
             .sheet(isPresented: $showingLocationPermission) { NavigationStack { LocationPermissionView() } }
-            .addContentSheet(isPresented: $showingAddFlight, canAdd: appModel.canAddContent) { AddFlightView() }
+            .addContentSheet(isPresented: $showingAddFlight, canAdd: appModel.canAddContent, feature: .flights) { AddFlightView() }
             .sheet(isPresented: $showingPaywall) {
                 NavigationStack { PaywallView() }
             }
@@ -230,7 +235,7 @@ struct HomeView: View {
                     PendingConnectionApprovalView(request: request)
                 }
             }
-            .addContentSheet(isPresented: $showingAddTrip, canAdd: appModel.canAddContent) {
+            .addContentSheet(isPresented: $showingAddTrip, canAdd: appModel.canAddContent, feature: .trips) {
                 NavigationStack {
                     AddTripDetailsView(mode: .standalone, partnerName: appModel.partner.name) { _ in
                         showingAddTrip = false
@@ -306,6 +311,37 @@ struct HomeView: View {
         }
     }
 
+    /// What is true of the app right now, for somebody without a subscription.
+    ///
+    /// The prompts on each gated action explain themselves when tapped, but only to somebody who
+    /// tapped — this is for the person opening the app and wondering why it feels different.
+    /// Deliberately not dismissable: it is not an announcement that has been made and is over, it
+    /// is the state of the account, and it disappears on its own when that changes.
+    private var noSubscriptionCard: some View {
+        SectionCard {
+            VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                Label("No active subscription", systemImage: "lock.circle.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Theme.ink)
+
+                Text("Everything you've already saved is still here, and always will be — you can read it, export it and delete it at any time. What needs a subscription is adding to it: new trips, memories, flights and today's question.")
+                    .font(.caption)
+                    .foregroundStyle(Theme.subtleInk)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Button { showingPaywall = true } label: {
+                    Text("See plans")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, Theme.Spacing.sm)
+                }
+                .background(Theme.primaryButtonGradient, in: Capsule())
+                .foregroundStyle(.white)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
     @ViewBuilder
     private var setupChecklistCard: some View {
         // Trip/flight rows need a connected partner to make sense — the dedicated
@@ -315,46 +351,50 @@ struct HomeView: View {
         let showsTripOrFlightRow = appModel.partnerConnected && (appModel.needsFirstTrip || appModel.needsFirstFlight)
         if !appModel.setupChecklistDismissed && (showsTripOrFlightRow || appModel.needsHomeCities) {
             SectionCard {
-                HStack {
-                    Text("Finish setting up Twofold")
-                        .font(.headline)
-                    Spacer()
-                    Button {
-                        appModel.dismissSetupChecklist()
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(Theme.subtleInk.opacity(0.5))
-                            // The glyph alone is ~22pt, half Apple's 44pt minimum — a miss on this
-                            // one dismisses nothing and taps the card behind it instead. The frame
-                            // only grows the tap target; `contentShape` makes the whole of it
-                            // hittable rather than just the glyph's own pixels, and the icon keeps
-                            // its original size.
-                            .frame(width: 44, height: 44)
-                            .contentShape(Rectangle())
+                // One child, not two. `SectionCard` spaces its children by `md` (16), which is
+                // right between a card's distinct parts — but the header here is not a distinct
+                // part, it is the list's own title, and the 44pt dismiss button already inflates
+                // that row well past the text it contains. The two together left this card with a
+                // gap no other card has, wide enough to read as a missing row.
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack {
+                        Text("Finish setting up Twofold")
+                            .font(.headline)
+                        Spacer()
+                        Button {
+                            appModel.dismissSetupChecklist()
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(Theme.subtleInk.opacity(0.5))
+                                // The glyph alone is ~22pt, half Apple's 44pt minimum — a miss on this
+                                // one dismisses nothing and taps the card behind it instead. The frame
+                                // only grows the tap target; `contentShape` makes the whole of it
+                                // hittable rather than just the glyph's own pixels, and the icon keeps
+                                // its original size.
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        // Cancels the padding the 44pt box adds on the trailing side, so the icon still
+                        // sits where it did against the card's edge.
+                        .padding(.trailing, -Theme.Spacing.xs)
+                        .accessibilityLabel("Dismiss")
                     }
-                    .buttonStyle(.plain)
-                    // Cancels the padding the 44pt box adds on the trailing side, so the icon still
-                    // sits where it did against the card's edge.
-                    .padding(.trailing, -Theme.Spacing.xs)
-                    .accessibilityLabel("Dismiss")
-                }
 
-                // Own stack, at zero spacing. `SectionCard` spaces its children by `md` (16),
-                // which is the right gap between a card's distinct parts but not between rows of
-                // one list — each row already carries a 44pt tap target, so 16pt on top of that
-                // put three items in a card tall enough to look like it was padded by mistake,
-                // with gaps wide enough to read as tappable while hitting nothing. The rows now
-                // sit flush, their tap targets adjacent, and the `md` gap does the one job it is
-                // good at: separating the heading from the list.
-                VStack(spacing: 0) {
-                    if appModel.partnerConnected, appModel.needsFirstTrip {
-                        checklistRow(icon: .system("airplane.departure"), title: "Add your next trip") { showingAddTrip = true }
-                    }
-                    if appModel.partnerConnected, appModel.needsFirstFlight {
-                        checklistRow(icon: .asset("boarding-pass"), title: "Add your first flight") { showingAddFlight = true }
-                    }
-                    if appModel.needsHomeCities {
-                        checklistRow(icon: .system("location"), title: "Turn on location access") { showingLocationPermission = true }
+                    // Rows flush against each other, for the same reason the stack above is at
+                    // zero: each already carries a 44pt tap target, so any gap on top of that put
+                    // three items in a card tall enough to look padded by mistake, with spaces wide
+                    // enough to read as tappable while hitting nothing.
+                    VStack(spacing: 0) {
+                        if appModel.partnerConnected, appModel.needsFirstTrip {
+                            checklistRow(icon: .system("airplane.departure"), title: "Add your next trip") { showingAddTrip = true }
+                        }
+                        if appModel.partnerConnected, appModel.needsFirstFlight {
+                            checklistRow(icon: .asset("boarding-pass"), title: "Add your first flight") { showingAddFlight = true }
+                        }
+                        if appModel.needsHomeCities {
+                            checklistRow(icon: .system("location"), title: "Turn on location access") { showingLocationPermission = true }
+                        }
                     }
                 }
             }

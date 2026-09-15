@@ -35,6 +35,11 @@ struct ReviewPromptView: View {
 
     var body: some View {
         VStack(spacing: Theme.Spacing.lg) {
+            // Spacers rather than top/bottom padding, so the content sits in the middle of whatever
+            // height the detent gives it instead of at a fixed distance from the top. With padding
+            // it was centred only when the content happened to add up to the detent.
+            Spacer(minLength: 0)
+
             Text("🎉").font(.system(size: 48))
 
             VStack(spacing: Theme.Spacing.xs) {
@@ -66,10 +71,15 @@ struct ReviewPromptView: View {
                     .foregroundStyle(Theme.subtleInk)
             }
             .padding(.horizontal, Theme.Spacing.lg)
+
+            Spacer(minLength: 0)
         }
-        .padding(.top, Theme.Spacing.xl)
-        .padding(.bottom, Theme.Spacing.lg)
-        .frame(maxWidth: .infinity)
+        .padding(.vertical, Theme.Spacing.lg)
+        // `maxHeight: .infinity` is the fix. The stack sized itself to its content while the sheet
+        // was pinned at 300pt, so `.background` painted the content's height and the rest of the
+        // sheet was left bare — the gradient appeared cropped top and bottom because it was never
+        // drawn there. Filling the frame first gives the background the whole sheet to cover.
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.backgroundGradient.ignoresSafeArea())
         .presentationDetents([.height(300)])
         .presentationDragIndicator(.visible)
