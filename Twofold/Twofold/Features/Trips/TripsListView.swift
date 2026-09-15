@@ -53,23 +53,51 @@ struct TripsListView: View {
     @State private var showingBulkDeleteConfirm = false
     @State private var hapticTrigger = false
 
-    // Bumped up from 220 now that the header itself carries an extra row (the "Travel" title) and
-    // the carousel card itself grew a line (duration split onto its own line from the date range)
-    // — the old value was sized for a shorter header/card and was leaving the card cut off at the
-    // bottom of the panel's fixed height instead of comfortably visible. Bumped again (340 -> 416)
-    // to make room for `peekBottomClearance` replacing the old flat `.lg` bottom padding below the
-    // card — without a matching height increase, that extra padding would just have shoved the
-    // card upward against the header instead of actually growing the panel to fit it.
-    // Grown from 416, which was sized for a single card, to hold the second one `peekContent`
-    // now shows plus the `md` between them. Set by eye against the card's own intrinsic height
-    // (it has no fixed one — date range, duration line and travellers row), the same way every
-    // earlier value of this constant was, and like those it wants a look on device.
-    private let peekHeight: CGFloat = 583
-    /// Handle only — `browsePanelContent` renders nothing else at this detent. 44 is the handle's
-    /// own frame; the rest is the floating tab bar's clearance, for the same reason
-    /// `peekBottomClearance` exists: the tab bar sits outside this panel, so nothing here gets
-    /// bottom-safe-area inset from it, and a 44pt panel would sit behind it and be untouchable.
-    private let minimisedHeight: CGFloat = 44 + 100
+    /// The drag handle's own frame. `dragHandle` pins itself to exactly this, so the panel's own
+    /// arithmetic can rely on it rather than measuring it too.
+    private let dragHandleHeight: CGFloat = 44
+
+    /// Natural height of the header plus whatever `peekContent` is showing, measured rather than
+    /// guessed.
+    ///
+    /// This was a literal — 583, and 416, 340 and 220 before that — re-calibrated by eye every
+    /// time the header grew a row or the card grew a line. Every one of those values was wrong in
+    /// a way no constant could fix: what peek has to fit depends on the couple. `peekItemLimit`
+    /// cards, or one, or an empty-state hint are three different heights, and a number sized for
+    /// the busiest of them left everyone else looking at a panel two thirds full of gradient with
+    /// the globe hidden behind it.
+    ///
+    /// Measuring is right for all three, and for the Dynamic Type sizes no literal here was ever
+    /// checked against. `nil` until the first layout pass reports back.
+    @State private var measuredPeekBodyHeight: CGFloat?
+
+    /// Height of the "Travel" title on its own — what minimised has to keep on screen.
+    @State private var measuredTitleHeight: CGFloat?
+
+    /// Stands in only until the first measurement lands, which is the very next layout pass. It
+    /// is the last hand-calibrated value of `peekHeight`, so a measurement that never arrives
+    /// degrades to the behaviour this replaced rather than to a collapsed panel.
+    private let fallbackPeekHeight: CGFloat = 583
+
+    private var peekHeight: CGFloat {
+        guard let measuredPeekBodyHeight else { return fallbackPeekHeight }
+        return dragHandleHeight + measuredPeekBodyHeight
+    }
+
+    /// The handle, the title, and the floating tab bar's clearance — nothing else.
+    ///
+    /// Dragging down is meant to get the panel out of the globe's way, and it still does. What it
+    /// used to also do was take the title with it, leaving a slab of gradient with no title and no
+    /// content, which reads as a rendering fault rather than as a collapsed panel. The title is
+    /// what says the slab is the Travel panel, so it stays.
+    ///
+    /// The clearance is there for the same reason `peekBottomClearance` is: the tab bar sits
+    /// outside this panel, so nothing here gets bottom-safe-area inset from it, and a panel
+    /// shorter than the bar would sit behind it and be untouchable.
+    private var minimisedHeight: CGFloat {
+        dragHandleHeight + (measuredTitleHeight ?? 41) + Theme.Spacing.md + peekBottomClearance
+    }
+
     /// Same idea (and same value) as `bottomListClearance` below, just for the peek-height card
     /// instead of the expanded list — the floating tab bar sits *outside* this panel entirely (see
     /// this file's own header comment), so nothing here gets automatic bottom-safe-area clearance
@@ -185,8 +213,11 @@ struct TripsListView: View {
                     DraggablePanelHost(
                         content: browsePanelContent(settledDetent: settledDetent, expandedHeight: expandedHeight)
                             .background(Theme.backgroundGradient),
-                        minimisedHeight: minimisedHeight,
-                        peekHeight: peekHeight,
+                        // Both are measured now, so both are clamped here rather than trusted:
+                        // the detents have to stay ordered (minimised <= peek <= expanded) or the
+                        // drag has no room to resolve between them.
+                        minimisedHeight: min(minimisedHeight, expandedHeight),
+                        peekHeight: min(max(peekHeight, minimisedHeight), expandedHeight),
                         expandedHeight: expandedHeight,
                         cornerRadius: panelCornerRadius,
                         detent: $detent,
@@ -278,24 +309,48 @@ struct TripsListView: View {
         VStack(spacing: 0) {
             dragHandle
 
-            // Minimised is the handle and nothing else — the point of the state is that the globe
-            // underneath is unobstructed, and a header peeking out of a panel that is meant to be
-            // out of the way is just a smaller obstruction. The trailing `Spacer` is what keeps
-            // the panel's bottom corners rounded; see `peekContent` for why that is not obvious.
-            if settledDetent == .minimised {
-                Spacer(minLength: 0)
-            } else {
-                browseHeader
+            // The title is rendered at every detent, the controls and content only above
+            // minimised. Minimised used to be the handle and nothing else, on the reasoning that a
+            // panel meant to be out of the way should be entirely out of the way — but what that
+            // actually produced was a slab of gradient with no title and nothing in it, which
+            // reads as a screen that failed to draw rather than as a panel that collapsed.
+            VStack(spacing: 0) {
+                browseHeader(showingControls: settledDetent != .minimised)
 
                 if settledDetent == .peek {
                     peekContent
                         .transition(.opacity)
                 }
-
-                if settledDetent == .expanded {
-                    expandedContent
-                        .transition(.opacity)
+            }
+            // What `peekHeight` is built from. Measured here rather than inside `peekContent` so
+            // that it covers the header too, and so that the flexible `Spacer` below — which has
+            // no natural height of its own and would simply report back whatever height the panel
+            // already had — stays outside it.
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height in
+                // Only at rest, and only while peek is what's actually laid out. Mid-drag the
+                // panel is shorter than its content, so the stack is compressed and reports a
+                // height that would feed straight back into the height driving the compression.
+                guard !isDragging, settledDetent == .peek, height > 0 else { return }
+                guard let previous = measuredPeekBodyHeight else {
+                    // First measurement replaces `fallbackPeekHeight` in the same layout pass it
+                    // was used, so animating it would animate a value nobody ever saw.
+                    measuredPeekBodyHeight = height
+                    return
                 }
+                // Sub-point differences are re-layout noise, not a changed card count.
+                guard abs(height - previous) > 0.5 else { return }
+                withAnimation(panelAnimation) { measuredPeekBodyHeight = height }
+            }
+
+            if settledDetent == .expanded {
+                expandedContent
+                    .transition(.opacity)
+            } else {
+                // What keeps the panel's bottom corners rounded — see `peekContent` for why that
+                // is not obvious. It used to sit inside each of `peekContent`'s own branches;
+                // hoisted out here so that the measurement above doesn't include it, and so that
+                // minimised gets one too.
+                Spacer(minLength: 0)
             }
         }
         // Explicit, so the peek-card/full-list swap always cross-fades rather than popping —
@@ -313,7 +368,7 @@ struct TripsListView: View {
             .fill(Theme.subtleInk.opacity(0.35))
             .frame(width: 36, height: 5)
             .frame(maxWidth: .infinity)
-            .frame(height: 44)
+            .frame(height: dragHandleHeight)
             .contentShape(Rectangle())
             .accessibilityElement()
             .accessibilityLabel("Trip list")
@@ -327,13 +382,18 @@ struct TripsListView: View {
             }
     }
 
-    private var browseHeader: some View {
+    /// `showingControls` is false at the minimised detent, where the picker, the add button and
+    /// the selection bar all go and the title alone stays — see `minimisedHeight`.
+    private func browseHeader(showingControls: Bool) -> some View {
         // `lg` between title and tabs, and again between the header and whatever's below (see
         // this view's own `.padding(.bottom, lg)`) — matches the Stats tab's own title/tabs/card
         // rhythm (`PassportView`'s `VStack(spacing: Theme.Spacing.lg)`), rather than the tighter
         // `xs` this used before, which read noticeably more cramped side by side with Stats.
         VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
-            if isSelecting {
+            // Multi-select is only enterable from a row, so it can't be entered while minimised —
+            // but it can be left running *into* minimised, and a Cancel/Delete bar on a panel
+            // showing neither the rows it acts on nor a way back to them is worse than the title.
+            if isSelecting, showingControls {
                 selectionHeader
             } else {
                 // Matches Memories'/Games' own `.navigationTitle` weight — this panel is its own
@@ -343,46 +403,58 @@ struct TripsListView: View {
                 Text("Travel")
                     .font(.title.weight(.bold))
                     .foregroundStyle(Theme.ink)
+                    // Always on screen, so this never goes stale the way a measurement taken only
+                    // at one detent would.
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { measuredTitleHeight = $0 }
 
-                HStack(spacing: Theme.Spacing.md) {
-                    Picker("Section", selection: $tab) {
-                        ForEach(TripsTab.allCases, id: \.self) { option in
-                            Text(option.rawValue).tag(option)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-
-                    // Goes straight to whichever add flow matches the currently-visible tab — this
-                    // used to be a Menu offering both "Add Trip"/"Add Flight" regardless of `tab`,
-                    // an extra tap that was redundant with the picker already showing what you're
-                    // looking at. Only Flights still needs the partner gate — tracking depends on
-                    // couple_id server-side (AeroAPI polling, push fan-out); Trips already has a
-                    // solo-first local-then-sync path (`PendingTripStore`), same as onboarding's
-                    // pre-pairing add-trip flow.
-                    Button {
-                        switch tab {
-                        case .trips:
-                            showingAddTrip = true
-                        case .flights:
-                            // Flights still needs a partner — tracking is wired through
-                            // couple_id at the AeroAPI polling/push layer server-side, unlike
-                            // Trips which already has a solo-first local-then-sync path.
-                            guard appModel.partnerConnected else {
-                                showingPartnerGate = true
-                                return
+                if showingControls {
+                    HStack(spacing: Theme.Spacing.md) {
+                        Picker("Section", selection: $tab) {
+                            ForEach(TripsTab.allCases, id: \.self) { option in
+                                Text(option.rawValue).tag(option)
                             }
-                            showingAddFlight = true
                         }
-                    } label: {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.title2)
-                            .foregroundStyle(Theme.skyBlue)
+                        .pickerStyle(.segmented)
+
+                        // Goes straight to whichever add flow matches the currently-visible tab — this
+                        // used to be a Menu offering both "Add Trip"/"Add Flight" regardless of `tab`,
+                        // an extra tap that was redundant with the picker already showing what you're
+                        // looking at. Only Flights still needs the partner gate — tracking depends on
+                        // couple_id server-side (AeroAPI polling, push fan-out); Trips already has a
+                        // solo-first local-then-sync path (`PendingTripStore`), same as onboarding's
+                        // pre-pairing add-trip flow.
+                        Button {
+                            switch tab {
+                            case .trips:
+                                showingAddTrip = true
+                            case .flights:
+                                // Flights still needs a partner — tracking is wired through
+                                // couple_id at the AeroAPI polling/push layer server-side, unlike
+                                // Trips which already has a solo-first local-then-sync path.
+                                guard appModel.partnerConnected else {
+                                    showingPartnerGate = true
+                                    return
+                                }
+                                showingAddFlight = true
+                            }
+                        } label: {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.title2)
+                                .foregroundStyle(Theme.skyBlue)
+                        }
                     }
                 }
             }
         }
+        // `alignment: .leading` on the stack only places its children relative to each other — it
+        // is the picker row that was making the stack full width. Without the picker the stack
+        // shrank to the title and centred itself in the panel, so the title slid from the left
+        // edge to the middle on the way down and back again on the way up.
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, Theme.Spacing.md)
-        .padding(.bottom, Theme.Spacing.lg)
+        // Nothing sits below the title at minimised, so the gap that separates the header from
+        // the content would just be dead space above the tab bar clearance.
+        .padding(.bottom, showingControls ? Theme.Spacing.lg : 0)
     }
 
     /// Replaces the title/picker/add-button row while multi-selecting — this panel doesn't sit
@@ -430,8 +502,10 @@ struct TripsListView: View {
         switch tab {
         case .trips:
             if appModel.trips.isEmpty {
+                // The cards below carry this; the hint needs it for the same reason — the
+                // floating tab bar sits outside this panel, so nothing here is inset from it.
                 emptyTripsHint
-                Spacer(minLength: 0)
+                    .padding(.bottom, peekBottomClearance)
             } else {
                 let trips = Array(appModel.upcomingTrips.prefix(peekItemLimit))
                 VStack(spacing: Theme.Spacing.md) {
@@ -451,22 +525,16 @@ struct TripsListView: View {
                 // bottom-edge issue (the floating tab bar, not the corners).
                 .padding(.horizontal, Theme.Spacing.lg)
                 .padding(.bottom, peekBottomClearance)
-                // Without a trailing flexible spacer, this branch's content doesn't actually
-                // stretch to fill the panel's full imposed `peekHeight` the way the empty-state
-                // branch above (which already had one) does — and short of that, `DraggablePanelHost`'s
-                // `UIHostingController`-hosted corner-radius clip only fully resolved at the *top*
-                // of the panel; the bottom corners rendered dead flat/square instead of rounded,
-                // confirmed by cranking `panelCornerRadius` way up and watching the shape's sides
-                // curve in correctly but get hard-cut before closing. This one line is the fix.
-                Spacer(minLength: 0)
             }
         case .flights:
             // Gated on *tracked* flights specifically, not "ever had any flight" — a couple
             // with only past/completed flights and nothing currently tracked should still see
             // the "add a flight" hint here, not an empty carousel with nothing to tap.
             if appModel.activeOrUpcomingFlights.isEmpty {
+                // The cards below carry this; the hint needs it for the same reason — the
+                // floating tab bar sits outside this panel, so nothing here is inset from it.
                 emptyFlightsHint
-                Spacer(minLength: 0)
+                    .padding(.bottom, peekBottomClearance)
             } else {
                 let flights = Array(appModel.activeOrUpcomingFlights.prefix(peekItemLimit))
                 VStack(spacing: Theme.Spacing.md) {
@@ -479,11 +547,10 @@ struct TripsListView: View {
                         .buttonStyle(.plain)
                     }
                 }
-                // See the matching `TripCarouselCard` stack's own comments above — same shadow-
-                // into-corner-radius issue and same missing-bottom-rounding issue, same fixes.
+                // See the matching `TripCarouselCard` stack's own comment above — same shadow-
+                // into-corner-radius issue, same fix.
                 .padding(.horizontal, Theme.Spacing.lg)
                 .padding(.bottom, peekBottomClearance)
-                Spacer(minLength: 0)
             }
         }
     }
