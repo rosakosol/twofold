@@ -396,6 +396,17 @@ enum BackendService {
         try await supabase.rpc("spend_record_export_credit").execute().value
     }
 
+    /// Marks this account as used right now, which is the only thing keeping the dormancy timer
+    /// (20261029000100) from eventually closing it.
+    ///
+    /// This has to exist because `auth.users.last_sign_in_at` does not mean "last used" — it is
+    /// stamped on an actual sign-in, not on the token refreshes that keep somebody signed in for
+    /// years. Without this call the server would see every long-standing account as untouched
+    /// since the day it was created.
+    static func touchLastActive() async throws {
+        try await supabase.rpc("touch_last_active").execute()
+    }
+
     // MARK: - Blocking
 
     /// Blocks a profile, disconnecting them first if they are the current partner.

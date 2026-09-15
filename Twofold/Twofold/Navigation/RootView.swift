@@ -115,6 +115,14 @@ struct RootView: View {
             // anything until they have.
             consumePendingRoute()
             refreshCurrentCityIfNeeded()
+            // Here as well as in the foreground handler below, because `onChange(of: scenePhase)`
+            // does not fire on a cold launch — the phase is already `.active`, so nothing changes
+            // and nothing runs. Without this, someone who only ever opens the app fresh (rather
+            // than returning to it from the background) would never stamp their activity at all,
+            // and the dormancy timer would eventually close the account of somebody using the app
+            // daily. `touchLastActive()` is throttled to once a day, so having both callers costs
+            // nothing.
+            await appModel.touchLastActive()
         }
         // Entitlement changes as RevenueCat learns of them, rather than only at the next
         // foreground. A plan change made in Settings › Apple Account › Subscriptions never tells
@@ -158,6 +166,10 @@ struct RootView: View {
                     // auth-lock-contention reason above. Re-reported every foreground so the day
                     // boundary follows someone who travels — see `BackendService.updateDeviceContext`.
                     if appModel.hasCouple { try? await BackendService.updateDeviceContext() }
+                    // Same sequential Task, same auth-lock reason. Throttled to one round trip a
+                    // day inside `touchLastActive()`, and the only thing feeding the dormancy
+                    // timer — an account this never reaches eventually closes itself.
+                    await appModel.touchLastActive()
                 }
                 Task { await refreshPendingOutgoingConnectionRequestIfNeeded() }
                 refreshCurrentCityIfNeeded()

@@ -14,6 +14,18 @@ import Supabase
 import UserNotifications
 import WidgetKit
 
+private extension ISO8601DateFormatter {
+    /// Date only, for the dormancy touch throttle — see `AppModel.touchLastActive()`. Comparing
+    /// day strings rather than timestamps means the throttle rolls over at local midnight and
+    /// never has to reason about how long ago "a day" was.
+    static let dormancyDay: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withFullDate]
+        formatter.timeZone = .current
+        return formatter
+    }()
+}
+
 @Observable
 final class AppModel {
     var isLoadingSession = true
@@ -230,6 +242,34 @@ final class AppModel {
     /// Gated on `partnerConnected` so that a solo user is never told they are waiting on somebody
     /// who does not exist yet — `partner` is a placeholder until a couple is formed.
     var needsPartnerHomeCity: Bool { partnerConnected && partner.homeCity == nil }
+
+    /// Tells the server this account is in use, at most once a day.
+    ///
+    /// The dormancy timer (20261029000100) closes accounts nobody has opened in two years, and
+    /// this is the only thing that feeds it. `auth.users.last_sign_in_at` cannot: it is stamped on
+    /// an actual sign-in, not on the token refreshes that keep somebody signed in indefinitely, so
+    /// without this call a person who opens the app every morning would still look untouched since
+    /// the day they installed it.
+    ///
+    /// Throttled on a plain `UserDefaults` date string rather than `@AppStorage`, which is a
+    /// `DynamicProperty` and only actually observes anything inside a `View`. Day resolution is
+    /// all that is wanted — the value it feeds is measured in months, and a write per foreground
+    /// would be a round trip per foreground for nothing.
+    ///
+    /// Deliberately silent on failure. Missing a day changes nothing (the next foreground stamps
+    /// it), and there is no version of "we could not record that you were here" worth interrupting
+    /// somebody to say.
+    func touchLastActive() async {
+        let key = "dormancy.lastTouchedOn"
+        let today = ISO8601DateFormatter.dormancyDay.string(from: .now)
+        guard UserDefaults.standard.string(forKey: key) != today else { return }
+        do {
+            try await BackendService.touchLastActive()
+            UserDefaults.standard.set(today, forKey: key)
+        } catch {
+            // Next foreground tries again.
+        }
+    }
 
     var activeTrip: Trip? {
         trips.first { $0.isActive }
