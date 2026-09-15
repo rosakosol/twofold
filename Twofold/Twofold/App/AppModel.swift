@@ -219,7 +219,17 @@ final class AppModel {
     var needsPartnerInvite: Bool { !partnerConnected }
     var needsFirstTrip: Bool { trips.isEmpty }
     var needsFirstFlight: Bool { !trips.contains { !$0.flights.isEmpty } }
-    var needsHomeCities: Bool { couple.partnerA.homeCity == nil || couple.partnerB.homeCity == nil }
+    /// Split in two, because only one of the two missing cities is the current user's to fix.
+    ///
+    /// This was a single `needsHomeCities` — "either of them is missing" — which put "Turn on
+    /// location access" in front of people who had already turned it on. The city that was
+    /// missing was their partner's, and nothing they did on this device was ever going to fill
+    /// it in, so the row sat there permanently with no way to complete it.
+    var needsOwnHomeCity: Bool { currentUser.homeCity == nil }
+
+    /// Gated on `partnerConnected` so that a solo user is never told they are waiting on somebody
+    /// who does not exist yet — `partner` is a placeholder until a couple is formed.
+    var needsPartnerHomeCity: Bool { partnerConnected && partner.homeCity == nil }
 
     var activeTrip: Trip? {
         trips.first { $0.isActive }

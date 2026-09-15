@@ -130,9 +130,14 @@ struct HomeView: View {
                         } else if let distanceKm {
                             distanceCard(distanceKm: distanceKm, myCity: myCity, partnerCity: partnerCity)
                         }
-                    } else {
+                    } else if appModel.needsOwnHomeCity {
                         homeCityPromptCard
+                    } else if appModel.needsPartnerHomeCity {
+                        partnerHomeCityPendingCard
                     }
+                    // Nothing in the remaining case — a solo user who has set their own city. There
+                    // is no distance to show and nobody to wait on, and `invitePartnerCard` above
+                    // already owns the "connect with someone" prompt.
                     if appModel.partnerConnected {
                         DrawingPadCard()
                     }
@@ -348,8 +353,7 @@ struct HomeView: View {
         // `invitePartnerCard` above already owns that prompt, so this checklist only ever shows
         // those two rows once a partner exists. "Turn on location access" is independent of
         // partner status and still shows regardless.
-        let showsTripOrFlightRow = appModel.partnerConnected && (appModel.needsFirstTrip || appModel.needsFirstFlight)
-        if !appModel.setupChecklistDismissed && (showsTripOrFlightRow || appModel.needsHomeCities) {
+        if !appModel.setupChecklistDismissed, !checklistItems.isEmpty {
             SectionCard {
                 // One child, not two. `SectionCard` spaces its children by `md` (16), which is
                 // right between a card's distinct parts — but the header here is not a distinct
@@ -502,7 +506,10 @@ struct HomeView: View {
         if appModel.partnerConnected, appModel.needsFirstFlight {
             items.append(ChecklistItem(id: "flight", icon: .asset("boarding-pass"), title: "Add your first flight", action: { showingAddFlight = true }))
         }
-        if appModel.needsHomeCities {
+        // Own city only. This row is an instruction to use this device's location permission, so
+        // it has no business appearing when the city that is missing is the partner's — see
+        // `AppModel.needsOwnHomeCity`.
+        if appModel.needsOwnHomeCity {
             items.append(ChecklistItem(id: "location", icon: .system("location"), title: "Turn on location access", action: { showingLocationPermission = true }))
         }
         return items
@@ -724,6 +731,30 @@ struct HomeView: View {
                 }
             }
             .buttonStyle(.plain)
+        }
+    }
+
+    /// Shown when the only missing city is the partner's.
+    ///
+    /// Deliberately not a button. `homeCityPromptCard`'s tap opens the location permission screen,
+    /// which sets *this* device's city — offering it here would ask somebody to grant a permission
+    /// they have already granted, and leave the map exactly as dark afterwards.
+    private var partnerHomeCityPendingCard: some View {
+        SectionCard {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("See the distance between you")
+                        .font(.headline)
+                    Text("\(appModel.partner.name) needs to turn on location access before the map can light up.")
+                        .font(.caption)
+                        .foregroundStyle(Theme.subtleInk)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+                // Subdued rather than `skyBlue`: nothing here is tappable, and the accent colour
+                // is what tells the rest of this screen that something is.
+                Image(systemName: "map").foregroundStyle(Theme.subtleInk)
+            }
         }
     }
 
