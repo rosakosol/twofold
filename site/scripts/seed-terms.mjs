@@ -94,6 +94,12 @@ const body = [
     `Twofold Plus and Twofold Premium are auto-renewing subscriptions, available monthly or yearly. Some features need an active subscription; which ones is set out on the pricing page and may change as the app develops.`
   ),
   p(
+    span(`What a subscription buys is the ability to add. `, 'strong'),
+    span(
+      `Adding trips, memories, flights and the daily question needs an active subscription. Everything already in your account does not: with no subscription you can still open the app, read all of it, export it and delete it, for as long as the account exists. We don't lock you out of your own history, and we don't hold it to ransom.`
+    )
+  ),
+  p(
     span(`Either partner's active subscription unlocks the corresponding features for both of you. `, 'strong'),
     span(`Only one of you needs to subscribe.`)
   ),
@@ -114,10 +120,31 @@ const body = [
     `If we change our prices, we'll tell you before the change applies to you, and you'll be able to cancel before it takes effect.`
   ),
 
+  // ------------------------------------------------------------- dormancy
+  h2('Accounts nobody uses'),
+  ptext(
+    `If nobody opens your account for two years, we close it and delete what's in it.`
+  ),
+  bullet(
+    `This is about use, not payment. A lapsed subscription never starts this clock - an account that's opened now and again is kept indefinitely, subscription or no subscription.`
+  ),
+  bullet(
+    `If you're connected to someone, it's the two of you together: either of you opening the app keeps both accounts and your whole shared history.`
+  ),
+  bullet(
+    `We'll email you 30 days before, and again 7 days before. Opening the app is all it takes to stop it, and there's nothing to confirm or reply to.`
+  ),
+  bullet(
+    `When it happens, the accounts close the way a deleted account does, and anything you shared is deleted on the usual 90-day archive timer described below.`
+  ),
+
   // ------------------------------------------------- cancellation & refunds
   h2('Cancelling and refunds'),
   bullet(
     `Cancel any time. You keep access until the end of the period you've already paid for, and we don't pro-rate a partial period.`
+  ),
+  bullet(
+    `After that, the account carries on read-only: your trips, memories, photos, flights and answers stay where they are and stay exportable, and adding new ones is what needs a subscription again. The same applies if your partner is the one who was paying, or if they end the connection.`
   ),
   bullet(
     `Refunds for App Store purchases are handled by Apple under their own policies - we can't issue them.`

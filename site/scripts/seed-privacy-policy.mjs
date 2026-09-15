@@ -129,6 +129,9 @@ const body = [
   bullet(
     `Technical logs. Our hosting providers record standard request information - IP address, timestamps, error details - needed to operate and secure the service.`
   ),
+  bullet(
+    `When you last used the app. Once a day, when you open Twofold, we record that you opened it - a single timestamp, and nothing about what you did. It is what the two-year rule under "How long we keep it" reads. Each one replaces the last, so it is always a single date and never a history of your comings and goings.`
+  ),
 
   // ------------------------------------------------------------- location
   h2('Location'),
@@ -317,12 +320,14 @@ const body = [
 
   // ------------------------------------------------------------- retention
   h2('How long we keep it'),
-  bullet(`Your account and content are kept for as long as your account exists.`),
+  bullet(
+    `Your account and content are kept for as long as you use Twofold. If nobody opens the account for two years we close it and delete what's in it - we'll email you 30 days and 7 days beforehand, and opening the app is all it takes to stop it. This is based on use, not on whether you're subscribed: a lapsed subscription never starts that clock. If you're connected to someone, either of you opening the app keeps both accounts.`
+  ),
   bullet(
     `After you delete your account, your identifying profile fields are cleared straight away. An empty profile record and a permanently disabled login are kept so the account can't be restored or recreated.`
   ),
   bullet(
-    `Shared content is kept for as long as you're connected. Once a connection ends, the archive of it is kept for 90 days and then permanently deleted for both of you, automatically - unless you reconnect within that time, in which case it becomes live again and the deletion date goes away.`
+    `Shared content is kept for as long as you're connected. Once a connection ends, the archive of it is kept for 90 days and then permanently deleted for both of you, automatically - unless you reconnect within that time, in which case it becomes live again and the deletion date goes away. An account closed for two years of inactivity ends the connection the same way, so the longest we hold shared content after the last time anyone opened the app is two years and 90 days.`
   ),
   bullet(`Invite redemption records are deleted automatically an hour after they're written.`),
   bullet(`Rate-limiting records are deleted automatically, and none is kept longer than a day.`),
