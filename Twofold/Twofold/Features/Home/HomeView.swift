@@ -381,19 +381,21 @@ struct HomeView: View {
                         .accessibilityLabel("Dismiss")
                     }
 
-                    // Rows flush against each other, for the same reason the stack above is at
-                    // zero: each already carries a 44pt tap target, so any gap on top of that put
-                    // three items in a card tall enough to look padded by mistake, with spaces wide
-                    // enough to read as tappable while hitting nothing.
+                    // Rows flush against each other, separated by a rule rather than by space —
+                    // each already carries a 44pt tap target, so a gap on top of that put three
+                    // items in a card tall enough to look padded by mistake, with spaces wide
+                    // enough to read as tappable while hitting nothing. The rule does the
+                    // separating that the space was failing to do, the same way `nextReunionCard`
+                    // divides its two halves.
                     VStack(spacing: 0) {
-                        if appModel.partnerConnected, appModel.needsFirstTrip {
-                            checklistRow(icon: .system("airplane.departure"), title: "Add your next trip") { showingAddTrip = true }
-                        }
-                        if appModel.partnerConnected, appModel.needsFirstFlight {
-                            checklistRow(icon: .asset("boarding-pass"), title: "Add your first flight") { showingAddFlight = true }
-                        }
-                        if appModel.needsHomeCities {
-                            checklistRow(icon: .system("location"), title: "Turn on location access") { showingLocationPermission = true }
+                        ForEach(Array(checklistItems.enumerated()), id: \.element.id) { index, item in
+                            // Between rows only. A divider written next to each row would leave a
+                            // stray rule above the first or below the last, and which row is first
+                            // changes as they get completed.
+                            if index > 0 {
+                                Divider()
+                            }
+                            checklistRow(icon: item.icon, title: item.title, action: item.action)
                         }
                     }
                 }
@@ -475,6 +477,35 @@ struct HomeView: View {
         async let everything: Void = appModel.refreshAll()
         async let weather: Void = refreshWeatherIfNeeded(force: true)
         _ = await (everything, weather)
+    }
+
+    /// One row of the setup checklist.
+    ///
+    /// The rows are gathered into a list rather than written as three `if`s inside the stack, so
+    /// that the dividers can sit *between* them. Inline conditionals give no way to ask whether a
+    /// given row is the first one still showing — and that changes as rows get completed, so it
+    /// cannot be hard-coded either.
+    private struct ChecklistItem: Identifiable {
+        let id: String
+        let icon: ChecklistIcon
+        let title: String
+        let action: () -> Void
+    }
+
+    /// Trip and flight rows need a connected partner to make sense — see `setupChecklistCard`,
+    /// which uses the same conditions to decide whether the card appears at all.
+    private var checklistItems: [ChecklistItem] {
+        var items: [ChecklistItem] = []
+        if appModel.partnerConnected, appModel.needsFirstTrip {
+            items.append(ChecklistItem(id: "trip", icon: .system("airplane.departure"), title: "Add your next trip", action: { showingAddTrip = true }))
+        }
+        if appModel.partnerConnected, appModel.needsFirstFlight {
+            items.append(ChecklistItem(id: "flight", icon: .asset("boarding-pass"), title: "Add your first flight", action: { showingAddFlight = true }))
+        }
+        if appModel.needsHomeCities {
+            items.append(ChecklistItem(id: "location", icon: .system("location"), title: "Turn on location access", action: { showingLocationPermission = true }))
+        }
+        return items
     }
 
     enum ChecklistIcon {
