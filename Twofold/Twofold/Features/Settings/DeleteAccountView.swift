@@ -28,7 +28,7 @@ struct DeleteAccountView: View {
     @State private var isDeleting = false
     @State private var errorMessage: String?
 
-    /// Dissolved couples still sitting in Settings → Archived Data. Loaded on appear so the
+    /// Dissolved couples still sitting in Settings → Help → Archived Data. Loaded on appear so the
     /// shared-history rows below are only shown to someone who actually has some; a user who has
     /// never connected to anyone shouldn't be told what happens to a history they don't have.
     @State private var archivedCoupleCount = 0
@@ -76,7 +76,7 @@ struct DeleteAccountView: View {
                                 ? "It's already counting down to the date shown on it in Archived Data, and is permanently deleted then. Deleting your account doesn't change that date."
                                 : "They're already counting down to the dates shown on them in Archived Data, and are permanently deleted then. Deleting your account doesn't change those dates.")
                             explainerRow(icon: "arrow.uturn.backward.circle", text: "Reconnecting with someone before their archive expires would offer it back to you. Deleting your account ends that — your account won't exist to reconnect with.")
-                            explainerRow(icon: "square.and.arrow.down", text: "If you want to keep a copy, export it from Settings → Archived Data before you delete your account — you won't be able to sign in to get it afterwards.")
+                            explainerRow(icon: "square.and.arrow.down", text: "If you want to keep a copy, export it from Settings → Help → Archived Data before you delete your account — you won't be able to sign in to get it afterwards.")
                         }
                     }
                 }

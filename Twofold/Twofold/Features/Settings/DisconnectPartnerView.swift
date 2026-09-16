@@ -58,15 +58,6 @@ struct DisconnectPartnerView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: Theme.Spacing.md) {
-                SectionCard {
-                    NavigationLink {
-                        ArchivedDataView()
-                    } label: {
-                        SettingsRow(title: "Archived Data", systemImage: "archivebox")
-                    }
-                    .buttonStyle(.plain)
-                }
-
                 // Above Disconnect, because someone who needs this needs it before they need to
                 // decide what happens to a shared history — and because reporting should not
                 // require ending the relationship first.
@@ -209,7 +200,7 @@ struct DisconnectPartnerView: View {
     }
 
     private var disconnectWarningMessage: String {
-        let base = "This will archive all your shared trips, memories, flights, game sessions, stats, and drawings with \(appModel.partner.name) — they'll only be visible afterward in Settings' Archived Data. You'll be able to connect with someone new right away."
+        let base = "This will archive all your shared trips, memories, flights, game sessions, stats, and drawings with \(appModel.partner.name) — they'll only be visible afterward in Settings → Help → Archived Data. You'll be able to connect with someone new right away."
         if wouldLosePaidAccess {
             return base + "\n\n\(appModel.partner.name) is the one paying for your Twofold subscription — disconnecting will drop you back to the free plan, since you won't be covered by their purchase anymore."
         }

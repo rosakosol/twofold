@@ -76,31 +76,6 @@ struct SettingsView: View {
                             )
                         }
                         .buttonStyle(.plain)
-
-                        Divider()
-
-                        // Here, unconditionally, because "Settings → Archived Data" is what half a
-                        // dozen pieces of copy already tell people — Home's subscription-ended
-                        // card, Delete Account, Disconnect, and both published documents.
-                        //
-                        // It was reachable only through Help → Disconnect my partner → Archived
-                        // Data, and that row is gated on `partnerConnected`, so the one route
-                        // vanished at exactly the moment it mattered: somebody whose partner had
-                        // just left was told their trips, memories and photos were in Settings →
-                        // Archived Data and could be exported from there, with no way to get
-                        // there — while a 90-day deletion timer ran on the archive.
-                        //
-                        // Ungated for the same reason it is not under Help: a person looking for
-                        // the only copy of a shared history before it is deleted is not browsing,
-                        // and should not have to guess that it lives behind a support menu.
-                        // `ArchivedDataView` has its own "No archived data" state, so there is
-                        // nothing to hide from someone who has none.
-                        NavigationLink {
-                            ArchivedDataView()
-                        } label: {
-                            SettingsRow(title: "Archived Data", systemImage: "archivebox")
-                        }
-                        .buttonStyle(.plain)
                     }
 
                     // Subscribed if *either* source says so, the same three-way reading RootView's

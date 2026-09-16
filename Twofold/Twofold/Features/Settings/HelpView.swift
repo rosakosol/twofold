@@ -39,6 +39,26 @@ struct HelpView: View {
                         .buttonStyle(.plain)
                     }
 
+                    // Ungated, and the only route to this screen.
+                    //
+                    // It used to live inside "Disconnect my partner" below, which is gated on
+                    // `partnerConnected` — so it disappeared at exactly the moment it started
+                    // mattering. The subscription-ended card, Delete Account and both published
+                    // documents all tell somebody whose partner has just left to come here and
+                    // export before the archive's 90 days run out, and for that person there was
+                    // no way in.
+                    //
+                    // Shown even with no archives: `ArchivedDataView` has its own "No archived
+                    // data" state, and a row that is sometimes missing is how this went wrong.
+                    Divider()
+
+                    NavigationLink {
+                        ArchivedDataView()
+                    } label: {
+                        SettingsRow(title: "Archived Data", systemImage: "archivebox")
+                    }
+                    .buttonStyle(.plain)
+
                     // Only meaningful once there's an actual partner to disconnect from —
                     // reachable pre-connection otherwise makes no sense.
                     if appModel.partnerConnected {

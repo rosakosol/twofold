@@ -293,7 +293,7 @@ struct HomeView: View {
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Theme.ink)
 
-                Text("\(partnerName) was covering your Twofold subscription, and your connection with them has ended. Nothing has been deleted — your trips, memories and photos are in Settings → Archived Data, and you can export them from there.")
+                Text("\(partnerName) was covering your Twofold subscription, and your connection with them has ended. Nothing has been deleted — your trips, memories and photos are in Settings → Help → Archived Data, and you can export them from there.")
                     .font(.caption)
                     .foregroundStyle(Theme.subtleInk)
                     .fixedSize(horizontal: false, vertical: true)

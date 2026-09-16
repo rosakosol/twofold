@@ -172,7 +172,7 @@ const body = [
   ),
   bullet(`While you're connected, both of you can see all of it.`),
   bullet(
-    `Ending a connection - by removing your partner, or by either of you deleting an account - archives it. It stays readable to both of you in Settings → Archived Data, but neither of you can change it any more.`
+    `Ending a connection - by removing your partner, or by either of you deleting an account - archives it. It stays readable to both of you in Settings → Help → Archived Data, but neither of you can change it any more.`
   ),
   li(
     span(`An archive is kept for 90 days, and is then permanently deleted for both of you. `, 'strong'),
@@ -192,7 +192,7 @@ const body = [
   p(
     span(`Export anything you want to keep before the 90 days are up, and before you delete your account. `, 'strong'),
     span(
-      `Settings → Archived Data will give you the trips, memories, flights and games as files you can open without Twofold, with the photos alongside them. Once an archive is deleted it is gone for both of you, and we cannot recover it.`
+      `Settings → Help → Archived Data will give you the trips, memories, flights and games as files you can open without Twofold, with the photos alongside them. Once an archive is deleted it is gone for both of you, and we cannot recover it.`
     )
   ),
   ptext(
