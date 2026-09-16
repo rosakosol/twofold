@@ -17,6 +17,10 @@ struct WordGuessGameView: View {
     @Environment(AppModel.self) private var appModel
     @State private var store: WordGuessGameStore
     @State private var isSendingReminder = false
+    /// Natural height of whatever `finishedSection` is showing — the waiting card or the full
+    /// comparison. Measured so the finished board can be sized from what is left over rather than
+    /// from the screen's width alone; see `content`.
+    @State private var finishedSectionHeight: CGFloat = 0
     @State private var showingReminderSent = false
     /// Toggled the moment both results exist. Toggled rather than set, because `ConfettiBurstView`
     /// animates on any *change* of its trigger.
@@ -105,6 +109,31 @@ struct WordGuessGameView: View {
         .postHogScreenView("Games: Word Guess")
     }
 
+    /// The tile size for a finished board, given the space and how much of it the card wants.
+    ///
+    /// A free function rather than inline in the body so it can be tested: the case that matters
+    /// is a screen too small to hold both at full size, and that is tedious to stage on a
+    /// simulator and trivial to assert on directly.
+    static func finishedTileSide(width: CGFloat, height: CGFloat, cardHeight: CGFloat) -> CGFloat {
+        // Vertical padding top and bottom, plus the gap between board and card.
+        let chrome = Theme.Spacing.md * 3
+        let leftOver = height - chrome - cardHeight
+        return max(
+            minFinishedTileSide,
+            min(
+                WordGuessBoardView.tileSide(forWidth: width - Theme.Spacing.md * 2),
+                WordGuessBoardView.tileSide(forHeight: leftOver)
+            )
+        )
+    }
+
+    /// How small the finished board may get before scrolling takes over instead.
+    ///
+    /// Five tiles across at this size is about 180pt wide — readable as a record of the game, and
+    /// well past the point where shrinking further would be worse than a scroll. Only reached by a
+    /// card that is unusually tall: the comparison view, or a large accessibility text size.
+    static let minFinishedTileSide: CGFloat = 34
+
     @ViewBuilder
     private var content: some View {
         if let play = store.play {
@@ -117,9 +146,28 @@ struct WordGuessGameView: View {
                 // proposes unbounded height to its content, so a reader *inside* one has no
                 // height to report and the board would size its tiles off nothing.
                 GeometryReader { proxy in
-                    let side = WordGuessBoardView.tileSide(
-                        forWidth: proxy.size.width - Theme.Spacing.md * 2
+                    // The board takes what is left after the card, not everything the width
+                    // allows.
+                    //
+                    // Sized from width alone, six rows of width/5 tiles came to ~445pt on a 402pt
+                    // phone, leaving the finished card a few points short of what it needed — so
+                    // the reminder button sat just below the fold and the one action on the screen
+                    // had to be scrolled to. Shrinking the tiles a little costs nothing here: the
+                    // board is a record of a game already over, not something being played.
+                    //
+                    // No feedback loop, because the card's height depends on the width it is given
+                    // and not on the board, so this settles in one pass. `finishedSectionHeight`
+                    // starts at 0, which makes the first pass identical to the old width-only
+                    // behaviour before the measurement lands.
+                    let side = Self.finishedTileSide(
+                        width: proxy.size.width,
+                        height: proxy.size.height,
+                        cardHeight: finishedSectionHeight
                     )
+                    // Still a ScrollView. `WordGuessComparisonView` is the other thing this branch
+                    // shows and it can legitimately outgrow any screen, and an accessibility text
+                    // size can outgrow the floor above — in both cases scrolling is the right
+                    // answer rather than a board crushed to nothing.
                     ScrollView {
                         VStack(spacing: Theme.Spacing.md) {
                             WordGuessBoardView(
@@ -131,6 +179,9 @@ struct WordGuessGameView: View {
 
                             finishedSection(play: play)
                                 .padding(.horizontal, Theme.Spacing.md)
+                                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: {
+                                    finishedSectionHeight = $0
+                                }
                         }
                         .padding(.vertical, Theme.Spacing.md)
                         .frame(maxWidth: .infinity)
@@ -295,16 +346,21 @@ struct WordGuessGameView: View {
     private func waitingSummary(play: WordGuessPlayState) -> some View {
         SectionCard {
             VStack(spacing: Theme.Spacing.sm) {
-                Image(systemName: play.isSolved ? "checkmark.seal.fill" : "clock.badge.xmark")
-                    .font(.largeTitle)
-                    .foregroundStyle(play.isSolved ? Theme.leafGreen : Theme.subtleInk)
+                // Glyph beside the result rather than stacked above it. Centred and stacked, the
+                // icon cost a whole line of its own and pushed the reminder button below the fold
+                // on a board this tall — see `content` for the other half of that fix.
+                HStack(spacing: Theme.Spacing.sm) {
+                    Image(systemName: play.isSolved ? "checkmark.seal.fill" : "clock.badge.xmark")
+                        .font(.title2)
+                        .foregroundStyle(play.isSolved ? Theme.leafGreen : Theme.subtleInk)
 
-                Text(play.isSolved
-                     ? "Got it in \(WordGuessComparison.guessText(play.guesses.count))"
-                     : "Out of guesses")
-                    .font(.title3.weight(.bold))
-                    .foregroundStyle(Theme.ink)
-                    .multilineTextAlignment(.center)
+                    Text(play.isSolved
+                         ? "Got it in \(WordGuessComparison.guessText(play.guesses.count))"
+                         : "Out of guesses")
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(Theme.ink)
+                }
+                .multilineTextAlignment(.center)
 
                 // The word is told either way. Somebody who missed it and is never shown the answer
                 // has been given a puzzle with no ending — and they will find out from their
@@ -314,7 +370,10 @@ struct WordGuessGameView: View {
                     .foregroundStyle(Theme.ink)
 
                 if appModel.hasCouple {
-                    Text("Your result is saved. You'll see how it compares once \(appModel.partner.name) has played theirs.")
+                    // Shorter than it was ("Your result is saved. You'll see how it compares
+                    // once ... has played theirs."), which ran to three lines on a narrow phone
+                    // and said twice over what the card already shows by existing.
+                    Text("You'll see how it compares once \(appModel.partner.name) has played.")
                         .font(.caption)
                         .foregroundStyle(Theme.subtleInk)
                         .multilineTextAlignment(.center)
