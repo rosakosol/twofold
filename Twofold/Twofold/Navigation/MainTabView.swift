@@ -19,9 +19,11 @@ struct MainTabView: View {
     /// binding rather than passed by value so clearing it there is visible to whoever set it.
     @Binding var statsSection: StatsSection?
 
-    #if DEBUG
+    /// Not `#if DEBUG`, though it was until the "Not saved" alert below started reading it.
+    /// That alert ships in every configuration, so a Debug-only property made Release fail to
+    /// compile — and every build in this repo's own loop is `-configuration Debug`, so nothing
+    /// caught it until an archive did.
     @Environment(AppModel.self) private var appModel
-    #endif
 
     init(selection: Binding<MainTab> = .constant(.home), statsSection: Binding<StatsSection?> = .constant(nil)) {
         _selection = selection
