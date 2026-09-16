@@ -2,9 +2,14 @@
 //  ArchivedDataView.swift
 //  Twofold
 //
-//  Read-only history of past partnerships — reachable only from Settings. Removing a partner
-//  (see SettingsView) dissolves the couple rather than deleting it, so everything shared with
-//  them lands here instead of vanishing outright.
+//  Read-only history of past partnerships, reached from Settings -> Archived Data. Removing a
+//  partner dissolves the couple rather than deleting it, so everything shared with them lands here
+//  instead of vanishing outright.
+//
+//  That row is deliberately ungated. This screen used to be reachable only through Help ->
+//  Disconnect my partner, which is gated on having a partner — so it disappeared for exactly the
+//  people whose archive had just started its 90-day countdown, while several places in the app and
+//  both published documents told them to come here and export it.
 //
 //  There is no delete button here, and that is the design rather than an omission. This screen
 //  used to offer "Delete Permanently", which destroyed the shared archive for *both* people on one
