@@ -37,6 +37,15 @@ enum PendingMemoryStore {
     /// "survive a relaunch." Returns the memory with its local-URL photos attached, ready to
     /// append straight into `AppModel.memories`.
     @discardableResult
+    /// Everything drafted but not yet synced, including the photo files.
+    ///
+    /// Same reasoning as `PendingTripStore.clear()`, and more to lose: a drafted memory carries
+    /// its photo bytes, so the next account on the device inherited the previous one's pictures
+    /// and uploaded them into its own couple's archive on pairing.
+    static func clear() {
+        try? FileManager.default.removeItem(at: directory)
+    }
+
     static func save(memory: Memory, photosData: [Data]) -> Memory {
         var memory = memory
         var photos: [MemoryPhoto] = []

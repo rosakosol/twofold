@@ -65,6 +65,16 @@ enum PendingTripStore {
     }
 
     /// Persists (or re-persists, if `notes` changed) a trip that isn't synced yet.
+    /// Everything drafted but not yet synced, thrown away.
+    ///
+    /// Called on sign-out and account deletion. These manifests are not scoped to a user — the
+    /// directory is one flat pile and `loadAll()` returns all of it — so without this the next
+    /// account to sign in on the device restored the previous one's drafted trips, and
+    /// `performAdopt` then flushed them into *its* couple. A display leak that ended as a write.
+    static func clear() {
+        try? FileManager.default.removeItem(at: directory)
+    }
+
     static func save(_ trip: Trip) {
         guard let data = try? JSONEncoder().encode(Manifest(trip: trip)) else { return }
         try? data.write(to: manifestURL(for: trip.id), options: .atomic)

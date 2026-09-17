@@ -798,6 +798,14 @@ final class AppModel {
         // falls back to the bundled seed until their own refresh runs, rather than inheriting a
         // copy fetched under someone else's subscription tier.
         GameContentStore.clear()
+        // Drafted-but-unsynced trips and memories. Neither store is scoped to a user and both are
+        // restored unconditionally by `loadSignedInState`, so the next account inherited the
+        // previous one's drafts — and `performAdopt` flushes those to the backend, which turned an
+        // inherited draft into a write into somebody else's couple. The memory drafts carry their
+        // photo bytes too.
+        PendingTripStore.clear()
+        PendingMemoryStore.clear()
+        clearAccountScopedDefaults()
         MemoryPhotoDiskCache.clear()
         RemoteImageDiskCache.clear()
         WidgetSnapshot.clear()
@@ -809,6 +817,25 @@ final class AppModel {
         UNUserNotificationCenter.current().removeAllDeliveredNotifications()
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
         resetAccountScopedState()
+    }
+
+    /// The two `UserDefaults` keys that belong to the account rather than to the device.
+    ///
+    /// `dormancy.lastTouchedOn` throttles `touchLastActive()` to one call a day. Left behind, an
+    /// account signing in after another one had already touched today would skip its own stamp,
+    /// and the dormancy timer reads nothing else.
+    ///
+    /// `streakRepairOfferedForMissedDate` records the day a repair was offered for, so a new
+    /// account inherited a suppressed offer for a streak that was never theirs.
+    ///
+    /// Deliberately not here: `appLockEnabled`, which is a device security preference, and the
+    /// `reviewPrompt.*` keys, which exist to stop pestering *the person holding the phone* — the
+    /// App Store's own prompt is rate-limited per device regardless, so clearing them would only
+    /// mean asking somebody who already said yes a second time.
+    private func clearAccountScopedDefaults() {
+        for key in ["dormancy.lastTouchedOn", "streakRepairOfferedForMissedDate"] {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
     }
 
     /// Every stored property on this class that belongs to the signed-in account or its couple.
