@@ -61,11 +61,17 @@ enum MemoryPhotoImport {
         items.map { ($0, $0.itemIdentifier ?? UUID().uuidString) }
     }
 
+    /// Names the usual cause, because "try again" on its own is advice that fails the same way.
+    ///
+    /// The common failure is an iCloud photo whose full-size copy is not on the device yet:
+    /// `loadTransferable` has to fetch it, and that is what times out. Opening the photo in Photos
+    /// once pulls it down and makes the next attempt work — which is the actual fix, and nothing
+    /// here used to say so.
     static func failureMessage(count: Int) -> String? {
         switch count {
         case 0: nil
-        case 1: "Couldn't load that photo — try selecting it again."
-        default: "Couldn't load \(count) of those photos — try selecting them again."
+        case 1: "Couldn't load that photo. If it's stored in iCloud, open it in Photos once to download it, then try again."
+        default: "Couldn't load \(count) of those photos. If they're stored in iCloud, open them in Photos once to download them, then try again."
         }
     }
 }
@@ -179,6 +185,7 @@ struct MemoryPhotosSheet: View {
             .onChange(of: picked) { _, items in
                 Task { await add(items) }
             }
+            .animation(.easeInOut(duration: 0.2), value: errorMessage)
         }
     }
 
@@ -192,15 +199,35 @@ struct MemoryPhotosSheet: View {
                     ProgressView().controlSize(.small)
                 }
                 Spacer(minLength: 0)
-                if let errorMessage {
-                    Text(errorMessage)
-                        .font(.caption2)
-                        .foregroundStyle(Theme.heartRed)
-                        .lineLimit(1)
-                }
             }
             .padding(.horizontal, Theme.Spacing.md)
             .padding(.top, Theme.Spacing.sm)
+
+            // Its own row, wrapping, with a glyph.
+            //
+            // This was a `caption2` pinned to one line in the header above, beside "No photos
+            // yet" — so when every photo in a selection failed to load, which is the case that
+            // matters, the screen looked like nothing had happened and the only explanation was
+            // a truncated whisper. A failure that produces no photos has to be more visible than
+            // the photos would have been.
+            if let errorMessage {
+                Label {
+                    Text(errorMessage)
+                        .font(.footnote)
+                        .foregroundStyle(Theme.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .multilineTextAlignment(.leading)
+                } icon: {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(Theme.heartRed)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(Theme.Spacing.sm)
+                .background(Theme.heartRed.opacity(0.1), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .padding(.horizontal, Theme.Spacing.md)
+                .padding(.top, Theme.Spacing.xs)
+                .transition(.opacity)
+            }
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: Theme.Spacing.sm) {
@@ -212,7 +239,8 @@ struct MemoryPhotosSheet: View {
                 .padding(.bottom, Theme.Spacing.sm)
             }
             // Holds its height with nothing in it, so removing the last photo doesn't collapse the
-            // strip and jump the picker above it down the screen.
+            // strip and jump the picker above it down the screen. The message above is outside
+            // this frame on purpose — it has to be free to wrap to as many lines as it needs.
             .frame(height: 88)
         }
     }

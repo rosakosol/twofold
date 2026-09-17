@@ -71,8 +71,34 @@ enum PendingMemoryStore {
         for file in files where file.pathExtension == "json" {
             guard let data = try? Data(contentsOf: file),
                   let manifest = try? JSONDecoder().decode(Manifest.self, from: data) else { continue }
-            let photosData = manifest.memory.photos.compactMap { try? Data(contentsOf: $0.url) }
-            results.append((manifest.memory, photosData))
+
+            // Each photo's URL is rebuilt from *this* install's directory rather than read back
+            // out of the manifest.
+            //
+            // The manifest stores whatever absolute URL `save` produced, and an app container's
+            // path contains a UUID that changes when the app is reinstalled or updated. So a
+            // memory drafted before an update came back with photo URLs pointing at a directory
+            // that no longer exists: `Data(contentsOf:)` failed for every one of them, `loadAll`
+            // returned the memory with an empty `photosData`, and the upload that runs when the
+            // couple forms sent no photos at all. The memory survived the update; its pictures did
+            // not.
+            //
+            // The filenames are deterministic — `photoURL(memoryID:index:)` — so the position in
+            // the manifest is all that is needed to find them again.
+            var memory = manifest.memory
+            var photos: [MemoryPhoto] = []
+            var photosData: [Data] = []
+            for (index, photo) in memory.photos.enumerated() {
+                let url = photoURL(memoryID: memory.id, index: index)
+                guard let data = try? Data(contentsOf: url) else { continue }
+                // Rewritten as well as read, so the copy handed to the UI points at a file that is
+                // actually there and the thumbnail draws.
+                photos.append(MemoryPhoto(id: photo.id, path: "pending", url: url))
+                photosData.append(data)
+            }
+            memory.photos = photos
+
+            results.append((memory, photosData))
         }
         return results
     }
