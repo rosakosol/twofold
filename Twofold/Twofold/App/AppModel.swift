@@ -489,6 +489,10 @@ final class AppModel {
         // account is never actually adopted and shown.
         if await BackendService.currentAccountIsDeleted() {
             try? await BackendService.signOut()
+            // This path used to stop at the line above, which signs out of the backend and leaves
+            // every local cache and every in-memory field belonging to the deleted account exactly
+            // where they were. Before `accountDeletedMessage` is set, because clearing wipes it.
+            await clearLocalSessionState()
             accountDeletedMessage = "This account has been deleted and can't be signed back into. Create a new account to keep using Twofold."
             isLoadingSession = false
             return
@@ -804,6 +808,16 @@ final class AppModel {
         // routed into content that either no longer resolves or belongs to whoever signs in next.
         UNUserNotificationCenter.current().removeAllDeliveredNotifications()
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+        resetAccountScopedState()
+    }
+
+    /// Every stored property on this class that belongs to the signed-in account or its couple.
+    ///
+    /// Separate from `clearLocalSessionState()` so it can be tested: that method logs out of
+    /// RevenueCat, PostHog and the notification centre, and `Purchases.shared` traps when it has
+    /// not been configured — which it has not been, in a unit test. This half is the half that was
+    /// wrong, and it is pure.
+    func resetAccountScopedState() {
         lastRegisteredPushTokenHex = nil
         hasCouple = false
         partnerConnected = false
@@ -823,6 +837,62 @@ final class AppModel {
         // happens to call `refreshGameDecks()` unconditionally.
         gameDecks = nil
         deckProgress = nil
+
+        // ---------------------------------------------------------------------------
+        // Everything else this account put in memory
+        // ---------------------------------------------------------------------------
+        //
+        // The list above grew a property at a time as each one was found leaking, which is the
+        // wrong way round: the default for a new property is to be forgotten here, and the symptom
+        // is always somebody seeing another account's content. Twenty-four of this class's
+        // thirty-two stored properties survived sign-out before this.
+        //
+        // The rule, for anything added later: if it is loaded from the account or the couple, it
+        // belongs here. Only three things do not — `isLoadingSession`, which is session lifecycle
+        // rather than account data; `accountDeletedMessage`, which is set *after* signing out in
+        // order to explain why; and `refreshAllCount`, a test probe.
+
+        // The reported leak. These are *signed Storage URLs*, so leaving them is worse than a
+        // stale cache: the next account's Home fetched and drew the previous couple's drawing over
+        // the network, from a URL that is still valid. The thumbnail was theirs; opening the pad
+        // showed the new account's own (empty) one, which is the mismatch that made it visible.
+        myDrawingURL = nil
+        partnerDrawingURL = nil
+
+        // Also reported: the streak flickering from the previous couple's 28 days to the new
+        // account's real value once the fetch landed.
+        dailyStreak = nil
+        longestDailyStreak = nil
+        dailyStreakResetsAt = nil
+        streakRepair = nil
+
+        // The previous couple's daily question, and whether the two of them had answered it.
+        todaysDailySessionID = nil
+        todaysDailyQuestionText = nil
+        todaysMyAnswered = false
+        todaysPartnerAnswered = false
+        dailyQuestionError = nil
+
+        // Tier, which gates content. A new free account inheriting "premium" sees premium decks
+        // until the next refresh corrects it.
+        subscriptionTier = nil
+
+        // All of these carry a name — an ex-partner's, or that of someone who asked to connect.
+        partnerDisconnectedMessage = nil
+        partnerSubscriptionLapsedPartnerName = nil
+        pendingConnectionRequests = []
+        pendingOutgoingConnectionRequest = nil
+
+        // Per-account "already seen" flags. Harmless next to the above, but they belong to whoever
+        // dismissed them: a new account arriving to a pre-dismissed checklist and no
+        // partner-connected celebration is still the previous account's state showing through.
+        partnerConnectedCelebrationShown = false
+        setupChecklistDismissed = false
+        pendingReviewMilestone = nil
+        pendingPartnerInviteNudge = false
+
+        // Transient, but it refers to a write made by the previous account.
+        writeRefusedMessage = nil
     }
 
     private static var placeholderCouple: Couple {
