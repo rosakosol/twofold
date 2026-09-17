@@ -263,6 +263,13 @@ struct HomeView: View {
                 partnerDisconnectedAlert = newValue
                 appModel.partnerDisconnectedMessage = nil
             }
+            // Reconnecting retires the notice. The message is copied into local state above and
+            // the model's copy cleared immediately, so clearing the model on re-adopt cannot
+            // dismiss an alert that has already been taken — leaving "your connection with X has
+            // ended" sitting over a Home screen that was showing the new couple.
+            .onChange(of: appModel.partnerConnected) { _, isConnected in
+                if isConnected { partnerDisconnectedAlert = nil }
+            }
             .alert("Your connection has ended", isPresented: Binding(
                 get: { partnerDisconnectedAlert != nil },
                 set: { if !$0 { partnerDisconnectedAlert = nil } }

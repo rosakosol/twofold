@@ -862,7 +862,21 @@ enum BackendService {
     /// (app foreground), not just once at cold launch. "Your partner doesn't pay anything" —
     /// true if *either* partner's profile reports an active subscription; solo (unpaired)
     /// users only have their own row to check.
-    static func fetchSubscriptionActive() async throws -> Bool {
+    /// Whether anyone is paying, and whether the answer actually covered a couple.
+    ///
+    /// `sawActiveCouple` exists because the fallback below is silent and the two cases it merges
+    /// are not the same. "No active couple row came back" and "a couple came back and neither of
+    /// them pays" both used to return plain `false`, so a lookup that could not see the couple —
+    /// a read landing before the row is visible, a transient failure on that first query —
+    /// reported the caller's own row as the whole truth. For somebody whose *partner* pays, that
+    /// is `false`, and it was written straight over a correct `true`.
+    struct SubscriptionAccess {
+        var active: Bool
+        /// False when the answer covers only this user's own profile.
+        var sawActiveCouple: Bool
+    }
+
+    static func fetchSubscriptionAccess() async throws -> SubscriptionAccess {
         guard let userID = currentUserID else { throw BackendError.notAuthenticated }
 
         let coupleRows: [CoupleRow] = try await supabase
@@ -888,7 +902,10 @@ enum BackendService {
             .execute()
             .value
 
-        return rows.contains { $0.subscriptionActive }
+        return SubscriptionAccess(
+            active: rows.contains { $0.subscriptionActive },
+            sawActiveCouple: coupleRows.first != nil
+        )
     }
 
     private struct SubscriptionTierRow: Decodable {

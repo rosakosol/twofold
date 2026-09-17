@@ -1520,6 +1520,11 @@ final class AppModel {
         Task { [weak self] in await self?.resolveMissingAirportTimezones() }
         partnerConnected = true
         hasCouple = true
+        // Reconnecting makes the notice obsolete. It is set by `adoptSoloProfile` when a partner
+        // leaves and was only ever cleared by the alert being dismissed, so re-pairing — with the
+        // same person or a new one — left "your connection with X has ended" sitting over a Home
+        // screen that was showing the new couple.
+        partnerDisconnectedMessage = nil
         isSubscriptionActive = state.subscriptionActive
         subscriptionTier = state.subscriptionTier
         // The backend has just told us the couple-wide truth — remember it so a later cold launch

@@ -138,8 +138,9 @@ struct RootView: View {
                 if let coupleTier = try? await BackendService.fetchCoupleSubscriptionTier() {
                     appModel.subscriptionTier = coupleTier
                 }
-                if let active = try? await BackendService.fetchSubscriptionActive() {
-                    appModel.isSubscriptionActive = active || tier != nil
+                if let access = try? await BackendService.fetchSubscriptionAccess(),
+                   access.sawActiveCouple || !appModel.partnerConnected {
+                    appModel.isSubscriptionActive = access.active || tier != nil
                 }
                 await WidgetSnapshotWriter.refresh(appModel: appModel)
             }
@@ -600,12 +601,24 @@ struct RootView: View {
         // Customer Center screens — but nothing is written back from it any more.
         await subscriptionStore.refreshEntitlementsOnly()
 
-        if let active = try? await BackendService.fetchSubscriptionActive() {
-            // OR'd with this device's own entitlement for the same reason the gate above is: a
-            // backend `false` for someone RevenueCat says is subscribed means the webhook has not
-            // caught up, not that they stopped paying. Without this the next foreground undoes the
-            // access the gate just granted.
-            appModel.isSubscriptionActive = active || deviceHoldsEntitlement
+        if let access = try? await BackendService.fetchSubscriptionAccess() {
+            // Only trust a `false` that actually saw the couple. Reported after joining a partner
+            // who pays: Home showed "No active subscription" and gated adding until Settings was
+            // opened, which ran this again and fixed it. A lookup that cannot see the couple row
+            // falls back to the caller's own profile, and for the non-paying half of a couple that
+            // reads `false` — indistinguishable from nobody paying, and written straight over the
+            // couple-wide `true` that `performAdopt` had just set.
+            //
+            // `partnerConnected` is the app's own belief that a couple exists. When it says one
+            // does and the lookup disagrees, the lookup is the thing that is behind.
+            if access.sawActiveCouple || !appModel.partnerConnected {
+                // OR'd with this device's own entitlement for the same reason the gate above is: a
+                // backend `false` for someone RevenueCat says is subscribed means the webhook has
+                // not caught up, not that they stopped paying. Without this the next foreground
+                // undoes the access the gate just granted.
+                appModel.isSubscriptionActive = access.active || deviceHoldsEntitlement
+            }
+            let active = access.active
             OfflineSessionCache.record(
                 active: active,
                 tier: appModel.subscriptionTier,
