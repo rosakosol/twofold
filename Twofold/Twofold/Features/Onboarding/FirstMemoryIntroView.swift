@@ -52,9 +52,19 @@ struct FirstMemoryIntroView: View {
             title: "\(onboarding.firstName), let's add your first memory",
             subtitle: statText,
             content: {
-                VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-                    ForEach(sources) { source in
-                        sourceCard(source)
+                VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+                    // Says what the screen is about before the words do. Modest at 40pt — this
+                    // screen also carries a long stat and two source cards, and the celebration
+                    // sizes belong on the screens that are actually celebrating something.
+                    Text("📸")
+                        .font(.system(size: 40))
+                        .frame(maxWidth: .infinity)
+                        .accessibilityHidden(true)
+
+                    VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                        ForEach(sources) { source in
+                            sourceCard(source)
+                        }
                     }
                 }
             },
