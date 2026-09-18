@@ -217,28 +217,38 @@ enum OnboardingGoal: String, CaseIterable, Identifiable {
         }
     }
 
+    /// Short enough to sit on one line beside the emoji and the tick.
+    ///
+    /// The card gives its title about 230pt, and at `subheadline.semibold` that is roughly 28
+    /// characters. Past it the title wrapped, the card grew a row, and five cards plus a heading
+    /// no longer fitted the screen — so the whole list scrolled, which on a "pick what matters to
+    /// you" screen means the last options are the ones nobody reads.
+    ///
+    /// `rawValue` is untouched, so the analytics traits these feed keep their existing keys.
     var title: String {
         switch self {
-        case .knowWhenLands: "Know when my partner travels"
-        case .countdown: "Count down until we're together"
+        case .knowWhenLands: "Know when they land"
+        case .countdown: "Count down to reunions"
         case .trackTrips: "Keep track of our trips"
         case .lookBack: "Relive our memories"
-        case .feelCloser: "Feel closer while we're apart"
+        case .feelCloser: "Feel closer while apart"
         }
     }
 
+    /// One line too, for the same reason — a wrapping subtitle costs the same row a wrapping title
+    /// does, and there are five of them.
     var subtitle: String? {
         switch self {
         case .knowWhenLands:
-            return "Get live flight updates and arrival notifications"
+            return "Live flight updates and alerts"
         case .countdown:
-            return "Always know when you'll see each other next"
+            return "Know when you'll next meet"
         case .trackTrips:
-            return "Keep every journey together in one place"
+            return "Every journey in one place"
         case .lookBack:
-            return "Revisit the places and moments you've shared"
+            return "Revisit the places you've shared"
         case .feelCloser:
-            return "Keep your connection strong with fun couple games"
+            return "Fun games to play together"
         }
     }
 }

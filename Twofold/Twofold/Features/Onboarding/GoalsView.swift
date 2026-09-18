@@ -11,9 +11,18 @@ struct GoalsView: View {
     var body: some View {
         OnboardingScaffold(
             title: "What would make time apart feel easier?",
-            subtitle: "Select all that apply",
+            // Smaller than the scaffold's default `lg`, for the same reason the card spacing is
+            // tightened below: this screen has five options to show and no room to spare.
+            titleTopPadding: Theme.Spacing.sm,
+            // No "Select all that apply". The cards carry circles rather than radio buttons and
+            // stay selected as you tap more of them, which says it more clearly than a line of
+            // instructions — and that line cost a row on a screen that had none to spare.
             content: {
-                VStack(spacing: Theme.Spacing.sm) {
+                // `xs`, not the usual `sm`. Five cards plus a two-line heading and the pinned
+                // Continue bar come to within a few points of the smallest supported screen, and
+                // the gap between cards is the cheapest place to find them — the cards already
+                // read as separate, each having its own surface and border.
+                VStack(spacing: Theme.Spacing.xs) {
                     ForEach(OnboardingGoal.allCases) { goal in
                         OnboardingCard(
                             icon: goal.icon,
