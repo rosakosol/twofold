@@ -43,17 +43,17 @@ struct TwofoldPreviewView: View {
 
     var body: some View {
         OnboardingScaffold(
-            title: "Your Twofold is ready ❤️",
+            title: "Your Twofold is ready",
+            // The mark itself, beating, instead of a heart emoji in the string — see
+            // `BeatingTitleMark`. Sized against `.title`, so it stays the height of the words.
+            inlineTitleAccessoryImageName: "GlobeHeart",
             subtitle: "You're all set — here's to closing the distance.",
             content: {
                 VStack(spacing: Theme.Spacing.md) {
                     Text("🎉")
-                        .font(.system(size: 64))
+                        .font(.system(size: 40))
                         .scaleEffect(heartScale)
                         .frame(maxWidth: .infinity)
-                        .overlay {
-                            ConfettiBurstView(trigger: didCelebrate)
-                        }
                         .onAppear {
                             if reduceMotion {
                                 heartScale = 1.0
@@ -71,18 +71,19 @@ struct TwofoldPreviewView: View {
                     // left, partner on the right (this screen's own convention; unlike
                     // ConnectedRevealView's partner-then-self order). Sized to match
                     // `PartnerConnectedView`'s own post-pairing celebration (128pt), not the
-                    // smaller 64pt this used before — this is as big a celebration moment as
-                    // that one.
+                    // smaller 64pt this used before. 88 rather than that screen's 128: this one
+                    // also has to fit a countdown card, the memory just saved, and a button,
+                    // without scrolling.
                     HStack(spacing: Theme.Spacing.lg) {
                         VStack(spacing: Theme.Spacing.xs) {
-                            avatarCircle(selfImage, size: 128)
+                            avatarCircle(selfImage, size: 88)
                             Text(onboarding.firstName.isEmpty ? "You" : onboarding.firstName)
                                 .font(.subheadline)
                         }
                         Image(systemName: "plus")
                             .foregroundStyle(Theme.subtleInk)
                         VStack(spacing: Theme.Spacing.xs) {
-                            avatarCircle(partnerImage, size: 128)
+                            avatarCircle(partnerImage, size: 88)
                             Text(onboarding.partnerName.isEmpty ? "Partner" : onboarding.partnerName)
                                 .font(.subheadline)
                         }
@@ -157,6 +158,14 @@ struct TwofoldPreviewView: View {
             primaryTitle: "Continue",
             primaryAction: { onboarding.path.append(.saveAccount) }
         )
+        // Over the whole screen, not pinned to the emoji.
+        //
+        // This was `.overlay` on the 🎉, so every particle was laid out inside a 64pt glyph — a
+        // burst the size of a postage stamp, which is what "a small stream from the emoji" was.
+        // The stream itself was a separate bug in ConfettiBurstView's seeding; both had to go.
+        .overlay {
+            ConfettiBurstView(trigger: didCelebrate, style: .shower)
+        }
         .sensoryFeedback(.success, trigger: didCelebrate)
     }
 
@@ -166,8 +175,8 @@ struct TwofoldPreviewView: View {
                 image.resizable().scaledToFill()
             } else {
                 Circle().fill(Theme.cardBackground)
-                // Scales with the circle itself — at 128pt (this screen's size since the avatar
-                // bump), the previous fixed default-body-size icon looked lost in the middle.
+                // Scales with the circle itself — at this screen's 88pt, a fixed body-size icon
+                // looked lost in the middle.
                 Image(systemName: "person.fill")
                     .font(.system(size: size * 0.4))
                     .foregroundStyle(Theme.subtleInk)

@@ -17,6 +17,10 @@ struct OnboardingScaffold<Content: View>: View {
     /// Overrides just the title's font — defaults to the large rounded-bold title every existing
     /// onboarding screen already renders it at.
     var titleFont: Font = .system(.title, design: .rounded, weight: .bold)
+    /// A small mark shown *inline* after the title, at roughly the text's own height — for a
+    /// logo that reads as part of the sentence rather than a graphic sitting above it. Distinct
+    /// from `titleAccessoryImageName`, which stacks above and is sized independently.
+    var inlineTitleAccessoryImageName: String?
     var subtitle: String?
     /// Overrides just the subtitle's font — defaults to `.body`, the size every existing
     /// onboarding screen already renders it at.
@@ -83,9 +87,20 @@ struct OnboardingScaffold<Content: View>: View {
                             if let titleAccessoryImageName {
                                 PulsingTitleAccessory(imageName: titleAccessoryImageName)
                             }
-                            Text(title)
-                                .font(titleFont)
-                                .multilineTextAlignment(titleAlignment == .center ? .center : .leading)
+                            if let inlineTitleAccessoryImageName {
+                                // Baseline-aligned so the mark sits on the text's own line rather
+                                // than floating against the block's top.
+                                HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.xs) {
+                                    Text(title)
+                                        .font(titleFont)
+                                        .multilineTextAlignment(titleAlignment == .center ? .center : .leading)
+                                    BeatingTitleMark(imageName: inlineTitleAccessoryImageName)
+                                }
+                            } else {
+                                Text(title)
+                                    .font(titleFont)
+                                    .multilineTextAlignment(titleAlignment == .center ? .center : .leading)
+                            }
                         }
                         .frame(maxWidth: .infinity, alignment: titleAlignment == .center ? .center : .leading)
                         if let subtitle {
@@ -182,6 +197,37 @@ struct OnboardingScaffold<Content: View>: View {
 /// brand mark next to a screen's headline (the paywall's globe/heart, for instance). Owns its
 /// own animation state rather than relying on the caller to start one, so `titleAccessoryImageName`
 /// stays a plain image-name string on `OnboardingScaffold`.
+/// The brand mark beating like a heart, inline with a title.
+///
+/// A real heartbeat rather than a sine pulse: two quick beats and then a rest, which is what makes
+/// it read as a heart rather than as something throbbing. `@ScaledMetric` against `.title` keeps it
+/// the height of the text it sits beside at every Dynamic Type size, which is the whole point of
+/// it being inline.
+private struct BeatingTitleMark: View {
+    let imageName: String
+    @ScaledMetric(relativeTo: .title) private var size: CGFloat = 26
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        Image(imageName)
+            .resizable()
+            .scaledToFit()
+            .frame(width: size, height: size)
+            .keyframeAnimator(initialValue: 1.0, repeating: !reduceMotion) { content, scale in
+                content.scaleEffect(scale)
+            } keyframes: { _ in
+                KeyframeTrack {
+                    SpringKeyframe(1.18, duration: 0.16)
+                    SpringKeyframe(1.0, duration: 0.16)
+                    SpringKeyframe(1.11, duration: 0.14)
+                    SpringKeyframe(1.0, duration: 0.18)
+                    // The rest between beats. Without it this is a throb, not a pulse.
+                    LinearKeyframe(1.0, duration: 0.9)
+                }
+            }
+    }
+}
+
 private struct PulsingTitleAccessory: View {
     let imageName: String
     @State private var isPulsing = false

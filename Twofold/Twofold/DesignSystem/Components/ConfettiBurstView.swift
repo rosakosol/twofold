@@ -10,8 +10,17 @@
 
 import SwiftUI
 
+enum ConfettiStyle {
+    /// Radiates from the centre of whatever it is given. The default, because it is what the two
+    /// existing callers want and are sized for.
+    case burst
+    /// Falls across the full width, top to bottom. For a full-screen celebration.
+    case shower
+}
+
 struct ConfettiBurstView: View {
     let trigger: Bool
+    var style: ConfettiStyle = .burst
     // Starts `true` (i.e. "already at rest, post-burst": offset out, opacity 0) rather than
     // `false` — with `false` as the initial value, every particle sat at opacity 1 stacked
     // exactly on top of each other at the center (offset 0,0) until the first real trigger, which
@@ -34,20 +43,99 @@ struct ConfettiBurstView: View {
 
     private static let colors: [Color] = [Theme.heartRed, Theme.skyBlue, Theme.leafGreen, .yellow, .purple, .orange]
 
-    private static let particles: [Particle] = (0..<24).map { index in
-        var generator = SeededGenerator(seed: index)
-        let angle = Double.random(in: 0..<(2 * .pi), using: &generator)
-        let distance = CGFloat.random(in: 70...150, using: &generator)
-        return Particle(
-            dx: cos(angle) * distance,
-            dy: sin(angle) * distance - 40,
-            rotation: Double.random(in: 0...540, using: &generator),
-            color: colors[index % colors.count],
-            delay: Double.random(in: 0...0.15, using: &generator)
-        )
+    /// One generator for the whole table, not one per particle.
+    ///
+    /// This was `SeededGenerator(seed: index)` inside the map, so every particle drew its angle
+    /// from a generator whose state was the constant plus a number from 0 to 23. Xorshift on
+    /// states that close together returns first outputs that close together: all twenty-four
+    /// particles came out at 310 degrees, and the "burst" was a single straight stream. Drawing
+    /// the whole table from one generator spreads them across every quadrant, and is still
+    /// deterministic — which is the only reason the per-particle seeding existed.
+    private static let particles: [Particle] = {
+        var generator = SeededGenerator(seed: 1)
+        return (0..<24).map { index in
+            let angle = Double.random(in: 0..<(2 * .pi), using: &generator)
+            let distance = CGFloat.random(in: 70...150, using: &generator)
+            return Particle(
+                dx: cos(angle) * distance,
+                dy: sin(angle) * distance - 40,
+                rotation: Double.random(in: 0...540, using: &generator),
+                color: colors[index % colors.count],
+                delay: Double.random(in: 0...0.15, using: &generator)
+            )
+        }
+    }()
+
+    /// Falls from above the top edge to below the bottom one, spread across the full width.
+    ///
+    /// A burst radiating from the middle is right for a small celebration area — the 180pt block
+    /// `PartnerConnectedView` gives it — and wrong for "shower the screen", which is what a
+    /// full-bleed finish wants. Same colours, different physics.
+    private struct ShowerParticle {
+        let x: CGFloat
+        let drift: CGFloat
+        let rotation: Double
+        let color: Color
+        let delay: Double
+        let duration: Double
     }
 
+    private static let showerParticles: [ShowerParticle] = {
+        var generator = SeededGenerator(seed: 7)
+        return (0..<48).map { index in
+            ShowerParticle(
+                x: CGFloat.random(in: 0.02...0.98, using: &generator),
+                drift: CGFloat.random(in: -40...40, using: &generator),
+                rotation: Double.random(in: 180...900, using: &generator),
+                color: colors[index % colors.count],
+                delay: Double.random(in: 0...1.1, using: &generator),
+                duration: Double.random(in: 1.8...3.0, using: &generator)
+            )
+        }
+    }()
+
     var body: some View {
+        switch style {
+        case .burst: burstBody
+        case .shower: showerBody
+        }
+    }
+
+    private var showerBody: some View {
+        GeometryReader { geo in
+            ZStack {
+                ForEach(Array(Self.showerParticles.enumerated()), id: \.offset) { _, particle in
+                    RoundedRectangle(cornerRadius: 1.5)
+                        .fill(particle.color)
+                        .frame(width: 7, height: 12)
+                        .rotationEffect(.degrees(animate ? particle.rotation : 0))
+                        .position(
+                            x: particle.x * max(geo.size.width, 1) + (animate ? particle.drift : 0),
+                            y: animate ? geo.size.height + 60 : -60
+                        )
+                        // Per-particle timing, which is what makes it a shower rather than
+                        // everything arriving at once.
+                        .animation(
+                            reduceMotion ? nil : .easeIn(duration: particle.duration).delay(particle.delay),
+                            value: animate
+                        )
+                }
+            }
+        }
+        .allowsHitTesting(false)
+        .ignoresSafeArea()
+        .onChange(of: trigger) {
+            guard !reduceMotion else { return }
+            // The reset has to land un-animated, or the particles visibly fly back up before
+            // falling again. `.animation(_:value:)` above would otherwise animate both directions.
+            var reset = Transaction()
+            reset.disablesAnimations = true
+            withTransaction(reset) { animate = false }
+            Task { @MainActor in animate = true }
+        }
+    }
+
+    private var burstBody: some View {
         ZStack {
             ForEach(Array(Self.particles.enumerated()), id: \.offset) { _, particle in
                 RoundedRectangle(cornerRadius: 2)
