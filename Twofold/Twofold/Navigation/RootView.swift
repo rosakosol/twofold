@@ -7,6 +7,15 @@ import PostHog
 import RevenueCat
 import SwiftUI
 
+/// The streak a repair offer is about, held for the life of the sheet.
+///
+/// Exists so the sheet does not have to read the number back out of `AppModel.streakRepair`, which
+/// the repair clears on success — see `RootView.streakRepairOffer`.
+private struct StreakRepairOffer: Identifiable {
+    let id = UUID()
+    let streak: Int
+}
+
 struct RootView: View {
     @Environment(AppModel.self) private var appModel
     @Environment(\.scenePhase) private var scenePhase
@@ -36,7 +45,17 @@ struct RootView: View {
     /// and neither should hear about it only from the other. Someone with two devices sees it once
     /// on each, which is the cost of not putting a row in the database for a popup.
     @AppStorage("streakRepairOfferedForMissedDate") private var streakRepairOfferedFor = ""
-    @State private var showingStreakRepair = false
+    /// The repair offer currently on screen, carrying the streak it is about.
+    ///
+    /// Item-based rather than a `Bool`, because the sheet's content used to read
+    /// `appModel.streakRepair` — which the repair itself destroys. `refreshStreakRepairState()`
+    /// sets it to nil for any couple whose streak is not 0, and a successful repair makes the
+    /// streak non-zero, so the content resolved to `EmptyView` the instant the thing worked: a
+    /// blank grey sheet, with the "Your N-day streak is back" screen and its Done button never
+    /// shown. Holding the number here keeps the sheet's content stable for as long as it is up.
+    ///
+    /// Same shape as `DailyActivityCard`'s `RepairingStreak`, for the same reason.
+    @State private var streakRepairOffer: StreakRepairOffer?
     @State private var gameDeepLink: SessionRoute?
     /// Which MainTabView tab is showing — lives here rather than inside MainTabView so a widget
     /// deep link (twofold://home, twofold://memories, twofold://passport) can switch it.
@@ -302,7 +321,9 @@ struct RootView: View {
         // Watched rather than checked once on appear: the state arrives from a round trip that
         // lands well after this view first draws, and on a foreground it can change again.
         .onChange(of: appModel.streakRepair?.missedDateRaw) { _, _ in offerStreakRepairIfDue() }
-        .sheet(isPresented: $showingStreakRepair) { streakRepairSheet }
+        .sheet(item: $streakRepairOffer) { offer in
+            StreakRepairPromptView(streak: offer.streak)
+        }
         .fullScreenCover(item: $recordDeepLink) { destination in
             NavigationStack { recordDeepLinkDestination(destination) }
         }
@@ -452,16 +473,7 @@ struct RootView: View {
         else { return }
 
         streakRepairOfferedFor = missedDate
-        showingStreakRepair = true
-    }
-
-    /// Pulled out of `body` purely to keep it type-checkable — that expression is already at the
-    /// compiler's limit, and an inline `if let` inside the sheet tipped it over.
-    @ViewBuilder
-    private var streakRepairSheet: some View {
-        if let streak = appModel.streakRepair?.streakAtRisk {
-            StreakRepairPromptView(streak: streak)
-        }
+        streakRepairOffer = StreakRepairOffer(streak: repair.streakAtRisk)
     }
 
     private func consumePendingRoute() {
