@@ -92,7 +92,11 @@ struct LegalConsentCheckbox: View {
     @State private var presentedDocument: LegalDocument?
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.sm) {
+        // `.top`, not `.firstTextBaseline`. The sentence runs to two or three lines at most sizes,
+        // and baseline alignment sat the box against the first line's baseline — which reads as
+        // the box drifting down the block as the text grows. Top-aligned, the box stays level with
+        // the start of the sentence however many lines it becomes.
+        HStack(alignment: .top, spacing: Theme.Spacing.sm) {
             Button {
                 isAccepted.toggle()
             } label: {

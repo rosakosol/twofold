@@ -90,6 +90,10 @@ struct AddMemoryView: View {
 
     private var isEditing: Bool { existingMemory != nil }
 
+    /// Shown when somebody reaches for photos before the memory has a place — see the Photos
+    /// button in `bottomBar`.
+    @State private var showingLocationFirstPrompt = false
+
     private var canSave: Bool {
         !title.trimmingCharacters(in: .whitespaces).isEmpty && place != nil && !isSaving
     }
@@ -180,6 +184,14 @@ struct AddMemoryView: View {
             }
             .sheet(isPresented: $showingLocationSearch) {
                 MemoryLocationSearchView { selected in place = selected }
+            }
+            // Offers the way forward rather than just refusing: the location sheet is one tap
+            // away, and taking it leaves them back here able to save.
+            .alert("Add a location first", isPresented: $showingLocationFirstPrompt) {
+                Button("Set location") { showingLocationSearch = true }
+                Button("Not now", role: .cancel) {}
+            } message: {
+                Text("A memory is saved with the place it happened, so it needs one before it — or its photos — can be saved.")
             }
             .sheet(isPresented: $showingDatePicker) {
                 MemoryDateTimeSheet(date: $date) { showingDatePicker = false }
@@ -301,7 +313,20 @@ struct AddMemoryView: View {
             // Opens `MemoryPhotosSheet` rather than the system picker directly. The system picker
             // can only tick a photo that is still in this device's library, so it can never offer
             // to remove one a partner added — see that type's own comment.
-            Button { showingPhotosSheet = true } label: { iconCircle("photo.badge.plus") }
+            // Asks for the location first when there isn't one.
+            //
+            // `canSave` requires a place, so without one the Save button is greyed out — and the
+            // only sign of why was a small red dot on the map pin two buttons along. Somebody
+            // could pick several photos, watch them appear in the form, press a dead Save and
+            // have no idea what was wrong. The photos were never the problem; the memory could
+            // not be saved at all.
+            Button {
+                if place == nil {
+                    showingLocationFirstPrompt = true
+                } else {
+                    showingPhotosSheet = true
+                }
+            } label: { iconCircle("photo.badge.plus") }
                 .accessibilityLabel("Photos")
             // One button, not a calendar and a clock. Both opened a picker for half the same
             // value; `MemoryDateTimeSheet` sets the whole thing in one visit.
