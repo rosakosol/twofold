@@ -6,12 +6,17 @@
 //  screen — makes the ask ("add your first memory, right now") explicit and gives it some
 //  motivating weight before handing off to the actual add-a-memory sheet.
 //
-//  The body copy comes from Devasia et al. (DIS '25), a diary + interview study of 13 long-distance
-//  couples: "[d]ue to the lack of functional memory saving, several participants expressed that they
-//  save special memories manually", screenshotting the screen with their phones or keeping a Discord
-//  channel "dedicated to quotes and screenshots and special moments". One participant's Steam
-//  screenshots were "just so hard to find". That is the gap a first saved memory here fills, so it
-//  leads. The second source is a 2025 evaluation of Paired, kept for the outcome evidence.
+//  Both halves of the body copy are sourced, and each has one card below it.
+//
+//  "consistently report stronger relationships" is Majzoobi & Forstmeier's meta-analysis (14 studies):
+//  reminiscing over relationship-defining memories correlates r = .334 with marital outcomes and
+//  r = .445 with marital satisfaction. Correlational, so the sentence claims an association and not
+//  a cause — happier couples reminiscing more fits that data just as well.
+//
+//  "came away measurably happier than they started" is the Remini study's pre/post PANAS positive
+//  affect, which rose in both arms (32.67 -> 41.63 guided, 31.04 -> 35.46 baseline). Note that both
+//  arms reminisced — the paper's own finding is that *structured* guidance beats unstructured, so
+//  this screen leans only on the rise itself, which is the part both conditions share.
 //
 
 import SwiftUI
@@ -28,20 +33,22 @@ struct FirstMemoryIntroView: View {
         let url: URL
     }
 
-    private let bodyText = "Researchers who studied long-distance couples in 2025 found they hang onto screenshots and photos of the moments they shared \u{2014} and that the games they play together give them almost nowhere to keep them. This is that place. Start with one."
+    private let bodyText = "Couples who revisit the memories they've made together consistently report stronger relationships \u{2014} and when a 2025 study sat partners down to actually do it, they came away measurably happier than they started. This is where yours go. Start with one."
 
     private let sources: [RelationshipSource] = [
         RelationshipSource(
-            icon: "doc.text.fill",
-            name: "Devasia et al., DIS '25",
-            detail: "Partnership through Play: How Long-Distance Couples Use Digital Games to Facilitate Intimacy",
-            url: URL(string: "https://doi.org/10.1145/3715336.3735773")!
+            icon: "book.closed.fill",
+            name: "Majzoobi & Forstmeier, 2022",
+            detail: "Reminiscence of Relationship-Defining Memories and Marital Outcomes: A Meta-Analysis",
+            url: URL(string: "https://doi.org/10.1111/jftr.12442")!
         ),
         RelationshipSource(
-            icon: "book.closed.fill",
-            name: "JMIR mHealth and uHealth",
-            detail: "Exploring the Potential of a Digital Intervention to Enhance Couple Relationships (2025)",
-            url: URL(string: "https://mhealth.jmir.org/2025/1/e55433")!
+            icon: "doc.text.fill",
+            name: "Jiang et al., CSCW 2025",
+            detail: "Remini: Chatbot-Mediated Mutual Reminiscence Among Loved Ones",
+            // arXiv rather than the ACM DOI (10.1145/3757650): same paper, and this one opens
+            // for anyone who taps it instead of hitting the ACM paywall.
+            url: URL(string: "https://arxiv.org/abs/2508.03355")!
         ),
     ]
 
