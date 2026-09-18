@@ -6,11 +6,12 @@
 //  screen — makes the ask ("add your first memory, right now") explicit and gives it some
 //  motivating weight before handing off to the actual add-a-memory sheet.
 //
-//  The stat is from a 2025 mixed-methods evaluation of Paired, a relationship-focused app —
-//  real evidence that regularly showing up for small, app-prompted moments together tracks with
-//  measurably stronger relationships (see `sources` below). The second source is a 2025 HCI
-//  study of long-distance couples that found "memories" was the relatedness need participants
-//  most wished existing apps served — directly the gap a first saved memory here fills.
+//  The body copy comes from Devasia et al. (DIS '25), a diary + interview study of 13 long-distance
+//  couples: "[d]ue to the lack of functional memory saving, several participants expressed that they
+//  save special memories manually", screenshotting the screen with their phones or keeping a Discord
+//  channel "dedicated to quotes and screenshots and special moments". One participant's Steam
+//  screenshots were "just so hard to find". That is the gap a first saved memory here fills, so it
+//  leads. The second source is a 2025 evaluation of Paired, kept for the outcome evidence.
 //
 
 import SwiftUI
@@ -27,20 +28,20 @@ struct FirstMemoryIntroView: View {
         let url: URL
     }
 
-    private let statText = "In a 2025 study, couples who used a relationship-focused app for over three months reported relationship quality 35% higher than new users - and 64% said their relationship felt stronger since they started showing up for it together."
+    private let bodyText = "Researchers who studied long-distance couples in 2025 found they hang onto screenshots and photos of the moments they shared \u{2014} and that the games they play together give them almost nowhere to keep them. This is that place. Start with one."
 
     private let sources: [RelationshipSource] = [
-        RelationshipSource(
-            icon: "book.closed.fill",
-            name: "JMIR mHealth and uHealth",
-            detail: "Exploring the Potential of a Digital Intervention to Enhance Couple Relationships (2025)",
-            url: URL(string: "https://mhealth.jmir.org/2025/1/e55433")!
-        ),
         RelationshipSource(
             icon: "doc.text.fill",
             name: "Devasia et al., DIS '25",
             detail: "Partnership through Play: How Long-Distance Couples Use Digital Games to Facilitate Intimacy",
             url: URL(string: "https://doi.org/10.1145/3715336.3735773")!
+        ),
+        RelationshipSource(
+            icon: "book.closed.fill",
+            name: "JMIR mHealth and uHealth",
+            detail: "Exploring the Potential of a Digital Intervention to Enhance Couple Relationships (2025)",
+            url: URL(string: "https://mhealth.jmir.org/2025/1/e55433")!
         ),
     ]
 
@@ -50,11 +51,11 @@ struct FirstMemoryIntroView: View {
         // fallback needed.
         OnboardingScaffold(
             title: "\(onboarding.firstName), let's add your first memory",
-            subtitle: statText,
+            subtitle: bodyText,
             content: {
                 VStack(alignment: .leading, spacing: Theme.Spacing.md) {
                     // Says what the screen is about before the words do. Modest at 40pt — this
-                    // screen also carries a long stat and two source cards, and the celebration
+                    // screen also carries a long paragraph and two source cards, and the celebration
                     // sizes belong on the screens that are actually celebrating something.
                     Text("📸")
                         .font(.system(size: 40))
