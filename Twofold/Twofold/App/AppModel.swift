@@ -516,10 +516,11 @@ final class AppModel {
             // default while `hasCouple` is set to true just below, and `RootView` drops a paying
             // subscriber onto the non-dismissable paywall.
             applyCachedSession(cached)
+            // Same reconciliation the adopt branches get. A cache written before a purchase says
+            // `false`, and this is the offline-launch path — the one where nothing else will
+            // correct it.
+            isSubscriptionActive = await resolvedSubscriptionActive(backendSaysActive: cached.active)
         }
-        // Before `hasCouple`, so Home's first render already has the right answer rather than
-        // correcting itself a moment later.
-        await adoptDeviceEntitlementIfBackendIsBehind()
         hasCouple = true
         // Resolved here, not only from RootView's launch task.
         //
@@ -634,7 +635,7 @@ final class AppModel {
         if let anniversaryDate = profile.anniversaryDate {
             couple.startedDatingOn = anniversaryDate
         }
-        isSubscriptionActive = profile.subscriptionActive
+        isSubscriptionActive = await resolvedSubscriptionActive(backendSaysActive: profile.subscriptionActive)
         subscriptionTier = profile.subscriptionTier
         // Same reasoning as `performAdopt` — see OfflineSessionCache. Solo (unpaired) here, so
         // partnerConnected is false; restoring that keeps the setup card honest either way.
@@ -672,33 +673,32 @@ final class AppModel {
         backendSaysActive || deviceTier != nil
     }
 
-    /// Lets this device's own entitlement stand in for a `profiles.subscription_active` that has
-    /// not caught up yet, on the path that admits somebody to the app.
+    /// What `isSubscriptionActive` should become, given what the backend just said.
     ///
-    /// `RootView.checkSubscription()` already does this, but it cannot cover the case that matters
-    /// most. It returns early unless `hasCouple`, and it runs from a `.task` that fires once —
-    /// during onboarding, when `hasCouple` is still false. So somebody who subscribes *inside*
-    /// onboarding has the check run, learn nothing, mark itself done, and never run again: the
-    /// adopt above then writes the webhook-lagged `false` over `markSubscriptionActive`'s optimistic
-    /// `true`, and Home shows "No active subscription" to somebody who has just paid. It stayed up
-    /// until something else happened to re-run the check — a background/foreground, or opening
-    /// Settings, which is how this was reported both times.
+    /// `profiles.subscription_active` is written by the RevenueCat webhook and lags a purchase by
+    /// seconds to minutes. Every adopt path used to assign it straight over the top, which meant
+    /// `markSubscriptionActive`'s optimistic `true` — set the instant a purchase succeeds — survived
+    /// only until the next couple-state refresh. Home fires one on appear and on every foreground,
+    /// so somebody who had just paid watched "No active subscription" arrive a few seconds after
+    /// being let in. Reported twice, and the first fix was in the wrong place: it covered
+    /// `loadSignedInState`, while onboarding admits people through `applyOnboardingAccount` and the
+    /// clobber was happening in `refreshCoupleStateIfNeeded` regardless.
+    ///
+    /// Asking here rather than at each call site is what makes that impossible to get wrong again —
+    /// there is no way to apply a backend subscription value without going through this.
     ///
     /// Only ever upgrades false -> true, and only on RevenueCat's own current answer for *this*
-    /// account, so a genuine cancellation still reads as cancelled. The `isAnonymous` check is the
-    /// load-bearing half, for the reason `RootView.deviceHoldsEntitlement` spells out: an anonymous
-    /// customer is whoever used this install before anyone signed in, and treating their
-    /// entitlements as this account's would mean a device holding a subscription rather than a
-    /// person.
-    private func adoptDeviceEntitlementIfBackendIsBehind() async {
-        guard !isSubscriptionActive, !Purchases.shared.isAnonymous else { return }
-        guard let info = try? await Purchases.shared.customerInfo() else { return }
-        let deviceTier = SubscriptionTier.active(in: info)
-        guard Self.isSubscribed(backendSaysActive: false, deviceTier: deviceTier) else { return }
-        isSubscriptionActive = true
-        // Only when the row had nothing to say. A tier the backend *did* supply is the couple-wide
-        // one and outranks whatever this single device happens to hold.
-        if subscriptionTier == nil { subscriptionTier = deviceTier?.dbValue }
+    /// account, so a genuine cancellation still reads as cancelled. `customerInfo()` is served from
+    /// the SDK's cache unless it is stale, and this only asks when the backend said no, so the
+    /// common path costs nothing. The `isAnonymous` check is the load-bearing half, for the reason
+    /// `RootView.deviceHoldsEntitlement` spells out: an anonymous customer is whoever used this
+    /// install before anyone signed in, and treating their entitlements as this account's would mean
+    /// a device holding a subscription rather than a person.
+    private func resolvedSubscriptionActive(backendSaysActive: Bool) async -> Bool {
+        if backendSaysActive { return true }
+        guard !Purchases.shared.isAnonymous,
+              let info = try? await Purchases.shared.customerInfo() else { return false }
+        return Self.isSubscribed(backendSaysActive: false, deviceTier: SubscriptionTier.active(in: info))
     }
 
     func markSubscriptionActive(tier: String) {
@@ -1594,7 +1594,7 @@ final class AppModel {
         // same person or a new one — left "your connection with X has ended" sitting over a Home
         // screen that was showing the new couple.
         partnerDisconnectedMessage = nil
-        isSubscriptionActive = state.subscriptionActive
+        isSubscriptionActive = await resolvedSubscriptionActive(backendSaysActive: state.subscriptionActive)
         subscriptionTier = state.subscriptionTier
         // The backend has just told us the couple-wide truth — remember it so a later cold launch
         // with no network doesn't fall back to `false` and paywall a real subscriber.
@@ -1840,8 +1840,23 @@ final class AppModel {
     /// The actual last step of onboarding — called once the paywall/trial flow finishes, so
     /// `RootView` lands the user in `MainTabView`. Account creation already happened earlier
     /// via `applyOnboardingAccount`.
-    func finishOnboarding() {
+    ///
+    /// Does the same post-admission work `loadSignedInState` does after its own `hasCouple = true`,
+    /// and for the reason that function already gives: everything gated on `hasCouple` is resolved
+    /// by whichever path admits somebody, because the things that would otherwise resolve them run
+    /// from a `.task` that has already fired. During onboarding `hasCouple` is false, so
+    /// `RootView`'s launch task returns early from
+    /// `refreshPendingOutgoingConnectionRequestIfNeeded`, and nothing re-runs it — leaving
+    /// `hasResolvedOutgoingConnectionRequest` false and Home with no "Set up your partner" card at
+    /// all until something unrelated happened to trigger a refresh. That was the ten-second gap on
+    /// a freshly created account: not a slow lookup, a lookup nobody had asked for yet.
+    ///
+    /// Awaited before the flip rather than after, so Home's first render already knows. Somebody
+    /// finishing onboarding has no partner and no outgoing request, so this is one quick round trip.
+    func finishOnboarding() async {
+        await refreshPendingOutgoingConnectionRequest()
         hasCouple = true
+        Task { await WidgetSnapshotWriter.refresh(appModel: self) }
     }
 
     /// Creates a trip with no flight attached — flights are never self-reported (see

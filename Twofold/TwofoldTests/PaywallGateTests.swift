@@ -241,6 +241,24 @@ struct AdmissionPathSubscriptionTests {
         #expect(AppModel.isSubscribed(backendSaysActive: true, deviceTier: nil))
     }
 
+    /// Where the first fix was wrong.
+    ///
+    /// It reconciled once, on the admission path, in `loadSignedInState`. Two things defeated that.
+    /// Onboarding admits people through `applyOnboardingAccount` instead, so signing up and
+    /// subscribing in one sitting never reached it; and `refreshCoupleStateIfNeeded` — which Home
+    /// fires on appear and on every foreground — went on assigning the raw row value over the top
+    /// afterwards. Reconciling once at admission cannot survive something that re-applies the row
+    /// later, which is why it now happens wherever the value is applied rather than once when
+    /// somebody arrives.
+    @Test("a later refresh must not undo what the purchase established")
+    func aRefreshCannotClobberAPurchase() {
+        // What a foreground refresh gets back while the webhook is behind.
+        let rowAtRefresh = false
+        #expect(AppModel.isSubscribed(backendSaysActive: rowAtRefresh, deviceTier: .premium))
+        // And the same refresh for somebody who genuinely stopped paying.
+        #expect(!AppModel.isSubscribed(backendSaysActive: rowAtRefresh, deviceTier: nil))
+    }
+
     /// The old behaviour, kept as the negative control: the adopt's raw row value, with nothing
     /// OR'd into it, is what put the card in front of a subscriber.
     @Test("taking the row at face value is what showed the card")

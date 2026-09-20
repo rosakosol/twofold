@@ -81,7 +81,7 @@ struct OnboardingRevealView: View {
                     // own, so account creation and finishing onboarding happen together here
                     // (unlike the default flow, where a paywall sits in between).
                     await appModel.applyOnboardingAccount(onboarding)
-                    appModel.finishOnboarding()
+                    Task { await appModel.finishOnboarding() }
                     isFinishing = false
                 }
             } label: {

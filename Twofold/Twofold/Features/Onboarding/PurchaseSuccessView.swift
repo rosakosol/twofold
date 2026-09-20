@@ -42,7 +42,7 @@ struct PurchaseSuccessView: View {
                 }
             },
             primaryTitle: "Continue",
-            primaryAction: { appModel.finishOnboarding() }
+            primaryAction: { Task { await appModel.finishOnboarding() } }
         )
         .sensoryFeedback(.success, trigger: didCelebrate)
     }
