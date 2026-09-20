@@ -8,20 +8,37 @@ import GoogleSignIn
 import PostHog
 
 struct OnboardingCoordinatorView: View {
+    @Environment(AppModel.self) private var appModel
     @State private var onboarding = OnboardingModel()
     @State private var showingPasswordReset = false
     @State private var passwordRecoveryError: String?
 
     var body: some View {
         NavigationStack(path: $onboarding.path) {
-            WelcomeView()
-                .postHogScreenView("Onboarding: Welcome")
-                .navigationDestination(for: OnboardingStep.self) { step in
-                    destination(for: step)
-                        .postHogScreenView(step.analyticsName)
+            Group {
+                if appModel.needsOnboarding {
+                    // The first real screen, as the stack's root rather than pushed onto it. Seeding
+                    // `path = [.situation]` instead would leave `WelcomeView` sitting underneath,
+                    // one back-swipe away — and its two buttons are "Get started" and "Sign in",
+                    // both meaningless to somebody who is already signed in.
+                    RelationshipSituationView()
+                        .postHogScreenView(OnboardingStep.situation.analyticsName)
+                } else {
+                    WelcomeView()
+                        .postHogScreenView("Onboarding: Welcome")
                 }
+            }
+            .navigationDestination(for: OnboardingStep.self) { step in
+                destination(for: step)
+                    .postHogScreenView(step.analyticsName)
+            }
         }
         .environment(onboarding)
+        .task {
+            // Read once, into the model the whole flow already reads from, so no screen needs its
+            // own AppModel lookup to know which variant it is in.
+            onboarding.isResumingAuthenticatedAccount = appModel.needsOnboarding
+        }
         .onOpenURL { url in
             // Google's sign-in flow redirects back into the app via its own URL scheme.
             if GIDSignIn.sharedInstance.handle(url) { return }

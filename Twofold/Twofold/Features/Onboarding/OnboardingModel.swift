@@ -14,6 +14,18 @@ final class OnboardingModel {
     var path: [OnboardingStep] = []
     var role: OnboardingRole = .inviter
 
+    /// The account already exists and is already signed in — a website subscription, which creates
+    /// the `auth.users` row without any of what onboarding collects (see `AppModel
+    /// .needsOnboarding`). The flow is otherwise identical; three things change:
+    ///
+    ///   1. `WelcomeView` is not the root, because "Get started"/"Sign in" are both already done.
+    ///   2. `TwofoldPreviewView` skips `.saveAccount` — there is no account to create. It applies
+    ///      everything collected to the existing profile at exactly the point `SaveAccountView`
+    ///      would have, so the persistence boundary does not move.
+    ///   3. `InvitePartnerView` skips `.trialTrust`/`.paywall` — they paid on the web already, and
+    ///      showing a paywall to somebody who is mid-subscription is its own bug.
+    var isResumingAuthenticatedAccount = false
+
     init() {
         #if DEBUG
         // Opens onboarding straight at one step, from `-onboardingStep <case>` — the same
@@ -144,6 +156,7 @@ final class OnboardingModel {
     func resetAfterDeletedAccount() {
         path = []
         role = .inviter
+        isResumingAuthenticatedAccount = false
 
         firstName = ""
         email = ""

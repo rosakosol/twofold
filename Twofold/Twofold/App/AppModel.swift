@@ -30,6 +30,19 @@ private extension ISO8601DateFormatter {
 final class AppModel {
     var isLoadingSession = true
     var hasCouple: Bool = false
+    /// Signed in, but this account never went through onboarding — it was created on the website
+    /// by subscribing there, so it has an empty name, no partner, no anniversary and no invite.
+    ///
+    /// `hasCouple` used to be set true for anyone with a session at all, on the reasoning (stated
+    /// in `loadSignedInState`'s own comment) that being authenticated proves onboarding happened.
+    /// That held for exactly as long as the app was the only way to make an account. These people
+    /// landed in `MainTabView` called "You", with no route back to the flow that collects any of
+    /// it. `RootView` sends them to `OnboardingCoordinatorView` instead.
+    ///
+    /// Deliberately not set on the offline-cache path: a launch with no network looks identical to
+    /// "no rows" from here, and re-onboarding somebody because their train went into a tunnel is a
+    /// far worse failure than briefly showing a web account the app.
+    var needsOnboarding = false
     /// Set by `loadSignedInState()` when it finds a session belonging to an already-deleted
     /// account and signs it back out. `SignInView`/`WelcomeView` read this once to show the
     /// user why they landed back at sign-in instead of their previous session resuming.
@@ -541,10 +554,15 @@ final class AppModel {
         let outcome = await CoupleStateOutcome.fetch()
         if case let .paired(state) = outcome {
             await adopt(state)
+            // A couple cannot exist without both people having been through onboarding.
+            needsOnboarding = false
         } else if case .noCouple = outcome, let profile = try? await BackendService.fetchOwnProfile() {
             // Only when the backend actually said so. A failed fetch used to land here too, so a
             // launch on a flaky connection could show a paired couple their solo, unpaired app.
             await adoptSoloProfile(profile)
+            // Adopted first, so the subscription and tier this account bought on the web are
+            // already in hand by the time onboarding starts and can be used to skip the paywall.
+            needsOnboarding = !profile.hasCompletedOnboarding
         } else if let cached = OfflineSessionCache.restore(for: BackendService.currentUserID) {
             // Both reads failed — almost always no network (they're `try?`, so a real outage looks
             // identical to "no rows"). Without this, `isSubscriptionActive` keeps its `false`
@@ -558,7 +576,9 @@ final class AppModel {
             hasResolvedSubscription = true
             hasLoadedCoupleState = true
         }
-        hasCouple = true
+        // Not `true` outright any more — see `needsOnboarding`, which is the one case where a
+        // real session should still land on the onboarding flow rather than the app.
+        hasCouple = !needsOnboarding
         // Resolved here, not only from RootView's launch task.
         //
         // That task runs once, at launch. Someone who opens the app signed out gets an early
@@ -1884,6 +1904,17 @@ final class AppModel {
             couple.partnerB.avatarURL = url
         }
 
+        // `signUp` carries first_name in the user metadata that `handle_new_user` reads, so the
+        // email path persisted it and this write looks redundant. It is not: the Apple and Google
+        // buttons never call `signUp`, they land straight here, so every account that onboarded
+        // with SSO had its name collected by `YourNameView`, shown back to it all the way through
+        // the flow, and then dropped — `profiles.first_name` stayed '' and the next sign-in read
+        // it back as "You". Idempotent for the email path, which is writing the same string it
+        // already sent.
+        if !onboarding.firstName.isEmpty {
+            try? await BackendService.updateFirstName(onboarding.firstName)
+        }
+
         if let homeCity = onboarding.homeCity {
             try? await BackendService.updateHomeCity(homeCity)
             couple.partnerA.homeCity = homeCity
@@ -1923,6 +1954,13 @@ final class AppModel {
     /// Awaited before the flip rather than after, so Home's first render already knows. Somebody
     /// finishing onboarding has no partner and no outgoing request, so this is one quick round trip.
     func finishOnboarding() async {
+        // Recorded server-side, because this is the write that stops the next launch routing
+        // straight back into onboarding. `try?` rather than a thrown error: the account is fully
+        // set up whether or not this lands, so there is nothing useful to tell the user here and
+        // nothing to undo. The cost of it failing is one more trip through the flow next launch,
+        // which is also exactly what it degrades to if the app is killed on this screen.
+        try? await BackendService.markOnboardingCompleted()
+        needsOnboarding = false
         // Nothing to fetch: this account was just built, so its state is known and empty. Saying so
         // is what lets Home show the setup checklist immediately rather than a round trip later.
         hasLoadedCoupleState = true

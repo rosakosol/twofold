@@ -156,7 +156,20 @@ struct TwofoldPreviewView: View {
                 }
             },
             primaryTitle: "Continue",
-            primaryAction: { onboarding.path.append(.saveAccount) }
+            primaryAction: {
+                guard onboarding.isResumingAuthenticatedAccount else {
+                    onboarding.path.append(.saveAccount)
+                    return
+                }
+                // Same boundary `SaveAccountView.finish` uses, minus the sign-up it exists to do:
+                // everything sitting in `OnboardingModel` gets written to the profile that the
+                // website already created. Doing it here rather than later keeps the rule that
+                // nothing persists until this point in the flow, whichever way the account arrived.
+                Task {
+                    await appModel.applyOnboardingAccount(onboarding)
+                    if !appModel.hasCouple { onboarding.path.append(.invitePartner) }
+                }
+            }
         )
         // Over the whole screen, not pinned to the emoji.
         //

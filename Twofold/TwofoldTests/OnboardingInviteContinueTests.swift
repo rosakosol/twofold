@@ -68,9 +68,11 @@ struct OnboardingInviteContinueTests {
             onboarding: shared, appModel: AppModel(), inviteCode: .constant("ABCD-EFGH")
         ).onInviteShared?()
 
-        // What InvitePartnerView's `secondaryAction` does.
+        // What InvitePartnerView's `secondaryAction` does — read from the app, not copied. It used
+        // to be the literal `[.invitePartner, .trialTrust]`, which quietly stopped being a check
+        // that the two routes agree the moment either one could branch.
         let skipped = OnboardingModel()
-        skipped.path = [.invitePartner, .trialTrust]
+        skipped.path = [.invitePartner, InvitePartnerView.afterInvite(skipped)]
 
         #expect(shared.path == skipped.path)
     }

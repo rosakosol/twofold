@@ -35,12 +35,22 @@ struct InvitePartnerView: View {
             primaryTitle: nil,
             primaryAction: nil,
             secondaryTitle: "Not now",
-            secondaryAction: { onboarding.path.append(.trialTrust) }
+            secondaryAction: { onboarding.path.append(Self.afterInvite(onboarding)) }
         )
     }
 }
 
 extension InvitePartnerView {
+    /// Where the two "carry on without connecting yet" routes go.
+    ///
+    /// `.trialTrust` sells a free trial and hands off to `.paywall`. Someone who subscribed on the
+    /// website is already paying, so that pair is at best a confusing detour and at worst a second
+    /// charge; `.reveal` is where the flow ends up anyway, and it is already the screen used
+    /// whenever the paywall is skipped (see `onRedeemSuccess` below).
+    static func afterInvite(_ onboarding: OnboardingModel) -> OnboardingStep {
+        onboarding.isResumingAuthenticatedAccount ? .reveal : .trialTrust
+    }
+
     /// Built here rather than inline in `body` so the wiring can be tested.
     ///
     /// What is worth testing is not the card — it is that this screen hands it somewhere to
@@ -59,7 +69,7 @@ extension InvitePartnerView {
                 // still has to redeem it — so the inviter carries on through onboarding exactly as
                 // they would have, having just been told they will hear the moment their partner
                 // joins.
-                onboarding.path.append(.trialTrust)
+                onboarding.path.append(afterInvite(onboarding))
             },
             onRedeemSuccess: {
                 Task {

@@ -222,6 +222,24 @@ enum BackendService {
         enum CodingKeys: String, CodingKey { case firstName = "first_name" }
     }
 
+    private struct OnboardingCompletedUpdate: Encodable {
+        var onboardingCompletedAt: String
+        enum CodingKeys: String, CodingKey { case onboardingCompletedAt = "onboarding_completed_at" }
+    }
+
+    /// Called once, by `AppModel.finishOnboarding()`. Until this lands, `fetchOwnProfile` keeps
+    /// reporting `hasCompletedOnboarding == false` and every launch routes back into onboarding —
+    /// so this is the one write in the flow that must not be swallowed by a `try?` at the call site
+    /// without the caller knowing it failed.
+    static func markOnboardingCompleted() async throws {
+        guard let userID = currentUserID else { throw BackendError.notAuthenticated }
+        try await supabase
+            .from("profiles")
+            .update(OnboardingCompletedUpdate(onboardingCompletedAt: ISO8601DateFormatter().string(from: .now)))
+            .eq("id", value: userID)
+            .execute()
+    }
+
     static func updateFirstName(_ name: String) async throws {
         guard let userID = currentUserID else { throw BackendError.notAuthenticated }
         try await supabase
@@ -513,6 +531,12 @@ enum BackendService {
         /// `AppModel.partnerSubscriptionLapsedPartnerName`.
         var partnerSubscriptionLapsePartnerName: String?
         var partnerSubscriptionLapseShown: Bool
+        /// False only for an account created outside the app — today that means a website
+        /// subscription, which produces a real `auth.users` row and a `profiles` row (via
+        /// `handle_new_user`) without any of the things onboarding collects. `AppModel
+        /// .loadSignedInState` routes these into onboarding instead of admitting them to the app
+        /// nameless. See migration 20261106000000.
+        var hasCompletedOnboarding: Bool
     }
 
     /// The signed-in user's own profile — used when they're authenticated but not (yet)
@@ -553,7 +577,8 @@ enum BackendService {
             partnerConnectedCelebrationShown: profile.partnerConnectedCelebrationShown,
             setupChecklistDismissed: profile.setupChecklistDismissed,
             partnerSubscriptionLapsePartnerName: profile.partnerSubscriptionLapsePartnerName,
-            partnerSubscriptionLapseShown: profile.partnerSubscriptionLapseShown
+            partnerSubscriptionLapseShown: profile.partnerSubscriptionLapseShown,
+            hasCompletedOnboarding: profile.onboardingCompletedAt != nil
         )
     }
 
@@ -660,6 +685,10 @@ enum BackendService {
         var setupChecklistDismissed: Bool
         var partnerSubscriptionLapsePartnerName: String?
         var partnerSubscriptionLapseShown: Bool
+        /// Decoded as the raw string rather than a Date: nothing needs the instant, only whether
+        /// there is one, and Postgres timestamptz comes back with a microsecond precision that
+        /// Foundation's ISO8601 decoding rejects outright.
+        var onboardingCompletedAt: String?
 
         enum CodingKeys: String, CodingKey {
             case id
@@ -676,6 +705,7 @@ enum BackendService {
             case setupChecklistDismissed = "setup_checklist_dismissed"
             case partnerSubscriptionLapsePartnerName = "partner_subscription_lapse_partner_name"
             case partnerSubscriptionLapseShown = "partner_subscription_lapse_shown"
+            case onboardingCompletedAt = "onboarding_completed_at"
         }
     }
 
