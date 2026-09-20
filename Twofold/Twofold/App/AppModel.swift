@@ -1237,6 +1237,17 @@ final class AppModel {
         dailyQuestionError = nil
         isLoadingDailyQuestion = true
         defer { isLoadingDailyQuestion = false }
+
+        // Today's cache, painted before any network work rather than only as a fallback.
+        //
+        // This used to be reached solely when offline or on a thrown error, so on a slow-but-working
+        // connection the card sat on its skeleton for the whole chain below even though the answer
+        // was already on disk. It is safe to lead with because the cache is day-scoped and the
+        // backend assigns one question per day, so a question recorded earlier today *is* today's
+        // question — see `OfflineGameStateCache`'s own header. `reportMissing: false` because
+        // having no cache is the normal first-run state, not an error to show someone.
+        applyCachedDailyQuestion(reportMissing: false)
+
         // Same reason as `refreshGameDecks`: offline these calls only fail, and only after a full
         // timeout each, so the card spun for a minute before showing the question already cached
         // from earlier today.
@@ -1247,18 +1258,29 @@ final class AppModel {
         do {
             let sessionID = try await BackendService.getDailyQuestionSession()
             todaysDailySessionID = sessionID
-            if let detail = try? await BackendService.fetchGameSession(id: sessionID),
-               let round = detail.rounds.first, case let .deepConversation(topic)? = detail.content[round.contentID] {
+
+            // Concurrent, because only the session detail ever needed the id — the answer status
+            // and the streak are independent of it and of each other. Serially this was five round
+            // trips deep before the streak appeared (session, detail, status, streak, then the
+            // repair state the streak fetch awaits), each one waiting out the last. Now it is the
+            // session, then everything else at once.
+            async let detail = try? BackendService.fetchGameSession(id: sessionID)
+            async let status = try? BackendService.fetchDailyQuestionStatus()
+            async let streakRefreshed: Void = refreshDailyStreak()
+
+            if let detail = await detail, let round = detail.rounds.first,
+               case let .deepConversation(topic)? = detail.content[round.contentID] {
                 todaysDailyQuestionText = topic.topic
             }
+            if let status = await status {
+                todaysMyAnswered = status.mine
+                todaysPartnerAnswered = status.partner
+            }
+            await streakRefreshed
         } catch {
             applyCachedDailyQuestion()
+            await refreshDailyStreak()
         }
-        if let status = try? await BackendService.fetchDailyQuestionStatus() {
-            todaysMyAnswered = status.mine
-            todaysPartnerAnswered = status.partner
-        }
-        await refreshDailyStreak()
         recordGameStateForOffline()
     }
 
@@ -1289,7 +1311,10 @@ final class AppModel {
     /// Today's question as of the last time it was fetched. The backend assigns one per day, so a
     /// question cached earlier today is the same question, not a guess at it — which is why this
     /// only restores one recorded today, and reports a real error otherwise.
-    private func applyCachedDailyQuestion() {
+    /// `reportMissing` distinguishes the two callers. As a fallback, no cache means there is nothing
+    /// to show and the error is the honest outcome. As the opening paint, no cache is simply a first
+    /// run, and an error there would flash before the network had been given a chance.
+    private func applyCachedDailyQuestion(reportMissing: Bool = true) {
         if let cached = OfflineGameStateCache.restore(for: BackendService.currentUserID),
            let text = cached.questionText {
             todaysDailyQuestionText = text
@@ -1299,7 +1324,7 @@ final class AppModel {
             if dailyStreak == nil { dailyStreak = cached.dailyStreak }
             if longestDailyStreak == nil { longestDailyStreak = cached.longestDailyStreak }
             if dailyStreakResetsAt == nil { dailyStreakResetsAt = cached.dailyStreakResetsAt }
-        } else {
+        } else if reportMissing {
             dailyQuestionError = "Today's question needs a connection. Decks below are ready to play."
         }
     }
