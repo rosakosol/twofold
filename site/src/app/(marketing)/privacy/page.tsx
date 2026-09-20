@@ -45,8 +45,9 @@ export default async function PrivacyPage() {
 
       <h2>Third-party services</h2>
       <p>
-        Twofold uses Supabase for data storage and authentication, Apple WeatherKit for weather
-        data, AeroAPI for flight tracking, and Apple Push Notification service for notifications.
+        Twofold uses Supabase for data storage and authentication, Cloudflare R2 for photos,
+        avatars and travel documents, Apple WeatherKit for weather data, AeroAPI for flight
+        tracking, and Apple Push Notification service for notifications.
         Subscription purchases are processed by Apple (App Store) or by Stripe via RevenueCat
         (web) - Twofold never sees or stores your payment card details. Each of these providers
         processes data only as needed to power the relevant feature.
