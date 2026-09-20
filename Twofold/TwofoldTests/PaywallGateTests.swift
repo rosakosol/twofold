@@ -286,6 +286,31 @@ struct AdmissionPathSubscriptionTests {
         #expect(!homeShowsNoSubscriptionCard(resolved: true, canAddContent: true))
     }
 
+    /// Where the third state got undone by its own backstop.
+    ///
+    /// `checkSubscription` sets two flags. `hasCheckedSubscription` releases a loading gate and must
+    /// be set on every path out, including an early return — a screen that cannot decide is still
+    /// better than a spinner. `hasResolvedSubscription` licenses Home to say "no subscription" and
+    /// must be set only when something was learned. Putting both in one `defer` before the guard
+    /// gave the second the first's semantics: the launch `.task` runs while `hasCouple` is still
+    /// false, returned immediately, and announced a resolution it did not have — so Home mounted,
+    /// read resolved-and-false, and flashed the card at a subscriber all over again.
+    private func resolutionFollowsFrom(hasCouple: Bool) -> Bool { hasCouple }
+
+    @Test("an early return learns nothing and must not claim to have resolved")
+    func earlyReturnDoesNotResolve() {
+        #expect(!resolutionFollowsFrom(hasCouple: false), "returning before doing the work resolved nothing")
+        #expect(resolutionFollowsFrom(hasCouple: true))
+    }
+
+    /// The two flags together, at the instant that was breaking: session still loading, so nothing
+    /// is known and nothing may be claimed.
+    @Test("mid-load, the card stays hidden even though the value under it reads false")
+    func midLoadShowsNothing() {
+        let resolved = resolutionFollowsFrom(hasCouple: false)
+        #expect(!homeShowsNoSubscriptionCard(resolved: resolved, canAddContent: false))
+    }
+
     /// The negative control for the flash: without the third state, the launch instant and a real
     /// refusal are the same input, so no amount of correcting the value underneath helps.
     @Test("without the resolved flag those two states are indistinguishable")

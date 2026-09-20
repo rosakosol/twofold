@@ -607,15 +607,26 @@ struct RootView: View {
         // the gate holds on it. An early return, a thrown fetch, or no connectivity at all must end
         // in a real screen — a paywall this cannot decide against is still better than a spinner
         // that never resolves.
-        // Both flags, and both in the defer: an early return or a thrown fetch still has to end in
-        // a real screen and a real answer. `hasCheckedSubscription` is this view's own gate;
-        // `hasResolvedSubscription` is what Home reads, and this is the backstop for any path that
-        // reaches here without going through an adopt.
-        defer {
-            hasCheckedSubscription = true
-            appModel.markSubscriptionResolved()
-        }
+        defer { hasCheckedSubscription = true }
         guard appModel.hasCouple else { return }
+
+        // After the guard, deliberately, and this is the opposite requirement to the one above.
+        //
+        // `hasCheckedSubscription` must be set on every path, because its job is to stop holding a
+        // spinner. `hasResolvedSubscription` must be set only when something was actually learned,
+        // because its job is to let Home say "no subscription" — and saying that having learned
+        // nothing is the whole bug it exists to prevent.
+        //
+        // Sharing the first defer broke exactly that. This runs from a `.task` at launch, when
+        // `hasCouple` is still false because the session is mid-load, so it returned here and
+        // marked the subscription resolved with `isSubscriptionActive` untouched at its `false`
+        // default. Home then mounted, read resolved-and-false, and showed the card to a paying
+        // subscriber until the adopt a moment later corrected it. The same flash, reintroduced by
+        // the backstop meant to prevent a different one.
+        //
+        // Nothing is left permanently unresolved by moving it: every path that admits somebody to
+        // Home goes through an adopt or the cached-session branch, and each of those resolves.
+        defer { appModel.markSubscriptionResolved() }
         // Still refreshed, because `subscriptionStore.subscribedTier` drives the Settings and
         // Customer Center screens — but nothing is written back from it any more.
         await subscriptionStore.refreshEntitlementsOnly()
