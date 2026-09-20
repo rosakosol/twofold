@@ -464,6 +464,13 @@ entrypoint = "./functions/aeroapi-webhook/index.ts"
 # Hit directly by AsyncImage as a plain image URL (no Authorization header attached) — same
 # public trust level as the logo CDN it caches used to have, so platform-level JWT verification
 # is off.
+# Mints presigned R2 URLs. verify_jwt because the whole point is that it acts as the caller —
+# `can_access_storage_object` reads auth.uid(), and an unauthenticated request has nothing to check.
+[functions.storage-url]
+enabled = true
+verify_jwt = true
+import_map = "./functions/storage-url/deno.json"
+
 [functions.airline-logo]
 enabled = true
 verify_jwt = false
