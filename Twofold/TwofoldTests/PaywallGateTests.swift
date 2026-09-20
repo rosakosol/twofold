@@ -259,6 +259,42 @@ struct AdmissionPathSubscriptionTests {
         #expect(!AppModel.isSubscribed(backendSaysActive: rowAtRefresh, deviceTier: nil))
     }
 
+    /// Home's own third state, which is a different claim from the one above.
+    ///
+    /// Fixing the clobber stopped the card *persisting*. It did not stop it appearing: the value it
+    /// reads starts false, so "we have not asked yet" still rendered as "you have not paid" for the
+    /// one round trip it took to find out, on every single launch. Reported as a flash rather than
+    /// a card that stays, which is exactly what a missing third state looks like once the value
+    /// underneath it is correct.
+    private func homeShowsNoSubscriptionCard(resolved: Bool, canAddContent: Bool) -> Bool {
+        resolved && !canAddContent
+    }
+
+    @Test("the card is not shown before anything has answered")
+    func noCardBeforeTheAnswerLands() {
+        // The launch instant: nothing has resolved, and the value it would read is the default.
+        #expect(!homeShowsNoSubscriptionCard(resolved: false, canAddContent: false))
+    }
+
+    @Test("it is shown once the answer lands and is no")
+    func cardShownWhenGenuinelyUnsubscribed() {
+        #expect(homeShowsNoSubscriptionCard(resolved: true, canAddContent: false))
+    }
+
+    @Test("and never shown to someone who can add content")
+    func noCardForASubscriber() {
+        #expect(!homeShowsNoSubscriptionCard(resolved: true, canAddContent: true))
+    }
+
+    /// The negative control for the flash: without the third state, the launch instant and a real
+    /// refusal are the same input, so no amount of correcting the value underneath helps.
+    @Test("without the resolved flag those two states are indistinguishable")
+    func theFlashIsAMissingThirdState() {
+        func old(canAddContent: Bool) -> Bool { !canAddContent }
+        #expect(old(canAddContent: false), "the launch instant showed the card")
+        #expect(old(canAddContent: false), "and so did a genuine refusal — the same input")
+    }
+
     /// The old behaviour, kept as the negative control: the adopt's raw row value, with nothing
     /// OR'd into it, is what put the card in front of a subscriber.
     @Test("taking the row at face value is what showed the card")

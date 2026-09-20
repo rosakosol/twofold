@@ -86,7 +86,13 @@ struct HomeView: View {
                     // away: resubscribing clears both without anything having to be acknowledged.
                     // Nested rather than two sibling conditions so the lapsed card cannot outlive
                     // the situation it describes.
-                    if !appModel.canAddContent {
+                    // Waits to be told, rather than assuming the worst while it finds out.
+                    // `canAddContent` is false before the first answer lands as well as when
+                    // somebody genuinely has not paid, and rendering the second on the way to the
+                    // first flashed "No active subscription" at a paying subscriber on every
+                    // launch. Same shape as `invitePartnerCard` below, and for the same reason: no
+                    // card is better than the wrong one, and the gap is one round trip.
+                    if appModel.hasResolvedSubscription, !appModel.canAddContent {
                         if let lapsedPartnerName = appModel.partnerSubscriptionLapsedPartnerName {
                             // The specific reason, when there is one. Shown instead of the general
                             // card rather than as well as it — two cards saying "you have no

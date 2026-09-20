@@ -607,7 +607,14 @@ struct RootView: View {
         // the gate holds on it. An early return, a thrown fetch, or no connectivity at all must end
         // in a real screen — a paywall this cannot decide against is still better than a spinner
         // that never resolves.
-        defer { hasCheckedSubscription = true }
+        // Both flags, and both in the defer: an early return or a thrown fetch still has to end in
+        // a real screen and a real answer. `hasCheckedSubscription` is this view's own gate;
+        // `hasResolvedSubscription` is what Home reads, and this is the backstop for any path that
+        // reaches here without going through an adopt.
+        defer {
+            hasCheckedSubscription = true
+            appModel.markSubscriptionResolved()
+        }
         guard appModel.hasCouple else { return }
         // Still refreshed, because `subscriptionStore.subscribedTier` drives the Settings and
         // Customer Center screens — but nothing is written back from it any more.

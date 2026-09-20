@@ -143,6 +143,27 @@ final class AppModel {
     /// meant to exempt.
     private(set) var hasResolvedOutgoingConnectionRequest = false
 
+    /// Whether anything authoritative has said yet whether this account is subscribed.
+    ///
+    /// `isSubscriptionActive` is a plain Bool that starts `false`, so before the first answer lands
+    /// "we do not know" is indistinguishable from "they have not paid" — and Home rendered the
+    /// second. The card stopped *persisting* once the value stopped being clobbered by later
+    /// refreshes, but it still flashed on every launch, which is the same third-state problem the
+    /// paywall gate solved with `hasCheckedSubscription` and the invite card with
+    /// `hasResolvedOutgoingConnectionRequest`.
+    ///
+    /// Set wherever a real answer is applied, including the ones that fail — an offline launch
+    /// resolves from cache, and `RootView.checkSubscription` resolves in a `defer` so a thrown
+    /// fetch still counts. Something that never resolves would hide the card from someone who
+    /// genuinely has not paid, which is the failure worth avoiding here.
+    private(set) var hasResolvedSubscription = false
+
+    /// For `RootView.checkSubscription`, whose own `defer` is the backstop for every path that does
+    /// not go through an adopt.
+    func markSubscriptionResolved() {
+        hasResolvedSubscription = true
+    }
+
     /// Non-nil only while there's an unacknowledged "your subscription lapsed because {name}
     /// left" notice — set by `adoptSoloProfile(_:)` from `leave_couple`'s server-captured
     /// snapshot (the ex-partner's name is already gone from `partner_name` by the time this
@@ -520,6 +541,7 @@ final class AppModel {
             // `false`, and this is the offline-launch path — the one where nothing else will
             // correct it.
             isSubscriptionActive = await resolvedSubscriptionActive(backendSaysActive: cached.active)
+            hasResolvedSubscription = true
         }
         hasCouple = true
         // Resolved here, not only from RootView's launch task.
@@ -636,6 +658,7 @@ final class AppModel {
             couple.startedDatingOn = anniversaryDate
         }
         isSubscriptionActive = await resolvedSubscriptionActive(backendSaysActive: profile.subscriptionActive)
+        hasResolvedSubscription = true
         subscriptionTier = profile.subscriptionTier
         // Same reasoning as `performAdopt` — see OfflineSessionCache. Solo (unpaired) here, so
         // partnerConnected is false; restoring that keeps the setup card honest either way.
@@ -703,6 +726,7 @@ final class AppModel {
 
     func markSubscriptionActive(tier: String) {
         isSubscriptionActive = true
+        hasResolvedSubscription = true
         subscriptionTier = tier
         // Subscribing is the end of the situation the lapse notice describes, so retire it here
         // rather than waiting for somebody to dismiss it — the card has no dismiss any more. Home
@@ -893,6 +917,7 @@ final class AppModel {
         inviteCode = nil
         backendCoupleID = nil
         isSubscriptionActive = false
+        hasResolvedSubscription = false
         pendingTripIDs = []
         pendingMemoryIDs = []
         pendingMemoryPhotoData = [:]
@@ -1620,6 +1645,7 @@ final class AppModel {
         // screen that was showing the new couple.
         partnerDisconnectedMessage = nil
         isSubscriptionActive = await resolvedSubscriptionActive(backendSaysActive: state.subscriptionActive)
+        hasResolvedSubscription = true
         subscriptionTier = state.subscriptionTier
         // The backend has just told us the couple-wide truth — remember it so a later cold launch
         // with no network doesn't fall back to `false` and paywall a real subscriber.
