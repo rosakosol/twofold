@@ -501,6 +501,15 @@ entrypoint = "./functions/send-partner-invite-reminders/index.ts"
 # JWT, so the platform check costs nothing and means an unauthenticated request never reaches the
 # function's own comparison at all. Nothing outside this project should be able to make it call the
 # provider on every subscriber.
+# Closes accounts that have gone dormant, and warns them first. Called only by the pg_cron job in
+# 20261029000200, which posts with the service-role key; the function checks that header itself and
+# 403s anything else, so verify_jwt is belt as well as braces.
+[functions.purge-dormant-accounts]
+enabled = true
+verify_jwt = true
+import_map = "./functions/purge-dormant-accounts/deno.json"
+entrypoint = "./functions/purge-dormant-accounts/index.ts"
+
 [functions.reconcile-subscriptions]
 enabled = true
 verify_jwt = true
