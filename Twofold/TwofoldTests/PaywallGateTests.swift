@@ -200,3 +200,53 @@ struct SubscriptionResolutionGateTests {
         #expect(decision(subscriptionChecked: false) == "loading")
     }
 }
+
+//
+//  The same stale row, one screen further in.
+//
+//  The gate above stopped showing a forced paywall during the unresolved window, but Home's "No
+//  active subscription" card reads `canAddContent` — `isSubscriptionActive`, plain, with no third
+//  state and no OR against the device. So the card took over exactly where the paywall left off.
+//
+//  What made it stick rather than flash: `checkSubscription()` is the only thing that applies the
+//  OR, it returns early unless `hasCouple`, and it runs from a `.task` that fires once. Somebody
+//  subscribing *inside* onboarding has it run while `hasCouple` is still false — it learns nothing,
+//  its `defer` marks it checked, and it never runs again. Onboarding then finishes, the adopt writes
+//  the webhook-lagged `false`, and the card sits there until a background/foreground or a trip to
+//  Settings happens to re-run the check. Reported twice, both times with "it went away when I opened
+//  Settings" attached, which is the tell.
+//
+@MainActor
+struct AdmissionPathSubscriptionTests {
+
+    /// The reported case: account created and subscribed in one sitting, so the webhook has not
+    /// landed by the time the adopt reads the row.
+    @Test("a device entitlement stands in for a backend row that has not caught up")
+    func deviceEntitlementCoversWebhookLag() {
+        #expect(AppModel.isSubscribed(backendSaysActive: false, deviceTier: .premium))
+        #expect(AppModel.isSubscribed(backendSaysActive: false, deviceTier: .plus))
+    }
+
+    /// The direction that must not be rescued. RevenueCat is the receipt-validated answer in both
+    /// directions — a cancellation reads as no active entitlement there too.
+    @Test("no entitlement and no row still means no subscription")
+    func genuineAbsenceStillReadsAsAbsent() {
+        #expect(!AppModel.isSubscribed(backendSaysActive: false, deviceTier: nil))
+    }
+
+    /// A paid-up row needs no help from the device, which is why the reconciler returns early on it
+    /// rather than reaching for `customerInfo` on every launch.
+    @Test("a row that says active is enough on its own")
+    func backendAloneIsEnough() {
+        #expect(AppModel.isSubscribed(backendSaysActive: true, deviceTier: nil))
+    }
+
+    /// The old behaviour, kept as the negative control: the adopt's raw row value, with nothing
+    /// OR'd into it, is what put the card in front of a subscriber.
+    @Test("taking the row at face value is what showed the card")
+    func rawRowValueIsTheBug() {
+        let backendSaysActive = false // webhook behind
+        #expect(!backendSaysActive, "what the adopt wrote, and what Home then rendered")
+        #expect(AppModel.isSubscribed(backendSaysActive: backendSaysActive, deviceTier: .premium))
+    }
+}

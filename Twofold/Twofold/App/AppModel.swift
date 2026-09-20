@@ -517,6 +517,9 @@ final class AppModel {
             // subscriber onto the non-dismissable paywall.
             applyCachedSession(cached)
         }
+        // Before `hasCouple`, so Home's first render already has the right answer rather than
+        // correcting itself a moment later.
+        await adoptDeviceEntitlementIfBackendIsBehind()
         hasCouple = true
         // Resolved here, not only from RootView's launch task.
         //
@@ -659,6 +662,45 @@ final class AppModel {
     /// set here, so tier-gated UI (`isDeckLocked`/`isPremiumLocked`, Home's plan-dependent
     /// copy) and widgets stayed on the pre-purchase tier until the next foreground/relaunch's
     /// `performAdopt` round trip.
+    /// Whether somebody is subscribed, given what the backend row says and what this device's own
+    /// RevenueCat customer says.
+    ///
+    /// The same OR `RootView.checkSubscription` applies on every foreground, pulled out as a pure
+    /// function because the interesting case — backend behind, device ahead — is otherwise only
+    /// reachable through `Purchases.shared`, which traps under XCTest.
+    static func isSubscribed(backendSaysActive: Bool, deviceTier: SubscriptionTier?) -> Bool {
+        backendSaysActive || deviceTier != nil
+    }
+
+    /// Lets this device's own entitlement stand in for a `profiles.subscription_active` that has
+    /// not caught up yet, on the path that admits somebody to the app.
+    ///
+    /// `RootView.checkSubscription()` already does this, but it cannot cover the case that matters
+    /// most. It returns early unless `hasCouple`, and it runs from a `.task` that fires once —
+    /// during onboarding, when `hasCouple` is still false. So somebody who subscribes *inside*
+    /// onboarding has the check run, learn nothing, mark itself done, and never run again: the
+    /// adopt above then writes the webhook-lagged `false` over `markSubscriptionActive`'s optimistic
+    /// `true`, and Home shows "No active subscription" to somebody who has just paid. It stayed up
+    /// until something else happened to re-run the check — a background/foreground, or opening
+    /// Settings, which is how this was reported both times.
+    ///
+    /// Only ever upgrades false -> true, and only on RevenueCat's own current answer for *this*
+    /// account, so a genuine cancellation still reads as cancelled. The `isAnonymous` check is the
+    /// load-bearing half, for the reason `RootView.deviceHoldsEntitlement` spells out: an anonymous
+    /// customer is whoever used this install before anyone signed in, and treating their
+    /// entitlements as this account's would mean a device holding a subscription rather than a
+    /// person.
+    private func adoptDeviceEntitlementIfBackendIsBehind() async {
+        guard !isSubscriptionActive, !Purchases.shared.isAnonymous else { return }
+        guard let info = try? await Purchases.shared.customerInfo() else { return }
+        let deviceTier = SubscriptionTier.active(in: info)
+        guard Self.isSubscribed(backendSaysActive: false, deviceTier: deviceTier) else { return }
+        isSubscriptionActive = true
+        // Only when the row had nothing to say. A tier the backend *did* supply is the couple-wide
+        // one and outranks whatever this single device happens to hold.
+        if subscriptionTier == nil { subscriptionTier = deviceTier?.dbValue }
+    }
+
     func markSubscriptionActive(tier: String) {
         isSubscriptionActive = true
         subscriptionTier = tier
