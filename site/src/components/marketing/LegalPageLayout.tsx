@@ -31,8 +31,12 @@ export function LegalPageLayout({
       </p>
 
       {/* Sanity's noticeText is empty-string-hideable (see legalPage.ts's own field
-          description); doc === null (nothing published yet) falls back to the
-          hardcoded draft notice so the page doesn't silently look "final". */}
+          description), and both documents currently hide it.
+
+          `doc === null` no longer means "nothing published yet" — both are published, so it means
+          the fetch failed and the reader is looking at the short fallback instead of the real
+          document. The notice says that, rather than the draft warning it used to carry, which
+          would now tell someone a reviewed policy is an unreviewed placeholder. */}
       {(doc === null || noticeText) && (
         <div className="legal-notice">
           <svg className="icon">

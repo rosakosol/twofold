@@ -14,9 +14,11 @@ export default async function TermsPage() {
       fallbackLastUpdated="12 July 2026"
       fallbackNotice={
         <>
-          <strong>Draft - pending legal review.</strong> This page is a placeholder so the app&apos;s
-          Terms of Use link works end-to-end. It has not been reviewed by a lawyer and should not be
-          treated as final before Twofold is publicly released.
+          <strong>Showing a summary.</strong> We couldn&apos;t load the full Terms of Use just now, so
+          what follows is a short overview rather than the complete document. Refreshing usually
+          fixes it &mdash; and if it doesn&apos;t, email{" "}
+          <a href="mailto:hello@twofoldapp.com.au">hello@twofoldapp.com.au</a> and we&apos;ll send
+          you a copy.
         </>
       }
     >
