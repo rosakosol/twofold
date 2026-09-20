@@ -99,16 +99,49 @@ enum GameContentStore {
     private nonisolated(unsafe) static var loaded: Payload?
     private static let lock = NSLock()
 
+    #if DEBUG
+    /// Set by `useBundledSeedForTesting()`. Never true in a shipped build — the property itself
+    /// only exists under DEBUG, and the one place that reads it is inside the same `#if`.
+    private nonisolated(unsafe) static var ignoresCacheForTesting = false
+
+    /// Makes `payload()` skip the downloaded cache, so a test about the bundled seed reads the
+    /// bundled seed.
+    ///
+    /// Without this, `GameContentStoreTests` and `LocalGameSessionTests` assert against whatever
+    /// catalogue the app last pulled on that particular simulator: the cache wins over the seed by
+    /// design, and the test host shares a container with the app. Both suites passed or failed on
+    /// the state of a machine rather than on the state of the repo, and they failed for real when
+    /// the backend's `question_count` drifted from the rows it counts — a true finding, but not one
+    /// a test about a bundled file should be the one to make.
+    ///
+    /// Drops the memoised copy too, which may already hold the cache from an earlier read.
+    static func useBundledSeedForTesting() {
+        lock.lock()
+        ignoresCacheForTesting = true
+        loaded = nil
+        lock.unlock()
+    }
+    #endif
+
+    /// The downloaded copy, if there is one and tests have not asked for it to be ignored.
+    ///
+    /// Application Support, not Caches: this is the offline copy of content the app cannot
+    /// re-derive without a network, so letting the system reclaim it would take away the one
+    /// thing that makes games work on a plane.
+    private static func cachedPayload() -> Payload? {
+        #if DEBUG
+        if ignoresCacheForTesting { return nil }
+        #endif
+        guard let data = try? Data(contentsOf: cacheURL) else { return nil }
+        return try? JSONDecoder().decode(Payload.self, from: data)
+    }
+
     private static func payload() -> Payload? {
         lock.lock()
         defer { lock.unlock() }
         if let loaded { return loaded }
 
-        // Application Support, not Caches: this is the offline copy of content the app cannot
-        // re-derive without a network, so letting the system reclaim it would take away the one
-        // thing that makes games work on a plane.
-        if let data = try? Data(contentsOf: cacheURL),
-           let cached = try? JSONDecoder().decode(Payload.self, from: data) {
+        if let cached = cachedPayload() {
             loaded = cached
             return cached
         }

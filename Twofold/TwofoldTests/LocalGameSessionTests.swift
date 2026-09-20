@@ -21,6 +21,13 @@ import Foundation
 @Suite(.serialized)
 struct LocalGameSessionTests {
 
+    /// Sessions here are built from `GameContentStore`, which prefers a downloaded cache over the
+    /// bundled seed — so `totalRounds == deck.questionCount` was really an assertion about whatever
+    /// catalogue this simulator last pulled. See `GameContentStoreTests.init` for the whole story.
+    init() {
+        GameContentStore.useBundledSeedForTesting()
+    }
+
     private func deck(
         tier: String = "plus",
         gameType: GameType = .deepConversations

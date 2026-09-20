@@ -15,7 +15,23 @@ import Testing
 import Foundation
 @testable import Twofold
 
+@Suite(.serialized)
 struct GameContentStoreTests {
+
+    /// Every test below is about the *bundled seed*, but `GameContentStore` prefers a downloaded
+    /// cache whenever one exists, and the test host shares its container with the app — so on any
+    /// simulator the app has run on, these were reading that catalogue instead. The suite passed or
+    /// failed on the state of the machine.
+    ///
+    /// It failed for real: 36 of 191 decks have a `question_count` that disagrees with the rows it
+    /// counts, in both directions. Not a CMS edit — a local database built from migrations alone
+    /// reproduces the same 36. `question_count` was hand-maintained until the triggers in
+    /// 20260830001000, which keep it right from then on but never backfilled what was already
+    /// wrong. Worth fixing, in a migration; a test about a file in the bundle is the wrong place to
+    /// find it, and the seed's own counts are consistent.
+    init() {
+        GameContentStore.useBundledSeedForTesting()
+    }
 
     /// The seed has to be in the app bundle at all — it's a synchronized resource folder, so a
     /// file added on disk is included automatically, and just as easily excluded by a stray
