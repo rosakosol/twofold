@@ -4,6 +4,18 @@ import { LegalPageLayout } from "@/components/marketing/LegalPageLayout";
 
 export const metadata: Metadata = { title: "Privacy Policy" };
 
+// The real policy lives in Sanity and is published from `scripts/seed-privacy-policy.mjs` — twenty
+// sections, every factual claim checked against the code. What follows is only what renders if that
+// document cannot be fetched, so it is a summary and says so.
+//
+// It describes providers the way the published policy does — by what they do rather than by name.
+// Not squeamishness: the published version names Apple, Google, OpenAI and Stripe, because those
+// are ones a reader meets directly, and leaves the rest generic so that changing a vendor is not a
+// legal document revision. This page naming "Supabase" and "Cloudflare R2" outright was a straight
+// inconsistency with the thing it stands in for.
+//
+// Being a second, shorter policy, it will drift. Anything factual changed in the seed script — where
+// data is held above all — has to be changed here too.
 export default async function PrivacyPage() {
   const doc = await getLegalPage("privacy");
 
@@ -45,12 +57,13 @@ export default async function PrivacyPage() {
 
       <h2>Third-party services</h2>
       <p>
-        Twofold uses Supabase for data storage and authentication, Cloudflare R2 for photos,
-        avatars and travel documents, Apple WeatherKit for weather data, AeroAPI for flight
-        tracking, and Apple Push Notification service for notifications.
-        Subscription purchases are processed by Apple (App Store) or by Stripe via RevenueCat
-        (web) - Twofold never sees or stores your payment card details. Each of these providers
-        processes data only as needed to power the relevant feature.
+        Twofold relies on a small number of providers: a cloud platform for the database and your
+        sign-in, held in Sydney; an object storage provider for the photos, profile pictures,
+        drawings and travel documents you upload, held in the Oceania region; Apple for
+        notifications, weather and App Store purchases; a flight data provider for schedules and
+        live status; and Stripe for subscriptions bought on this website - Twofold never sees or
+        stores your payment card details. Each processes data only as needed to power the relevant
+        feature, and the published policy names them in full.
       </p>
 
       <h2>Your choices</h2>
