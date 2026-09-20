@@ -89,6 +89,22 @@ Deno.serve(async (req) => {
     return bad("Body must be JSON");
   }
 
+  // Who before what. The anon key is public, so validating the body first let anyone holding it
+  // drive this endpoint's parsing and read back which `kind` values exist. Nothing secret — the
+  // kinds ship inside the app — but there is no reason for an unauthenticated caller to learn
+  // anything here, or to reach the rate limiter's far side without a session.
+  const userClient = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_ANON_KEY")!,
+    { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } },
+  );
+
+  const { data: { user } } = await userClient.auth.getUser();
+  if (!user) return bad("Not authenticated", 401);
+
+  const limited = await enforceRateLimit(userClient, RATE_LIMIT);
+  if (limited) return limited;
+
   const kind = typeof input.kind === "string" ? input.kind : "";
   const op = typeof input.op === "string" ? input.op : "read";
   if (!PREFIX[kind]) return bad("Unknown 'kind'");
@@ -103,18 +119,6 @@ Deno.serve(async (req) => {
 
   const contentType = typeof input.contentType === "string" ? input.contentType : undefined;
   if (op === "write" && !contentType) return bad("'contentType' is required to write");
-
-  const userClient = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_ANON_KEY")!,
-    { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } },
-  );
-
-  const { data: { user } } = await userClient.auth.getUser();
-  if (!user) return bad("Not authenticated", 401);
-
-  const limited = await enforceRateLimit(userClient, RATE_LIMIT);
-  if (limited) return limited;
 
   // Asked per path rather than once for the batch: paths in one request can belong to different
   // couples (a memories grid after a reconnection, say), and answering the batch on the strength of
