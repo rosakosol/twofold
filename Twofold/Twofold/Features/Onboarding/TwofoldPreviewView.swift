@@ -47,7 +47,7 @@ struct TwofoldPreviewView: View {
             // The mark itself, beating, instead of a heart emoji in the string — see
             // `BeatingTitleMark`. Sized against `.title`, so it stays the height of the words.
             inlineTitleAccessoryImageName: "GlobeHeart",
-            subtitle: "You're all set — here's to closing the distance.",
+            subtitle: "You're all set! Here's to closing the distance.",
             content: {
                 VStack(spacing: Theme.Spacing.md) {
                     Text("🎉")
