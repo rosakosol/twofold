@@ -13,8 +13,9 @@
 // the distinct `flights.airline_code` actually in use. `--codes` adds more by hand, for carriers
 // worth having before anybody flies them.
 //
-// Needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY, plus the four R2_* values. Idempotent: a code
-// already in R2 is skipped, so this can be re-run whenever the airline table grows.
+// Needs the four R2_* values. SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are optional and only used
+// for discovery — with `--codes` alone it talks to R2 and the CDN and nothing else. Idempotent: a
+// code already in R2 is skipped, so re-run it whenever the airline table grows.
 
 import { presign, type R2Config, r2ConfigFromEnv } from "../supabase/functions/_shared/r2.ts";
 
@@ -67,23 +68,40 @@ async function alreadyStored(config: R2Config, code: string): Promise<boolean> {
   return (await fetch(url, { method: "HEAD" })).ok;
 }
 
+const config = r2ConfigFromEnv();
+const codes = new Set<string>(extraCodes().filter(isValidIataCode));
+
+// Supabase is only ever used to *discover* codes. Warming a list you already have needs R2 and
+// nothing else, so a missing or unprivileged key is a reason to skip discovery rather than to
+// refuse — asking someone to go and enable a deprecated key class to download some PNGs would be a
+// poor trade. With no `--codes` and no key there is genuinely nothing to do, and that is an error.
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
 const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-if (!supabaseUrl || !serviceKey) {
-  console.error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required");
-  Deno.exit(1);
-}
-const base = supabaseUrl.replace(/\/$/, "");
-const config = r2ConfigFromEnv();
 
-const codes = new Set<string>(extraCodes().filter(isValidIataCode));
-for (const row of await select(base, serviceKey, "airlines?select=iata&iata=not.is.null")) {
-  const code = String(row.iata ?? "").toUpperCase();
-  if (isValidIataCode(code)) codes.add(code);
-}
-for (const row of await select(base, serviceKey, "flights?select=airline_code&airline_code=not.is.null")) {
-  const code = String(row.airline_code ?? "").toUpperCase();
-  if (isValidIataCode(code)) codes.add(code);
+if (supabaseUrl && serviceKey) {
+  const base = supabaseUrl.replace(/\/$/, "");
+  const discovered: string[] = [];
+  try {
+    for (const row of await select(base, serviceKey, "airlines?select=iata&iata=not.is.null")) {
+      discovered.push(String(row.iata ?? "").toUpperCase());
+    }
+    for (const row of await select(base, serviceKey, "flights?select=airline_code&airline_code=not.is.null")) {
+      discovered.push(String(row.airline_code ?? "").toUpperCase());
+    }
+    for (const code of discovered) if (isValidIataCode(code)) codes.add(code);
+  } catch (error) {
+    // A key that cannot read those tables should not stop the codes that were passed in by hand.
+    console.log(`Could not read codes from the database (${(error as Error).message}).`);
+    console.log("Continuing with --codes only.\n");
+  }
+} else if (codes.size === 0) {
+  console.error(
+    "Nothing to warm. Pass --codes QF,SQ,... , or set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY\n" +
+      "to discover them from the airlines and flights tables.",
+  );
+  Deno.exit(1);
+} else {
+  console.log("No Supabase credentials set; warming the codes given on the command line only.\n");
 }
 
 const sorted = [...codes].sort();
