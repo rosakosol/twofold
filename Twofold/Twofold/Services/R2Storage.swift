@@ -63,17 +63,8 @@ enum R2Storage {
         let unique = Array(Set(paths))
         guard !unique.isEmpty else { return [:] }
 
-        // Chunked, because `storage-url` refuses more than `maxPathsPerRequest` in one go and a
-        // real library is bigger than that: the caller's own doc comment describes 200 memories
-        // averaging three photos. Sending all 600 would earn one 400 and no URLs at all, and the
-        // per-path fallback would then make 600 requests — the exact thing batching exists to
-        // avoid. Chunks run concurrently, so this is ceil(n/100) round trips rather than n.
-        let chunks = stride(from: 0, to: unique.count, by: maxPathsPerRequest).map {
-            Array(unique[$0 ..< min($0 + maxPathsPerRequest, unique.count)])
-        }
-
         return await withTaskGroup(of: [String: URL].self) { group in
-            for chunk in chunks {
+            for chunk in chunked(unique) {
                 group.addTask { (try? await signed(kind, op: "read", paths: chunk)) ?? [:] }
             }
             var all: [String: URL] = [:]
@@ -82,9 +73,23 @@ enum R2Storage {
         }
     }
 
-    /// Mirrors `MAX_PATHS` in the `storage-url` function. A mismatch here is not a crash, it is a
-    /// 400 for every oversized batch and a silent collapse back to one request per object.
-    private static let maxPathsPerRequest = 100
+    /// Mirrors `MAX_PATHS` in the `storage-url` function. A mismatch is not a crash: it is a 400 for
+    /// every oversized batch, and then a silent collapse back to one request per object — the exact
+    /// cost batching exists to avoid, arriving quietly. `R2StorageTests` pins the number on this
+    /// side and `storage-url.test.ts` pins it on the other.
+    static let maxPathsPerRequest = 100
+
+    /// Splits a batch into request-sized pieces.
+    ///
+    /// Separate and internal so it can be tested without a network. `storage-url` refuses more than
+    /// `maxPathsPerRequest` at once, and a real library is bigger than that — the caller's own doc
+    /// comment describes 200 memories averaging three photos. Sending all 600 earns one 400 and no
+    /// URLs at all. Chunks are requested concurrently, so this costs ceil(n/100) round trips.
+    static func chunked(_ paths: [String]) -> [[String]] {
+        stride(from: 0, to: paths.count, by: maxPathsPerRequest).map {
+            Array(paths[$0 ..< min($0 + maxPathsPerRequest, paths.count)])
+        }
+    }
 
     // MARK: - Writing
 
