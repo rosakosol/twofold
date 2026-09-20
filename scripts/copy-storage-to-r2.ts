@@ -102,12 +102,44 @@ async function alreadyCopied(config: R2Config, key: string, size: number): Promi
   return length === size;
 }
 
+/// Refuses to run with a key that is not service role.
+///
+/// This exists because of how the failure looks otherwise. Storage's list endpoint does not error
+/// for a key that cannot see anything — RLS simply hides every row and it returns `[]`. So an anon
+/// key produces "0 objects, 0 failed" across every bucket, which reads as a clean run against an
+/// empty account rather than as a key problem, and the cutover then ships against an empty R2.
+///
+/// The legacy service-role key is a JWT whose payload carries `"role":"service_role"`, which is
+/// cheap to check without verifying the signature — the server does that. A newer `sb_secret_...`
+/// key is not a JWT and cannot be inspected here, so it is allowed through with a note.
+function assertServiceRole(key: string): void {
+  if (!key.startsWith("ey")) {
+    console.log("Key is not a JWT (sb_secret_ style); cannot confirm it is service role.\n");
+    return;
+  }
+  let role: string | undefined;
+  try {
+    const payload = key.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    role = JSON.parse(atob(payload + "=".repeat((4 - payload.length % 4) % 4))).role;
+  } catch {
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY is not a readable JWT");
+  }
+  if (role !== "service_role") {
+    throw new Error(
+      `SUPABASE_SERVICE_ROLE_KEY carries role "${role}", not "service_role". An anon key sees ` +
+        `nothing here and lists every bucket as empty, which looks like success. Use the legacy ` +
+        `service_role JWT from Project Settings -> API -> Legacy API keys.`,
+    );
+  }
+}
+
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
 const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 if (!supabaseUrl || !serviceKey) {
   console.error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required");
   Deno.exit(1);
 }
+assertServiceRole(serviceKey);
 const base = supabaseUrl.replace(/\/$/, "");
 const config = r2ConfigFromEnv();
 
@@ -166,5 +198,14 @@ console.log(
   `\n${DRY_RUN ? "would copy" : "copied"} ${totalCopied}, skipped ${totalSkipped}, failed ${totalFailed}` +
     ` (${(totalBytes / 1024 / 1024).toFixed(1)} MB)`,
 );
+
+// Every bucket empty is possible but unlikely on an account anyone has used, and it is exactly what
+// a key without permission looks like. Say so rather than let a zero pass for a clean run.
+if (totalCopied === 0 && totalSkipped === 0 && totalFailed === 0) {
+  console.log(
+    "\nNothing was found in any bucket. If that is unexpected, check in the SQL editor with:\n" +
+      "  select bucket_id, count(*) from storage.objects group by 1 order by 1;",
+  );
+}
 // Non-zero on failures, so this can be re-run until clean without reading the log.
 Deno.exit(totalFailed > 0 ? 1 : 0);
