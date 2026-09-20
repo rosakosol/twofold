@@ -3393,6 +3393,26 @@ enum BackendService {
         func toModel() -> DeepConversationTopic { DeepConversationTopic(id: id, topic: topic, active: active, category: category, tier: tier) }
     }
 
+    /// One row of the daily question bank.
+    ///
+    /// Mapped onto `DeepConversationTopic` rather than given a model of its own: to everything above
+    /// this line a daily question *is* a deep-conversation prompt, and the whole app already knows
+    /// how to render one. The table is separate so the two pools stop consuming each other, which is
+    /// a content-supply concern and not a reason for a second shape on screen.
+    ///
+    /// No tier — that is the point of the table. `.plus` is what the model wants for "available to
+    /// everyone", since it is the tier every subscriber has.
+    private struct DailyQuestionRow: Decodable {
+        var id: UUID
+        var question: String
+        var active: Bool
+        var category: String?
+
+        func toModel() -> DeepConversationTopic {
+            DeepConversationTopic(id: id, topic: question, active: active, category: category ?? "", tier: "plus")
+        }
+    }
+
     struct GameSessionDetail {
         var session: GameSession
         var rounds: [GameSessionRound]
@@ -4124,12 +4144,18 @@ enum BackendService {
             .value
         let responses = responseRows.map { $0.toModel() }
 
-        let content = try await resolveContent(gameType: session.gameType, contentIDs: rounds.map(\.contentID))
+        // `isDaily` as well as the type: a daily session is a `deep_conversations` session whose
+        // content lives in its own table now, and the type alone cannot tell the two apart.
+        let content = try await resolveContent(
+            gameType: session.gameType,
+            isDaily: session.isDaily,
+            contentIDs: rounds.map(\.contentID)
+        )
 
         return GameSessionDetail(session: session, rounds: rounds, content: content, responses: responses)
     }
 
-    private static func resolveContent(gameType: GameType, contentIDs: [UUID]) async throws -> [UUID: GameRoundContent] {
+    private static func resolveContent(gameType: GameType, isDaily: Bool = false, contentIDs: [UUID]) async throws -> [UUID: GameRoundContent] {
         let unique = Array(Set(contentIDs))
         guard !unique.isEmpty else { return [:] }
         switch gameType {
@@ -4148,6 +4174,13 @@ enum BackendService {
             let rows: [ThisOrThatPromptRow] = try await supabase.from("this_or_that_prompts").select().in("id", values: unique).execute().value
             return Dictionary(uniqueKeysWithValues: rows.map { ($0.id, GameRoundContent.thisOrThat($0.toModel())) })
         case .deepConversations:
+            // The daily question draws from its own bank (20261102000000), so a daily session's
+            // content id is not a `deep_conversation_topics` id and looking for it there finds
+            // nothing — which renders as a session with no question rather than an error.
+            if isDaily {
+                let rows: [DailyQuestionRow] = try await supabase.from("daily_questions").select().in("id", values: unique).execute().value
+                return Dictionary(uniqueKeysWithValues: rows.map { ($0.id, GameRoundContent.deepConversation($0.toModel())) })
+            }
             let rows: [DeepConversationTopicRow] = try await supabase.from("deep_conversation_topics").select().in("id", values: unique).execute().value
             return Dictionary(uniqueKeysWithValues: rows.map { ($0.id, GameRoundContent.deepConversation($0.toModel())) })
         }
