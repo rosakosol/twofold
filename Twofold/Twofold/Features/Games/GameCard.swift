@@ -42,27 +42,7 @@ struct GameCard: View {
         .shadow(color: .black.opacity(0.06), radius: 6, y: 3)
         .overlay {
             if isLocked {
-                RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                    .fill(.black.opacity(0.4))
-                    .overlay(alignment: .topTrailing) {
-                        ZStack {
-                            Circle().fill(.white)
-                            Image(systemName: "lock.fill")
-                                .font(.caption)
-                                .foregroundStyle(Theme.ink)
-                        }
-                        .frame(width: 26, height: 26)
-                        .padding(Theme.Spacing.sm)
-                    }
-                    .overlay(alignment: .bottom) {
-                        Text("Partner required")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, Theme.Spacing.sm)
-                            .padding(.vertical, 6)
-                            .background(.black.opacity(0.3), in: Capsule())
-                            .padding(.bottom, Theme.Spacing.sm)
-                    }
+                PartnerRequiredOverlay()
             }
         }
     }

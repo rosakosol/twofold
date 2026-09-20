@@ -34,6 +34,14 @@ enum Theme {
     static let leafGreenText = Color(light: "1E7A4B", dark: "88DFA9")
     static let heartRedText = Color(light: "C2334A", dark: "FF9BA3")
     static let ink = Color(light: "1C2A38", dark: "F3F7FA")
+
+    /// `ink`'s light value, pinned so it cannot follow the colour scheme.
+    ///
+    /// For content drawn on a surface that is itself a fixed colour regardless of scheme — the white
+    /// lock chip on a locked game card's dark scrim being the case this exists for. That chip used
+    /// `ink`, which is near-white in dark mode, so the lock vanished into the circle and the whole
+    /// badge read as an unexplained white dot.
+    static let inkOnFixedLight = Color(hex: "1C2A38")
     // Aurora's own measured `Text.secondary` (≈8.5:1 against `Surface.cardFlat`) rather than the
     // old translucent-white approximation — a real hex tuned against this exact palette's card
     // surfaces instead of a generic alpha blend meant to survive against anything.

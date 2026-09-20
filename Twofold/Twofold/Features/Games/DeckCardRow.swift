@@ -194,32 +194,11 @@ struct DeckCardRow: View {
                     lineWidth: bothCompleted ? 1.5 : 1.25
                 )
         }
-        // Same scrim + corner lock badge + "Partner required" capsule `GameCard` already uses
-        // for its own locked state — one visual vocabulary for "needs a partner" everywhere in
-        // Games, not a second, different-looking lock idiom just for deck cards.
+        // The same treatment `GameCard` uses, now literally the same view — see
+        // `PartnerRequiredOverlay`, which exists because these were two copies of it.
         .overlay {
             if !isLocked && needsPartnerGate {
-                RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                    .fill(.black.opacity(0.4))
-                    .overlay(alignment: .topTrailing) {
-                        ZStack {
-                            Circle().fill(.white)
-                            Image(systemName: "lock.fill")
-                                .font(.caption)
-                                .foregroundStyle(Theme.ink)
-                        }
-                        .frame(width: 26, height: 26)
-                        .padding(Theme.Spacing.sm)
-                    }
-                    .overlay(alignment: .bottom) {
-                        Text("Partner required")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, Theme.Spacing.sm)
-                            .padding(.vertical, 6)
-                            .background(.black.opacity(0.3), in: Capsule())
-                            .padding(.bottom, Theme.Spacing.sm)
-                    }
+                PartnerRequiredOverlay()
             }
         }
         .opacity(isLocked ? 0.75 : 1)
