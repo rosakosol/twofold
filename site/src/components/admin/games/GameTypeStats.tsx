@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Library, ListChecks, ChevronRight } from "lucide-react";
 import { useGameDecks, useGameContentTiers } from "@/lib/queries/useGameContent";
-import type { ContentTypeConfig } from "@/lib/games/contentTypes";
+import type { ContentTypeConfig, GameType, TieredContentTypeKey } from "@/lib/games/contentTypes";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export function StatCard({ label, value }: { label: string; value: string }) {
@@ -56,7 +56,7 @@ function NavCard({
 /** Fetches once (via TanStack Query's shared cache) and drives both the summary stat cards
  * and the two nav cards — the actual deck/entry tables only mount once you click through, so
  * opening /admin/games never pulls every game type's full question list at once. */
-export function GameTypeStats({ contentType }: { contentType: ContentTypeConfig }) {
+export function GameTypeStats({ contentType }: { contentType: ContentTypeConfig & { gameType: GameType; key: TieredContentTypeKey } }) {
   const { data: decks, isLoading: decksLoading } = useGameDecks(contentType.gameType);
   const { data: rows, isLoading: rowsLoading } = useGameContentTiers(contentType.key);
 

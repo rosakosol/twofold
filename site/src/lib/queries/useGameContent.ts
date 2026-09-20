@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import type { ContentRow, ContentTypeKey, GameDeck, GameType } from "@/lib/games/contentTypes";
+import type { ContentRow, ContentTypeKey, GameDeck, GameType, TieredContentTypeKey } from "@/lib/games/contentTypes";
 
 export function useGameDecks(gameType?: GameType) {
   return useQuery({
@@ -42,7 +42,7 @@ export function useGameContentList(table: ContentTypeKey) {
 
 /** Just `tier` — used to compute the games-hub summary stats without pulling every entry's
  * full text/options/etc. across all game types on one page load. */
-export function useGameContentTiers(table: ContentTypeKey) {
+export function useGameContentTiers(table: TieredContentTypeKey) {
   return useQuery({
     queryKey: ["admin", table, "tiers"],
     queryFn: async () => {

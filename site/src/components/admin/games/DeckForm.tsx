@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { useCreateDeck, useUpdateDeck } from "@/lib/queries/useGameContentMutations";
-import { CONTENT_TYPES, TIER_VALUES, type GameDeck, type GameType } from "@/lib/games/contentTypes";
+import { DECK_CONTENT_TYPES, TIER_VALUES, type GameDeck, type GameType } from "@/lib/games/contentTypes";
 
 interface Props {
   editingDeck: GameDeck | null;
@@ -25,7 +25,7 @@ export function DeckForm({ editingDeck, open, onOpenChange }: Props) {
   const [title, setTitle] = useState("");
   const [topic, setTopic] = useState("");
   const [emoji, setEmoji] = useState("");
-  const [gameType, setGameType] = useState<GameType>(CONTENT_TYPES[0].gameType);
+  const [gameType, setGameType] = useState<GameType>(DECK_CONTENT_TYPES[0].gameType);
   const [tier, setTier] = useState<(typeof TIER_VALUES)[number]>("plus");
   const [sortOrder, setSortOrder] = useState(0);
   const [active, setActive] = useState(true);
@@ -41,7 +41,7 @@ export function DeckForm({ editingDeck, open, onOpenChange }: Props) {
       setTitle(editingDeck?.title ?? "");
       setTopic(editingDeck?.topic ?? "");
       setEmoji(editingDeck?.emoji ?? "");
-      setGameType(editingDeck?.game_type ?? CONTENT_TYPES[0].gameType);
+      setGameType(editingDeck?.game_type ?? DECK_CONTENT_TYPES[0].gameType);
       setTier((editingDeck?.tier as (typeof TIER_VALUES)[number]) ?? "plus");
       setSortOrder(editingDeck?.sort_order ?? 0);
       setActive(editingDeck?.active ?? true);
@@ -112,10 +112,10 @@ export function DeckForm({ editingDeck, open, onOpenChange }: Props) {
               disabled={isEditing}
             >
               <SelectTrigger>
-                <SelectValue labels={Object.fromEntries(CONTENT_TYPES.map((c) => [c.gameType, c.label]))} />
+                <SelectValue labels={Object.fromEntries(DECK_CONTENT_TYPES.map((c) => [c.gameType, c.label]))} />
               </SelectTrigger>
               <SelectContent>
-                {CONTENT_TYPES.map((c) => (
+                {DECK_CONTENT_TYPES.map((c) => (
                   <SelectItem key={c.gameType} value={c.gameType}>
                     {c.label}
                   </SelectItem>

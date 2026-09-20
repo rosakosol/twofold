@@ -215,6 +215,30 @@ export type Database = {
           },
         ]
       }
+      daily_questions: {
+        Row: {
+          active: boolean
+          category: string | null
+          created_at: string
+          id: string
+          question: string
+        }
+        Insert: {
+          active?: boolean
+          category?: string | null
+          created_at?: string
+          id?: string
+          question: string
+        }
+        Update: {
+          active?: boolean
+          category?: string | null
+          created_at?: string
+          id?: string
+          question?: string
+        }
+        Relationships: []
+      }
       daily_streaks: {
         Row: {
           couple_id: string

@@ -18,7 +18,7 @@ import {
   SheetFooter,
 } from "@/components/ui/sheet";
 import { useCreateContent, useUpdateContent } from "@/lib/queries/useGameContentMutations";
-import { DIFFICULTY_VALUES, TIER_VALUES, type ContentRow, type ContentTypeConfig, type GameDeck, type TriviaQuestion } from "@/lib/games/contentTypes";
+import { DIFFICULTY_VALUES, TIER_VALUES, deckIdOf, tierOf, type ContentRow, type ContentTypeConfig, type GameDeck, type TriviaQuestion } from "@/lib/games/contentTypes";
 
 const NO_DECK = "__no_deck__";
 
@@ -73,8 +73,8 @@ export function ContentForm({ contentType, decks, editingRow, open, onOpenChange
       }
       setTextValues(seeded);
       setCategory(editingRow?.category ?? "");
-      setTier((editingRow?.tier as (typeof TIER_VALUES)[number]) ?? "plus");
-      setDeckId(editingRow?.deck_id ?? defaultDeckId ?? NO_DECK);
+      setTier(((editingRow ? tierOf(editingRow) : null) as (typeof TIER_VALUES)[number]) ?? "plus");
+      setDeckId((editingRow ? deckIdOf(editingRow) : null) ?? defaultDeckId ?? NO_DECK);
       setActive(editingRow?.active ?? true);
 
       if (contentType.isTrivia) {
@@ -100,10 +100,13 @@ export function ContentForm({ contentType, decks, editingRow, open, onOpenChange
   }
 
   async function handleSave() {
+    // Built from what the table has rather than from one fixed shape. The daily question bank has
+    // no tier and no deck — deliberately, see 20261102000000 — and PostgREST rejects a write naming
+    // a column that does not exist, so sending them anyway would fail every save.
     const patch: Record<string, unknown> = {
       category: category.trim(),
-      tier,
-      deck_id: deckId === NO_DECK ? null : deckId,
+      ...(contentType.hasTier ? { tier } : {}),
+      ...(contentType.hasDeck ? { deck_id: deckId === NO_DECK ? null : deckId } : {}),
       active,
       ...Object.fromEntries(contentType.textFields.map((f) => [f.key, textValues[f.key]?.trim() ?? ""])),
     };
@@ -129,7 +132,9 @@ export function ContentForm({ contentType, decks, editingRow, open, onOpenChange
   }
 
   const isSaving = create.isPending || update.isPending;
-  const relevantDecks = decks.filter((d) => d.game_type === contentType.gameType);
+  const relevantDecks = contentType.gameType === null
+    ? []
+    : decks.filter((d) => d.game_type === contentType.gameType);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -252,6 +257,7 @@ export function ContentForm({ contentType, decks, editingRow, open, onOpenChange
             <Input id="category" value={category} onChange={(e) => setCategory(e.target.value)} />
           </div>
 
+          {contentType.hasTier && (
           <div className="flex flex-col gap-1.5">
             <Label>Tier</Label>
             <Select value={tier} onValueChange={(v) => v && setTier(v as (typeof TIER_VALUES)[number])}>
@@ -267,7 +273,9 @@ export function ContentForm({ contentType, decks, editingRow, open, onOpenChange
               </SelectContent>
             </Select>
           </div>
+          )}
 
+          {contentType.hasDeck && (
           <div className="flex flex-col gap-1.5">
             <Label>Deck (optional)</Label>
             <Select value={deckId} onValueChange={(v) => v && setDeckId(v)}>
@@ -289,6 +297,7 @@ export function ContentForm({ contentType, decks, editingRow, open, onOpenChange
               </SelectContent>
             </Select>
           </div>
+          )}
 
           <div className="flex items-center justify-between">
             <Label htmlFor="active">Active</Label>

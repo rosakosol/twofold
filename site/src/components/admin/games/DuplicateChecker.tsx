@@ -15,7 +15,7 @@ import {
   type DismissalRow,
 } from "@/lib/queries/useDuplicateDismissals";
 import { ContentForm } from "@/components/admin/games/ContentForm";
-import { CONTENT_TYPES, type ContentRow, type ContentTypeConfig } from "@/lib/games/contentTypes";
+import { CONTENT_TYPES, deckIdOf, type ContentRow, type ContentTypeConfig } from "@/lib/games/contentTypes";
 import { findContentIssues, findSimilarPairs, type SimilarPair } from "@/lib/games/similarity";
 
 interface DeckRef {
@@ -69,7 +69,7 @@ function EntryCard({
  * than looping hooks inside a parent) so each game type owns its own query + edit-sheet state. */
 function GameTypeChecker({ contentType }: { contentType: ContentTypeConfig }) {
   const { data: rows, isLoading } = useGameContentList(contentType.key);
-  const { data: decks } = useGameDecks(contentType.gameType);
+  const { data: decks } = useGameDecks(contentType.gameType ?? undefined);
   const { data: dismissals, isLoading: dismissalsLoading } = useDuplicateDismissals(contentType.key);
   const dismiss = useDismissDuplicatePair(contentType.key);
   const restore = useRestoreDuplicatePair(contentType.key);
@@ -84,9 +84,12 @@ function GameTypeChecker({ contentType }: { contentType: ContentTypeConfig }) {
   const issues = findContentIssues(allRows, contentType);
   const deckTitleById = new Map((decks ?? []).map((d) => [d.id, `${d.emoji} ${d.title}`]));
   const deckFor = (row: ContentRow): DeckRef => {
-    if (!row.deck_id) return { label: "No deck", id: null };
-    const label = deckTitleById.get(row.deck_id);
-    return label ? { label, id: row.deck_id } : { label: "Unknown deck", id: null };
+    // Content from a deckless table always lands here, which is correct: the duplicate checker is
+    // still useful for the daily bank, it just has no deck to attribute a row to.
+    const deckId = deckIdOf(row);
+    if (!deckId) return { label: "No deck", id: null };
+    const label = deckTitleById.get(deckId);
+    return label ? { label, id: deckId } : { label: "Unknown deck", id: null };
   };
 
   const dismissalByPairKey = new Map((dismissals ?? []).map((d) => [dismissalKey(d.row_a_id, d.row_b_id), d]));

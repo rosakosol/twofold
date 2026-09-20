@@ -6,15 +6,27 @@ export type TriviaQuestion = Database["public"]["Tables"]["trivia_questions"]["R
 export type MoreLikelyPrompt = Database["public"]["Tables"]["more_likely_prompts"]["Row"];
 export type ThisOrThatPrompt = Database["public"]["Tables"]["this_or_that_prompts"]["Row"];
 export type DeepConversationTopic = Database["public"]["Tables"]["deep_conversation_topics"]["Row"];
+export type DailyQuestion = Database["public"]["Tables"]["daily_questions"]["Row"];
 export type GameDeck = Database["public"]["Tables"]["game_decks"]["Row"];
 
-export type ContentRow = TriviaQuestion | MoreLikelyPrompt | ThisOrThatPrompt | DeepConversationTopic;
+export type ContentRow =
+  | TriviaQuestion
+  | MoreLikelyPrompt
+  | ThisOrThatPrompt
+  | DeepConversationTopic
+  | DailyQuestion;
 
 export type ContentTypeKey =
   | "trivia_questions"
   | "more_likely_prompts"
   | "this_or_that_prompts"
-  | "deep_conversation_topics";
+  | "deep_conversation_topics"
+  | "daily_questions";
+
+/** The subset with a `tier` column. The tier statistics are only meaningful for these, and typing
+ * them this way means the daily bank cannot be passed to a query that selects `tier` — which would
+ * be a PostgREST error at runtime and nothing at all at compile time. */
+export type TieredContentTypeKey = Exclude<ContentTypeKey, "daily_questions">;
 
 export interface TextFieldSpec {
   key: string;
@@ -25,7 +37,15 @@ export interface TextFieldSpec {
 export interface ContentTypeConfig {
   key: ContentTypeKey;
   label: string;
-  gameType: GameType;
+  /** Null for content that belongs to no game type. The daily question bank is the case: it is not
+   * a game's deck content, it is its own pool (20261102000000), so there is no `game_type` to
+   * associate it with and no deck list to filter by one. */
+  gameType: GameType | null;
+  /** Whether rows carry a `tier`. False for the daily bank, deliberately — it is open to everyone,
+   * and the migration gives it no tier column at all so it cannot be gated later by accident. */
+  hasTier?: boolean;
+  /** Whether rows belong to a deck. False for the daily bank, which has no decks to belong to. */
+  hasDeck?: boolean;
   /** Trivia gets a bespoke options/correct-answer/difficulty block in ContentForm instead
    * of (well, in addition to) the generic textFields loop below — every other content
    * type is genuinely just "one or two plain text fields + category/tier/deck/active",
@@ -38,9 +58,21 @@ export interface ContentTypeConfig {
 
 export const CONTENT_TYPES: ContentTypeConfig[] = [
   {
+    key: "daily_questions",
+    label: "Daily Question",
+    gameType: null,
+    hasTier: false,
+    hasDeck: false,
+    isTrivia: false,
+    textFields: [{ key: "question", label: "Question", multiline: true }],
+    primaryText: (row) => (row as DailyQuestion).question,
+  },
+  {
     key: "deep_conversation_topics",
     label: "Deep Conversations",
     gameType: "deep_conversations",
+    hasTier: true,
+    hasDeck: true,
     isTrivia: false,
     textFields: [{ key: "topic", label: "Topic", multiline: true }],
     primaryText: (row) => (row as DeepConversationTopic).topic,
@@ -49,6 +81,8 @@ export const CONTENT_TYPES: ContentTypeConfig[] = [
     key: "more_likely_prompts",
     label: "More Likely",
     gameType: "more_likely",
+    hasTier: true,
+    hasDeck: true,
     isTrivia: false,
     textFields: [{ key: "prompt", label: "Prompt", multiline: true }],
     primaryText: (row) => (row as MoreLikelyPrompt).prompt,
@@ -57,6 +91,8 @@ export const CONTENT_TYPES: ContentTypeConfig[] = [
     key: "this_or_that_prompts",
     label: "This or That",
     gameType: "this_or_that",
+    hasTier: true,
+    hasDeck: true,
     isTrivia: false,
     textFields: [
       { key: "option_a", label: "Option A" },
@@ -71,11 +107,35 @@ export const CONTENT_TYPES: ContentTypeConfig[] = [
     key: "trivia_questions",
     label: "Trivia",
     gameType: "trivia_battle",
+    hasTier: true,
+    hasDeck: true,
     isTrivia: true,
     textFields: [{ key: "question", label: "Question", multiline: true }],
     primaryText: (row) => (row as TriviaQuestion).question,
   },
 ];
+
+/** A row's tier, or null for content from a table that has none.
+ *
+ * `in` rather than a cast: the daily bank genuinely lacks the column, and a cast would turn a
+ * missing value into `undefined` at runtime while claiming otherwise to the compiler. */
+export function tierOf(row: ContentRow): string | null {
+  return "tier" in row ? ((row as { tier: string | null }).tier ?? null) : null;
+}
+
+/** A row's deck, or null for content that belongs to no deck. */
+export function deckIdOf(row: ContentRow): string | null {
+  return "deck_id" in row ? ((row as { deck_id: string | null }).deck_id ?? null) : null;
+}
+
+/** The content types that belong to decks.
+ *
+ * Anything choosing a game type — the deck editor, chiefly — wants this rather than CONTENT_TYPES,
+ * which now also holds the daily question bank and its null `gameType`. Reaching for
+ * `CONTENT_TYPES[0]` used to be a safe way to get a default and is not any more. */
+export const DECK_CONTENT_TYPES = CONTENT_TYPES.filter(
+  (c): c is ContentTypeConfig & { gameType: GameType } => c.gameType !== null,
+);
 
 export function contentTypeFor(key: ContentTypeKey): ContentTypeConfig {
   const config = CONTENT_TYPES.find((c) => c.key === key);

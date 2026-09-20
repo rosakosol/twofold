@@ -2,12 +2,12 @@
 
 import { useGameDecks, useGameContentTiers } from "@/lib/queries/useGameContent";
 import { StatCard } from "@/components/admin/games/GameTypeStats";
-import { CONTENT_TYPES, type ContentTypeKey } from "@/lib/games/contentTypes";
+import { DECK_CONTENT_TYPES, type TieredContentTypeKey } from "@/lib/games/contentTypes";
 import { Skeleton } from "@/components/ui/skeleton";
 
 /** Games hub's "Overall" tab — aggregates across every game type at once. The four content
- * tables each get their own hook call (rather than looping CONTENT_TYPES through one call)
- * since CONTENT_TYPES is a fixed, known set and React hooks can't be called from a loop/map. */
+ * tables each get their own hook call (rather than looping DECK_CONTENT_TYPES through one call)
+ * since DECK_CONTENT_TYPES is a fixed, known set and React hooks can't be called from a loop/map. */
 export function OverallGameStats() {
   const { data: decks, isLoading: decksLoading } = useGameDecks();
   const deepConversations = useGameContentTiers("deep_conversation_topics");
@@ -15,7 +15,8 @@ export function OverallGameStats() {
   const thisOrThat = useGameContentTiers("this_or_that_prompts");
   const trivia = useGameContentTiers("trivia_questions");
 
-  const byKey: Record<ContentTypeKey, { data?: { tier: string }[]; isLoading: boolean }> = {
+  // Keyed by the tiered types only — the daily question bank has no tier to summarise.
+  const byKey: Record<TieredContentTypeKey, { data?: { tier: string }[]; isLoading: boolean }> = {
     deep_conversation_topics: deepConversations,
     more_likely_prompts: moreLikely,
     this_or_that_prompts: thisOrThat,
@@ -66,13 +67,13 @@ export function OverallGameStats() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {CONTENT_TYPES.map((c) => (
+              {DECK_CONTENT_TYPES.map((c) => (
                 <tr key={c.key}>
                   <td className="px-3 py-2 font-medium">{c.label}</td>
                   <td className="px-3 py-2 tabular-nums">
                     {decks?.filter((d) => d.game_type === c.gameType).length ?? 0}
                   </td>
-                  <td className="px-3 py-2 tabular-nums">{byKey[c.key].data?.length ?? 0}</td>
+                  <td className="px-3 py-2 tabular-nums">{byKey[c.key as TieredContentTypeKey].data?.length ?? 0}</td>
                 </tr>
               ))}
             </tbody>

@@ -31,7 +31,7 @@ export default function GameTypeDecksPage() {
         <>
           <h1 className="mt-4 font-heading text-xl font-semibold tracking-tight">{contentType.label} Decks</h1>
           <div className="mt-6">
-            <DeckTable gameType={contentType.gameType} />
+            <DeckTable gameType={contentType.gameType ?? undefined} />
           </div>
         </>
       )}

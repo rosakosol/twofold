@@ -21,6 +21,7 @@ import {
 import { useGameContentList, useGameDecks } from "@/lib/queries/useGameContent";
 import { useDeleteContent, useUpdateContent } from "@/lib/queries/useGameContentMutations";
 import { ContentForm } from "@/components/admin/games/ContentForm";
+import { deckIdOf, tierOf } from "@/lib/games/contentTypes";
 import type { ContentRow, ContentTypeConfig } from "@/lib/games/contentTypes";
 
 function DeleteButton({ contentType, row }: { contentType: ContentTypeConfig; row: ContentRow }) {
@@ -93,11 +94,11 @@ export function ContentTable({
   deckFilter?: string;
 }) {
   const { data: allRows, isLoading } = useGameContentList(contentType.key);
-  const { data: decks } = useGameDecks(contentType.gameType);
+  const { data: decks } = useGameDecks(contentType.gameType ?? undefined);
   const [editingRow, setEditingRow] = useState<ContentRow | null>(null);
   const [formOpen, setFormOpen] = useState(false);
 
-  const rows = deckFilter ? (allRows ?? []).filter((r) => r.deck_id === deckFilter) : allRows;
+  const rows = deckFilter ? (allRows ?? []).filter((r) => deckIdOf(r) === deckFilter) : allRows;
   const deckTitleById = new Map((decks ?? []).map((d) => [d.id, `${d.emoji} ${d.title}`]));
 
   if (isLoading) return <Skeleton className="h-64 w-full rounded-lg" />;
@@ -138,11 +139,11 @@ export function ContentTable({
                   <td className="max-w-96 truncate px-3 py-2">{contentType.primaryText(row)}</td>
                   <td className="px-3 py-2">{row.category}</td>
                   <td className="px-3 py-2">
-                    <Badge variant={row.tier === "premium" ? "default" : "secondary"}>{row.tier}</Badge>
+                    <Badge variant={tierOf(row) === "premium" ? "default" : "secondary"}>{tierOf(row)}</Badge>
                   </td>
                   {!deckFilter && (
                     <td className="px-3 py-2 whitespace-nowrap">
-                      {row.deck_id ? (deckTitleById.get(row.deck_id) ?? "—") : "—"}
+                      {deckIdOf(row) ? (deckTitleById.get(deckIdOf(row)!) ?? "—") : "—"}
                     </td>
                   )}
                   <td className="px-3 py-2">
