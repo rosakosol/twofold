@@ -18,7 +18,7 @@ export function smtpClient(): SMTPClient {
   if (!username || !password) {
     throw new Error("Zoho SMTP credentials are not configured (ZOHO_SMTP_USER/ZOHO_SMTP_PASSWORD)");
   }
-  const hostname = Deno.env.get("ZOHO_SMTP_HOST") ?? "smtp.zoho.com";
+  const hostname = Deno.env.get("ZOHO_SMTP_HOST") ?? "smtp.zoho.com.au";
   const port = Number(Deno.env.get("ZOHO_SMTP_PORT") ?? "465");
   return new SMTPClient({
     connection: { hostname, port, tls: port === 465, auth: { username, password } },

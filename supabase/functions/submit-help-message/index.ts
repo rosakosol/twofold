@@ -17,8 +17,13 @@
 //     are aliases on that mailbox and have no password of their own, so authenticating as one
 //     always fails with a bare `535 Authentication Failed` that looks exactly like a wrong
 //     password. Send *as* the alias via ZOHO_FROM_ADDRESS below, authenticate as the mailbox.
-//   - ZOHO_SMTP_HOST (optional, default "smtp.zoho.com"): use the host for the DC the account
-//     was created in - e.g. "smtp.zoho.com.au" for the AU DC. Wrong DC = auth failures.
+//   - ZOHO_SMTP_HOST (optional, default "smtp.zoho.com.au"): Zoho partitions accounts by
+//     datacenter and each one authenticates only its own mailboxes. twofoldapp.com.au is in the
+//     AU DC (MX mx.zoho.com.au, SPF include:zohomail.com.au), so the US "smtp.zoho.com" accepts
+//     the connection, advertises AUTH, and then rejects a perfectly good app password with a
+//     bare `535 Authentication Failed` - indistinguishable from the alias mistake above. The
+//     default used to be the US host, which is how Supabase Auth's own SMTP settings ended up
+//     pointing there and password-reset emails never sent.
 //   - ZOHO_SMTP_PORT (optional, default 465): 465 implicit TLS, or 587 for STARTTLS.
 //   - ZOHO_FROM_ADDRESS (optional, defaults to ZOHO_SMTP_USER): Zoho only permits sending as
 //     the authenticated mailbox or one of its verified aliases - an unverified From is rejected.
@@ -126,7 +131,7 @@ function smtpClient(): SMTPClient {
   if (!username || !password) {
     throw new Error("Zoho SMTP credentials are not configured (ZOHO_SMTP_USER/ZOHO_SMTP_PASSWORD)");
   }
-  const hostname = Deno.env.get("ZOHO_SMTP_HOST") ?? "smtp.zoho.com";
+  const hostname = Deno.env.get("ZOHO_SMTP_HOST") ?? "smtp.zoho.com.au";
   const port = Number(Deno.env.get("ZOHO_SMTP_PORT") ?? "465");
   return new SMTPClient({
     connection: { hostname, port, tls: port === 465, auth: { username, password } },

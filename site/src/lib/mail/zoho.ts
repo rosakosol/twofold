@@ -18,7 +18,7 @@ export function createZohoTransport(): ZohoMailer {
   if (!user || !pass) {
     throw new Error("Zoho SMTP credentials are not configured (ZOHO_SMTP_USER/ZOHO_SMTP_PASSWORD)");
   }
-  const host = process.env.ZOHO_SMTP_HOST ?? "smtp.zoho.com";
+  const host = process.env.ZOHO_SMTP_HOST ?? "smtp.zoho.com.au";
   const port = Number(process.env.ZOHO_SMTP_PORT ?? "465");
   const from = process.env.ZOHO_FROM_ADDRESS ?? user;
 
