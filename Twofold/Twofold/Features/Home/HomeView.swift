@@ -78,28 +78,6 @@ struct HomeView: View {
         appModel.upcomingTrips.first
     }
 
-    /// Everything that decides which cards are on screen, as one comparable value.
-    ///
-    /// A composite rather than one `.animation` per card: several of these resolve from the same
-    /// fetch, so keying them separately would start two or three animations a few milliseconds
-    /// apart and the stack would settle in stages. One key means one movement.
-    private var cardLayout: String {
-        let flags = [
-            appModel.hasResolvedSubscription,
-            appModel.canAddContent,
-            appModel.partnerSubscriptionLapsedPartnerName != nil,
-            appModel.hasLoadedCoupleState,
-            appModel.partnerConnected,
-            appModel.hasResolvedOutgoingConnectionRequest,
-            appModel.pendingConnectionRequests.isEmpty,
-            appModel.pendingOutgoingConnectionRequest == nil,
-            appModel.setupChecklistDismissed,
-            checklistItems.isEmpty,
-            appModel.activeOrUpcomingFlights.isEmpty,
-        ]
-        return flags.map { $0 ? "1" : "0" }.joined()
-    }
-
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -120,17 +98,15 @@ struct HomeView: View {
                             // card rather than as well as it — two cards saying "you have no
                             // subscription" one above the other is noise, and this one says more.
                             subscriptionLapsedCard(partnerName: lapsedPartnerName)
-                                .transition(.card)
                         } else {
                             noSubscriptionCard
-                                .transition(.card)
                         }
                     }
 
                     if let incomingRequest = appModel.pendingConnectionRequests.first {
-                        pendingConnectionRequestCard(incomingRequest).transition(.card)
+                        pendingConnectionRequestCard(incomingRequest)
                     } else if let outgoingRequest = appModel.pendingOutgoingConnectionRequest {
-                        pendingOutgoingInviteCard(outgoingRequest).transition(.card)
+                        pendingOutgoingInviteCard(outgoingRequest)
                     } else if appModel.needsPartnerInvite && appModel.hasResolvedOutgoingConnectionRequest {
                         // Waits to be told there is no pending request before offering to send one.
                         //
@@ -140,7 +116,7 @@ struct HomeView: View {
                         // thing they had already done, until the fetch caught up a moment later.
                         // Nothing takes its place in the gap: no card is better than the wrong one,
                         // and the gap is one round trip.
-                        invitePartnerCard.transition(.card)
+                        invitePartnerCard
                     }
                     setupChecklistCard
                     pendingSharesCard
@@ -180,10 +156,6 @@ struct HomeView: View {
                     RecommendedGamesSection(onSeeAllGames: onSeeAllGames)
                 }
                 .padding(Theme.Spacing.md)
-                // On the stack, not the cards: a view being removed has nothing left to carry its
-                // own animation, so the parent has to be the thing animating. Keyed to what decides
-                // which cards exist, so an unrelated redraw does not replay the whole screen.
-                .animation(CardMotion.appearance, value: cardLayout)
             }
             .background(Theme.backgroundGradient.ignoresSafeArea())
             .navigationTitle("")
