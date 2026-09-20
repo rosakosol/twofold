@@ -757,7 +757,26 @@ final class AppModel {
         if backendSaysActive { return true }
         guard !Purchases.shared.isAnonymous,
               let info = try? await Purchases.shared.customerInfo() else { return false }
-        return Self.isSubscribed(backendSaysActive: false, deviceTier: SubscriptionTier.active(in: info))
+        let deviceTier = SubscriptionTier.active(in: info)
+        if deviceTier != nil {
+            // This device is entitled and the row says otherwise, so the row is out of date — ask
+            // the server to go and re-read RevenueCat.
+            //
+            // Nothing else closes this gap. A purchase made under an anonymous id is aliased to
+            // the real one by the next `logIn`, but no re-sync follows it, and the nightly
+            // `reconcile-subscriptions` selects profiles that are already active or recently
+            // checked — a row stuck at false with a null `subscription_checked_at` is not in its
+            // set, so it never self-heals. Every account that bought during onboarding before the
+            // identify fix above is in exactly that state, and this is what repairs them on next
+            // launch without anyone having to re-purchase or contact support.
+            //
+            // Detached, because the answer is not needed for this return: the local `deviceTier`
+            // already gets this person into the app, and what the sync fixes is what their
+            // *partner* sees. Rate limited to six an hour server-side, and only reached when the
+            // backend said no, so a correctly-recorded subscriber never calls it at all.
+            Task { await BackendService.syncSubscriptionFromStore() }
+        }
+        return Self.isSubscribed(backendSaysActive: false, deviceTier: deviceTier)
     }
 
     func markSubscriptionActive(tier: String) {
@@ -1887,6 +1906,20 @@ final class AppModel {
 
         if let userID = BackendService.currentUserID {
             adoptSignedInIdentity(id: userID, firstName: onboarding.firstName)
+            // Before anything else, because the onboarding paywall is four screens away and
+            // `Purchases.shared` is still on its anonymous id until this runs.
+            //
+            // `identifyWithRevenueCat()` used to be called from `loadSignedInState()` alone —
+            // launch, manual sign-in, and un-pairing. None of those happen between an account
+            // being created here and that paywall, so a first purchase attached to
+            // `$RCAnonymousID:…` rather than to the Supabase user. The buyer saw their
+            // subscription (the SDK holds the entitlement locally) and the server never learned
+            // of it: the webhook's event carried no resolvable Supabase id, and
+            // `sync-my-subscription` asked RevenueCat about a UUID it had nothing under. So
+            // `subscription_active` stayed false with `subscription_checked_at` null — which is
+            // also why the partner, who has only the row to go on, was told there was no
+            // subscription at all.
+            await identifyWithRevenueCat()
             // The device's push token typically arrives at launch, well before this signup
             // completes and `currentUserID` becomes valid — `registerPushToken` would have
             // silently cached it rather than dropped it (see `pendingPushTokenData`'s own doc
