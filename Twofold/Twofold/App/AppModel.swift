@@ -164,6 +164,20 @@ final class AppModel {
         hasResolvedSubscription = true
     }
 
+    /// Whether the couple's own state has been fetched yet.
+    ///
+    /// Everything derived from it defaults to the answer that means "something is missing":
+    /// `needsOwnHomeCity` is `homeCity == nil`, `needsFirstTrip` is `trips.isEmpty`,
+    /// `needsFirstFlight` likewise, and `partnerConnected` starts false. All four are true before
+    /// the first fetch lands, so on every cold launch Home asserted that the city was unset and the
+    /// trips and flights unadded, and Games locked the partner games — then took it all back a
+    /// round trip later.
+    ///
+    /// Each of those is the subscription card's bug wearing different clothes, and the fix is the
+    /// same: say nothing until there is something to say. Not one flag per derived value, because
+    /// they all answer to the same fetch.
+    private(set) var hasLoadedCoupleState = false
+
     /// Non-nil only while there's an unacknowledged "your subscription lapsed because {name}
     /// left" notice — set by `adoptSoloProfile(_:)` from `leave_couple`'s server-captured
     /// snapshot (the ex-partner's name is already gone from `partner_name` by the time this
@@ -542,6 +556,7 @@ final class AppModel {
             // correct it.
             isSubscriptionActive = await resolvedSubscriptionActive(backendSaysActive: cached.active)
             hasResolvedSubscription = true
+            hasLoadedCoupleState = true
         }
         hasCouple = true
         // Resolved here, not only from RootView's launch task.
@@ -659,6 +674,7 @@ final class AppModel {
         }
         isSubscriptionActive = await resolvedSubscriptionActive(backendSaysActive: profile.subscriptionActive)
         hasResolvedSubscription = true
+        hasLoadedCoupleState = true
         subscriptionTier = profile.subscriptionTier
         // Same reasoning as `performAdopt` — see OfflineSessionCache. Solo (unpaired) here, so
         // partnerConnected is false; restoring that keeps the setup card honest either way.
@@ -918,6 +934,7 @@ final class AppModel {
         backendCoupleID = nil
         isSubscriptionActive = false
         hasResolvedSubscription = false
+        hasLoadedCoupleState = false
         pendingTripIDs = []
         pendingMemoryIDs = []
         pendingMemoryPhotoData = [:]
@@ -1646,6 +1663,7 @@ final class AppModel {
         partnerDisconnectedMessage = nil
         isSubscriptionActive = await resolvedSubscriptionActive(backendSaysActive: state.subscriptionActive)
         hasResolvedSubscription = true
+        hasLoadedCoupleState = true
         subscriptionTier = state.subscriptionTier
         // The backend has just told us the couple-wide truth — remember it so a later cold launch
         // with no network doesn't fall back to `false` and paywall a real subscriber.
@@ -1905,6 +1923,9 @@ final class AppModel {
     /// Awaited before the flip rather than after, so Home's first render already knows. Somebody
     /// finishing onboarding has no partner and no outgoing request, so this is one quick round trip.
     func finishOnboarding() async {
+        // Nothing to fetch: this account was just built, so its state is known and empty. Saying so
+        // is what lets Home show the setup checklist immediately rather than a round trip later.
+        hasLoadedCoupleState = true
         await refreshPendingOutgoingConnectionRequest()
         hasCouple = true
         Task { await WidgetSnapshotWriter.refresh(appModel: self) }

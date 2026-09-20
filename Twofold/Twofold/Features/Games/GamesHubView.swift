@@ -222,7 +222,10 @@ struct GamesHubView: View {
     /// because a lock badge with no action just teaches people the tile is broken.
     @ViewBuilder
     private func tile(for gameType: GameType) -> some View {
-        if gameType.requiresPartner && !appModel.partnerConnected {
+        // `hasLoadedCoupleState` for the reason `DeckCardRow.needsPartnerGate` gives: before the
+        // fetch, `partnerConnected` is false for everyone, so this locked a paired couple's tiles
+        // and offered them an invite sheet they do not need.
+        if gameType.requiresPartner && appModel.hasLoadedCoupleState && !appModel.partnerConnected {
             Button {
                 showingPartnerGate = true
             } label: {
@@ -236,6 +239,8 @@ struct GamesHubView: View {
                 GameTile(gameType: gameType)
             }
             .buttonStyle(.plain)
+            // Not navigable until we know whether it needs a partner — see `awaitingPartnerState`.
+            .allowsHitTesting(!(gameType.requiresPartner && !appModel.hasLoadedCoupleState))
         }
     }
 
