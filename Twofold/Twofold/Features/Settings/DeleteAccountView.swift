@@ -78,6 +78,31 @@ struct DeleteAccountView: View {
                             explainerRow(icon: "arrow.uturn.backward.circle", text: "Reconnecting with someone before their archive expires would offer it back to you. Deleting your account ends that — your account won't exist to reconnect with.")
                             explainerRow(icon: "square.and.arrow.down", text: "If you want to keep a copy, export it from Settings → Help → Archived Data before you delete your account — you won't be able to sign in to get it afterwards.")
                         }
+
+                        // Deleting the account does not cancel the subscription, and cannot: an App
+                        // Store subscription belongs to the Apple Account that bought it, and Apple
+                        // gives developers no way to cancel one on somebody's behalf. Saying nothing
+                        // here means a person leaves believing they are done and keeps being
+                        // charged — which is also what Apple's own account-deletion guidance
+                        // (5.1.1(v)) requires this screen to warn about.
+                        //
+                        // Shown only to somebody who actually has one. A warning about cancelling a
+                        // subscription you do not have is noise on a screen that needs to be read.
+                        if appModel.isSubscriptionActive {
+                            explainerRow(
+                                icon: "creditcard",
+                                text: "Deleting your account does not cancel your subscription. Apple only lets you do that yourself — tap below, or go to Settings → Apple Account → Subscriptions on your device. Do it before you delete, because afterwards you won't be able to sign in to find it."
+                            )
+                            Button {
+                                openSubscriptionManagement()
+                            } label: {
+                                Label("Manage subscription", systemImage: "arrow.up.right.square")
+                                    .font(.subheadline.weight(.semibold))
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(Theme.skyBlueText)
+                            .padding(.leading, 34)
+                        }
                     }
                 }
 
@@ -121,6 +146,18 @@ struct DeleteAccountView: View {
             archivedCoupleCount = ((try? await BackendService.fetchArchivedCouples()) ?? []).count
         }
         .postHogScreenView("Settings: Delete Account")
+    }
+
+    /// Apple's own subscription management page. The same destination Settings → Apple Account →
+    /// Subscriptions reaches, so somebody can cancel without leaving the flow and coming back.
+    ///
+    /// A plain URL rather than StoreKit's `showManageSubscriptions(in:)` — that one needs a window
+    /// scene and silently does nothing in a few situations (no active subscription in this
+    /// environment, or sandbox), and a button that does nothing on a screen about losing your
+    /// account is worse than one that opens the App Store.
+    private func openSubscriptionManagement() {
+        guard let url = URL(string: "https://apps.apple.com/account/subscriptions") else { return }
+        UIApplication.shared.open(url)
     }
 
     private func explainerRow(icon: String, text: String) -> some View {
