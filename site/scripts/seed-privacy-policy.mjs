@@ -281,7 +281,10 @@ const body = [
   ptext(
     `We do not sell your personal information, and never have. We share it only with the providers that make Twofold work:`
   ),
-  bullet(`Our cloud platform provider - the database, your sign-in, and the files you upload. Stored in Sydney, Australia.`),
+  bullet(`Our cloud platform provider - the database and your sign-in. Stored in Sydney, Australia.`),
+  bullet(
+    `Our object storage provider - the photos, profile pictures, drawings and travel documents you upload. Held in the Oceania region.`
+  ),
   bullet(
     `Apple - push notifications and Live Activities, turning a location fix into a city name, weather data, and App Store purchases.`
   ),
@@ -358,7 +361,7 @@ const body = [
   // ------------------------------------------------------------- transfers
   h2('Where your data is held'),
   ptext(
-    `Twofold is operated from Australia, and the things that are most yours are stored here. Your account, your profile, and everything you and your partner create - trips, memories, photos, flights, drawings and game answers - live in our provider's Sydney region, and anything you email us is held in Australia too.`
+    `Twofold is operated from Australia, and the things that are most yours are stored close to home. Your account, your profile, and everything you and your partner create - trips, memories, flights and game answers - live in our provider's Sydney region, and anything you email us is held in Australia too. The files that go with them - your photos, your profile pictures, your drawings and any travel documents you upload - are held by our object storage provider in its Oceania region.`
   ),
   ptext(
     `Some things are held in the United States: our website is served from there, our analytics provider stores its data there, and so do the providers that handle payments, flight information, and reading a flight email you've shared with us.`
