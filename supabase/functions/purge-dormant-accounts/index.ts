@@ -95,12 +95,36 @@ Deno.serve(async (req) => {
 
   // `dryRun` lists what would happen and changes nothing. The first production run of an
   // irreversible job should be one of these.
+  //
+  // `asOf` moves the clock the cohort is measured against, and only a dry run may pass it. The
+  // dormancy period is 24 months, so on a young account base every honest run of this reports zero
+  // and will keep doing so for about two years — a working cohort and a broken one are
+  // indistinguishable until the day it finally matters. `asOf` asks the real data a hypothetical
+  // question instead: what would this do in December 2028? The pgTAP suite already stands two years
+  // forward the same way; this is the same idea against production rows.
   let dryRun = false;
+  let asOf: string | null = null;
   try {
     const body = await req.json();
     dryRun = body?.dryRun === true;
+    if (typeof body?.asOf === "string") asOf = body.asOf;
   } catch {
     // No body is the normal cron case.
+  }
+
+  if (asOf !== null) {
+    // Guarded hard rather than politely. Honouring a future `asOf` on a real run would close every
+    // account that will *ever* be due, years early and irreversibly — the single worst thing this
+    // function could be made to do, and one query parameter away.
+    if (!dryRun) {
+      return Response.json(
+        { error: "'asOf' is only allowed with dryRun, because it would close accounts early" },
+        { status: 400 },
+      );
+    }
+    if (Number.isNaN(Date.parse(asOf))) {
+      return Response.json({ error: "'asOf' must be a date this runtime can parse" }, { status: 400 });
+    }
   }
 
   const serviceClient = createClient(
@@ -109,7 +133,10 @@ Deno.serve(async (req) => {
     { auth: { persistSession: false } },
   );
 
-  const { data: cohort, error: cohortErr } = await serviceClient.rpc("dormancy_cohort");
+  const { data: cohort, error: cohortErr } = await serviceClient.rpc(
+    "dormancy_cohort",
+    asOf ? { p_now: new Date(asOf).toISOString() } : {},
+  );
   if (cohortErr) {
     console.error("dormancy_cohort failed", cohortErr);
     return Response.json({ error: "Could not read the dormancy cohort" }, { status: 500 });
@@ -132,6 +159,9 @@ Deno.serve(async (req) => {
   if (dryRun) {
     return Response.json({
       dryRun: true,
+      // Echoed back so a report cannot be mistaken for one about today, which is the whole risk of
+      // being able to ask about a date years away.
+      asOf: asOf ?? "now",
       warn30: toWarn.filter((r) => r.stage === "warn_30").length,
       warn7: toWarn.filter((r) => r.stage === "warn_7").length,
       wouldClose: toClose.length,
