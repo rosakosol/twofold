@@ -55,17 +55,19 @@ struct SignInView: View {
                     .padding(.top, Theme.Spacing.lg)
 
                     VStack(spacing: Theme.Spacing.md) {
-                        TextField("Email", text: $email)
-                            .textContentType(.emailAddress)
-                            .keyboardType(.emailAddress)
-                            .textInputAutocapitalization(.never)
-                            .padding()
-                            .onboardingFieldBackground()
+                        AuthField(
+                            title: "Email",
+                            text: $email,
+                            textContentType: .emailAddress,
+                            keyboardType: .emailAddress
+                        )
 
-                        SecureField("Password", text: $password)
-                            .textContentType(.password)
-                            .padding()
-                            .onboardingFieldBackground()
+                        AuthField(
+                            title: "Password",
+                            text: $password,
+                            isSecure: true,
+                            textContentType: .password
+                        )
 
                         if let errorMessage {
                             Text(errorMessage)

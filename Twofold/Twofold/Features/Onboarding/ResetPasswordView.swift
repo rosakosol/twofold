@@ -42,15 +42,19 @@ struct ResetPasswordView: View {
                     .padding(.top, Theme.Spacing.lg)
 
                     VStack(spacing: Theme.Spacing.md) {
-                        SecureField("New password", text: $newPassword)
-                            .textContentType(.newPassword)
-                            .padding()
-                            .onboardingFieldBackground()
+                        AuthField(
+                            title: "New password",
+                            text: $newPassword,
+                            isSecure: true,
+                            textContentType: .newPassword
+                        )
 
-                        SecureField("Confirm password", text: $confirmPassword)
-                            .textContentType(.newPassword)
-                            .padding()
-                            .onboardingFieldBackground()
+                        AuthField(
+                            title: "Confirm password",
+                            text: $confirmPassword,
+                            isSecure: true,
+                            textContentType: .newPassword
+                        )
 
                         if passwordsMismatch {
                             Text("Passwords don't match.")

@@ -2004,7 +2004,12 @@ enum BackendService {
         // Swift evaluated them in order and my avatar's round trip finished before my partner's
         // began. Two independent files, two sequential requests, for no reason.
         async let myAvatarURL = avatarSignedURLOrNil(meProfile.avatarPath)
-        async let partnerAvatarURL = avatarSignedURLOrNil(meProfile.partnerAvatarPath ?? partnerProfile.avatarPath)
+        // `partner_avatar_path` only — deliberately no fallback to the partner's own `avatar_path`.
+        // This column is the photo *you* chose to represent your partner, and falling through to
+        // theirs made a picture appear in a slot you never filled, indistinguishable from one you
+        // had. An empty slot shows the usual initials placeholder, which is honest about there
+        // being nothing set. `fetchOwnProfile` has always read this column alone; the two agree now.
+        async let partnerAvatarURL = avatarSignedURLOrNil(meProfile.partnerAvatarPath)
 
         func person(for profile: ProfileRow, nameOverride: String?, avatarURL: URL?, paletteIndex: Int) -> Person {
             let name = (nameOverride?.isEmpty == false) ? nameOverride! : (profile.firstName.isEmpty ? "Partner" : profile.firstName)

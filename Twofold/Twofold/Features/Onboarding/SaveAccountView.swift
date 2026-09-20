@@ -67,24 +67,28 @@ struct SaveAccountView: View {
 
                     if showingEmailForm {
                         VStack(spacing: Theme.Spacing.md) {
-                            TextField("Email", text: $email)
-                                .textContentType(.emailAddress)
-                                .keyboardType(.emailAddress)
-                                .textInputAutocapitalization(.never)
-                                .padding()
-                                .onboardingFieldBackground()
+                            AuthField(
+                                title: "Email",
+                                text: $email,
+                                textContentType: .emailAddress,
+                                keyboardType: .emailAddress
+                            )
 
-                            SecureField("Password", text: $password)
-                                .textContentType(.newPassword)
-                                .padding()
-                                .onboardingFieldBackground()
+                            AuthField(
+                                title: "Password",
+                                text: $password,
+                                isSecure: true,
+                                textContentType: .newPassword
+                            )
 
                             PasswordStrengthView(password: password)
 
-                            SecureField("Confirm password", text: $confirmPassword)
-                                .textContentType(.newPassword)
-                                .padding()
-                                .onboardingFieldBackground()
+                            AuthField(
+                                title: "Confirm password",
+                                text: $confirmPassword,
+                                isSecure: true,
+                                textContentType: .newPassword
+                            )
 
                             if passwordsMismatch {
                                 Text("Passwords don't match")

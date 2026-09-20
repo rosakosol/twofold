@@ -74,6 +74,12 @@ final class OnboardingModel {
     var inviteOrigin: BackendService.InviteOrigin = .code
     var inviterName: String?
     var inviterAvatarURL: URL?
+    /// Whether the inviter lookup has come back — win, lose or draw. Distinct from `inviterName
+    /// != nil`, which cannot tell "still asking" apart from "asked, and there is no name", and so
+    /// renders the fallback as though it were the answer. `JoinInviteView`'s headline names the
+    /// inviter, so without this it announces "Your partner invited you" and then visibly rewrites
+    /// itself to "Max invited you" a moment later.
+    var hasResolvedInviterName = false
     /// True once account creation has happened — lets `EnterPartnerCodeView` decide
     /// whether it still needs to route through account creation or can connect directly.
     var hasAccount: Bool = false
@@ -167,6 +173,7 @@ final class OnboardingModel {
         inviteCode = nil
         inviterName = nil
         inviterAvatarURL = nil
+        hasResolvedInviterName = false
         hasAccount = false
 
         draftedTrip = nil
@@ -205,6 +212,9 @@ final class OnboardingModel {
             let info = try? await BackendService.inviterInfo(forCode: code)
             inviterName = info?.name
             inviterAvatarURL = info?.avatarURL
+            // Set on the failure path too — a lookup that came back empty is still a lookup that
+            // finished, and the screen has to stop waiting and show its fallback.
+            hasResolvedInviterName = true
         }
     }
 }

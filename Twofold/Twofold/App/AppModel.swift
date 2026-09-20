@@ -1674,6 +1674,20 @@ final class AppModel {
         // they reapplied on its behalf. It no longer does — see `refreshAll`.
         reapplyInFlightMutations()
         Task { [weak self] in await self?.resolveMissingAirportTimezones() }
+        // Both of these used to be assigned ~50 lines below, after the `await` on the next
+        // subscription line. `partnerConnected` flipping true is what `RootView` watches to show
+        // the "You're connected!" celebration, and its guard is `partnerConnectedCelebrationShown`
+        // — which, across that suspension point, was still the `false` it defaults to. SwiftUI got
+        // a render in between, so the celebration fired on every single sign-in of an
+        // already-paired couple, and then wrote `true` to a server flag that the next launch's
+        // fresh AppModel would once again not have read yet.
+        //
+        // They come straight out of `state`, which has been in hand since the top of this
+        // function, so there was never a reason to set them late. Ordering is the whole fix: no
+        // suspension point may sit between a flag being false-by-default and the value that
+        // corrects it. Same shape as the subscription card that flashed on Home.
+        partnerConnectedCelebrationShown = state.partnerConnectedCelebrationShown
+        setupChecklistDismissed = state.setupChecklistDismissed
         partnerConnected = true
         hasCouple = true
         // Reconnecting makes the notice obsolete. It is set by `adoptSoloProfile` when a partner
@@ -1723,8 +1737,6 @@ final class AppModel {
         // serializes behind. Nothing on screen waits for a pad URL; the splash screen was waiting
         // for both of them.
         Task { [weak self] in await self?.loadDrawingPads() }
-        partnerConnectedCelebrationShown = state.partnerConnectedCelebrationShown
-        setupChecklistDismissed = state.setupChecklistDismissed
         noteCurrentDistanceIfRecord()
 
         var stillPendingTrips = Set<Trip.ID>()

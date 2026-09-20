@@ -46,30 +46,36 @@ struct CreateAccountView: View {
             title: isInvitee ? "Create your Twofold account" : "Create your account",
             content: {
                 VStack(spacing: Theme.Spacing.md) {
-                    TextField("First name", text: $firstName)
-                        .textContentType(.givenName)
-                        .padding()
-                        .onboardingFieldBackground()
-                        .onChange(of: firstName) { _, _ in errorMessage = nil }
+                    AuthField(
+                        title: "First name",
+                        text: $firstName,
+                        textContentType: .givenName,
+                        autocapitalization: .words
+                    )
+                    .onChange(of: firstName) { _, _ in errorMessage = nil }
 
-                    TextField("Email", text: $email)
-                        .textContentType(.emailAddress)
-                        .keyboardType(.emailAddress)
-                        .textInputAutocapitalization(.never)
-                        .padding()
-                        .onboardingFieldBackground()
+                    AuthField(
+                        title: "Email",
+                        text: $email,
+                        textContentType: .emailAddress,
+                        keyboardType: .emailAddress
+                    )
 
-                    SecureField("Password", text: $password)
-                        .textContentType(.newPassword)
-                        .padding()
-                        .onboardingFieldBackground()
+                    AuthField(
+                        title: "Password",
+                        text: $password,
+                        isSecure: true,
+                        textContentType: .newPassword
+                    )
 
                     PasswordStrengthView(password: password)
 
-                    SecureField("Confirm password", text: $confirmPassword)
-                        .textContentType(.newPassword)
-                        .padding()
-                        .onboardingFieldBackground()
+                    AuthField(
+                        title: "Confirm password",
+                        text: $confirmPassword,
+                        isSecure: true,
+                        textContentType: .newPassword
+                    )
 
                     if passwordsMismatch {
                         Text("Passwords don't match")

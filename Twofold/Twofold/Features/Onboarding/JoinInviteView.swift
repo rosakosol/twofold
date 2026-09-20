@@ -23,6 +23,13 @@ struct JoinInviteView: View {
                 Text("\(inviterName) invited you\nto Twofold")
                     .font(.system(.title, design: .rounded, weight: .bold))
                     .multilineTextAlignment(.center)
+                    // The name arrives from a network lookup kicked off by `resetForNewInvite`,
+                    // so this headline used to render "Your partner invited you" and then rewrite
+                    // itself to "Max invited you" once the answer landed. Redacted until the
+                    // lookup resolves: same layout, same line count, nothing to re-read — and the
+                    // fallback still shows if the lookup comes back with nothing.
+                    .redacted(reason: onboarding.hasResolvedInviterName ? [] : .placeholder)
+                    .animation(.easeInOut(duration: 0.2), value: onboarding.hasResolvedInviterName)
                 Text("Your private space for staying connected while you're apart.")
                     .font(.body)
                     .foregroundStyle(Theme.subtleInk)
