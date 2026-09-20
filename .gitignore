@@ -53,3 +53,10 @@ images/
 # `git add -A` before this line existed. Drop `.claude/agents/` from this if the team ever wants
 # to share subagent definitions.
 .claude/
+
+# Written at the repo root whenever the Edge Function tests run, because the only deno.json
+# files are per-function and deno walks up looking for one. Nothing in supabase/functions pins
+# its dependencies with a lock today, so this is an artifact rather than a decision — if we ever
+# do want Deno dependencies locked, that wants a deno.json at supabase/functions and a commit
+# that says so.
+deno.lock
