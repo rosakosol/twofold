@@ -117,8 +117,17 @@ struct AppearancePreferenceTests {
         // "System" can't assert a fixed value — it depends on the simulator's own appearance — so
         // the invariant is that the sheet lands wherever the window lands. That is exactly what
         // was broken: the window went dark and the sheet stayed light.
-        let underSystem = await resolvedStyle(of: sheet, after: .system, expecting: window.traitCollection.userInterfaceStyle)
-        #expect(underSystem == window.traitCollection.userInterfaceStyle)
+        //
+        // Both read together, which is the whole point. This used to be
+        // `resolvedStyle(of: sheet, after: .system, expecting: window.traitCollection.userInterfaceStyle)`
+        // and then compared against `window.traitCollection.userInterfaceStyle` again. Swift
+        // evaluates that argument *before* the call, so the expectation was the window's style while
+        // the override was still `.dark`; the helper returned the moment the sheet matched that
+        // stale value, and the assertion then re-read a window that had since settled to the
+        // system style. Two reads of a value mid-flight, and the test failed whenever propagation
+        // landed between them.
+        let settled = await settledStyles(sheet: sheet, window: window, after: .system)
+        #expect(settled.sheet == settled.window)
         #expect(window.overrideUserInterfaceStyle == .unspecified)
 
         // Awaited, not `defer { Task { … } }`. These tests are hosted BY the app, so this sheet is
@@ -146,6 +155,34 @@ struct AppearancePreferenceTests {
     ///
     /// Five seconds, still bounded, so a genuinely stuck trait fails rather than hangs — and costs
     /// five seconds only when it is about to fail anyway.
+    /// Applies `appearance`, then waits for the sheet and the window to agree, and returns both as
+    /// read in the same main-actor turn.
+    ///
+    /// Returning the pair rather than one value is what makes the comparison meaningful: nothing can
+    /// change between the two reads, so a disagreement is a real one rather than a snapshot taken
+    /// either side of a trait update. On timeout it returns whatever they are, so the failure shows
+    /// the two styles that would not converge instead of a bare false.
+    @MainActor
+    private func settledStyles(
+        sheet: UIViewController,
+        window: UIWindow,
+        after appearance: AppAppearance
+    ) async -> (sheet: UIUserInterfaceStyle, window: UIUserInterfaceStyle) {
+        AppearancePreference.current = appearance
+        AppearancePreference.applyToWindows()
+        let deadline = Date.now.addingTimeInterval(5)
+        while Date.now < deadline {
+            await withCheckedContinuation { continuation in
+                DispatchQueue.main.async { continuation.resume() }
+            }
+            let pair = (sheet: sheet.traitCollection.userInterfaceStyle,
+                        window: window.traitCollection.userInterfaceStyle)
+            if pair.sheet == pair.window { return pair }
+            try? await Task.sleep(for: .milliseconds(20))
+        }
+        return (sheet.traitCollection.userInterfaceStyle, window.traitCollection.userInterfaceStyle)
+    }
+
     @MainActor
     private func resolvedStyle(
         of controller: UIViewController,
