@@ -133,8 +133,9 @@ nonisolated struct WidgetSnapshot: Codable {
     /// `mySignedDrawingPadURL`/`partnerSignedDrawingPadURL` below.
     var coupleID: UUID?
     var partnerID: UUID?
-    /// Signed `drawing-pads` Storage URLs, refreshed by `WidgetSnapshotWriter` (a 48-hour expiry
-    /// — generous enough to survive a couple of days between app opens). DrawingPadWidget fetches
+    /// Signed `drawing-pads` Storage URLs, refreshed by `WidgetSnapshotWriter` (a 12-hour expiry
+    /// — see `BackendService.drawingPadURLLifetimeSeconds`; this is the one signed URL that gets
+    /// written to disk, which is why it is the short one). DrawingPadWidget fetches
     /// these live itself rather than reading cached bytes the way every other widget image does,
     /// so a partner's fresh doodle can still show up without either device's main app needing to
     /// run again first — the underlying storage object is overwritten in place at the same path,

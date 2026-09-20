@@ -1057,15 +1057,34 @@ enum BackendService {
     /// to sign anything with, so it can no longer fetch this bucket live on its own — see
     /// `WidgetSnapshot.mySignedDrawingPadURL`/`partnerSignedDrawingPadURL`, refreshed by the main
     /// app and simply read (and fetched, still over a real network call) by the widget from
-    /// there. A generous 48-hour expiry covers a couple of days between app opens; if it does
-    /// lapse, the widget's fetch just fails and falls back to its last-good cached image, same as
-    /// any other network failure already handled there.
+    /// there. See `drawingPadURLLifetimeSeconds` for how long one lasts and why.
     static func drawingPadSignedURL(coupleID: UUID, personID: UUID) async throws -> URL {
         try await supabase.storage.from("drawing-pads").createSignedURL(
             path: drawingPadPath(coupleID: coupleID, personID: personID),
-            expiresIn: 60 * 60 * 48
+            expiresIn: drawingPadURLLifetimeSeconds
         )
     }
+
+    /// How long a drawing-pad signed URL stays valid.
+    ///
+    /// Twelve hours, down from forty-eight. This is the only signed URL the app writes to disk:
+    /// `WidgetSnapshot` persists it into the app-group defaults, because the widget extension has
+    /// no Supabase session and cannot sign anything itself. Everything else is minted per load and
+    /// never stored, so this is the one worth keeping short — a signature is a bearer credential,
+    /// and this one sits in a plist.
+    ///
+    /// Not shorter than twelve, because the widget's liveness depends on it. The pad path is
+    /// stable and overwritten in place, so an unexpired URL keeps resolving to whatever the
+    /// current drawing is — which is how a partner's new doodle reaches a home screen on the
+    /// widget's own 30-minute timeline, with neither main app having to run. Twelve still covers a
+    /// normal day between app opens, and `WidgetSnapshotWriter` re-signs on every refresh, so in
+    /// practice the window is shorter again. If one does lapse, the widget's fetch fails and it
+    /// falls back to its last-good cached image, the same as any other network failure it already
+    /// handles.
+    ///
+    /// A named constant rather than a literal because three doc comments across two targets quote
+    /// this number, and the previous one had already been written down in all three.
+    static let drawingPadURLLifetimeSeconds = 60 * 60 * 12
 
     /// Uploads the signed-in user's drawing pad and returns a signed URL for immediate local
     /// display — no separate cache-busting needed, same reasoning as `uploadAvatar`.

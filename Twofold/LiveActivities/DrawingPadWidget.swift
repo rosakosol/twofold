@@ -73,8 +73,9 @@ struct DrawingPadProvider: TimelineProvider {
     /// an expired signed URL or a slow network shouldn't cost the widget its whole render, it
     /// should just mean this render uses the cached pad.
     ///
-    /// Not `.ephemeral`: a signed pad URL is stable for 48 hours (see `WidgetSnapshotWriter`), so
-    /// the shared URL cache can answer a repeat fetch outright.
+    /// Not `.ephemeral`: a signed pad URL is stable for 12 hours (see
+    /// `BackendService.drawingPadURLLifetimeSeconds`), so the shared URL cache can answer a repeat
+    /// fetch outright.
     private static let padSession: URLSession = {
         let configuration = URLSessionConfiguration.default
         configuration.timeoutIntervalForRequest = 6
