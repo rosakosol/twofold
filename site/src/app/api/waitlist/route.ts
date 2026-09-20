@@ -8,9 +8,9 @@ import { SUPPORT_EMAIL, SITE_URL } from "@/lib/mail/companyInfo";
 
 // Port of the old site/functions/api/waitlist.ts (Cloudflare Pages Function + D1) -
 // same validation/honeypot logic, writing to Supabase's waitlist_signups table instead
-// of D1 (which Vercel can't reach). Emails now go via the same Zoho Mail SMTP account
-// /api/support uses (see lib/mail/zoho.ts) rather than Resend, which this project isn't
-// using - was a raw-fetch call to Resend's HTTP API before this migration.
+// of D1 (which Vercel can't reach). Emails go via the same Zoho Mail SMTP account
+// /api/support uses - see lib/mail/zoho.ts, which is the only mail transport this
+// project has.
 //
 // Uses lib/mail/templates/waitlist-confirmation.html (to the signer) and
 // waitlist-internal-alert.html (to WAITLIST_NOTIFY_EMAIL) - see that folder's README.md.
