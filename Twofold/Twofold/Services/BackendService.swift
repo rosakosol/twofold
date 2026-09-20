@@ -981,7 +981,7 @@ enum BackendService {
     /// outstanding (mirrors the same narrow pre-auth exposure `get_invite_code_inviter_info`
     /// already establishes for the inviter's name).
     static func avatarSignedURL(path: String) async throws -> URL {
-        try await supabase.storage.from("avatars").createSignedURL(path: path, expiresIn: 3600)
+        try await R2Storage.readURL(.avatar, path: path)
     }
 
     /// Convenience for the common `path.flatMap { ... }` shape used all over this file — Optional
@@ -1002,11 +1002,7 @@ enum BackendService {
         guard let userID = currentUserID else { throw BackendError.notAuthenticated }
         let path = "\(userID)/avatar.jpg"
 
-        try await supabase.storage.from("avatars").upload(
-            path,
-            data: imageData,
-            options: FileOptions(contentType: "image/jpeg", upsert: true)
-        )
+        try await R2Storage.upload(.avatar, path: path, data: imageData, contentType: "image/jpeg")
 
         try await supabase
             .from("profiles")
@@ -1027,11 +1023,7 @@ enum BackendService {
         guard let userID = currentUserID else { throw BackendError.notAuthenticated }
         let path = "\(userID)/partner-avatar.jpg"
 
-        try await supabase.storage.from("avatars").upload(
-            path,
-            data: imageData,
-            options: FileOptions(contentType: "image/jpeg", upsert: true)
-        )
+        try await R2Storage.upload(.avatar, path: path, data: imageData, contentType: "image/jpeg")
 
         try await supabase
             .from("profiles")
@@ -1059,10 +1051,10 @@ enum BackendService {
     /// app and simply read (and fetched, still over a real network call) by the widget from
     /// there. See `drawingPadURLLifetimeSeconds` for how long one lasts and why.
     static func drawingPadSignedURL(coupleID: UUID, personID: UUID) async throws -> URL {
-        try await supabase.storage.from("drawing-pads").createSignedURL(
-            path: drawingPadPath(coupleID: coupleID, personID: personID),
-            expiresIn: drawingPadURLLifetimeSeconds
-        )
+        // The twelve hours now live server-side, in `storage-url`'s own table of expiries —
+        // `drawingPadURLLifetimeSeconds` stays as the client-side statement of the same number and
+        // the place the reasoning is written down.
+        try await R2Storage.readURL(.drawingPad, path: drawingPadPath(coupleID: coupleID, personID: personID))
     }
 
     /// How long a drawing-pad signed URL stays valid.
@@ -1091,11 +1083,7 @@ enum BackendService {
     @discardableResult
     static func uploadDrawingPad(coupleID: UUID, personID: UUID, imageData: Data) async throws -> URL {
         let path = drawingPadPath(coupleID: coupleID, personID: personID)
-        try await supabase.storage.from("drawing-pads").upload(
-            path,
-            data: imageData,
-            options: FileOptions(contentType: "image/png", upsert: true)
-        )
+        try await R2Storage.upload(.drawingPad, path: path, data: imageData, contentType: "image/png")
         guard let url = try? await drawingPadSignedURL(coupleID: coupleID, personID: personID) else {
             throw BackendError.avatarURLFailed
         }
@@ -2615,16 +2603,12 @@ enum BackendService {
     }
 
     static func flightDocumentSignedURL(path: String) async throws -> URL {
-        try await supabase.storage.from("flight-documents").createSignedURL(path: path, expiresIn: 3600)
+        try await R2Storage.readURL(.flightDocument, path: path)
     }
 
     static func uploadFlightDocument(coupleID: UUID, parentID: UUID, data: Data, contentType: String, fileExtension: String) async throws -> String {
         let path = "\(coupleID)/\(parentID)/\(UUID().uuidString).\(fileExtension)"
-        try await supabase.storage.from("flight-documents").upload(
-            path,
-            data: data,
-            options: FileOptions(contentType: contentType, upsert: true)
-        )
+        try await R2Storage.upload(.flightDocument, path: path, data: data, contentType: contentType)
         return path
     }
 
@@ -2725,7 +2709,7 @@ enum BackendService {
     /// delete into a thrown error the caller reports as "couldn't delete".
     private static func removeFlightDocumentObjects(_ paths: [String]) async {
         guard !paths.isEmpty else { return }
-        _ = try? await supabase.storage.from("flight-documents").remove(paths: paths)
+        await R2Storage.remove(.flightDocument, paths: paths)
     }
 
     // MARK: - Push device tokens
@@ -3048,7 +3032,7 @@ enum BackendService {
     /// `memory-photos` is a private bucket (unlike `avatars`) — these are personal photos —
     /// so display goes through a time-limited signed URL rather than a stable public one.
     static func memoryPhotoSignedURL(path: String) async throws -> URL {
-        try await supabase.storage.from("memory-photos").createSignedURL(path: path, expiresIn: 3600)
+        try await R2Storage.readURL(.memoryPhoto, path: path)
     }
 
     /// A single transient failure here (network blip, momentary auth hiccup) used to mean a
@@ -3074,24 +3058,9 @@ enum BackendService {
         let unique = Array(Set(paths))
         guard !unique.isEmpty else { return [:] }
 
-        var signed: [String: URL] = [:]
-
-        if let results = try? await supabase.storage
-            .from("memory-photos")
-            .createSignedURLs(paths: unique, expiresIn: 3600) {
-            for result in results {
-                guard let url = result.signedURL else { continue }
-                // Matched by name, not by position — the API makes no ordering promise. The
-                // returned path can also carry a leading slash or a bucket prefix, so an exact
-                // hit is tried first and a suffix match second.
-                let returned = result.path.hasPrefix("/") ? String(result.path.dropFirst()) : result.path
-                if unique.contains(returned) {
-                    signed[returned] = url
-                } else if let match = unique.first(where: { returned.hasSuffix($0) }) {
-                    signed[match] = url
-                }
-            }
-        }
+        // Already keyed by the path that was asked for, so the suffix/leading-slash matching the
+        // Storage API needed is gone: `storage-url` echoes back exactly the keys it was given.
+        var signed = await R2Storage.readURLs(.memoryPhoto, paths: unique)
 
         let missing = unique.filter { signed[$0] == nil }
         guard !missing.isEmpty else { return signed }
@@ -3178,11 +3147,7 @@ enum BackendService {
     /// segment since that's what the storage RLS policies key off.
     static func uploadMemoryPhoto(coupleID: UUID, memoryID: UUID, imageData: Data) async throws -> String {
         let path = "\(coupleID)/\(memoryID)/\(UUID().uuidString).jpg"
-        try await supabase.storage.from("memory-photos").upload(
-            path,
-            data: imageData,
-            options: FileOptions(contentType: "image/jpeg", upsert: true)
-        )
+        try await R2Storage.upload(.memoryPhoto, path: path, data: imageData, contentType: "image/jpeg")
         return path
     }
 
@@ -3257,7 +3222,7 @@ enum BackendService {
 
     static func deleteMemoryPhoto(id: UUID, path: String) async throws {
         try await supabase.from("memory_photos").delete().eq("id", value: id).execute()
-        _ = try? await supabase.storage.from("memory-photos").remove(paths: [path])
+        await R2Storage.remove(.memoryPhoto, paths: [path])
     }
 
     /// `memory_photos` rows cascade-delete with the memory automatically; the underlying
@@ -3266,7 +3231,7 @@ enum BackendService {
     static func deleteMemory(id: UUID, photoPaths: [String]) async throws {
         try await supabase.from("memories").delete().eq("id", value: id).execute()
         if !photoPaths.isEmpty {
-            _ = try? await supabase.storage.from("memory-photos").remove(paths: photoPaths)
+            await R2Storage.remove(.memoryPhoto, paths: photoPaths)
         }
     }
 
