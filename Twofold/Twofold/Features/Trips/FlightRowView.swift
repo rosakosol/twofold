@@ -10,9 +10,18 @@ import SwiftUI
 struct FlightRowView: View {
     let flight: Flight
 
+    /// Was a fixed 44, the largest `AirlineLogoView` anywhere and visibly too big in the panel.
+    /// 32 is what the airline picker and flight confirmation rows use, and it sits inside the 38pt
+    /// lane `TripRowView` gives its countdown and avatars — those rows are directly beside this one
+    /// in the same list, and this file's premise is that the two look alike.
+    ///
+    /// Scaled, because it was also the only leading element in that panel that did not grow with
+    /// Dynamic Type: oversized at default sizes and undersized at large ones.
+    @ScaledMetric(relativeTo: .subheadline) private var logoSize: CGFloat = 32
+
     var body: some View {
         HStack(spacing: Theme.Spacing.md) {
-            AirlineLogoView(url: flight.displayLogoURL, size: 44)
+            AirlineLogoView(url: flight.displayLogoURL, size: logoSize)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(flight.countdownSummary)
