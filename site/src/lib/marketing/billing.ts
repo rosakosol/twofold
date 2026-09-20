@@ -23,22 +23,53 @@ function isConfigured(): boolean {
   return Boolean(key && !key.includes("TODO"));
 }
 
-/** Configures (once) and returns the shared Purchases instance, or null if unavailable. */
+/**
+ * Configures (once) and returns the shared Purchases instance, switching it to `appUserId` if it
+ * was configured for somebody else. Null if unavailable.
+ *
+ * The switch is the whole point. The pricing page loads live prices before anyone has signed in,
+ * deliberately — prices have to be on screen for a visitor who may never sign in — and passes an
+ * anonymous id to do it. This function used to return the memoised promise on every later call and
+ * ignore the `appUserId` it was given, so the SDK stayed configured as that anonymous customer for
+ * the life of the page. `purchasePackage(session.user.id, pkg)` then bought under the anonymous id
+ * too, and the entitlement was granted to `$RCAnonymousID:…` instead of the Supabase user — a
+ * completed purchase that the iOS app could never see, with nothing failing anywhere to say so.
+ *
+ * `changeUser` rather than reconfiguring: the SDK is meant to be configured once per page, and it
+ * transfers an anonymous customer's purchases to the identified one, which is exactly the
+ * sign-in-after-browsing case this page is built around.
+ */
 export async function getPurchases(appUserId: string): Promise<Purchases | null> {
   if (!isConfigured()) return null;
-  if (purchasesPromise) return purchasesPromise;
 
-  purchasesPromise = (async () => {
-    try {
-      const { Purchases } = await import("@revenuecat/purchases-js");
-      return Purchases.configure({ apiKey: apiKey()!, appUserId });
-    } catch (err) {
-      console.warn("[twofold] RevenueCat Web Billing unavailable", err);
-      return null;
+  if (!purchasesPromise) {
+    purchasesPromise = (async () => {
+      try {
+        const { Purchases } = await import("@revenuecat/purchases-js");
+        return Purchases.configure({ apiKey: apiKey()!, appUserId });
+      } catch (err) {
+        console.warn("[twofold] RevenueCat Web Billing unavailable", err);
+        return null;
+      }
+    })();
+    return purchasesPromise;
+  }
+
+  const purchases = await purchasesPromise;
+  if (!purchases) return null;
+
+  try {
+    if (purchases.getAppUserId() !== appUserId) {
+      await purchases.changeUser(appUserId);
     }
-  })();
+  } catch (err) {
+    // Worth being loud about. Carrying on would buy under the wrong identity, which is the failure
+    // this exists to prevent and the one that leaves no trace anywhere.
+    console.error("[twofold] could not switch RevenueCat user", err);
+    return null;
+  }
 
-  return purchasesPromise;
+  return purchases;
 }
 
 /** Returns the web offering (or RevenueCat's "current" as a fallback), or null if unavailable. */
