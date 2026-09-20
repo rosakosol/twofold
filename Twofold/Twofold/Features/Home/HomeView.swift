@@ -413,7 +413,7 @@ struct HomeView: View {
                             if index > 0 {
                                 Divider()
                             }
-                            checklistRow(icon: item.icon, title: item.title, action: item.action)
+                            checklistRow(task: item.task, action: item.action)
                         }
                     }
                 }
@@ -504,10 +504,39 @@ struct HomeView: View {
     /// given row is the first one still showing — and that changes as rows get completed, so it
     /// cannot be hard-coded either.
     private struct ChecklistItem: Identifiable {
-        let id: String
-        let icon: ChecklistIcon
-        let title: String
+        let task: ChecklistTask
         let action: () -> Void
+        var id: String { task.rawValue }
+    }
+
+    /// The three rows, as cases rather than as strings.
+    ///
+    /// The titles used to be `String`s on `ChecklistItem`, handed to `Text(title)`. That renders
+    /// perfectly and never reaches `Localizable.xcstrings`: Xcode extracts a literal written inside
+    /// `Text`, not a `String` variable that arrives there, so these three shipped permanently
+    /// untranslated with nothing to indicate it. Same shape as `GatedFeature` in
+    /// `SubscriptionRequiredView`, for the same reason.
+    private enum ChecklistTask: String {
+        case trip
+        case flight
+        case location
+
+        var title: Text {
+            switch self {
+            case .trip: Text("Add your next trip")
+            case .flight: Text("Add your first flight")
+            case .location: Text("Turn on location access")
+            }
+        }
+
+        /// The icon travels with the case too, so adding a row is one place rather than two.
+        var icon: ChecklistIcon {
+            switch self {
+            case .trip: .system("airplane.departure")
+            case .flight: .asset("boarding-pass")
+            case .location: .system("location")
+            }
+        }
     }
 
     /// Trip and flight rows need a connected partner to make sense — see `setupChecklistCard`,
@@ -515,16 +544,16 @@ struct HomeView: View {
     private var checklistItems: [ChecklistItem] {
         var items: [ChecklistItem] = []
         if appModel.partnerConnected, appModel.needsFirstTrip {
-            items.append(ChecklistItem(id: "trip", icon: .system("airplane.departure"), title: "Add your next trip", action: { showingAddTrip = true }))
+            items.append(ChecklistItem(task: .trip, action: { showingAddTrip = true }))
         }
         if appModel.partnerConnected, appModel.needsFirstFlight {
-            items.append(ChecklistItem(id: "flight", icon: .asset("boarding-pass"), title: "Add your first flight", action: { showingAddFlight = true }))
+            items.append(ChecklistItem(task: .flight, action: { showingAddFlight = true }))
         }
         // Own city only. This row is an instruction to use this device's location permission, so
         // it has no business appearing when the city that is missing is the partner's — see
         // `AppModel.needsOwnHomeCity`.
         if appModel.needsOwnHomeCity {
-            items.append(ChecklistItem(id: "location", icon: .system("location"), title: "Turn on location access", action: { showingLocationPermission = true }))
+            items.append(ChecklistItem(task: .location, action: { showingLocationPermission = true }))
         }
         return items
     }
@@ -534,11 +563,11 @@ struct HomeView: View {
         case asset(String)
     }
 
-    private func checklistRow(icon: ChecklistIcon, title: String, action: @escaping () -> Void) -> some View {
+    private func checklistRow(task: ChecklistTask, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack {
                 Group {
-                    switch icon {
+                    switch task.icon {
                     case .asset(let name):
                         Image(name)
                             .renderingMode(.template)
@@ -552,7 +581,7 @@ struct HomeView: View {
                 .foregroundStyle(Theme.skyBlue)
                 .frame(width: 24)
 
-                Text(title)
+                task.title
                     .font(.subheadline)
                     .foregroundStyle(Theme.ink)
                     .multilineTextAlignment(.leading)
