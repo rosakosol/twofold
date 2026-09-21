@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { createClient } from "@/lib/supabase/client";
+import { functionErrorMessage } from "@/lib/supabase/functionError";
 import { cancellability } from "@/lib/console/accountDetail";
 
 /**
@@ -160,7 +161,10 @@ function CancelSubscription({
     });
     setBusy(false);
     if (error || !data?.ok) {
-      toast.error("Couldn't cancel that subscription. Nothing has changed.");
+      // The function's own refusal — "no web subscription", "not authorised", a RevenueCat error —
+      // rather than one sentence covering all of them. It arrives on the error rather than in
+      // `data`, which is null for every non-2xx; see functionErrorMessage.
+      toast.error(await functionErrorMessage(error, "Couldn't cancel that subscription."));
       return;
     }
     // Zero is the App Store case reaching here anyway — reported plainly rather than as success,
@@ -306,9 +310,11 @@ function DeleteAccount({
     });
     setBusy(false);
     if (error || !data?.ok) {
-      // The function refuses to delete an account whose web subscription it could not cancel. That
-      // refusal is the design working, so it reads as "nothing happened" rather than as a failure.
-      toast.error("Couldn't delete this account, and nothing has been changed. Check the logs.");
+      // The function refuses to delete an account whose web subscription it could not cancel, and
+      // says so. "Check the logs" was the previous answer, which is advice rather than information
+      // — and the last time deletion broke, the logs did not say why either. The refusal itself is
+      // the useful thing, so it is what gets shown.
+      toast.error(await functionErrorMessage(error, "Couldn't delete this account."));
       return;
     }
     toast.success("Account deleted.");

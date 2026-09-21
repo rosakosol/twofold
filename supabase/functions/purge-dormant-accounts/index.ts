@@ -34,7 +34,7 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { sendAPNs } from "../_shared/apns.ts";
-import { fromAddress, singleLine, smtpClient } from "../_shared/mail.ts";
+import { closeQuietly, fromAddress, singleLine, smtpClient } from "../_shared/mail.ts";
 
 const MAX_CLOSURES_PER_RUN = 200;
 
@@ -204,11 +204,9 @@ Deno.serve(async (req) => {
           console.error(`dormancy: could not warn ${row.profile_id}`, err);
         }
       }
-      try {
-        await client.close();
-      } catch {
-        // Nothing useful to do; the mail is already sent or already failed.
-      }
+      // Capped, not just caught: close() can block indefinitely rather than throw, which would
+      // stall the whole run after the warnings had already gone out. See closeQuietly.
+      await closeQuietly(client);
     }
 
     // Push is the courtesy copy — best effort, and never allowed to affect whether the account

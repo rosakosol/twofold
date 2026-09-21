@@ -32,7 +32,7 @@
 // Neither substitutes for the other, and a reply wants both.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { fromAddress, singleLine, smtpClient } from "../_shared/mail.ts";
+import { closeQuietly, fromAddress, singleLine, smtpClient } from "../_shared/mail.ts";
 import { presign, r2ConfigFromEnv } from "../_shared/r2.ts";
 import { replyHtml, replySubject, replyText, replyToAddress, usableAsInReplyTo } from "./compose.ts";
 
@@ -140,8 +140,14 @@ Deno.serve(async (req) => {
     }
   }
 
+  // Declared out here so `finally` can reach it: hanging up must not be able to decide whether the
+  // mail was sent. `await client.close()` inside this try did exactly that — Zoho does not reliably
+  // send the goodbye denomailer waits for, so close() blocked until the runtime reaped the isolate
+  // and the caller got a non-2xx with no body, for a reply that had already gone out. The operator
+  // then reads "Nothing has changed" and sends it again. See closeQuietly.
+  let client: ReturnType<typeof smtpClient> | undefined;
   try {
-    const client = smtpClient();
+    client = smtpClient();
     await client.send({
       from: sender,
       to: t.email,
@@ -162,11 +168,12 @@ Deno.serve(async (req) => {
       references: usableAsInReplyTo(t.last_inbound_message_id),
       attachments: attachments.length > 0 ? attachments : undefined,
     });
-    await client.close();
   } catch (err) {
     console.error("[send-support-reply] SMTP send failed:", (err as Error).message);
     // Nothing is recorded, so the conversation stays exactly as it was and the retry is clean.
     return bad("Couldn't send that reply. Nothing has changed — try again.", 502);
+  } finally {
+    await closeQuietly(client);
   }
 
   const { data: requestId, error: recordError } = await serviceClient.rpc("record_support_reply", {

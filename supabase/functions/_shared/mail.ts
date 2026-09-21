@@ -35,3 +35,27 @@ export function fromAddress(): string {
 export function singleLine(value: string): string {
   return value.replace(/[\r\n]+/g, " ").trim();
 }
+
+/// Hanging up, without letting the hang-up decide whether the mail was sent.
+///
+/// denomailer holds the TCP connection open otherwise, which keeps the isolate alive until it is
+/// forcibly reaped. Two hazards make this more delicate than `await client.close()` looks, and
+/// `submit-help-message` paid for both before this helper existed:
+///
+///   * `close()` returns undefined rather than a promise when the connection never came up — an
+///     auth failure, say — so it cannot be treated as a promise unconditionally.
+///   * when the connection *did* come up it can block indefinitely, waiting on a server goodbye
+///     Zoho does not reliably send. That stalls the request until the runtime kills it, and the
+///     caller sees a non-2xx with no error body.
+///
+/// Either one, inside the same `try` as the send, reports a failure for a message that has already
+/// gone out — which is the worst answer available, because the operator resends it. So: normalise
+/// to a promise, swallow rejections, and cap the wait. Leaking the socket for the isolate's
+/// remaining lifetime is much cheaper than misreporting a successful send.
+export async function closeQuietly(client: SMTPClient | undefined | null): Promise<void> {
+  if (!client) return;
+  await Promise.race([
+    Promise.resolve(client.close()).catch(() => {}),
+    new Promise((resolve) => setTimeout(resolve, 2000)),
+  ]);
+}

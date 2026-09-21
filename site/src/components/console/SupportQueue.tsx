@@ -22,6 +22,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 import { nullableArg } from "@/lib/db/nullableArg";
+import { functionErrorMessage } from "@/lib/supabase/functionError";
 import { cn } from "@/lib/utils";
 
 export interface SupportRequest {
@@ -640,8 +641,9 @@ function Composer({
       });
       if (error || !data?.uploadUrl) {
         // The RPC's own message — the size ceiling, the pending-file limit — is more use than a
-        // generic refusal, so it is surfaced rather than replaced.
-        toast.error(data?.error ?? "Couldn't prepare that upload.");
+        // generic refusal, so it is surfaced rather than replaced. It arrives on the error, not in
+        // `data`, which is null for every non-2xx; see functionErrorMessage.
+        toast.error(await functionErrorMessage(error, "Couldn't prepare that upload."));
         return;
       }
       const put = await fetch(data.uploadUrl, {
@@ -669,7 +671,10 @@ function Composer({
     setSending(false);
 
     if (error || !data?.ok) {
-      toast.error("Couldn't send that reply. Nothing has changed — try again.");
+      // The function distinguishes "not authorised", "no address to reply to", "email sending
+      // isn't set up" and "SMTP refused it" — and only the last of those is worth retrying. One
+      // message for all four sent the operator back to the same button every time.
+      toast.error(await functionErrorMessage(error, "Couldn't send that reply."));
       return;
     }
     // The function reports this when the mail went but the conversation could not be updated.
@@ -813,7 +818,7 @@ function ThreadAttachments({ threadId }: { threadId: string }) {
     });
     setBusy(null);
     if (error || !data?.url) {
-      toast.error("Couldn't open that file.");
+      toast.error(await functionErrorMessage(error, "Couldn't open that file."));
       return;
     }
     window.open(data.url, "_blank", "noopener,noreferrer");
