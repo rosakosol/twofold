@@ -68,6 +68,7 @@ import {
   isBlankSubscriber,
   resolveStartedAt,
   resolveTier,
+  resolveStore,
   resolveWillRenew,
   type RestSubscriber,
   type Tier,
@@ -197,6 +198,9 @@ interface SubscriberState {
   /// period ends, but it will not renew. Null when unknown. Only used to stop asking someone to
   /// cancel a subscription they have already cancelled; see `resolveWillRenew`.
   willRenew: boolean | null;
+  /// Which storefront sold it, lowercased, or null when unknown. Decides what the account screen
+  /// on the web may offer: an App Store subscription is not ours to cancel, a website one is.
+  store: string | null;
   /// RevenueCat's own clock at the moment it computed this state. Used as the row's
   /// `subscription_checked_at`, which makes the staleness comparison in applyState a comparison
   /// between two readings of a single clock rather than between our clock and theirs.
@@ -254,6 +258,7 @@ async function fetchSubscriberState(appUserId: string, apiKey: string): Promise<
   const tier = resolveTier(entitlements, asOfMs);
   const startedAt = resolveStartedAt(subscriber, tier);
   const willRenew = resolveWillRenew(subscriber, tier);
+  const store = resolveStore(subscriber, tier);
 
   // An active subscriber whose start date could not be found. Logged with field names only, never
   // values, because `resolveStartedAt`'s reading of the v1 shape has never been checked against a
@@ -262,7 +267,7 @@ async function fetchSubscriberState(appUserId: string, apiKey: string): Promise<
     console.warn(`[revenuecat-webhook] no purchase date for ${appUserId}: ${describeMissingStart(subscriber, tier)}`);
   }
 
-  return { tier, startedAt, willRenew, asOfMs };
+  return { tier, startedAt, willRenew, store, asOfMs };
 }
 
 type ApplyOutcome = "written" | "no_profile" | "stale";
@@ -317,6 +322,7 @@ async function applyState(
       // after they stopped paying.
       subscription_started_at: state.startedAt,
       subscription_will_renew: state.willRenew,
+      subscription_store: state.store,
     })
     .eq("id", appUserId)
     .or(freshnessGuard)

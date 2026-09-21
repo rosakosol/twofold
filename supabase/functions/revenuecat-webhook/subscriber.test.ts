@@ -13,6 +13,7 @@ import {
   isEntitlementActive,
   resolveStartedAt,
   resolveTier,
+  resolveStore,
   resolveWillRenew,
   type RestSubscriber,
 } from "./subscriber.ts";
@@ -267,4 +268,72 @@ Deno.test("a subscriber with history but no entitlements is not blank either", (
 
 Deno.test("an active subscriber is never blank", () => {
   assertEquals(isBlankSubscriber(renewedAnnual), false);
+});
+
+// ---------------------------------------------------------------------------
+// Which storefront sold it
+// ---------------------------------------------------------------------------
+//
+// This decides what the web account screen may offer, and the expensive mistake is one-directional.
+// Reporting an App Store subscription as a web one produces a cancel button that reaches for a
+// Stripe subscription that does not exist — the person believes they have cancelled and is charged
+// again. Reporting a web one as unknown just sends them to support. So every uncertain case must
+// resolve to null, never to a guess.
+
+Deno.test("the storefront is read off the subscription backing the active entitlement", () => {
+  const subscriber = {
+    entitlements: { [ENTITLEMENT_PREMIUM]: { product_identifier: "premium_annual", expires_date: null } },
+    subscriptions: { premium_annual: { store: "app_store" } },
+  };
+  assertEquals(resolveStore(subscriber, "premium"), "app_store");
+});
+
+Deno.test("the storefront is normalised, because RevenueCat's casing is not guaranteed", () => {
+  // The webhook sends uppercase in events and lowercase from the REST API — the same inconsistency
+  // isStoreManaged already trims and lowercases for.
+  const subscriber = {
+    entitlements: { [ENTITLEMENT_PLUS]: { product_identifier: "plus_monthly", expires_date: null } },
+    subscriptions: { plus_monthly: { store: "  APP_STORE " } },
+  };
+  assertEquals(resolveStore(subscriber, "plus"), "app_store");
+});
+
+Deno.test("a web subscription is reported as such, since that one IS ours to cancel", () => {
+  for (const store of ["stripe", "rc_billing"]) {
+    const subscriber = {
+      entitlements: { [ENTITLEMENT_PREMIUM]: { product_identifier: "p", expires_date: null } },
+      subscriptions: { p: { store } },
+    };
+    assertEquals(resolveStore(subscriber, "premium"), store);
+  }
+});
+
+Deno.test("anything we cannot pin down is null, never a guess", () => {
+  const cases: Array<[string, Record<string, unknown>]> = [
+    ["no tier at all", {
+      entitlements: { [ENTITLEMENT_PREMIUM]: { product_identifier: "p" } },
+      subscriptions: { p: { store: "app_store" } },
+    }],
+    ["entitlement carries no product identifier", {
+      entitlements: { [ENTITLEMENT_PREMIUM]: { expires_date: null } },
+      subscriptions: { p: { store: "app_store" } },
+    }],
+    ["no subscription matches the product identifier", {
+      entitlements: { [ENTITLEMENT_PREMIUM]: { product_identifier: "p", expires_date: null } },
+      subscriptions: { something_else: { store: "app_store" } },
+    }],
+    ["the subscription has no store field", {
+      entitlements: { [ENTITLEMENT_PREMIUM]: { product_identifier: "p", expires_date: null } },
+      subscriptions: { p: {} },
+    }],
+    ["the store is blank", {
+      entitlements: { [ENTITLEMENT_PREMIUM]: { product_identifier: "p", expires_date: null } },
+      subscriptions: { p: { store: "   " } },
+    }],
+  ];
+
+  for (const [label, subscriber] of cases) {
+    const tier = label === "no tier at all" ? null : "premium";
+    assertEquals(resolveStore(subscriber, tier), null, label);
+  }
 });

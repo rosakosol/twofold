@@ -26,6 +26,9 @@ export interface RestSubscription {
   original_purchase_date?: string | null;
   purchase_date?: string | null;
   unsubscribe_detected_at?: string | null;
+  /// Which storefront sold it: "app_store", "play_store", "stripe", "rc_billing", "promotional"…
+  /// The same field `_shared/subscription-cancel.ts` reads to decide what is ours to cancel.
+  store?: string | null;
   [key: string]: unknown;
 }
 
@@ -159,6 +162,36 @@ export function resolveWillRenew(subscriber: RestSubscriber, tier: Tier): boolea
   // Present and a string means RevenueCat has seen the cancellation. Absent or null means it has
   // not — which for a record it does hold is a real answer, not a missing one.
   return typeof subscription.unsubscribe_detected_at !== "string";
+}
+
+/// Which store sold the active subscription, lowercased, or null when we cannot tell.
+///
+/// This is the fact that decides what a person can be offered on the web. An App Store
+/// subscription is not ours to cancel — Apple provides no mechanism, which is why
+/// `DeleteAccountView` links out to their subscription settings instead — while a website
+/// subscription bills through Stripe with credentials we hold. Without knowing which, an account
+/// screen has to either offer a cancel button that silently does nothing, or refuse everybody.
+///
+/// Recorded on the profile rather than fetched per page view: the webhook is already holding the
+/// answer, and a screen that asked RevenueCat on every load would add a network round-trip and a
+/// second way for that screen to fail.
+///
+/// Null rather than a guess when the subscription record cannot be found, and every consumer must
+/// treat null as "do not offer to cancel". Guessing wrong in the permissive direction produces a
+/// button that claims to have cancelled something it cannot touch, and the person finds out when
+/// they are charged again.
+export function resolveStore(subscriber: RestSubscriber, tier: Tier): string | null {
+  if (tier === null) return null;
+
+  const entitlement = subscriber.entitlements?.[tier === "premium" ? ENTITLEMENT_PREMIUM : ENTITLEMENT_PLUS];
+  const productId = entitlement?.product_identifier;
+  if (typeof productId !== "string") return null;
+
+  const store = subscriber.subscriptions?.[productId]?.store;
+  if (typeof store !== "string") return null;
+
+  const normalised = store.trim().toLowerCase();
+  return normalised === "" ? null : normalised;
 }
 
 /// What to log when an active subscriber yields no start date. Turns the unverified assumption

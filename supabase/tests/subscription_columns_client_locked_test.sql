@@ -18,7 +18,7 @@
 -- contains — would restore it. So the trigger is tested with those grants deliberately handed back.
 
 begin;
-select plan(12);
+select plan(16);
 
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
 values
@@ -57,6 +57,24 @@ select throws_ok(
   '42501',
   null,
   'a user cannot stamp their own subscription_checked_at'
+);
+
+-- `subscription_store` decides what a web account screen offers. A client that could set it could
+-- claim its App Store subscription was bought on the website — and then be handed a cancel button
+-- that reaches for a Stripe subscription which does not exist.
+select throws_ok(
+  $$update public.profiles set subscription_store = 'stripe' where id = 'aaaaaaaa-3333-0000-0000-000000000001'$$,
+  '42501',
+  null,
+  'a user cannot claim which storefront sold their subscription'
+);
+
+-- Reading it is fine and necessary — the account screen has to know what to offer. SELECT on
+-- profiles is table-level, so a new column is readable without a new grant; this pins that,
+-- because a screen that cannot read this column shows everyone the wrong options.
+select ok(
+  has_column_privilege('authenticated', 'public.profiles', 'subscription_store', 'SELECT'),
+  'but can read it, which is what the account screen needs'
 );
 
 -- The real payload: `updateSubscriptionStatus` writes all three in one PATCH.
@@ -128,6 +146,15 @@ select throws_ok(
   'the trigger still refuses the write after a blanket grant restores the privilege'
 );
 
+-- The new column is only safe because it is named in the trigger. Until this migration it was
+-- protected by the column grants alone, which is precisely what the blanket grant above undoes.
+select throws_ok(
+  $$update public.profiles set subscription_store = 'stripe' where id = 'aaaaaaaa-3333-0000-0000-000000000001'$$,
+  '42501',
+  null,
+  'and refuses subscription_store too, which grants alone would not have'
+);
+
 -- ---------------------------------------------------------------------------
 -- service_role writes all three. This is the path the RevenueCat webhook will use; if it were
 -- caught by the guard, the fix would ship a working exploit block and a broken subscription.
@@ -135,7 +162,8 @@ select throws_ok(
 reset role;
 set local role service_role;
 update public.profiles
-  set subscription_active = true, subscription_tier = 'premium', subscription_checked_at = '2026-09-15T00:00:00Z'
+  set subscription_active = true, subscription_tier = 'premium', subscription_checked_at = '2026-09-15T00:00:00Z',
+      subscription_store = 'app_store'
 where id = 'bbbbbbbb-3333-0000-0000-000000000002';
 
 select results_eq(
@@ -143,6 +171,12 @@ select results_eq(
       from public.profiles where id = 'bbbbbbbb-3333-0000-0000-000000000002'$$,
   $$values (true, 'premium', '2026-09-15T00:00:00Z'::timestamptz)$$,
   'service_role can still write all three entitlement columns'
+);
+
+select is(
+  (select subscription_store from public.profiles where id = 'bbbbbbbb-3333-0000-0000-000000000002'),
+  'app_store',
+  'service_role can record the storefront, which is how the webhook writes it'
 );
 
 -- And can take them away again when a subscription lapses.
