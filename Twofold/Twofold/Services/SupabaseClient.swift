@@ -19,6 +19,13 @@ let supabase = SupabaseClient(
         // `supabase.auth.session` directly, which already refreshes/validates properly — so
         // this only affects internal SDK subscribers (e.g. Realtime's token sync) and quiets
         // the console warning. See https://github.com/supabase/supabase-swift/pull/822.
-        auth: .init(emitLocalSessionAsInitialSession: true)
+        auth: .init(
+            // supabase-swift's default keychain storage writes the refresh token at
+            // `kSecAttrAccessibleAfterFirstUnlock`, which is backup-eligible and restorable onto
+            // another device. See `SessionKeychainStorage` — including why it reads the old item
+            // rather than starting clean, which is what stops an update signing everybody out.
+            storage: SessionKeychainStorage(),
+            emitLocalSessionAsInitialSession: true
+        )
     )
 )
