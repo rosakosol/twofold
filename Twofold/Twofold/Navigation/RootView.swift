@@ -56,6 +56,9 @@ struct RootView: View {
     ///
     /// Same shape as `DailyActivityCard`'s `RepairingStreak`, for the same reason.
     @State private var streakRepairOffer: StreakRepairOffer?
+    #if DEBUG
+    @State private var showingRecordExportScreenshot = false
+    #endif
     @State private var gameDeepLink: SessionRoute?
     /// Which MainTabView tab is showing — lives here rather than inside MainTabView so a widget
     /// deep link (twofold://home, twofold://memories, twofold://passport) can switch it.
@@ -124,6 +127,12 @@ struct RootView: View {
         .task {
             KeyboardDismissal.installOnce()
             await appModel.restoreSession()
+            #if DEBUG
+            // After `restoreSession`, so the real app is behind the sheet rather than the loading
+            // state — the offer is a sheet, and what surrounds it is half the screenshot.
+            seedStreakRepairScreenshotIfRequested()
+            seedRecordExportScreenshotIfRequested()
+            #endif
             // Before `checkSubscription`, not after: this is what decides whether the person is
             // exempt from the paywall at all, so resolving it first keeps the loading state above
             // to a single round trip instead of two.
@@ -324,6 +333,13 @@ struct RootView: View {
         .sheet(item: $streakRepairOffer) { offer in
             StreakRepairPromptView(streak: offer.streak)
         }
+        #if DEBUG
+        // Presented the way Settings presents it — inside a NavigationStack — so the toolbar the
+        // export card refers to is there, rather than a bare view with the controls missing.
+        .fullScreenCover(isPresented: $showingRecordExportScreenshot) {
+            NavigationStack { RelationshipTimelineView() }
+        }
+        #endif
         .fullScreenCover(item: $recordDeepLink) { destination in
             NavigationStack { recordDeepLinkDestination(destination) }
         }
@@ -462,6 +478,133 @@ struct RootView: View {
     /// The record is written when it is *shown*, not when it is acted on. Someone who closed the
     /// popup has answered it, and reopening the app should not ask a second time — which is the
     /// whole difference between an offer and a nag.
+    /// Forces the repair offer on screen, for capturing App Store screenshots.
+    ///
+    /// DEBUG-only. There is no honest way to reach this state on demand otherwise: it needs a
+    /// paired couple on Premium who built a streak and then broke it, which is days of real
+    /// elapsed time and a server that agrees. Faking the three inputs the screen reads is a
+    /// smaller lie than faking a week.
+    ///
+    /// Seeds the state the sheet renders from rather than a screenshot mode of its own, so what
+    /// is captured is the real view, presented the real way, by the code that presents it in
+    /// production. Only the data is synthetic.
+    ///
+    ///   xcrun simctl launch booted com.orangefinch.Twofold \
+    ///     -streakRepairScreenshot 47 -streakRepairPrice '$0.99'
+    ///
+    /// `credits: 0` and no monthly freeze on purpose — with either of those the screen correctly
+    /// offers the free route instead, which is not the screen being captured.
+    /// Puts the relationship record on screen with a history behind it, for App Store screenshots.
+    ///
+    /// DEBUG-only, and a bigger seed than the streak one because the screen is a bigger thing: the
+    /// export card sits above a timeline built from the couple's actual trips and memories
+    /// (`RelationshipRecord.timeline`), so an empty app shows an empty record and a screenshot of
+    /// nothing.
+    ///
+    /// The tier is set below premium on purpose. `exportPurchaseCard` only renders when
+    /// `isPremiumLocked` — a Premium couple exports without limit and is never offered this — so
+    /// the screen being captured is the one a Plus couple sees.
+    ///
+    ///   xcrun simctl launch booted com.orangefinch.Twofold -recordExportScreenshot 1
+    ///
+    /// Credits are left alone: the count comes back 0 when the lookup fails, which is the state
+    /// the buy card renders from, so nothing needs faking for that.
+    #if DEBUG
+    private func seedRecordExportScreenshotIfRequested() {
+        guard ProcessInfo.processInfo.arguments.contains("-recordExportScreenshot") else { return }
+
+        let melbourne = Place(city: "Melbourne", country: "Australia", latitude: -37.8136, longitude: 144.9631)
+        let tokyo = Place(city: "Tokyo", country: "Japan", latitude: 35.6762, longitude: 139.6503)
+        let kyoto = Place(city: "Kyoto", country: "Japan", latitude: 35.0116, longitude: 135.7681)
+        let day: TimeInterval = 86_400
+
+        appModel.couple.partnerA.name = "Rosa"
+        appModel.couple.partnerB.name = "Alex"
+        appModel.couple.startedDatingOn = Date(timeIntervalSinceNow: -720 * day)
+        appModel.subscriptionTier = "plus"
+
+        let firstTrip = Trip(
+            id: UUID(), travelerIDs: [], origin: melbourne, destination: tokyo,
+            departureDate: Date(timeIntervalSinceNow: -240 * day),
+            arrivalDate: Date(timeIntervalSinceNow: -226 * day),
+            category: .together, distanceKm: 8_159
+        )
+        let secondTrip = Trip(
+            id: UUID(), travelerIDs: [], origin: tokyo, destination: melbourne,
+            departureDate: Date(timeIntervalSinceNow: -96 * day),
+            arrivalDate: Date(timeIntervalSinceNow: -89 * day),
+            category: .reunion, distanceKm: 8_159
+        )
+        // Two more, further back, so the list fills the screen the way a real couple's would —
+        // a record with two entries in it photographs as an empty feature.
+        let earlierTrip = Trip(
+            id: UUID(), travelerIDs: [], origin: melbourne, destination: kyoto,
+            departureDate: Date(timeIntervalSinceNow: -430 * day),
+            arrivalDate: Date(timeIntervalSinceNow: -416 * day),
+            category: .together, distanceKm: 8_051
+        )
+        let soloTrip = Trip(
+            id: UUID(), travelerIDs: [], origin: tokyo, destination: kyoto,
+            departureDate: Date(timeIntervalSinceNow: -318 * day),
+            arrivalDate: Date(timeIntervalSinceNow: -314 * day),
+            category: .solo, distanceKm: 367
+        )
+        appModel.trips = [earlierTrip, soloTrip, firstTrip, secondTrip]
+
+        appModel.memories = [
+            Memory(
+                title: "Ramen at midnight", place: tokyo,
+                date: Date(timeIntervalSinceNow: -238 * day),
+                note: "Queued forty minutes in the rain and agreed it was worth it.",
+                tripID: firstTrip.id
+            ),
+            Memory(
+                title: "The bamboo grove", place: kyoto,
+                date: Date(timeIntervalSinceNow: -234 * day),
+                note: "Got there before sunrise so we had it to ourselves.",
+                tripID: firstTrip.id
+            ),
+            Memory(
+                title: "Back at the airport", place: melbourne,
+                date: Date(timeIntervalSinceNow: -89 * day),
+                note: "Three months apart and you still spotted me first.",
+                tripID: secondTrip.id
+            ),
+            Memory(
+                title: "First trip together", place: kyoto,
+                date: Date(timeIntervalSinceNow: -428 * day),
+                note: "Neither of us had been. We got lost twice on the first afternoon.",
+                tripID: earlierTrip.id
+            ),
+            Memory(
+                title: "Cherry blossom season", place: kyoto,
+                date: Date(timeIntervalSinceNow: -316 * day),
+                note: "You sent forty photographs and I kept every one.",
+                tripID: soloTrip.id
+            ),
+        ]
+
+        showingRecordExportScreenshot = true
+    }
+
+    private func seedStreakRepairScreenshotIfRequested() {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard let flag = arguments.firstIndex(of: "-streakRepairScreenshot"),
+              flag + 1 < arguments.count,
+              let streak = Int(arguments[flag + 1])
+        else { return }
+
+        appModel.streakRepair = BackendService.StreakRepairState(
+            repairable: true,
+            streakAtRisk: streak,
+            credits: 0,
+            missedDateRaw: "2026-09-21",
+            monthlyFreezeAvailableRaw: false
+        )
+        streakRepairOffer = StreakRepairOffer(streak: streak)
+    }
+    #endif
+
     private func offerStreakRepairIfDue() {
         guard let repair = appModel.streakRepair,
               repair.repairable,

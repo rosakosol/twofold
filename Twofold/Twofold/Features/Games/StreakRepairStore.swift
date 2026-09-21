@@ -47,7 +47,32 @@ final class StreakRepairStore {
     private static let confirmationWindow: TimeInterval = 12
     private static let pollInterval: Duration = .milliseconds(750)
 
+    /// A price supplied on the command line, for capturing App Store screenshots.
+    ///
+    /// DEBUG-only, so it cannot exist in a shipped build. It is here because the alternative is
+    /// worse: without it the simulator has no StoreKit transaction to read, `localizedPriceString`
+    /// comes back nil, and the one screen whose whole purpose is to show a price renders without
+    /// one. Enabling the project's `.storekit` configuration would also work, but that is a scheme
+    /// setting every developer would then inherit.
+    ///
+    /// Only the displayed string is faked. Nothing here can buy anything — `product` stays nil, so
+    /// `purchaseAndRepair` fails the same way it would with no product at all.
+    #if DEBUG
+    static var screenshotPrice: String? {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard let flag = arguments.firstIndex(of: "-streakRepairPrice"), flag + 1 < arguments.count else { return nil }
+        return arguments[flag + 1]
+    }
+    #endif
+
     func loadPrice() async {
+        #if DEBUG
+        if let price = Self.screenshotPrice {
+            displayPrice = price
+            phase = .idle
+            return
+        }
+        #endif
         guard product == nil else { return }
         phase = .loadingPrice
         let products = await Purchases.shared.products([RevenueCatConfig.ProductIdentifier.streakRepair])
