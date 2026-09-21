@@ -112,7 +112,21 @@ Deno.serve(async (req) => {
     // `ccAddress` is included because a correspondent who replies-all can put our tokenised address
     // in Cc rather than To, and the token is the token wherever it appears.
     p_to_address: [payload.toAddress, payload.ccAddress].filter(Boolean).join(", ") || null,
+    // Kept for later: fetching a message's attachments needs these alongside the message id, and
+    // the webhook never carries the attachments themselves. Capturing them at the door means mail
+    // that arrives before that work ships is still reachable afterwards, rather than there being a
+    // hard edge in the archive at whatever date it lands.
+    p_folder_id: String(payload.folderId ?? "") || null,
+    p_zoho_account_id: String(payload.zuid ?? payload.accountId ?? "") || null,
   });
+
+  // Ids only — never the subject, the sender or a line of the body. This is a diagnostic for
+  // whether Zoho's handles resolve against its own API (there is an open report that the webhook
+  // sends them incorrectly), and a support inbox's contents do not belong in a log to answer it.
+  console.log(
+    `[ingest-support-email] messageId=${payload.messageId ?? "-"} folderId=${payload.folderId ?? "-"} ` +
+      `zuid=${payload.zuid ?? "-"} hasHtml=${Boolean(payload.html)} size=${payload.size ?? "-"}`,
+  );
 
   if (error) {
     console.error("[ingest-support-email] could not record:", error.message);
