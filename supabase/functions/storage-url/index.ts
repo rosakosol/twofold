@@ -156,9 +156,21 @@ Deno.serve(async (req) => {
   // anything else on a signature mismatch.
   const contentLength = typeof input.contentLength === "number" ? input.contentLength : undefined;
   if (op === "write") {
-    if (contentLength === undefined) return bad("'contentLength' is required to write");
-    if (!Number.isInteger(contentLength) || contentLength < 1) return bad("'contentLength' must be a positive integer");
-    if (contentLength > MAX_UPLOAD_BYTES) return bad("'contentLength' exceeds the maximum upload size");
+    if (contentLength !== undefined) {
+      if (!Number.isInteger(contentLength) || contentLength < 1) return bad("'contentLength' must be a positive integer");
+      if (contentLength > MAX_UPLOAD_BYTES) return bad("'contentLength' exceeds the maximum upload size");
+    } else {
+      // Optional, for now, and this is the whole reason: an app already on somebody's phone does
+      // not send it. Requiring it here would break every avatar, memory photo, drawing pad and
+      // flight document upload from every installed version the moment this deployed — the
+      // function ships ahead of the client, always.
+      //
+      // So an absent length signs as it did before and is logged. Once the store shows no
+      // meaningful traffic from builds older than the one that sends it, make this a `bad(...)`
+      // and delete this branch. Until then the bound applies to updated clients, which is the
+      // most a server-side change can do on its own.
+      console.log("[storage-url] write without contentLength — client predates the size bound");
+    }
     if (paths.length !== 1) return bad("a write signs one path at a time");
   }
 
