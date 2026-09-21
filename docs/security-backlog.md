@@ -346,3 +346,194 @@ the nav tabs; forging it reveals a link that then hits the server gate and the R
   back client-side. Whether any server trusts a client-asserted entitlement was not answered.
 - `Twofold.entitlements` has `aps-environment: development`. Distribution signing normally rewrites
   it; worth a glance before the next App Store build.
+
+---
+
+# Round 3 — data at rest and encryption (2026-09-21)
+
+Commissioned specifically to settle file protection and encryption of user-provided data. It
+turned up something larger on the way.
+
+## Verified by me
+
+### 6. HIGH — deleting an account leaves every photograph in R2, permanently, and the privacy policy says otherwise
+
+Verified: `delete-account/index.ts` contains **zero** references to R2. `purge_couple_data`
+(`20260901001900:35-39`) and `private.scrub_account` (`20261109000900:177-178`) delete rows from
+`storage.objects` — the *Supabase Storage* index — and then `delete from public.couples`. Neither
+touches R2, which is where the objects have actually lived since the migration. The only
+server-side R2 deletes in the repo are in `purge-support-attachments`. The only R2 deletes for
+couple content are client-side, for individually deleted memory photos and flight documents
+(`BackendService.swift:2756, 3269, 3278`) — not for deletion of the account.
+
+So after `delete-account` returns `{ok: true}`: `avatars/{uid}/…`, `drawing-pads/{coupleID}/…`
+remain. After the 90-day archive purge: every `memory-photos/{coupleID}/…` and
+`flight-documents/{coupleID}/…` remains — the couple's photographs and their boarding passes.
+
+**It gets worse, and this is the part that sets the deadline.** `purge_couple_data` cascades
+`memory_photos` and `flight_documents` away, and those tables are where the object paths live.
+`scripts/delete-r2-objects.ts` takes keys rather than prefixes precisely because "every path is
+already recorded in the database". `_shared/r2.ts` has no list-objects call. So once the purge has
+run for a couple, **there is no longer any way to determine which objects were theirs.** This is
+not a missing delete call; it is a state that cannot be recovered from without a bucket listing no
+code here can perform.
+
+Not an access-control hole — the bytes are unreachable through the app, since
+`can_access_storage_object` needs an `auth.uid()` and a deleted account can never sign in. It is an
+unbounded-retention and right-to-erasure failure, and it contradicts three shipped statements:
+
+- privacy policy: "Your own uploads (your profile photo, your drawings) … are deleted."
+- privacy policy: "Anything you delete goes from Twofold immediately … for up to 7 days … and no
+  longer."
+- FAQ, in-product (`20261021000000`, `20261027000000`): "permanently deleted for both of you once
+  it runs out."
+
+The fix already has a pattern in the repo: `purge-support-attachments` pairs an RPC that returns
+keys with an edge function that deletes them. `purge_couple_data` and `scrub_account` need the
+same — return the paths before the cascade eats them. **Do this before more couples pass 90 days.**
+
+### 7. MEDIUM-HIGH — the Supabase Storage originals are orphaned too
+
+Nine call sites switch off `storage.protect_delete()` with
+`set_config('storage.allow_delete_query', 'true', true)` and delete rows directly. That trigger
+exists to prevent exactly this: its own hint reads "This prevents accidental data loss from
+orphaned objects." Deleting the row strands the file, because `storage.objects.version` is what
+maps a row to its backing key. Reported as verified on the local stack: **0 rows in
+`storage.objects`, 7 objects still in the storage backend.** So every deletion since September has
+orphaned the originals the R2 soak period is preserving. Not reproduced by me, and not proven
+against hosted S3.
+
+Related, LOW: the four legacy buckets are still *writable*, not just readable. The soak needs only
+reads, so dropping the INSERT/UPDATE policies costs nothing and closes both free hosting under a
+user's own prefix and a `::uuid` cast issue in the drawing-pads policies.
+
+## The data-at-rest plan (the thing this round was for)
+
+A complete inventory of every persistence site is in the round-3 agent report; the decisions are
+below. The short version: **per-write protection classes plus a one-time migration. Not the
+entitlement, and mostly not application-level encryption.**
+
+### What may be raised, and what may not
+
+Proven from the code: **nothing in the main app runs while the device is locked.** No
+`BGTaskScheduler`, no `BGAppRefreshTask`, no background `URLSession`, no `beginBackgroundTask`
+anywhere. `UIBackgroundModes` declares `remote-notification` but
+`didReceiveRemoteNotification:fetchCompletionHandler:` is not implemented, so the app is never
+woken to do disk work. `WidgetSnapshotWriter.refresh` is foreground-only.
+
+Equally proven: **the widget extension does read the App Group while locked.** The Live Activity's
+Lock Screen view reads the airline logo (`JourneyLockScreenView.swift:105`), five widgets declare
+Lock Screen accessory families and their providers all call `WidgetSnapshot.read()`, and
+`DrawingPadWidget.swift:58-59` *writes* into the container from `getTimeline`.
+
+| What | Class | Why |
+|---|---|---|
+| App Group images + the group plist | `.completeUntilFirstUserAuthentication`, set explicitly | Locked readers proven. `.complete` blanks the widgets, and the writes are `try?` so nothing would log it |
+| `OfflineDataCache`, `OfflineGameStateCache`, `GameContent`, `PendingMemories`, `PendingTrips` | `.completeFileProtection` | Read only on the main app's launch path, which is after an unlock by definition |
+| `Caches/MemoryPhotos` (up to 250 MB of photographs), `Caches/RemoteImages` | `.completeFileProtection` | Foreground readers only. Widgets read their own separate copies |
+| `tmp` exports | `.completeFileProtection` | Switch these four to `.completeUnlessOpen` only if a real report comes in of a share failing after a screen lock |
+| PostHog / RevenueCat directories | leave alone | Third-party owned; PostHog flushes from the background |
+
+Directories need the class set separately — `setAttributes` does not recurse, and a file created
+in a CUFUA directory inherits CUFUA. Set both.
+
+### Migration is required and is the easy half to forget
+
+Setting the option changes nothing already on disk. A six-month-old install keeps its 250 MB photo
+cache at CUFUA forever, because `MemoryPhotoDiskCache.write` only runs for photos `has(path:)`
+reports missing. Use `FileManager.setAttributes(.protectionKey:)` over the existing trees — it
+rewraps the per-file key without touching bytes, so it is fast — walking with
+`FileManager.enumerator`. Guard on `UIApplication.isProtectedDataAvailable`: raising CUFUA to
+Complete needs the class-A key, which does not exist while locked, so a locked run fails every file
+and must not stamp its version. Retry on `protectedDataDidBecomeAvailableNotification`.
+
+### Do NOT use `com.apple.developer.default-data-protection`
+
+It would classify the files the main app writes into the App Group at Complete, and the widget
+would draw blank avatars and a missing airline logo on every locked render. The writes are `try?`,
+so the first report would come from the App Store. A per-write option at the call site is also
+legible to a reviewer against the actual readers, which an entitlement in a plist is not.
+
+### Is file protection enough? Mostly yes — four places it is not
+
+1. **No device passcode: protection is void.** Class keys are derived without a user secret, so
+   `.completeFileProtection` degrades silently to nothing. Application-level encryption does not
+   fix this either, because a Keychain key degrades the same way. `AppLockService.swift:37-39`
+   already computes this exact condition and uses it only to grey out a toggle — **the app knows
+   its encryption is void and does not say so.** The correct response is one line of Settings copy,
+   not crypto.
+2. **Backups ignore protection classes entirely.** A Complete file is backed up like any other, so
+   `PendingMemories` photo bytes, `OfflineDataCache` and the group plist are all in every backup.
+   The lever here is `isExcludedFromBackup`, which should go on the derivable stores
+   (`OfflineDataCache`, `OfflineGameStateCache`, `GameContent`, the App Group images) and must NOT
+   go on `PendingMemories`/`PendingTrips`, which are the only copy.
+3. **The Supabase refresh token is backup-eligible.** supabase-swift 2.50.0 writes it at
+   `kSecAttrAccessibleAfterFirstUnlock`, not `…ThisDeviceOnly`, so an unencrypted backup restored
+   onto a second device carries a live session. Fix with a custom `AuthLocalStorage`. **Migration
+   matters:** read the existing item at the old accessibility and rewrite it, or every signed-in
+   user is silently signed out on update.
+4. **Two sensitive stores are pinned in plists you do not own.** `pendingFlightShares` (a whole
+   booking email) shares the group plist with the widget snapshot, and `pendingGameResponses` (free
+   text answers to intimate questions) is in `UserDefaults.standard`. Neither can take a class or a
+   backup exclusion. The fix is not encryption — it is moving both into files the app owns, which
+   then gives both for free.
+
+**Application-level encryption is not warranted anywhere else, and I would not add it.** For the
+widget snapshot specifically it buys nothing: the widget must decrypt while locked, so the key
+would sit at `AfterFirstUnlock` in a shared Keychain group — the same unlock semantics as CUFUA —
+and it would cost a new entitlement on two targets plus a key-provisioning race.
+
+**Testing note:** the simulator does not implement data protection; every file reports
+`NSFileProtectionNone`. A unit test asserting a protection class **passes vacuously there and
+proves nothing.** Assert at the call site, or test on hardware.
+
+## Third parties and database, from the same round
+
+- **MEDIUM — OpenAI retains the flight-email prompts.** `parse-flight-email` sends the email subject
+  and body, and on fallback the whole scraped PDF text — passenger name, PNR, ticket number, seat,
+  itinerary — with no redaction. Good news: no `user` field, no metadata, nothing ties it to an
+  account, and the privacy policy discloses it accurately. But `store` is not set and defaults to
+  true on the Responses API, so the prompts sit in the organisation's Logs dashboard for 30 days.
+  `store: false` is a one-line fix. Confirm the default against current OpenAI docs first.
+- **MEDIUM — the privacy policy says support content "isn't stored in the Twofold database".** That
+  stopped being true with `20261109001100`. `support_requests` holds email, name, subject and
+  message, and `profile_id` deliberately has no FK so "the record has to outlive the account" — so a
+  "please delete my account" ticket survives the deletion it requested. Either the copy or the
+  retention needs a decision.
+- **LOW-MEDIUM — RevenueCat receives the account email**, by a comment's own admission "purely so a
+  person is findable in that dashboard", and this is not disclosed where OpenAI and PostHog are.
+  Account deletion also never deletes the RevenueCat customer, so the email and UUID survive there.
+- **LOW — `partner_subscription_lapse_partner_name` survives a scrub.** `leave_couple` copies the
+  leaver's first name onto the remaining partner's row and `scrub_account` does not null it, so a
+  third party's name persists on a "Deleted User" row against the policy's "partner nickname … are
+  erased".
+- **LOW — `public.places` is globally readable** (`USING (true)` for authenticated) with no owner
+  column. A typed address or dropped pin on a memory writes exact coordinates and the typed name, so
+  any signed-in user can read the addresses Twofold users have tagged memories at. Unattributable —
+  no owner column, and `memories` is RLS'd — which is why this is low. The common path is safe:
+  current-location defaults go through `HomeLocationService`, which coarsens.
+- **LOW — `/api/waitlist:105` logs a nodemailer rejection**, whose envelope contains the signup's
+  email address, into Vercel logs.
+
+**Encryption at the database layer: argued and rejected.** It buys only "the operator cannot read
+it", and costs query, sort, index, export and support — with a key that, for a two-device shared
+app with full multi-device restore, must live on a server we control. The threat is already
+answered structurally: the support console is content-blind by construction
+(`20261109000800:21-22`, verified to return only `count(*)` for memories and trips), `private` is
+unreachable, RLS is on all 53 tables. Supabase at-rest encryption plus RLS plus a content-blind
+admin surface is the right answer here.
+
+## Verified correctly protected in round 3
+
+- R2 encrypts every object with AES-256 automatically and cannot be turned off, so no code path can
+  write an unencrypted object and there is nothing to configure.
+- The other 14 `storage.objects` policies all reference `auth.uid()` or `is_couple_member`
+  correctly, including the deliberate asymmetry that lets a dissolved couple still read and export.
+- PostHog carries no user content — all 24 `capture` call sites read, every property a count, bool,
+  enum or uuid. Session replay and screen-view capture are both off.
+- AeroAPI and the community trackers receive a flight identifier and nothing else. Sanity receives
+  no user data at all. Both match the policy.
+- Edge-function and Postgres logging carry no user-written content anywhere — 168 `console.*` calls
+  and every `raise` in 286 migrations checked. There is no Sentry or Crashlytics in the project.
+- Support tables have RLS on with zero policies: deny-all, service-role only.
+- Support attachment keys are minted server-side, never caller-chosen.
