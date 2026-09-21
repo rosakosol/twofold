@@ -20,7 +20,13 @@
 -- every couple flies, so `authenticated` must not reach them at all.
 
 begin;
-select plan(16);
+select plan(18);
+
+-- Real rates are seeded by 20261109000200 and would collide with the ones below. Cleared inside
+-- this transaction (and so rolled back) because what is under test is the mechanism -- the cost
+-- basis, the versioning, the idempotence -- and not the prices FlightAware happens to charge. A
+-- test that broke every time a rate was added would be testing the invoice, not the code.
+delete from private.api_rates;
 
 -- ---------------------------------------------------------------------------
 -- Two couples, one real-world flight, polled twice each -- the duplicate-fetch shape
@@ -73,10 +79,18 @@ select is(
   2, 'distinct_upstream counts real-world flights, not calls'
 );
 
+-- Six of the seven returned a 2xx. The 429 returned no page, so FlightAware did not bill it --
+-- confirmed by the invoice that 20261109000200 is built on, where 345 calls produced 342 pages.
+select is(
+  (select billable_calls from private.api_usage_daily
+    where day = date '2026-11-01' and endpoint = 'flights/{id}'),
+  6, 'only the calls that returned a page are billable'
+);
+
 select is(
   (select estimated_cost_usd from private.api_usage_daily
     where day = date '2026-11-01' and endpoint = 'flights/{id}'),
-  0.035000::numeric, '7 calls at the rate in force that day'
+  0.030000::numeric, 'and the cost is those six, not all seven'
 );
 
 -- ---------------------------------------------------------------------------
@@ -110,7 +124,7 @@ select is(
 select is(
   (select estimated_cost_usd from private.api_usage_daily
     where day = date '2026-11-01' and endpoint = 'flights/{id}'),
-  0.035000::numeric, 'and the first day is unchanged by the new rate'
+  0.030000::numeric, 'and the first day is unchanged by the new rate'
 );
 
 -- ---------------------------------------------------------------------------
@@ -128,6 +142,21 @@ select is(
 select is(
   (select count(*)::integer from private.api_usage_daily where day = date '2026-11-01'),
   2, 'and produces no duplicate rows'
+);
+
+-- A day of nothing but failures costs nothing -- but is still visible as calls, which is the
+-- signal that something is wrong.
+insert into private.api_usage_events (provider, endpoint, called_by, status, occurred_at)
+values
+  ('aeroapi', 'flights/{id}', 'refresh-due-flights', 500, date '2026-11-03' + interval '1 hour'),
+  ('aeroapi', 'flights/{id}', 'refresh-due-flights', 404, date '2026-11-03' + interval '2 hours');
+
+select private.roll_up_api_usage(date '2026-11-03');
+
+select is(
+  (select estimated_cost_usd from private.api_usage_daily
+    where day = date '2026-11-03' and endpoint = 'flights/{id}'),
+  0.000000::numeric, 'a day of failures costs nothing'
 );
 
 -- ---------------------------------------------------------------------------
