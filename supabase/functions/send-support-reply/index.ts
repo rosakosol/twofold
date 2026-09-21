@@ -33,7 +33,7 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { fromAddress, singleLine, smtpClient } from "../_shared/mail.ts";
-import { replySubject, replyToAddress } from "./compose.ts";
+import { replyHtml, replySubject, replyText, replyToAddress } from "./compose.ts";
 
 interface Body {
   threadId?: string;
@@ -107,7 +107,11 @@ Deno.serve(async (req) => {
       // treatment submit-help-message already gives its subject.
       replyTo: singleLine(replyToAddress(sender, t.token)),
       subject: singleLine(replySubject(t.subject)),
-      content: body,
+      // Both halves, which makes this multipart/alternative: the client picks. A support reply
+      // that arrives as bare text reads as machine-generated, and one that arrives as HTML only is
+      // unreadable to anybody whose client prefers text.
+      content: replyText(body),
+      html: replyHtml(body),
       // Present only when their message carried one — a first contact through the website form has
       // no Message-ID to answer.
       inReplyTo: t.last_inbound_message_id ?? undefined,
