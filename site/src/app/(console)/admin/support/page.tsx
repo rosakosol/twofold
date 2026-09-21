@@ -8,19 +8,23 @@ export const metadata: Metadata = { title: "Support" };
 export const dynamic = "force-dynamic";
 
 /**
- * The queue that did not exist until now.
+ * The support inbox.
  *
  * Both contact paths composed an email and kept nothing, so the 48-hour response the app promises
  * for an abuse report rested entirely on somebody reading an inbox, and there was no way to tell
  * whether a request had been answered. The email is still sent, unchanged — it is what actually
- * notifies anyone. This is the record beside it.
+ * notifies anyone. This is the record beside it, and now the place it is answered from.
+ *
+ * No page heading above the inbox: it is a full-height two-pane layout, and a title and a
+ * paragraph of explanation above it would push the composer below the fold on a laptop. The name
+ * sits in the list rail instead, where a mail client puts it.
  */
 export default async function SupportPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; thread?: string }>;
 }) {
-  const { status } = await searchParams;
+  const { status, thread } = await searchParams;
   const supabase = await createClient();
 
   const filter = status === "closed" ? "closed" : status === "all" ? null : "open";
@@ -37,16 +41,10 @@ export default async function SupportPage({
   const requests = (data ?? []) as SupportRequest[];
 
   return (
-    <div className="space-y-6">
-      <header>
-        <h1 className="font-heading text-xl font-semibold tracking-tight">Support</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Everything sent through the app&apos;s Help screen and the website&apos;s contact form.
-          Each one was also emailed to support@ — this is the record, not a replacement.
-        </p>
-      </header>
-
-      <SupportQueue requests={requests} activeFilter={status ?? "open"} />
-    </div>
+    <SupportQueue
+      requests={requests}
+      activeFilter={status ?? "open"}
+      initialThreadId={thread}
+    />
   );
 }
