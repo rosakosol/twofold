@@ -338,6 +338,19 @@ same modal-layering problem as the lock.
 
 ## Phase 5 — Promises we are not keeping
 
+> **Status: DONE and deployed** (`e158a5a`, `6794910`), with two steps that need a human.
+>
+> Decisions taken: support records are kept and the policy now says so (a deletion request must not
+> erase the request itself); RevenueCat's copy of the account email is disclosed; the R2 soak has
+> ended; `game_reminder` gained a preference column. `store: false` on the OpenAI call, and
+> `scrub_account` now clears the leaver's name from the remaining partner's row.
+>
+> **Needs you:** the privacy policy edits are in `site/scripts/seed-privacy-policy.mjs` but not
+> published — that needs a Sanity write token and is outward-facing. And
+> `scripts/delete-storage-originals.ts` needs a current `sb_secret_…` key; the legacy keys were
+> disabled in July, so it could not be run from here. It is dry-run by default and refuses to
+> delete an original whose R2 counterpart is missing.
+
 Each of these is a mismatch between shipped copy and shipped behaviour. Fix the behaviour or the
 copy, but do not leave them disagreeing.
 
