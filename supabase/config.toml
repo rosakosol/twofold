@@ -572,3 +572,10 @@ entrypoint = "./functions/send-support-reply/index.ts"
 enabled = true
 verify_jwt = true
 entrypoint = "./functions/support-attachment-upload/index.ts"
+
+# Cron entrypoint, called with the service role key, which IS a JWT — so the gateway keeps checking
+# for one. verify_jwt = false here would make a function that deletes objects reachable by anyone.
+[functions.purge-support-attachments]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/purge-support-attachments/index.ts"

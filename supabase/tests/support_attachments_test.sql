@@ -8,7 +8,7 @@
 -- other people's files.
 
 begin;
-select plan(11);
+select plan(14);
 
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
 values
@@ -114,6 +114,43 @@ where thread_id = '99999999-4444-cccc-0000-000000000001';
 select is(
   (select count(*)::integer from private.purge_dangling_support_attachments('1 day')),
   5, 'but files whose reply was never sent are collected, keys returned for the bucket'
+);
+
+-- ---------------------------------------------------------------------------
+-- Only the cron job may sweep
+-- ---------------------------------------------------------------------------
+--
+-- The public wrapper deletes rows and hands back keys for objects that are about to be destroyed.
+-- Anybody who could call it could make a conversation's attachments unreachable, so it is the
+-- service role's alone — which is also how the edge function reaches a `private` function PostgREST
+-- does not serve.
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','99999999-4444-0000-0000-000000000001',true);
+select throws_ok(
+  $$ select * from public.purge_dangling_support_attachments(24) $$,
+  '42501', null, 'not even a support admin may sweep the bucket'
+);
+
+reset role;
+set local role service_role;
+select set_config('request.jwt.claims','{"role":"service_role"}',true);
+
+-- Nothing is old enough, so an in-progress compose is never interrupted.
+insert into public.support_attachments (thread_id, filename, content_type, size_bytes, r2_key)
+values ('99999999-4444-cccc-0000-000000000001','fresh.png','image/png',10,'support/fresh.png');
+
+select is(
+  (select count(*)::integer from public.purge_dangling_support_attachments(24)),
+  0, 'a file uploaded moments ago is left alone'
+);
+
+update public.support_attachments set created_at = now() - interval '2 days'
+where r2_key = 'support/fresh.png';
+
+select is(
+  (select count(*)::integer from public.purge_dangling_support_attachments(24)),
+  1, 'and an abandoned one comes back as a key for the bucket to be told about'
 );
 
 reset role;
