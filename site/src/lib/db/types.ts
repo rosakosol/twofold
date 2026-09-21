@@ -2269,11 +2269,13 @@ export type Database = {
           handler_note: string | null
           id: string
           message: string
+          message_id: string | null
           name: string | null
           profile_id: string | null
           source: string
           status: string
           subject: string | null
+          thread_key: string | null
         }
         Insert: {
           category: string
@@ -2284,11 +2286,13 @@ export type Database = {
           handler_note?: string | null
           id?: string
           message: string
+          message_id?: string | null
           name?: string | null
           profile_id?: string | null
           source: string
           status?: string
           subject?: string | null
+          thread_key?: string | null
         }
         Update: {
           category?: string
@@ -2299,11 +2303,13 @@ export type Database = {
           handler_note?: string | null
           id?: string
           message?: string
+          message_id?: string | null
           name?: string | null
           profile_id?: string | null
           source?: string
           status?: string
           subject?: string | null
+          thread_key?: string | null
         }
         Relationships: []
       }
@@ -2616,6 +2622,10 @@ export type Database = {
           source: string
           status: string
           subject: string
+          thread_key: string
+          thread_last_at: string
+          thread_position: number
+          thread_size: number
         }[]
       }
       api_usage_by_endpoint: {
@@ -2813,6 +2823,17 @@ export type Database = {
       grant_streak_repair_credit: {
         Args: { p_profile_id: string; p_transaction_id: string }
         Returns: boolean
+      }
+      ingest_support_email: {
+        Args: {
+          p_email: string
+          p_message: string
+          p_message_id: string
+          p_name: string
+          p_received_at?: string
+          p_subject: string
+        }
+        Returns: string
       }
       is_billing_admin: { Args: { check_id?: string }; Returns: boolean }
       is_blocked_between: {

@@ -14,6 +14,11 @@ import { nullableArg } from "@/lib/db/nullableArg";
 
 export interface SupportRequest {
   id: string;
+  thread_key: string;
+  thread_size: number;
+  /** 1 is the newest message in the conversation, which is the one that needs answering. */
+  thread_position: number;
+  thread_last_at: string;
   profile_id: string | null;
   /** The account this reached, whether or not the sender was signed in. A website submission is
    * matched to an account by the address they typed, at read time — so a request filed before an
@@ -32,14 +37,16 @@ export interface SupportRequest {
 }
 
 /**
- * Two states, open and closed, and no workflow beyond that. A queue one person works needs to
- * answer "is this dealt with"; every additional state is one more thing to keep accurate by hand,
- * and an inaccurate status is worse than none because it gets trusted.
+ * A queue of conversations, not of messages.
  *
- * The message is shown in full rather than truncated behind a click. These are short by
- * construction — both forms cap at 5000 characters and most are a paragraph — and a support queue
- * where reading the request takes an extra interaction is one where the first line gets skimmed
- * and the actual question missed.
+ * Every message used to be its own ticket: somebody writes in, we answer, they say thanks, and
+ * that is three things to close. Rows now carry a thread key derived from the subject and sender,
+ * and the RPC returns each message with its position and the size of its conversation — so the
+ * newest message is the headline and the rest fold underneath it.
+ *
+ * Status belongs to the conversation too. Closing acts on the whole thread in SQL, and an emailed
+ * reply reopens it, which is the case that matters most: a reply to something already closed would
+ * otherwise sit behind the default filter, unanswered and unseen.
  */
 export function SupportQueue({
   requests,
@@ -48,6 +55,20 @@ export function SupportQueue({
   requests: SupportRequest[];
   activeFilter: string;
 }) {
+  // The RPC returns messages already ordered by newest thread, then newest message within it, so
+  // grouping in order preserves that without sorting again here.
+  const threads: SupportRequest[][] = [];
+  const index = new Map<string, number>();
+  for (const r of requests) {
+    const at = index.get(r.thread_key);
+    if (at === undefined) {
+      index.set(r.thread_key, threads.length);
+      threads.push([r]);
+    } else {
+      threads[at].push(r);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex gap-1">
@@ -64,7 +85,7 @@ export function SupportQueue({
         ))}
       </div>
 
-      {requests.length === 0 ? (
+      {threads.length === 0 ? (
         <Card>
           <CardContent className="py-10 text-center text-sm text-muted-foreground">
             {activeFilter === "open"
@@ -74,8 +95,8 @@ export function SupportQueue({
         </Card>
       ) : (
         <ul className="space-y-3">
-          {requests.map((request) => (
-            <RequestCard key={request.id} request={request} />
+          {threads.map((thread) => (
+            <Thread key={thread[0].thread_key} messages={thread} />
           ))}
         </ul>
       )}
@@ -83,17 +104,21 @@ export function SupportQueue({
   );
 }
 
-function RequestCard({ request }: { request: SupportRequest }) {
+function Thread({ messages }: { messages: SupportRequest[] }) {
   const router = useRouter();
-  const [note, setNote] = useState(request.handler_note ?? "");
+  const latest = messages[0];
+  const earlier = messages.slice(1);
+  const [note, setNote] = useState(latest.handler_note ?? "");
   const [busy, setBusy] = useState(false);
-  const isOpen = request.status === "open";
+  const [expanded, setExpanded] = useState(false);
+  const isOpen = latest.status === "open";
 
   async function setStatus(status: "open" | "closed") {
     setBusy(true);
     const supabase = createClient();
+    // Acts on the thread, not the message — the SQL widens it to every row sharing the key.
     const { error } = await supabase.rpc("admin_set_support_request_status", {
-      p_id: request.id,
+      p_id: latest.id,
       p_status: status,
       p_note: nullableArg(note || null),
     });
@@ -102,13 +127,13 @@ function RequestCard({ request }: { request: SupportRequest }) {
       toast.error(error.message);
       return;
     }
-    toast.success(status === "closed" ? "Closed." : "Reopened.");
+    toast.success(status === "closed" ? "Conversation closed." : "Reopened.");
     router.refresh();
   }
 
   // Abuse reports are the ones with a clock on them — the app promises a response within 48 hours
   // and tells the reporter we never say they got in touch. Marked so they are not skimmed past.
-  const urgent = request.category === "Report Abuse";
+  const urgent = messages.some((m) => m.category === "Report Abuse");
 
   return (
     <li>
@@ -117,22 +142,25 @@ function RequestCard({ request }: { request: SupportRequest }) {
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge variant={urgent ? "destructive" : "secondary"}>{request.category}</Badge>
-                <Badge variant="outline">{request.source}</Badge>
+                <Badge variant={urgent ? "destructive" : "secondary"}>{latest.category}</Badge>
+                <Badge variant="outline">{latest.source}</Badge>
+                {messages.length > 1 && (
+                  <Badge variant="outline">
+                    {messages.length} messages
+                  </Badge>
+                )}
                 {!isOpen && <Badge variant="outline">closed</Badge>}
               </div>
-              <p className="mt-1.5 text-sm font-medium">
-                {request.subject || "(no subject)"}
-              </p>
+              <p className="mt-1.5 text-sm font-medium">{latest.subject || "(no subject)"}</p>
               <p className="text-xs text-muted-foreground">
-                {request.name ? `${request.name} · ` : ""}
-                {request.email ?? "no address"} · {formatDateTime(request.created_at)}
+                {latest.name ? `${latest.name} · ` : ""}
+                {latest.email ?? "no address"} · {formatDateTime(latest.created_at)}
               </p>
             </div>
 
-            {request.matched_profile_id ? (
+            {latest.matched_profile_id ? (
               <Link
-                href={`/admin/users/${request.matched_profile_id}`}
+                href={`/admin/users/${latest.matched_profile_id}`}
                 className="shrink-0 text-sm underline underline-offset-4"
               >
                 Open account
@@ -145,7 +173,32 @@ function RequestCard({ request }: { request: SupportRequest }) {
             )}
           </div>
 
-          <p className="whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-sm">{request.message}</p>
+          <p className="whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-sm">{latest.message}</p>
+
+          {earlier.length > 0 && (
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => setExpanded((v) => !v)}
+                className="text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
+              >
+                {expanded
+                  ? "Hide earlier messages"
+                  : `Show ${earlier.length} earlier message${earlier.length === 1 ? "" : "s"}`}
+              </button>
+              {expanded &&
+                earlier.map((m) => (
+                  <div key={m.id} className="border-l-2 pl-3">
+                    <p className="text-xs text-muted-foreground">
+                      {formatDateTime(m.created_at)} · {m.source}
+                    </p>
+                    <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
+                      {m.message}
+                    </p>
+                  </div>
+                ))}
+            </div>
+          )}
 
           <div className="flex flex-wrap items-center gap-2">
             <Input
@@ -167,9 +220,9 @@ function RequestCard({ request }: { request: SupportRequest }) {
                 Reopen
               </Button>
             )}
-            {request.handled_at && (
+            {latest.handled_at && (
               <span className="text-xs text-muted-foreground">
-                closed {formatDateTime(request.handled_at)}
+                closed {formatDateTime(latest.handled_at)}
               </span>
             )}
           </div>
