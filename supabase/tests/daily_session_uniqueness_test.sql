@@ -31,16 +31,26 @@ values ('cccccccc-2222-0000-0000-000000000003', 'aaaaaaaa-2222-0000-0000-0000000
 -- ---------------------------------------------------------------------------
 -- The index itself.
 -- ---------------------------------------------------------------------------
+--
+-- The two fixture days are relative to the viewer's day, not literals. They used to be
+-- `date '2026-09-20'` and `date '2026-09-21'`, chosen as "recent past" when this was written, and
+-- on 2026-09-21 the second one became today: the RPC further down found that already-active
+-- session for the current date, returned it as-is — correctly, that is its job — and never
+-- inserted a round, so the round-count assertion saw 0. A test that passes for a year and then
+-- fails for a day is worse than one that never passed, because the day it fails is a day somebody
+-- spends looking for a bug in the function.
+--
+-- Both are kept strictly in the past so neither can ever collide with the day the RPC picks.
 
 insert into public.game_sessions (id, couple_id, initiator_id, game_type, status, is_daily, daily_local_date, total_rounds)
 values ('11111111-2222-0000-0000-000000000001', 'cccccccc-2222-0000-0000-000000000003',
-        'aaaaaaaa-2222-0000-0000-000000000001', 'deep_conversations', 'active', true, date '2026-09-20', 1);
+        'aaaaaaaa-2222-0000-0000-000000000001', 'deep_conversations', 'active', true, (timezone('UTC', now())::date - 2), 1);
 
 -- The whole point: the second partner's concurrent insert must not be allowed to land.
 select throws_ok(
   $$insert into public.game_sessions (couple_id, initiator_id, game_type, status, is_daily, daily_local_date, total_rounds)
     values ('cccccccc-2222-0000-0000-000000000003', 'bbbbbbbb-2222-0000-0000-000000000002',
-            'deep_conversations', 'active', true, date '2026-09-20', 1)$$,
+            'deep_conversations', 'active', true, (timezone('UTC', now())::date - 2), 1)$$,
   '23505',
   null,
   'a second daily session for the same couple and date is rejected'
@@ -51,14 +61,14 @@ select throws_ok(
 select lives_ok(
   $$insert into public.game_sessions (couple_id, initiator_id, game_type, status, is_daily, daily_local_date, total_rounds)
     values ('cccccccc-2222-0000-0000-000000000003', 'bbbbbbbb-2222-0000-0000-000000000002',
-            'deep_conversations', 'active', true, date '2026-09-20', 1)
+            'deep_conversations', 'active', true, (timezone('UTC', now())::date - 2), 1)
     on conflict do nothing$$,
   'on conflict do nothing turns the duplicate into a no-op rather than an error'
 );
 
 select is(
   (select count(*)::int from public.game_sessions
-   where couple_id = 'cccccccc-2222-0000-0000-000000000003' and daily_local_date = date '2026-09-20'),
+   where couple_id = 'cccccccc-2222-0000-0000-000000000003' and daily_local_date = (timezone('UTC', now())::date - 2)),
   1,
   'still exactly one session for that date'
 );
@@ -67,7 +77,7 @@ select is(
 select lives_ok(
   $$insert into public.game_sessions (couple_id, initiator_id, game_type, status, is_daily, daily_local_date, total_rounds)
     values ('cccccccc-2222-0000-0000-000000000003', 'aaaaaaaa-2222-0000-0000-000000000001',
-            'deep_conversations', 'active', true, date '2026-09-21', 1)$$,
+            'deep_conversations', 'active', true, (timezone('UTC', now())::date - 1), 1)$$,
   'the next day gets its own session'
 );
 
@@ -79,19 +89,19 @@ where id = '11111111-2222-0000-0000-000000000001';
 select lives_ok(
   $$insert into public.game_sessions (couple_id, initiator_id, game_type, status, is_daily, daily_local_date, total_rounds)
     values ('cccccccc-2222-0000-0000-000000000003', 'aaaaaaaa-2222-0000-0000-000000000001',
-            'deep_conversations', 'active', true, date '2026-09-20', 1)$$,
+            'deep_conversations', 'active', true, (timezone('UTC', now())::date - 2), 1)$$,
   'abandoning the old session frees the date to be used again'
 );
 
 -- Solo (unpaired) sessions have a null couple_id, and null is never equal to null in a unique
 -- index — so they need their own index keyed on the initiator, or they are unprotected.
 insert into public.game_sessions (couple_id, initiator_id, game_type, status, is_daily, daily_local_date, total_rounds)
-values (null, 'dddddddd-2222-0000-0000-000000000004', 'deep_conversations', 'active', true, date '2026-09-20', 1);
+values (null, 'dddddddd-2222-0000-0000-000000000004', 'deep_conversations', 'active', true, (timezone('UTC', now())::date - 2), 1);
 
 select throws_ok(
   $$insert into public.game_sessions (couple_id, initiator_id, game_type, status, is_daily, daily_local_date, total_rounds)
     values (null, 'dddddddd-2222-0000-0000-000000000004',
-            'deep_conversations', 'active', true, date '2026-09-20', 1)$$,
+            'deep_conversations', 'active', true, (timezone('UTC', now())::date - 2), 1)$$,
   '23505',
   null,
   'a solo daily session is unique per initiator per date too'

@@ -37,6 +37,19 @@ insert into public.profiles (id, first_name) values
   ('bbbbbbbb-4444-0000-0000-000000000002', 'Ben')
 on conflict (id) do update set first_name = excluded.first_name;
 
+-- Subscribed, because since 20261028000000 every insert policy in here also asks
+-- `couple_is_subscribed`. This file was written before that gate existed and was never updated,
+-- so the one insert below that is expected to *succeed* — a partner attaching a document to a
+-- shared flight — was refused by RLS, and being a bare statement rather than a `lives_ok` it
+-- aborted the script at test 12 of 21. The nine assertions after it, which are the delete-policy
+-- ones, have not run since.
+--
+-- Written as the superuser this file already runs as; `trg_profiles_guard_subscription` rejects
+-- these columns for anon and authenticated only.
+update public.profiles
+set subscription_active = true, subscription_tier = 'premium'
+where id in ('aaaaaaaa-4444-0000-0000-000000000001', 'bbbbbbbb-4444-0000-0000-000000000002');
+
 insert into public.couples (id, partner_a_id, partner_b_id, status)
 values ('cccccccc-4444-0000-0000-000000000003',
         'aaaaaaaa-4444-0000-0000-000000000001',
