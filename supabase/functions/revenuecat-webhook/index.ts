@@ -63,6 +63,7 @@
 //     public SDK key in RevenueCatConfig.swift, which cannot read subscriber state.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { type CandidateId, collectCandidateUserIds } from "./ids.ts";
 import {
   describeMissingStart,
   isBlankSubscriber,
@@ -148,44 +149,6 @@ async function timingSafeEqual(a: string, b: string): Promise<boolean> {
   let diff = 0;
   for (let i = 0; i < aBytes.length; i++) diff |= aBytes[i] ^ bBytes[i];
   return diff === 0;
-}
-
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-
-// Swift's `UUID.uuidString` uppercases, and AppModel.swift:609 passes exactly that to
-// `Purchases.shared.logIn`, so every real app_user_id arrives uppercase while Postgres stores the
-// lowercase form. Normalising here keeps the comparison textual and obvious rather than relying on
-// Postgres's uuid parser to be case-insensitive on our behalf.
-function normalizeUserId(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const candidate = value.trim().toLowerCase();
-  return UUID_PATTERN.test(candidate) ? candidate : null;
-}
-
-// Everything in the event that might name a subscriber, deduped and filtered to real UUIDs.
-//
-// Two cases make this worth doing properly rather than just reading `app_user_id`:
-//
-//   - A purchase made before sign-in is attributed to an `$RCAnonymousID:...`, and the real UUID
-//     shows up in `aliases` (or as `original_app_user_id`) once `logIn` aliases the two. Reading
-//     only `app_user_id` there would silently drop the one delivery that matters.
-//   - TRANSFER moves entitlements between ids, so *both* sides need re-reading: the id that gained
-//     them and the id that lost them. Syncing only one leaves the other showing a subscription it
-//     no longer has.
-//
-// Anything that isn't a UUID — anonymous ids included — is simply not in the returned list, which
-// is what makes the "ignore anonymous ids" rule fall out for free rather than needing its own check.
-function collectCandidateUserIds(event: WebhookEvent): string[] {
-  const raw: unknown[] = [event.app_user_id, event.original_app_user_id];
-  for (const list of [event.aliases, event.transferred_from, event.transferred_to]) {
-    if (Array.isArray(list)) raw.push(...list);
-  }
-  const ids = new Set<string>();
-  for (const value of raw) {
-    const id = normalizeUserId(value);
-    if (id) ids.add(id);
-  }
-  return [...ids];
 }
 
 interface SubscriberState {
@@ -420,12 +383,37 @@ Deno.serve(async (req) => {
   );
 
   const outcomes: Record<string, number> = {};
-  for (const userId of userIds) {
+  for (const candidate of userIds) {
     let state: SubscriberState | null;
     let outcome: ApplyOutcome | "unknown_subscriber";
     try {
-      state = await fetchSubscriberState(userId, apiKey);
-      outcome = state === null ? "unknown_subscriber" : await applyState(serviceClient, userId, state);
+      state = await fetchSubscriberState(candidate.revenueCat, apiKey);
+
+      // One retry under the other spelling, and only on the blank path.
+      //
+      // Belt and braces after the bug this replaces: asking under the wrong case is silent — the
+      // endpoint hands back an empty subscriber rather than a 404 — so there is no error to notice
+      // and the row simply never gets written. If an event ever arrives lowercased while the
+      // customer is stored uppercase, this catches it instead of writing nothing for weeks.
+      // Costs one extra call on a path that should now be rare, and none on the happy path.
+      if (state === null) {
+        const alternate = candidate.revenueCat === candidate.revenueCat.toUpperCase()
+          ? candidate.database
+          : candidate.revenueCat.toUpperCase();
+        if (alternate !== candidate.revenueCat) {
+          state = await fetchSubscriberState(alternate, apiKey);
+          if (state !== null) {
+            console.warn(
+              `[revenuecat-webhook] ${eventType}: found the subscriber only under the alternate casing`,
+            );
+          }
+        }
+      }
+
+      // The row is always written under the lowercase form, which is what Postgres holds.
+      outcome = state === null
+        ? "unknown_subscriber"
+        : await applyState(serviceClient, candidate.database, state);
     } catch (err) {
       // RevenueCat unreachable, or the write failed — genuinely transient, and the entitlement is
       // now unrecorded. 5xx so RevenueCat redelivers; the whole handler is idempotent, so
@@ -460,7 +448,7 @@ Deno.serve(async (req) => {
         console.error(`[revenuecat-webhook] ${eventType}: no transaction id, credit not granted`);
       } else {
         const { data: granted, error: grantErr } = await serviceClient.rpc(consumable.rpc, {
-          p_profile_id: userId,
+          p_profile_id: candidate.database,
           p_transaction_id: transactionId,
         });
         if (grantErr) {
@@ -479,7 +467,7 @@ Deno.serve(async (req) => {
     if (outcome !== "unknown_subscriber") {
       await recordEvent(
         serviceClient,
-        userId,
+        candidate.database,
         eventId,
         eventType,
         state?.tier ?? null,
