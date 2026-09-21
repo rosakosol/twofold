@@ -6,7 +6,7 @@
 // the hardest kind of wrong to notice.
 
 import { assertEquals } from "jsr:@std/assert@1";
-import { replyHtml, replySubject, replyText, replyToAddress } from "./compose.ts";
+import { replyHtml, replySubject, replyText, replyToAddress, usableAsInReplyTo } from "./compose.ts";
 
 Deno.test("the token is inserted before the @, as a plus address", () => {
   assertEquals(
@@ -81,4 +81,25 @@ Deno.test("the text half carries the same words, without markup", () => {
   assertEquals(text.includes("<"), false);
   // The Reply-To is a plus address and looks odd; saying replies reach us is worth one line.
   assertEquals(text.includes("Reply to this email"), true);
+});
+
+// ---------------------------------------------------------------------------
+// In-Reply-To, and what Zoho actually gives us
+// ---------------------------------------------------------------------------
+
+Deno.test("Zoho's internal id is not a Message-ID and is not used as one", () => {
+  // The value production actually stores. A bare number in In-Reply-To is a malformed header that
+  // threads nothing; absent is better than wrong, and the recipient's client falls back to subject
+  // matching exactly as it would for a first reply.
+  assertEquals(usableAsInReplyTo("1789960093466107600"), undefined);
+});
+
+Deno.test("a real Message-ID is used, with angle brackets either way", () => {
+  assertEquals(usableAsInReplyTo("<abc123@mail.example.com>"), "<abc123@mail.example.com>");
+  assertEquals(usableAsInReplyTo("abc123@mail.example.com"), "<abc123@mail.example.com>");
+});
+
+Deno.test("nothing at all is absent rather than empty", () => {
+  assertEquals(usableAsInReplyTo(null), undefined);
+  assertEquals(usableAsInReplyTo("   "), undefined);
 });

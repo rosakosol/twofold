@@ -77,3 +77,19 @@ export function replyHtml(body: string): string {
     `&mdash;<br>Twofold Support<br>` +
     `<span style="color:#5B6B7A;">Reply to this email and it will reach us.</span></p></div>`;
 }
+
+/// Whether a stored message id is an RFC 5322 Message-ID, and therefore usable as In-Reply-To.
+///
+/// Zoho's webhook sends its own internal id — `1789960093466107600`, confirmed in production — not
+/// the `<local@domain>` form a mail header requires. That number is exactly what the Mail API wants
+/// in a path, so it is worth storing; it is not a Message-ID, and putting it in In-Reply-To
+/// produces a malformed header that threads nothing and may be dropped outright.
+///
+/// Absent is better than wrong here. Without the header, the recipient's client falls back to
+/// subject matching, which is what it would do for any first reply anyway — and our own threading
+/// does not depend on it at all, because that runs on the token in the Reply-To.
+export function usableAsInReplyTo(messageId: string | null | undefined): string | undefined {
+  const value = (messageId ?? "").trim();
+  if (!value.includes("@")) return undefined;
+  return value.startsWith("<") ? value : `<${value}>`;
+}

@@ -82,6 +82,40 @@ export async function accountId(token: string, fetchImpl: typeof fetch = fetch):
   return String(id);
 }
 
+/// The folder incoming mail lands in.
+///
+/// Needed because the webhook does not send `folderId` — confirmed in production, where it arrives
+/// null on every message despite being in the documented payload. Without it the attachmentinfo
+/// path cannot be built at all, so it is looked up instead of waited for.
+///
+/// One lookup serves every message: support@ receives into the Inbox and a folder id is stable for
+/// the life of the mailbox. `ZOHO_FOLDER_ID` overrides it, for the day a rule files support mail
+/// somewhere else and this stops being true.
+export async function inboxFolderId(
+  token: string,
+  account: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<string> {
+  const pinned = Deno.env.get("ZOHO_FOLDER_ID");
+  if (pinned) return pinned;
+
+  const response = await fetchImpl(`${MAIL_HOST}/api/accounts/${encodeURIComponent(account)}/folders`, {
+    headers: { Authorization: `Zoho-oauthtoken ${token}` },
+  });
+  if (!response.ok) throw new Error(`Zoho folders returned ${response.status}`);
+
+  const json = await response.json();
+  const folders = Array.isArray(json?.data) ? json.data : [];
+  // Matched on Zoho's own `Inbox` path rather than a display name, which is localised.
+  // deno-lint-ignore no-explicit-any
+  const inbox = folders.find((f: any) =>
+    String(f?.path ?? "").toLowerCase() === "/inbox" ||
+    String(f?.folderName ?? "").toLowerCase() === "inbox"
+  );
+  if (!inbox?.folderId) throw new Error("Zoho returned no Inbox folder");
+  return String(inbox.folderId);
+}
+
 /// What a message carries. An empty list is a real answer — most mail has no attachments — and is
 /// what lets the sweep settle a message as done rather than retrying it forever.
 export async function attachmentInfo(

@@ -34,7 +34,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { fromAddress, singleLine, smtpClient } from "../_shared/mail.ts";
 import { presign, r2ConfigFromEnv } from "../_shared/r2.ts";
-import { replyHtml, replySubject, replyText, replyToAddress } from "./compose.ts";
+import { replyHtml, replySubject, replyText, replyToAddress, usableAsInReplyTo } from "./compose.ts";
 
 interface Body {
   threadId?: string;
@@ -156,8 +156,10 @@ Deno.serve(async (req) => {
       html: replyHtml(body),
       // Present only when their message carried one — a first contact through the website form has
       // no Message-ID to answer.
-      inReplyTo: t.last_inbound_message_id ?? undefined,
-      references: t.last_inbound_message_id ?? undefined,
+      // Only when what we hold is actually a Message-ID. Zoho gives us its own numeric id, which
+      // is right for the Mail API and wrong for a mail header.
+      inReplyTo: usableAsInReplyTo(t.last_inbound_message_id),
+      references: usableAsInReplyTo(t.last_inbound_message_id),
       attachments: attachments.length > 0 ? attachments : undefined,
     });
     await client.close();

@@ -12,7 +12,7 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { presign, r2ConfigFromEnv } from "../_shared/r2.ts";
-import { accessToken, accountId, attachmentInfo, downloadAttachment, inboundKey } from "../_shared/zoho-api.ts";
+import { accessToken, accountId, attachmentInfo, downloadAttachment, inboundKey, inboxFolderId } from "../_shared/zoho-api.ts";
 
 /// Matches the outbound ceiling. A support mailbox receives the occasional video, and pulling one
 /// into an edge function's memory to move it is how the sweep dies mid-run and leaves a message
@@ -50,9 +50,13 @@ Deno.serve(async (req) => {
 
   let token: string;
   let account: string;
+  let inbox: string;
   try {
     token = await accessToken();
     account = await accountId(token);
+    // Looked up once per sweep rather than taken from each message: the webhook does not send
+    // folderId, so relying on it meant every message was unaskable.
+    inbox = await inboxFolderId(token, account);
   } catch (err) {
     // Left pending deliberately. This is a configuration or an outage, not a property of any
     // message, so the next run should try all of them again rather than marking them failed.
@@ -65,20 +69,12 @@ Deno.serve(async (req) => {
   let stored = 0;
 
   for (const message of pending) {
-    // A message with no folder id cannot be asked about. Settled rather than retried forever —
-    // there is no version of the next attempt that has more information than this one.
-    if (!message.folder_id) {
-      await serviceClient.rpc("record_inbound_attachments", {
-        p_request_id: message.id,
-        p_attachments: [],
-        p_state: "done",
-      });
-      checked++;
-      continue;
-    }
+    // The message's own folder id when the webhook happened to send one, otherwise the Inbox —
+    // which in practice is always, since production shows folderId arriving null every time.
+    const folder = message.folder_id || inbox;
 
     try {
-      const info = await attachmentInfo(token, message.zoho_account_id || account, message.folder_id, message.message_id);
+      const info = await attachmentInfo(token, message.zoho_account_id || account, folder, message.message_id);
       const saved: Record<string, unknown>[] = [];
 
       for (const attachment of info) {
@@ -93,7 +89,7 @@ Deno.serve(async (req) => {
         }
 
         const bytes = await downloadAttachment(
-          token, message.zoho_account_id || account, message.folder_id, message.message_id, attachment.attachmentId,
+          token, message.zoho_account_id || account, folder, message.message_id, attachment.attachmentId,
         );
         const contentType = attachment.contentType || "application/octet-stream";
         const key = inboundKey(message.id, attachment.attachmentId, attachment.attachmentName);

@@ -127,6 +127,11 @@ Deno.serve(async (req) => {
     `[ingest-support-email] messageId=${payload.messageId ?? "-"} folderId=${payload.folderId ?? "-"} ` +
       `zuid=${payload.zuid ?? "-"} hasHtml=${Boolean(payload.html)} size=${payload.size ?? "-"}`,
   );
+  // Field NAMES only, never their values. Production showed folderId and zuid arriving null, and
+  // the documented payload lists both — so either Zoho does not send them for this configuration or
+  // it calls them something else. This is the line that tells the difference, and a support
+  // inbox's contents do not belong in a log to settle it.
+  console.log(`[ingest-support-email] payload keys: ${Object.keys(payload).sort().join(",")}`);
 
   if (error) {
     console.error("[ingest-support-email] could not record:", error.message);
