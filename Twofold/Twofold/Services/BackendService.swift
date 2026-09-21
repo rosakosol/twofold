@@ -1932,6 +1932,13 @@ enum BackendService {
         /// "Your partner doesn't pay anything" — access is granted if *either* partner's
         /// device last reported an active local StoreKit entitlement.
         var subscriptionActive: Bool
+        /// Whether *this* caller is the one paying, rather than either of them.
+        ///
+        /// `subscriptionActive` above is the OR, which is right for every access decision and
+        /// wrong for anything addressed to the person: the delete-account screen was telling the
+        /// non-paying partner to go and cancel a subscription that is not theirs and that they
+        /// cannot see in their own Apple Account.
+        var viewerSubscriptionActive: Bool
         /// The higher of the two partners' tiers ("premium" beats "plus") — nil only if neither
         /// has ever purchased since this column was added (pre-existing subscribers).
         var subscriptionTier: String?
@@ -2142,6 +2149,7 @@ enum BackendService {
             memories: memories,
             flights: flights,
             subscriptionActive: meProfile.subscriptionActive || partnerProfile.subscriptionActive,
+            viewerSubscriptionActive: meProfile.subscriptionActive,
             subscriptionTier: effectiveTier,
             partnerConnectedCelebrationShown: meProfile.partnerConnectedCelebrationShown,
             setupChecklistDismissed: meProfile.setupChecklistDismissed

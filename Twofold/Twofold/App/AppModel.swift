@@ -74,6 +74,12 @@ final class AppModel {
     /// an active local StoreKit entitlement (see `BackendService.fetchSubscriptionActive`).
     /// `RootView` gates all of `MainTabView` behind this once `hasCouple` is true.
     var isSubscriptionActive = false
+    /// Whether the signed-in person is the one paying, as opposed to either of them.
+    ///
+    /// `isSubscriptionActive` is the couple-wide OR and is what every gate reads. This is for copy
+    /// addressed to the person in front of the screen — telling the partner of a subscriber to
+    /// cancel a subscription is telling them to do something they cannot do and do not need to.
+    var viewerHoldsSubscription = false
 
     /// Set when a write was refused outright rather than merely failing to send — an RLS denial,
     /// which since 20261028000000 is what an unsubscribed couple gets for adding or editing.
@@ -580,6 +586,12 @@ final class AppModel {
             // `false`, and this is the offline-launch path — the one where nothing else will
             // correct it.
             isSubscriptionActive = await resolvedSubscriptionActive(backendSaysActive: cached.active)
+            // The cache holds the couple-wide answer and cannot say which partner pays, so the
+            // device is the only evidence available here about *this* person. It is also the right
+            // evidence: an entitlement this install can prove belongs to the account signed into
+            // it. Falling back to false when there is none keeps the delete screen quiet rather
+            // than telling the wrong partner to cancel something.
+            viewerHoldsSubscription = await deviceHoldsEntitlement()
             hasResolvedSubscription = true
             hasLoadedCoupleState = true
         }
@@ -700,6 +712,9 @@ final class AppModel {
             couple.startedDatingOn = anniversaryDate
         }
         isSubscriptionActive = await resolvedSubscriptionActive(backendSaysActive: profile.subscriptionActive)
+        // Unpaired, so their own row is the only row: whatever access they have is theirs.
+        let deviceEntitled = await deviceHoldsEntitlement()
+        viewerHoldsSubscription = profile.subscriptionActive || deviceEntitled
         hasResolvedSubscription = true
         hasLoadedCoupleState = true
         subscriptionTier = profile.subscriptionTier
@@ -760,6 +775,20 @@ final class AppModel {
     /// `RootView.deviceHoldsEntitlement` spells out: an anonymous customer is whoever used this
     /// install before anyone signed in, and treating their entitlements as this account's would mean
     /// a device holding a subscription rather than a person.
+    /// Whether this device can prove an entitlement for the account signed in right now.
+    ///
+    /// Same shape as `RootView.deviceHoldsEntitlement`, and the `isAnonymous` check is the
+    /// load-bearing half for the same reason: an anonymous RevenueCat customer is whoever used this
+    /// install before anybody signed in, so treating their entitlement as this account's would mean
+    /// a device holding a subscription rather than a person.
+    ///
+    /// `customerInfo()` is served from the SDK's cache unless it is stale, so this is cheap.
+    private func deviceHoldsEntitlement() async -> Bool {
+        guard !Purchases.shared.isAnonymous,
+              let info = try? await Purchases.shared.customerInfo() else { return false }
+        return SubscriptionTier.active(in: info) != nil
+    }
+
     private func resolvedSubscriptionActive(backendSaysActive: Bool) async -> Bool {
         if backendSaysActive { return true }
         guard !Purchases.shared.isAnonymous,
@@ -1747,6 +1776,10 @@ final class AppModel {
         // screen that was showing the new couple.
         partnerDisconnectedMessage = nil
         isSubscriptionActive = await resolvedSubscriptionActive(backendSaysActive: state.subscriptionActive)
+        // ORed with the device, because the row can lag a purchase made moments ago — and a buyer
+        // who is told nothing about cancelling is the worse of the two mistakes.
+        let deviceEntitled = await deviceHoldsEntitlement()
+        viewerHoldsSubscription = state.viewerSubscriptionActive || deviceEntitled
         hasResolvedSubscription = true
         hasLoadedCoupleState = true
         subscriptionTier = state.subscriptionTier

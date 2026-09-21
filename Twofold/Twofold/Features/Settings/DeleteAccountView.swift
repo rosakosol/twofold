@@ -57,9 +57,19 @@ struct DeleteAccountView: View {
                 // deleting anything, refusing to proceed if it cannot, so that case gets one calm
                 // line rather than a warning.
                 //
-                // Shown only to somebody who actually has a subscription: a warning about
-                // cancelling one you do not have is noise on the screen that most needs reading.
-                if appModel.isSubscriptionActive {
+                // Shown only to the person who actually holds it — `viewerHoldsSubscription`,
+                // not `isSubscriptionActive`.
+                //
+                // The latter is the couple-wide OR, which is correct for every access decision and
+                // wrong for this sentence, because it is true for both partners. So the one paying
+                // nothing was told to go and cancel a subscription that is not theirs, that they
+                // will not find in their own Apple Account, and that their partner would still be
+                // paying afterwards. A warning you cannot act on is worse than none on the screen
+                // that most needs reading.
+                //
+                // Nothing replaces it for them: their partner's subscription is genuinely
+                // unaffected by their leaving, so there is nothing they need to do.
+                if appModel.viewerHoldsSubscription {
                     SectionCard {
                         Label("Cancel your subscription first", systemImage: "creditcard.trianglebadge.exclamationmark")
                             .font(.headline)
