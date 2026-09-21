@@ -32,10 +32,14 @@ interface MostBlocked {
 export default async function ModerationPage() {
   const supabase = await createClient();
 
-  const { data: isSupportAdmin } = await supabase.rpc("is_support_admin");
-  if (isSupportAdmin !== true) redirect("/admin");
+  // Same as every other console page: the read enforces the role itself, so the check rides
+  // alongside it rather than in front of it.
+  const [{ data: isSupportAdmin }, { data }] = await Promise.all([
+    supabase.rpc("is_support_admin"),
+    supabase.rpc("admin_most_blocked", { p_min_blocks: 2, p_limit: 50 }),
+  ]);
 
-  const { data } = await supabase.rpc("admin_most_blocked", { p_min_blocks: 2, p_limit: 50 });
+  if (isSupportAdmin !== true) redirect("/admin");
   const rows = (data ?? []) as MostBlocked[];
 
   return (

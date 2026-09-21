@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SlidersHorizontal } from "lucide-react";
 import { UserMenu } from "@/components/layout/UserMenu";
-import { useIsAdmin } from "@/lib/auth/useIsAdmin";
+import { useAdminRoles } from "@/lib/auth/useAdminRoles";
 
 // Same link set as MarketingHeader's NAV_LINKS, so the whole site is reachable from any
 // page's navbar, matching marketing's navbar 1:1.
@@ -22,7 +22,9 @@ const NAV_LINKS = [
  * UserMenu (sign-in/avatar) in place of the marketing "Get the App" CTA. */
 export function SiteHeader() {
   const pathname = usePathname();
-  const isAdmin = useIsAdmin();
+  // Any role at all gets the door, matching is_console_admin on the server.
+  const roles = useAdminRoles();
+  const isAdmin = roles.content || roles.support || roles.billing;
   const [isScrolled, setIsScrolled] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
 

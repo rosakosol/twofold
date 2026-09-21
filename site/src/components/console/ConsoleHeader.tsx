@@ -5,8 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { UserMenu } from "@/components/layout/UserMenu";
-import { useIsBillingAdmin } from "@/lib/auth/useIsBillingAdmin";
-import { useIsSupportAdmin } from "@/lib/auth/useIsSupportAdmin";
+import { useAdminRoles } from "@/lib/auth/useAdminRoles";
 
 /**
  * The console's own navbar, and the reason it is not `SiteHeader`.
@@ -47,8 +46,7 @@ const CONSOLE_LINKS = [
 
 export function ConsoleHeader() {
   const pathname = usePathname();
-  const isBillingAdmin = useIsBillingAdmin();
-  const isSupportAdmin = useIsSupportAdmin();
+  const roles = useAdminRoles();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
 
@@ -84,7 +82,7 @@ export function ConsoleHeader() {
         <nav>
           <ul className="site-nav-links">
             {CONSOLE_LINKS.filter((link) =>
-              link.role === "billing" ? isBillingAdmin : link.role === "support" ? isSupportAdmin : true,
+              link.role === "billing" ? roles.billing : link.role === "support" ? roles.support : true,
             ).map((link) => {
               const isActive = link.exact ? pathname === link.href : pathname.startsWith(link.href);
               return (

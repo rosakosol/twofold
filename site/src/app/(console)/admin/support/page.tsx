@@ -23,15 +23,17 @@ export default async function SupportPage({
   const { status } = await searchParams;
   const supabase = await createClient();
 
-  const { data: isSupportAdmin } = await supabase.rpc("is_support_admin");
-  if (isSupportAdmin !== true) redirect("/admin");
-
   const filter = status === "closed" ? "closed" : status === "all" ? null : "open";
 
-  const { data } = await supabase.rpc("admin_support_requests", {
-    p_status: nullableArg(filter),
-    p_limit: 200,
-  });
+  // Together, not one behind the other: admin_support_requests enforces is_support_admin() in its
+  // own body, so gating on the check first only makes every real load wait a round trip for an
+  // answer that is almost always yes.
+  const [{ data: isSupportAdmin }, { data }] = await Promise.all([
+    supabase.rpc("is_support_admin"),
+    supabase.rpc("admin_support_requests", { p_status: nullableArg(filter), p_limit: 200 }),
+  ]);
+
+  if (isSupportAdmin !== true) redirect("/admin");
   const requests = (data ?? []) as SupportRequest[];
 
   return (

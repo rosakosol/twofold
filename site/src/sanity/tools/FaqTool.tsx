@@ -19,7 +19,7 @@ import { faqSupabase, type FaqEntryRow } from "@/sanity/tools/faqSupabaseClient"
 //
 // The premise behind that design ("this tool has no Supabase user session to authenticate a direct
 // write with") stopped being true: this site runs Supabase auth in its middleware and already
-// resolves admin status through `is_feedback_admin()` in useIsAdmin.ts. So writes now go directly
+// resolves admin status through `is_feedback_admin()` (see useAdminRoles.ts). So writes now go directly
 // as the signed-in admin, against the `faq_entries_admin_write` policy added in
 // 20260924000000 — one access model instead of two, and no secret in the bundle to steal.
 

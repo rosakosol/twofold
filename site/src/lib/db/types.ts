@@ -2879,6 +2879,7 @@ export type Database = {
         Args: { source_id: string; target_id: string }
         Returns: undefined
       }
+      my_admin_roles: { Args: never; Returns: Json }
       play_connect_four_move: {
         Args: { p_column: number; p_session_id: string }
         Returns: {
