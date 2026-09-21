@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bookmark, LogOut, User as UserIcon } from "lucide-react";
+import { Bookmark, LogOut, Settings, User as UserIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -74,6 +74,14 @@ export function UserMenu() {
             {email}
           </div>
           <DropdownMenuSeparator />
+          <DropdownMenuItem
+            render={
+              <Link href="/account">
+                <Settings className="h-4 w-4" />
+                Your account
+              </Link>
+            }
+          />
           <DropdownMenuItem
             render={
               <Link href="/feedback/bookmarks">
