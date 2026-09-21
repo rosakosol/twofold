@@ -1714,6 +1714,13 @@ export type Database = {
         }
         Relationships: []
       }
+      // NOTE: this file is generated from the LINKED project, not from `supabase start`.
+      // The feedback board's tables (feature_requests, feature_votes, developer_updates,
+      // feature_comments, feature_bookmarks, feature_subscribers, feature_notification_outbox)
+      // have no migration in supabase/migrations, so they exist only in production — and
+      // `supabase gen types typescript --local` therefore DELETES them from this file and breaks
+      // every query in src/lib/queries. Regenerate with --linked, or hand-edit, until that schema
+      // is in source control the way 20260830000850 put feedback_admins there.
       profiles: {
         Row: {
           accent_color_hex: string | null
@@ -1730,7 +1737,10 @@ export type Database = {
           setup_checklist_dismissed: boolean
           subscription_active: boolean
           subscription_checked_at: string | null
+          subscription_started_at: string | null
+          subscription_store: string | null
           subscription_tier: string | null
+          subscription_will_renew: boolean | null
           updated_at: string
         }
         Insert: {
@@ -1748,7 +1758,10 @@ export type Database = {
           setup_checklist_dismissed?: boolean
           subscription_active?: boolean
           subscription_checked_at?: string | null
+          subscription_started_at?: string | null
+          subscription_store?: string | null
           subscription_tier?: string | null
+          subscription_will_renew?: boolean | null
           updated_at?: string
         }
         Update: {
@@ -1766,7 +1779,10 @@ export type Database = {
           setup_checklist_dismissed?: boolean
           subscription_active?: boolean
           subscription_checked_at?: string | null
+          subscription_started_at?: string | null
+          subscription_store?: string | null
           subscription_tier?: string | null
+          subscription_will_renew?: boolean | null
           updated_at?: string
         }
         Relationships: [

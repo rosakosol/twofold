@@ -46,48 +46,15 @@
 // ways to be wrong, only one takes money.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import {
-  activeSubscriptions,
-  cancellableSubscriptions,
-  cancelStripeSubscription,
-  fetchSubscriber,
-  resolveStripeSubscriptionId,
-} from "../_shared/subscription-cancel.ts";
-
-/// Ends every web subscription this user still has. Throws if any of them could not be ended.
-async function cancelWebSubscriptions(appUserId: string): Promise<number> {
-  const revenueCatKey = Deno.env.get("REVENUECAT_REST_API_KEY");
-  if (!revenueCatKey) {
-    // Without it we cannot even tell whether there is a web subscription, and "assume there
-    // isn't" is the assumption that charges people.
-    throw new Error("REVENUECAT_REST_API_KEY is not set");
-  }
-
-  // Uppercased for the same reason the webhook does it: `Purchases.shared.logIn` sends the
-  // uppercased UUID, so that is the id RevenueCat holds.
-  const subscriptions = await fetchSubscriber(appUserId.toUpperCase(), revenueCatKey);
-  if (subscriptions === null) return 0;
-
-  const cancellable = cancellableSubscriptions(activeSubscriptions(subscriptions, Date.now()));
-  if (cancellable.length === 0) return 0;
-
-  const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
-  if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set, and this account has a web subscription");
-
-  for (const subscription of cancellable) {
-    if (subscription.store !== "stripe" && subscription.store !== "rc_billing") {
-      // An unrecognised store is not silently skipped: skipping is what leaves somebody paying.
-      throw new Error(`no cancellation path for store "${subscription.store}"`);
-    }
-    if (!subscription.storeTransactionId) {
-      throw new Error("web subscription carried no store transaction id");
-    }
-    // Both RevenueCat web stores bill through Stripe and report a Stripe id here.
-    const stripeId = await resolveStripeSubscriptionId(subscription.storeTransactionId, stripeKey);
-    await cancelStripeSubscription(stripeId, stripeKey);
-  }
-  return cancellable.length;
-}
+// `cancelWebSubscriptions` used to live in this file. It moved to _shared when the account portal
+// needed the same operation: two copies of the logic that decides whether somebody keeps being
+// charged is exactly the pair that agrees in testing and disagrees in production.
+//
+// Note the mode. Deletion cancels `immediately`, which is right only here — the access an
+// end-of-period cancellation would preserve is access to an app the person can no longer sign in
+// to. The portal passes `at_period_end`, because somebody who is staying has paid through a date
+// and Stripe refunds none of it.
+import { cancelWebSubscriptions } from "../_shared/subscription-cancel.ts";
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") {
@@ -107,7 +74,17 @@ Deno.serve(async (req) => {
 
   let cancelledSubscriptions = 0;
   try {
-    cancelledSubscriptions = await cancelWebSubscriptions(user.id);
+    const revenueCatKey = Deno.env.get("REVENUECAT_REST_API_KEY");
+    if (!revenueCatKey) {
+      // Without it we cannot even tell whether there is a web subscription, and "assume there
+      // isn't" is the assumption that charges people.
+      throw new Error("REVENUECAT_REST_API_KEY is not set");
+    }
+    cancelledSubscriptions = await cancelWebSubscriptions(user.id, {
+      revenueCatKey,
+      stripeKey: Deno.env.get("STRIPE_SECRET_KEY"),
+      mode: "immediately",
+    });
   } catch (err) {
     // Deliberately before any deletion, and deliberately fatal. Nothing has been scrubbed yet, so
     // the account is exactly as it was and the retry the client is told to make is a clean one.

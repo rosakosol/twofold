@@ -136,3 +136,96 @@ export async function cancelStripeSubscription(
   if (response.status === 404) return;
   if (!response.ok) throw new Error(`Stripe cancel returned ${response.status}`);
 }
+
+/// Stops a subscription renewing, leaving the period already paid for intact.
+///
+/// The counterpart to `cancelStripeSubscription` above, and the difference is not a detail. That
+/// one ends the subscription there and then, which is right for account deletion — the access it
+/// would preserve is access to an app the person can no longer sign in to. It is wrong for
+/// somebody who is cancelling and keeping their account: they have paid for a period, Stripe
+/// refunds none of it, and ending it early takes away time they bought for nothing in return.
+///
+/// It is also the behaviour the rest of the codebase already assumes. `resolveWillRenew` exists
+/// precisely because "cancelling does not end anything — it stops the renewal, and the entitlement
+/// runs to the end of the period already paid for", and the app stops nagging a subscriber to
+/// cancel on the strength of it. A portal that cancelled immediately would contradict the model
+/// every other screen is built on.
+export async function endStripeSubscriptionAtPeriodEnd(
+  subscriptionId: string,
+  stripeKey: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<void> {
+  const response = await fetchImpl(
+    `https://api.stripe.com/v1/subscriptions/${encodeURIComponent(subscriptionId)}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${stripeKey}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: "cancel_at_period_end=true",
+    },
+  );
+  // A subscription Stripe no longer has is one nobody is being charged for, which is the outcome
+  // asked for. Same reasoning as the 404 branch in cancelStripeSubscription: both are meant to be
+  // safe to call twice.
+  if (response.status === 404) return;
+  if (!response.ok) throw new Error(`Stripe cancel-at-period-end returned ${response.status}`);
+}
+
+/// When the subscription should actually stop.
+///
+/// Explicit at every call site rather than defaulted, because the two callers want opposite things
+/// and the wrong one is silent either way: `immediately` for a deletion, where nothing is left to
+/// preserve, and `at_period_end` for a person who is staying and has paid through a date.
+export type CancelMode = "immediately" | "at_period_end";
+
+/// Ends every web subscription an account holds. Returns how many were acted on.
+///
+/// Throws if any of them could not be ended, and deliberately does not swallow — both callers
+/// treat a failure as something the person must be told about rather than something to log. For
+/// `delete-account` that means refusing to delete; for the account portal it means saying the
+/// cancellation did not happen, so nobody is left believing a charge has stopped when it has not.
+///
+/// Shared so the two cannot drift. This logic lived inside delete-account, and a second copy in
+/// the portal would be a pair that agrees in testing and disagrees in production, about money.
+export async function cancelWebSubscriptions(
+  appUserId: string,
+  options: { revenueCatKey: string; stripeKey?: string; mode: CancelMode; fetchImpl?: typeof fetch },
+): Promise<number> {
+  const fetchImpl = options.fetchImpl ?? fetch;
+
+  // Uppercased for the same reason the webhook does it: `Purchases.shared.logIn` sends the
+  // uppercased UUID, so that is the id RevenueCat holds.
+  const subscriptions = await fetchSubscriber(appUserId.toUpperCase(), options.revenueCatKey, fetchImpl);
+  if (subscriptions === null) return 0;
+
+  const cancellable = cancellableSubscriptions(activeSubscriptions(subscriptions, Date.now()));
+  if (cancellable.length === 0) return 0;
+
+  if (!options.stripeKey) {
+    throw new Error("STRIPE_SECRET_KEY is not set, and this account has a web subscription");
+  }
+
+  for (const subscription of cancellable) {
+    if (subscription.store !== "stripe" && subscription.store !== "rc_billing") {
+      // An unrecognised store is not silently skipped: skipping is what leaves somebody paying.
+      throw new Error(`no cancellation path for store "${subscription.store}"`);
+    }
+    if (!subscription.storeTransactionId) {
+      throw new Error("web subscription carried no store transaction id");
+    }
+    // Both RevenueCat web stores bill through Stripe and report a Stripe id here.
+    const stripeId = await resolveStripeSubscriptionId(
+      subscription.storeTransactionId,
+      options.stripeKey,
+      fetchImpl,
+    );
+    if (options.mode === "immediately") {
+      await cancelStripeSubscription(stripeId, options.stripeKey, fetchImpl);
+    } else {
+      await endStripeSubscriptionAtPeriodEnd(stripeId, options.stripeKey, fetchImpl);
+    }
+  }
+  return cancellable.length;
+}
