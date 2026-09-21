@@ -3,9 +3,13 @@
 //  Twofold
 //
 //  Reached from Settings — its own screen rather than a confirmation dialog straight off the
-//  Sign Out row, since this is a meaningfully bigger decision than signing out and deserves a
-//  real explanation of what does and doesn't happen before the (already serious) confirmation
-//  alert. See AppModel.deleteAccount()/BackendService.deleteAccount() for what actually runs.
+//  Sign Out row, since this is a meaningfully bigger decision than signing out. See
+//  AppModel.deleteAccount()/BackendService.deleteAccount() for what actually runs.
+//
+//  It used to explain six things at equal weight. That is the wrong shape for a screen somebody
+//  reads while upset: everything was true, most of it was about data that is preserved rather than
+//  lost, and the one consequence that costs real money sat sixth. It now leads with the
+//  subscription, in its own card, and says three things instead of six.
 //
 //  This screen used to carry an "Also delete our shared data" toggle. It was removed because it
 //  had stopped being true: 20261005000000_purge_is_only_ever_the_timer.sql made the 90-day
@@ -41,73 +45,78 @@ struct DeleteAccountView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+                // FIRST, and in its own card, because it is the only consequence on this screen
+                // that costs money and the only one we cannot undo for them afterwards. Everything
+                // else here is about data; this is about being charged for an account that no
+                // longer exists.
+                //
+                // An App Store subscription belongs to the Apple Account that bought it and Apple
+                // gives developers no way to cancel one on somebody's behalf — which is also what
+                // Apple's own account-deletion guidance (5.1.1(v)) requires this screen to warn
+                // about. A website subscription is ours and `delete-account` cancels it before
+                // deleting anything, refusing to proceed if it cannot, so that case gets one calm
+                // line rather than a warning.
+                //
+                // Shown only to somebody who actually has a subscription: a warning about
+                // cancelling one you do not have is noise on the screen that most needs reading.
+                if appModel.isSubscriptionActive {
+                    SectionCard {
+                        Label("Cancel your subscription first", systemImage: "creditcard.trianglebadge.exclamationmark")
+                            .font(.headline)
+                            // heartRedText, not heartRed: Theme.swift calls the latter's light
+                            // value a sub-4.5:1 pairing on text and licenses only the deepened tone
+                            // for text, icons and strokes. Dark mode is identical either way.
+                            .foregroundStyle(Theme.heartRedText)
+
+                        Text("Deleting your account does not cancel an App Store subscription — only you can, and only while you can still sign in. Otherwise you keep being billed.")
+                            .font(.subheadline)
+                            .foregroundStyle(Theme.subtleInk)
+
+                        Button {
+                            openSubscriptionManagement()
+                        } label: {
+                            Label("Manage subscription", systemImage: "arrow.up.right.square")
+                                .font(.subheadline.weight(.semibold))
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Theme.skyBlueText)
+
+                        Text("Subscribed on our website instead? We cancel that one for you.")
+                            .font(.footnote)
+                            .foregroundStyle(Theme.subtleInk)
+                    }
+                }
+
                 SectionCard {
                     Label("This can't be undone", systemImage: "exclamationmark.triangle.fill")
                         .font(.headline)
-                        .foregroundStyle(Theme.heartRed)
+                        .foregroundStyle(Theme.heartRedText)
 
                     VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-                        explainerRow(icon: "person.crop.circle.badge.xmark", text: "Your name, photo, and login are permanently removed. You won't be able to sign back in.")
-                        explainerRow(icon: "heart.slash.fill", text: appModel.partnerConnected ? "\(appModel.partner.name) will see that you've left, the same as if you removed them today." : "You're not currently connected to a partner.")
+                        explainerRow(icon: "person.crop.circle.badge.xmark", text: "Your name, photo, and login are gone for good. You won't be able to sign back in.")
 
-                        // Split rather than written once with the partner's name interpolated.
-                        // `appModel.partner` is reset to a placeholder literally named "Partner"
-                        // when a couple unpairs (AppModel.swift), so a single version of this copy
-                        // reads "If you removed Partner instead…" to anyone who has already
-                        // disconnected — and that is exactly the person most likely to be on this
-                        // screen. The two situations also differ in substance, not just in wording:
-                        // for someone already unpaired the 90 days are running, the date is fixed
-                        // and visible, and their archive is the only place their history is.
+                        // One row instead of the four this used to be. The detail that was dropped
+                        // — that a partner sees you have left, that reconnecting within 90 days
+                        // would have brought the history back had you disconnected instead — is
+                        // true, and is about a different decision than the one being made here.
+                        // On a screen somebody reads while upset, every sentence that is merely
+                        // interesting costs attention that the two that matter need.
                         if appModel.partnerConnected {
-                            explainerRow(icon: "photo.on.rectangle.angled", text: "Trips, memories, and photos you shared with \(appModel.partner.name) stay with them — deleting your account doesn't erase their side of a shared history.")
-                            explainerRow(icon: "calendar.badge.clock", text: "Deleting your account ends your connection, and your shared history is permanently deleted for both of you 90 days after that. Nobody can bring that forward, and nobody can extend it.")
-                            // An archive is restored by matching the two profile ids that made it
-                            // (`restorable_archive_with`), and a deleted account can never be one
-                            // of them again — so this is the point of no return for the shared
-                            // history too, not because it deletes it but because it ends the only
-                            // way back.
-                            explainerRow(icon: "arrow.uturn.backward.circle", text: "If you removed \(appModel.partner.name) instead, getting back together within those 90 days would bring your history back. Deleting your account can't be undone that way — your account won't exist to reconnect with.")
-                            explainerRow(icon: "square.and.arrow.down", text: "If you want to keep a copy, export it from Settings before you delete your account — you won't be able to sign in to get it afterwards.")
+                            explainerRow(icon: "calendar.badge.clock", text: "What you shared with \(appModel.partner.name) stays with them, then is permanently deleted for both of you after 90 days. Nobody can change that date.")
                         } else if archivedCoupleCount > 0 {
                             explainerRow(icon: "archivebox", text: archivedCoupleCount == 1
-                                ? "Your archived history stays with the person you shared it with. Deleting your account doesn't erase their side of it."
-                                : "Your archived histories stay with the people you shared them with. Deleting your account doesn't erase their side of them.")
-                            explainerRow(icon: "calendar.badge.clock", text: archivedCoupleCount == 1
-                                ? "It's already counting down to the date shown on it in Archived Data, and is permanently deleted then. Deleting your account doesn't change that date."
-                                : "They're already counting down to the dates shown on them in Archived Data, and are permanently deleted then. Deleting your account doesn't change those dates.")
-                            explainerRow(icon: "arrow.uturn.backward.circle", text: "Reconnecting with someone before their archive expires would offer it back to you. Deleting your account ends that — your account won't exist to reconnect with.")
-                            explainerRow(icon: "square.and.arrow.down", text: "If you want to keep a copy, export it from Settings → Help → Archived Data before you delete your account — you won't be able to sign in to get it afterwards.")
+                                ? "Your archived history stays with the person you shared it with, and is deleted on the date already shown in Archived Data."
+                                : "Your archived histories stay with the people you shared them with, and are deleted on the dates already shown in Archived Data.")
                         }
 
-                        // Still the App Store half of the warning, which has not changed: an App
-                        // Store subscription belongs to the Apple Account that bought it, and Apple
-                        // gives developers no way to cancel one on somebody's behalf. Saying nothing
-                        // here means a person leaves believing they are done and keeps being
-                        // charged — which is also what Apple's own account-deletion guidance
-                        // (5.1.1(v)) requires this screen to warn about.
-                        //
-                        // Shown only to somebody who actually has one. A warning about cancelling a
-                        // subscription you do not have is noise on a screen that needs to be read.
-                        if appModel.isSubscriptionActive {
-                            explainerRow(
-                                icon: "creditcard",
-                                text: "If you subscribed through the App Store, deleting your account does not cancel it — Apple only lets you do that yourself. Tap below, or go to Settings → Apple Account → Subscriptions on your device, and do it before you delete, because afterwards you won't be able to sign in to find it. A subscription bought on our website is cancelled for you automatically."
-                            )
-                            Button {
-                                openSubscriptionManagement()
-                            } label: {
-                                Label("Manage subscription", systemImage: "arrow.up.right.square")
-                                    .font(.subheadline.weight(.semibold))
-                            }
-                            .buttonStyle(.plain)
-                            .foregroundStyle(Theme.skyBlueText)
-                            .padding(.leading, 34)
+                        if hasSharedData {
+                            explainerRow(icon: "square.and.arrow.down", text: "Want a copy? Export it before you delete — you can't sign in to get it afterwards.")
                         }
                     }
                 }
 
                 if let errorMessage {
-                    Text(errorMessage).font(.caption).foregroundStyle(Theme.heartRed)
+                    Text(errorMessage).font(.caption).foregroundStyle(Theme.heartRedText)
                 }
 
                 Button(role: .destructive) {
@@ -138,7 +147,12 @@ struct DeleteAccountView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This can't be undone.")
+            // The last thing read before the irreversible tap. A subscriber gets the billing
+            // warning again here, because this alert is the only part of the screen somebody in a
+            // hurry is guaranteed to see.
+            Text(appModel.isSubscriptionActive
+                ? "This can't be undone. If you subscribed through the App Store, cancel it first or you'll keep being billed."
+                : "This can't be undone.")
         }
         .task {
             // Best-effort: if this fails the shared-history rows are simply hidden, which fails
