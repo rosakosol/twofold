@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
+import { AccountActions } from "@/components/console/AccountActions";
 import { cancellability, type AccountDetail, type AuditEntry } from "@/lib/console/accountDetail";
 
 export const metadata: Metadata = { title: "Account" };
@@ -158,6 +159,19 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
           />
         </Panel>
       </div>
+
+      <AccountActions
+        profileId={detail.profile.id}
+        email={detail.auth.email ?? ""}
+        alreadyDeleted={Boolean(detail.auth.deleted_at)}
+        couple={
+          detail.couple
+            ? { id: detail.couple.id, partnerFirstName: detail.couple.partner_first_name }
+            : null
+        }
+        subscriptionStore={detail.subscription.store}
+        subscriptionActive={detail.subscription.active}
+      />
 
       <Card>
         <CardHeader>

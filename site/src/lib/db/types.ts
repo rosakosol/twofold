@@ -2453,6 +2453,28 @@ export type Database = {
           reason: string
         }[]
       }
+      admin_dissolve_couple: {
+        Args: { p_couple_id: string; p_on_behalf_of: string; p_reason: string }
+        Returns: {
+          created_at: string
+          dissolved_at: string | null
+          dissolved_by: string | null
+          id: string
+          max_distance_km: number | null
+          partner_a_id: string
+          partner_b_id: string
+          scheduled_purge_at: string | null
+          started_dating_on: string | null
+          status: Database["public"]["Enums"]["couple_status"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "couples"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       admin_lookup_account: {
         Args: { p_query: string }
         Returns: {
@@ -2466,6 +2488,20 @@ export type Database = {
           subscription_active: boolean
           subscription_tier: string
         }[]
+      }
+      admin_record_action: {
+        Args: {
+          p_action: string
+          p_actor: string
+          p_details?: Json
+          p_reason?: string
+          p_subject?: string
+        }
+        Returns: undefined
+      }
+      admin_scrub_account: {
+        Args: { p_profile_id: string; p_reason: string }
+        Returns: undefined
       }
       api_usage_by_endpoint: {
         Args: { p_from?: string; p_provider?: string; p_to?: string }
