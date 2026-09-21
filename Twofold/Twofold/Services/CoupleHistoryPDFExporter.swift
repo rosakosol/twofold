@@ -136,7 +136,7 @@ enum CoupleHistoryPDFExporter {
             throw ExportError.renderingFailed
         }
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("Our Story.pdf")
-        try finalData.write(to: url, options: .atomic)
+        try finalData.write(to: url, options: [.atomic, .completeFileProtection])
         return url
     }
 

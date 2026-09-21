@@ -82,7 +82,10 @@ enum OfflineGameStateCache {
             recordedAt: Date()
         )
         guard let data = try? JSONEncoder().encode(snapshot) else { return }
-        try? data.write(to: fileURL, options: .atomic)
+        // Today's question text and the streak. Same reasoning as OfflineDataCache, including
+        // why the directory is left alone.
+        try? data.write(to: fileURL, options: [.atomic, .completeFileProtection])
+        DataProtectionMigration.excludeFromBackup(fileURL)
     }
 
     private static func read() -> Snapshot? {

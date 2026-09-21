@@ -9,6 +9,11 @@ struct TwofoldApp: App {
     init() {
         RevenueCatConfig.configure()
         AnalyticsConfig.configure()
+        // Reclassifies what earlier versions already wrote. Setting a protection class on a write
+        // does nothing to files that exist, so without this the change only ever helps new
+        // installs. Cheap after the first run — one `UserDefaults` read — and it defers itself if
+        // the device is locked.
+        DataProtectionMigration.runIfNeeded()
     }
 
     var body: some Scene {

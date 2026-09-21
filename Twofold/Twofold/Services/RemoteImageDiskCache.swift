@@ -27,7 +27,11 @@ enum RemoteImageDiskCache {
     private static var directory: URL {
         let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
         let directory = base.appendingPathComponent("RemoteImages", isDirectory: true)
-        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try? FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true,
+            attributes: [.protectionKey: FileProtectionType.complete]
+        )
         return directory
     }
 
@@ -51,7 +55,7 @@ enum RemoteImageDiskCache {
     static func store(_ data: Data, for url: URL) {
         // Written as the original bytes rather than a re-encoded UIImage: re-encoding costs quality
         // and time for no benefit, and these are already small.
-        try? data.write(to: directory.appendingPathComponent(filename(for: url)), options: .atomic)
+        try? data.write(to: directory.appendingPathComponent(filename(for: url)), options: [.atomic, .completeFileProtection])
     }
 
     /// Cleared on sign-out and account deletion, alongside every other local trace of the account —

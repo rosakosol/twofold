@@ -198,8 +198,21 @@ struct SettingsView: View {
                         // device preference (UserDefaults, not synced), so it's fine to live
                         // right alongside Measurements/Notifications rather than a whole separate
                         // "Privacy & Security" section for one row.
+                        // Says what the missing passcode costs, not just that the toggle is off.
+                        //
+                        // iOS file protection derives its class keys from the device passcode; with
+                        // no passcode set there is no user secret in the derivation, so the
+                        // `.completeFileProtection` this app now writes with degrades silently to no
+                        // encryption at all. `isAvailableOnDevice` is exactly that condition, and it
+                        // was already computed here and used only to grey out a switch — so the app
+                        // knew its own encryption was void and did not say so.
+                        //
+                        // Worth being precise that this is not something Twofold can work around.
+                        // Encrypting in the app would need a key, the key would live in the
+                        // Keychain, and Keychain accessibility degrades the same way for the same
+                        // reason. A passcode is the only fix, which is why this asks for one.
                         if !appLock.isAvailableOnDevice {
-                            Text("Set a passcode on this device to turn this on.")
+                            Text("Set a passcode on this device to turn this on. Without one, iOS can't encrypt the photos and answers Twofold keeps on this phone either.")
                                 .font(.caption)
                                 .foregroundStyle(Theme.subtleInk)
                         }

@@ -20,7 +20,13 @@ enum PendingMemoryStore {
     private static var directory: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         let dir = base.appendingPathComponent("PendingMemories", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        // The directory carries a class of its own, and it is what a file created inside it
+        // without one inherits — so this is what catches a future writer that forgets the option.
+        try? FileManager.default.createDirectory(
+            at: dir,
+            withIntermediateDirectories: true,
+            attributes: [.protectionKey: FileProtectionType.complete]
+        )
         return dir
     }
 
@@ -51,13 +57,13 @@ enum PendingMemoryStore {
         var photos: [MemoryPhoto] = []
         for (index, data) in photosData.enumerated() {
             let url = photoURL(memoryID: memory.id, index: index)
-            guard (try? data.write(to: url, options: .atomic)) != nil else { continue }
+            guard (try? data.write(to: url, options: [.atomic, .completeFileProtection])) != nil else { continue }
             photos.append(MemoryPhoto(id: UUID(), path: "pending", url: url))
         }
         memory.photos = photos
 
         if let data = try? JSONEncoder().encode(Manifest(memory: memory)) {
-            try? data.write(to: manifestURL(for: memory.id), options: .atomic)
+            try? data.write(to: manifestURL(for: memory.id), options: [.atomic, .completeFileProtection])
         }
         return memory
     }

@@ -56,7 +56,11 @@ enum PendingTripStore {
     private static var directory: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         let dir = base.appendingPathComponent("PendingTrips", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try? FileManager.default.createDirectory(
+            at: dir,
+            withIntermediateDirectories: true,
+            attributes: [.protectionKey: FileProtectionType.complete]
+        )
         return dir
     }
 
@@ -77,7 +81,7 @@ enum PendingTripStore {
 
     static func save(_ trip: Trip) {
         guard let data = try? JSONEncoder().encode(Manifest(trip: trip)) else { return }
-        try? data.write(to: manifestURL(for: trip.id), options: .atomic)
+        try? data.write(to: manifestURL(for: trip.id), options: [.atomic, .completeFileProtection])
     }
 
     /// Every trip still waiting to sync.

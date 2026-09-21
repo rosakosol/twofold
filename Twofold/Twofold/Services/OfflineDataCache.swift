@@ -93,7 +93,20 @@ enum OfflineDataCache {
             recordedAt: Date()
         )
         guard let data = try? JSONEncoder().encode(snapshot) else { return }
-        try? data.write(to: fileURL, options: .atomic)
+        // Complete rather than the inherited CompleteUntilFirstUserAuthentication. The only reader
+        // is the main app's launch path, which by definition runs after an unlock — nothing in this
+        // app runs while locked: there is no BGTaskScheduler task, no background URLSession, and
+        // `UIBackgroundModes`' remote-notification entry has no
+        // `didReceiveRemoteNotification:fetchCompletionHandler:` behind it.
+        //
+        // Not set on the directory, unlike the caches below: this writes into the Application
+        // Support root, which PostHog and RevenueCat also use, and a class on that would be theirs
+        // as well as ours.
+        try? data.write(to: fileURL, options: [.atomic, .completeFileProtection])
+        // A replay of what the server last said, refetched on the first online launch — so
+        // backing it up only widens where a couple's trips, memories and cities sit at rest. It is
+        // also the largest of these, megabytes for a long relationship.
+        DataProtectionMigration.excludeFromBackup(fileURL)
     }
 
     /// Account-scoped and age-bounded for the same reasons as `OfflineSessionCache.restore` — a

@@ -243,7 +243,13 @@ enum GameContentStore {
         guard let decoded = try? JSONDecoder().decode(Payload.self, from: data),
               !decoded.decks.isEmpty else { return false }
         do {
-            try data.write(to: cacheURL, options: .atomic)
+            // `hasCachedCopy` and `cacheAge` stat this file rather than reading it, and metadata
+            // stays readable at any protection class, so raising it does not affect them.
+            try data.write(to: cacheURL, options: [.atomic, .completeFileProtection])
+            // Re-downloadable. It lives in Application Support rather than Caches so the
+            // *system* will not purge it, which is a separate question from whether it belongs in
+            // a backup — and this is the documented way to have one without the other.
+            DataProtectionMigration.excludeFromBackup(cacheURL)
         } catch {
             return false
         }

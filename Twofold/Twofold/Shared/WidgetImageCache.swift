@@ -19,6 +19,40 @@ enum WidgetImageCache {
     private static let latestMemoryFilename = "latest-memory.jpg"
     private static let drawingPadFilename = "drawing-pad-last-good.png"
 
+    /// Deliberately NOT `.completeFileProtection`, and deliberately stated rather than inherited.
+    ///
+    /// Everything in this container is read by the widget extension, and some of it while the
+    /// device is locked. `JourneyLockScreenView` reads the airline logo to render a Live Activity
+    /// on the Lock Screen, and five widgets declare Lock Screen accessory families whose timeline
+    /// providers read the snapshot — `DaysTogetherWidget`, `TripCountdownWidget`,
+    /// `FlightCountdownWidget`, `DistanceWidget`, `DistanceCompactWidget`. `DrawingPadWidget` also
+    /// *writes* here from `getTimeline`.
+    ///
+    /// At `.completeFileProtection` every one of those reads fails while the device is locked and
+    /// the widget draws blank — and because each write below is a `try?`, nothing would appear in
+    /// a log. The first report would come from a review. This is the strongest class that still
+    /// works, which is why it is written down instead of left to the default: the next person to
+    /// raise protection across the app should have to read this before changing it.
+    ///
+    /// The main app's own copies of these images are separate files in Caches, and those *are* at
+    /// Complete — raising them blanks nothing.
+    private static let protection: Data.WritingOptions = .completeFileProtectionUntilFirstUserAuthentication
+
+    /// One place, so the class and the backup exclusion cannot drift apart across six call sites.
+    ///
+    /// Excluded from backup because every one of these is re-derived by `WidgetSnapshotWriter` on
+    /// the next foreground — there is nothing here that only exists here, and a backup copy of
+    /// both partners' faces and the latest memory photo buys nobody anything.
+    private static func write(_ data: Data, to url: URL) {
+        try? data.write(to: url, options: [.atomic, protection])
+        // Inlined rather than calling `DataProtectionMigration.excludeFromBackup`: this file is
+        // compiled into the widget extension as well as the app, and that helper is not.
+        var backupURL = url
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        try? backupURL.setResourceValues(values)
+    }
+
     private static var containerURL: URL? {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: suiteName)
     }
@@ -30,7 +64,7 @@ enum WidgetImageCache {
     /// Overwrites in place — there's only ever one "latest memory" cached at a time.
     static func writeLatestMemoryImage(_ data: Data) {
         guard let url = latestMemoryImageURL else { return }
-        try? data.write(to: url, options: .atomic)
+        Self.write(data, to: url)
     }
 
     static func readLatestMemoryImage() -> Data? {
@@ -52,7 +86,7 @@ enum WidgetImageCache {
 
     static func writeDrawingPadImage(_ data: Data) {
         guard let url = drawingPadImageURL else { return }
-        try? data.write(to: url, options: .atomic)
+        Self.write(data, to: url)
     }
 
     static func readDrawingPadImage() -> Data? {
@@ -72,7 +106,7 @@ enum WidgetImageCache {
 
     static func writeMyDrawingImage(_ data: Data) {
         guard let url = myDrawingImageURL else { return }
-        try? data.write(to: url, options: .atomic)
+        Self.write(data, to: url)
     }
 
     static func readMyDrawingImage() -> Data? {
@@ -88,7 +122,7 @@ enum WidgetImageCache {
 
     static func writeMyAvatarImage(_ data: Data) {
         guard let url = containerURL?.appendingPathComponent(myAvatarFilename) else { return }
-        try? data.write(to: url, options: .atomic)
+        Self.write(data, to: url)
     }
 
     static func readMyAvatarImage() -> Data? {
@@ -98,7 +132,7 @@ enum WidgetImageCache {
 
     static func writePartnerAvatarImage(_ data: Data) {
         guard let url = containerURL?.appendingPathComponent(partnerAvatarFilename) else { return }
-        try? data.write(to: url, options: .atomic)
+        Self.write(data, to: url)
     }
 
     static func readPartnerAvatarImage() -> Data? {
@@ -112,7 +146,7 @@ enum WidgetImageCache {
 
     static func writeAirlineLogoImage(_ data: Data) {
         guard let url = containerURL?.appendingPathComponent(airlineLogoFilename) else { return }
-        try? data.write(to: url, options: .atomic)
+        Self.write(data, to: url)
     }
 
     static func readAirlineLogoImage() -> Data? {

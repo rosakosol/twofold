@@ -37,7 +37,11 @@ nonisolated enum MemoryPhotoDiskCache {
     private static var directory: URL {
         let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
         let dir = base.appendingPathComponent("MemoryPhotos", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try? FileManager.default.createDirectory(
+            at: dir,
+            withIntermediateDirectories: true,
+            attributes: [.protectionKey: FileProtectionType.complete]
+        )
         return dir
     }
 
@@ -62,7 +66,14 @@ nonisolated enum MemoryPhotoDiskCache {
     }
 
     static func write(_ data: Data, path: String) {
-        try? data.write(to: fileURL(for: path), options: .atomic)
+        // The largest concentration of sensitive bytes on the device — up to 250 MB of the
+        // couple's photographs. The widget never reads these; it has its own copies in the app
+        // group, which stay at a weaker class because they are read on the Lock Screen.
+        //
+        // The prefetch that fills this is a detached task started from the foreground. If it is
+        // still running when the screen locks its remaining writes fail, `has(path:)` stays false
+        // for those, and the next launch refetches them. A few uncached photos is the whole cost.
+        try? data.write(to: fileURL(for: path), options: [.atomic, .completeFileProtection])
     }
 
     /// Marks a file as just-used so eviction sheds genuinely cold photos rather than whichever

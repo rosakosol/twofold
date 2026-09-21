@@ -133,7 +133,17 @@ enum CoupleDataExporter {
         let media = folder.appendingPathComponent("media", isDirectory: true)
 
         do {
-            try FileManager.default.createDirectory(at: media, withIntermediateDirectories: true)
+            // Each level explicitly, because `withIntermediateDirectories` applies the attributes
+            // to the leaf only — the intermediates would take tmp's default, and the CSVs are
+            // written straight into `folder`. This tree is the most concentrated copy of a couple's
+            // history the app ever produces: every row, and every photograph, in one place.
+            for directory in [root, folder, media] {
+                try FileManager.default.createDirectory(
+                    at: directory,
+                    withIntermediateDirectories: true,
+                    attributes: [.protectionKey: FileProtectionType.complete]
+                )
+            }
         } catch {
             throw ExportError.couldNotCreateFolder
         }
@@ -409,7 +419,7 @@ enum CoupleDataExporter {
     // MARK: - Pieces
 
     private static func write(_ data: Data, to url: URL) throws {
-        try data.write(to: url, options: .atomic)
+        try data.write(to: url, options: [.atomic, .completeFileProtection])
     }
 
     /// Indexed by position rather than named after the memory's title, which can be empty,
@@ -437,7 +447,7 @@ enum CoupleDataExporter {
             if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
                 return false
             }
-            try data.write(to: destination, options: .atomic)
+            try data.write(to: destination, options: [.atomic, .completeFileProtection])
             return true
         } catch {
             return false
@@ -458,6 +468,11 @@ enum CoupleDataExporter {
             do {
                 try? FileManager.default.removeItem(at: destination)
                 try FileManager.default.copyItem(at: zipURL, to: destination)
+                // `copyItem` carries the coordinator's class, not ours, and this single file is the
+                // whole archive — so it is set after the copy rather than inherited.
+                try? FileManager.default.setAttributes(
+                    [.protectionKey: FileProtectionType.complete], ofItemAtPath: destination.path
+                )
                 copied = destination
             } catch {
                 copyError = error

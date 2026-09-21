@@ -63,7 +63,7 @@ enum RelationshipRecordWriter {
         rtf += "}"
 
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("Our Story.rtf")
-        guard (try? Data(rtf.utf8).write(to: url, options: .atomic)) != nil else { return nil }
+        guard (try? Data(rtf.utf8).write(to: url, options: [.atomic, .completeFileProtection])) != nil else { return nil }
         return url
     }
 
