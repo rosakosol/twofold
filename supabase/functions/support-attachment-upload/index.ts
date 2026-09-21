@@ -27,14 +27,26 @@ Deno.serve(async (req) => {
     return Response.json({ error: "Method not allowed" }, { status: 405 });
   }
 
-  let input: { threadId?: string; filename?: string; contentType?: string; size?: number };
+  let input: {
+    threadId?: string;
+    filename?: string;
+    contentType?: string;
+    size?: number;
+    /// Present instead of the above when the caller wants to READ an attachment rather than add one.
+    attachmentId?: string;
+  };
   try {
     input = await req.json();
   } catch {
     return Response.json({ error: "Invalid request" }, { status: 400 });
   }
 
-  if (!input.threadId || !input.filename) {
+  // Two jobs behind one role check: signing a PUT for a new file, and signing a GET for one that
+  // is already there. Splitting them into separate functions would mean a second copy of the
+  // is_support_admin gate, which is the thing worth having only once.
+  const wantsDownload = typeof input.attachmentId === "string" && input.attachmentId.length > 0;
+
+  if (!wantsDownload && (!input.threadId || !input.filename)) {
     return Response.json({ error: "A conversation and a filename are required." }, { status: 400 });
   }
 
@@ -46,6 +58,29 @@ Deno.serve(async (req) => {
 
   const { data: { user } } = await userClient.auth.getUser();
   if (!user) return Response.json({ error: "Not authenticated" }, { status: 401 });
+
+  if (wantsDownload) {
+    // Read through an RPC rather than by trusting the id: `admin_thread_attachments` applies the
+    // support-role check itself, so a caller cannot fetch an attachment by guessing at a uuid.
+    const { data: rows, error: readError } = await userClient.rpc("admin_thread_attachments", {
+      p_thread_id: input.threadId ?? "",
+    });
+    if (readError) {
+      return Response.json({ error: "Not authorised" }, { status: 403 });
+    }
+    const match = ((rows ?? []) as { id: string; r2_key: string; filename: string }[])
+      .find((row) => row.id === input.attachmentId);
+    if (!match) {
+      return Response.json({ error: "No such attachment on this conversation." }, { status: 404 });
+    }
+    try {
+      const url = await presign(r2ConfigFromEnv(), match.r2_key, { method: "GET", expiresIn: 300 });
+      return Response.json({ url, filename: match.filename });
+    } catch (err) {
+      console.error("[support-attachment-upload] could not presign read:", (err as Error).message);
+      return Response.json({ error: "File storage isn't configured." }, { status: 503 });
+    }
+  }
 
   const contentType = input.contentType?.trim() || "application/octet-stream";
 

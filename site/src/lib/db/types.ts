@@ -2312,10 +2312,12 @@ export type Database = {
       }
       support_requests: {
         Row: {
+          attachments_state: string
           category: string
           created_at: string
           direction: string
           email: string | null
+          folder_id: string | null
           id: string
           message: string
           message_id: string | null
@@ -2326,12 +2328,15 @@ export type Database = {
           subject: string | null
           thread_id: string | null
           thread_key: string | null
+          zoho_account_id: string | null
         }
         Insert: {
+          attachments_state?: string
           category: string
           created_at?: string
           direction?: string
           email?: string | null
+          folder_id?: string | null
           id?: string
           message: string
           message_id?: string | null
@@ -2342,12 +2347,15 @@ export type Database = {
           subject?: string | null
           thread_id?: string | null
           thread_key?: string | null
+          zoho_account_id?: string | null
         }
         Update: {
+          attachments_state?: string
           category?: string
           created_at?: string
           direction?: string
           email?: string | null
+          folder_id?: string | null
           id?: string
           message?: string
           message_id?: string | null
@@ -2358,6 +2366,7 @@ export type Database = {
           subject?: string | null
           thread_id?: string | null
           thread_key?: string | null
+          zoho_account_id?: string | null
         }
         Relationships: [
           {
@@ -2731,6 +2740,19 @@ export type Database = {
           thread_token: string
         }[]
       }
+      admin_thread_attachments: {
+        Args: { p_thread_id: string }
+        Returns: {
+          content_type: string
+          created_at: string
+          direction: string
+          filename: string
+          id: string
+          r2_key: string
+          request_id: string
+          size_bytes: number
+        }[]
+      }
       api_usage_by_endpoint: {
         Args: { p_from?: string; p_provider?: string; p_to?: string }
         Returns: {
@@ -2934,12 +2956,14 @@ export type Database = {
       ingest_support_email: {
         Args: {
           p_email: string
+          p_folder_id?: string
           p_message: string
           p_message_id: string
           p_name: string
           p_received_at?: string
           p_subject: string
           p_to_address?: string
+          p_zoho_account_id?: string
         }
         Returns: string
       }
@@ -3045,6 +3069,12 @@ export type Database = {
         }[]
       }
       purge_couple_data: { Args: { p_couple_id: string }; Returns: undefined }
+      purge_dangling_support_attachments: {
+        Args: { p_older_than_hours?: number }
+        Returns: {
+          r2_key: string
+        }[]
+      }
       record_api_call: {
         Args: {
           p_called_by: string
@@ -3063,6 +3093,10 @@ export type Database = {
       record_flight_addition: {
         Args: { p_added_by: string; p_couple_id: string; p_flight_id: string }
         Returns: undefined
+      }
+      record_inbound_attachments: {
+        Args: { p_attachments: Json; p_request_id: string; p_state?: string }
+        Returns: number
       }
       record_support_reply: {
         Args: {
@@ -3267,6 +3301,16 @@ export type Database = {
           id: string
           r2_key: string
           thread_id: string
+        }[]
+      }
+      support_messages_awaiting_attachments: {
+        Args: { p_limit?: number }
+        Returns: {
+          folder_id: string
+          id: string
+          message_id: string
+          thread_id: string
+          zoho_account_id: string
         }[]
       }
       support_thread_for_reply: { Args: { p_thread_id: string }; Returns: Json }

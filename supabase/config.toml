@@ -579,3 +579,10 @@ entrypoint = "./functions/support-attachment-upload/index.ts"
 enabled = true
 verify_jwt = true
 entrypoint = "./functions/purge-support-attachments/index.ts"
+
+# Cron entrypoint, service role key. Same reasoning as the purge above: the key IS a JWT, so the
+# gateway keeps checking for one rather than this becoming a public endpoint that talks to Zoho.
+[functions.fetch-support-attachments]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/fetch-support-attachments/index.ts"

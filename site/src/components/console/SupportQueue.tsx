@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Check, Loader2, Paperclip, RotateCcw, Send, X } from "lucide-react";
+import { Check, Download, Loader2, Paperclip, RotateCcw, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -219,6 +219,8 @@ function Thread({ messages }: { messages: SupportRequest[] }) {
             </div>
           )}
 
+          <ThreadAttachments threadId={latest.thread_id} />
+
           <Composer
             threadId={latest.thread_id}
             to={latest.email}
@@ -418,4 +420,90 @@ function Composer({
       </div>
     </div>
   );
+}
+
+interface ThreadAttachment {
+  id: string;
+  filename: string;
+  content_type: string;
+  size_bytes: number | null;
+  direction: string;
+}
+
+/**
+ * Files on the conversation, theirs and ours.
+ *
+ * Inbound ones arrive by a different route from everything else on this screen: Zoho's webhook
+ * carries no attachments, so `fetch-support-attachments` collects them from the Mail API a few
+ * minutes later. A message can therefore be readable before its screenshot is — which is why an
+ * empty list here is silent rather than saying "no attachments", since that would be wrong for the
+ * first few minutes of every message that has one.
+ *
+ * Downloads are signed on demand and expire in minutes. A support attachment is somebody's private
+ * correspondence, and a URL that outlives the click is one that outlives the reason for it.
+ */
+function ThreadAttachments({ threadId }: { threadId: string }) {
+  const [files, setFiles] = useState<ThreadAttachment[]>([]);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const supabase = createClient();
+      const { data } = await supabase.rpc("admin_thread_attachments", { p_thread_id: threadId });
+      if (!cancelled) setFiles((data ?? []) as ThreadAttachment[]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [threadId]);
+
+  async function open(file: ThreadAttachment) {
+    setBusy(file.id);
+    const supabase = createClient();
+    const { data, error } = await supabase.functions.invoke("support-attachment-upload", {
+      body: { threadId, attachmentId: file.id },
+    });
+    setBusy(null);
+    if (error || !data?.url) {
+      toast.error("Couldn't open that file.");
+      return;
+    }
+    window.open(data.url, "_blank", "noopener,noreferrer");
+  }
+
+  if (files.length === 0) return null;
+
+  return (
+    <ul className="flex flex-wrap gap-2">
+      {files.map((file) => (
+        <li key={file.id}>
+          <button
+            type="button"
+            onClick={() => open(file)}
+            disabled={busy === file.id}
+            className="flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors hover:bg-accent"
+          >
+            {busy === file.id ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : file.direction === "inbound" ? (
+              <Download className="h-3 w-3 text-muted-foreground" />
+            ) : (
+              <Paperclip className="h-3 w-3 text-muted-foreground" />
+            )}
+            <span className="max-w-[16rem] truncate">{file.filename}</span>
+            {file.size_bytes ? (
+              <span className="text-muted-foreground">{formatBytes(file.size_bytes)}</span>
+            ) : null}
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
