@@ -30,7 +30,7 @@ struct HomeCityView: View {
                                 Text("Finding your city…").foregroundStyle(Theme.subtleInk)
                             } else {
                                 Label("Use my current location", systemImage: "location.fill")
-                                    .foregroundStyle(Theme.skyBlue)
+                                    .foregroundStyle(Theme.skyBlueText)
                             }
                             Spacer()
                         }

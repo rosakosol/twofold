@@ -332,7 +332,7 @@ struct DailyActivityCard: View {
             .overlay(alignment: .bottomTrailing) {
                 if answered {
                     ZStack {
-                        Circle().fill(Theme.leafGreen)
+                        Circle().fill(Theme.leafGreenFill)
                         Image(systemName: "checkmark")
                             .font(.system(size: 8, weight: .bold))
                             .foregroundStyle(.white)

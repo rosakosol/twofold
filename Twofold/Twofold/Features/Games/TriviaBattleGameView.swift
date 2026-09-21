@@ -210,7 +210,7 @@ struct TriviaBattleGameView: View {
                         if let previousAnswer = store.myResponse(for: round, myID: myID)?.answerValue {
                             Text(previousAnswer.isEmpty ? "You skipped this one" : "You chose: \(previousAnswer)")
                                 .font(.caption.weight(.semibold))
-                                .foregroundStyle(Theme.leafGreen)
+                                .foregroundStyle(Theme.leafGreenText)
                         }
                     }
                     .frame(maxWidth: .infinity)

@@ -233,7 +233,7 @@ struct PaywallView: View {
                         ForEach(selectedTier.features, id: \.self) { feature in
                             HStack(alignment: .top, spacing: Theme.Spacing.xs) {
                                 Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(Theme.leafGreen)
+                                    .foregroundStyle(Theme.leafGreenText)
                                     .accessibilityHidden(true)
                                 Text(feature)
                                     .foregroundStyle(Theme.ink)
@@ -528,11 +528,11 @@ private struct PeriodCard: View {
                             .foregroundStyle(.white)
                             .padding(.horizontal, Theme.Spacing.sm)
                             .padding(.vertical, 2)
-                            .background(Theme.leafGreen, in: Capsule())
+                            .background(Theme.leafGreenFill, in: Capsule())
                     }
                     Spacer(minLength: 0)
                     Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                        .foregroundStyle(isSelected ? Theme.leafGreen : Theme.subtleInk.opacity(0.3))
+                        .foregroundStyle(isSelected ? Theme.leafGreenText : Theme.subtleInk.opacity(0.3))
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(priceCaption)

@@ -352,7 +352,7 @@ struct WordGuessGameView: View {
                 HStack(spacing: Theme.Spacing.sm) {
                     Image(systemName: play.isSolved ? "checkmark.seal.fill" : "clock.badge.xmark")
                         .font(.title2)
-                        .foregroundStyle(play.isSolved ? Theme.leafGreen : Theme.subtleInk)
+                        .foregroundStyle(play.isSolved ? Theme.leafGreenText : Theme.subtleInk)
 
                     Text(play.isSolved
                          ? "Got it in \(WordGuessComparison.guessText(play.guesses.count))"

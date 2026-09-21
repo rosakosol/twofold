@@ -42,7 +42,7 @@ struct PartnerRequiredGateView: View {
                             .opacity(0.18)
                         Image(systemName: "person.2.fill")
                             .font(.system(size: 36))
-                            .foregroundStyle(Theme.skyBlue)
+                            .foregroundStyle(Theme.skyBlueText)
                         Circle()
                             .strokeBorder(Theme.subtleInk.opacity(0.15), lineWidth: 1)
                     }

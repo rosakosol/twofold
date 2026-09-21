@@ -181,7 +181,7 @@ struct ChessGameView: View {
             VStack(spacing: Theme.Spacing.sm) {
                 Image(systemName: resultIcon)
                     .font(.largeTitle)
-                    .foregroundStyle(store.didIWin == true ? Theme.leafGreen : Theme.subtleInk)
+                    .foregroundStyle(store.didIWin == true ? Theme.leafGreenText : Theme.subtleInk)
                 Text(resultTitle)
                     .font(.title3.weight(.bold))
                     .foregroundStyle(Theme.ink)

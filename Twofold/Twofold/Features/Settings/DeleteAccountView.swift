@@ -132,7 +132,7 @@ struct DeleteAccountView: View {
                     .frame(maxWidth: .infinity)
                     .padding()
                     .foregroundStyle(.white)
-                    .background(Theme.heartRed, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                    .background(Theme.heartRedFill, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                 }
                 .disabled(isDeleting)
             }

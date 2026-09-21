@@ -81,7 +81,7 @@ struct SignInView: View {
                         } label: {
                             Text("Forgot password?")
                                 .font(.caption.weight(.medium))
-                                .foregroundStyle(Theme.skyBlue)
+                                .foregroundStyle(Theme.skyBlueText)
                         }
                         .frame(maxWidth: .infinity, alignment: .trailing)
 
@@ -119,7 +119,7 @@ struct SignInView: View {
                             } label: {
                                 Text("Have an invite code instead?")
                                     .font(.subheadline.weight(.medium))
-                                    .foregroundStyle(Theme.skyBlue)
+                                    .foregroundStyle(Theme.skyBlueText)
                             }
                             .padding(.top, Theme.Spacing.sm)
                         }

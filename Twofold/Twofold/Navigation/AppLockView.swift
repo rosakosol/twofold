@@ -29,7 +29,7 @@ struct AppLockView: View {
                             .blur(radius: 16)
                         Image(systemName: "lock.fill")
                             .font(.system(size: 40, weight: .medium))
-                            .foregroundStyle(Theme.skyBlue)
+                            .foregroundStyle(Theme.skyBlueText)
                     }
 
                     Text("twofold")

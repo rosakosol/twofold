@@ -440,7 +440,7 @@ struct HomeView: View {
                     HStack {
                         ZStack {
                             Circle().fill(Theme.skyBlue.opacity(0.15))
-                            Image(systemName: "envelope.badge").foregroundStyle(Theme.skyBlue)
+                            Image(systemName: "envelope.badge").foregroundStyle(Theme.skyBlueText)
                         }
                         .frame(width: 36, height: 36)
 
@@ -587,7 +587,7 @@ struct HomeView: View {
                         Image(systemName: name)
                     }
                 }
-                .foregroundStyle(Theme.skyBlue)
+                .foregroundStyle(Theme.skyBlueText)
                 .frame(width: 24)
 
                 task.title
@@ -779,7 +779,7 @@ struct HomeView: View {
                             .foregroundStyle(Theme.subtleInk)
                     }
                     Spacer()
-                    Image(systemName: "map").foregroundStyle(Theme.skyBlue)
+                    Image(systemName: "map").foregroundStyle(Theme.skyBlueText)
                 }
             }
             .buttonStyle(.plain)
@@ -847,7 +847,7 @@ struct HomeView: View {
                 } label: {
                     Image(systemName: "square.and.arrow.up.circle.fill")
                         .font(.largeTitle)
-                        .foregroundStyle(Theme.skyBlue)
+                        .foregroundStyle(Theme.skyBlueText)
                 }
                 .accessibilityLabel("Share distance")
             }
@@ -994,7 +994,7 @@ struct HomeView: View {
             HStack(alignment: .center) {
                 Text(flight.countdownSummary)
                     .font(.subheadline.weight(.medium))
-                    .foregroundStyle(Theme.skyBlue)
+                    .foregroundStyle(Theme.skyBlueText)
                     .lineLimit(1)
 
                 Spacer(minLength: Theme.Spacing.sm)
@@ -1097,7 +1097,7 @@ struct HomeView: View {
                 }
                 Spacer()
                 ZStack {
-                    Circle().fill(Theme.skyBlue)
+                    Circle().fill(Theme.skyBlueFill)
                     Image(systemName: "airplane")
                         .foregroundStyle(.white)
                 }

@@ -248,13 +248,13 @@ struct GameHistoryView: View {
                     if let result = sudokuResults[session.id], result.mine != nil || result.partner != nil {
                         Text(sudokuTimesText(result))
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(Theme.skyBlue)
+                            .foregroundStyle(Theme.skyBlueText)
                             .lineLimit(1)
                     }
                     if let score = scores[session.id] {
                         Text("\(appModel.currentUser.name) \(score.mine) · \(appModel.partner.name) \(score.partner)")
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(Theme.skyBlue)
+                            .foregroundStyle(Theme.skyBlueText)
                             .lineLimit(1)
                             .minimumScaleFactor(0.85)
                     }

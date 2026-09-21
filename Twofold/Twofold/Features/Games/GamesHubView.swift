@@ -149,7 +149,7 @@ struct GamesHubView: View {
                             .foregroundStyle(.white)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(Theme.heartRed, in: Capsule())
+                            .background(Theme.heartRedFill, in: Capsule())
                             .offset(x: 8, y: -8)
                     }
                 }

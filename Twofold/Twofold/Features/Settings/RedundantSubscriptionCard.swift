@@ -38,7 +38,7 @@ struct RedundantSubscriptionCard: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
                 HStack(spacing: Theme.Spacing.sm) {
                     Image(systemName: "creditcard.trianglebadge.exclamationmark")
-                        .foregroundStyle(Theme.skyBlue)
+                        .foregroundStyle(Theme.skyBlueText)
                     Text("You're both subscribed")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Theme.ink)

@@ -25,7 +25,7 @@ struct SudokuComparisonView: View {
             VStack(spacing: Theme.Spacing.sm) {
                 Image(systemName: "checkmark.seal.fill")
                     .font(.largeTitle)
-                    .foregroundStyle(Theme.leafGreen)
+                    .foregroundStyle(Theme.leafGreenText)
 
                 Text("You both solved it")
                     .font(.title3.weight(.bold))

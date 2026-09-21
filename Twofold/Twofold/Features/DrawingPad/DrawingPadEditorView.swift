@@ -135,7 +135,7 @@ struct DrawingPadEditorView: View {
             } label: {
                 Image(systemName: shapesIcon)
                     .font(.title2)
-                    .foregroundStyle(isShapeTool ? Theme.skyBlue : Theme.ink)
+                    .foregroundStyle(isShapeTool ? Theme.skyBlueText : Theme.ink)
                     .frame(width: 44, height: 44)
                     .background(Theme.cardBackground, in: Circle())
             }
@@ -184,7 +184,7 @@ struct DrawingPadEditorView: View {
         Button(action: action) {
             Image(systemName: systemImage)
                 .font(.title2)
-                .foregroundStyle(isActive ? Theme.skyBlue : (isDisabled ? Theme.subtleInk.opacity(0.3) : Theme.ink))
+                .foregroundStyle(isActive ? Theme.skyBlueText : (isDisabled ? Theme.subtleInk.opacity(0.3) : Theme.ink))
                 .frame(width: 44, height: 44)
                 .background(Theme.cardBackground, in: Circle())
         }

@@ -130,7 +130,7 @@ struct AddFlightEntryStepView: View {
                             HStack(spacing: Theme.Spacing.sm) {
                                 Image(systemName: "airplane.circle.fill")
                                     .font(.title3)
-                                    .foregroundStyle(Theme.skyBlue)
+                                    .foregroundStyle(Theme.skyBlueText)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(airport.name)
                                         .font(.subheadline.weight(.medium))
@@ -201,7 +201,7 @@ struct AddFlightEntryStepView: View {
             HStack {
                 ZStack {
                     Circle().fill(Theme.skyBlue.opacity(0.15))
-                    Image(systemName: icon).foregroundStyle(Theme.skyBlue)
+                    Image(systemName: icon).foregroundStyle(Theme.skyBlueText)
                 }
                 .frame(width: 36, height: 36)
                 Text(title)

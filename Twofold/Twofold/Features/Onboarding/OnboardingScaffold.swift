@@ -278,7 +278,7 @@ struct OnboardingCard: View {
                 }
                 Spacer(minLength: 0)
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(isSelected ? Theme.leafGreen : Theme.subtleInk.opacity(0.3))
+                    .foregroundStyle(isSelected ? Theme.leafGreenText : Theme.subtleInk.opacity(0.3))
             }
             .padding(Theme.Spacing.md)
             .background { cardSurface(isSelected: isSelected, colorScheme: colorScheme) }
@@ -306,7 +306,7 @@ struct OnboardingOptionRow: View {
                     .multilineTextAlignment(.leading)
                 Spacer()
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(isSelected ? Theme.leafGreen : Theme.subtleInk.opacity(0.3))
+                    .foregroundStyle(isSelected ? Theme.leafGreenText : Theme.subtleInk.opacity(0.3))
             }
             .padding(Theme.Spacing.md)
             .background { cardSurface(isSelected: isSelected, colorScheme: colorScheme) }

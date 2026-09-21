@@ -288,7 +288,7 @@ private struct FullStatsView: View {
             // Flight-based (same figure as `distanceSection` below), not trip/reunion-based — a
             // tracked flight should count toward "how far you've travelled" whether or not it's
             // linked to a Trip at all (most aren't; see `FlightStats.init`'s own comment).
-            Text("\(Text(MeasurementPreference.convertedValue(km: stats.totalDistanceKm), format: .number.precision(.fractionLength(0))).font(.system(size: 44, weight: .bold, design: .rounded)).foregroundStyle(Theme.skyBlue))\(Text(" \(MeasurementPreference.unitSuffix())").font(.title.weight(.bold)).foregroundStyle(Theme.leafGreen))")
+            Text("\(Text(MeasurementPreference.convertedValue(km: stats.totalDistanceKm), format: .number.precision(.fractionLength(0))).font(.system(size: 44, weight: .bold, design: .rounded)).foregroundStyle(Theme.skyBlueText))\(Text(" \(MeasurementPreference.unitSuffix())").font(.title.weight(.bold)).foregroundStyle(Theme.leafGreenText))")
 
             if scope == .all {
                 Text(appModel.couple.sharesHomeCity ? "together" : "for each other")

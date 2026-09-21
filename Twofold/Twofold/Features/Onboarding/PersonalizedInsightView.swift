@@ -95,7 +95,7 @@ struct PersonalizedInsightView: View {
                     .offset(y: stage >= 1 ? 0 : 12)
 
                 VStack(spacing: Theme.Spacing.xs) {
-                    Text("\(Text(displayedKm, format: .number.precision(.fractionLength(0))).font(.system(size: 42, weight: .bold, design: .rounded).monospacedDigit()).foregroundStyle(Theme.skyBlue)) \(Text(MeasurementPreference.unitSuffix()).font(.title2.weight(.bold)).foregroundStyle(Theme.leafGreen))")
+                    Text("\(Text(displayedKm, format: .number.precision(.fractionLength(0))).font(.system(size: 42, weight: .bold, design: .rounded).monospacedDigit()).foregroundStyle(Theme.skyBlueText)) \(Text(MeasurementPreference.unitSuffix()).font(.title2.weight(.bold)).foregroundStyle(Theme.leafGreenText))")
                     Text("apart")
                         .font(.headline)
                         .foregroundStyle(Theme.subtleInk)

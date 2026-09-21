@@ -67,7 +67,7 @@ struct OfflineNoticeView: View {
                                 .blur(radius: 16)
                             Image(systemName: "wifi.slash")
                                 .font(.system(size: 40, weight: .medium))
-                                .foregroundStyle(Theme.skyBlue)
+                                .foregroundStyle(Theme.skyBlueText)
                         }
 
                         Text("You're offline")

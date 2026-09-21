@@ -39,7 +39,7 @@ struct OpenGamesSection: View {
                             .foregroundStyle(.white)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(Theme.heartRed, in: Capsule())
+                            .background(Theme.heartRedFill, in: Capsule())
                             .accessibilityLabel("\(yourTurnCount) waiting for you")
                     }
                 }

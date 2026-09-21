@@ -960,7 +960,7 @@ struct MapKitRouteView: UIViewRepresentable {
 
         private static func planeMarker(heading: Double?) -> some View {
             ZStack {
-                Circle().fill(Theme.skyBlue)
+                Circle().fill(Theme.skyBlueFill)
                 Image(systemName: "airplane")
                     .font(.caption.weight(.bold))
                     .foregroundStyle(.white)

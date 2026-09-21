@@ -36,7 +36,7 @@ struct PartnerConnectedView: View {
                 .opacity(avatarsAppeared ? 1 : 0)
 
                 ZStack {
-                    Circle().fill(Theme.heartRed)
+                    Circle().fill(Theme.heartRedFill)
                     Image(systemName: "heart.fill").foregroundStyle(.white).font(.title3)
                 }
                 .frame(width: 36, height: 36)

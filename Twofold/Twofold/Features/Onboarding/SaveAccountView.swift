@@ -114,7 +114,7 @@ struct SaveAccountView: View {
                                 } label: {
                                     Text("Sign In")
                                         .font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(Theme.skyBlue)
+                                        .foregroundStyle(Theme.skyBlueText)
                                 }
                             }
                         }
@@ -123,7 +123,7 @@ struct SaveAccountView: View {
                             showingEmailForm = true
                         }
                         .font(.subheadline.weight(.medium))
-                        .foregroundStyle(Theme.skyBlue)
+                        .foregroundStyle(Theme.skyBlueText)
                         .frame(maxWidth: .infinity)
                     }
 

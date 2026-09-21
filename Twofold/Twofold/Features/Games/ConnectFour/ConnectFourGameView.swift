@@ -179,7 +179,7 @@ struct ConnectFourGameView: View {
             VStack(spacing: Theme.Spacing.sm) {
                 Image(systemName: resultIcon)
                     .font(.largeTitle)
-                    .foregroundStyle(store.isDraw || store.closedWithoutResult ? Theme.subtleInk : Theme.leafGreen)
+                    .foregroundStyle(store.isDraw || store.closedWithoutResult ? Theme.subtleInk : Theme.leafGreenText)
 
                 Text(resultTitle)
                     .font(.title3.weight(.bold))

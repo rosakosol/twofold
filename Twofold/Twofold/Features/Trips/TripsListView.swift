@@ -450,7 +450,7 @@ struct TripsListView: View {
                         } label: {
                             Image(systemName: "plus.circle.fill")
                                 .font(.title2)
-                                .foregroundStyle(Theme.skyBlue)
+                                .foregroundStyle(Theme.skyBlueText)
                         }
                     }
                 }
@@ -480,7 +480,7 @@ struct TripsListView: View {
                     selectedFlightIDs.removeAll()
                 }
             }
-            .foregroundStyle(Theme.skyBlue)
+            .foregroundStyle(Theme.skyBlueText)
 
             Spacer(minLength: 0)
 
@@ -769,7 +769,7 @@ struct TripsListView: View {
     private func selectionIndicator(isSelected: Bool) -> some View {
         Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
             .font(.title3)
-            .foregroundStyle(isSelected ? Theme.skyBlue : Theme.subtleInk.opacity(0.35))
+            .foregroundStyle(isSelected ? Theme.skyBlueText : Theme.subtleInk.opacity(0.35))
     }
 
     private func toggleTripSelection(_ trip: Trip) {
@@ -861,7 +861,7 @@ struct TripsListView: View {
             HStack(spacing: Theme.Spacing.md) {
                 ZStack {
                     Circle().fill(Theme.skyBlue.opacity(0.15))
-                    Image(systemName: icon).foregroundStyle(Theme.skyBlue)
+                    Image(systemName: icon).foregroundStyle(Theme.skyBlueText)
                 }
                 .frame(width: 40, height: 40)
                 VStack(alignment: .leading, spacing: 2) {

@@ -44,7 +44,7 @@ struct ShareInviteView: View {
                     .foregroundStyle(Theme.subtleInk)
                 Text(code)
                     .font(.system(size: 40, weight: .bold, design: .rounded))
-                    .foregroundStyle(Theme.skyBlue)
+                    .foregroundStyle(Theme.skyBlueText)
                 Text("Share this with your partner so they can join you on Twofold.")
                     .font(.subheadline)
                     .foregroundStyle(Theme.subtleInk)
@@ -90,7 +90,7 @@ struct ShareInviteView: View {
                 Button(action: onContinue) {
                     Text("Continue to Twofold")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Theme.skyBlue)
+                        .foregroundStyle(Theme.skyBlueText)
                 }
                 .padding(.top, Theme.Spacing.xs)
             }

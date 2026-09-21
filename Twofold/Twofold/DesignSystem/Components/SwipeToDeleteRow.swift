@@ -67,7 +67,7 @@ struct SwipeToDeleteRow<Content: View>: View {
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.white)
                 .frame(width: revealWidth, height: 36)
-                .background(Theme.heartRed, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .background(Theme.heartRedFill, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel)

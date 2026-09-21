@@ -252,7 +252,7 @@ struct MemoriesListView: View {
                 } label: {
                     Text(String(year).suffix(2))
                         .font(.caption2.weight(currentVisibleYear == year ? .bold : .regular))
-                        .foregroundStyle(currentVisibleYear == year ? Theme.skyBlue : Theme.subtleInk)
+                        .foregroundStyle(currentVisibleYear == year ? Theme.skyBlueText : Theme.subtleInk)
                 }
             }
         }
@@ -314,7 +314,7 @@ struct MemoriesListView: View {
     private func selectionIndicator(isSelected: Bool) -> some View {
         Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
             .font(.title3)
-            .foregroundStyle(isSelected ? Theme.skyBlue : Theme.subtleInk.opacity(0.35))
+            .foregroundStyle(isSelected ? Theme.skyBlueText : Theme.subtleInk.opacity(0.35))
     }
 
     private func toggleSelection(_ memory: Memory) {
@@ -375,7 +375,7 @@ struct MemoriesListView: View {
                     HStack(spacing: Theme.Spacing.md) {
                         ZStack {
                             Circle().fill(Theme.skyBlue.opacity(0.15))
-                            Image(systemName: "photo.badge.plus").foregroundStyle(Theme.skyBlue)
+                            Image(systemName: "photo.badge.plus").foregroundStyle(Theme.skyBlueText)
                         }
                         .frame(width: 40, height: 40)
                         VStack(alignment: .leading, spacing: 2) {

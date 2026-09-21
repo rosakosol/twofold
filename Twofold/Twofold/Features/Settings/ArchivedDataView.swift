@@ -173,7 +173,7 @@ struct ArchivedCoupleDetailView: View {
                     SectionCard {
                         HStack(spacing: Theme.Spacing.sm) {
                             Image(systemName: "clock.badge.exclamationmark")
-                                .foregroundStyle(couple.deletionIsImminent ? Theme.heartRedText : Theme.skyBlue)
+                                .foregroundStyle(couple.deletionIsImminent ? Theme.heartRedText : Theme.skyBlueText)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(couple.deletionNotice ?? "")
                                     .font(.subheadline.weight(.semibold))

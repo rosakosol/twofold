@@ -307,7 +307,7 @@ private struct TimelineEntryView: View {
                 HStack(spacing: Theme.Spacing.xs) {
                     Image(systemName: icon)
                         .font(.caption)
-                        .foregroundStyle(Theme.skyBlue)
+                        .foregroundStyle(Theme.skyBlueText)
                     Text(kind.uppercased())
                         .font(.caption2.weight(.bold))
                         .tracking(1)

@@ -338,7 +338,7 @@ struct MemoriesMapView: View {
                 HStack(spacing: Theme.Spacing.md) {
                     ZStack {
                         Circle().fill(Theme.skyBlue.opacity(0.15))
-                        Image(systemName: "photo.badge.plus").foregroundStyle(Theme.skyBlue)
+                        Image(systemName: "photo.badge.plus").foregroundStyle(Theme.skyBlueText)
                     }
                     .frame(width: 40, height: 40)
                     VStack(alignment: .leading, spacing: 2) {

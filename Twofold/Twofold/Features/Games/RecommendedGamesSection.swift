@@ -79,7 +79,7 @@ struct RecommendedGamesSection: View {
                 Button(action: onSeeAllGames) {
                     Text("See all games")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(Theme.skyBlue)
+                        .foregroundStyle(Theme.skyBlueText)
                 }
             }
 

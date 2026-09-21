@@ -121,7 +121,7 @@ struct DeckCardRow: View {
                     if bothCompleted {
                         Label(completedLabel, systemImage: "checkmark.seal.fill")
                             .font(.caption2.weight(.semibold))
-                            .foregroundStyle(Theme.leafGreen)
+                            .foregroundStyle(Theme.leafGreenText)
                     } else {
                         Text("\(deck.questionCount) question\(deck.questionCount == 1 ? "" : "s")")
                             .font(.caption2)
@@ -223,7 +223,7 @@ struct DeckCardRow: View {
             AvatarView(person: person, size: 32, showsRing: true)
             if completed {
                 ZStack {
-                    Circle().fill(Theme.leafGreen)
+                    Circle().fill(Theme.leafGreenFill)
                     Image(systemName: "checkmark").font(.system(size: 8, weight: .bold)).foregroundStyle(.white)
                 }
                 .frame(width: 16, height: 16)

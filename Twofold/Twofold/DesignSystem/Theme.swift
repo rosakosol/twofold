@@ -35,6 +35,34 @@ enum Theme {
     static let heartRedText = Color(light: "C2334A", dark: "FF9BA3")
     static let ink = Color(light: "1C2A38", dark: "F3F7FA")
 
+    /// Fill counterparts, for a solid shape that carries WHITE content — a destructive button, a
+    /// delete swipe action, a count badge, a completion tick in a filled circle.
+    ///
+    /// The third member of the split `skyBlueText` already documents. `skyBlue`/`leafGreen`/
+    /// `heartRed` map to the text-safe accent because text is the stricter constraint, and that is
+    /// exactly what makes them wrong under a white glyph: white on `leafGreen` is 2.21:1 in light
+    /// and 1.59:1 in dark, white on `heartRed` 3.40:1 and 2.01:1. All four are under AA, and three
+    /// are under AA-large.
+    ///
+    /// Measured, and one value for both appearances — the same reasoning as
+    /// `primaryButtonGradient`, which is the blue member of this set: a fill under white content
+    /// cannot get lighter in dark mode the way a foreground does, so there is nothing for a
+    /// second value to express.
+    ///
+    ///   #2F7F4B  white 4.93   on dark card 3.28   on white 4.93   on grouped 4.42
+    ///   #B74E59  white 4.94   on dark card 3.28   on white 4.94   on grouped 4.43
+    ///
+    /// The window is narrow in both hues: deeper reads better under the glyph and starts losing
+    /// the shape against the dark card (#14222D), where 3.0 is the floor. These sit close to the
+    /// deepest tone that still clears both, with the hue held to the brand's own.
+    /// The flat blue member, for a small filled shape where a gradient would be wasted — a circle
+    /// badge with a white glyph. The midpoint of `primaryButtonGradient`'s two stops, so a badge
+    /// and a button read as the same blue: white 5.00, on dark card 3.24.
+    static let skyBlueFill = Color(hex: "2E74AB")
+    static let leafGreenFill = Color(hex: "2F7F4B")
+    static let heartRedFill = Color(hex: "B74E59")
+
+
     /// `ink`'s light value, pinned so it cannot follow the colour scheme.
     ///
     /// For content drawn on a surface that is itself a fixed colour regardless of scheme — the white

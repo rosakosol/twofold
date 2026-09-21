@@ -248,7 +248,7 @@ struct AddFlightResultsStepView: View {
         .padding(.horizontal, Theme.Spacing.sm)
         .padding(.vertical, 4)
         .background(Theme.leafGreen.opacity(0.15), in: Capsule())
-        .foregroundStyle(Theme.leafGreen)
+        .foregroundStyle(Theme.leafGreenText)
     }
 
     /// Every branch of `progressSummary` renders through this one shape, including the plain

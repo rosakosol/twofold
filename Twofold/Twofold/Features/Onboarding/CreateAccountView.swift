@@ -95,7 +95,7 @@ struct CreateAccountView: View {
                         } label: {
                             Text("Sign In")
                                 .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(Theme.skyBlue)
+                                .foregroundStyle(Theme.skyBlueText)
                         }
                     }
 

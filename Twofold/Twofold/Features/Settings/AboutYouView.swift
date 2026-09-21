@@ -71,7 +71,7 @@ struct AboutYouView: View {
                                 Text("Checking…").foregroundStyle(Theme.subtleInk)
                             } else {
                                 Label("Refresh current city", systemImage: "location.fill")
-                                    .foregroundStyle(Theme.skyBlue)
+                                    .foregroundStyle(Theme.skyBlueText)
                             }
                             Spacer()
                         }

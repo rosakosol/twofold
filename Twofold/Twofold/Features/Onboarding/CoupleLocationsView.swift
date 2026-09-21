@@ -47,7 +47,7 @@ struct CoupleLocationsView: View {
                             } label: {
                                 Label("Try again", systemImage: "location.fill")
                                     .font(.caption.weight(.semibold))
-                                    .foregroundStyle(Theme.skyBlue)
+                                    .foregroundStyle(Theme.skyBlueText)
                             }
                         }
                     }

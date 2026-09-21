@@ -345,7 +345,7 @@ struct FlightTrackingView: View {
                         Text("Unlock with Premium").font(.caption).foregroundStyle(Theme.subtleInk)
                     }
                     Spacer(minLength: 0)
-                    Image(systemName: "crown.fill").font(.caption).foregroundStyle(Theme.skyBlue)
+                    Image(systemName: "crown.fill").font(.caption).foregroundStyle(Theme.skyBlueText)
                 }
             }
         }
@@ -624,7 +624,7 @@ struct FlightTrackingView: View {
         HStack(alignment: .top, spacing: Theme.Spacing.md) {
             ZStack {
                 Circle().fill(Theme.skyBlue.opacity(0.15))
-                Image(systemName: "airplane").font(.caption).foregroundStyle(Theme.skyBlue)
+                Image(systemName: "airplane").font(.caption).foregroundStyle(Theme.skyBlueText)
             }
             .frame(width: 32, height: 32)
             .accessibilityHidden(true)
@@ -651,7 +651,7 @@ struct FlightTrackingView: View {
                     .foregroundStyle(Theme.subtleInk)
                 Text(statusLine)
                     .font(.caption.weight(.medium))
-                    .foregroundStyle(Theme.skyBlue)
+                    .foregroundStyle(Theme.skyBlueText)
             }
             Spacer(minLength: 0)
         }
@@ -678,7 +678,7 @@ struct FlightTrackingView: View {
         HStack(spacing: Theme.Spacing.sm) {
             ZStack {
                 Circle().fill(Theme.skyBlue.opacity(0.15))
-                Image(systemName: icon).font(.subheadline).foregroundStyle(Theme.skyBlue)
+                Image(systemName: icon).font(.subheadline).foregroundStyle(Theme.skyBlueText)
             }
             .frame(width: 32, height: 32)
             VStack(alignment: .leading, spacing: 2) {
@@ -779,7 +779,7 @@ struct FlightTrackingView: View {
             } else {
             SectionCard {
                 HStack(spacing: Theme.Spacing.xs) {
-                    Image(systemName: "sparkles").foregroundStyle(Theme.skyBlue)
+                    Image(systemName: "sparkles").foregroundStyle(Theme.skyBlueText)
                     Text("Good to know").font(.subheadline.weight(.semibold))
                 }
 
@@ -854,7 +854,7 @@ struct FlightTrackingView: View {
         return VStack(spacing: 4) {
             Image(systemName: isDaytime ? "sun.max.fill" : "moon.stars.fill")
                 .font(.caption)
-                .foregroundStyle(isDaytime ? Theme.skyBlue : Theme.subtleInk)
+                .foregroundStyle(isDaytime ? Theme.skyBlueText : Theme.subtleInk)
             Text(code).font(.caption2.weight(.semibold)).foregroundStyle(Theme.subtleInk)
             Text(TimeMath.timeString(in: timeZone, at: date)).font(.subheadline.weight(.bold)).foregroundStyle(Theme.ink)
         }
@@ -891,7 +891,7 @@ struct FlightTrackingView: View {
                     HStack(alignment: .top, spacing: Theme.Spacing.sm) {
                         ZStack {
                             Circle().fill(event.type.isUrgent ? Theme.heartRed.opacity(0.15) : Theme.skyBlue.opacity(0.15))
-                            Image(systemName: event.type.icon).font(.caption).foregroundStyle(event.type.isUrgent ? Theme.heartRedText : Theme.skyBlue)
+                            Image(systemName: event.type.icon).font(.caption).foregroundStyle(event.type.isUrgent ? Theme.heartRedText : Theme.skyBlueText)
                         }
                         .frame(width: 28, height: 28)
                         .accessibilityHidden(true)
@@ -1087,7 +1087,7 @@ struct FlightTrackingView: View {
                 if isUploadingDocument {
                     ProgressView().controlSize(.small)
                 } else {
-                    Image(systemName: "plus").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.skyBlue)
+                    Image(systemName: "plus").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.skyBlueText)
                 }
             }
             .frame(width: 32, height: 32)
@@ -1117,7 +1117,7 @@ struct FlightTrackingView: View {
     private func documentRow(_ document: FlightDocument) -> some View {
         HStack(spacing: Theme.Spacing.sm) {
             flightDocumentIcon(document.docType.icon, size: 16)
-                .foregroundStyle(Theme.skyBlue)
+                .foregroundStyle(Theme.skyBlueText)
                 .frame(width: 18)
 
             // The filename, not the tag — the tag is the group heading directly above, so a row

@@ -69,7 +69,7 @@ struct TrialTrustView: View {
         HStack(alignment: .top, spacing: Theme.Spacing.md) {
             ZStack {
                 Circle().fill(Theme.skyBlue.opacity(0.15))
-                Image(systemName: icon).foregroundStyle(Theme.skyBlue)
+                Image(systemName: icon).foregroundStyle(Theme.skyBlueText)
             }
             .frame(width: 36, height: 36)
             VStack(alignment: .leading, spacing: 2) {

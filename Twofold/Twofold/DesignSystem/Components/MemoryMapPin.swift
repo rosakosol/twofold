@@ -43,7 +43,7 @@ struct MemoryMapPin<Photo: View>: View {
                     .font(.caption2.weight(.bold))
                     .foregroundStyle(.white)
                     .padding(4)
-                    .background(Theme.heartRed, in: Circle())
+                    .background(Theme.heartRedFill, in: Circle())
                     .overlay(Circle().strokeBorder(.white, lineWidth: 1.5))
                     .offset(x: 6, y: -6)
             }

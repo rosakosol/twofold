@@ -74,7 +74,7 @@ struct MemoryLocationSearchView: View {
                                 dismiss()
                             } label: {
                                 HStack {
-                                    Image(systemName: "location.fill").foregroundStyle(Theme.skyBlue)
+                                    Image(systemName: "location.fill").foregroundStyle(Theme.skyBlueText)
                                     locationRow(title: "Current location", subtitle: "\(resolvedCurrentPlace.displayCity), \(resolvedCurrentPlace.country)")
                                 }
                             }

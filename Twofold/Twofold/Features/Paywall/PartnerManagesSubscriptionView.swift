@@ -28,7 +28,7 @@ struct PartnerManagesSubscriptionView: View {
                         .opacity(0.18)
                     Image(systemName: "person.crop.circle.badge.checkmark")
                         .font(.system(size: 36))
-                        .foregroundStyle(Theme.skyBlue)
+                        .foregroundStyle(Theme.skyBlueText)
                 }
                 .frame(width: 96, height: 96)
 

@@ -250,7 +250,7 @@ struct WordSearchGameView: View {
             VStack(spacing: Theme.Spacing.sm) {
                 Image(systemName: "checkmark.seal.fill")
                     .font(.largeTitle)
-                    .foregroundStyle(Theme.leafGreen)
+                    .foregroundStyle(Theme.leafGreenText)
 
                 Text("Cleared in \(PuzzleClock.text(play.elapsed))")
                     .font(.title3.weight(.bold))

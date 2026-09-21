@@ -199,7 +199,7 @@ struct AddTripDetailsView: View {
         } label: {
             HStack(spacing: Theme.Spacing.sm) {
                 Image(systemName: "airplane")
-                    .foregroundStyle(Theme.skyBlue)
+                    .foregroundStyle(Theme.skyBlueText)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(addFlightLabel)
                         .font(.subheadline.weight(.medium))

@@ -233,7 +233,7 @@ struct GameResultsView: View {
         case .triviaBattle:
             let myScore = GameLogic.triviaScore(responses: store.responses, responderID: myID)
             VStack(spacing: Theme.Spacing.xs) {
-                Image(systemName: "trophy.fill").font(.system(size: 40)).foregroundStyle(Theme.leafGreen)
+                Image(systemName: "trophy.fill").font(.system(size: 40)).foregroundStyle(Theme.leafGreenText)
                 if isSolo {
                     Text("You got \(myScore)/\(store.rounds.count)!")
                         .font(.title3.weight(.bold))
@@ -251,7 +251,7 @@ struct GameResultsView: View {
         case .moreLikely, .thisOrThat:
             if isSolo {
                 VStack(spacing: Theme.Spacing.sm) {
-                    Image(systemName: "person.2.fill").font(.system(size: 40)).foregroundStyle(Theme.skyBlue)
+                    Image(systemName: "person.2.fill").font(.system(size: 40)).foregroundStyle(Theme.skyBlueText)
                     Text("Your answers are saved")
                         .font(.title3.weight(.bold))
                     Text("Invite your partner to see how you match up.")
@@ -275,7 +275,7 @@ struct GameResultsView: View {
             }
         case .deepConversations:
             VStack(spacing: Theme.Spacing.xs) {
-                Image(systemName: "bubble.left.and.bubble.right.fill").font(.system(size: 40)).foregroundStyle(Theme.leafGreen)
+                Image(systemName: "bubble.left.and.bubble.right.fill").font(.system(size: 40)).foregroundStyle(Theme.leafGreenText)
                 Text(isSolo ? "You shared your thoughts" : "You both shared your thoughts")
                     .font(.title3.weight(.bold))
             }
@@ -406,7 +406,7 @@ struct GameResultsView: View {
                     if !matched {
                         Text("Correct answer: \(question.correctAnswer)")
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(Theme.leafGreen)
+                            .foregroundStyle(Theme.leafGreenText)
                     }
                     if let explanation = question.explanation, !explanation.isEmpty {
                         Text(explanation).font(.caption).foregroundStyle(Theme.subtleInk)
@@ -456,7 +456,7 @@ struct GameResultsView: View {
     private func correctnessBadge(label: String, isCorrect: Bool?) -> some View {
         Label(label, systemImage: isCorrect == true ? "checkmark.circle.fill" : "xmark.circle.fill")
             .font(.caption2.weight(.medium))
-            .foregroundStyle(isCorrect == true ? Theme.leafGreen : Theme.heartRedText)
+            .foregroundStyle(isCorrect == true ? Theme.leafGreenText : Theme.heartRedText)
             // `Label`'s default accessibility reading is just its text ("You"/partner's name) —
             // the icon alone doesn't carry "correct" vs "incorrect" to VoiceOver, so it's spelled
             // out explicitly here instead.
@@ -614,7 +614,7 @@ private struct MatchCheckmarkBadge: View {
 
     var body: some View {
         ZStack {
-            Circle().fill(Theme.leafGreen)
+            Circle().fill(Theme.leafGreenFill)
             Image(systemName: "checkmark")
                 .font(.caption.weight(.bold))
                 .foregroundStyle(.white)

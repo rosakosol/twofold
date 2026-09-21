@@ -103,7 +103,7 @@ struct AddFlightRouteStepView: View {
         return HStack(spacing: Theme.Spacing.sm) {
             Image(systemName: isDeparture ? "airplane.departure" : "airplane.arrival")
                 .font(.subheadline)
-                .foregroundStyle(airport == nil ? Theme.subtleInk : Theme.skyBlue)
+                .foregroundStyle(airport == nil ? Theme.subtleInk : Theme.skyBlueText)
                 .frame(width: 28)
 
             VStack(alignment: .leading, spacing: 2) {
@@ -136,7 +136,7 @@ struct AddFlightRouteStepView: View {
         return Button(action: swapEnds) {
             Image(systemName: "arrow.up.arrow.down")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Theme.skyBlue)
+                .foregroundStyle(Theme.skyBlueText)
                 .frame(width: 32, height: 32)
                 .background(Theme.skyBlue.opacity(0.15), in: Circle())
         }
@@ -197,7 +197,7 @@ struct AddFlightRouteStepView: View {
             HStack(spacing: Theme.Spacing.sm) {
                 Text(airport.preferredCode ?? "—")
                     .font(.caption.weight(.bold))
-                    .foregroundStyle(Theme.skyBlue)
+                    .foregroundStyle(Theme.skyBlueText)
                     .frame(width: 44)
                     .padding(.vertical, 6)
                     .background(Theme.skyBlue.opacity(0.15), in: Capsule())

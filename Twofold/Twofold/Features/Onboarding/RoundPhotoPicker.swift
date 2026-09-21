@@ -70,7 +70,7 @@ struct RoundPhotoPicker: View {
             .overlay(alignment: .bottomTrailing) {
                 if !hasImage {
                     ZStack {
-                        Circle().fill(Theme.skyBlue)
+                        Circle().fill(Theme.skyBlueFill)
                         Image(systemName: "plus")
                             .font(.system(size: size * 0.14, weight: .bold))
                             .foregroundStyle(.white)

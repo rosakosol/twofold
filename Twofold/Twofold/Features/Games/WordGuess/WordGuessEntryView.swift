@@ -123,7 +123,7 @@ struct WordGuessEntryView: View {
             VStack(spacing: Theme.Spacing.sm) {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.largeTitle)
-                    .foregroundStyle(Theme.leafGreen)
+                    .foregroundStyle(Theme.leafGreenText)
                 Text("That's today's word done")
                     .font(.headline)
                     .foregroundStyle(Theme.ink)

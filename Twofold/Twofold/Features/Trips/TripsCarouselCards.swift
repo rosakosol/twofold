@@ -119,7 +119,7 @@ struct TripCarouselCard: View {
             } else if trip.isActive {
                 Image(systemName: "airplane")
                     .font(.subheadline)
-                    .foregroundStyle(Theme.skyBlue)
+                    .foregroundStyle(Theme.skyBlueText)
                     .accessibilityHidden(true)
                 Text("Now")
                     .font(.caption2)
@@ -127,7 +127,7 @@ struct TripCarouselCard: View {
             } else {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.subheadline)
-                    .foregroundStyle(Theme.leafGreen)
+                    .foregroundStyle(Theme.leafGreenText)
                     .accessibilityHidden(true)
                 Text("Done")
                     .font(.caption2)

@@ -35,14 +35,14 @@ struct OnboardingRevealView: View {
                 VStack(spacing: Theme.Spacing.md) {
                     Text("\(days)")
                         .font(.system(size: 72, weight: .bold, design: .rounded))
-                        .foregroundStyle(Theme.skyBlue)
+                        .foregroundStyle(Theme.skyBlueText)
                     Text("days until you're together 💛")
                         .font(.title3.weight(.semibold))
                         .multilineTextAlignment(.center)
 
                     HStack(spacing: Theme.Spacing.lg) {
                         AvatarView(person: partnerPerson, size: 48, showsRing: true)
-                        Image(systemName: "airplane").foregroundStyle(Theme.skyBlue)
+                        Image(systemName: "airplane").foregroundStyle(Theme.skyBlueText)
                         AvatarView(person: me, size: 48, showsRing: true)
                     }
                     .padding(.top, Theme.Spacing.sm)
