@@ -26,8 +26,68 @@
 // the client should treat any error from this function as "please try again" rather than
 // assuming nothing happened, and re-calling this function is always safe (both steps are
 // idempotent).
+//
+// ---------------------------------------------------------------------------
+// Step 0: cancel a web subscription, and refuse to delete if that fails
+// ---------------------------------------------------------------------------
+//
+// Runs before either step, because after them there is nothing left to act on and no way for the
+// person to come back and fix it themselves. An App Store subscription is not ours to cancel and
+// is skipped (`isStoreManaged`) — Apple offers no mechanism, which is why `DeleteAccountView`
+// warns and links to Apple's own subscription settings.
+//
+// A website subscription is ours, billed through Stripe with credentials we hold, and once the
+// account is gone the buyer has no Settings screen for it and no way to sign in and find it. The
+// FAQ promises we will cancel it if they email us; this does it without their having to know that.
+//
+// A failure here aborts the deletion rather than proceeding without it. That is the deliberate
+// choice: a deletion that did not happen is an inconvenience the person can retry, and a live
+// subscription against an account nobody can sign in to is a charge they cannot stop. Of the two
+// ways to be wrong, only one takes money.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import {
+  activeSubscriptions,
+  cancellableSubscriptions,
+  cancelStripeSubscription,
+  fetchSubscriber,
+  resolveStripeSubscriptionId,
+} from "../_shared/subscription-cancel.ts";
+
+/// Ends every web subscription this user still has. Throws if any of them could not be ended.
+async function cancelWebSubscriptions(appUserId: string): Promise<number> {
+  const revenueCatKey = Deno.env.get("REVENUECAT_REST_API_KEY");
+  if (!revenueCatKey) {
+    // Without it we cannot even tell whether there is a web subscription, and "assume there
+    // isn't" is the assumption that charges people.
+    throw new Error("REVENUECAT_REST_API_KEY is not set");
+  }
+
+  // Uppercased for the same reason the webhook does it: `Purchases.shared.logIn` sends the
+  // uppercased UUID, so that is the id RevenueCat holds.
+  const subscriptions = await fetchSubscriber(appUserId.toUpperCase(), revenueCatKey);
+  if (subscriptions === null) return 0;
+
+  const cancellable = cancellableSubscriptions(activeSubscriptions(subscriptions, Date.now()));
+  if (cancellable.length === 0) return 0;
+
+  const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+  if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set, and this account has a web subscription");
+
+  for (const subscription of cancellable) {
+    if (subscription.store !== "stripe" && subscription.store !== "rc_billing") {
+      // An unrecognised store is not silently skipped: skipping is what leaves somebody paying.
+      throw new Error(`no cancellation path for store "${subscription.store}"`);
+    }
+    if (!subscription.storeTransactionId) {
+      throw new Error("web subscription carried no store transaction id");
+    }
+    // Both RevenueCat web stores bill through Stripe and report a Stripe id here.
+    const stripeId = await resolveStripeSubscriptionId(subscription.storeTransactionId, stripeKey);
+    await cancelStripeSubscription(stripeId, stripeKey);
+  }
+  return cancellable.length;
+}
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") {
@@ -43,6 +103,27 @@ Deno.serve(async (req) => {
   const { data: { user } } = await userClient.auth.getUser();
   if (!user) {
     return Response.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  let cancelledSubscriptions = 0;
+  try {
+    cancelledSubscriptions = await cancelWebSubscriptions(user.id);
+  } catch (err) {
+    // Deliberately before any deletion, and deliberately fatal. Nothing has been scrubbed yet, so
+    // the account is exactly as it was and the retry the client is told to make is a clean one.
+    //
+    // No subscription id, customer id or key in the log line — the message is ours, and the user
+    // id is omitted the same way `revenuecat-webhook` omits it.
+    console.error("[delete-account] could not cancel web subscription:", (err as Error).message);
+    return Response.json(
+      {
+        error:
+          "We couldn't cancel your subscription just now, so we haven't deleted your account — " +
+          "deleting it while the subscription is live would keep charging you. Please try again, " +
+          "or email hello@twofoldapp.com.au.",
+      },
+      { status: 503 },
+    );
   }
 
   // No arguments: `p_delete_shared_data` defaults to false and is ignored either way. Any body
@@ -64,7 +145,7 @@ Deno.serve(async (req) => {
     return Response.json({ error: "Your data was deleted but signing out failed — please try again." }, { status: 500 });
   }
 
-  return Response.json({ ok: true });
+  return Response.json({ ok: true, cancelledSubscriptions });
 });
 
 /* To invoke locally:

@@ -10,6 +10,7 @@
 //  — skipping onboarding entirely, since signing in already proves the account exists.
 //
 
+import Supabase
 import SwiftUI
 
 struct SignInView: View {
@@ -155,7 +156,7 @@ struct SignInView: View {
                 if case BackendError.accountDeleted = error {
                     handleAccountDeleted()
                 } else {
-                    errorMessage = error.localizedDescription
+                    errorMessage = Self.signInFailureMessage(for: error)
                 }
                 isSubmitting = false
             }
@@ -176,18 +177,43 @@ struct SignInView: View {
             return
         }
         // Apple/Google auto-provision a brand-new account on first use — unlike email/password
-        // (wrong credentials just fail), there's no "no such account" error to tell a genuinely
-        // new person apart from a returning one here, so `loadSignedInState` already routed them
-        // straight past onboarding (see its own doc comment: authenticated at all reads as
-        // "onboarding already done"). A never-onboarded profile always has an empty name — real
-        // onboarding collects it before account creation ever happens — so this catches that one
-        // case and sends them back to actually onboard instead of dropping them at the paywall.
-        if appModel.currentUser.name.isEmpty {
-            appModel.hasCouple = false
+        // (wrong credentials just fail), there is no "no such account" error to tell a genuinely
+        // new person apart from a returning one here.
+        //
+        // This used to test `currentUser.name.isEmpty`, reasoning that onboarding collects a name
+        // before the account exists, so a nameless profile cannot have onboarded. The test could
+        // never fire: `fetchOwnProfile` and `adoptSignedInIdentity` both substitute "You" for an
+        // empty name, so the property is never empty. The premise was wrong as well —
+        // `applyOnboardingAccount` never persisted the name on the Apple/Google paths, so an empty
+        // `first_name` was the normal state for an SSO account that had fully onboarded.
+        //
+        // `needsOnboarding` is the recorded fact (migration 20261106000000), not a guess.
+        if appModel.needsOnboarding {
+            // Somebody on a screen titled "Welcome back" did not mean to create an account, so say
+            // that one has been created. Overwhelmingly this is Hide My Email: the relay address is
+            // a new email, so it is a new user, and their real account is still sitting there
+            // holding the couple and the history.
+            appModel.signedInToNewAccountMessage = "This Apple ID or Google account wasn't linked to a Twofold account, so we've started a new one for you.\n\nIf you already have an account it was made with a different email address — especially likely if you chose \"Hide My Email\". Sign out from Settings and sign in with that email to get back to it."
             dismiss()
             return
         }
         isSubmitting = false
+    }
+
+    /// Supabase answers a wrong password and an address that has no password at all with the same
+    /// `invalid_credentials`, deliberately — telling them apart would be an oracle for which
+    /// emails are registered. Right for the API, a dead end for the person, because the likeliest
+    /// reason a real user is stuck here is that their account has no password to get wrong: they
+    /// created it with Apple or Google, both offered on this very screen.
+    ///
+    /// So the hint is attached to the generic failure rather than to a detected one. It reveals
+    /// nothing — a mistyped password on an email account gets it too — and it names the thing that
+    /// actually fixes it.
+    static func signInFailureMessage(for error: Error) -> String {
+        guard let authError = error as? AuthError, authError.errorCode == .invalidCredentials else {
+            return error.localizedDescription
+        }
+        return "That email and password don't match an account. If you signed up with Apple or Google, use those buttons above instead — those accounts don't have a password."
     }
 
     /// Redirects straight into a fresh onboarding flow instead of leaving this sheet showing a

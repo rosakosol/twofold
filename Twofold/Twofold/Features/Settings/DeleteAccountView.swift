@@ -79,7 +79,7 @@ struct DeleteAccountView: View {
                             explainerRow(icon: "square.and.arrow.down", text: "If you want to keep a copy, export it from Settings → Help → Archived Data before you delete your account — you won't be able to sign in to get it afterwards.")
                         }
 
-                        // Deleting the account does not cancel the subscription, and cannot: an App
+                        // Still the App Store half of the warning, which has not changed: an App
                         // Store subscription belongs to the Apple Account that bought it, and Apple
                         // gives developers no way to cancel one on somebody's behalf. Saying nothing
                         // here means a person leaves believing they are done and keeps being
@@ -91,7 +91,7 @@ struct DeleteAccountView: View {
                         if appModel.isSubscriptionActive {
                             explainerRow(
                                 icon: "creditcard",
-                                text: "Deleting your account does not cancel your subscription. Apple only lets you do that yourself — tap below, or go to Settings → Apple Account → Subscriptions on your device. Do it before you delete, because afterwards you won't be able to sign in to find it."
+                                text: "If you subscribed through the App Store, deleting your account does not cancel it — Apple only lets you do that yourself. Tap below, or go to Settings → Apple Account → Subscriptions on your device, and do it before you delete, because afterwards you won't be able to sign in to find it. A subscription bought on our website is cancelled for you automatically."
                             )
                             Button {
                                 openSubscriptionManagement()

@@ -43,6 +43,13 @@ final class AppModel {
     /// "no rows" from here, and re-onboarding somebody because their train went into a tunnel is a
     /// far worse failure than briefly showing a web account the app.
     var needsOnboarding = false
+    /// Set when "Sign in" produced a brand-new account instead of resuming an existing one, which
+    /// is what Apple's Hide My Email does to anyone who already signed up with their real address:
+    /// the relay `...@privaterelay.appleid.com` is a different email, so Supabase makes a different
+    /// user. The old account still exists, still holds the couple and the history, and nothing
+    /// said so - the person simply arrived in an empty app. `OnboardingCoordinatorView` shows this
+    /// once and clears it.
+    var signedInToNewAccountMessage: String?
     /// Set by `loadSignedInState()` when it finds a session belonging to an already-deleted
     /// account and signs it back out. `SignInView`/`WelcomeView` read this once to show the
     /// user why they landed back at sign-in instead of their previous session resuming.

@@ -52,6 +52,17 @@ struct OnboardingCoordinatorView: View {
         .fullScreenCover(isPresented: $showingPasswordReset) {
             ResetPasswordView()
         }
+        // Not on WelcomeView, where `accountDeletedMessage` lives: an account that has just been
+        // created has `needsOnboarding` set, so the stack's root is the first onboarding question
+        // and WelcomeView is never shown. This is the one container both roots share.
+        .alert("We've started a new account", isPresented: Binding(
+            get: { appModel.signedInToNewAccountMessage != nil },
+            set: { if !$0 { appModel.signedInToNewAccountMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(appModel.signedInToNewAccountMessage ?? "")
+        }
         .alert("Link expired", isPresented: Binding(get: { passwordRecoveryError != nil }, set: { if !$0 { passwordRecoveryError = nil } })) {
             Button("OK") {}
         } message: {
