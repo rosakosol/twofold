@@ -14,13 +14,17 @@ Effort is a rough half-day unit: **S** under an hour, **M** a few hours, **L** a
 
 ### 0.1 Delete R2 objects when an account or an archive is purged — **L**
 
-> **Status: built and deployed, deleting nothing yet** (`841cef4`). Migrations `20261110000000`
-> and `20261110000100` are in production and `purge-r2-objects` is live. The keys are being
-> captured from now on, so the window described below has stopped closing. The cron job is
-> deployed **inactive** and deletes nothing until somebody enables it — see the rollout at the end
-> of this item. Still outstanding: the inline call from `delete-account`, deliberately deferred to
-> the change that enables the job, and the objects already stranded by deletions that ran before
-> this, which need a bucket listing no code here can perform.
+> **Status: DONE — live and deleting** (`841cef4`, `bc52217`). Migrations `20261110000000`
+> and `20261110000100` are in production, `purge-r2-objects` is live, and the cron job was enabled
+> by `20261110000400` after the rollout below was actually carried out: queue confirmed empty, one
+> tester account scrubbed, dry run returned two keys under one uuid and nothing else, real drain
+> reported `deleted:2 failed:0`. The job runs daily at 04:15.
+>
+> Still outstanding, both tracked here rather than done: the inline call from `delete-account`,
+> which was deferred to this change and is now unblocked but not written — the cron covers it
+> within a day, so it is a responsiveness improvement rather than a correctness one. And the
+> objects already stranded by deletions that ran before the capture existed, which need a bucket
+> listing no code here can perform.
 
 
 **Why first.** `purge_couple_data` cascades `memory_photos` and `flight_documents` away, and those
