@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { UserMenu } from "@/components/layout/UserMenu";
 import { useIsBillingAdmin } from "@/lib/auth/useIsBillingAdmin";
+import { useIsSupportAdmin } from "@/lib/auth/useIsSupportAdmin";
 
 /**
  * The console's own navbar, and the reason it is not `SiteHeader`.
@@ -30,6 +31,9 @@ const CONSOLE_LINKS = [
   // /feedback, which is the public board and stays in the website's nav: the privacy policy
   // describes it as readable by anyone, signed in or not, and it is where users post and vote.
   { href: "/admin", label: "Requests", exact: true },
+  // Accounts. Its own role, because reading somebody's email, partner and subscription is a
+  // narrower grant than editing a deck — see 20261109000000.
+  { href: "/admin/users", label: "Accounts", exact: false, role: "support" as const },
   { href: "/admin/games", label: "Games", exact: false },
   // Spend. Its own role, so its own visibility — see useIsBillingAdmin below.
   { href: "/admin/usage", label: "Usage", exact: false, role: "billing" as const },
@@ -41,6 +45,7 @@ const CONSOLE_LINKS = [
 export function ConsoleHeader() {
   const pathname = usePathname();
   const isBillingAdmin = useIsBillingAdmin();
+  const isSupportAdmin = useIsSupportAdmin();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
 
@@ -75,7 +80,9 @@ export function ConsoleHeader() {
 
         <nav>
           <ul className="site-nav-links">
-            {CONSOLE_LINKS.filter((link) => link.role !== "billing" || isBillingAdmin).map((link) => {
+            {CONSOLE_LINKS.filter((link) =>
+              link.role === "billing" ? isBillingAdmin : link.role === "support" ? isSupportAdmin : true,
+            ).map((link) => {
               const isActive = link.exact ? pathname === link.href : pathname.startsWith(link.href);
               return (
                 <li key={link.href}>

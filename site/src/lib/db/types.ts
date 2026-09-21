@@ -2438,6 +2438,35 @@ export type Database = {
         Args: { p_session_id: string }
         Returns: undefined
       }
+      admin_account_detail: {
+        Args: { p_profile_id: string; p_reason?: string }
+        Returns: Json
+      }
+      admin_audit_for_subject: {
+        Args: { p_limit?: number; p_profile_id: string }
+        Returns: {
+          action: string
+          actor_email: string
+          actor_id: string
+          details: Json
+          occurred_at: string
+          reason: string
+        }[]
+      }
+      admin_lookup_account: {
+        Args: { p_query: string }
+        Returns: {
+          created_at: string
+          deleted_at: string
+          email: string
+          first_name: string
+          has_partner: boolean
+          last_active_at: string
+          profile_id: string
+          subscription_active: boolean
+          subscription_tier: string
+        }[]
+      }
       api_usage_by_endpoint: {
         Args: { p_from?: string; p_provider?: string; p_to?: string }
         Returns: {
