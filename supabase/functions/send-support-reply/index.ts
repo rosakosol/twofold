@@ -33,6 +33,7 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { fromAddress, singleLine, smtpClient } from "../_shared/mail.ts";
+import { presign, r2ConfigFromEnv } from "../_shared/r2.ts";
 import { replyHtml, replySubject, replyText, replyToAddress } from "./compose.ts";
 
 interface Body {
@@ -40,6 +41,8 @@ interface Body {
   body?: string;
   close?: boolean;
   note?: string;
+  /// Ids from `reserve_support_attachment`, already uploaded to R2 by the browser.
+  attachmentIds?: string[];
 }
 
 function bad(message: string, status = 400): Response {
@@ -98,6 +101,45 @@ Deno.serve(async (req) => {
     return bad("Email sending isn't set up.", 503);
   }
 
+  // Fetched before SMTP opens, so a missing object fails the send rather than half-sending it —
+  // a reply that goes out without the screenshot it refers to is worse than one that did not go.
+  //
+  // Held in memory because denomailer wants the bytes; the 10MB-per-file and 5-file ceilings in
+  // `reserve_support_attachment` are sized for exactly this moment rather than for the bucket.
+  const attachmentIds = (input.attachmentIds ?? []).filter((id) => typeof id === "string");
+  const attachments: { filename: string; contentType: string; encoding: "binary"; content: Uint8Array }[] = [];
+
+  if (attachmentIds.length > 0) {
+    const { data: files, error: filesError } = await serviceClient.rpc("support_attachments_for_send", {
+      p_ids: attachmentIds,
+    });
+    if (filesError) {
+      console.error("[send-support-reply] could not load attachments:", filesError.message);
+      return bad("Couldn't read the attachments. Nothing has been sent.", 500);
+    }
+
+    for (const file of (files ?? []) as { filename: string; content_type: string; r2_key: string; thread_id: string }[]) {
+      // An attachment reserved against a different conversation must not ride along on this one.
+      if (file.thread_id !== input.threadId) {
+        return bad("An attachment does not belong to this conversation.", 409);
+      }
+      try {
+        const url = await presign(r2ConfigFromEnv(), file.r2_key, { method: "GET", expiresIn: 300 });
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`R2 returned ${response.status}`);
+        attachments.push({
+          filename: file.filename,
+          contentType: file.content_type,
+          encoding: "binary",
+          content: new Uint8Array(await response.arrayBuffer()),
+        });
+      } catch (err) {
+        console.error("[send-support-reply] could not fetch attachment:", (err as Error).message);
+        return bad("Couldn't read one of the attachments. Nothing has been sent.", 502);
+      }
+    }
+  }
+
   try {
     const client = smtpClient();
     await client.send({
@@ -116,6 +158,7 @@ Deno.serve(async (req) => {
       // no Message-ID to answer.
       inReplyTo: t.last_inbound_message_id ?? undefined,
       references: t.last_inbound_message_id ?? undefined,
+      attachments: attachments.length > 0 ? attachments : undefined,
     });
     await client.close();
   } catch (err) {
@@ -124,7 +167,7 @@ Deno.serve(async (req) => {
     return bad("Couldn't send that reply. Nothing has changed — try again.", 502);
   }
 
-  const { error: recordError } = await serviceClient.rpc("record_support_reply", {
+  const { data: requestId, error: recordError } = await serviceClient.rpc("record_support_reply", {
     p_thread_id: input.threadId,
     p_actor: user.id,
     p_body: body,
@@ -143,7 +186,20 @@ Deno.serve(async (req) => {
     });
   }
 
-  return Response.json({ ok: true, recorded: true });
+  // Binds the files to the message that carried them, which is also what stops the nightly sweep
+  // collecting them as abandoned. A failure here leaves the attachment rows dangling — the reply is
+  // recorded and the files are in the bucket, so nothing the recipient sees is affected.
+  if (attachmentIds.length > 0 && requestId) {
+    const { error: attachError } = await serviceClient.rpc("attach_support_attachments", {
+      p_ids: attachmentIds,
+      p_request_id: requestId,
+    });
+    if (attachError) {
+      console.error("[send-support-reply] sent and recorded, but attachments not bound:", attachError.message);
+    }
+  }
+
+  return Response.json({ ok: true, recorded: true, attachments: attachments.length });
 });
 
 /* To invoke locally:

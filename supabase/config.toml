@@ -559,3 +559,16 @@ entrypoint = "./functions/admin-actions/index.ts"
 enabled = true
 verify_jwt = true
 entrypoint = "./functions/cancel-my-subscription/index.ts"
+
+# Both called from the console by a signed-in admin, so the gateway should insist on a JWT — and
+# both read `auth.uid()` through the caller's own client to check the support role. A service-role
+# client there would make every check pass, which is what storage-url's header already warns about.
+[functions.send-support-reply]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/send-support-reply/index.ts"
+
+[functions.support-attachment-upload]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/support-attachment-upload/index.ts"

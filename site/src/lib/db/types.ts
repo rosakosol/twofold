@@ -2259,6 +2259,57 @@ export type Database = {
         }
         Relationships: []
       }
+      support_attachments: {
+        Row: {
+          content_type: string
+          created_at: string
+          direction: string
+          filename: string
+          id: string
+          r2_key: string
+          request_id: string | null
+          size_bytes: number | null
+          thread_id: string
+        }
+        Insert: {
+          content_type: string
+          created_at?: string
+          direction?: string
+          filename: string
+          id?: string
+          r2_key: string
+          request_id?: string | null
+          size_bytes?: number | null
+          thread_id: string
+        }
+        Update: {
+          content_type?: string
+          created_at?: string
+          direction?: string
+          filename?: string
+          id?: string
+          r2_key?: string
+          request_id?: string | null
+          size_bytes?: number | null
+          thread_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_attachments_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "support_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_attachments_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "support_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       support_requests: {
         Row: {
           category: string
@@ -2270,6 +2321,7 @@ export type Database = {
           message_id: string | null
           name: string | null
           profile_id: string | null
+          seq: number
           source: string
           subject: string | null
           thread_id: string | null
@@ -2285,6 +2337,7 @@ export type Database = {
           message_id?: string | null
           name?: string | null
           profile_id?: string | null
+          seq?: never
           source: string
           subject?: string | null
           thread_id?: string | null
@@ -2300,6 +2353,7 @@ export type Database = {
           message_id?: string | null
           name?: string | null
           profile_id?: string | null
+          seq?: never
           source?: string
           subject?: string | null
           thread_id?: string | null
@@ -2715,6 +2769,10 @@ export type Database = {
         }[]
       }
       archive_retention_interval: { Args: never; Returns: string }
+      attach_support_attachments: {
+        Args: { p_ids: string[]; p_request_id: string }
+        Returns: number
+      }
       block_profile: { Args: { p_profile_id: string }; Returns: undefined }
       can_access_storage_object: {
         Args: { p_kind: string; p_op?: string; p_path: string }
@@ -3006,6 +3064,16 @@ export type Database = {
         Args: { p_added_by: string; p_couple_id: string; p_flight_id: string }
         Returns: undefined
       }
+      record_support_reply: {
+        Args: {
+          p_actor: string
+          p_body: string
+          p_close?: boolean
+          p_note?: string
+          p_thread_id: string
+        }
+        Returns: string
+      }
       redeem_invite_code: {
         Args: {
           p_code: string
@@ -3045,6 +3113,15 @@ export type Database = {
           error_message: string
           repaired: boolean
         }[]
+      }
+      reserve_support_attachment: {
+        Args: {
+          p_content_type: string
+          p_filename: string
+          p_size_bytes: number
+          p_thread_id: string
+        }
+        Returns: Json
       }
       respond_to_connection_request: {
         Args: {
@@ -3182,6 +3259,17 @@ export type Database = {
         }
         Returns: string
       }
+      support_attachments_for_send: {
+        Args: { p_ids: string[] }
+        Returns: {
+          content_type: string
+          filename: string
+          id: string
+          r2_key: string
+          thread_id: string
+        }[]
+      }
+      support_thread_for_reply: { Args: { p_thread_id: string }; Returns: Json }
       touch_last_active: { Args: never; Returns: undefined }
       unblock_profile: { Args: { p_profile_id: string }; Returns: undefined }
       update_couple_anniversary_date: {

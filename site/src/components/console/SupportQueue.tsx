@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Check, Loader2, RotateCcw, Send } from "lucide-react";
+import { Check, Loader2, Paperclip, RotateCcw, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -285,12 +285,46 @@ function Composer({
   const [body, setBody] = useState("");
   const [close, setClose] = useState(true);
   const [sending, setSending] = useState(false);
+  const [files, setFiles] = useState<{ id: string; name: string }[]>([]);
+  const [uploading, setUploading] = useState(false);
+
+  /// Two steps, because the file never passes through our servers: reserve a key and a signed PUT,
+  /// then upload straight to R2. An edge function in the middle would hold the whole file in memory
+  /// for no benefit and against tighter limits than the bucket's.
+  async function addFile(file: File) {
+    setUploading(true);
+    const supabase = createClient();
+    try {
+      const { data, error } = await supabase.functions.invoke("support-attachment-upload", {
+        body: { threadId, filename: file.name, contentType: file.type, size: file.size },
+      });
+      if (error || !data?.uploadUrl) {
+        // The RPC's own message — the size ceiling, the pending-file limit — is more use than a
+        // generic refusal, so it is surfaced rather than replaced.
+        toast.error(data?.error ?? "Couldn't prepare that upload.");
+        return;
+      }
+      const put = await fetch(data.uploadUrl, {
+        method: "PUT",
+        // Must match what was signed: R2 rejects a PUT whose type differs from the authorised one.
+        headers: { "Content-Type": data.contentType },
+        body: file,
+      });
+      if (!put.ok) {
+        toast.error("That file didn't upload.");
+        return;
+      }
+      setFiles((f) => [...f, { id: data.id, name: file.name }]);
+    } finally {
+      setUploading(false);
+    }
+  }
 
   async function send() {
     setSending(true);
     const supabase = createClient();
     const { data, error } = await supabase.functions.invoke("send-support-reply", {
-      body: { threadId, body, close },
+      body: { threadId, body, close, attachmentIds: files.map((f) => f.id) },
     });
     setSending(false);
 
@@ -306,6 +340,7 @@ function Composer({
       toast.success(close ? "Replied and closed." : "Replied.");
     }
     setBody("");
+    setFiles([]);
     onSent();
   }
 
@@ -330,8 +365,47 @@ function Composer({
         disabled={sending}
         aria-label="Reply"
       />
+      {files.length > 0 && (
+        <ul className="flex flex-wrap gap-2">
+          {files.map((f) => (
+            <li
+              key={f.id}
+              className="flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs"
+            >
+              <Paperclip className="h-3 w-3 text-muted-foreground" />
+              <span className="max-w-[16rem] truncate">{f.name}</span>
+              <button
+                type="button"
+                aria-label={`Remove ${f.name}`}
+                onClick={() => setFiles((list) => list.filter((x) => x.id !== f.id))}
+                disabled={sending}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <label className="inline-flex cursor-pointer items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+            {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
+            Attach
+            <input
+              type="file"
+              className="sr-only"
+              disabled={sending || uploading || files.length >= 5}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                // Cleared so the same file can be picked twice — otherwise re-selecting it after a
+                // failed upload fires no change event at all.
+                e.target.value = "";
+                if (file) void addFile(file);
+              }}
+            />
+          </label>
           <Switch id={`close-${threadId}`} checked={close} onCheckedChange={setClose} disabled={sending} />
           <Label htmlFor={`close-${threadId}`} className="text-sm font-normal text-muted-foreground">
             Close after sending
