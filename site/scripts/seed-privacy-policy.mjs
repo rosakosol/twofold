@@ -103,7 +103,7 @@ const body = [
     `Setup questions. During onboarding we ask how you found Twofold, your relationship situation, how often you travel, what you're hoping to get out of the app, and your and your partner's gender - the last of these only so the app can use the right pronoun in its own wording. These answers are not saved to your Twofold account. They are sent to our analytics provider and attached to your analytics profile there, so we can tell which kinds of couples get the most out of Twofold. See "Information we collect automatically" below.`
   ),
   bullet(
-    `Support and sign-ups. If you use the support form - in the app or on the website - we receive your name, email address, the category you pick and your message. That is sent to our support inbox as an email; it isn't stored in the Twofold database. If you join the Android waitlist we store your email address and send you a confirmation. If you use the feedback board we store the requests you post, your votes, comments, bookmarks, and which requests you've chosen to follow.`
+    `Support and sign-ups. If you use the support form - in the app or on the website - we receive your name, email address, the category you pick and your message. We store it, so a conversation can be picked up where it left off and so there is a record of what was asked and what we answered. Support records outlive the account they came from: if you write to us and later delete your account, the ticket stays. That is deliberate - otherwise asking us to delete your account would erase the request itself, along with any reply we still owed you. If you join the Android waitlist we store your email address and send you a confirmation. If you use the feedback board we store the requests you post, your votes, comments, bookmarks, and which requests you've chosen to follow.`
   ),
 
   // ------------------------------------------------- collected automatically
@@ -252,7 +252,7 @@ const body = [
     `Sign-in is permanently disabled. You won't be able to sign back in, and the account can't be restored or recreated.`
   ),
   bullet(`Any active connection ends, and your partner is told you've left - the same as if you'd removed them.`),
-  bullet(`Your own uploads (your profile photo, your drawings) and all your notification tokens are deleted.`),
+  bullet(`Your own uploads (your profile photo, your drawings) and all your notification tokens are deleted. The files themselves are removed from our storage provider within a day - the account is closed straight away, and the files follow on a job that runs daily.`),
   bullet(
     `Shared content - trips, memories, photos, flights - is not deleted along with your account, because it is your partner's history too. Ending your connection starts the same 90-day archive clock described above, and it is permanently deleted for both of you when that runs out.`
   ),
@@ -299,7 +299,7 @@ const body = [
   bullet(
     `A public airline-logo service - our servers fetch logos from it by airline code. Nothing about you is sent, and your device never contacts it directly.`
   ),
-  bullet(`Our subscription management provider - keeps track of whether your subscription is active, across the app and the website. United States.`),
+  bullet(`Our subscription management provider - keeps track of whether your subscription is active, across the app and the website. We send them your account identifier and your email address, so that somebody writing to us about a payment can be found in their records. United States.`),
   bullet(`Stripe - payment processing for subscriptions bought on the website. You see Stripe by name at checkout.`),
   bullet(`Our product analytics provider - usage analytics for the iOS app, held in the United States.`),
   bullet(`Our email provider - sending and receiving support, waitlist and account email.`),
@@ -334,10 +334,11 @@ const body = [
   ),
   bullet(`Invite redemption records are deleted automatically an hour after they're written.`),
   bullet(`Rate-limiting records are deleted automatically, and none is kept longer than a day.`),
+  bullet(`Support records - your message to us, our replies, and any files attached - are kept even after the account they came from is deleted, so that a conversation is not destroyed by the request made inside it.`),
   bullet(`Waitlist email addresses are kept until the Android app launches, or until you ask us to remove yours.`),
   bullet(`Feedback board posts and comments stay up for as long as the board does, since they're part of a public discussion.`),
   bullet(
-    `Backups are kept for 7 days. Anything you delete goes from Twofold immediately, but can survive in a backup until that backup ages out - so for up to 7 days after you delete it, and no longer.`
+    `Backups are kept for 7 days. Anything you delete goes from Twofold immediately - uploaded files within a day, as above - but can survive in a backup until that backup ages out, so for up to 7 days after you delete it, and no longer. The one exception is support records, which we keep as described above.`
   ),
   bullet(`Analytics events are kept for 30 days, and then deleted.`),
   bullet(`Support email is kept for as long as we need it to handle your request and for our own records.`),

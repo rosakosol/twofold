@@ -49,8 +49,11 @@ const VALID_EVENT_TYPES: EventType[] = [
 ];
 
 // Event type -> notification_preferences column, mirroring the pattern in _shared/notify.ts.
-// game_reminder is deliberately absent — it's an explicit, one-off nudge the sender chooses to
-// send, not ambient activity, so it's never muted.
+// Every partner-facing event is here now. `game_reminder` used to be missing, described as
+// "deliberately absent — an explicit, one-off nudge, so it's never muted". The reasoning holds for
+// what the event *is*; it did not hold as a reason to leave it unmutable, because it was also the
+// only way to put chosen text on somebody's lock screen with no way for them to stop it. The rate
+// limit below removes the abuse and a preference is what gives them the say.
 // Spelled out as a union rather than `string`, so a typo is a compile error instead of a silent
 // behaviour change: an unrecognised column name finds no row, "no row" means "notify", and the
 // result is a notification the recipient has switched off and cannot switch off again.
@@ -70,15 +73,13 @@ const MAX_DETAIL_LENGTH = 200;
 /// A ceiling on how many pushes one account can send its partner in an hour.
 ///
 /// Every event here is a side effect of a real action — adding a trip, saving a drawing — so an
-/// honest user never approaches this. It exists because `game_reminder` is deliberately absent
-/// from `PREFERENCE_COLUMN` below and therefore cannot be switched off by the person receiving
-/// it, which without a limit is an unlimited channel for attacker-chosen text to somebody who
-/// cannot mute it. In an app for couples that is a harassment vector, and "you can't turn it off"
-/// is the part that makes it one.
+/// honest user never approaches this. It was added when `game_reminder` could not be switched off
+/// at all, which made it an unlimited channel for chosen text to somebody with no way to stop it.
 ///
-/// A cooldown rather than a new preference column, deliberately: making `game_reminder` mutable is
-/// a product decision about whether a nudge can be silenced, and this is not the change to make
-/// it in. The limit removes the abuse either way.
+/// It stays now that the preference exists, and the two are not redundant. A preference is consent
+/// and applies to one event; the limit is a bound and applies to all of them, including the ones
+/// nobody would think to mute. Removing it would leave a partner who has every notification turned
+/// on with no protection at all.
 const RATE_LIMIT = { bucket: "notify-couple-event", limit: 30, window: "1 hour" };
 
 const PREFERENCE_COLUMN: Partial<Record<EventType, PreferenceColumn>> = {
@@ -88,6 +89,10 @@ const PREFERENCE_COLUMN: Partial<Record<EventType, PreferenceColumn>> = {
   game_started: "partner_game_started",
   game_results_ready: "partner_game_results_ready",
   game_partner_finished: "partner_game_partner_finished",
+  // Added in 20261110000900. Its absence here was what made this event unmutable — `prefColumn`
+  // came back undefined and the check below was skipped — and the comment above this map called
+  // that "never muted", which read as a decision rather than the omission it was.
+  game_reminder: "partner_game_reminder",
 };
 
 Deno.serve(async (req) => {

@@ -4363,6 +4363,7 @@ enum BackendService {
         /// Chess and Connect 4 only — the one event that fires repeatedly *within* a game rather
         /// than once, which is why it is not folded into `partnerGameStarted`.
         var partnerGameTurn: Bool
+        var partnerGameReminder: Bool
         var dailyStreakReminder: Bool
         /// The separate "1 hour left" last-chance nudge (23:00 UTC) — distinct from
         /// `dailyStreakReminder`'s own end-of-day-ish (18:00 UTC) one, so either can be turned
@@ -4374,6 +4375,7 @@ enum BackendService {
             partnerDrawingSaved: true, partnerTripAdded: true, partnerMemoryAdded: true,
             partnerGameStarted: true, partnerGameResultsReady: true, partnerGamePartnerFinished: true,
             partnerGameTurn: true,
+            partnerGameReminder: true,
             dailyStreakReminder: true, streakEndingReminder: true, partnerInviteReminder: true
         )
     }
@@ -4387,6 +4389,7 @@ enum BackendService {
         var partnerGameResultsReady: Bool
         var partnerGamePartnerFinished: Bool
         var partnerGameTurn: Bool
+        var partnerGameReminder: Bool
         var dailyStreakReminder: Bool
         var streakEndingReminder: Bool
         var partnerInviteReminder: Bool
@@ -4400,6 +4403,7 @@ enum BackendService {
             case partnerGameResultsReady = "partner_game_results_ready"
             case partnerGamePartnerFinished = "partner_game_partner_finished"
             case partnerGameTurn = "partner_game_turn"
+            case partnerGameReminder = "partner_game_reminder"
             case dailyStreakReminder = "daily_streak_reminder"
             case streakEndingReminder = "streak_ending_reminder"
             case partnerInviteReminder = "partner_invite_reminder"
@@ -4426,6 +4430,7 @@ enum BackendService {
             partnerGameResultsReady: row.partnerGameResultsReady,
             partnerGamePartnerFinished: row.partnerGamePartnerFinished,
             partnerGameTurn: row.partnerGameTurn,
+            partnerGameReminder: row.partnerGameReminder,
             dailyStreakReminder: row.dailyStreakReminder,
             streakEndingReminder: row.streakEndingReminder,
             partnerInviteReminder: row.partnerInviteReminder
@@ -4443,6 +4448,7 @@ enum BackendService {
             partnerGameResultsReady: prefs.partnerGameResultsReady,
             partnerGamePartnerFinished: prefs.partnerGamePartnerFinished,
             partnerGameTurn: prefs.partnerGameTurn,
+            partnerGameReminder: prefs.partnerGameReminder,
             dailyStreakReminder: prefs.dailyStreakReminder,
             streakEndingReminder: prefs.streakEndingReminder,
             partnerInviteReminder: prefs.partnerInviteReminder

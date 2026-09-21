@@ -59,6 +59,16 @@ const RATE_LIMIT = { bucket: "parse-flight-email", limit: 10, window: "1 hour" }
 async function extractFlight(text: string): Promise<ExtractedFlight> {
   const response = await openai.responses.create({
     model: MODEL,
+    // The Responses API retains prompts by default, where they are readable in the organisation's
+    // Logs dashboard for thirty days. What is in this prompt is the text of somebody's flight
+    // email — and on the PDF path, a whole scraped boarding pass: passenger name, record locator,
+    // ticket number, seat, itinerary.
+    //
+    // Nothing else about this call needed changing. No `user` field, no metadata, no identifier of
+    // any kind is sent, so the prompt is not tied to an account at either end; and API data is not
+    // used for training by default, which is what the privacy policy already tells people. This
+    // closes the one copy that was being kept for our own convenience.
+    store: false,
     input: [
       {
         role: "system",
