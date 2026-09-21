@@ -47,7 +47,7 @@ export function SubscriptionCard({ snapshot }: { snapshot: SubscriptionSnapshot 
 
     if (error || !data?.ok) {
       toast.error(
-        "We couldn't cancel your subscription just now, so nothing has changed — you're still subscribed. Please try again, or email hello@twofoldapp.com.au.",
+        "We couldn't cancel your subscription just now, so nothing has changed — you're still subscribed. Please try again, or email support@twofoldapp.com.au.",
       );
       return;
     }
@@ -137,8 +137,8 @@ export function SubscriptionCard({ snapshot }: { snapshot: SubscriptionSnapshot 
           <p className="text-sm text-muted-foreground">
             You&apos;re subscribed, but we can&apos;t tell from here where it was bought — so we
             can&apos;t safely cancel it for you. Email{" "}
-            <a href="mailto:hello@twofoldapp.com.au" className="underline">
-              hello@twofoldapp.com.au
+            <a href="mailto:support@twofoldapp.com.au" className="underline">
+              support@twofoldapp.com.au
             </a>{" "}
             and we&apos;ll sort it out.
           </p>

@@ -97,7 +97,7 @@ Deno.serve(async (req) => {
         error:
           "We couldn't cancel your subscription just now, so we haven't deleted your account — " +
           "deleting it while the subscription is live would keep charging you. Please try again, " +
-          "or email hello@twofoldapp.com.au.",
+          "or email support@twofoldapp.com.au.",
       },
       { status: 503 },
     );

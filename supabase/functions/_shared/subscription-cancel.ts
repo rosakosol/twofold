@@ -8,7 +8,7 @@
 // A subscription bought on the website is different. It is billed through Stripe, we hold the
 // credentials, and the person cannot cancel it themselves once their account is gone — there is no
 // Apple Settings screen for it and no way left to sign in. The FAQ currently promises they can
-// "email hello@twofoldapp.com.au and we will cancel it for you", which is a promise kept by hand,
+// "email support@twofoldapp.com.au and we will cancel it for you", which is a promise kept by hand,
 // only for the people who think to ask, and only for as long as somebody is reading that inbox.
 //
 // So: cancel it during deletion, and treat a failure to cancel as a reason not to delete (see

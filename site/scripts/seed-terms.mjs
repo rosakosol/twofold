@@ -43,7 +43,7 @@ import {sanityWriteClient} from './lib/sanity-write-client.mjs'
 import {resetKeys, h2, p, span, link, ptext, bullet, li} from './lib/portable-text.mjs'
 
 const WRITE = process.argv.includes('--write')
-const EMAIL = 'hello@twofoldapp.com.au'
+const EMAIL = 'support@twofoldapp.com.au'
 const mailto = (text = EMAIL) => link(text, `mailto:${EMAIL}`)
 
 resetKeys()

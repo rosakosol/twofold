@@ -53,7 +53,7 @@ export function DangerZone({
       // person cannot stop. That refusal is a success of the design, so it is reported as a
       // "nothing happened, try again" rather than as a failure of their request.
       toast.error(
-        "We couldn't delete your account just now, and nothing has been changed. Please try again, or email hello@twofoldapp.com.au.",
+        "We couldn't delete your account just now, and nothing has been changed. Please try again, or email support@twofoldapp.com.au.",
       );
       return;
     }

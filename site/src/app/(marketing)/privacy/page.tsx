@@ -29,7 +29,7 @@ export default async function PrivacyPage() {
           <strong>Showing a summary.</strong> We couldn&apos;t load the full Privacy Policy just now, so
           what follows is a short overview rather than the complete document. Refreshing usually
           fixes it &mdash; and if it doesn&apos;t, email{" "}
-          <a href="mailto:hello@twofoldapp.com.au">hello@twofoldapp.com.au</a> and we&apos;ll send
+          <a href="mailto:support@twofoldapp.com.au">support@twofoldapp.com.au</a> and we&apos;ll send
           you a copy.
         </>
       }
@@ -77,7 +77,7 @@ export default async function PrivacyPage() {
 
       <h2>Contact</h2>
       <p>
-        Questions about this policy: <a href="mailto:hello@twofoldapp.com.au">hello@twofoldapp.com.au</a>
+        Questions about this policy: <a href="mailto:support@twofoldapp.com.au">support@twofoldapp.com.au</a>
       </p>
     </LegalPageLayout>
   );

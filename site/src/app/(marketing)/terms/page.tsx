@@ -17,7 +17,7 @@ export default async function TermsPage() {
           <strong>Showing a summary.</strong> We couldn&apos;t load the full Terms of Use just now, so
           what follows is a short overview rather than the complete document. Refreshing usually
           fixes it &mdash; and if it doesn&apos;t, email{" "}
-          <a href="mailto:hello@twofoldapp.com.au">hello@twofoldapp.com.au</a> and we&apos;ll send
+          <a href="mailto:support@twofoldapp.com.au">support@twofoldapp.com.au</a> and we&apos;ll send
           you a copy.
         </>
       }
@@ -58,7 +58,7 @@ export default async function TermsPage() {
         <li>
           Refunds for App Store purchases are handled by Apple under their own policies. Refund
           requests for web purchases can be sent to{" "}
-          <a href="mailto:hello@twofoldapp.com.au">hello@twofoldapp.com.au</a> and are considered on
+          <a href="mailto:support@twofoldapp.com.au">support@twofoldapp.com.au</a> and are considered on
           a case-by-case basis.
         </li>
         <li>
@@ -88,7 +88,7 @@ export default async function TermsPage() {
 
       <h2>Contact</h2>
       <p>
-        Questions about these terms: <a href="mailto:hello@twofoldapp.com.au">hello@twofoldapp.com.au</a>
+        Questions about these terms: <a href="mailto:support@twofoldapp.com.au">support@twofoldapp.com.au</a>
       </p>
     </LegalPageLayout>
   );

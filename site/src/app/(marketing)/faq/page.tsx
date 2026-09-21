@@ -47,7 +47,7 @@ export default async function FaqPage() {
           <h1>Frequently asked questions</h1>
           <p className="lead">
             Can&apos;t find what you&apos;re looking for?{" "}
-            <a className="text-link" href="mailto:hello@twofoldapp.com.au" style={{ display: "inline-flex" }}>
+            <a className="text-link" href="mailto:support@twofoldapp.com.au" style={{ display: "inline-flex" }}>
               Email us
             </a>{" "}
             - a real person will get back to you.

@@ -1,7 +1,7 @@
 // Lets somebody stop their own website subscription renewing, from the account portal — without
 // emailing anyone.
 //
-// The FAQ (20261105000000) currently promises a web subscriber can "email hello@twofoldapp.com.au
+// The FAQ (20261105000000) currently promises a web subscriber can "email support@twofoldapp.com.au
 // and we will cancel it for you". That is a promise kept by hand, only for the people who think to
 // ask, and only while somebody is reading that inbox. This is the same promise kept by the person
 // who wants it, at the moment they want it.
@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
       {
         error:
           "We couldn't cancel your subscription just now, so nothing has changed — you're still " +
-          "subscribed. Please try again, or email hello@twofoldapp.com.au.",
+          "subscribed. Please try again, or email support@twofoldapp.com.au.",
       },
       { status: 503 },
     );

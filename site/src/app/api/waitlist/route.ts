@@ -59,7 +59,7 @@ export async function POST(request: Request) {
 }
 
 async function sendEmails(email: string): Promise<void> {
-  const notifyEmail = process.env.WAITLIST_NOTIFY_EMAIL ?? "hello@twofoldapp.com.au";
+  const notifyEmail = process.env.WAITLIST_NOTIFY_EMAIL ?? "support@twofoldapp.com.au";
 
   let mailer: ReturnType<typeof createZohoTransport>;
   try {

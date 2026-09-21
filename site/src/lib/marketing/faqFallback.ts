@@ -60,7 +60,7 @@ export const FAQ_FALLBACK: FaqFallbackItem[] = [
     order: 3,
     question: "How do I cancel or manage my subscription?",
     answer:
-      "If you subscribed in the app, manage or cancel it from your device's Settings → Apple ID → Subscriptions. If you subscribed on the web, manage it from your account on the pricing page, or email hello@twofoldapp.com.au and we'll sort it out. Either way, you keep access until the end of the period you've already paid for.",
+      "If you subscribed in the app, manage or cancel it from your device's Settings → Apple ID → Subscriptions. If you subscribed on the web, manage it from your account on the pricing page, or email support@twofoldapp.com.au and we'll sort it out. Either way, you keep access until the end of the period you've already paid for.",
   },
   {
     category: "subscriptions",
@@ -109,7 +109,7 @@ export const FAQ_FALLBACK: FaqFallbackItem[] = [
     order: 4,
     question: "How do I report or block someone?",
     answer:
-      "If someone sends you something abusive, or is using Twofold to harm or monitor you, tell us. \"Report Abuse\" is on a connection request before you accept it, and on your partner in Settings -> Disconnect Partner; you can also email hello@twofoldapp.com.au. We aim to respond within 48 hours, and we never tell the person that you reported them. You can block someone whether or not you report them: blocking a request stops them sending another, and blocking a partner disconnects you first. Either way they are not told and cannot reach you again. What the two of you shared is archived as normal and deleted on the usual 90-day timer - blocking does not delete it sooner or keep it longer.",
+      "If someone sends you something abusive, or is using Twofold to harm or monitor you, tell us. \"Report Abuse\" is on a connection request before you accept it, and on your partner in Settings -> Disconnect Partner; you can also email support@twofoldapp.com.au. We aim to respond within 48 hours, and we never tell the person that you reported them. You can block someone whether or not you report them: blocking a request stops them sending another, and blocking a partner disconnects you first. Either way they are not told and cannot reach you again. What the two of you shared is archived as normal and deleted on the usual 90-day timer - blocking does not delete it sooner or keep it longer.",
   },
   {
     category: "privacy",
