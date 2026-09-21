@@ -214,3 +214,56 @@
     display: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Crossing between the website and the console
+   --------------------------------------------------------------------------- */
+
+/* Quieter than `.site-nav-cta`, deliberately. The CTA is the thing a visitor is meant to press;
+   this is a door between two contexts that only an admin can see, and dressing it the same way
+   would put an internal tool in the loudest slot on a marketing page. */
+.site-nav-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-decoration: none;
+  padding: 7px 14px;
+  border-radius: 999px;
+  white-space: nowrap;
+  color: var(--muted-foreground, #5c6b7a);
+  border: 1px solid var(--border, rgba(16, 32, 48, 0.14));
+  background: var(--background, rgba(255, 255, 255, 0.6));
+  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.site-nav-switch:hover {
+  color: var(--foreground, #16222e);
+  border-color: var(--border, rgba(16, 32, 48, 0.28));
+  background: var(--accent, rgba(16, 32, 48, 0.05));
+}
+
+/* The console must not be mistakeable for the public site at a glance — that confusion is the
+   whole reason the two shells were split. A tinted bar and a tag beside the wordmark answer
+   "where am I" before anything is clicked. */
+.site-nav.is-console {
+  background: var(--card, #f6f8fa);
+  border-bottom: 1px solid var(--border, rgba(16, 32, 48, 0.12));
+}
+
+.site-nav-brand-tag {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-foreground, #5c6b7a);
+  vertical-align: 2px;
+}
+
+@media (max-width: 860px) {
+  /* The label is the part that wraps; the icon still says which way it goes. */
+  .site-nav-switch span {
+    display: none;
+  }
+}

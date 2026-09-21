@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { SlidersHorizontal } from "lucide-react";
 import { UserMenu } from "@/components/layout/UserMenu";
 import { useIsAdmin } from "@/lib/auth/useIsAdmin";
 
@@ -14,12 +15,6 @@ const NAV_LINKS = [
   { href: "/pricing", label: "Pricing" },
   { href: "/faq", label: "FAQ" },
   { href: "/feedback", label: "Feedback" },
-];
-
-const ADMIN_LINKS = [
-  { href: "/admin", label: "Admin" },
-  { href: "/admin/games", label: "Games" },
-  { href: "/studio", label: "Studio" },
 ];
 
 /** Board/admin/auth equivalent of MarketingHeader — same `.site-nav` markup
@@ -66,21 +61,18 @@ export function SiteHeader() {
                 </Link>
               </li>
             ))}
-            {isAdmin && (
-              <>
-                <li className="site-nav-divider" aria-hidden />
-                {ADMIN_LINKS.map((link) => (
-                  <li key={link.href}>
-                    <Link href={link.href} className={pathname === link.href ? "is-active" : undefined}>
-                      {link.label}
-                    </Link>
-                  </li>
-                ))}
-              </>
-            )}
           </ul>
         </nav>
         <div className="site-nav-actions">
+          {/* The console is a separate shell, not a row of extra links in this bar — see
+              ConsoleHeader. One button crosses between them, and only for someone who has
+              somewhere to cross to, so a normal visitor's navbar is unchanged by any of this. */}
+          {isAdmin && (
+            <Link href="/admin" className="site-nav-switch">
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              <span>Console</span>
+            </Link>
+          )}
           <UserMenu />
           <button
             type="button"
