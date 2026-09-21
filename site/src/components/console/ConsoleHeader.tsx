@@ -34,6 +34,8 @@ const CONSOLE_LINKS = [
   // Accounts. Its own role, because reading somebody's email, partner and subscription is a
   // narrower grant than editing a deck — see 20261109000000.
   { href: "/admin/users", label: "Accounts", exact: false, role: "support" as const },
+  // Blocks, and an honest note about why there is no report queue.
+  { href: "/admin/moderation", label: "Moderation", exact: false, role: "support" as const },
   { href: "/admin/games", label: "Games", exact: false },
   // Spend. Its own role, so its own visibility — see useIsBillingAdmin below.
   { href: "/admin/usage", label: "Usage", exact: false, role: "billing" as const },

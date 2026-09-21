@@ -2475,6 +2475,18 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      admin_flight_limit_override: {
+        Args: { p_profile_id: string }
+        Returns: Json
+      }
+      admin_grant_record_export: {
+        Args: { p_profile_id: string; p_reason: string }
+        Returns: string
+      }
+      admin_grant_streak_repair: {
+        Args: { p_profile_id: string; p_reason: string }
+        Returns: string
+      }
       admin_lookup_account: {
         Args: { p_query: string }
         Returns: {
@@ -2489,6 +2501,16 @@ export type Database = {
           subscription_tier: string
         }[]
       }
+      admin_most_blocked: {
+        Args: { p_limit?: number; p_min_blocks?: number }
+        Returns: {
+          blocked_by_count: number
+          email: string
+          first_name: string
+          most_recent: string
+          profile_id: string
+        }[]
+      }
       admin_record_action: {
         Args: {
           p_action: string
@@ -2501,6 +2523,14 @@ export type Database = {
       }
       admin_scrub_account: {
         Args: { p_profile_id: string; p_reason: string }
+        Returns: undefined
+      }
+      admin_set_flight_limit: {
+        Args: {
+          p_monthly_limit: number
+          p_profile_id: string
+          p_reason: string
+        }
         Returns: undefined
       }
       api_usage_by_endpoint: {

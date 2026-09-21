@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
 import { AccountActions } from "@/components/console/AccountActions";
+import { AccountGrants } from "@/components/console/AccountGrants";
 import { cancellability, type AccountDetail, type AuditEntry } from "@/lib/console/accountDetail";
 
 export const metadata: Metadata = { title: "Account" };
@@ -39,6 +40,13 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
     p_limit: 20,
   });
   const audit = (auditData ?? []) as AuditEntry[];
+
+  const { data: overrideData } = await supabase.rpc("admin_flight_limit_override", {
+    p_profile_id: id,
+  });
+  const override = (overrideData ?? null) as
+    | { monthly_limit: number; note: string | null; created_at: string }
+    | null;
 
   const subscription = cancellability(detail.subscription.store, detail.subscription.active);
 
@@ -159,6 +167,8 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
           />
         </Panel>
       </div>
+
+      <AccountGrants profileId={detail.profile.id} override={override} />
 
       <AccountActions
         profileId={detail.profile.id}
