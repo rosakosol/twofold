@@ -90,16 +90,53 @@ Deno.serve(async (req) => {
   // direction this eventType implies, before pushing anything — without this, any authenticated
   // user could push an arbitrary "wants to connect"/"accepted your request" notification, with
   // their own real name attached, to any other profile by UUID.
-  const expectedMatch = input.eventType === "connection_accepted"
-    ? { inviter_id: user.id, requester_id: input.targetProfileId, status: "accepted" }
+  // `connection_accepted` happens in both directions, and only one of them worked.
+  //
+  // The obvious one: the inviter taps accept and tells the requester. The other is the auto-accept
+  // path that 20261008000000 introduced — a tapped invite link connects the two outright, and the
+  // *redeemer* is the one who calls this, about the inviter. That is the requester notifying the
+  // inviter, the mirror image of the shape this used to match, so every one of those calls found
+  // no row, answered 403, and was discarded by the client's `try?`. The inviter learned they had
+  // been paired only when they next opened the app.
+  //
+  // Which matters because that migration's own justification rests on it: "The inviter is told.
+  // `connection_accepted` already notifies, and this path fires it too." It fired and the server
+  // refused it.
+  //
+  // Both orientations are accepted now, and the security property is unchanged: either way there
+  // has to be a real `accepted` row linking the caller and the target, so this still cannot push
+  // at an arbitrary uuid.
+  let linkingRequest: { id: string } | null = null;
+  let callerAccepted = false;
+
+  if (input.eventType === "connection_accepted") {
+    const { data: asInviter } = await serviceClient
+      .from("connection_requests")
+      .select("id")
+      .match({ inviter_id: user.id, requester_id: input.targetProfileId, status: "accepted" })
+      .maybeSingle();
+    if (asInviter) {
+      linkingRequest = asInviter;
+      callerAccepted = true;
+    } else {
+      const { data: asRequester } = await serviceClient
+        .from("connection_requests")
+        .select("id")
+        .match({ inviter_id: input.targetProfileId, requester_id: user.id, status: "accepted" })
+        .maybeSingle();
+      linkingRequest = asRequester;
+    }
+  } else {
     // connection_requested and connection_reminder are both the requester pinging the inviter
-    // about the same still-open request, so they share the same match shape.
-    : { inviter_id: input.targetProfileId, requester_id: user.id, status: "pending" };
-  const { data: linkingRequest } = await serviceClient
-    .from("connection_requests")
-    .select("id")
-    .match(expectedMatch)
-    .maybeSingle();
+    // about the same still-open request, so they share one shape.
+    const { data } = await serviceClient
+      .from("connection_requests")
+      .select("id")
+      .match({ inviter_id: input.targetProfileId, requester_id: user.id, status: "pending" })
+      .maybeSingle();
+    linkingRequest = data;
+  }
+
   if (!linkingRequest) {
     return Response.json({ error: "No matching connection request" }, { status: 403 });
   }
@@ -118,7 +155,13 @@ Deno.serve(async (req) => {
       ? { title: "New connection request", body: `${actorName} wants to connect with you on Twofold.` }
       : input.eventType === "connection_reminder"
       ? { title: "Still waiting on you", body: `${actorName} is waiting for you to accept their connection request.` }
-      : { title: "You're connected! 🎉", body: `${actorName} accepted your connection request.` };
+      : callerAccepted
+      // The inviter accepted, and the requester is being told.
+      ? { title: "You're connected! 🎉", body: `${actorName} accepted your connection request.` }
+      // The redeemer followed a link, and the inviter is being told. The other wording would have
+      // been addressed to somebody who never made a request — which is the second reason this
+      // direction needed its own branch rather than just a wider match.
+      : { title: "You're connected! 🎉", body: `${actorName} joined using your invite.` };
 
     const { data: tokens } = await serviceClient
       .from("device_push_tokens")

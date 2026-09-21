@@ -31,14 +31,37 @@ struct RedeemPartnerCodeView: View {
     /// "your partner" otherwise. Presence alone drives the confirmation state.
     @State private var sentRequestInviterName: String?
 
+    /// Who the prefilled code belongs to, resolved before the button is live.
+    ///
+    /// A code that arrived from a tapped link redeems with `origin: .link`, which
+    /// `redeem_invite_code` auto-accepts with no approval from the inviter (20261008000000). That
+    /// trade is defensible on the migration's own reasoning — the inviter chose who to send the
+    /// link to — but a deep link is the one route where the *recipient* did not choose the
+    /// inviter. Somebody who taps a link in any app lands on a sheet titled "Enter their code",
+    /// prefilled, one button away from being permanently paired with whoever sent it, and is never
+    /// shown who that is.
+    ///
+    /// Onboarding's route for the identical link already resolves this and puts the name and face
+    /// on screen first (`JoinInviteView`). This route resolved the same information and used it
+    /// only afterwards, to word the confirmation. Two paths to one irreversible action, one of
+    /// which told you what you were agreeing to.
+    @State private var linkInviter: BackendService.InviterInfo?
+    @State private var hasResolvedLinkInviter = false
+
     init(prefilledCode: String? = nil, onSuccess: @escaping () -> Void = {}) {
         self.prefilledCode = prefilledCode
         self.onSuccess = onSuccess
         _code = State(initialValue: prefilledCode ?? "")
     }
 
+    private var arrivedFromLink: Bool { prefilledCode?.isEmpty == false }
+
     private var canRedeem: Bool {
-        !code.trimmingCharacters(in: .whitespaces).isEmpty && !isRedeeming
+        guard !code.trimmingCharacters(in: .whitespaces).isEmpty, !isRedeeming else { return false }
+        // A typed code raises a request the inviter has to approve, so there is nothing
+        // irreversible to confirm and nothing to wait for. A linked code connects immediately,
+        // so the button waits until we can say who it connects you to.
+        return arrivedFromLink ? hasResolvedLinkInviter : true
     }
 
     var body: some View {
@@ -57,6 +80,7 @@ struct RedeemPartnerCodeView: View {
                 }
             }
         }
+        .task { await resolveLinkInviter() }
         .postHogScreenView("Settings: Redeem Partner Code")
     }
 
@@ -65,13 +89,32 @@ struct RedeemPartnerCodeView: View {
             Spacer()
 
             VStack(spacing: Theme.Spacing.sm) {
-                Text("Enter their code")
+                Text(arrivedFromLink ? "Connect with \(linkInviter?.name ?? "your partner")" : "Enter their code")
                     .font(.title2.weight(.bold))
-                Text("Ask your partner for the code Twofold gave them, or tap their invite link again.")
+                    // The name arrives from a lookup, so without this the title would render
+                    // "Connect with your partner" and then rewrite itself to their real name.
+                    .redacted(reason: arrivedFromLink && !hasResolvedLinkInviter ? .placeholder : [])
+                Text(arrivedFromLink
+                     ? "Tapping connect will link your accounts straight away."
+                     : "Ask your partner for the code Twofold gave them, or tap their invite link again.")
                     .font(.subheadline)
                     .foregroundStyle(Theme.subtleInk)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, Theme.Spacing.lg)
+            }
+
+            // Their face, for the same reason as their name: this is the moment to recognise
+            // somebody, or to realise you do not.
+            if arrivedFromLink {
+                AvatarView(
+                    person: Person(
+                        name: linkInviter?.name ?? "",
+                        accentColor: Person.palette[1],
+                        avatarURL: linkInviter?.avatarURL
+                    ),
+                    size: 72
+                )
+                .redacted(reason: hasResolvedLinkInviter ? [] : .placeholder)
             }
 
             TextField("XXXX-XXXX", text: $code)
@@ -147,6 +190,18 @@ struct RedeemPartnerCodeView: View {
             .padding(.horizontal, Theme.Spacing.lg)
             .padding(.bottom, Theme.Spacing.xl)
         }
+    }
+
+    /// Resolves the inviter behind a prefilled code, before the button is live.
+    ///
+    /// `hasResolvedLinkInviter` is set whichever way the lookup goes: a code that has expired or
+    /// been used resolves to nothing, and the screen has to stop waiting and let the person try
+    /// anyway rather than leaving them on a permanently disabled button.
+    private func resolveLinkInviter() async {
+        guard arrivedFromLink, !hasResolvedLinkInviter else { return }
+        let trimmed = code.trimmingCharacters(in: .whitespaces).uppercased()
+        linkInviter = try? await BackendService.inviterInfo(forCode: trimmed)
+        hasResolvedLinkInviter = true
     }
 
     private func redeem() {
