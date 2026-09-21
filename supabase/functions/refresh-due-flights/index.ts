@@ -172,7 +172,7 @@ Deno.serve(async (req) => {
 
     let latest: FlightRow = flight;
     try {
-      const updated = await refreshOneFlight(serviceClient, flight);
+      const updated = await refreshOneFlight(serviceClient, flight, "refresh-due-flights");
       refreshed++;
       if (updated) latest = updated;
 
@@ -199,7 +199,7 @@ Deno.serve(async (req) => {
     }
 
     try {
-      await maybeRefreshWeather(serviceClient, flight);
+      await maybeRefreshWeather(serviceClient, flight, "refresh-due-flights");
     } catch (err) {
       console.error(`[refresh-due-flights] weather refresh failed for ${flight.id}:`, (err as Error).message);
     }

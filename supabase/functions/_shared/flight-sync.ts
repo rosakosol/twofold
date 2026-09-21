@@ -10,6 +10,7 @@ import {
   fetchFlightByFaId,
   fetchScheduledFlights,
 } from "./aeroapi.ts";
+import type { ApiCallContext } from "./api-usage.ts";
 import { fetchLivePosition } from "./adsb.ts";
 import { fetchRouteFallback } from "./adsbdb.ts";
 import { lookupAirlineName } from "./airlines.ts";
@@ -899,7 +900,7 @@ function toPendingLookupTimestamp(date: Date): string {
 // /flights/{ident} — see resolve-flight/index.ts's dateWindow comment) using the same
 // flight-number/date-window search that originally surfaced this candidate. Returns null (not an
 // error) whenever nothing's resolvable yet; the caller just tries again next time this row is due.
-async function tryResolvePendingFaFlightId(flightRow: FlightRow): Promise<string | null> {
+async function tryResolvePendingFaFlightId(flightRow: FlightRow, calledBy = "unattributed"): Promise<string | null> {
   const ident = flightRow.flight_number_iata ?? flightRow.flight_number_icao;
   const designator = ident ? splitPendingFlightDesignator(ident) : null;
   if (!designator || !flightRow.scheduled_out) return null;
@@ -914,7 +915,7 @@ async function tryResolvePendingFaFlightId(flightRow: FlightRow): Promise<string
       airline: designator.airline,
       flightNumber: designator.flightNumber,
       origin: flightRow.origin_iata ?? flightRow.origin_icao ?? undefined,
-    });
+    }, usageFor(flightRow, calledBy));
   } catch (err) {
     console.error(`[flight-sync] pending-flight /schedules lookup failed for ${flightRow.id}:`, (err as Error).message);
     return null;
@@ -924,12 +925,30 @@ async function tryResolvePendingFaFlightId(flightRow: FlightRow): Promise<string
   return match?.fa_flight_id ?? null;
 }
 
+// Attribution for a metered AeroAPI call made on behalf of one flight row. `calledBy` has to be
+// threaded from the edge function's entry point because this module is shared by two of them —
+// refresh-flight (a person pressed refresh) and refresh-due-flights (the cron) — and telling those
+// two apart in the usage table is the whole point: one of them is a product decision and the other
+// is a cadence constant.
+function usageFor(flightRow: FlightRow, calledBy: string, faFlightId?: string | null): ApiCallContext {
+  return {
+    calledBy,
+    faFlightId: faFlightId ?? flightRow.fa_flight_id,
+    flightId: flightRow.id,
+    coupleId: flightRow.couple_id,
+  };
+}
+
 // Fetches fresh data for one already-resolved flight and runs it through syncFlight, then
 // returns the updated row. Shared by refresh-flight (single flight, user-triggered) and
 // refresh-due-flights (cron, many flights) so the fetch+sync logic only lives once.
-export async function refreshOneFlight(serviceClient: SupabaseClient, flightRow: FlightRow): Promise<FlightRow | null> {
+export async function refreshOneFlight(
+  serviceClient: SupabaseClient,
+  flightRow: FlightRow,
+  calledBy = "unattributed",
+): Promise<FlightRow | null> {
   if (!flightRow.fa_flight_id) {
-    const resolvedId = await tryResolvePendingFaFlightId(flightRow);
+    const resolvedId = await tryResolvePendingFaFlightId(flightRow, calledBy);
     if (!resolvedId) {
       // Still not on FlightAware's trackable set yet — bump last_refreshed_at so isDue()'s
       // normal staleness tiering paces the next /schedules attempt exactly like a resolved
@@ -941,7 +960,7 @@ export async function refreshOneFlight(serviceClient: SupabaseClient, flightRow:
       return { ...flightRow, last_refreshed_at: nowIso };
     }
 
-    const aeroFlight = await fetchFlightByFaId(resolvedId);
+    const aeroFlight = await fetchFlightByFaId(resolvedId, usageFor(flightRow, calledBy, resolvedId));
     if (!aeroFlight) {
       // /schedules and /flights/{id} occasionally disagree for a beat right at resolution —
       // leave fa_flight_id unset so the next tick just tries /schedules again instead of getting
@@ -959,7 +978,7 @@ export async function refreshOneFlight(serviceClient: SupabaseClient, flightRow:
     return (updated as FlightRow) ?? flightRow;
   }
 
-  const aeroFlight = await fetchFlightByFaId(flightRow.fa_flight_id);
+  const aeroFlight = await fetchFlightByFaId(flightRow.fa_flight_id, usageFor(flightRow, calledBy));
   if (!aeroFlight) {
     console.error(`[flight-sync] AeroAPI returned no flight for fa_flight_id ${flightRow.fa_flight_id}`);
     return flightRow;
@@ -1056,7 +1075,11 @@ export async function reconcileOverdueArrival(serviceClient: SupabaseClient, fli
 
 // Best-effort weather refresh — only called from refresh-due-flights (not from every user-
 // triggered refresh, to keep AeroAPI call volume down). Never throws.
-export async function maybeRefreshWeather(serviceClient: SupabaseClient, flightRow: FlightRow): Promise<void> {
+export async function maybeRefreshWeather(
+  serviceClient: SupabaseClient,
+  flightRow: FlightRow,
+  calledBy = "unattributed",
+): Promise<void> {
   const staleThresholdMs = 2 * 60 * 60 * 1000;
   const isStale = !flightRow.weather_updated_at ||
     Date.now() - new Date(flightRow.weather_updated_at).getTime() > staleThresholdMs;
@@ -1065,10 +1088,10 @@ export async function maybeRefreshWeather(serviceClient: SupabaseClient, flightR
   try {
     const [weatherOrigin, weatherDestination] = await Promise.all([
       flightRow.origin_iata || flightRow.origin_icao
-        ? fetchAirportWeather(flightRow.origin_iata ?? flightRow.origin_icao!)
+        ? fetchAirportWeather(flightRow.origin_iata ?? flightRow.origin_icao!, usageFor(flightRow, calledBy))
         : Promise.resolve(null),
       flightRow.destination_iata || flightRow.destination_icao
-        ? fetchAirportWeather(flightRow.destination_iata ?? flightRow.destination_icao!)
+        ? fetchAirportWeather(flightRow.destination_iata ?? flightRow.destination_icao!, usageFor(flightRow, calledBy))
         : Promise.resolve(null),
     ]);
 

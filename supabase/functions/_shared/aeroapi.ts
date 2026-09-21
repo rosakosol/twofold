@@ -1,9 +1,16 @@
 // Thin typed client for AeroAPI (FlightAware). Every Edge Function that talks to AeroAPI goes
 // through here so the retry policy, auth header, and response shapes only need to be right once.
 //
+// That single chokepoint is also where usage is metered: AeroAPI is the only paid dependency this
+// app has (the ADS-B mirrors in adsb.ts/adsbdb.ts are deliberately free), and `aeroRequest` is the
+// only function in the codebase that spends money. Every call it makes is recorded — see
+// _shared/api-usage.ts, which never throws, so metering can fail without a flight refresh failing.
+//
 // Auth: `x-apikey: <AEROAPI_KEY>` — AEROAPI_KEY is already set as a Supabase secret, never add it
 // here or log its value. Retry policy: on a 429 or 5xx, retry once after a short delay, then let
 // the error propagate — this is a background job, not a request that must succeed at all costs.
+
+import { type ApiCallContext, recordApiCall } from "./api-usage.ts";
 
 const AEROAPI_BASE = "https://aeroapi.flightaware.com/aeroapi";
 const RETRY_DELAY_MS = 500;
@@ -85,7 +92,18 @@ function apiKey(): string {
 // messages, malformed-query complaints) are the single most useful signal for telling apart
 // "no matching flights" from "the request itself was rejected," and don't contain the API key
 // or any of our secrets (that's only ever in the outgoing request header, never echoed back).
-async function aeroRequest(path: string, searchParams?: Record<string, string | undefined>): Promise<any> {
+//
+// `endpoint` is the BILLABLE CLASS this path belongs to — 'flights/{id}', not '/flights/QF9-abc'.
+// It is passed rather than derived because the two cannot always be derived from one another:
+// /flights/{ident} and /flights/{id} are the same URL shape priced as different things (they
+// differ only by an `ident_type` query parameter), and the paginated /history pages arrive as an
+// opaque `links.next` URL that no pattern match would classify correctly.
+async function aeroRequest(
+  path: string,
+  endpoint: string,
+  searchParams?: Record<string, string | undefined>,
+  usage?: ApiCallContext,
+): Promise<any> {
   const url = new URL(AEROAPI_BASE + path);
   if (searchParams) {
     for (const [k, v] of Object.entries(searchParams)) {
@@ -94,12 +112,35 @@ async function aeroRequest(path: string, searchParams?: Record<string, string | 
   }
 
   const key = apiKey();
-  const doFetch = () => fetch(url, { headers: { "x-apikey": key, accept: "application/json" } });
 
-  let res = await doFetch();
+  // Each attempt is metered separately, because each attempt is separately billable. A retry is
+  // flagged as one so that a provider having a bad afternoon reads as a provider problem rather
+  // than as us suddenly making more calls.
+  const doFetch = async (wasRetry: boolean): Promise<Response> => {
+    const startedAt = Date.now();
+    try {
+      const res = await fetch(url, { headers: { "x-apikey": key, accept: "application/json" } });
+      await recordApiCall(
+        { provider: "aeroapi", endpoint, status: res.status, wasRetry, durationMs: Date.now() - startedAt },
+        usage,
+      );
+      return res;
+    } catch (err) {
+      // A request that never got a status still consumed a connection and may still have been
+      // counted upstream; recording it with a null status is what makes a network incident
+      // distinguishable from a quiet period.
+      await recordApiCall(
+        { provider: "aeroapi", endpoint, status: null, wasRetry, durationMs: Date.now() - startedAt },
+        usage,
+      );
+      throw err;
+    }
+  };
+
+  let res = await doFetch(false);
   if (!res.ok && (res.status === 429 || res.status >= 500)) {
     await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
-    res = await doFetch();
+    res = await doFetch(true);
   }
 
   if (res.status === 404) {
@@ -120,12 +161,21 @@ async function aeroRequest(path: string, searchParams?: Record<string, string | 
 export async function resolveFlightByIdent(
   ident: string,
   opts: { startISO: string; endISO: string; identType?: "designator" | "fa_flight_id" },
+  usage?: ApiCallContext,
 ): Promise<AeroFlight[]> {
-  const json = await aeroRequest(`/flights/${encodeURIComponent(ident)}`, {
-    ident_type: opts.identType ?? "designator",
-    start: opts.startISO,
-    end: opts.endISO,
-  });
+  // Classed by how it is being queried, not by the URL: the same /flights/{x} shape is a
+  // designator search or a single-instance fetch depending on `ident_type`.
+  const identType = opts.identType ?? "designator";
+  const json = await aeroRequest(
+    `/flights/${encodeURIComponent(ident)}`,
+    identType === "fa_flight_id" ? "flights/{id}" : "flights/{ident}",
+    {
+      ident_type: identType,
+      start: opts.startISO,
+      end: opts.endISO,
+    },
+    usage,
+  );
   return json?.flights ?? [];
 }
 
@@ -173,15 +223,18 @@ export async function fetchScheduledFlights(
   dateStartISO: string,
   dateEndISO: string,
   opts: { airline?: string; flightNumber?: number; origin?: string; destination?: string } = {},
+  usage?: ApiCallContext,
 ): Promise<AeroScheduledFlight[]> {
   const json = await aeroRequest(
     `/schedules/${encodeURIComponent(dateStartISO)}/${encodeURIComponent(dateEndISO)}`,
+    "schedules",
     {
       airline: opts.airline,
       flight_number: opts.flightNumber !== undefined ? String(opts.flightNumber) : undefined,
       origin: opts.origin,
       destination: opts.destination,
     },
+    usage,
   );
   return json?.scheduled ?? [];
 }
@@ -211,7 +264,12 @@ function toWholeSecondISOString(date: Date): string {
   return date.toISOString().replace(/\.\d{3}Z$/, "Z");
 }
 
-export async function fetchHistoricalFlights(ident: string, startISO: string, endISO: string): Promise<AeroFlight[]> {
+export async function fetchHistoricalFlights(
+  ident: string,
+  startISO: string,
+  endISO: string,
+  usage?: ApiCallContext,
+): Promise<AeroFlight[]> {
   const all: AeroFlight[] = [];
   const rangeStart = new Date(startISO);
   const rangeEnd = new Date(endISO);
@@ -225,7 +283,14 @@ export async function fetchHistoricalFlights(ident: string, startISO: string, en
     // based on 9 good windows and 1 skipped one are far more useful than no stats at all. Logged,
     // not re-thrown.
     try {
-      all.push(...(await fetchHistoricalFlightsWindow(ident, toWholeSecondISOString(windowStart), toWholeSecondISOString(windowEnd))));
+      all.push(
+        ...(await fetchHistoricalFlightsWindow(
+          ident,
+          toWholeSecondISOString(windowStart),
+          toWholeSecondISOString(windowEnd),
+          usage,
+        )),
+      );
     } catch (err) {
       console.error(`[aeroapi] history window ${windowStart.toISOString()}..${windowEnd.toISOString()} for ${ident} failed:`, (err as Error).message);
     }
@@ -235,13 +300,20 @@ export async function fetchHistoricalFlights(ident: string, startISO: string, en
   return all;
 }
 
-async function fetchHistoricalFlightsWindow(ident: string, startISO: string, endISO: string): Promise<AeroFlight[]> {
+async function fetchHistoricalFlightsWindow(
+  ident: string,
+  startISO: string,
+  endISO: string,
+  usage?: ApiCallContext,
+): Promise<AeroFlight[]> {
   const all: AeroFlight[] = [];
   let path: string | null = `/history/flights/${encodeURIComponent(ident)}`;
   let params: Record<string, string> | undefined = { start: startISO, end: endISO };
 
   for (let page = 0; page < HISTORY_MAX_PAGES_PER_WINDOW && path; page++) {
-    const json = await aeroRequest(path, params);
+    // Every page is its own billable request, including the ones reached through `links.next` —
+    // which is why the class is passed in rather than parsed off a cursor URL.
+    const json = await aeroRequest(path, "history/flights/{ident}", params, usage);
     if (!json) break;
     all.push(...(json.flights ?? []));
     path = json.links?.next ?? null;
@@ -251,10 +323,15 @@ async function fetchHistoricalFlightsWindow(ident: string, startISO: string, end
   return all;
 }
 
-export async function fetchFlightByFaId(faFlightId: string): Promise<AeroFlight | null> {
-  const json = await aeroRequest(`/flights/${encodeURIComponent(faFlightId)}`, {
-    ident_type: "fa_flight_id",
-  });
+export async function fetchFlightByFaId(faFlightId: string, usage?: ApiCallContext): Promise<AeroFlight | null> {
+  const json = await aeroRequest(
+    `/flights/${encodeURIComponent(faFlightId)}`,
+    "flights/{id}",
+    { ident_type: "fa_flight_id" },
+    // The fa_flight_id is the attribution key whether or not the caller supplied one, so fill it
+    // in here rather than making every call site remember to.
+    { calledBy: usage?.calledBy ?? "unattributed", ...usage, faFlightId: usage?.faFlightId ?? faFlightId },
+  );
   const flights: AeroFlight[] = json?.flights ?? [];
   return flights[0] ?? null;
 }
@@ -262,9 +339,9 @@ export async function fetchFlightByFaId(faFlightId: string): Promise<AeroFlight 
 // Simplified-syntax route search. Filtering to a specific date is left to the caller (the
 // endpoint doesn't document a date param), by checking `scheduled_out` against the requested
 // date's local day window.
-export async function searchRoute(originCode: string, destCode: string): Promise<AeroFlight[]> {
+export async function searchRoute(originCode: string, destCode: string, usage?: ApiCallContext): Promise<AeroFlight[]> {
   const query = `-origin ${originCode} -destination ${destCode}`;
-  const json = await aeroRequest("/flights/search", { query });
+  const json = await aeroRequest("/flights/search", "flights/search", { query }, usage);
   return json?.flights ?? [];
 }
 
@@ -272,9 +349,14 @@ export async function searchRoute(originCode: string, destCode: string): Promise
 // confirmed from the docs available, so we look for a handful of plausible field names and
 // fall back to `undefined` rather than guessing. Never let a weather failure surface — always
 // wrapped in try/catch, returns null on any error.
-export async function fetchAirportWeather(airportCode: string): Promise<FlightWeather | null> {
+export async function fetchAirportWeather(airportCode: string, usage?: ApiCallContext): Promise<FlightWeather | null> {
   try {
-    const observations = await aeroRequest(`/airports/${encodeURIComponent(airportCode)}/weather/observations`);
+    const observations = await aeroRequest(
+      `/airports/${encodeURIComponent(airportCode)}/weather/observations`,
+      "airports/{id}/weather/observations",
+      undefined,
+      usage,
+    );
     const latest = pickLatestWeatherEntry(observations);
     if (latest) return parseWeatherEntry(latest);
   } catch (err) {
@@ -282,7 +364,12 @@ export async function fetchAirportWeather(airportCode: string): Promise<FlightWe
   }
 
   try {
-    const forecast = await aeroRequest(`/airports/${encodeURIComponent(airportCode)}/weather/forecast`);
+    const forecast = await aeroRequest(
+      `/airports/${encodeURIComponent(airportCode)}/weather/forecast`,
+      "airports/{id}/weather/forecast",
+      undefined,
+      usage,
+    );
     const latest = pickLatestWeatherEntry(forecast);
     if (latest) return parseWeatherEntry(latest);
   } catch (err) {
@@ -326,9 +413,12 @@ function parseWeatherEntry(entry: any): FlightWeather {
 // this to backfill a null value, not on every refresh. Prefers the ICAO code (more universally
 // recognized by AeroAPI) and falls back to IATA. Returns null on any failure or missing code —
 // never throws.
-export async function fetchAirportCoordinates(code: string): Promise<{ latitude: number; longitude: number } | null> {
+export async function fetchAirportCoordinates(
+  code: string,
+  usage?: ApiCallContext,
+): Promise<{ latitude: number; longitude: number } | null> {
   try {
-    const json = await aeroRequest(`/airports/${encodeURIComponent(code)}`);
+    const json = await aeroRequest(`/airports/${encodeURIComponent(code)}`, "airports/{id}", undefined, usage);
     if (json && typeof json.latitude === "number" && typeof json.longitude === "number") {
       return { latitude: json.latitude, longitude: json.longitude };
     }

@@ -115,7 +115,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const updated = await refreshOneFlight(serviceClient, flightRow);
+    const updated = await refreshOneFlight(serviceClient, flightRow, "refresh-flight");
     if (updated) {
       try {
         await reconcileOverdueArrival(serviceClient, updated, Date.now());
