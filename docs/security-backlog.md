@@ -178,3 +178,171 @@ Found before shipping, which is the good case. Re-check these against whatever a
 - On 2026-09-21 the local database contained objects from migrations absent from
   `schema_migrations`, so `supabase db reset` and the running database had diverged and any pgTAP
   run was testing an unrecorded schema.
+
+---
+
+# Round 2 — client, website and untrusted input (2026-09-21)
+
+Sweep of the web admin console, on-device persistence, and every path by which input enters the
+iOS app from outside its own UI.
+
+## Verified by me
+
+### 4. HIGH — a shared flight email survives an account switch and is offered to the next account
+
+`Twofold/Twofold/Shared/PendingFlightShare.swift:36-61`, `Twofold/Twofold/App/AppModel.swift:917-940`
+
+`PendingShareStore` has `all()`, `add()`, `remove(id:)` and `save()` and **no `clear()`** — the only
+store of the sixteen without one. `clearLocalSessionState()` names twelve stores and does not name
+it. `HomeView.swift:464` reads `PendingShareStore.all()` with no user id anywhere in the record or
+the read, from `.onAppear`, from `scenePhase == .active`, and from pull-to-refresh.
+
+The payload is content, not a pointer: `subject`, `bodyText` (the whole email) and `pdfText`
+(scraped from an attached boarding pass). A booking confirmation carries a legal name, booking
+reference, ticket number, seat and itinerary.
+
+So: A shares a flight email and never taps the card; A signs out or deletes their account; B signs
+in and is shown "1 flight email to review", opens A's email, and can add the flight to B's couple.
+This is the `PendingTripStore` bug that `PendingDraftStoreClearTests` was written about,
+reintroduced on a store that holds a third party's data.
+
+Fix: add `clear()`, call it beside `PendingTripStore.clear()`, add the test. Then fix the reason it
+happened — nothing asserts that a store is reachable from the clearing path, so the sixteenth store
+being forgotten is green. Extract the disk half of `clearLocalSessionState()` (no RevenueCat, which
+is why the existing tests only cover the in-memory half) and assert every store is empty after it.
+
+### 5. SAFE — the web admin console gate holds
+
+Recording this so nobody re-reviews it. `site/src/app/(console)/layout.tsx:34-46` is an async server
+component on the route **group**: `auth.getUser()`, then `isConsoleAdmin()`, then redirect. Every
+page under `(console)` inherits it, there is no second layout that could shadow it, and
+`isConsoleAdmin` returns false on any RPC error. There is **no service-role key anywhere in
+`site/`** — verified by grep across `src/` and `scripts/`. Client-side `useAdminRoles` only filters
+the nav tabs; forging it reveals a link that then hits the server gate and the RPC gate.
+
+## Reported, production code, not independently reproduced
+
+- **HIGH — `/api/support` is an unauthenticated mail relay.** No rate limit, no CAPTCHA, no proof of
+  address control; only a honeypot. Each POST sends mail from our domain to an attacker-chosen
+  address containing up to 5000 attacker-written characters. The RPC error is swallowed and the mail
+  sent regardless, so any throttle added to `submit_support_request` would not help. Burns the same
+  Zoho quota and domain reputation that `/api/waitlist` and the iOS help path depend on.
+- **HIGH — nothing on disk sets a file protection class.** No `NSFileProtection*`, no
+  `.completeFileProtection`, no data-protection entitlement anywhere in the repo, so everything
+  inherits `CompleteUntilFirstUserAuthentication`. Trips, flights, memories and their notes, both
+  home cities, the daily question text, pending memory photo bytes and the game catalogue are all in
+  Application Support and therefore in an unencrypted iTunes/Finder backup, in plaintext, with no
+  passcode needed. The main-app-only stores can take `.completeFileProtection`; `WidgetImageCache`
+  cannot, because a Lock Screen widget must render — worth a comment saying so.
+- **HIGH — App Lock is bypassable by a widget or notification tap.** `AppLockView` is a ZStack
+  sibling with `zIndex(1)` (`RootView.swift:411`), but every sheet and cover is attached to the
+  `Group` beneath it, and UIKit presents those over the window — above the lock. Neither `onOpenURL`
+  (`:291`) nor `consumePendingRoute()` (`:479`) checks `appLock.isLocked`. `twofold://partner-drawing-pad`
+  needs no id at all. `AppLockView`'s own comment calls itself "the full-screen cover RootView shows
+  in front of everything else"; it is neither. **Both agents found this independently.** Needs
+  fifteen minutes on a device before acting — it is read from SwiftUI presentation semantics, not
+  observed.
+- **MEDIUM-HIGH — content is in the app-switcher snapshot.** `appLock.lock()` fires on `.background`
+  (`RootView.swift:196`) and iOS captures the snapshot during `.inactive`, one phase earlier.
+  `PrivacyCoverView` is an `.overlay`, so it has the same modal-layering problem as the lock.
+- **MEDIUM — the Supabase refresh token is `kSecAttrAccessibleAfterFirstUnlock`**, not
+  `…ThisDeviceOnly` (supabase-swift 2.50.0 `Keychain.swift:86`, not configurable through
+  `SupabaseClientOptions`). It is therefore included in an encrypted backup and restores onto a
+  different device: the backup password, not the phone passcode, yields a live session. Fix by
+  supplying a custom `AuthLocalStorage`.
+- **MEDIUM — export artefacts are never deleted.** `CoupleDataExporter` writes an unzipped copy of
+  the entire relationship — every CSV plus every memory photo downloaded in full — to `tmp`, then a
+  zip beside it, and nothing removes either. Survives sign-out and account deletion. `Our Story.rtf`
+  and `Our Story.pdf` are at fixed `tmp` paths with photos embedded, also never cleaned. Filenames
+  are derived from the partner's name.
+- **MEDIUM — `OfflineGameStateCache.record()` merges from an unscoped `read()`** and stamps the
+  result with the *current* user id, so account A's daily question, session id and deck progress can
+  be laundered into account B's snapshot and pass B's scope check. Every other cache fails closed;
+  this one fails open. Fix: merge only when `existing.userID == userID`.
+- **MEDIUM — the two pending stores carry no user id at rest**, so clearing on sign-out is the only
+  defence — and `signOut()` does two network round trips before the clear. Force-quitting a
+  seemingly-frozen sign-out leaves every cache intact, and `restorePendingMemoriesFromDisk()` then
+  replays A's drafts into B's couple.
+- **MEDIUM — one tap pairs you with a stranger.** A deep-linked invite prefills
+  `RedeemPartnerCodeView`, which sends `origin: .link`, and `redeem_invite_code` auto-accepts a link
+  origin with no inviter approval. The onboarding route for the same link resolves and shows the
+  inviter's name and avatar first; the signed-in route resolves the same information only *after*
+  redemption, to word the confirmation. Two routes to one irreversible action, one of which tells
+  you who you are pairing with.
+- **MEDIUM — `connection_accepted` never notifies on the auto-accept path.** The redeemer calls it,
+  but `notify-connection-request` builds `expectedMatch` assuming the caller is the inviter, so the
+  match inverts, the function 403s, and the client discards the error. Migration 20261008000000
+  justifies unsupervised link pairing partly on "the inviter is told". They are not told. Same
+  assumption breaks accept-notification when an accept restores a dissolved archive with reversed
+  partner ordering.
+- **LOW — attacker-controlled text in a system alert.** `twofold://reset-password?error_description=…`
+  surfaces the attacker's sentence verbatim in the "Link expired" alert. Any installed app can fire
+  it. No tappable link (`Text` takes the non-markdown overload), so it is phishing copy, not a click.
+- **LOW — `twofold://invite/CODE` is dead.** `InviteCode.code(from:)` requires `invite` in
+  `pathComponents`, but for that URL `invite` is the *host*, so the `url.host == "invite"` branch is
+  unreachable and the file header's backward-compatibility promise is not kept. Also
+  `twofold://<anyhost>/invite` returns the code `"INVITE"` and is matched before widget routing. The
+  function has zero test coverage.
+- **LOW — unescaped `preheader` in two email templates.** `renderTemplate` requires callers to
+  pre-escape; every other token on the call is escaped and this one is not, in both
+  `/api/support:140` and `/api/waitlist:85`. `EMAIL_RE` permits `<` and `>`. HTML injection into an
+  internal alert an admin reads. Not header injection — whitespace is excluded and values are
+  trimmed.
+- **LOW — `widgetSnapshot.v1`…`v4` are orphaned forever.** `clear()` removes only `v5`. Up to four
+  stale blobs with the then-current account's names, cities, anniversary, next reunion, couple and
+  partner ids, and in v3-and-earlier the public drawing-pad URLs, in the backed-up app-group root.
+- **LOW — App Lock does not cover the widgets.** "Require Face ID" still leaves the partner's name,
+  face, city, distance, next reunion and latest memory photo on the Home Screen, three of them on
+  the Lock Screen. Inherent to widgets; the Settings copy implies otherwise. A product decision.
+- **LOW — waitlist membership is enumerable** (409 vs 200, unauthenticated, unthrottled), and each
+  miss enrols and emails the address probed.
+- **LOW — no security response headers at all.** No CSP, no `frame-ancestors`, no `Referrer-Policy`.
+  Supabase SSR auth cookies are necessarily `httpOnly: false` because the browser client reads them,
+  so any XSS is full session theft including an admin's. No XSS sink found today — zero
+  `dangerouslySetInnerHTML` in `site/src`.
+- **LOW — `revoke … from anon` on the new admin functions does not hold**, the same
+  default-privileges mechanism as item 1's neighbours. Defence-in-depth only: every one of them
+  checks `is_support_admin()` / `is_billing_admin()` as its first statement, verified.
+- **LOW — `x-pathname` is set on the response, not forwarded on the request**, so the console
+  layout's `headers().get("x-pathname")` is always null and the bookmark-preserving redirect never
+  works. What *does* reach it is a client-supplied `X-Pathname` header. No open redirect today —
+  `encodeURIComponent` plus the callback's `/^\/(?!\/)/` validation stand in the way — but that
+  regex is the only thing standing there.
+- **LOW — share extension reads an unbounded host-supplied URL** into memory before checking the
+  size cap, and will fetch an `http(s)` URL if the host app supplies one.
+- **LOW — `[weather]` logs a home city** to the unified log on a failure path
+  (`WeatherService.swift:63`). The only other three log sites are clean.
+
+## Verified safe in round 2
+
+- Recovery links cannot establish or hijack a session: the SDK defaults to PKCE, so a crafted
+  `#access_token=` throws and a crafted `?code=` fails without the local verifier. **Latent:**
+  setting `flowType: .implicit` would silently turn this into one-link account takeover. Worth a
+  comment at the call site.
+- Push payloads cannot reach a UI string, a URL or an arbitrary navigation target — the parser
+  accepts only `UUID(uuidString:)` and fixed enum raw values, and `.flight(id)` resolves locally.
+- No deep link reaches a destructive action. No unpair, delete, purge or export route exists.
+- The share extension holds no credentials and shares no session; the App Group holds no tokens.
+- Google's callback is handled before the app's own parsers, which would reject it anyway on scheme.
+- Export scoping after a split is correct by design: reads stay open so a dissolved couple can still
+  export, writes are shut by `is_couple_active`, so there is no "after the split" data to leak.
+- Fifteen of sixteen stores are correctly registered in the clearing path, and every `restore(for:)`
+  is called with a real user id; a nil id fails the `guard let` rather than falling through.
+- Account deletion runs the identical clearing path and signs out of Supabase, so a device is not
+  left silently signed in to a deleted account.
+- All twenty-two feedback-board policies scope writes to `user_id = auth.uid()`. The one policy that
+  looks wrong (`feature_requests_update_own_recent`) is covered by a BEFORE UPDATE trigger.
+- No Sanity write token in any client path; the one Studio tool that writes to Supabase is gated by
+  `is_feedback_admin()` rather than by Studio's own auth.
+- Both destructive edge functions (`admin-actions`, `send-support-reply`) verify the caller with the
+  caller's own JWT before constructing a service client.
+
+## Still unreviewed
+
+- `ingest-support-email` / `send-support-reply` / the support-reply migrations — a live untrusted
+  input path into admin-facing UI, reachable by Zoho without a Supabase JWT. Untracked and being
+  written while this sweep ran, so deliberately skipped.
+- `PricingClient.tsx` — passes the Supabase user id to RevenueCat Web Billing and reads entitlement
+  back client-side. Whether any server trusts a client-asserted entitlement was not answered.
+- `Twofold.entitlements` has `aps-environment: development`. Distribution signing normally rewrites
+  it; worth a glance before the next App Store build.
