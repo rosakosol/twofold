@@ -11,7 +11,7 @@
 -- happens to do today, which matters because the bodies here do no authorising of their own.
 
 begin;
-select plan(17);
+select plan(20);
 
 create extension if not exists pgtap;
 
@@ -137,6 +137,36 @@ select is(
      and policyname = 'avatars_select_pending_inviter'),
   0,
   'the caller-blind avatar policy is gone'
+);
+
+-- ---------------------------------------------------------------------------
+-- A rule, not a list
+-- ---------------------------------------------------------------------------
+--
+-- The admin surface is being added to actively, so an assertion naming today's functions is a
+-- test of yesterday. This asserts the property instead: nothing in the admin or usage families is
+-- reachable without a session. A function added next week is covered the day it exists, and a
+-- `revoke ... from anon` that silently did not take shows up here rather than in a review.
+select is(
+  (select count(*)::int
+   from pg_proc p
+   join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public'
+     and has_function_privilege('anon', p.oid, 'EXECUTE')
+     and (p.proname like 'admin\_%' or p.proname like 'api\_usage\_%')),
+  0,
+  'no admin or usage function is callable without a session'
+);
+
+-- The two deliberate exceptions, asserted so a future sweep of "close everything to anon" cannot
+-- take them out by tidiness. Both serve callers who have no account by design.
+select ok(
+  has_function_privilege('anon', 'public.submit_support_request(text, text, text, text, text, text)', 'EXECUTE'),
+  'the website contact form can still file a support request without a session'
+);
+select ok(
+  has_function_privilege('anon', 'public.consume_anon_rate_limit(text, text, integer, interval)', 'EXECUTE'),
+  'and the limiter in front of it can still be consumed by the visitor it is limiting'
 );
 
 select * from finish();

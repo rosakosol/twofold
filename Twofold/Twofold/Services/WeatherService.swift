@@ -60,7 +60,10 @@ enum TwofoldWeatherService {
                 temperatureC: weather.temperature.converted(to: .celsius).value
             )
         } catch {
-            print("[weather] fetch failed for \(place.city): \(error)")
+            // The city is one of the two partners' home cities, and `print` lands in the unified
+            // log, readable over USB from a trusted Mac. The failure is worth knowing about; which
+            // couple it happened to is not.
+            print("[weather] fetch failed: \(error)")
             return nil
         }
     }

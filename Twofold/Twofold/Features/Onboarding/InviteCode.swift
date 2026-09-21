@@ -31,20 +31,33 @@ enum InviteCode {
     /// `twofold://invite/<CODE>` (legacy custom-scheme links already shared before Universal
     /// Links were wired up).
     static func code(from url: URL) -> String? {
-        let components = url.pathComponents.filter { $0 != "/" }
-        guard components.contains(where: { $0.lowercased() == "invite" }) else { return nil }
-
         let isUniversalLink = url.scheme?.lowercased() == "https" && url.host?.lowercased() == universalLinkHost
         let isLegacyCustomScheme = url.scheme?.lowercased() == "twofold"
         guard isUniversalLink || isLegacyCustomScheme else { return nil }
 
-        if url.host?.lowercased() == "invite", let code = components.first {
+        let components = url.pathComponents.filter { $0 != "/" }
+
+        // The legacy form, and it never worked. For `twofold://invite/ABCDEFGH` the word "invite"
+        // is the URL's *host*, not a path component — `pathComponents` is ["/", "ABCDEFGH"] — so
+        // the old `components.contains("invite")` guard rejected it before this branch could run,
+        // and the branch itself was unreachable. Every legacy link shared before Universal Links
+        // were wired up has silently done nothing since. Checked first now, and against the host.
+        if isLegacyCustomScheme, url.host?.lowercased() == "invite" {
+            guard let code = components.first, !code.isEmpty else { return nil }
             return code.uppercased()
         }
-        if let code = components.last {
-            return code.uppercased()
-        }
-        return nil
+
+        // The current form. Requiring "invite" to be the second-to-last component rather than
+        // merely present anywhere: `components.last` used to be returned for any path containing
+        // the word, so `/invite/ABCD/EVIL` yielded "EVIL", and `twofold://anything/invite` yielded
+        // the code "INVITE" — which `RootView` matches before widget routing, so an invite-suffixed
+        // path shadowed a widget link.
+        guard components.count >= 2,
+              components[components.count - 2].lowercased() == "invite",
+              let code = components.last,
+              !code.isEmpty
+        else { return nil }
+        return code.uppercased()
     }
 
     /// Live-formats manual code entry to match the real `XXXX-XXXX` shape as you type — strips

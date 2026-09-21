@@ -99,7 +99,18 @@ struct OnboardingCoordinatorView: View {
             try await BackendService.completePasswordRecovery(from: url)
             showingPasswordReset = true
         } catch {
-            passwordRecoveryError = error.localizedDescription
+            // Deliberately not `error.localizedDescription`.
+            //
+            // Under the SDK's PKCE flow a failed exchange throws `pkceGrantCodeExchange(message:)`
+            // whose message is the URL's own `error_description`, verbatim. The URL comes from
+            // whoever opened it — any installed app can fire `twofold://reset-password` with no
+            // prompt — so that put an attacker's sentence inside a native alert titled by us:
+            // "Your Twofold account is locked, call support on …". Percent-decoding means they get
+            // punctuation and newlines too.
+            //
+            // There is nothing here worth showing that the static copy does not already say. A
+            // recovery link either works or has expired, and both readings are the same sentence.
+            passwordRecoveryError = "This password reset link is no longer valid — request a new one from the sign-in screen."
         }
     }
 

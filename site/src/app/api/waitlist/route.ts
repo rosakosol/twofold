@@ -102,7 +102,11 @@ async function sendEmails(email: string): Promise<void> {
       }),
     ]);
     for (const result of results) {
-      if (result.status === "rejected") console.error("[waitlist] email send failed:", result.reason);
+      // The reason, not the rejection object: a nodemailer failure carries the envelope, so
+      // logging it whole wrote the signup's email address into Vercel's logs.
+      if (result.status === "rejected") {
+        console.error("[waitlist] email send failed:", (result.reason as Error)?.message ?? "unknown");
+      }
     }
   } finally {
     transport.close();
