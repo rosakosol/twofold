@@ -55,6 +55,18 @@ enum PendingShareStore {
         save(all().filter { $0.id != id })
     }
 
+    /// Drops the whole queue.
+    ///
+    /// Missing until now, and this was the only store of the sixteen without one — so
+    /// `clearLocalSessionState()` could not have called it even if somebody had remembered to.
+    /// A queued share is the text of a booking confirmation: subject, body, and whatever was
+    /// scraped out of an attached boarding pass, which is a traveller's legal name, their record
+    /// locator and their itinerary. `HomeView` reads the queue on every appearance with no user id
+    /// anywhere in the record, so it was offered to whoever signed in next.
+    static func clear() {
+        defaults?.removeObject(forKey: key)
+    }
+
     private static func save(_ shares: [PendingFlightShare]) {
         guard let data = try? JSONEncoder().encode(shares) else { return }
         defaults?.set(data, forKey: key)

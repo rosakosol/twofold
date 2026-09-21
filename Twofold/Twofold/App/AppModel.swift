@@ -914,6 +914,35 @@ final class AppModel {
         // Same reasoning as the widget snapshot below — the next account to sign in on this device
         // must not inherit this one's entitlement. (`restore(for:)` is account-scoped as a second
         // guard, but clearing on the way out is the honest place to do it.)
+        Self.clearPersistedAccountState()
+        WidgetCenter.shared.reloadAllTimelines()
+        // Any push that already landed for the signed-out account (a trip/game update, a flight
+        // alert) otherwise sat in Notification Center indefinitely, and tapping it after sign-out
+        // routed into content that either no longer resolves or belongs to whoever signs in next.
+        UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+        resetAccountScopedState()
+    }
+
+    /// Every store on disk or in `UserDefaults` that belongs to the signed-out account.
+    ///
+    /// Split out of `clearLocalSessionState()` so it can be tested, for the same reason
+    /// `resetAccountScopedState()` was: the rest of that method logs out of RevenueCat and PostHog
+    /// and reaches the notification centre, and `Purchases.shared` traps when it has not been
+    /// configured, which it has not been in a unit test. So the disk half — the half where
+    /// forgetting a store leaks one account's data to the next — was the half no test could reach.
+    ///
+    /// That is not hypothetical. `PendingShareStore` was added later and never added here, and
+    /// nothing went red: a shared booking email survived sign-out and was offered to the next
+    /// account. It is the third store to do this, after `PendingTripStore` and
+    /// `PendingMemoryStore`.
+    ///
+    /// Adding a store to the app means adding it here. `PersistedAccountStateClearingTests` is
+    /// what makes the omission fail rather than pass.
+    static func clearPersistedAccountState() {
+        // Same reasoning as the widget snapshot below — the next account to sign in on this device
+        // must not inherit this one's entitlement. (`restore(for:)` is account-scoped as a second
+        // guard, but clearing on the way out is the honest place to do it.)
         OfflineSessionCache.clear()
         OfflineDataCache.clear()
         OfflineGameStateCache.clear()
@@ -933,18 +962,14 @@ final class AppModel {
         // photo bytes too.
         PendingTripStore.clear()
         PendingMemoryStore.clear()
+        // Written by the share extension, read by `HomeView` with no user id in the record. Holds
+        // the text of a shared booking email, including anything scraped from a boarding pass.
+        PendingShareStore.clear()
         clearAccountScopedDefaults()
         MemoryPhotoDiskCache.clear()
         RemoteImageDiskCache.clear()
         WidgetSnapshot.clear()
         WidgetImageCache.clearAll()
-        WidgetCenter.shared.reloadAllTimelines()
-        // Any push that already landed for the signed-out account (a trip/game update, a flight
-        // alert) otherwise sat in Notification Center indefinitely, and tapping it after sign-out
-        // routed into content that either no longer resolves or belongs to whoever signs in next.
-        UNUserNotificationCenter.current().removeAllDeliveredNotifications()
-        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
-        resetAccountScopedState()
     }
 
     /// The two `UserDefaults` keys that belong to the account rather than to the device.
@@ -960,7 +985,7 @@ final class AppModel {
     /// `reviewPrompt.*` keys, which exist to stop pestering *the person holding the phone* — the
     /// App Store's own prompt is rate-limited per device regardless, so clearing them would only
     /// mean asking somebody who already said yes a second time.
-    private func clearAccountScopedDefaults() {
+    private static func clearAccountScopedDefaults() {
         for key in ["dormancy.lastTouchedOn", "streakRepairOfferedForMissedDate"] {
             UserDefaults.standard.removeObject(forKey: key)
         }
