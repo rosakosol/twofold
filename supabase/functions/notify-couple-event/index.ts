@@ -8,6 +8,7 @@
 // session) — the caller is the *actor* whose activity is being announced, not the recipient.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { enforceRateLimit } from "../_shared/rate-limit.ts";
 import { sendAPNs } from "../_shared/apns.ts";
 // The sentences themselves live next door so they can be tested without standing up this server.
 import { buildMessage, buildSelfMessage, type EventType } from "../_shared/couple-event-copy.ts";
@@ -61,6 +62,25 @@ type PreferenceColumn =
   | "partner_game_results_ready"
   | "partner_game_partner_finished";
 
+/// `detail` is client-supplied and lands verbatim in the notification body, on a lock screen.
+/// Capped because it had no bound at all: "X added a trip: <anything>" with `anything` being
+/// whatever fitted in a request.
+const MAX_DETAIL_LENGTH = 200;
+
+/// A ceiling on how many pushes one account can send its partner in an hour.
+///
+/// Every event here is a side effect of a real action — adding a trip, saving a drawing — so an
+/// honest user never approaches this. It exists because `game_reminder` is deliberately absent
+/// from `PREFERENCE_COLUMN` below and therefore cannot be switched off by the person receiving
+/// it, which without a limit is an unlimited channel for attacker-chosen text to somebody who
+/// cannot mute it. In an app for couples that is a harassment vector, and "you can't turn it off"
+/// is the part that makes it one.
+///
+/// A cooldown rather than a new preference column, deliberately: making `game_reminder` mutable is
+/// a product decision about whether a nudge can be silenced, and this is not the change to make
+/// it in. The limit removes the abuse either way.
+const RATE_LIMIT = { bucket: "notify-couple-event", limit: 30, window: "1 hour" };
+
 const PREFERENCE_COLUMN: Partial<Record<EventType, PreferenceColumn>> = {
   drawing_saved: "partner_drawing_saved",
   trip_added: "partner_trip_added",
@@ -85,6 +105,9 @@ Deno.serve(async (req) => {
   if (!input?.eventType || !VALID_EVENT_TYPES.includes(input.eventType)) {
     return Response.json({ error: "'eventType' must be one of " + VALID_EVENT_TYPES.join(", ") }, { status: 400 });
   }
+  if (typeof input.detail === "string" && input.detail.length > MAX_DETAIL_LENGTH) {
+    return Response.json({ error: `'detail' is limited to ${MAX_DETAIL_LENGTH} characters` }, { status: 400 });
+  }
 
   const userClient = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -96,6 +119,11 @@ Deno.serve(async (req) => {
   if (!user) {
     return Response.json({ error: "Not authenticated" }, { status: 401 });
   }
+
+  // After authentication, so an anonymous caller consumes nobody's budget, and before anything is
+  // resolved or sent.
+  const limited = await enforceRateLimit(userClient, RATE_LIMIT);
+  if (limited) return limited;
 
   const serviceClient = createClient(
     Deno.env.get("SUPABASE_URL")!,

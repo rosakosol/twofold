@@ -12,6 +12,24 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { sendAPNs } from "../_shared/apns.ts";
+import { enforceRateLimit } from "../_shared/rate-limit.ts";
+
+/// The throttle this endpoint was missing entirely.
+///
+/// `send_connection_request_reminder` enforces one reminder per request per six hours, and
+/// 20260906000000's header says why: without it somebody could "fire a push on every app launch".
+/// But the throttle lives in the RPC, and calling this edge function directly skips both the RPC
+/// and the ledger it writes to — so the limit was reachable only by callers who chose to go the
+/// polite way.
+///
+/// The membership check below is real, so a target is always somebody with a genuine pending
+/// request. What was unbounded is how often they could be told about it, with body text drawn
+/// from the sender's own `first_name`, which is self-set and unvalidated.
+///
+/// Per-caller rather than per-request, because it sits here rather than in the ledger. A sender
+/// with several outstanding invites shares one budget, which is the right way round: the person
+/// being protected is the recipient.
+const RATE_LIMIT = { bucket: "notify-connection-request", limit: 10, window: "1 hour" };
 
 type EventType = "connection_requested" | "connection_accepted" | "connection_reminder";
 
@@ -59,6 +77,9 @@ Deno.serve(async (req) => {
   if (!user) {
     return Response.json({ error: "Not authenticated" }, { status: 401 });
   }
+
+  const limited = await enforceRateLimit(userClient, RATE_LIMIT);
+  if (limited) return limited;
 
   const serviceClient = createClient(
     Deno.env.get("SUPABASE_URL")!,
