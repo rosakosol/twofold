@@ -24,14 +24,17 @@ export const dynamic = "force-dynamic";
 export default async function UsagePage() {
   const supabase = await createClient();
 
-  const { data: isBillingAdmin } = await supabase.rpc("is_billing_admin");
-  if (isBillingAdmin !== true) redirect("/admin");
-
-  const [summaryResult, endpointResult, seriesResult] = await Promise.all([
+  // The gate joins the batch rather than gating it, for the same reason as the account page: each
+  // of these RPCs enforces is_billing_admin() itself, so running them together costs a non-admin
+  // three refusals and saves every real load a round trip to Sydney.
+  const [{ data: isBillingAdmin }, summaryResult, endpointResult, seriesResult] = await Promise.all([
+    supabase.rpc("is_billing_admin"),
     supabase.rpc("api_usage_summary", { p_provider: "aeroapi" }),
     supabase.rpc("api_usage_by_endpoint", { p_provider: "aeroapi" }),
     supabase.rpc("api_usage_daily_series", { p_provider: "aeroapi" }),
   ]);
+
+  if (isBillingAdmin !== true) redirect("/admin");
 
   // `api_usage_summary` returns a single row; supabase-js gives a one-element array for a
   // table-returning function.

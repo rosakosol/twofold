@@ -24,22 +24,27 @@ export default async function AccountPage() {
   const { data: auth } = await supabase.auth.getUser();
   const user = auth.user!;
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select(
-      "first_name, subscription_active, subscription_tier, subscription_store, subscription_will_renew, subscription_started_at",
-    )
-    .eq("id", user.id)
-    .maybeSingle();
-
-  // RLS narrows this to the caller's own couple, so no `or(partner_a_id.eq...)` filter is needed —
-  // and adding one would be a second place for the membership rule to be written, which is how the
-  // two come to disagree.
-  const { data: couple } = await supabase
-    .from("couples")
-    .select("id, partner_a_id, partner_b_id, started_dating_on")
-    .eq("status", "active")
-    .maybeSingle();
+  // In parallel, because they do not depend on each other and every one of these is a round trip
+  // to Sydney. Awaited one after another they cost twice what they need to, and on a page that
+  // shows nothing until all of them land that is the difference between quick and apparently
+  // broken. Only the partner lookup below genuinely has to wait, because it needs the couple.
+  const [{ data: profile }, { data: couple }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select(
+        "first_name, subscription_active, subscription_tier, subscription_store, subscription_will_renew, subscription_started_at",
+      )
+      .eq("id", user.id)
+      .maybeSingle(),
+    // RLS narrows this to the caller's own couple, so no `or(partner_a_id.eq...)` filter is needed
+    // — and adding one would be a second place for the membership rule to be written, which is how
+    // the two come to disagree.
+    supabase
+      .from("couples")
+      .select("id, partner_a_id, partner_b_id, started_dating_on")
+      .eq("status", "active")
+      .maybeSingle(),
+  ]);
 
   const partnerId = couple
     ? couple.partner_a_id === user.id

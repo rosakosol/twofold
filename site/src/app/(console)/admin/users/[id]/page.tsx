@@ -28,23 +28,26 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: isSupportAdmin } = await supabase.rpc("is_support_admin");
+  // All four at once. Each is a round trip to Sydney, and run one after another they were the
+  // reason this page felt like a dead link — four sequential waits before anything rendered.
+  //
+  // The gate is among them rather than in front of them. Every one of these RPCs checks
+  // is_support_admin() in its own body and raises 42501 otherwise, so a non-admin firing the other
+  // three costs three refusals and learns nothing; the alternative is making every legitimate load
+  // wait for a permission check whose answer is almost always yes.
+  const [{ data: isSupportAdmin }, detailResult, auditResult, overrideResult] = await Promise.all([
+    supabase.rpc("is_support_admin"),
+    supabase.rpc("admin_account_detail", { p_profile_id: id }),
+    supabase.rpc("admin_audit_for_subject", { p_profile_id: id, p_limit: 20 }),
+    supabase.rpc("admin_flight_limit_override", { p_profile_id: id }),
+  ]);
+
   if (isSupportAdmin !== true) redirect("/admin");
+  if (detailResult.error || !detailResult.data) notFound();
 
-  const { data, error } = await supabase.rpc("admin_account_detail", { p_profile_id: id });
-  if (error || !data) notFound();
-  const detail = data as unknown as AccountDetail;
-
-  const { data: auditData } = await supabase.rpc("admin_audit_for_subject", {
-    p_profile_id: id,
-    p_limit: 20,
-  });
-  const audit = (auditData ?? []) as AuditEntry[];
-
-  const { data: overrideData } = await supabase.rpc("admin_flight_limit_override", {
-    p_profile_id: id,
-  });
-  const override = (overrideData ?? null) as
+  const detail = detailResult.data as unknown as AccountDetail;
+  const audit = (auditResult.data ?? []) as AuditEntry[];
+  const override = (overrideResult.data ?? null) as
     | { monthly_limit: number; note: string | null; created_at: string }
     | null;
 
