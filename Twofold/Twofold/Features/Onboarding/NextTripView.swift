@@ -28,7 +28,7 @@ struct NextTripView: View {
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Theme.skyBlue, in: Capsule())
+                        .background(Theme.primaryButtonGradient, in: Capsule())
                         .foregroundStyle(.white)
                 }
 

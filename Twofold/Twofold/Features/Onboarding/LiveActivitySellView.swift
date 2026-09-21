@@ -189,7 +189,7 @@ struct LiveActivitySellView: View {
                     .font(.caption2.weight(.bold))
                     .foregroundStyle(.white)
                     .padding(4)
-                    .background(Theme.skyBlue, in: Circle())
+                    .background(Theme.primaryButtonGradient, in: Circle())
                     .position(x: progressX, y: midY)
             }
         }

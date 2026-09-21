@@ -67,7 +67,7 @@ struct ConnectionRequestSentView: View {
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Theme.skyBlue, in: Capsule())
+                    .background(Theme.primaryButtonGradient, in: Capsule())
                     .foregroundStyle(.white)
             }
             .padding(.horizontal, Theme.Spacing.lg)
