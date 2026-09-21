@@ -57,7 +57,7 @@ struct TripCountdownProvider: AppIntentTimelineProvider {
         guard let reunion = selectedTrip(for: configuration, snapshot: snapshot) else {
             return TripCountdownEntry(date: .now, daysToGo: nil, destinationCity: nil, tripID: nil)
         }
-        let days = Calendar.current.dateComponents([.day], from: .now, to: reunion.departureDate).day ?? 0
+        let days = TimeMath.daysUntil(reunion.departureDate)
         return TripCountdownEntry(date: .now, daysToGo: max(0, days), destinationCity: reunion.destinationCity, tripID: reunion.id)
     }
 }

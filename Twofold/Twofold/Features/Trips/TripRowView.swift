@@ -116,7 +116,7 @@ struct TripRowView: View {
     private var countdownBadge: some View {
         VStack(spacing: 0) {
             if trip.departureDate > .now {
-                let days = max(0, Calendar.current.dateComponents([.day], from: .now, to: trip.departureDate).day ?? 0)
+                let days = max(0, TimeMath.daysUntil(trip.departureDate))
                 Text(days == 0 ? "🎉" : "\(days)")
                     .font(.system(size: countdownFontSize, weight: .bold, design: .rounded))
                 Text(days == 0 ? "Today" : (days == 1 ? "day" : "days"))

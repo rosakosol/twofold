@@ -24,13 +24,13 @@ struct TwofoldPreviewView: View {
 
     private var daysToGo: Int? {
         guard let trip else { return nil }
-        let days = Calendar.current.dateComponents([.day], from: .now, to: trip.departureDate).day ?? 0
+        let days = TimeMath.daysUntil(trip.departureDate)
         return max(0, days)
     }
 
     private var daysTogether: Int? {
         guard let anniversaryDate = onboarding.anniversaryDate else { return nil }
-        return max(0, Calendar.current.dateComponents([.day], from: anniversaryDate, to: .now).day ?? 0)
+        return max(0, TimeMath.daysSince(anniversaryDate))
     }
 
     private var selfImage: Image? {

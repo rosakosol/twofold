@@ -378,7 +378,7 @@ final class AppModel {
         // `effectiveDistanceKm` (not the raw `distanceKm`) so a connecting itinerary's real
         // flown distance counts, not just the trip's direct origin→destination distance.
         let totalDistance = trips.filter { $0.category == .reunion }.reduce(0) { $0 + $1.effectiveDistanceKm }
-        let daysTogether = max(0, Calendar.current.dateComponents([.day], from: couple.startedDatingOn, to: .now).day ?? 0)
+        let daysTogether = max(0, TimeMath.daysSince(couple.startedDatingOn))
         return MockData.RelationshipStats(
             totalDistanceKm: totalDistance,
             tripCount: trips.count,
@@ -391,7 +391,7 @@ final class AppModel {
 
     var nextReunionDaysToGo: Int {
         guard let trip = upcomingTrips.first else { return 0 }
-        let days = Calendar.current.dateComponents([.day], from: .now, to: trip.departureDate).day ?? 0
+        let days = TimeMath.daysUntil(trip.departureDate)
         return max(0, days)
     }
 

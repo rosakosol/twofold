@@ -37,7 +37,7 @@ struct DaysTogetherProvider: TimelineProvider {
         guard let anniversaryDate = snapshot?.anniversaryDate else {
             return DaysTogetherEntry(date: .now, days: nil, myName: myName, partnerName: partnerName)
         }
-        let days = Calendar.current.dateComponents([.day], from: anniversaryDate, to: .now).day ?? 0
+        let days = TimeMath.daysSince(anniversaryDate)
         return DaysTogetherEntry(date: .now, days: max(0, days), myName: myName, partnerName: partnerName)
     }
 }

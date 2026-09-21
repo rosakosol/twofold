@@ -1054,7 +1054,7 @@ struct HomeView: View {
     }
 
     private func nextReunionCard(trip: Trip) -> some View {
-        let daysToGo = max(0, Calendar.current.dateComponents([.day], from: .now, to: trip.departureDate).day ?? 0)
+        let daysToGo = max(0, TimeMath.daysUntil(trip.departureDate))
         return SectionCard {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {

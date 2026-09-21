@@ -41,8 +41,18 @@ struct RelationshipMilestoneStats {
 
     init(couple: Couple, trips: [Trip], memories: [Memory]) {
         let startedDatingOn = couple.startedDatingOn
-        daysTogether = max(0, Calendar.current.dateComponents([.day], from: startedDatingOn, to: .now).day ?? 0)
-        let ymd = Calendar.current.dateComponents([.year, .month], from: startedDatingOn, to: .now)
+        daysTogether = max(0, TimeMath.daysSince(startedDatingOn))
+        // Start-of-day on both sides, for the same reason as `daysSince` above. On the morning
+        // of a sixth anniversary, against a `startedDatingOn` carrying an inherited evening
+        // time-of-day, the raw instants are eleven months and thirty-one-and-a-bit days apart —
+        // so the card read "5 years, 11 months" on the one day of the year it most needed to say
+        // six. The time-of-day is picker residue, not something the couple chose.
+        let calendar = Calendar.current
+        let ymd = calendar.dateComponents(
+            [.year, .month],
+            from: calendar.startOfDay(for: startedDatingOn),
+            to: calendar.startOfDay(for: .now)
+        )
         yearsTogether = max(0, ymd.year ?? 0)
         monthsTogether = max(0, ymd.month ?? 0)
         tripCount = trips.count
@@ -77,14 +87,14 @@ struct RelationshipMilestoneStats {
             longestSeparationDays = longestGapDays
         } else if !couple.sharesHomeCity, couple.partnerA.homeCity != nil, couple.partnerB.homeCity != nil {
             let since = couple.connectedAt ?? startedDatingOn
-            longestSeparationDays = max(0, Calendar.current.dateComponents([.day], from: since, to: .now).day ?? 0)
+            longestSeparationDays = max(0, TimeMath.daysSince(since))
         } else {
             longestSeparationDays = nil
         }
 
         let upcomingReunions = reunions.filter { $0.departureDate > .now }.sorted { $0.departureDate < $1.departureDate }
         nextReunion = upcomingReunions.first
-        nextReunionDaysToGo = nextReunion.map { max(0, Calendar.current.dateComponents([.day], from: .now, to: $0.departureDate).day ?? 0) }
+        nextReunionDaysToGo = nextReunion.map { max(0, TimeMath.daysUntil($0.departureDate)) }
     }
 
     /// "2 years, 3 months" / "1 year" / "5 months" / "23 days" — whichever of years/months are

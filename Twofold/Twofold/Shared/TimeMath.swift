@@ -92,6 +92,41 @@ enum TimeMath {
         return "\(minutes)m"
     }
 
+    /// Whole calendar days between two instants — the number of times the date changes between
+    /// them, not the number of 24-hour spans that fit.
+    ///
+    /// Those are different numbers, and they disagree for most of every day. A trip departing
+    /// tomorrow at 08:00, asked about at 13:00 today, is nineteen hours away —
+    /// `dateComponents([.day], ...)` on the raw instants calls that zero whole days, so the trip
+    /// reads "Today!". On the 21st, about a trip on the 22nd, that is simply wrong: the answer a
+    /// person wants is the one they would get by counting squares on a wall calendar.
+    ///
+    /// So both instants are reduced to the start of their own day first, which drops the
+    /// time-of-day component that has no business in the answer. Much of that component is not
+    /// even meaningful — `AnniversaryDateView` documents at length how a date picker leaves an
+    /// arbitrary inherited time-of-day on the value it stores, and how comparing against it
+    /// produced the mirror image of this bug.
+    ///
+    /// The device's own calendar and timezone, deliberately. "How many days until they arrive" is
+    /// a question about the wall calendar the person asking is living by; a trip stored as
+    /// `timestamptz` is an instant, and which day it falls on is a local question. The parameter
+    /// exists so tests can fix a timezone rather than inherit the machine's.
+    static func calendarDaysBetween(_ start: Date, _ end: Date, calendar: Calendar = .current) -> Int {
+        let from = calendar.startOfDay(for: start)
+        let to = calendar.startOfDay(for: end)
+        return calendar.dateComponents([.day], from: from, to: to).day ?? 0
+    }
+
+    /// Days from today to `date`: 0 when it falls today, 1 tomorrow. Negative once it is past.
+    static func daysUntil(_ date: Date, now: Date = .now, calendar: Calendar = .current) -> Int {
+        calendarDaysBetween(now, date, calendar: calendar)
+    }
+
+    /// Days from `date` to today: 0 when it fell today, 1 yesterday. Negative while still ahead.
+    static func daysSince(_ date: Date, now: Date = .now, calendar: Calendar = .current) -> Int {
+        calendarDaysBetween(date, now, calendar: calendar)
+    }
+
     /// Same hex values as Theme.DayNight — duplicated here (not imported from Theme.swift,
     /// which stays main-app-only) since these four colors are all a widget needs from it.
     enum DayNight {

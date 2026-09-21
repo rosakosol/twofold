@@ -23,7 +23,7 @@ struct OnboardingRevealView: View {
 
     private var daysUntilTogether: Int? {
         guard let trip = onboarding.draftedTrip else { return nil }
-        let days = Calendar.current.dateComponents([.day], from: .now, to: trip.departureDate).day ?? 0
+        let days = TimeMath.daysUntil(trip.departureDate)
         return max(0, days)
     }
 

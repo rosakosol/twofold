@@ -76,7 +76,7 @@ struct SmartRotatingProvider: TimelineProvider {
 
         if let anniversaryDate = snapshot?.anniversaryDate {
             builders.append { at in
-                let days = max(0, Calendar.current.dateComponents([.day], from: anniversaryDate, to: at).day ?? 0)
+                let days = max(0, TimeMath.daysSince(anniversaryDate, now: at))
                 return .anniversary(days: days, myName: myName, partnerName: partnerName)
             }
         }
