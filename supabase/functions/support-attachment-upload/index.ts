@@ -21,8 +21,9 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { presign, r2ConfigFromEnv } from "../_shared/r2.ts";
+import { serveWithCors } from "../_shared/cors.ts";
 
-Deno.serve(async (req) => {
+Deno.serve(serveWithCors(async (req) => {
   if (req.method !== "POST") {
     return Response.json({ error: "Method not allowed" }, { status: 405 });
   }
@@ -117,4 +118,4 @@ Deno.serve(async (req) => {
   }
 
   return Response.json({ id, uploadUrl, contentType });
-});
+}));

@@ -35,6 +35,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { closeQuietly, fromAddress, singleLine, smtpClient } from "../_shared/mail.ts";
 import { presign, r2ConfigFromEnv } from "../_shared/r2.ts";
 import { replyHtml, replySubject, replyText, replyToAddress, usableAsInReplyTo } from "./compose.ts";
+import { serveWithCors } from "../_shared/cors.ts";
 
 interface Body {
   threadId?: string;
@@ -49,7 +50,7 @@ function bad(message: string, status = 400): Response {
   return Response.json({ error: message }, { status });
 }
 
-Deno.serve(async (req) => {
+Deno.serve(serveWithCors(async (req) => {
   if (req.method !== "POST") return bad("Method not allowed", 405);
 
   let input: Body;
@@ -209,7 +210,7 @@ Deno.serve(async (req) => {
   }
 
   return Response.json({ ok: true, recorded: true, attachments: attachments.length });
-});
+}));
 
 /* To invoke locally:
 

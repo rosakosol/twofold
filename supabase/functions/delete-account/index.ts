@@ -55,8 +55,9 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 // to. The portal passes `at_period_end`, because somebody who is staying has paid through a date
 // and Stripe refunds none of it.
 import { cancelWebSubscriptions } from "../_shared/subscription-cancel.ts";
+import { serveWithCors } from "../_shared/cors.ts";
 
-Deno.serve(async (req) => {
+Deno.serve(serveWithCors(async (req) => {
   if (req.method !== "POST") {
     return Response.json({ error: "Method not allowed" }, { status: 405 });
   }
@@ -123,7 +124,7 @@ Deno.serve(async (req) => {
   }
 
   return Response.json({ ok: true, cancelledSubscriptions });
-});
+}));
 
 /* To invoke locally:
 

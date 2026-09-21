@@ -31,6 +31,7 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { cancelWebSubscriptions } from "../_shared/subscription-cancel.ts";
+import { serveWithCors } from "../_shared/cors.ts";
 
 interface Body {
   action?: string;
@@ -43,7 +44,7 @@ function bad(message: string, status = 400): Response {
   return Response.json({ error: message }, { status });
 }
 
-Deno.serve(async (req) => {
+Deno.serve(serveWithCors(async (req) => {
   if (req.method !== "POST") return bad("Method not allowed", 405);
 
   let body: Body;
@@ -85,7 +86,7 @@ Deno.serve(async (req) => {
   }
 
   return bad("Unknown action");
-});
+}));
 
 /// Deleting somebody else's account, in the same order and with the same refusal as
 /// `delete-account` does for its own caller.

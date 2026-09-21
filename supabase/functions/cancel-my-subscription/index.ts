@@ -33,8 +33,9 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { cancelWebSubscriptions } from "../_shared/subscription-cancel.ts";
+import { serveWithCors } from "../_shared/cors.ts";
 
-Deno.serve(async (req) => {
+Deno.serve(serveWithCors(async (req) => {
   if (req.method !== "POST") {
     return Response.json({ error: "Method not allowed" }, { status: 405 });
   }
@@ -86,7 +87,7 @@ Deno.serve(async (req) => {
   // within moments; until it does, the portal says the request went through rather than claiming
   // the row already reflects it.
   return Response.json({ ok: true, cancelled });
-});
+}));
 
 /* To invoke locally:
 
