@@ -532,3 +532,30 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/revenuecat-webhook/deno.json"
 entrypoint = "./functions/revenuecat-webhook/index.ts"
+
+# Zoho posts incoming mail here and cannot send a Supabase JWT, so the gateway must not demand one
+# — without this the platform answers 401 before the function runs, and Zoho refuses to save the
+# webhook at all because its verification POST never sees a 200.
+#
+# Unauthenticated at the platform edge does NOT mean unauthenticated: the function requires a
+# matching `?token=` before it will do anything, and verifies Zoho's HMAC signature as well once
+# ZOHO_WEBHOOK_SECRET is set. Same arrangement as aeroapi-webhook and revenuecat-webhook above,
+# both of which carry their own shared secret for the same reason.
+[functions.ingest-support-email]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/ingest-support-email/index.ts"
+
+# Both of these are called from the browser by a signed-in person, so the JWT is present and the
+# gateway should insist on it. Stated rather than left to the default, because one deletes accounts
+# and the other cancels subscriptions, and "what happens if the default changes" is not a question
+# worth leaving open on either.
+[functions.admin-actions]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/admin-actions/index.ts"
+
+[functions.cancel-my-subscription]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/cancel-my-subscription/index.ts"
