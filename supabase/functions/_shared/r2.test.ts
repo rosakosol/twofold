@@ -17,7 +17,7 @@
 //
 // The credentials are AWS's own documentation placeholders, not real ones.
 
-import { assertEquals, assertRejects } from "jsr:@std/assert@1";
+import { assertEquals, assertNotEquals, assertRejects } from "jsr:@std/assert@1";
 import { MAX_EXPIRES_IN, presign, r2ConfigFromEnv } from "./r2.ts";
 
 const CONFIG = {
@@ -110,6 +110,50 @@ Deno.test("a PUT with a content type signs it, a GET does not", async () => {
 });
 
 /// A silently-clamped expiry would hand out URLs that outlive what the caller asked for.
+// ---------------------------------------------------------------------------
+// The size bound
+// ---------------------------------------------------------------------------
+//
+// A presigned PUT has no `content-length-range` — that is a POST policy feature — so the only way
+// to bound one is to sign an exact length. R2 then refuses a different one on a signature
+// mismatch. These assert the signing side; the refusal is R2's and is not reachable from here.
+
+Deno.test("a PUT with a length signs it, in the right order", async () => {
+  const url = await presign(CONFIG, "memory-photos/c/m/p.jpg", {
+    method: "PUT",
+    expiresIn: 300,
+    contentType: "image/jpeg",
+    contentLength: 1024,
+  });
+  const signed = new URL(url).searchParams.get("X-Amz-SignedHeaders");
+  // Lowercase alphabetical, which the canonical request demands and R2 re-sorts before verifying.
+  assertEquals(signed, "content-length;content-type;host");
+});
+
+Deno.test("the length is part of the signature, not decoration", async () => {
+  const base = { method: "PUT" as const, expiresIn: 300, contentType: "image/jpeg", now: FROZEN };
+  const small = new URL(await presign(CONFIG, "k", { ...base, contentLength: 1024 }))
+    .searchParams.get("X-Amz-Signature");
+  const large = new URL(await presign(CONFIG, "k", { ...base, contentLength: 1025 }))
+    .searchParams.get("X-Amz-Signature");
+  // If these matched, a URL signed for a kilobyte would accept a gigabyte.
+  assertNotEquals(small, large);
+});
+
+Deno.test("a GET ignores a length, because only a PUT has a body to bound", async () => {
+  const url = await presign(CONFIG, "k", { method: "GET", expiresIn: 300, contentLength: 1024 });
+  assertEquals(new URL(url).searchParams.get("X-Amz-SignedHeaders"), "host");
+});
+
+Deno.test("a nonsense length is refused rather than signed", async () => {
+  await assertRejects(() =>
+    presign(CONFIG, "k", { method: "PUT", expiresIn: 300, contentType: "image/jpeg", contentLength: -1 })
+  );
+  await assertRejects(() =>
+    presign(CONFIG, "k", { method: "PUT", expiresIn: 300, contentType: "image/jpeg", contentLength: 1.5 })
+  );
+});
+
 Deno.test("an out-of-range expiry is refused rather than clamped", async () => {
   await assertRejects(() => presign(CONFIG, "x.jpg", { expiresIn: 0 }), Error, "expiresIn");
   await assertRejects(

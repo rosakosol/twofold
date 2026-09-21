@@ -23,6 +23,32 @@ import { enforceRateLimit } from "../_shared/rate-limit.ts";
 /// The database stores paths without a bucket prefix — `memory_photos.photo_path` is still
 /// `{coupleID}/{memoryID}/{uuid}.jpg`, exactly as Supabase Storage held it. The prefix is added
 /// here, which is what lets the migration be a copy of objects and not a rewrite of every row.
+/// The ceiling Supabase Storage used to enforce per bucket, restored. Deliberately the same
+/// number rather than a new one: the migration to R2 was not the place to change a product limit,
+/// and it did not mean to change this one.
+const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+
+/// What each kind may be written as.
+///
+/// The three the app generates itself are pinned to exactly what it sends, so a caller cannot
+/// store `text/html` under a memory photo. `flight-document` is deliberately open: it is the
+/// user's own file picker, which produces PDFs, images, wallet passes, and
+/// `application/octet-stream` when the extension maps to nothing — an allowlist there would break
+/// the feature rather than protect anything. Nothing is served from a public R2 domain and reads
+/// are couple-scoped, so an odd type stored there is not reachable as content by anyone else.
+const ALLOWED_CONTENT_TYPES: Record<string, string[] | null> = {
+  "avatar": ["image/jpeg"],
+  "drawing-pad": ["image/png"],
+  "memory-photo": ["image/jpeg"],
+  "flight-document": null,
+};
+
+function typeAllowed(kind: string, contentType: string): boolean {
+  const allowed = ALLOWED_CONTENT_TYPES[kind];
+  if (allowed === null || allowed === undefined) return true;
+  return allowed.includes(contentType.toLowerCase().split(";")[0].trim());
+}
+
 const PREFIX: Record<string, string> = {
   "avatar": "avatars",
   "drawing-pad": "drawing-pads",
@@ -119,6 +145,22 @@ Deno.serve(async (req) => {
 
   const contentType = typeof input.contentType === "string" ? input.contentType : undefined;
   if (op === "write" && !contentType) return bad("'contentType' is required to write");
+  if (op === "write" && !typeAllowed(kind, contentType!)) return bad("'contentType' is not allowed for this kind");
+
+  // Restores a ceiling the R2 migration dropped without noticing. Supabase Storage enforced
+  // `file_size_limit = "50MiB"` per bucket (config.toml); a presigned PUT inherits no equivalent,
+  // so until now an authenticated member could write objects of any size, 100 paths per request.
+  //
+  // It has to be declared rather than observed: SigV4 query auth has no `content-length-range`,
+  // so the only way to bound a presigned PUT is to sign an exact length and let R2 reject
+  // anything else on a signature mismatch.
+  const contentLength = typeof input.contentLength === "number" ? input.contentLength : undefined;
+  if (op === "write") {
+    if (contentLength === undefined) return bad("'contentLength' is required to write");
+    if (!Number.isInteger(contentLength) || contentLength < 1) return bad("'contentLength' must be a positive integer");
+    if (contentLength > MAX_UPLOAD_BYTES) return bad("'contentLength' exceeds the maximum upload size");
+    if (paths.length !== 1) return bad("a write signs one path at a time");
+  }
 
   // Asked per path rather than once for the batch: paths in one request can belong to different
   // couples (a memories grid after a reconnection, say), and answering the batch on the strength of
@@ -156,6 +198,7 @@ Deno.serve(async (req) => {
       method,
       expiresIn,
       contentType: op === "write" ? contentType : undefined,
+      contentLength: op === "write" ? contentLength : undefined,
     });
   }
 

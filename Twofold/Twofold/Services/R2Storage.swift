@@ -100,7 +100,9 @@ enum R2Storage {
     /// type is signed into the URL, so R2 refuses an upload that does not match what was
     /// authorised.
     static func upload(_ kind: Kind, path: String, data: Data, contentType: String) async throws {
-        guard let url = try await signed(kind, op: "write", paths: [path], contentType: contentType)[path] else {
+        guard let url = try await signed(
+            kind, op: "write", paths: [path], contentType: contentType, contentLength: data.count
+        )[path] else {
             throw StorageError.urlUnavailable
         }
 
@@ -144,7 +146,8 @@ enum R2Storage {
         _ kind: Kind,
         op: String,
         paths: [String],
-        contentType: String? = nil
+        contentType: String? = nil,
+        contentLength: Int? = nil
     ) async throws -> [String: URL] {
         guard let accessToken = BackendService.currentAccessToken else {
             throw StorageError.urlUnavailable
@@ -152,6 +155,9 @@ enum R2Storage {
 
         var body: [String: Any] = ["kind": kind.rawValue, "op": op, "paths": paths]
         if let contentType { body["contentType"] = contentType }
+        // Signed into the URL, so the PUT below must send exactly this many bytes. URLSession
+        // derives `Content-Length` from `httpBody`, and that is the same `data` measured here.
+        if let contentLength { body["contentLength"] = contentLength }
 
         var request = URLRequest(url: SupabaseConfig.projectURL.appendingPathComponent("functions/v1/storage-url"))
         request.httpMethod = "POST"

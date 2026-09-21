@@ -109,6 +109,11 @@ export interface PresignOptions {
   /// Only meaningful for PUT. Signed as a header so R2 rejects an upload whose type does not match
   /// what was authorised — without it a presigned PUT for a JPEG happily accepts an executable.
   contentType?: string;
+  /// Only meaningful for PUT. Signed as a header, which is the only size bound a presigned PUT
+  /// can carry: SigV4 query auth has no `content-length-range` condition the way a POST policy
+  /// does, so the length has to be known at signing time and committed to in the signature. R2
+  /// then rejects any upload whose `Content-Length` differs, because the signature will not match.
+  contentLength?: number;
   /// Injectable purely so tests can pin a timestamp; production always uses now.
   now?: Date;
 }
@@ -123,7 +128,7 @@ export async function presign(
   key: string,
   options: PresignOptions,
 ): Promise<string> {
-  const { method = "GET", expiresIn, contentType, now = new Date() } = options;
+  const { method = "GET", expiresIn, contentType, contentLength, now = new Date() } = options;
   if (!Number.isInteger(expiresIn) || expiresIn < 1 || expiresIn > MAX_EXPIRES_IN) {
     throw new Error(`expiresIn must be 1..${MAX_EXPIRES_IN} seconds, got ${expiresIn}`);
   }
@@ -133,13 +138,25 @@ export async function presign(
   const scope = `${dateStamp}/${REGION}/${SERVICE}/aws4_request`;
   const canonicalUri = `/${uriEncode(config.bucket)}/${encodeKeyPath(key)}`;
 
-  // `host` is always signed. A PUT additionally signs content-type, so the authorisation is for
-  // one kind of object rather than for any bytes at all.
-  const signedHeaderNames = contentType && method === "PUT" ? ["content-type", "host"] : ["host"];
-  const canonicalHeaders = signedHeaderNames
-    .map((name) => (name === "host" ? `host:${host}\n` : `content-type:${contentType}\n`))
-    .join("");
-  const signedHeaders = signedHeaderNames.join(";");
+  // `host` is always signed. A PUT additionally signs content-type and content-length, so the
+  // authorisation is for one kind of object at one size, rather than for any bytes at all.
+  //
+  // Built as pairs and sorted, rather than the hand-written two-case version this replaces: the
+  // canonical request requires the headers in lowercase alphabetical order, and with three of
+  // them an ordering mistake becomes a signature R2 silently refuses.
+  const headers: Array<[string, string]> = [["host", host]];
+  if (method === "PUT") {
+    if (contentType) headers.push(["content-type", contentType]);
+    if (contentLength !== undefined) {
+      if (!Number.isInteger(contentLength) || contentLength < 0) {
+        throw new Error(`contentLength must be a non-negative integer, got ${contentLength}`);
+      }
+      headers.push(["content-length", String(contentLength)]);
+    }
+  }
+  headers.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  const canonicalHeaders = headers.map(([name, value]) => `${name}:${value}\n`).join("");
+  const signedHeaders = headers.map(([name]) => name).join(";");
 
   // Sorted by key, because the canonical request demands it and R2 re-sorts before verifying.
   const query: Array<[string, string]> = [
