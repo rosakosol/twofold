@@ -2535,6 +2535,21 @@ export type Database = {
         Args: { p_profile_id: string; p_reason: string }
         Returns: string
       }
+      admin_list_accounts: {
+        Args: { p_limit?: number; p_offset?: number }
+        Returns: {
+          created_at: string
+          deleted_at: string
+          email: string
+          first_name: string
+          has_partner: boolean
+          last_active_at: string
+          profile_id: string
+          subscription_active: boolean
+          subscription_tier: string
+          total_count: number
+        }[]
+      }
       admin_lookup_account: {
         Args: { p_query: string }
         Returns: {

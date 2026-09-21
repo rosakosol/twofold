@@ -1,5 +1,7 @@
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import "@/styles/site-nav.css";
+import { createClient } from "@/lib/supabase/server";
 import { isConsoleAdmin } from "@/lib/auth/isConsoleAdmin";
 import { ConsoleHeader } from "@/components/console/ConsoleHeader";
 
@@ -19,11 +21,27 @@ import { ConsoleHeader } from "@/components/console/ConsoleHeader";
  * behind it by default. Getting that the wrong way round means a new console page is public until
  * somebody remembers, and nothing would fail to say so.
  *
- * `isConsoleAdmin` fails closed and redirects to the public board rather than to sign-in: a
- * signed-out visitor and a signed-in non-admin should both land somewhere real instead of being
- * told an admin area exists.
+ * Two refusals, not one, because they are different situations and used to share an outcome.
+ *
+ * Somebody with no session is not being refused — they have not asked yet. Sending them to the
+ * feedback board meant an admin who typed /admin, or followed a bookmark after their cookie
+ * expired, landed on a public page with no explanation and no way back other than typing the URL
+ * again. They now get sign-in carrying `next`, so finishing it returns them to the console.
+ *
+ * Somebody signed in WITHOUT a role has been refused, and the board is the right place for them:
+ * it is a real page they can use, and it does not confirm that an admin area exists.
  */
 export default async function ConsoleLayout({ children }: { children: React.ReactNode }) {
+  // Cheap and already warm — the middleware refreshed this session on the way in.
+  const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) {
+    // The path the browser actually asked for, set by the middleware — so a bookmark to
+    // /admin/usage comes back to /admin/usage rather than to the console's front door.
+    const requested = (await headers()).get("x-pathname") ?? "/admin";
+    redirect(`/auth/sign-in?next=${encodeURIComponent(requested)}`);
+  }
+
   const isAdmin = await isConsoleAdmin();
   if (!isAdmin) redirect("/feedback");
 

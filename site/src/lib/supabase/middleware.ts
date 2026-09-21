@@ -34,5 +34,11 @@ export async function updateSession(request: NextRequest) {
   // though the result isn't used directly here — getSession() alone doesn't refresh.
   await supabase.auth.getUser();
 
+  // A server component cannot see which URL it is rendering — `headers()` carries what the browser
+  // sent, and the path is not in it. The gates need it so that signing in returns somebody to the
+  // page they actually asked for rather than to the section's root, which is the difference
+  // between a bookmark working and a bookmark nearly working.
+  response.headers.set("x-pathname", request.nextUrl.pathname + request.nextUrl.search);
+
   return response;
 }
