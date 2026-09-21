@@ -2263,53 +2263,100 @@ export type Database = {
         Row: {
           category: string
           created_at: string
+          direction: string
           email: string | null
-          handled_at: string | null
-          handled_by: string | null
-          handler_note: string | null
           id: string
           message: string
           message_id: string | null
           name: string | null
           profile_id: string | null
           source: string
-          status: string
           subject: string | null
+          thread_id: string | null
           thread_key: string | null
         }
         Insert: {
           category: string
           created_at?: string
+          direction?: string
           email?: string | null
-          handled_at?: string | null
-          handled_by?: string | null
-          handler_note?: string | null
           id?: string
           message: string
           message_id?: string | null
           name?: string | null
           profile_id?: string | null
           source: string
-          status?: string
           subject?: string | null
+          thread_id?: string | null
           thread_key?: string | null
         }
         Update: {
           category?: string
           created_at?: string
+          direction?: string
           email?: string | null
-          handled_at?: string | null
-          handled_by?: string | null
-          handler_note?: string | null
           id?: string
           message?: string
           message_id?: string | null
           name?: string | null
           profile_id?: string | null
           source?: string
+          subject?: string | null
+          thread_id?: string | null
+          thread_key?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_requests_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "support_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_threads: {
+        Row: {
+          created_at: string
+          email: string
+          handled_at: string | null
+          handled_by: string | null
+          handler_note: string | null
+          id: string
+          last_message_at: string
+          profile_id: string | null
+          status: string
+          subject: string | null
+          thread_key: string
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          handled_at?: string | null
+          handled_by?: string | null
+          handler_note?: string | null
+          id?: string
+          last_message_at?: string
+          profile_id?: string | null
           status?: string
           subject?: string | null
-          thread_key?: string | null
+          thread_key: string
+          token?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          handled_at?: string | null
+          handled_by?: string | null
+          handler_note?: string | null
+          id?: string
+          last_message_at?: string
+          profile_id?: string | null
+          status?: string
+          subject?: string | null
+          thread_key?: string
+          token?: string
         }
         Relationships: []
       }
@@ -2591,7 +2638,7 @@ export type Database = {
         Returns: undefined
       }
       admin_scrub_account: {
-        Args: { p_profile_id: string; p_reason: string }
+        Args: { p_actor?: string; p_profile_id: string; p_reason: string }
         Returns: undefined
       }
       admin_set_flight_limit: {
@@ -2602,8 +2649,8 @@ export type Database = {
         }
         Returns: undefined
       }
-      admin_set_support_request_status: {
-        Args: { p_id: string; p_note?: string; p_status: string }
+      admin_set_support_thread_status: {
+        Args: { p_note?: string; p_status: string; p_thread_id: string }
         Returns: undefined
       }
       admin_support_requests: {
@@ -2611,21 +2658,23 @@ export type Database = {
         Returns: {
           category: string
           created_at: string
+          direction: string
           email: string
-          handled_at: string
-          handler_note: string
           id: string
           matched_profile_id: string
           message: string
           name: string
           profile_id: string
           source: string
-          status: string
           subject: string
-          thread_key: string
+          thread_handled_at: string
+          thread_handler_note: string
+          thread_id: string
           thread_last_at: string
           thread_position: number
           thread_size: number
+          thread_status: string
+          thread_token: string
         }[]
       }
       api_usage_by_endpoint: {
@@ -2832,6 +2881,7 @@ export type Database = {
           p_name: string
           p_received_at?: string
           p_subject: string
+          p_to_address?: string
         }
         Returns: string
       }

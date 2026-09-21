@@ -104,6 +104,14 @@ Deno.serve(async (req) => {
     p_subject: String(payload.subject ?? "") || null,
     p_message: body,
     p_received_at: parseReceived(payload.receivedTime ?? payload.sentDateInGMT),
+    // Where the token comes back. Every reply we send has a Reply-To of
+    // `support+t<token>@twofoldapp.com.au`, Zoho delivers plus-addressed mail to the base mailbox,
+    // and this is the field that carries it home — so a reply identifies its conversation exactly
+    // rather than being matched on a subject the sender may have rewritten.
+    //
+    // `ccAddress` is included because a correspondent who replies-all can put our tokenised address
+    // in Cc rather than To, and the token is the token wherever it appears.
+    p_to_address: [payload.toAddress, payload.ccAddress].filter(Boolean).join(", ") || null,
   });
 
   if (error) {

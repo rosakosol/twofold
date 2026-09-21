@@ -14,11 +14,17 @@ import { nullableArg } from "@/lib/db/nullableArg";
 
 export interface SupportRequest {
   id: string;
-  thread_key: string;
+  thread_id: string;
+  /** Appears in the Reply-To of anything we send, as `support+t<token>@` — which is how their
+   * reply comes back identifiable rather than guessed at from its subject. */
+  thread_token: string;
   thread_size: number;
   /** 1 is the newest message in the conversation, which is the one that needs answering. */
   thread_position: number;
   thread_last_at: string;
+  thread_status: string;
+  thread_handler_note: string | null;
+  thread_handled_at: string | null;
   profile_id: string | null;
   /** The account this reached, whether or not the sender was signed in. A website submission is
    * matched to an account by the address they typed, at read time — so a request filed before an
@@ -30,9 +36,8 @@ export interface SupportRequest {
   subject: string | null;
   message: string;
   source: string;
-  status: string;
-  handler_note: string | null;
-  handled_at: string | null;
+  /** Ours or theirs. A thread reads as the conversation it is rather than as one side of it. */
+  direction: string;
   created_at: string;
 }
 
@@ -60,9 +65,9 @@ export function SupportQueue({
   const threads: SupportRequest[][] = [];
   const index = new Map<string, number>();
   for (const r of requests) {
-    const at = index.get(r.thread_key);
+    const at = index.get(r.thread_id);
     if (at === undefined) {
-      index.set(r.thread_key, threads.length);
+      index.set(r.thread_id, threads.length);
       threads.push([r]);
     } else {
       threads[at].push(r);
@@ -96,7 +101,7 @@ export function SupportQueue({
       ) : (
         <ul className="space-y-3">
           {threads.map((thread) => (
-            <Thread key={thread[0].thread_key} messages={thread} />
+            <Thread key={thread[0].thread_id} messages={thread} />
           ))}
         </ul>
       )}
@@ -108,17 +113,18 @@ function Thread({ messages }: { messages: SupportRequest[] }) {
   const router = useRouter();
   const latest = messages[0];
   const earlier = messages.slice(1);
-  const [note, setNote] = useState(latest.handler_note ?? "");
+  const [note, setNote] = useState(latest.thread_handler_note ?? "");
   const [busy, setBusy] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  const isOpen = latest.status === "open";
+  const isOpen = latest.thread_status === "open";
 
   async function setStatus(status: "open" | "closed") {
     setBusy(true);
     const supabase = createClient();
-    // Acts on the thread, not the message — the SQL widens it to every row sharing the key.
-    const { error } = await supabase.rpc("admin_set_support_request_status", {
-      p_id: latest.id,
+    // One row, because status lives on the conversation now rather than being copied onto each of
+    // its messages and kept in step by an UPDATE.
+    const { error } = await supabase.rpc("admin_set_support_thread_status", {
+      p_thread_id: latest.thread_id,
       p_status: status,
       p_note: nullableArg(note || null),
     });
@@ -173,7 +179,16 @@ function Thread({ messages }: { messages: SupportRequest[] }) {
             )}
           </div>
 
-          <p className="whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-sm">{latest.message}</p>
+          <p
+            className={`whitespace-pre-wrap rounded-md p-3 text-sm ${
+              latest.direction === "outbound" ? "border border-dashed bg-transparent" : "bg-muted/50"
+            }`}
+          >
+            {latest.direction === "outbound" && (
+              <span className="mb-1 block text-xs font-medium text-muted-foreground">Your reply</span>
+            )}
+            {latest.message}
+          </p>
 
           {earlier.length > 0 && (
             <div className="space-y-2">
@@ -190,6 +205,7 @@ function Thread({ messages }: { messages: SupportRequest[] }) {
                 earlier.map((m) => (
                   <div key={m.id} className="border-l-2 pl-3">
                     <p className="text-xs text-muted-foreground">
+                      {m.direction === "outbound" ? "Your reply · " : ""}
                       {formatDateTime(m.created_at)} · {m.source}
                     </p>
                     <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
@@ -220,9 +236,9 @@ function Thread({ messages }: { messages: SupportRequest[] }) {
                 Reopen
               </Button>
             )}
-            {latest.handled_at && (
+            {latest.thread_handled_at && (
               <span className="text-xs text-muted-foreground">
-                closed {formatDateTime(latest.handled_at)}
+                closed {formatDateTime(latest.thread_handled_at)}
               </span>
             )}
           </div>
