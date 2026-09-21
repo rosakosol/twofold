@@ -4,10 +4,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Check, Loader2, RotateCcw } from "lucide-react";
+import { Check, Loader2, RotateCcw, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import { nullableArg } from "@/lib/db/nullableArg";
@@ -216,6 +219,12 @@ function Thread({ messages }: { messages: SupportRequest[] }) {
             </div>
           )}
 
+          <Composer
+            threadId={latest.thread_id}
+            to={latest.email}
+            onSent={() => router.refresh()}
+          />
+
           <div className="flex flex-wrap items-center gap-2">
             <Input
               className="max-w-xs"
@@ -252,4 +261,87 @@ function formatDateTime(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+}
+
+/**
+ * Replying, from the same screen the conversation is read on.
+ *
+ * "Close after sending" defaults on, because answering usually is the resolution — but it is a
+ * choice rather than an assumption, since a reply asking for a screenshot leaves the conversation
+ * very much open.
+ *
+ * The recipient is shown rather than editable. It comes from the thread, and letting it be typed
+ * would turn a support console into a way to send mail from the company address to anywhere.
+ */
+function Composer({
+  threadId,
+  to,
+  onSent,
+}: {
+  threadId: string;
+  to: string | null;
+  onSent: () => void;
+}) {
+  const [body, setBody] = useState("");
+  const [close, setClose] = useState(true);
+  const [sending, setSending] = useState(false);
+
+  async function send() {
+    setSending(true);
+    const supabase = createClient();
+    const { data, error } = await supabase.functions.invoke("send-support-reply", {
+      body: { threadId, body, close },
+    });
+    setSending(false);
+
+    if (error || !data?.ok) {
+      toast.error("Couldn't send that reply. Nothing has changed — try again.");
+      return;
+    }
+    // The function reports this when the mail went but the conversation could not be updated.
+    // Saying "sent" alone would invite a second one.
+    if (data.recorded === false) {
+      toast.warning(data.warning ?? "Sent, but the conversation wasn't updated. Don't resend.");
+    } else {
+      toast.success(close ? "Replied and closed." : "Replied.");
+    }
+    setBody("");
+    onSent();
+  }
+
+  if (!to) {
+    return (
+      <p className="text-xs text-muted-foreground">
+        No address on this conversation, so there is nothing to reply to.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-2 rounded-md border p-3">
+      <p className="text-xs text-muted-foreground">
+        Replying to <span className="font-medium">{to}</span> as support@twofoldapp.com.au
+      </p>
+      <Textarea
+        rows={4}
+        placeholder="Write a reply…"
+        value={body}
+        onChange={(e) => setBody(e.target.value)}
+        disabled={sending}
+        aria-label="Reply"
+      />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Switch id={`close-${threadId}`} checked={close} onCheckedChange={setClose} disabled={sending} />
+          <Label htmlFor={`close-${threadId}`} className="text-sm font-normal text-muted-foreground">
+            Close after sending
+          </Label>
+        </div>
+        <Button size="sm" disabled={sending || body.trim().length < 2} onClick={send}>
+          {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          Send reply
+        </Button>
+      </div>
+    </div>
+  );
 }
