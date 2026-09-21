@@ -30,6 +30,7 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { type AeroFlight, fetchAirportCoordinates, fetchFlightByFaId } from "../_shared/aeroapi.ts";
+import { enforceRateLimit } from "../_shared/rate-limit.ts";
 import { deriveFlightStatus } from "../_shared/flight-status.ts";
 import { type MappedAeroFields, mapAeroFlightToRow } from "../_shared/flight-sync.ts";
 
@@ -125,6 +126,20 @@ function mapPendingCandidateToRow(pending: PendingCandidate): MappedAeroFields {
   };
 }
 
+// Its own bucket, and its own number.
+//
+// `resolve-flight` got 40/hour when it was written, on the reasoning that finding a flight takes
+// several searches. Adding one is the deliberate act at the end of that, so it needs far fewer —
+// but it was given none at all, which left the more expensive of the two endpoints unbounded: one
+// invocation costs up to three billed AeroAPI calls (`fetchFlightByFaId` plus two
+// `fetchAirportCoordinates`), none of them cached.
+//
+// The monthly flight allowance does not stand in for this and is not meant to: an add past the
+// allowance still happens and simply lands with `tracking_enabled = false` (see the comment above
+// the allowance check), so the AeroAPI calls are made either way. The allowance limits what a
+// couple may track; this limits what one account can spend.
+const RATE_LIMIT = { bucket: "add-flight", limit: 20, window: "1 hour" };
+
 Deno.serve(async (req) => {
   if (req.method !== "POST") {
     return Response.json({ error: "Method not allowed" }, { status: 405 });
@@ -179,6 +194,11 @@ Deno.serve(async (req) => {
     );
   }
 
+  // After the couple check, like `resolve-flight`: an unpaired caller is refused above and never
+  // reaches AeroAPI, so they should not consume a budget either.
+  const limited = await enforceRateLimit(userClient, RATE_LIMIT);
+  if (limited) return limited;
+
   // Only allow tagging travelers who are actually members of this couple — never trust an
   // arbitrary client-supplied uuid for a column other users' UIs will render as "so-and-so's
   // journey." Compared lowercase: Swift's `UUID.uuidString` is uppercase, but Postgres always
@@ -219,7 +239,14 @@ Deno.serve(async (req) => {
   let mapped: MappedAeroFields;
   if (input.faFlightId) {
     try {
-      aeroFlight = await fetchFlightByFaId(input.faFlightId);
+      // Attributed, which it was not: with no context these three calls recorded as
+      // `unattributed` in `api_usage_events`, so the most expensive endpoint in the app was the
+      // one the cost dashboard could not see.
+      aeroFlight = await fetchFlightByFaId(input.faFlightId, {
+        calledBy: "add-flight",
+        faFlightId: input.faFlightId,
+        coupleId: couple.id,
+      });
     } catch (err) {
       console.error("[add-flight] AeroAPI lookup failed:", (err as Error).message);
       return Response.json({ error: "Flight lookup failed, please try again" }, { status: 502 });
@@ -242,7 +269,10 @@ Deno.serve(async (req) => {
   try {
     const originCode = mapped.origin_icao ?? mapped.origin_iata;
     if (originCode) {
-      const coords = await fetchAirportCoordinates(originCode);
+      const coords = await fetchAirportCoordinates(originCode, {
+        calledBy: "add-flight",
+        coupleId: couple.id,
+      });
       if (coords) {
         originLatitude = coords.latitude;
         originLongitude = coords.longitude;
@@ -254,7 +284,10 @@ Deno.serve(async (req) => {
   try {
     const destCode = mapped.destination_icao ?? mapped.destination_iata;
     if (destCode) {
-      const coords = await fetchAirportCoordinates(destCode);
+      const coords = await fetchAirportCoordinates(destCode, {
+        calledBy: "add-flight",
+        coupleId: couple.id,
+      });
       if (coords) {
         destinationLatitude = coords.latitude;
         destinationLongitude = coords.longitude;
