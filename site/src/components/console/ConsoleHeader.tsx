@@ -26,10 +26,13 @@ import { useAdminRoles } from "@/lib/auth/useAdminRoles";
  * under a deck editor.
  */
 const CONSOLE_LINKS = [
-  // The admin view of the feedback board — status, merge, pin, developer updates. Distinct from
-  // /feedback, which is the public board and stays in the website's nav: the privacy policy
-  // describes it as readable by anyone, signed in or not, and it is where users post and vote.
-  { href: "/admin", label: "Requests", exact: true },
+  // The admin view of the public feedback board — status, merge, pin, developer updates. Named
+  // "Feedback" rather than "Requests" because it sat beside "Support" and both read as inbound
+  // asks; this one is the public board people vote on, Support is private correspondence.
+  //
+  // Distinct from /feedback itself, which stays in the website's nav: the privacy policy describes
+  // that board as readable by anyone, signed in or not, and it is where users post and vote.
+  { href: "/admin", label: "Feedback", exact: true },
   // Accounts. Its own role, because reading somebody's email, partner and subscription is a
   // narrower grant than editing a deck — see 20261109000000.
   { href: "/admin/support", label: "Support", exact: false, role: "support" as const },
