@@ -1,20 +1,26 @@
 -- ---------------------------------------------------------------------------
--- places: what a signed-in user is allowed to write
+-- places: the value constraints on the table itself
 -- ---------------------------------------------------------------------------
 --
--- `places_insert_authenticated` is `with check (true)` and stays that way — find-or-create needs
--- it. These pin the value constraints that bound what can be written through that door, and, just
--- as importantly, pin that an ordinary insert still works. A constraint that rejected real city
--- names would break onboarding, which is a worse outcome than the abuse it prevents.
+-- These used to run as `authenticated`, because `places_insert_authenticated` was
+-- `with check (true)` and this file's header said it "stays that way — find-or-create needs it".
+-- It did not stay that way. 20261110000700 moved find-or-create into a security-definer function
+-- and dropped both policies, so the table is now deny-all to clients and a direct insert here
+-- raises 42501 before any CHECK is reached.
+--
+-- The constraints are still worth pinning, and they are still the same constraints — so these run
+-- as the owner, which is what the RPC does on the caller's behalf. `places_scoping_test` covers
+-- the door itself: that clients cannot read or write the table, that the RPC enforces its own
+-- validation, and that find-or-create still deduplicates.
+--
+-- As before, an ordinary insert must keep working: a constraint that rejected real city names
+-- would break onboarding, which is worse than the abuse it prevents.
 --
 -- Coordinates are the ones that matter: a place is shared couple data, and `Geo.distance`, the Home
 -- globe and `update_couple_max_distance`'s persisted maximum are all computed from them.
 
 begin;
 select plan(10);
-
-set local role authenticated;
-set local request.jwt.claims = '{"sub":"c0ffee00-0000-4000-8000-000000000001","role":"authenticated"}';
 
 -- The normal case, first: this must keep working.
 --
