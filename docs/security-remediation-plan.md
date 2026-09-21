@@ -364,6 +364,20 @@ copy, but do not leave them disagreeing.
 
 ## Phase 6 — Defence in depth and hygiene
 
+> **Status: DONE and deployed.** 6.1 admin grants, 6.2 places, 6.3 log lines, 6.4 response headers
+> and CSP, 6.5 x-pathname, 6.6 InviteCode, 6.7 recovery alert text, 6.8 one-tap pairing, 6.9 the
+> accept notification.
+>
+> **Deployment note that outlives this conversation:** 20261110000700 makes `places` deny-all to
+> clients, and an app build predating `4411bbc` does a select-then-insert on that table in
+> `findOrCreatePlaceID`. Those builds cannot create trips or memories — the select returns empty,
+> the insert raises 42501. If a stopgap is ever needed, restore a narrow insert policy rather than
+> reverting the migration.
+>
+> The CSP is the one change here that can break a page at runtime rather than fail a build; it is
+> scoped away from `/studio`, which mounts Sanity's own application. Worth a look at the board and
+> console on a preview deploy.
+
 - **6.1 Revokes that do not hold** — **S**. Supabase's default privileges grant `anon` and
   `authenticated` an explicit EXECUTE on every new function, so `revoke … from public` leaves them
   standing. The new admin functions use the weak form. Every one of them checks
