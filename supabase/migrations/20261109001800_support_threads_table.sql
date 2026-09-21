@@ -40,7 +40,16 @@ create table if not exists public.support_threads (
   -- address without looking like an incident. It appears in a Reply-To that the correspondent can
   -- see, so it is random rather than sequential: a guessable token would let somebody post into a
   -- stranger's conversation by emailing the right address.
-  token text not null unique default encode(gen_random_bytes(5), 'hex'),
+  --
+  -- Taken from `gen_random_uuid()` rather than `gen_random_bytes()`. The latter is pgcrypto, which
+  -- lives in the `extensions` schema — and local development puts that on the search path
+  -- (config.toml's `extra_search_path`) while the migration runner does not, so the unqualified
+  -- call worked here and failed on push with "function gen_random_bytes(integer) does not exist".
+  -- `gen_random_uuid()` is core Postgres, is what every other table in this schema already uses for
+  -- its keys, and needs no extension to be installed or findable. Forty of its 122 random bits is
+  -- ample for a value whose only job is to be unguessable, and the unique constraint catches the
+  -- collision that will not happen.
+  token text not null unique default substr(replace(gen_random_uuid()::text, '-', ''), 1, 10),
 
   -- The derived key, kept for matching mail that arrives with no token.
   thread_key text not null,
@@ -60,6 +69,9 @@ create table if not exists public.support_threads (
   -- never has to scan their messages.
   last_message_at timestamptz not null default now()
 );
+
+alter table public.support_threads
+  alter column token set default substr(replace(gen_random_uuid()::text, '-', ''), 1, 10);
 
 comment on table public.support_threads is
   'One row per conversation. Status lives here rather than on each message, because "dealt with" '
@@ -95,27 +107,40 @@ create index if not exists support_requests_thread_id_idx
 -- the safe direction, since the cost of reopening something already dealt with is a second look,
 -- and the cost of closing something unanswered is somebody never hearing back.
 
-insert into public.support_threads (thread_key, subject, email, profile_id, status, handled_by, handled_at, handler_note, created_at, last_message_at)
-select
-  r.thread_key,
-  (array_agg(r.subject order by r.created_at))[1],
-  (array_agg(r.email order by r.created_at))[1],
-  (array_agg(r.profile_id order by r.created_at))[1],
-  case when bool_or(r.status = 'open') then 'open' else 'closed' end,
-  (array_agg(r.handled_by order by r.created_at desc))[1],
-  max(r.handled_at),
-  (array_agg(r.handler_note order by r.created_at desc) filter (where r.handler_note is not null))[1],
-  min(r.created_at),
-  max(r.created_at)
-from public.support_requests r
-where r.thread_id is null and r.thread_key is not null and r.email is not null
-group by r.thread_key
-on conflict do nothing;
+-- Guarded on the per-message `status` column still existing, because the statements below drop it.
+-- Without this the migration is one-shot: a re-run — after a partial failure, or on a database that
+-- got half of it — dies on a column its own later half removed, which is the worst moment for a
+-- migration to become unrunnable.
+do $backfill$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'support_requests' and column_name = 'status'
+  ) then
+    insert into public.support_threads (thread_key, subject, email, profile_id, status, handled_by, handled_at, handler_note, created_at, last_message_at)
+    select
+      r.thread_key,
+      (array_agg(r.subject order by r.created_at))[1],
+      (array_agg(r.email order by r.created_at))[1],
+      (array_agg(r.profile_id order by r.created_at))[1],
+      case when bool_or(r.status = 'open') then 'open' else 'closed' end,
+      (array_agg(r.handled_by order by r.created_at desc))[1],
+      max(r.handled_at),
+      (array_agg(r.handler_note order by r.created_at desc) filter (where r.handler_note is not null))[1],
+      min(r.created_at),
+      max(r.created_at)
+    from public.support_requests r
+    where r.thread_id is null and r.thread_key is not null and r.email is not null
+    group by r.thread_key
+    on conflict do nothing;
 
-update public.support_requests r
-set thread_id = t.id
-from public.support_threads t
-where r.thread_id is null and r.thread_key = t.thread_key;
+    update public.support_requests r
+    set thread_id = t.id
+    from public.support_threads t
+    where r.thread_id is null and r.thread_key = t.thread_key;
+  end if;
+end
+$backfill$;
 
 -- ---------------------------------------------------------------------------
 -- Status stops being duplicated
