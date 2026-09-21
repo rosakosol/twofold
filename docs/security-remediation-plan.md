@@ -139,9 +139,17 @@ probably correct. Note 0.2 closes this as a side effect if the soak ends.
 > re-derivable stores are out of the backup, the two plist-bound stores are in files of their own
 > with tested read-through migrations, and Settings says what a missing device passcode costs.
 >
-> **2.4 (Keychain `ThisDeviceOnly`) is NOT done and needs a decision** — see the item below. It is
-> the one change here that can sign every existing user out if its migration is wrong, so it
-> should not ride along with the rest.
+> **2.4 done too** (`SessionKeychainStorage`), shipped on its own for the reason it was held back.
+> The migration reads the default's service name so an existing item is found, upgrades the
+> accessibility in place with an attribute-only `SecItemUpdate` rather than a delete-and-re-add,
+> and swallows its own failure — a failed upgrade leaves a working session, a failed re-add would
+> leave none. Sabotage-checked: changing the service name fails the "previous build's session is
+> still readable" test, which is the exact shape of an update that signs everybody out.
+>
+> **Phase 2 is complete.** One thing the tests cannot cover: the simulator stores the
+> accessibility attribute but does not enforce data protection, so all of this proves lookups and
+> rewrites rather than the encryption itself. Install the old build, sign in, upgrade in place on
+> a device before release.
 >
 > Two corrections found while implementing, both now in the code rather than the plan: the three
 > Application Support singles must not take a directory attribute, because their `createDirectory`
