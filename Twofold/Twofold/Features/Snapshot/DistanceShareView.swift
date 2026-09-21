@@ -98,7 +98,7 @@ struct DistanceShareView: View {
                         Image(systemName: theme.icon)
                             .font(.title3)
                             .frame(width: 44, height: 44)
-                            .background(selectedTheme == theme ? Theme.skyBlue : Theme.cardBackground, in: Circle())
+                            .background(selectedTheme == theme ? Theme.skyBlueFill : Theme.cardBackground, in: Circle())
                             .foregroundStyle(selectedTheme == theme ? .white : Theme.ink)
                         Text(theme.rawValue).font(.caption2)
                     }

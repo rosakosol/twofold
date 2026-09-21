@@ -99,7 +99,7 @@ struct FlightStickerStylePicker: View {
                         Image(systemName: style.icon)
                             .font(.title3)
                             .frame(width: 44, height: 44)
-                            .background(selection == style ? Theme.skyBlue : Theme.cardBackground, in: Circle())
+                            .background(selection == style ? Theme.skyBlueFill : Theme.cardBackground, in: Circle())
                             .foregroundStyle(selection == style ? .white : Theme.ink)
                         Text(style.rawValue).font(.caption2)
                     }

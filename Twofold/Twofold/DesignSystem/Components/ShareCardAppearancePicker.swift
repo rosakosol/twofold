@@ -28,7 +28,7 @@ struct ShareCardAppearancePicker: View {
                 Image(systemName: icon)
                     .font(.title3)
                     .frame(width: 44, height: 44)
-                    .background(selection == scheme ? Theme.skyBlue : Theme.cardBackground, in: Circle())
+                    .background(selection == scheme ? Theme.skyBlueFill : Theme.cardBackground, in: Circle())
                     .foregroundStyle(selection == scheme ? .white : Theme.ink)
                 Text(label).font(.caption2)
             }

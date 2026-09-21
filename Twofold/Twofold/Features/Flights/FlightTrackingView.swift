@@ -526,7 +526,7 @@ struct FlightTrackingView: View {
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.white)
                 .padding(10)
-                .background(isCameraLocked ? AnyShapeStyle(Theme.skyBlue) : AnyShapeStyle(.black.opacity(0.55)), in: Circle())
+                .background(isCameraLocked ? AnyShapeStyle(Theme.skyBlueFill) : AnyShapeStyle(.black.opacity(0.55)), in: Circle())
                 .overlay {
                     if isCameraLocked {
                         Circle().strokeBorder(.white.opacity(0.85), lineWidth: 1.5)

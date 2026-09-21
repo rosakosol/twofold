@@ -95,7 +95,7 @@ struct SignInView: View {
                             }
                         }
                         .padding()
-                        .background(canSubmit ? Theme.skyBlue : Theme.subtleInk.opacity(0.3), in: Capsule())
+                        .background(canSubmit ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.subtleInk.opacity(0.3)), in: Capsule())
                         .foregroundStyle(.white)
                         .disabled(!canSubmit)
 

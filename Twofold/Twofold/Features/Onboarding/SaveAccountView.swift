@@ -104,7 +104,7 @@ struct SaveAccountView: View {
                                 }
                             }
                             .padding()
-                            .background(canContinueWithEmail && !isSubmitting ? Theme.skyBlue : Theme.subtleInk.opacity(0.3), in: Capsule())
+                            .background(canContinueWithEmail && !isSubmitting ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.subtleInk.opacity(0.3)), in: Capsule())
                             .foregroundStyle(.white)
                             .disabled(!canContinueWithEmail || isSubmitting)
 

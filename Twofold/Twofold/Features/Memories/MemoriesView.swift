@@ -68,7 +68,7 @@ struct MemoriesView: View {
                 .font(.headline)
                 .frame(width: 44, height: 44)
                 .foregroundStyle(mode == target ? .white : Theme.subtleInk)
-                .background(mode == target ? AnyShapeStyle(Theme.skyBlue) : AnyShapeStyle(.clear), in: Capsule())
+                .background(mode == target ? AnyShapeStyle(Theme.skyBlueFill) : AnyShapeStyle(.clear), in: Capsule())
                 // The 44x44 frame above sets the *layout* size, but without a content shape the
                 // hittable and accessibility region stayed the glyph's own bounds — measured at
                 // 16.7x12.3pt by the accessibility audit, roughly a seventh of the area this
