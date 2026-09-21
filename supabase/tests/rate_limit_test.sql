@@ -26,7 +26,7 @@
 -- has to prove the window expires, and it cannot do that by waiting.
 
 begin;
-select plan(22);
+select plan(27);
 
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
 values
@@ -178,13 +178,40 @@ select is(
 
 -- Retention, and the reason it is in the RPC rather than in a cron job nobody would remember to
 -- write: `invite_redemption_attempts` has kept every row since 20260829000600 because nothing ever
--- deletes from it. The four expired rows here are gone, leaving only the call just admitted.
+-- deletes from it.
+--
+-- These four rows are two hours old and they survive, which is a deliberate loosening. Until
+-- 20261110000200 the purge also removed anything older than the caller's own `p_window`, and that
+-- was the bypass: the caller supplied the cutoff, so a one-microsecond window erased their history.
+-- Retention now runs off the one-day constant alone, which no argument can influence. Rows live
+-- longer than they used to and the bound is still a bound — a day of one user's calls, self
+-- clearing — where the table this comment warns about keeps everything forever.
 reset role;
 select is(
   (select count(*)::int from public.rate_limit_events
    where user_id = 'aaaaaaaa-6666-0000-0000-000000000001' and bucket = 'parse-flight-email'),
-  1,
-  'and the expired rows were purged, so the ledger does not grow forever'
+  5,
+  'rows past the window are counted out but not deleted, because the caller no longer sets the cutoff'
+);
+
+-- The bound that replaced it, proven rather than asserted: past a day, they go.
+update public.rate_limit_events
+set occurred_at = now() - interval '2 days'
+where user_id = 'aaaaaaaa-6666-0000-0000-000000000001' and bucket = 'parse-flight-email';
+set local role authenticated;
+select set_config('request.jwt.claim.sub', 'aaaaaaaa-6666-0000-0000-000000000001', true);
+select lives_ok(
+  $$select * from public.consume_rate_limit('parse-flight-email', 3, interval '1 hour')$$,
+  'a later call still succeeds'
+);
+reset role;
+select is(
+  (select count(*)::int from public.rate_limit_events
+   where user_id = 'aaaaaaaa-6666-0000-0000-000000000001'
+     and bucket = 'parse-flight-email'
+     and occurred_at < now() - interval '1 day'),
+  0,
+  'and anything older than the one-day retention bound is gone, so the ledger cannot grow forever'
 );
 set local role authenticated;
 
@@ -206,6 +233,42 @@ select throws_ok(
   'P0001',
   null,
   'a limit below 1 is refused rather than silently admitting or blocking everything'
+);
+
+-- The bypass the negative-window check does not cover, and the one that was reachable.
+--
+-- A *positive* window is legal, so validation never sees it, and it used to reach the same clean
+-- slate through the front door: the purge cutoff was `now() - p_window`, so a microsecond window
+-- deleted everything the caller had in that bucket. One extra call before each real one and the
+-- limit was gone.
+--
+-- Back-dated rather than inserted at `now()`, because `now()` is the transaction timestamp and does
+-- not advance inside a test — rows written here are never "older than now()", so the bug cannot be
+-- demonstrated without back-dating. Five minutes is well inside the one-hour window being asserted.
+reset role;
+insert into public.rate_limit_events (user_id, bucket, occurred_at)
+select 'aaaaaaaa-6666-0000-0000-000000000001', 'bypass-probe', now() - interval '5 minutes'
+from generate_series(1, 3);
+set local role authenticated;
+select set_config('request.jwt.claim.sub', 'aaaaaaaa-6666-0000-0000-000000000001', true);
+
+select is(
+  (select allowed from public.consume_rate_limit('bypass-probe', 3, interval '1 hour')),
+  false,
+  'three calls in the last five minutes exhaust a limit of three an hour'
+);
+
+-- The attack, executed. It is allowed — a fresh bucket under a one-microsecond window legitimately
+-- has nothing in it — and the assertion that matters is the one after it.
+select ok(
+  (select allowed from public.consume_rate_limit('bypass-probe', 1, interval '1 microsecond')),
+  'a one-microsecond window is a legal call and is permitted'
+);
+
+select is(
+  (select allowed from public.consume_rate_limit('bypass-probe', 3, interval '1 hour')),
+  false,
+  'and it does not purge the hour''s history: the real limit is still refusing'
 );
 
 -- There is no caller to attribute usage to, so there is nothing to limit — and every real call

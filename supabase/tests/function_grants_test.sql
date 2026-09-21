@@ -11,7 +11,7 @@
 -- happens to do today, which matters because the bodies here do no authorising of their own.
 
 begin;
-select plan(11);
+select plan(17);
 
 create extension if not exists pgtap;
 
@@ -91,6 +91,52 @@ select ok(
 select ok(
   has_function_privilege('anon', 'public.get_invite_code_inviter_info(text)', 'EXECUTE'),
   'an invite link can still be previewed before signing up'
+);
+
+-- ---------------------------------------------------------------------------
+-- Closed later, by 20261110000200 and 20261110000300
+-- ---------------------------------------------------------------------------
+
+-- Referenced by zero RLS policies, unlike `couple_is_subscribed` and `is_couple_active`, whose
+-- grants are load-bearing because policies execute as the caller. Its three callers are all
+-- SECURITY DEFINER and run as the owner.
+select ok(
+  not has_function_privilege('anon', 'public.flights_used_this_month(uuid)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.flights_used_this_month(uuid)', 'EXECUTE'),
+  'a couple''s flight count is not readable by a client naming an arbitrary couple'
+);
+
+-- The parameter is the oracle: an unauthenticated caller could name any uuid and learn whether it
+-- was an admin. `authenticated` has to keep this — fifteen policies reference it and the console
+-- calls it — so only anon is asserted here.
+select ok(
+  not has_function_privilege('anon', 'public.is_support_admin(uuid)', 'EXECUTE'),
+  'an anonymous caller cannot ask whether a given account is an admin'
+);
+select ok(
+  has_function_privilege('authenticated', 'public.is_support_admin(uuid)', 'EXECUTE'),
+  'and a signed-in one still can, because the RLS policies that call it run as the caller'
+);
+
+-- The rate limiter. Its own revoke said `from public` alone, which is the pattern this whole file
+-- exists to catch.
+select ok(
+  not has_function_privilege('anon', 'public.consume_rate_limit(text, integer, interval)', 'EXECUTE'),
+  'the rate limiter is not callable anonymously'
+);
+select ok(
+  has_function_privilege('authenticated', 'public.consume_rate_limit(text, integer, interval)', 'EXECUTE'),
+  'and is still callable by the signed-in clients the edge functions act for'
+);
+
+-- A storage policy rather than a grant, but the same failure: it named no caller at all, so a
+-- private avatar was readable by anyone holding the owner's profile uuid.
+select is(
+  (select count(*)::int from pg_policies
+   where schemaname = 'storage' and tablename = 'objects'
+     and policyname = 'avatars_select_pending_inviter'),
+  0,
+  'the caller-blind avatar policy is gone'
 );
 
 select * from finish();
