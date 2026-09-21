@@ -14,6 +14,15 @@ Effort is a rough half-day unit: **S** under an hour, **M** a few hours, **L** a
 
 ### 0.1 Delete R2 objects when an account or an archive is purged — **L**
 
+> **Status: built and deployed, deleting nothing yet** (`841cef4`). Migrations `20261110000000`
+> and `20261110000100` are in production and `purge-r2-objects` is live. The keys are being
+> captured from now on, so the window described below has stopped closing. The cron job is
+> deployed **inactive** and deletes nothing until somebody enables it — see the rollout at the end
+> of this item. Still outstanding: the inline call from `delete-account`, deliberately deferred to
+> the change that enables the job, and the objects already stranded by deletions that ran before
+> this, which need a bucket listing no code here can perform.
+
+
 **Why first.** `purge_couple_data` cascades `memory_photos` and `flight_documents` away, and those
 tables hold the object paths. `_shared/r2.ts` has no list operation and `delete-r2-objects.ts`
 takes keys because "every path is already recorded in the database". So every couple that passes
