@@ -75,18 +75,30 @@ Deno.serve(async (req) => {
 
   const serviceClient = createClient(projectUrl, serviceKey);
 
+  // Through an RPC now, because the cohort stopped being expressible as a PostgREST filter.
+  //
+  // It used to be `.or("subscription_active.eq.true,subscription_checked_at.gte.<cutoff>")`, which
+  // refreshes people already recorded as paying and people checked recently — and matches neither
+  // disjunct for a profile at `active = false` with a null `checked_at`. That is precisely the row
+  // this job would need to repair: a purchase that attached to an anonymous RevenueCat id, so the
+  // webhook had no resolvable user and wrote nothing. The buyer never notices, because the device
+  // holds the entitlement; their partner has only the row, and the row says no.
+  //
+  // The third arm the RPC adds is scoped to couples where *neither* member is recorded as active —
+  // entitlement is an OR across both partners, so any couple with one true row already has access
+  // and nobody to fail. See 20261110001100 for why it is bounded that way and how it drains.
   const cutoff = new Date(Date.now() - RECENTLY_TOUCHED_DAYS * 24 * 60 * 60 * 1000).toISOString();
-  const { data: profiles, error } = await serviceClient
-    .from("profiles")
-    .select("id")
-    .or(`subscription_active.eq.true,subscription_checked_at.gte.${cutoff}`);
+  const { data: profiles, error } = await serviceClient.rpc("subscriptions_to_reconcile", {
+    p_checked_cutoff: cutoff,
+  });
 
   if (error) {
     console.error("[reconcile-subscriptions] failed to load profiles:", error.message);
     return Response.json({ error: "Failed to load profiles" }, { status: 500 });
   }
 
-  const ids = (profiles ?? []).map((p) => (p as ProfileRow).id);
+  // The RPC returns bare uuids, not rows.
+  const ids = ((profiles ?? []) as unknown as string[]).map(String);
   let reconciled = 0;
   let failed = 0;
 
@@ -117,6 +129,18 @@ Deno.serve(async (req) => {
       console.error(`[reconcile-subscriptions] ${id} threw:`, (err as Error).message);
     }
     await new Promise((resolve) => setTimeout(resolve, PAUSE_BETWEEN_MS));
+  }
+
+  // Stamped whatever each probe found, which is what stops a genuinely free couple being asked
+  // about every night forever. Deliberately not `subscription_checked_at`: that column means "this
+  // state is RevenueCat's as of this instant" and is what the webhook's freshness guard compares
+  // against, so writing it after a probe that learned nothing would be a lie the guard then trusts.
+  if (ids.length > 0) {
+    const { error: probeError } = await serviceClient.rpc("mark_subscriptions_probed", { p_ids: ids });
+    if (probeError) {
+      // Costs a repeated probe tomorrow, nothing else.
+      console.warn("[reconcile-subscriptions] could not stamp probes:", probeError.message);
+    }
   }
 
   console.log(`[reconcile-subscriptions] checked ${ids.length}, reconciled ${reconciled}, failed ${failed}`);
