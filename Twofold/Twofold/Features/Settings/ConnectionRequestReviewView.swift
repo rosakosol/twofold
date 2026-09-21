@@ -61,7 +61,7 @@ struct ConnectionRequestReviewView: View {
                 if let errorMessage {
                     Text(errorMessage)
                         .font(.caption)
-                        .foregroundStyle(Theme.heartRed)
+                        .foregroundStyle(Theme.heartRedText)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, Theme.Spacing.lg)
                 }

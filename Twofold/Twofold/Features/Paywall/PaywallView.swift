@@ -213,7 +213,7 @@ struct PaywallView: View {
                             Image(systemName: "arrow.down")
                         }
                         .font(.caption2.weight(.semibold))
-                        .foregroundStyle(Theme.heartRed)
+                        .foregroundStyle(Theme.heartRedText)
                         .frame(maxWidth: .infinity, alignment: .trailing)
                         .padding(.trailing, Theme.Spacing.md)
 

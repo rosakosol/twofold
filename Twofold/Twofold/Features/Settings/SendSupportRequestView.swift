@@ -123,7 +123,7 @@ struct SendSupportRequestView: View {
                     }
 
                     if let errorMessage {
-                        Text(errorMessage).font(.caption).foregroundStyle(Theme.heartRed)
+                        Text(errorMessage).font(.caption).foregroundStyle(Theme.heartRedText)
                     }
 
                     Button(action: send) {

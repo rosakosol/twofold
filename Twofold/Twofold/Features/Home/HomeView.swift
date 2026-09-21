@@ -177,7 +177,7 @@ struct HomeView: View {
                 ToolbarItem(placement: .principal) {
                     HStack(spacing: Theme.Spacing.sm) {
                         AvatarView(person: appModel.currentUser, size: 30)
-                        Image(systemName: "heart.fill").foregroundStyle(Theme.heartRed).font(.caption)
+                        Image(systemName: "heart.fill").foregroundStyle(Theme.heartRedText).font(.caption)
                         AvatarView(person: appModel.partner, size: 30)
                     }
                     .accessibilityElement(children: .ignore)
@@ -823,7 +823,7 @@ struct HomeView: View {
                 Spacer()
                 Image(systemName: "heart.fill")
                     .font(.title2)
-                    .foregroundStyle(Theme.heartRed)
+                    .foregroundStyle(Theme.heartRedText)
             }
             Text("No distance to close right now")
                 .font(.caption)
@@ -1067,7 +1067,7 @@ struct HomeView: View {
                 }
                 Spacer()
                 Image(systemName: "heart.fill")
-                    .foregroundStyle(Theme.heartRed)
+                    .foregroundStyle(Theme.heartRedText)
             }
 
             Divider()

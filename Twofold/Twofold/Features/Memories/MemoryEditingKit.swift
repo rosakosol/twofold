@@ -219,7 +219,7 @@ struct MemoryPhotosSheet: View {
                         .multilineTextAlignment(.leading)
                 } icon: {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(Theme.heartRed)
+                        .foregroundStyle(Theme.heartRedText)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(Theme.Spacing.sm)

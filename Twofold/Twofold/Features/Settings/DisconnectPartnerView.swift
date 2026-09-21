@@ -112,7 +112,7 @@ struct DisconnectPartnerView: View {
                     if let removePartnerError {
                         Text(removePartnerError)
                             .font(.caption)
-                            .foregroundStyle(Theme.heartRed)
+                            .foregroundStyle(Theme.heartRedText)
                     }
                 }
             }

@@ -29,7 +29,7 @@ struct EnterPartnerCodeView: View {
                     if let errorMessage {
                         Text(errorMessage)
                             .font(.caption)
-                            .foregroundStyle(Theme.heartRed)
+                            .foregroundStyle(Theme.heartRedText)
                     }
                 }
             },

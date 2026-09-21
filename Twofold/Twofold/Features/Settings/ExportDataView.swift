@@ -138,7 +138,7 @@ struct ExportDataView: View {
                         }
 
                         if let errorMessage {
-                            Text(errorMessage).font(.caption).foregroundStyle(Theme.heartRed)
+                            Text(errorMessage).font(.caption).foregroundStyle(Theme.heartRedText)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)

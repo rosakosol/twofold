@@ -36,7 +36,7 @@ struct AboutYouView: View {
                 if let avatarError {
                     Text(avatarError)
                         .font(.caption)
-                        .foregroundStyle(Theme.heartRed)
+                        .foregroundStyle(Theme.heartRedText)
                 }
 
                 SectionCard {
@@ -83,11 +83,11 @@ struct AboutYouView: View {
                     case .deniedOrRestricted:
                         Text("Location access is off. Enable it in Location Permission settings to use this.")
                             .font(.caption2)
-                            .foregroundStyle(Theme.heartRed)
+                            .foregroundStyle(Theme.heartRedText)
                     case .failed(let message):
                         Text(message)
                             .font(.caption2)
-                            .foregroundStyle(Theme.heartRed)
+                            .foregroundStyle(Theme.heartRedText)
                     default:
                         EmptyView()
                     }

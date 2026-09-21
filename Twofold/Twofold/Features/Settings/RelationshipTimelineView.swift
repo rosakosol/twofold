@@ -169,7 +169,7 @@ struct RelationshipTimelineView: View {
                     .fixedSize(horizontal: false, vertical: true)
 
                 if let purchaseError {
-                    Text(purchaseError).font(.caption).foregroundStyle(Theme.heartRed)
+                    Text(purchaseError).font(.caption).foregroundStyle(Theme.heartRedText)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -240,7 +240,7 @@ struct RelationshipTimelineView: View {
     private var statusBar: some View {
         Text(exportError ?? exportStatus)
             .font(.caption)
-            .foregroundStyle(exportError == nil ? Theme.subtleInk : Theme.heartRed)
+            .foregroundStyle(exportError == nil ? Theme.subtleInk : Theme.heartRedText)
             .padding(Theme.Spacing.sm)
             .background(Theme.cardBackground, in: Capsule())
             .padding(.bottom, Theme.Spacing.md)

@@ -70,7 +70,7 @@ struct ArchivedDataView: View {
                                 if let notice = couple.deletionNotice {
                                     Text(notice)
                                         .font(.caption2.weight(.semibold))
-                                        .foregroundStyle(couple.deletionIsImminent ? Theme.heartRed : Theme.subtleInk)
+                                        .foregroundStyle(couple.deletionIsImminent ? Theme.heartRedText : Theme.subtleInk)
                                 }
                             }
                             .padding(.vertical, 2)
@@ -173,7 +173,7 @@ struct ArchivedCoupleDetailView: View {
                     SectionCard {
                         HStack(spacing: Theme.Spacing.sm) {
                             Image(systemName: "clock.badge.exclamationmark")
-                                .foregroundStyle(couple.deletionIsImminent ? Theme.heartRed : Theme.skyBlue)
+                                .foregroundStyle(couple.deletionIsImminent ? Theme.heartRedText : Theme.skyBlue)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(couple.deletionNotice ?? "")
                                     .font(.subheadline.weight(.semibold))
@@ -201,7 +201,7 @@ struct ArchivedCoupleDetailView: View {
                 }
 
                 if let hideError {
-                    Text(hideError).font(.caption).foregroundStyle(Theme.heartRed)
+                    Text(hideError).font(.caption).foregroundStyle(Theme.heartRedText)
                 }
 
                 // Offered first, and as the ordinary-weight action, because it is what most people
@@ -306,7 +306,7 @@ struct ArchivedCoupleDetailView: View {
                     }
 
                     if let purchaseError {
-                        Text(purchaseError).font(.caption).foregroundStyle(Theme.heartRed)
+                        Text(purchaseError).font(.caption).foregroundStyle(Theme.heartRedText)
                     }
 
                     Button(action: runExport) {
@@ -320,7 +320,7 @@ struct ArchivedCoupleDetailView: View {
                 }
 
                 if let exportError {
-                    Text(exportError).font(.caption).foregroundStyle(Theme.heartRed)
+                    Text(exportError).font(.caption).foregroundStyle(Theme.heartRedText)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

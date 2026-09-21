@@ -28,7 +28,7 @@ struct SettingsRow: View {
                 ProgressView().frame(maxWidth: .infinity)
             } else {
                 Label(title, systemImage: systemImage)
-                    .foregroundStyle(isDestructive ? Theme.heartRed : Theme.ink)
+                    .foregroundStyle(isDestructive ? Theme.heartRedText : Theme.ink)
                 Spacer()
                 if let unavailableBadge {
                     PillBadge(text: unavailableBadge, tint: Theme.subtleInk)

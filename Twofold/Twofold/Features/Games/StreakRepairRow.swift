@@ -35,7 +35,7 @@ struct StreakRepairRow: View {
             HStack(spacing: Theme.Spacing.sm) {
                 Image(systemName: "flame.fill")
                     .font(.subheadline)
-                    .foregroundStyle(Theme.heartRed)
+                    .foregroundStyle(Theme.heartRedText)
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Your \(streak)-day streak ended")
                         .font(.subheadline.weight(.semibold))

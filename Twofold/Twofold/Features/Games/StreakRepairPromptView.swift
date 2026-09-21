@@ -33,7 +33,7 @@ struct StreakRepairPromptView: View {
                     .opacity(0.18)
                 Image(systemName: "flame.fill")
                     .font(.system(size: 36))
-                    .foregroundStyle(Theme.heartRed)
+                    .foregroundStyle(Theme.heartRedText)
             }
             .frame(width: 96, height: 96)
 
@@ -89,7 +89,7 @@ struct StreakRepairPromptView: View {
                 if case .failed(let message) = store.phase {
                     Text(message)
                         .font(.caption)
-                        .foregroundStyle(Theme.heartRed)
+                        .foregroundStyle(Theme.heartRedText)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
                 }

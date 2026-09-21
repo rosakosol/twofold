@@ -140,7 +140,7 @@ struct AddFlightResultsStepView: View {
 
     private func errorState(_ message: String) -> some View {
         VStack(spacing: Theme.Spacing.sm) {
-            Image(systemName: "exclamationmark.triangle").font(.title2).foregroundStyle(Theme.heartRed)
+            Image(systemName: "exclamationmark.triangle").font(.title2).foregroundStyle(Theme.heartRedText)
             Text(message).font(.subheadline).foregroundStyle(Theme.subtleInk).multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
@@ -194,7 +194,7 @@ struct AddFlightResultsStepView: View {
                     if let departureDay = candidate.departureDayLabel(searchedDate: model.date) {
                         Text(departureDay)
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(Theme.heartRed)
+                            .foregroundStyle(Theme.heartRedText)
                     }
 
                     if let originCity = candidate.origin?.city, let destinationCity = candidate.destination?.city {

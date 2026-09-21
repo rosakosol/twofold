@@ -41,7 +41,7 @@ struct HomeCityView: View {
                     if let errorMessage {
                         Text(errorMessage)
                             .font(.caption)
-                            .foregroundStyle(Theme.heartRed)
+                            .foregroundStyle(Theme.heartRedText)
                     }
                     if case .deniedOrRestricted = locationService.state {
                         Text("Location access is off — you can still search for your city above.")

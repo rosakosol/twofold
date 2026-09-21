@@ -456,7 +456,7 @@ struct GameResultsView: View {
     private func correctnessBadge(label: String, isCorrect: Bool?) -> some View {
         Label(label, systemImage: isCorrect == true ? "checkmark.circle.fill" : "xmark.circle.fill")
             .font(.caption2.weight(.medium))
-            .foregroundStyle(isCorrect == true ? Theme.leafGreen : Theme.heartRed)
+            .foregroundStyle(isCorrect == true ? Theme.leafGreen : Theme.heartRedText)
             // `Label`'s default accessibility reading is just its text ("You"/partner's name) —
             // the icon alone doesn't carry "correct" vs "incorrect" to VoiceOver, so it's spelled
             // out explicitly here instead.

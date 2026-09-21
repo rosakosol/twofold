@@ -99,7 +99,7 @@ struct MemoryLocationSearchView: View {
                             useDroppedPin(droppedPin)
                         } label: {
                             HStack {
-                                Image(systemName: "mappin.circle.fill").foregroundStyle(Theme.heartRed)
+                                Image(systemName: "mappin.circle.fill").foregroundStyle(Theme.heartRedText)
                                 Text("Use this spot on the map").foregroundStyle(Theme.ink)
                             }
                         }
@@ -110,7 +110,7 @@ struct MemoryLocationSearchView: View {
                             useTypedAddress(completer.queryFragment)
                         } label: {
                             HStack {
-                                Image(systemName: "mappin.circle.fill").foregroundStyle(Theme.heartRed)
+                                Image(systemName: "mappin.circle.fill").foregroundStyle(Theme.heartRedText)
                                 Text("Use “\(completer.queryFragment)”").foregroundStyle(Theme.ink)
                             }
                         }
@@ -149,7 +149,7 @@ struct MemoryLocationSearchView: View {
                     if let errorMessage {
                         Text(errorMessage)
                             .font(.caption)
-                            .foregroundStyle(Theme.heartRed)
+                            .foregroundStyle(Theme.heartRedText)
                     }
                 }
                 .listStyle(.plain)

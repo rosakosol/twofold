@@ -122,7 +122,7 @@ struct AddMemoryView: View {
                         if let errorMessage {
                             Text(errorMessage)
                                 .font(.caption)
-                                .foregroundStyle(Theme.heartRed)
+                                .foregroundStyle(Theme.heartRedText)
                         }
                     }
                     .padding(Theme.Spacing.lg)
@@ -247,7 +247,7 @@ struct AddMemoryView: View {
                 } label: {
                     Text("Location required — tap to set")
                         .font(.subheadline.weight(.medium))
-                        .foregroundStyle(Theme.heartRed)
+                        .foregroundStyle(Theme.heartRedText)
                 }
                 .buttonStyle(.plain)
             }

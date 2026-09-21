@@ -74,7 +74,7 @@ struct MemoryDetailView: View {
                             if let errorMessage {
                                 Text(errorMessage)
                                     .font(.caption)
-                                    .foregroundStyle(Theme.heartRed)
+                                    .foregroundStyle(Theme.heartRedText)
                             }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -227,10 +227,10 @@ struct MemoryDetailView: View {
         HStack(spacing: Theme.Spacing.xs) {
             Image(systemName: icon)
                 .font(font)
-                .foregroundStyle(muted ? Theme.heartRed : Theme.subtleInk)
+                .foregroundStyle(muted ? Theme.heartRedText : Theme.subtleInk)
             Text(text)
                 .font(muted ? font.weight(.medium) : font)
-                .foregroundStyle(muted ? Theme.heartRed : Theme.subtleInk)
+                .foregroundStyle(muted ? Theme.heartRedText : Theme.subtleInk)
         }
         .contentShape(Rectangle())
     }

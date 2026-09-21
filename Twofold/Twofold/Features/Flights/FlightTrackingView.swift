@@ -283,7 +283,7 @@ struct FlightTrackingView: View {
                         .fixedSize(horizontal: false, vertical: true)
 
                     if let enableTrackingError {
-                        Text(enableTrackingError).font(.caption).foregroundStyle(Theme.heartRed)
+                        Text(enableTrackingError).font(.caption).foregroundStyle(Theme.heartRedText)
                     }
 
                     Button(action: enableTracking) {
@@ -386,7 +386,7 @@ struct FlightTrackingView: View {
                     PillBadge(text: flight.status.displayLabel, tint: flight.status.semanticColor)
                 }
                 if flight.isDelayed, flight.status != .cancelled {
-                    Image(systemName: flight.status.icon).font(.caption2).foregroundStyle(Theme.heartRed)
+                    Image(systemName: flight.status.icon).font(.caption2).foregroundStyle(Theme.heartRedText)
                 }
                 Text(flight.countdownSummary)
                     .font(.title2.weight(.bold))
@@ -891,7 +891,7 @@ struct FlightTrackingView: View {
                     HStack(alignment: .top, spacing: Theme.Spacing.sm) {
                         ZStack {
                             Circle().fill(event.type.isUrgent ? Theme.heartRed.opacity(0.15) : Theme.skyBlue.opacity(0.15))
-                            Image(systemName: event.type.icon).font(.caption).foregroundStyle(event.type.isUrgent ? Theme.heartRed : Theme.skyBlue)
+                            Image(systemName: event.type.icon).font(.caption).foregroundStyle(event.type.isUrgent ? Theme.heartRedText : Theme.skyBlue)
                         }
                         .frame(width: 28, height: 28)
                         .accessibilityHidden(true)

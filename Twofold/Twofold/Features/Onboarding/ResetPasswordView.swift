@@ -59,12 +59,12 @@ struct ResetPasswordView: View {
                         if passwordsMismatch {
                             Text("Passwords don't match.")
                                 .font(.caption)
-                                .foregroundStyle(Theme.heartRed)
+                                .foregroundStyle(Theme.heartRedText)
                         }
                         if let errorMessage {
                             Text(errorMessage)
                                 .font(.caption)
-                                .foregroundStyle(Theme.heartRed)
+                                .foregroundStyle(Theme.heartRedText)
                         }
 
                         Button {

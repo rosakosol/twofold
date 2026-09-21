@@ -93,7 +93,7 @@ struct SaveAccountView: View {
                             if passwordsMismatch {
                                 Text("Passwords don't match")
                                     .font(.caption)
-                                    .foregroundStyle(Theme.heartRed)
+                                    .foregroundStyle(Theme.heartRedText)
                             }
 
                             Button(action: continueWithEmail) {
@@ -130,7 +130,7 @@ struct SaveAccountView: View {
                     if let errorMessage {
                         Text(errorMessage)
                             .font(.caption)
-                            .foregroundStyle(Theme.heartRed)
+                            .foregroundStyle(Theme.heartRedText)
                     }
                 }
             }

@@ -198,7 +198,7 @@ struct GameErrorState: View {
 
     var body: some View {
         VStack(spacing: Theme.Spacing.sm) {
-            Image(systemName: "exclamationmark.triangle.fill").font(.largeTitle).foregroundStyle(Theme.heartRed)
+            Image(systemName: "exclamationmark.triangle.fill").font(.largeTitle).foregroundStyle(Theme.heartRedText)
             Text(message)
                 .font(.subheadline)
                 .foregroundStyle(Theme.subtleInk)

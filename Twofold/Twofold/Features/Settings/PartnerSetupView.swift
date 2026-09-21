@@ -46,7 +46,7 @@ struct PartnerSetupView: View {
                     if let partnerAvatarError {
                         Text(partnerAvatarError)
                             .font(.caption)
-                            .foregroundStyle(Theme.heartRed)
+                            .foregroundStyle(Theme.heartRedText)
                     }
 
                     SectionCard {
