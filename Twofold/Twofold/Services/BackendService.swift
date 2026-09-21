@@ -107,14 +107,23 @@ enum BackendService {
     }
 
     /// Never throws for "no account with that email" — Supabase deliberately responds the same
-    /// way regardless, so a caller can't enumerate registered emails via this endpoint. `redirectTo`
-    /// is the app's own custom-scheme link (not a Universal Link): the emailed link always points
-    /// at Supabase's own domain first (which verifies the token server-side), then 302s the
-    /// browser here — a custom scheme is fine for that hop and needs no associated-domains/AASA
-    /// setup, unlike InviteCode's link. `OnboardingCoordinatorView`'s `.onOpenURL` recognizes it
-    /// and calls `completePasswordRecovery(from:)` below.
+    /// way regardless, so a caller can't enumerate registered emails via this endpoint.
+    ///
+    /// `redirectTo` is a Universal Link, not the custom scheme this used to send. The custom
+    /// scheme (`twofold://reset-password`) failed two ways at once. Supabase does not reject a
+    /// `redirect_to` that is missing from the project's Redirect URLs allow-list — it silently
+    /// substitutes the project's Site URL — so the emailed link quietly delivered people to the
+    /// marketing site instead of anywhere useful. And a custom scheme means nothing in a desktop
+    /// browser, so opening the email on a laptop led nowhere even when the allow-list was right.
+    ///
+    /// The https URL fixes both. iOS opens this app directly when it is installed (see the site's
+    /// apple-app-site-association route, which now lists `/auth/reset-password`), and anyone
+    /// without the app gets a real web form at the same address. `OnboardingCoordinatorView`'s
+    /// `.onOpenURL` recognizes both shapes and calls `completePasswordRecovery(from:)` below;
+    /// the custom scheme is still handled there because links already sitting in inboxes, and
+    /// builds already installed, still use it.
     static func requestPasswordReset(email: String) async throws {
-        try await supabase.auth.resetPasswordForEmail(email, redirectTo: URL(string: "twofold://reset-password"))
+        try await supabase.auth.resetPasswordForEmail(email, redirectTo: URL(string: "https://www.twofoldapp.com.au/auth/reset-password"))
         Analytics.capture(Analytics.Event.passwordResetRequest)
     }
 

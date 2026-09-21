@@ -42,7 +42,7 @@ struct OnboardingCoordinatorView: View {
         .onOpenURL { url in
             // Google's sign-in flow redirects back into the app via its own URL scheme.
             if GIDSignIn.sharedInstance.handle(url) { return }
-            if url.scheme?.lowercased() == "twofold", url.host?.lowercased() == "reset-password" {
+            if Self.isPasswordRecoveryLink(url) {
                 Task { await handlePasswordRecovery(url) }
                 return
             }
@@ -68,6 +68,26 @@ struct OnboardingCoordinatorView: View {
         } message: {
             Text(passwordRecoveryError ?? "This password reset link is no longer valid — request a new one from the sign-in screen.")
         }
+    }
+
+    /// Recognises both shapes a recovery link can arrive in.
+    ///
+    /// The https one is what `requestPasswordReset` now asks for — a Universal Link, so iOS opens
+    /// the app rather than Safari. The custom scheme is the one it used to ask for, and is still
+    /// accepted because it is not ours to retire: links already sitting in inboxes carry it, and
+    /// so do builds people have installed and not yet updated. Dropping it would break password
+    /// reset for exactly the users least able to work out why.
+    static func isPasswordRecoveryLink(_ url: URL) -> Bool {
+        if url.scheme?.lowercased() == "twofold", url.host?.lowercased() == "reset-password" {
+            return true
+        }
+        guard url.scheme?.lowercased() == "https" else { return false }
+        // Path only — the host is whatever the associated-domains entitlement already let through,
+        // and matching on it as well would mean a second place to update if the domain ever moves.
+        // `pathComponents` rather than `path` for the same reason InviteCode uses it: it drops the
+        // separators, so a trailing slash does not change the answer.
+        let components = url.pathComponents.filter { $0 != "/" }.map { $0.lowercased() }
+        return components == ["auth", "reset-password"]
     }
 
     /// `ForgotPasswordView`'s emailed link lands here already tapped-through from Supabase's own

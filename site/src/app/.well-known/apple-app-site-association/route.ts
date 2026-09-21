@@ -13,15 +13,21 @@ import { NextResponse } from "next/server";
 // extensionless file — Apple's own CDN fetches this over HTTPS and is picky about that.
 //
 // Add a new `{ "/": "..." }` pattern here (inside the same `components` array) for any future
-// path that should open the app directly — e.g. if password-reset ever moves from its current
-// custom-scheme redirect (twofold://reset-password) to a Universal Link instead.
+// path that should open the app directly.
+//
+// /auth/reset-password is the second such path. It used to be a custom-scheme redirect
+// (twofold://reset-password), which failed two ways: Supabase silently falls back to the Site URL
+// for any redirect_to missing from the project's allow-list, dropping people on the marketing
+// site; and a custom scheme means nothing in a desktop browser, so opening the email anywhere but
+// the phone led nowhere at all. As a Universal Link it opens the app when the app is there and
+// renders a real web form when it is not.
 export async function GET() {
   return NextResponse.json({
     applinks: {
       details: [
         {
           appIDs: ["74FZ8H3GX2.com.orangefinch.Twofold"],
-          components: [{ "/": "/invite/*" }],
+          components: [{ "/": "/invite/*" }, { "/": "/auth/reset-password" }],
         },
       ],
     },

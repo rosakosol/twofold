@@ -160,7 +160,18 @@ site_url = "http://127.0.0.1:3000"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000"]
+# `twofold://reset-password` is the app's own custom-scheme recovery redirect, and the https URL
+# is its replacement (a Universal Link — see the site's AASA route). BOTH are listed: older
+# installed builds still ask for the custom scheme, and a redirect_to that is not on this list is
+# not rejected, it is silently replaced by `site_url` — which is how password-reset emails came to
+# land on the marketing site with no explanation. The production project's own Redirect URLs list
+# in the Supabase dashboard needs the same two entries; this file does not configure it.
+additional_redirect_urls = [
+  "https://127.0.0.1:3000",
+  "http://127.0.0.1:3000/auth/reset-password",
+  "https://www.twofoldapp.com.au/auth/reset-password",
+  "twofold://reset-password",
+]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.
