@@ -13,7 +13,7 @@
 --     null, so the actor has to be carried — the same bug that stopped account deletion working.
 
 begin;
-select plan(10);
+select plan(11);
 
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
 values
@@ -109,9 +109,17 @@ select public.record_support_reply((select id from _th),'77777777-2222-0000-0000
   'Could you send a screenshot?', false);
 reset role;
 
+-- The switch says whether the exchange is finished, so turning it off opens the conversation even
+-- if it was closed a moment ago. Leaving it closed would put a thread we are actively waiting on
+-- outside the default filter, where nobody is watching for the answer it expects.
 select is(
   (select status from public.support_threads where id=(select id from _th)),
-  'closed', 'a reply that does not close leaves the status alone rather than reopening it'
+  'open', 'replying without closing reopens, because it means this is not finished'
+);
+
+select ok(
+  (select handled_at from public.support_threads where id=(select id from _th)) is null,
+  'and the conversation stops claiming it was handled'
 );
 
 -- ---------------------------------------------------------------------------
