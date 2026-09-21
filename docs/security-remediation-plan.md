@@ -134,6 +134,21 @@ probably correct. Note 0.2 closes this as a side effect if the soak ends.
 
 ## Phase 2 — Data at rest
 
+> **Status: 2.1, 2.2, 2.3, 2.5 and 2.6 done** (`82c62cd`, `eb161c4`). Every write now carries an
+> explicit class, `DataProtectionMigration` reclassifies what earlier versions left behind, the
+> re-derivable stores are out of the backup, the two plist-bound stores are in files of their own
+> with tested read-through migrations, and Settings says what a missing device passcode costs.
+>
+> **2.4 (Keychain `ThisDeviceOnly`) is NOT done and needs a decision** — see the item below. It is
+> the one change here that can sign every existing user out if its migration is wrong, so it
+> should not ride along with the rest.
+>
+> Two corrections found while implementing, both now in the code rather than the plan: the three
+> Application Support singles must not take a directory attribute, because their `createDirectory`
+> targets the shared root where PostHog and RevenueCat also write; and the export tree has to
+> create each level explicitly, because `withIntermediateDirectories` applies attributes to the
+> leaf only while the CSVs land in an intermediate.
+
 The inventory and the reasoning are in the backlog's round 3. This is the execution order. Do 2.1
 and 2.2 in one change — a class without a migration protects only new installs.
 
