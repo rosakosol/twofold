@@ -31,6 +31,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 import { enforceRateLimit } from "../_shared/rate-limit.ts";
+import { dotStuff } from "../_shared/mail.ts";
 
 // Every category now lands in one inbox - the old feedback@/support@ split went away with the
 // separate feedback form, since one categorised queue is simpler to actually monitor.
@@ -222,13 +223,30 @@ Deno.serve(async (req) => {
   // Reply-To is the caller's own account email (resolved server-side, never client-supplied) -
   // so support@ can just hit "reply" to respond directly, without asking the person to type
   // their email into the form.
+  // Dot-stuffed before it goes anywhere near the transport.
+  //
+  // SMTP terminates the DATA section at a line containing a single "." — so a message body holding
+  // `\r\n.\r\n` ends the message early, and everything after it is read as SMTP commands on a
+  // session that is already authenticated as us. That is arbitrary mail from
+  // support@twofoldapp.com.au, SPF- and DKIM-aligned, to any recipient: a phishing relay rather
+  // than a data leak.
+  //
+  // The transport does not do this for us. denomailer 1.6.0 writes the body straight out and
+  // terminates with ".\r\n" of its own, with no stuffing anywhere, and the quoted-printable pass
+  // does not save it — "." is code 46 and sits inside the printable passthrough range, as do CR
+  // and LF.
+  //
+  // `subject` was already protected, by `singleLine` above. The body deliberately is not, and
+  // should not be: flattening a support message to one line breaks the feature. Stuffing is the
+  // correct fix — the receiving server removes the extra dot, so the message a human reads is
+  // unchanged, and no line the caller writes can ever be a lone ".".
   const bodyLines = [
     `Category: ${input.category}`,
     `Account: ${user.email ?? "(no email on file)"} - ${user.id}`,
     "",
     ...(input.report ? reportContextLines(input.report) : []),
     ...(input.game ? gameContextLines(input.game) : []),
-    input.message.trim(),
+    dotStuff(input.message.trim()),
   ];
 
   // Recorded before the email, and never allowed to stop it.

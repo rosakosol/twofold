@@ -32,7 +32,7 @@
 // Neither substitutes for the other, and a reply wants both.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { closeQuietly, fromAddress, singleLine, smtpClient } from "../_shared/mail.ts";
+import { closeQuietly, dotStuff, fromAddress, singleLine, smtpClient } from "../_shared/mail.ts";
 import { presign, r2ConfigFromEnv } from "../_shared/r2.ts";
 import { replyHtml, replySubject, replyText, replyToAddress, usableAsInReplyTo } from "./compose.ts";
 import { serveWithCors } from "../_shared/cors.ts";
@@ -159,7 +159,9 @@ Deno.serve(serveWithCors(async (req) => {
       // Both halves, which makes this multipart/alternative: the client picks. A support reply
       // that arrives as bare text reads as machine-generated, and one that arrives as HTML only is
       // unreadable to anybody whose client prefers text.
-      content: replyText(body),
+      // Admin-authored, so this is not the unauthenticated case — but it is the same primitive on
+      // the same transport, and an admin account is exactly what an attacker would want to reach.
+      content: dotStuff(replyText(body)),
       html: replyHtml(body),
       // Present only when their message carried one — a first contact through the website form has
       // no Message-ID to answer.

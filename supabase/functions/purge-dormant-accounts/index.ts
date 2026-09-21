@@ -34,7 +34,7 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { sendAPNs } from "../_shared/apns.ts";
-import { closeQuietly, fromAddress, singleLine, smtpClient } from "../_shared/mail.ts";
+import { closeQuietly, dotStuff, fromAddress, singleLine, smtpClient } from "../_shared/mail.ts";
 
 const MAX_CLOSURES_PER_RUN = 200;
 
@@ -194,7 +194,10 @@ Deno.serve(async (req) => {
             from: fromAddress(),
             to: row.email,
             subject,
-            content: body,
+            // `first_name` has no validation on it — `text not null default ''` — and this body
+            // opens with it, so the recipient of this warning is also the person who chose what
+            // goes into the SMTP session that sends it.
+            content: dotStuff(body),
           });
           warned.push(row.profile_id);
         } catch (err) {
