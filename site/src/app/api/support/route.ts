@@ -3,6 +3,8 @@ import { createZohoTransport } from "@/lib/mail/zoho";
 import { renderTemplate, extractSubject } from "@/lib/mail/renderTemplate";
 import { escapeHtml } from "@/lib/mail/escapeHtml";
 import { SUPPORT_EMAIL, SITE_URL } from "@/lib/mail/companyInfo";
+import { createClient } from "@/lib/supabase/server";
+import { nullableArg } from "@/lib/db/nullableArg";
 
 // Web counterpart to the iOS app's submit-help-message edge function
 // (supabase/functions/submit-help-message) - same category list and same recipient
@@ -60,6 +62,27 @@ export async function POST(request: Request) {
   }
   if (message.length > MAX_MESSAGE_LENGTH) {
     return NextResponse.json({ error: "Message is too long." }, { status: 400 });
+  }
+
+  // Recorded before the email, and never allowed to stop it.
+  //
+  // The email is what actually notifies anybody; the row is what makes a queue possible, so a
+  // visitor's request still reaches somebody even if this fails. It runs with the anon key like
+  // every other query from this app — `submit_support_request` is security definer and resolves
+  // attribution itself, so a visitor with no session gets a row with a null profile and the
+  // address they typed, which the console matches to an account at read time.
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase.rpc("submit_support_request", {
+      p_category: category,
+      p_message: message,
+      p_email: email,
+      p_name: nullableArg(name || null),
+      p_source: "web",
+    });
+    if (error) console.error("[support] could not record the request:", error.message);
+  } catch (err) {
+    console.error("[support] could not record the request:", (err as Error).message);
   }
 
   try {

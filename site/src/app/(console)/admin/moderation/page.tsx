@@ -91,18 +91,21 @@ export default async function ModerationPage() {
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
           <p>
-            Reports are not in this database. The app&apos;s &ldquo;Report Abuse&rdquo; category and
-            the website&apos;s support form both go through <code>submit-help-message</code>, which
-            emails <code>support@twofoldapp.com.au</code> and stores nothing.
+            Reports arrive as support requests under the{" "}
+            <strong>Report Abuse</strong> category and are listed in{" "}
+            <Link href="/admin/support?status=open" className="underline underline-offset-4">
+              Support
+            </Link>
+            , where they are marked so they are not skimmed past.
           </p>
           <p className="mt-2">
-            So there is no queue to show here, and the 48-hour response the app promises rests on
-            somebody reading that inbox. Capturing those submissions as rows would give this page a
-            real report list — and would be its own piece of work, not a view over something that
-            already exists.
+            They are still emailed to support@ as well — that is what actually notifies anybody, and
+            it is what the app&apos;s 48-hour promise has always rested on. The queue is the record
+            beside it, so &ldquo;was this answered&rdquo; has an answer.
           </p>
         </CardContent>
       </Card>
+
     </div>
   );
 }

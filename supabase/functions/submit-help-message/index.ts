@@ -231,6 +231,29 @@ Deno.serve(async (req) => {
     input.message.trim(),
   ];
 
+  // Recorded before the email, and never allowed to stop it.
+  //
+  // The email is what actually notifies anybody; the row is what makes a queue possible. If the
+  // insert fails, the person still gets their request in front of somebody, which is the outcome
+  // that matters — so this logs and carries on rather than returning an error for a submission
+  // that is about to succeed.
+  //
+  // No profile id or email is passed: `submit_support_request` resolves both from the caller's own
+  // JWT, so a request cannot be filed against somebody else.
+  try {
+    const { error: recordError } = await userClient.rpc("submit_support_request", {
+      p_category: input.category,
+      p_message: input.message,
+      p_subject: trimmedSubject || null,
+      p_source: "app",
+    });
+    if (recordError) {
+      console.error("[submit-help-message] could not record the request:", recordError.message);
+    }
+  } catch (err) {
+    console.error("[submit-help-message] could not record the request:", (err as Error).message);
+  }
+
   let client: SMTPClient | undefined;
   try {
     client = smtpClient();

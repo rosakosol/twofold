@@ -2259,6 +2259,54 @@ export type Database = {
         }
         Relationships: []
       }
+      support_requests: {
+        Row: {
+          category: string
+          created_at: string
+          email: string | null
+          handled_at: string | null
+          handled_by: string | null
+          handler_note: string | null
+          id: string
+          message: string
+          name: string | null
+          profile_id: string | null
+          source: string
+          status: string
+          subject: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          email?: string | null
+          handled_at?: string | null
+          handled_by?: string | null
+          handler_note?: string | null
+          id?: string
+          message: string
+          name?: string | null
+          profile_id?: string | null
+          source: string
+          status?: string
+          subject?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          email?: string | null
+          handled_at?: string | null
+          handled_by?: string | null
+          handler_note?: string | null
+          id?: string
+          message?: string
+          name?: string | null
+          profile_id?: string | null
+          source?: string
+          status?: string
+          subject?: string | null
+        }
+        Relationships: []
+      }
       this_or_that_prompts: {
         Row: {
           active: boolean
@@ -2532,6 +2580,28 @@ export type Database = {
           p_reason: string
         }
         Returns: undefined
+      }
+      admin_set_support_request_status: {
+        Args: { p_id: string; p_note?: string; p_status: string }
+        Returns: undefined
+      }
+      admin_support_requests: {
+        Args: { p_limit?: number; p_status?: string }
+        Returns: {
+          category: string
+          created_at: string
+          email: string
+          handled_at: string
+          handler_note: string
+          id: string
+          matched_profile_id: string
+          message: string
+          name: string
+          profile_id: string
+          source: string
+          status: string
+          subject: string
+        }[]
       }
       api_usage_by_endpoint: {
         Args: { p_from?: string; p_provider?: string; p_to?: string }
@@ -3013,6 +3083,17 @@ export type Database = {
           repairable: boolean
           streak_at_risk: number
         }[]
+      }
+      submit_support_request: {
+        Args: {
+          p_category: string
+          p_email?: string
+          p_message: string
+          p_name?: string
+          p_source?: string
+          p_subject?: string
+        }
+        Returns: string
       }
       touch_last_active: { Args: never; Returns: undefined }
       unblock_profile: { Args: { p_profile_id: string }; Returns: undefined }

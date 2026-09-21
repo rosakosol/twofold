@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { createClient } from "@/lib/supabase/client";
+import { nullableArg } from "@/lib/db/nullableArg";
 
 /**
  * The making-somebody-whole half of the console: the things support gives back when something went
@@ -143,11 +144,8 @@ function FlightLimit({
     const supabase = createClient();
     const { error } = await supabase.rpc("admin_set_flight_limit", {
       p_profile_id: profileId,
-      // Null is how the override is REMOVED, and the function is written to take it —
-      // admin_grants_test pins that. `supabase gen types` renders every function argument as
-      // non-null regardless of whether the SQL accepts one, so the cast is working around the
-      // generator rather than around the contract.
-      p_monthly_limit: (removing ? null : parsed) as unknown as number,
+      // Null REMOVES the override — see nullableArg, and admin_grants_test pins the behaviour.
+      p_monthly_limit: nullableArg(removing ? null : parsed),
       p_reason: reason,
     });
     setBusy(false);
