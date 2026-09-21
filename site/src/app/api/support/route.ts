@@ -19,6 +19,45 @@ import { nullableArg } from "@/lib/db/nullableArg";
 //   - support-received.html -> the visitor (a receipt, so they know it landed)
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MAX_NAME_LENGTH = 200;
+
+/// The caller's address as the platform reports it. `x-forwarded-for` is a list when there are
+/// proxies in front; the first entry is the client. Falls back to a constant rather than to
+/// nothing, so a request arriving without the header shares one bucket instead of being
+/// unlimited — the failure direction matters more here than the precision.
+function callerIP(request: Request): string {
+  const forwarded = request.headers.get("x-forwarded-for");
+  if (forwarded) return forwarded.split(",")[0]!.trim();
+  return request.headers.get("x-real-ip")?.trim() || "unknown";
+}
+
+type RateLimitOutcome = "allowed" | "refused" | "unavailable";
+
+/// Consumes every bucket, and refuses if any of them says no.
+///
+/// Returns `unavailable` rather than throwing when the database cannot be reached: a limiter
+/// outage must not take the support form down with it. The caller decides what a degraded mode
+/// means — here, the internal alert still goes and the caller-addressed receipt does not.
+async function withinRateLimit(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  buckets: { bucket: string; subject: string; limit: number }[],
+): Promise<RateLimitOutcome> {
+  for (const { bucket, subject, limit } of buckets) {
+    const { data, error } = await supabase.rpc("consume_anon_rate_limit", {
+      p_bucket: bucket,
+      p_subject: subject,
+      p_limit: limit,
+      p_window: "01:00:00",
+    });
+    if (error) {
+      console.error(`[support] rate limit unavailable (${bucket}):`, error.message);
+      return "unavailable";
+    }
+    if (data === false) return "refused";
+  }
+  return "allowed";
+}
 
 const SUPPORT_CATEGORIES = [
   "Account & Subscription",
@@ -63,6 +102,30 @@ export async function POST(request: Request) {
   if (message.length > MAX_MESSAGE_LENGTH) {
     return NextResponse.json({ error: "Message is too long." }, { status: 400 });
   }
+  // `name` had no cap, unlike `message`. It reaches an email template.
+  if (name.length > MAX_NAME_LENGTH) {
+    return NextResponse.json({ error: "Name is too long." }, { status: 400 });
+  }
+
+  // Two buckets, because they fail differently. The email is trivially rotated — an attacker
+  // picks a new recipient for each send, which is the whole point of a relay — so it is the IP
+  // that has to carry the limit. The email bucket is the narrower one, and stops the same address
+  // being mailed repeatedly from a rotating source.
+  const supabase = await createClient();
+  const ip = callerIP(request);
+  const allowed = await withinRateLimit(supabase, [
+    { bucket: "support-ip", subject: ip, limit: 5 },
+    { bucket: "support-email", subject: email, limit: 3 },
+  ]);
+
+  if (allowed === "refused") {
+    // Nothing recorded and nothing sent. Deliberately not a distinguishable message: a caller
+    // learning which bucket stopped them learns whether that address has written in before.
+    return NextResponse.json(
+      { error: "Too many messages from here just now. Please try again shortly." },
+      { status: 429 },
+    );
+  }
 
   // Recorded before the email, and never allowed to stop it.
   //
@@ -72,7 +135,6 @@ export async function POST(request: Request) {
   // attribution itself, so a visitor with no session gets a row with a null profile and the
   // address they typed, which the console matches to an account at read time.
   try {
-    const supabase = await createClient();
     const { error } = await supabase.rpc("submit_support_request", {
       p_category: category,
       p_message: message,
@@ -86,7 +148,12 @@ export async function POST(request: Request) {
   }
 
   try {
-    await sendSupportEmails({ name, email, category, message });
+    // `sendReceipt` is what makes this an amplifier: the internal alert goes to our own address
+    // and is harmless, while the receipt goes wherever the caller said. When the limiter could
+    // not be consulted at all we still want a visitor's message to reach support, so the alert is
+    // sent and the receipt is not — the degraded mode drops the convenience, never the report,
+    // and never leaves the relay open.
+    await sendSupportEmails({ name, email, category, message, sendReceipt: allowed === "allowed" });
   } catch (err) {
     console.error("[support] Zoho SMTP send failed:", (err as Error).message);
     return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 502 });
@@ -128,7 +195,15 @@ function waitTipsHtml(category: string): string {
   return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:26px;mso-line-height-rule:exactly;color:#5b6b7a;">In the meantime, our <a href="${SITE_URL}/faq" style="color:#3d8fc9;">FAQ</a> covers most common questions.</div>`;
 }
 
-async function sendSupportEmails(input: { name: string; email: string; category: string; message: string }): Promise<void> {
+async function sendSupportEmails(input: {
+  name: string;
+  email: string;
+  category: string;
+  message: string;
+  /// The receipt to the address the caller typed. The only one of the two that can be aimed at
+  /// somebody else, so it is the only one with a switch.
+  sendReceipt: boolean;
+}): Promise<void> {
   const { transport, from } = createZohoTransport();
   const firstName = input.name.split(/\s+/)[0] || "there";
   const ticketId = generateTicketId();
@@ -137,7 +212,9 @@ async function sendSupportEmails(input: { name: string; email: string; category:
 
   const internalHtml = renderTemplate("support-internal-alert", {
     subject: `[${input.category}] Website support request - #${ticketId}`,
-    preheader: `${input.name || "Someone"} · ${input.category} · ${input.message.slice(0, 90)}`,
+    // Escaped like every other token on this call. `renderTemplate` substitutes verbatim and
+    // requires callers to pre-escape; this one was missed, and it lands in markup.
+    preheader: escapeHtml(`${input.name || "Someone"} · ${input.category} · ${input.message.slice(0, 90)}`),
     ticket_category: escapeHtml(input.category),
     ticket_id: ticketId,
     ticket_subject: escapeHtml(`${input.category} - website support request`),
@@ -171,13 +248,15 @@ async function sendSupportEmails(input: { name: string; email: string; category:
       html: internalHtml,
       text: `Category: ${input.category}\nFrom: ${input.name || "(no name given)"} - ${input.email}\n\n${input.message}`,
     });
-    await transport.sendMail({
-      from,
-      to: input.email,
-      replyTo: SUPPORT_EMAIL,
-      subject: extractSubject(receivedHtml),
-      html: receivedHtml,
-    });
+    if (input.sendReceipt) {
+      await transport.sendMail({
+        from,
+        to: input.email,
+        replyTo: SUPPORT_EMAIL,
+        subject: extractSubject(receivedHtml),
+        html: receivedHtml,
+      });
+    }
   } finally {
     transport.close();
   }
