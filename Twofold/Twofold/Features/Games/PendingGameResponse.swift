@@ -44,9 +44,30 @@ struct PendingGameResponse: Codable, Identifiable, Equatable {
 enum PendingGameResponseStore {
     private static let key = "pendingGameResponses"
 
+    /// A file rather than `UserDefaults.standard`.
+    ///
+    /// These are free-text answers to the intimate questions the app is built around, queued
+    /// offline. A preferences plist cannot take a protection class — cfprefsd owns the file — so
+    /// for as long as they lived there they sat at CompleteUntilFirstUserAuthentication and in
+    /// every backup, whatever the rest of the app did. Here they can be at Complete like the other
+    /// drafted content.
+    private static var fileURL: URL {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
+        return base.appendingPathComponent("PendingGameResponses.json")
+    }
+
     static func all() -> [PendingGameResponse] {
+        if let data = try? Data(contentsOf: fileURL) {
+            return (try? JSONDecoder().decode([PendingGameResponse].self, from: data)) ?? []
+        }
+        // One-time read-through of the old location. An answer queued offline and not yet
+        // submitted is the user's words, so losing it on update is not acceptable.
         guard let data = UserDefaults.standard.data(forKey: key) else { return [] }
-        return (try? JSONDecoder().decode([PendingGameResponse].self, from: data)) ?? []
+        let migrated = (try? JSONDecoder().decode([PendingGameResponse].self, from: data)) ?? []
+        if !migrated.isEmpty { save(migrated) }
+        UserDefaults.standard.removeObject(forKey: key)
+        return migrated
     }
 
     static func forSession(_ sessionID: UUID) -> [PendingGameResponse] {
@@ -66,11 +87,14 @@ enum PendingGameResponseStore {
     /// account would be submitted, on the next reconnect, as the next person to sign in on this
     /// device.
     static func clear() {
+        try? FileManager.default.removeItem(at: fileURL)
+        // And the old key, for an install that signed out before anything read the queue across
+        // the update.
         UserDefaults.standard.removeObject(forKey: key)
     }
 
     private static func save(_ responses: [PendingGameResponse]) {
         guard let data = try? JSONEncoder().encode(responses) else { return }
-        UserDefaults.standard.set(data, forKey: key)
+        try? data.write(to: fileURL, options: [.atomic, .completeFileProtection])
     }
 }

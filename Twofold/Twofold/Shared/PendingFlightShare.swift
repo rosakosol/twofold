@@ -42,9 +42,35 @@ enum PendingShareStore {
         UserDefaults(suiteName: appGroupID)
     }
 
+    /// A file in the app group container rather than the group's `UserDefaults`.
+    ///
+    /// That suite's plist is also where `WidgetSnapshot` lives, and the widget reads the snapshot
+    /// on the Lock Screen — which pins everything in that one file to
+    /// CompleteUntilFirstUserAuthentication. Nothing reads *this* while locked: a share sheet
+    /// cannot be opened on a locked device, and the main app reads it in the foreground. So it can
+    /// be at Complete, and cfprefsd's plist was the one place it could never get there.
+    ///
+    /// What it holds is a shared booking confirmation — subject, body, and text scraped from an
+    /// attached boarding pass, so a traveller's legal name, their record locator and their
+    /// itinerary.
+    private static var fileURL: URL? {
+        FileManager.default
+            .containerURL(forSecurityApplicationGroupIdentifier: appGroupID)?
+            .appendingPathComponent("pending-flight-shares.json")
+    }
+
     static func all() -> [PendingFlightShare] {
+        if let fileURL, let data = try? Data(contentsOf: fileURL) {
+            return (try? JSONDecoder().decode([PendingFlightShare].self, from: data)) ?? []
+        }
+        // One-time read-through of the old location, so a share captured just before the update is
+        // not dropped. Migrated on first read rather than at launch because the share extension
+        // reaches this too, and it has no launch of its own to hook.
         guard let data = defaults?.data(forKey: key) else { return [] }
-        return (try? JSONDecoder().decode([PendingFlightShare].self, from: data)) ?? []
+        let migrated = (try? JSONDecoder().decode([PendingFlightShare].self, from: data)) ?? []
+        if !migrated.isEmpty { save(migrated) }
+        defaults?.removeObject(forKey: key)
+        return migrated
     }
 
     static func add(_ share: PendingFlightShare) {
@@ -64,11 +90,14 @@ enum PendingShareStore {
     /// locator and their itinerary. `HomeView` reads the queue on every appearance with no user id
     /// anywhere in the record, so it was offered to whoever signed in next.
     static func clear() {
+        if let fileURL { try? FileManager.default.removeItem(at: fileURL) }
+        // The old key too: an install that never read the queue between updating and signing out
+        // would otherwise still be holding one.
         defaults?.removeObject(forKey: key)
     }
 
     private static func save(_ shares: [PendingFlightShare]) {
-        guard let data = try? JSONEncoder().encode(shares) else { return }
-        defaults?.set(data, forKey: key)
+        guard let fileURL, let data = try? JSONEncoder().encode(shares) else { return }
+        try? data.write(to: fileURL, options: [.atomic, .completeFileProtection])
     }
 }

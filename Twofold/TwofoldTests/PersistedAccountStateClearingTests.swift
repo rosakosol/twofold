@@ -98,6 +98,49 @@ struct PersistedAccountStateClearingTests {
         #expect(UserDefaults.standard.string(forKey: "streakRepairOfferedForMissedDate") == nil)
     }
 
+    /// The move out of the preferences plist, which is the part that could lose someone's data.
+    ///
+    /// `pendingFlightShares` lived in the app group's `UserDefaults` because that is where the
+    /// widget snapshot lives — and a plist cfprefsd owns cannot take a protection class, so a
+    /// shared booking confirmation sat at CompleteUntilFirstUserAuthentication and in every backup
+    /// no matter what the rest of the app did. Moving it to a file fixes that and risks dropping
+    /// anything captured just before the update, so the old location is read through once.
+    @Test("a share queued before the update is carried over, not lost")
+    func legacyShareIsMigrated() {
+        PendingShareStore.clear()
+        let legacy = [PendingFlightShare(subject: "Queued under the old build", bodyText: "PNR ABCDEF")]
+        let defaults = UserDefaults(suiteName: "group.com.orangefinch.Twofold")
+        defaults?.set(try! JSONEncoder().encode(legacy), forKey: "pendingFlightShares")
+
+        let read = PendingShareStore.all()
+
+        #expect(read.count == 1)
+        #expect(read.first?.subject == "Queued under the old build")
+        #expect(defaults?.data(forKey: "pendingFlightShares") == nil, "and the old key is not left behind")
+        #expect(PendingShareStore.all().count == 1, "a second read still finds it, now from the file")
+
+        PendingShareStore.clear()
+    }
+
+    /// Same again for the queued answers, which are the user's own words rather than a booking.
+    @Test("an answer queued before the update is carried over, not lost")
+    func legacyGameResponseIsMigrated() {
+        PendingGameResponseStore.clear()
+        let legacy = [PendingGameResponse(
+            sessionID: UUID(), roundNumber: 1, responderID: UUID(),
+            answerValue: "something they typed", isCorrect: nil
+        )]
+        UserDefaults.standard.set(try! JSONEncoder().encode(legacy), forKey: "pendingGameResponses")
+
+        let read = PendingGameResponseStore.all()
+
+        #expect(read.count == 1)
+        #expect(read.first?.answerValue == "something they typed")
+        #expect(UserDefaults.standard.data(forKey: "pendingGameResponses") == nil)
+
+        PendingGameResponseStore.clear()
+    }
+
     /// A device preference, not an account one. Asserted so that a future sweep of "clear
     /// everything on sign-out" does not quietly take the app lock off with it.
     @Test("the app lock preference is not an account-scoped default")
