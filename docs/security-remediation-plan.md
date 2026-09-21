@@ -258,6 +258,16 @@ two targets and a provisioning race between the app and the extension.
 
 ## Phase 3 — Abuse and cost
 
+> **Status: DONE** (`93eb967`, `418ab94`, `3af4e1b`, and the notification commit). The support
+> relay is gated by a new anonymous limiter that stores a salted digest rather than an address;
+> `add-flight` has a bucket and its calls are attributed; presigned PUTs are bounded by a signed
+> content-length and an allowlist for the three types the app generates; and both notification
+> endpoints are limited with `detail` capped.
+>
+> One product question deliberately left open: `game_reminder` still cannot be muted. It is now
+> rate limited, which removes the abuse, but whether a nudge should be silenceable is a decision
+> rather than a fix.
+
 ### 3.1 `/api/support` is an unauthenticated mail relay — **M**
 
 No rate limit, no CAPTCHA, no proof of address control; only a honeypot. Each POST sends mail from
