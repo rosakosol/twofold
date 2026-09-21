@@ -90,6 +90,16 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
+
+  /* Usage dashboard (/admin/usage). One hue per meaning, not a categorical set: the meter shows
+     exactly one state at a time and the daily columns are a single series, so no palette is being
+     cycled here. Steps were run through the dataviz validator against this surface rather than
+     picked by eye — light mode passes with a sub-3:1 contrast WARN, whose required relief (visible
+     value labels, and the same data present as a table) the page provides. */
+  --usage-accent: #4fa9e0;
+  --usage-accent-track: #d8ecf9;
+  --usage-warning: #e8a33d;
+  --usage-danger: #e85c6b;
   --radius: 1.25rem;
   --ink: #1c2a38;
   --subtle-ink: #5b6b7a;
@@ -124,6 +134,14 @@
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
+
+  /* Re-stepped for the dark surface, not flipped. The light steps sit at L 0.70–0.82, outside the
+     dark band of 0.48–0.67, and the validator fails them there; these are inside it and clear 3:1
+     against the dark ground. */
+  --usage-accent: #2f93d1;
+  --usage-accent-track: #23394a;
+  --usage-warning: #b98a34;
+  --usage-danger: #d2515f;
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);

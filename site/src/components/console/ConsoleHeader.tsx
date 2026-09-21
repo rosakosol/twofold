@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { UserMenu } from "@/components/layout/UserMenu";
+import { useIsBillingAdmin } from "@/lib/auth/useIsBillingAdmin";
 
 /**
  * The console's own navbar, and the reason it is not `SiteHeader`.
@@ -30,6 +31,8 @@ const CONSOLE_LINKS = [
   // describes it as readable by anyone, signed in or not, and it is where users post and vote.
   { href: "/admin", label: "Requests", exact: true },
   { href: "/admin/games", label: "Games", exact: false },
+  // Spend. Its own role, so its own visibility — see useIsBillingAdmin below.
+  { href: "/admin/usage", label: "Usage", exact: false, role: "billing" as const },
   // Sanity Studio renders its own full-viewport chrome and is not wrapped by this layout, so this
   // is a link out rather than a tab that keeps the bar on screen.
   { href: "/studio", label: "Studio", exact: false },
@@ -37,6 +40,7 @@ const CONSOLE_LINKS = [
 
 export function ConsoleHeader() {
   const pathname = usePathname();
+  const isBillingAdmin = useIsBillingAdmin();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
 
@@ -71,7 +75,7 @@ export function ConsoleHeader() {
 
         <nav>
           <ul className="site-nav-links">
-            {CONSOLE_LINKS.map((link) => {
+            {CONSOLE_LINKS.filter((link) => link.role !== "billing" || isBillingAdmin).map((link) => {
               const isActive = link.exact ? pathname === link.href : pathname.startsWith(link.href);
               return (
                 <li key={link.href}>

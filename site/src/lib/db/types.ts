@@ -2438,6 +2438,43 @@ export type Database = {
         Args: { p_session_id: string }
         Returns: undefined
       }
+      api_usage_by_endpoint: {
+        Args: { p_from?: string; p_provider?: string; p_to?: string }
+        Returns: {
+          billable_calls: number
+          calls: number
+          distinct_upstream: number
+          endpoint: string
+          errors: number
+          list_cost_usd: number
+          retries: number
+          unit_price_usd: number
+        }[]
+      }
+      api_usage_daily_series: {
+        Args: { p_from?: string; p_provider?: string; p_to?: string }
+        Returns: {
+          billable_calls: number
+          calls: number
+          day: string
+          distinct_upstream: number
+          errors: number
+          list_cost_usd: number
+        }[]
+      }
+      api_usage_summary: {
+        Args: { p_month?: string; p_provider?: string }
+        Returns: {
+          billable_calls: number
+          billing_month: string
+          calls: number
+          list_cost_usd: number
+          list_utilisation_percent: number
+          monthly_minimum_usd: number
+          observed_discount_ratio: number
+          projected_list_usd: number
+        }[]
+      }
       archive_retention_interval: { Args: never; Returns: string }
       block_profile: { Args: { p_profile_id: string }; Returns: undefined }
       can_access_storage_object: {
@@ -2602,6 +2639,7 @@ export type Database = {
         Args: { p_a: string; p_b: string }
         Returns: boolean
       }
+      is_console_admin: { Args: { check_id?: string }; Returns: boolean }
       is_couple_active: { Args: { target_couple_id: string }; Returns: boolean }
       is_couple_member: { Args: { target_couple_id: string }; Returns: boolean }
       is_feedback_admin: { Args: { check_id?: string }; Returns: boolean }
