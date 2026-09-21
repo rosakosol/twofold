@@ -137,11 +137,18 @@ async function deleteAccount(
     );
   }
 
-  // Step 1: scrub. Checks the support role again inside — this is called with the service client,
-  // so that check passes trivially, but it also writes the audit row with the reason.
+  // Step 1: scrub.
+  //
+  // `p_actor` is required here, and is the thing that was missing when this never worked. The RPC
+  // gates on is_support_admin(), which reads auth.uid() — null under the service client — so every
+  // deletion raised 42501 before touching anything. It now accepts the service role as
+  // pre-authorised (this function already verified the caller with the caller's OWN client, above)
+  // on condition that it says who it is acting for, because an audit row attributed to "the service
+  // role" names nobody.
   const { error: scrubError } = await serviceClient.rpc("admin_scrub_account", {
     p_profile_id: profileId,
     p_reason: reason,
+    p_actor: actorId,
   });
   if (scrubError) {
     console.error("[admin-actions] admin_scrub_account failed:", scrubError.message);

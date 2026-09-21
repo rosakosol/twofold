@@ -19,7 +19,7 @@
 -- found in the log in two years is indistinguishable from a mistake.
 
 begin;
-select plan(18);
+select plan(21);
 
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
 select id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', email, 'x', now(), now(), now()
@@ -172,8 +172,47 @@ select throws_ok(
 );
 
 -- ---------------------------------------------------------------------------
+-- The path the edge function actually takes
+-- ---------------------------------------------------------------------------
+--
+-- Deleting an account from the console never worked, and this test is why it was not caught:
+-- admin_scrub_account was only ever exercised as a support admin and as a content admin — the two
+-- doors the edge function does NOT use. It calls with the service client, where auth.uid() is null,
+-- so is_support_admin() was false and every deletion raised 42501 before touching anything.
+--
+-- A gate tested only through the door nobody uses is untested.
+
+reset role;
+set local role service_role;
+select set_config('request.jwt.claims', '{"role":"service_role"}', true);
+
+select throws_ok(
+  $$ select public.admin_scrub_account('ffffffff-aaaa-0000-0000-000000000003', 'no actor given') $$,
+  '22023', null, 'the service role must say who it is acting for'
+);
+
+select lives_ok(
+  $$ select public.admin_scrub_account('ffffffff-aaaa-0000-0000-000000000003', 'they emailed asking',
+       'ffffffff-aaaa-0000-0000-000000000001') $$,
+  'and then it may scrub, which is what the console does'
+);
+
+reset role;
+
+-- Attributed to the admin, not to nobody. An audit row naming the service role explains nothing.
+select is(
+  (select actor_id from private.admin_audit_log
+   where subject_profile_id = 'ffffffff-aaaa-0000-0000-000000000003' and action = 'account.scrub'),
+  'ffffffff-aaaa-0000-0000-000000000001'::uuid,
+  'and the row names the admin who asked for it'
+);
+
+-- ---------------------------------------------------------------------------
 -- Audited, with the reason
 -- ---------------------------------------------------------------------------
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub', 'ffffffff-aaaa-0000-0000-000000000001', true);
 
 select is(
   (select action from public.admin_audit_for_subject('ffffffff-aaaa-0000-0000-000000000002') limit 1),
