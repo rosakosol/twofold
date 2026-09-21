@@ -664,29 +664,47 @@ function Composer({
 
   async function send() {
     setSending(true);
-    const supabase = createClient();
-    const { data, error } = await supabase.functions.invoke("send-support-reply", {
-      body: { threadId, body, close, attachmentIds: files.map((f) => f.id) },
-    });
-    setSending(false);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.functions.invoke("send-support-reply", {
+        body: { threadId, body, close, attachmentIds: files.map((f) => f.id) },
+      });
 
-    if (error || !data?.ok) {
-      // The function distinguishes "not authorised", "no address to reply to", "email sending
-      // isn't set up" and "SMTP refused it" — and only the last of those is worth retrying. One
-      // message for all four sent the operator back to the same button every time.
-      toast.error(await functionErrorMessage(error, "Couldn't send that reply."));
-      return;
+      if (error || !data?.ok) {
+        // The function distinguishes "not authorised", "no address to reply to", "email sending
+        // isn't set up" and "SMTP refused it" — and only the last of those is worth retrying. One
+        // message for all four sent the operator back to the same button every time.
+        toast.error(await functionErrorMessage(error, "Couldn't send that reply."));
+        return;
+      }
+      // The function reports this when the mail went but the conversation could not be updated.
+      // Saying "sent" alone would invite a second one.
+      if (data.recorded === false) {
+        toast.warning(data.warning ?? "Sent, but the conversation wasn't updated. Don't resend.");
+      } else {
+        toast.success(close ? "Replied and closed." : "Replied.");
+      }
+      setBody("");
+      setFiles([]);
+      onSent();
+    } catch (err) {
+      // `invoke` *throws* rather than returning `{ error }` when the response never arrives as far
+      // as the browser is concerned — a blocked CORS response is the one seen in practice, and a
+      // dropped connection does the same. Without this the throw escaped `send()` entirely, so
+      // `setSending(false)` below was never reached: the button spun forever and nothing was said,
+      // for a reply that had already gone out.
+      //
+      // Deliberately not "couldn't send, try again". By the time the browser gives up, the
+      // function has usually finished — the mail is away and the thread is recorded. Telling an
+      // operator it failed is how a customer gets the same reply twice, which is the outcome this
+      // function's own comments are written around avoiding.
+      console.error("[console] send-support-reply did not answer:", err);
+      toast.warning(
+        "Couldn't confirm that reply. It may already have been sent — check the conversation before trying again.",
+      );
+    } finally {
+      setSending(false);
     }
-    // The function reports this when the mail went but the conversation could not be updated.
-    // Saying "sent" alone would invite a second one.
-    if (data.recorded === false) {
-      toast.warning(data.warning ?? "Sent, but the conversation wasn't updated. Don't resend.");
-    } else {
-      toast.success(close ? "Replied and closed." : "Replied.");
-    }
-    setBody("");
-    setFiles([]);
-    onSent();
   }
 
   if (!to) {
