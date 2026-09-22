@@ -510,6 +510,23 @@ struct RootView: View {
     /// Credits are left alone: the count comes back 0 when the lookup fails, which is the state
     /// the buy card renders from, so nothing needs faking for that.
     #if DEBUG
+    /// Which tier to write after a successful read of the couple row, or nil to leave what is
+    /// already there.
+    ///
+    /// Pulled out as a function because the bug it replaces was a *typing* mistake that read as
+    /// working code — `try?` and `if let` each unwrapping one layer of the same optional, which
+    /// left the fallback provably unreachable and silently dropped the only case it served. Three
+    /// distinct outcomes written as three lines are much harder to collapse by accident, and can
+    /// be tested without a backend.
+    ///
+    /// Never answers "clear it". A row with no tier and no device entitlement means nobody knows,
+    /// not that the person is on nothing — and the previous code could not clear it either, since
+    /// that path skipped the assignment entirely. Access is enforced server-side by
+    /// `start_deck_session` regardless, so an optimistic client cannot actually open anything.
+    static func tierAfterRefresh(fetched: String?, deviceTier: String?) -> String? {
+        fetched ?? deviceTier
+    }
+
     private func seedRecordExportScreenshotIfRequested() {
         guard ProcessInfo.processInfo.arguments.contains("-recordExportScreenshot") else { return }
 
@@ -817,8 +834,25 @@ struct RootView: View {
         // Premium subscriber isn't shown every premium deck locked while the webhook catches up.
         // Optimistic only — `start_deck_session` enforces the tier server-side from the same
         // profile columns, so a client that is ahead of the row cannot actually open anything.
-        if let tier = try? await BackendService.fetchCoupleSubscriptionTier() {
-            appModel.subscriptionTier = tier ?? subscriptionStore.subscribedTier?.dbValue
+        //
+        // The fallback used to be unreachable, and unreachable in precisely the case it was written
+        // for. `fetchCoupleSubscriptionTier()` returns `String?`; `try?` on it gives `String??`,
+        // which Swift flattens to `String?`; `if let` then unwrapped that, so `tier` was already
+        // non-optional and `?? subscriptionStore…` could never run. A couple row with no tier came
+        // back nil, the `if let` failed, and the whole block — fallback included — was skipped. The
+        // compiler said so ("right side is never used") and the warning had been sitting there.
+        do {
+            let coupleTier = try await BackendService.fetchCoupleSubscriptionTier()
+            if let resolved = Self.tierAfterRefresh(
+                fetched: coupleTier, deviceTier: subscriptionStore.subscribedTier?.dbValue
+            ) {
+                appModel.subscriptionTier = resolved
+            }
+        } catch {
+            // Deliberately distinct from a successful nil, which the old single `try?` could not
+            // tell apart. A throw means the row could not be read at all — offline, most likely —
+            // and the branch above may just have restored `cached.tier` for exactly that reason.
+            // Overwriting it here with a guess would undo the restore.
         }
         // Owns its own widget refresh (same convention every other state-mutating `AppModel`
         // method uses — see `performAdopt`, `refreshFlights`, `addMemory`) rather than relying on
