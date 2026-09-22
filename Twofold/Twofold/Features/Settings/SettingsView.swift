@@ -119,6 +119,13 @@ struct SettingsView: View {
                     // seen — and what is behind it is their own history, which is a strange thing
                     // to refuse to show them. Reading it is not what Premium sells. Exporting it
                     // is, and that is where the gate sits now, inside the screen.
+                    //
+                    // No "Premium" badge, for the same reason. It used to carry one for anybody
+                    // without the tier, which said the opposite of everything above: a trailing
+                    // tier name on a settings row reads as "you cannot open this", and this row
+                    // opens. It also mislabelled what is behind it — the record is theirs, and the
+                    // only part Premium sells is the export, which the screen asks about at the
+                    // point somebody tries to use it.
                     if appModel.partnerConnected {
                         SectionCard {
                             NavigationLink {
@@ -126,8 +133,7 @@ struct SettingsView: View {
                             } label: {
                                 SettingsRow(
                                     title: "Your Relationship Record",
-                                    systemImage: "book.closed.fill",
-                                    value: appModel.isPremiumLocked ? "Premium" : nil
+                                    systemImage: "book.closed.fill"
                                 )
                             }
                             .buttonStyle(.plain)
