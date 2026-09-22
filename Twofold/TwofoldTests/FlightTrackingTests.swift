@@ -71,7 +71,7 @@ struct FlightTrackingTests {
         }
     }
 
-    // MARK: - Trip.isActive derives from Flight.status, not just departure date
+    // MARK: - Trip.isActive derives from Flight.status *and* the trip's own dates
 
     @Test func tripIsActiveWhenFlightIsActivelyTracked() {
         let flight = makeFlight(status: .inAir)
@@ -86,8 +86,29 @@ struct FlightTrackingTests {
         #expect(!trip.isActive)
     }
 
-    @Test func tripWithNoFlightIsNeverActive() {
+    /// This used to assert the opposite, and asserting it is how the bug survived.
+    ///
+    /// `tripWithNoFlightIsNeverActive` pinned a trip that had departed an hour ago and ends an hour
+    /// from now, with no flight attached, as *not* active — which, with `AppModel.pastTrips` being
+    /// `!isUpcoming && !isActive`, filed it under Past and had `TripRowView` badge it with a done
+    /// checkmark while the person was still on it. Reported from a real device: a trip running from
+    /// that morning until 22 December, marked finished on its first day.
+    ///
+    /// The old name says the old intent plainly, and the intent was the mistake. Flights are a
+    /// perfectly good signal that a trip is under way; they are just not the only one, and for most
+    /// trips here they are not available at all — no flight is ever tracked, and one that is only
+    /// counts as "currently relevant" while airborne, which is hours out of a months-long visit.
+    @Test func tripWithNoFlightIsActiveWithinItsOwnDates() {
         let trip = Trip(travelerIDs: [UUID()], origin: Place(city: "Singapore", country: "Singapore", latitude: 1.35, longitude: 103.8), destination: Place(city: "Melbourne", country: "Australia", latitude: -37.8, longitude: 144.9), departureDate: .now.addingTimeInterval(-3600), arrivalDate: .now.addingTimeInterval(3600), category: .reunion, distanceKm: 6000)
+        #expect(trip.isActive)
+    }
+
+    /// The half of the old test that was right, kept: with no flight to speak for it and its dates
+    /// behind it, a trip really is over.
+    @Test func tripWithNoFlightIsNotActiveOnceItsDatesHavePassed() {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+        let trip = Trip(travelerIDs: [UUID()], origin: Place(city: "Singapore", country: "Singapore", latitude: 1.35, longitude: 103.8), destination: Place(city: "Melbourne", country: "Australia", latitude: -37.8, longitude: 144.9), departureDate: calendar.date(byAdding: .day, value: -9, to: today)!, arrivalDate: calendar.date(byAdding: .day, value: -2, to: today)!, category: .reunion, distanceKm: 6000)
         #expect(!trip.isActive)
     }
 

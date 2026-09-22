@@ -91,8 +91,33 @@ struct Trip: Identifiable, Hashable, Codable {
         departureDate > .now
     }
 
+    /// Under way: departed, and its last day is not yet over.
+    ///
+    /// This used to ask only whether some attached flight was in the air, which meant a trip's own
+    /// dates had no say in whether it was happening. `arrivalDate` was read by nothing at all.
+    /// Paired with `pastTrips` (`!isUpcoming && !isActive`), the effect was that a trip stopped
+    /// being upcoming the moment its departure day began and, with no live flight to vouch for it,
+    /// became Past on the spot — filed under "Past" and badged with a done checkmark by
+    /// `TripRowView` while the person was still on it. A trip from today until 22 December read as
+    /// finished on its first morning.
+    ///
+    /// Flights were never the wrong signal, only an incomplete one. Most trips here have no
+    /// tracked flight at all, and one that does only counts as "currently relevant" while it is
+    /// actually in the air — a few hours out of a three-month visit.
+    ///
+    /// Inclusive of the whole final day, because `arrivalDate` is a day the trip covers, not the
+    /// instant it stops. Someone flying home on the 22nd is still away on the morning of the 22nd.
+    /// `Calendar.current` rather than either endpoint's time zone: these dates are entered and read
+    /// in the phone's local calendar, so that is the one whose "day" matches what is on screen.
     var isActive: Bool {
-        flights.contains { $0.isCurrentlyRelevant }
+        // Kept, and kept first: a leg still in the air outranks the dates, which is what covers an
+        // overrunning delay that pushes the real arrival past the planned one.
+        if flights.contains(where: { $0.isCurrentlyRelevant }) { return true }
+        guard !isUpcoming else { return false }
+        guard let endOfFinalDay = Calendar.current.date(
+            byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: arrivalDate)
+        ) else { return false }
+        return .now < endOfFinalDay
     }
 
     /// Legs in departure order — every screen that shows "the" flight for a trip (Home's active-
