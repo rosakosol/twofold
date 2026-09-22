@@ -249,6 +249,26 @@ enum BackendService {
             .execute()
     }
 
+    private struct OnboardingAccountCreatedUpdate: Encodable {
+        var onboardingAccountCreatedAt: String?
+        enum CodingKeys: String, CodingKey { case onboardingAccountCreatedAt = "onboarding_account_created_at" }
+    }
+
+    /// Records that in-app onboarding created this account — written by `applyOnboardingAccount`,
+    /// at the same moment it writes everything the questionnaire collected, because that is
+    /// precisely the boundary this timestamp is describing.
+    ///
+    /// Not swallowed at the call site for the same reason `markOnboardingCompleted` is not: a lost
+    /// write here does not break anything, it just costs somebody the whole questionnaire again.
+    static func markOnboardingAccountCreated() async throws {
+        guard let userID = currentUserID else { throw BackendError.notAuthenticated }
+        try await supabase
+            .from("profiles")
+            .update(OnboardingAccountCreatedUpdate(onboardingAccountCreatedAt: ISO8601DateFormatter().string(from: .now)))
+            .eq("id", value: userID)
+            .execute()
+    }
+
     static func updateFirstName(_ name: String) async throws {
         guard let userID = currentUserID else { throw BackendError.notAuthenticated }
         try await supabase
@@ -546,6 +566,10 @@ enum BackendService {
         /// .loadSignedInState` routes these into onboarding instead of admitting them to the app
         /// nameless. See migration 20261106000000.
         var hasCompletedOnboarding: Bool
+        /// In-app onboarding got as far as creating this account, at `.saveAccount` — so the
+        /// questionnaire is answered and only the invite/trial/paywall screens are outstanding.
+        /// False for a website account, which answered nothing. See migration 20261110001200.
+        var hasSavedOnboardingProgress: Bool
     }
 
     /// The signed-in user's own profile — used when they're authenticated but not (yet)
@@ -587,7 +611,8 @@ enum BackendService {
             setupChecklistDismissed: profile.setupChecklistDismissed,
             partnerSubscriptionLapsePartnerName: profile.partnerSubscriptionLapsePartnerName,
             partnerSubscriptionLapseShown: profile.partnerSubscriptionLapseShown,
-            hasCompletedOnboarding: profile.onboardingCompletedAt != nil
+            hasCompletedOnboarding: profile.onboardingCompletedAt != nil,
+            hasSavedOnboardingProgress: profile.onboardingAccountCreatedAt != nil
         )
     }
 
@@ -725,6 +750,8 @@ enum BackendService {
         /// there is one, and Postgres timestamptz comes back with a microsecond precision that
         /// Foundation's ISO8601 decoding rejects outright.
         var onboardingCompletedAt: String?
+        /// Same raw-string treatment, same reason. See migration 20261110001200.
+        var onboardingAccountCreatedAt: String?
 
         enum CodingKeys: String, CodingKey {
             case id
@@ -742,6 +769,7 @@ enum BackendService {
             case partnerSubscriptionLapsePartnerName = "partner_subscription_lapse_partner_name"
             case partnerSubscriptionLapseShown = "partner_subscription_lapse_shown"
             case onboardingCompletedAt = "onboarding_completed_at"
+            case onboardingAccountCreatedAt = "onboarding_account_created_at"
         }
     }
 

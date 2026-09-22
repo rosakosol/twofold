@@ -43,12 +43,18 @@ struct InvitePartnerView: View {
 extension InvitePartnerView {
     /// Where the two "carry on without connecting yet" routes go.
     ///
-    /// `.trialTrust` sells a free trial and hands off to `.paywall`. Someone who subscribed on the
-    /// website is already paying, so that pair is at best a confusing detour and at worst a second
-    /// charge; `.reveal` is where the flow ends up anyway, and it is already the screen used
-    /// whenever the paywall is skipped (see `onRedeemSuccess` below).
+    /// `.trialTrust` sells a free trial and hands off to `.paywall`. Someone who is already paying
+    /// should not be shown that pair — at best a confusing detour, at worst a second charge;
+    /// `.reveal` is where the flow ends up anyway, and it is already the screen used whenever the
+    /// paywall is skipped (see `onRedeemSuccess` below).
+    ///
+    /// Keyed on the subscription rather than on `isResumingAuthenticatedAccount`, which is what
+    /// this used to ask. That flag only means "no `onboarding_completed_at`" — held by a feedback
+    /// board sign-in, by anyone who quit onboarding after `.saveAccount` (which is before this
+    /// screen), and by a lapsed subscriber, none of whom have paid. Each of them was walked past
+    /// the paywall without seeing it, into an app whose writes the database then refused.
     static func afterInvite(_ onboarding: OnboardingModel) -> OnboardingStep {
-        onboarding.isResumingAuthenticatedAccount ? .reveal : .trialTrust
+        onboarding.hasActiveSubscription ? .reveal : .trialTrust
     }
 
     /// Built here rather than inline in `body` so the wiring can be tested.

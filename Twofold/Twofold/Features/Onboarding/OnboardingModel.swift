@@ -26,6 +26,27 @@ final class OnboardingModel {
     ///      showing a paywall to somebody who is mid-subscription is its own bug.
     var isResumingAuthenticatedAccount = false
 
+    /// This account is actually paying, right now — the server's answer, adopted by
+    /// `loadSignedInState` before onboarding starts.
+    ///
+    /// Separate from `isResumingAuthenticatedAccount`, and the separation is the point. Skipping
+    /// the paywall used to key off that flag, on the reasoning written above: a resuming account
+    /// "paid on the web already". That was true of the population the flag was introduced for and
+    /// was never true of the flag itself, which means nothing more than "no `onboarding_completed_at`".
+    ///
+    /// Four ways to hold it, one of which involves money. Somebody who signed in to the feedback
+    /// board on the website — that page is a magic-link login whose `next` defaults to `/feedback`,
+    /// with no checkout anywhere near it. Somebody who quit in-app onboarding after `.saveAccount`,
+    /// which happens before the paywall, so the account outlives the session that was going to pay
+    /// for it. A web subscriber who has since lapsed. And, finally, an actual paying web
+    /// subscriber.
+    ///
+    /// The first three were routed past the paywall without ever being shown it. They do not get
+    /// anything for free — writes are refused by the database (20261028000000) — which is the
+    /// worse outcome of the two: an app that silently declines to save anything, and no paywall
+    /// ever shown to explain why.
+    var hasActiveSubscription = false
+
     init() {
         #if DEBUG
         // Opens onboarding straight at one step, from `-onboardingStep <case>` — the same

@@ -54,6 +54,7 @@ struct AccountScopedStateResetTests {
         model.pendingPartnerInviteNudge = true
         model.pendingReviewMilestone = .firstMemory
         model.writeRefusedMessage = "refused"
+        model.needsOnboarding = true
         return model
     }
 
@@ -134,5 +135,22 @@ struct AccountScopedStateResetTests {
         #expect(model.inviteCode == nil)
         #expect(model.gameDecks == nil)
         #expect(model.deckProgress == nil)
+    }
+
+    /// Its own test rather than a line in `uiFlagsAreCleared`, because the consequence is not a
+    /// stale flag — it is being unable to leave.
+    ///
+    /// `needsOnboarding` picks `OnboardingCoordinatorView`'s root: true gives the first onboarding
+    /// question, false gives `WelcomeView`. The first question is presented as a stack root, so it
+    /// has no back button, and it offers nothing but the four answers. Signing out while it was
+    /// set therefore returned to that same screen, with no sign-in button anywhere — a real device
+    /// got stuck there, and reinstalling did not help, because the Supabase session lives in the
+    /// Keychain and survives app deletion.
+    @Test("Signing out returns to Welcome, not to the first onboarding question")
+    func onboardingRoutingIsCleared() {
+        let model = dirtied()
+        model.resetAccountScopedState()
+
+        #expect(model.needsOnboarding == false)
     }
 }

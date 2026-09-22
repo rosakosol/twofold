@@ -43,6 +43,14 @@ final class AppModel {
     /// "no rows" from here, and re-onboarding somebody because their train went into a tunnel is a
     /// far worse failure than briefly showing a web account the app.
     var needsOnboarding = false
+
+    /// Onboarding created this account and then did not finish — the questionnaire is answered and
+    /// sitting in the profile, and only the invite/trial/paywall screens are left.
+    ///
+    /// Only meaningful while `needsOnboarding` is true. It is what lets the flow offer to resume
+    /// instead of restarting, and it never opens the paywall: resuming lands on `.invitePartner`,
+    /// which leads to the trial screen and the same non-dismissable wall.
+    var hasSavedOnboardingProgress = false
     /// Set when "Sign in" produced a brand-new account instead of resuming an existing one, which
     /// is what Apple's Hide My Email does to anyone who already signed up with their real address:
     /// the relay `...@privaterelay.appleid.com` is a different email, so Supabase makes a different
@@ -575,7 +583,32 @@ final class AppModel {
             await adoptSoloProfile(profile)
             // Adopted first, so the subscription and tier this account bought on the web are
             // already in hand by the time onboarding starts and can be used to skip the paywall.
-            needsOnboarding = !profile.hasCompletedOnboarding
+            //
+            // The local note is consulted as well as the column, and only ever to let somebody
+            // *in* — it can admit an account the server still thinks is mid-onboarding, never send
+            // one back. That asymmetry is the point: the failure being guarded against is a person
+            // stuck outside their own app, so the harm of honouring a stale note (one extra
+            // account reaching Home without a partner name) is not the same size as the harm of
+            // ignoring a true one.
+            // Read before the routing decision below, because it decides which *root* onboarding
+            // shows rather than whether it shows at all.
+            hasSavedOnboardingProgress = profile.hasSavedOnboardingProgress
+            let completedLocally = BackendService.currentUserID.map(Self.onboardingCompletedLocally) ?? false
+            needsOnboarding = Self.shouldRouteToOnboarding(
+                serverSaysCompleted: profile.hasCompletedOnboarding,
+                completedLocally: completedLocally
+            )
+            // The retry. This is the only place with both halves in hand — the server's answer and
+            // this device's note that it disagrees — so it is the only place that can settle it.
+            if !profile.hasCompletedOnboarding, completedLocally, let userID = BackendService.currentUserID {
+                do {
+                    try await BackendService.markOnboardingCompleted()
+                    Self.forgetOnboardingCompletedLocally(for: userID)
+                } catch {
+                    // Kept, and tried again next launch. Dropping the note here would hand the
+                    // person back the trap the note exists to keep them out of.
+                }
+            }
         } else if let cached = OfflineSessionCache.restore(for: BackendService.currentUserID) {
             // Both reads failed — almost always no network (they're `try?`, so a real outage looks
             // identical to "no rows"). Without this, `isSubscriptionActive` keeps its `false`
@@ -1020,6 +1053,41 @@ final class AppModel {
         }
     }
 
+    /// Where `finishOnboarding()` records that somebody finished when the server write did not
+    /// land — see its comment for why that must not simply be dropped.
+    ///
+    /// Keyed by user id rather than cleared on sign-out, and the two are not the same thing. A
+    /// bare key would admit the next account to sign in on this phone straight past onboarding it
+    /// has never done. Keying it means the note stays true for the account it was written about,
+    /// including across a sign-out and back in — which is the case that needs it most, because
+    /// signing out and in is exactly what somebody does when the app will not let them in.
+    static func onboardingCompletedLocallyKey(for userID: UUID) -> String {
+        "onboardingCompletedLocally.\(userID.uuidString)"
+    }
+
+    /// Whether a signed-in, unpaired account should be sent through onboarding — split out from
+    /// `loadSignedInState` for the same reason `resetAccountScopedState` was: it is the decision
+    /// that locks somebody out of the app, and it is pure, so it can be tested without a backend.
+    ///
+    /// Either source saying "done" is enough. The two can only disagree when a completion write
+    /// failed, and in that case the device is the one holding the newer truth.
+    static func shouldRouteToOnboarding(serverSaysCompleted: Bool, completedLocally: Bool) -> Bool {
+        !serverSaysCompleted && !completedLocally
+    }
+
+    private static func rememberOnboardingCompletedLocally() {
+        guard let userID = BackendService.currentUserID else { return }
+        UserDefaults.standard.set(true, forKey: onboardingCompletedLocallyKey(for: userID))
+    }
+
+    private static func onboardingCompletedLocally(for userID: UUID) -> Bool {
+        UserDefaults.standard.bool(forKey: onboardingCompletedLocallyKey(for: userID))
+    }
+
+    private static func forgetOnboardingCompletedLocally(for userID: UUID) {
+        UserDefaults.standard.removeObject(forKey: onboardingCompletedLocallyKey(for: userID))
+    }
+
     /// Every stored property on this class that belongs to the signed-in account or its couple.
     ///
     /// Separate from `clearLocalSessionState()` so it can be tested: that method logs out of
@@ -1029,6 +1097,17 @@ final class AppModel {
     func resetAccountScopedState() {
         lastRegisteredPushTokenHex = nil
         hasCouple = false
+        // Account-scoped like everything else here, and the one whose absence had teeth: it
+        // decides *which* root `OnboardingCoordinatorView` shows. Left set, signing out of an
+        // account that had not finished onboarding lands on the first onboarding question instead
+        // of `WelcomeView` — a screen with no back button, no sign-in button and nothing else to
+        // tap, so the sign-out that was supposed to be the way out is itself a dead end. It also
+        // leaks: the next account to sign in on this device inherits the flag and is sent through
+        // onboarding it has already done.
+        needsOnboarding = false
+        // Same reasoning, one step along: left set, the next account to sign in on this phone is
+        // offered somebody else's half-finished setup to resume.
+        hasSavedOnboardingProgress = false
         partnerConnected = false
         inviteCode = nil
         backendCoupleID = nil
@@ -1985,6 +2064,24 @@ final class AppModel {
             // also why the partner, who has only the row to go on, was told there was no
             // subscription at all.
             await identifyWithRevenueCat()
+            // The boundary this records is exactly here: an account now exists, and everything the
+            // questionnaire collected is about to be written to it a few lines below. Anyone who
+            // stops between this point and `finishOnboarding()` is the person the resume screen is
+            // for — which is a likely place to stop, since the paywall three screens later cannot
+            // be dismissed.
+            //
+            // Set locally as well as remotely, and not only as an optimisation: nothing re-reads
+            // the profile between here and the end of the flow, so without this the flag would be
+            // false for the rest of this session.
+            hasSavedOnboardingProgress = true
+            do {
+                try await BackendService.markOnboardingAccountCreated()
+            } catch {
+                // Nothing to undo and nothing worth interrupting a signup for. The cost is that a
+                // dropout is restarted rather than resumed, which is where they were before this
+                // column existed.
+                print("[AppModel] could not record onboarding account creation: \(error.localizedDescription)")
+            }
             // The device's push token typically arrives at launch, well before this signup
             // completes and `currentUserID` becomes valid — `registerPushToken` would have
             // silently cached it rather than dropped it (see `pendingPushTokenData`'s own doc
@@ -2065,11 +2162,25 @@ final class AppModel {
     /// finishing onboarding has no partner and no outgoing request, so this is one quick round trip.
     func finishOnboarding() async {
         // Recorded server-side, because this is the write that stops the next launch routing
-        // straight back into onboarding. `try?` rather than a thrown error: the account is fully
-        // set up whether or not this lands, so there is nothing useful to tell the user here and
-        // nothing to undo. The cost of it failing is one more trip through the flow next launch,
-        // which is also exactly what it degrades to if the app is killed on this screen.
-        try? await BackendService.markOnboardingCompleted()
+        // straight back into onboarding.
+        //
+        // It used to be a bare `try?`, on the reasoning that the account is set up either way and
+        // the cost of failing is "one more trip through the flow next launch". That reasoning was
+        // wrong twice over. `markOnboardingCompleted`'s own doc comment says this is the one write
+        // in the flow that must not be swallowed without the caller knowing. And the screen it
+        // degrades to is the first onboarding question presented as a stack root — no back button,
+        // and until now no other way off it — so "one more trip through the flow" was really "no
+        // way into the app until you complete onboarding again", on every launch, with a session
+        // that survives reinstalling the app because it lives in the Keychain.
+        //
+        // So a failure is remembered on this device instead. `loadSignedInState` treats the local
+        // note as good enough to admit them, and retries the write. Keyed by user id so it cannot
+        // admit the *next* account to sign in on this phone.
+        do {
+            try await BackendService.markOnboardingCompleted()
+        } catch {
+            Self.rememberOnboardingCompletedLocally()
+        }
         needsOnboarding = false
         // Nothing to fetch: this account was just built, so its state is known and empty. Saying so
         // is what lets Home show the setup checklist immediately rather than a round trip later.
