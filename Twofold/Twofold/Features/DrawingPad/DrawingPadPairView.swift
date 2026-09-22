@@ -75,33 +75,42 @@ struct DrawingPadPairView: View {
             Button {
                 focused = FocusedPad(name: name, screenTitle: screenTitle, url: url)
             } label: {
-                ZStack {
-                    // The paper.
-                    RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                        .fill(.white)
-                    // Filled and cropped to the pane rather than fitted inside it. The canvas these
-                    // come off is roughly 3:5 — the editor's whole screen less its toolbar — so two
-                    // of them *fitted* at half width each were a pair of tall thin columns.
-                    CachedRemoteImage(url: url) { image in
-                        image.resizable().scaledToFill()
-                    } placeholder: {
-                        emptyState
-                    }
-                }
-                // Cropping gives up the top and bottom of each drawing in exchange for a pane you
-                // can read at a glance, which is the trade this screen wants — it exists to put the
-                // two next to each other, and the whole drawing is one tap away on the pane itself.
+                // The paper, and the only thing in this pane allowed to decide how big it is.
                 //
-                // This is also what stops the overdraw escaping: a `scaledToFill` image reports the
-                // size it was offered and then paints past it, so the stack needs a size of its own
-                // to hand down — and the `clipShape` below then has something real to crop to.
-                .aspectRatio(paneAspectRatio, contentMode: .fit)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                        .strokeBorder(Theme.subtleInk.opacity(0.15))
-                )
-                .shadow(color: .black.opacity(0.1), radius: 8, y: 4)
+                // The image hangs off it as an overlay rather than sharing a `ZStack` with it, and
+                // that is the whole fix for a real bug: the two pads came out different heights
+                // whenever one person had drawn and the other had not.
+                //
+                // `scaledToFill` does not merely paint outside its box, it *reports* a size that
+                // covers the proposal. Offered a 3:4 pane, a canvas that is roughly 3:5 answers
+                // with something nearer 1:1.67 — and a `ZStack` sizes itself to the largest child,
+                // so that taller answer became the pane, `aspectRatio` having already done its work
+                // one level up. The empty pane had no such child (the placeholder is a small fixed
+                // `VStack`) so it stayed honestly 3:4, and the pair sat side by side with a visible
+                // step between them.
+                //
+                // An overlay is sized *by* its parent and cannot push back, so the ratio holds
+                // whatever the image reports, and `clipShape` below crops what spills.
+                RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+                    .fill(.white)
+                    // Cropping gives up the top and bottom of each drawing in exchange for a pane
+                    // you can read at a glance, which is the trade this screen wants — it exists to
+                    // put the two next to each other, and the whole drawing is one tap away on the
+                    // pane itself.
+                    .aspectRatio(paneAspectRatio, contentMode: .fit)
+                    .overlay {
+                        CachedRemoteImage(url: url) { image in
+                            image.resizable().scaledToFill()
+                        } placeholder: {
+                            emptyState
+                        }
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+                            .strokeBorder(Theme.subtleInk.opacity(0.15))
+                    )
+                    .shadow(color: .black.opacity(0.1), radius: 8, y: 4)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("\(name)'s drawing")
