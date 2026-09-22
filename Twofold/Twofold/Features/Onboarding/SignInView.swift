@@ -107,7 +107,7 @@ struct SignInView: View {
                         .padding(.vertical, Theme.Spacing.xs)
 
                         AppleGoogleSignInButtons(
-                            onSuccess: { _, _ in Task { await finishSignIn() } },
+                            onSuccess: { _, _ in Task { await finishSignIn(viaProvider: true) } },
                             onError: { errorMessage = $0 },
                             onAccountDeleted: { handleAccountDeleted() },
                             isSubmitting: $isSubmitting
@@ -151,7 +151,7 @@ struct SignInView: View {
         Task {
             do {
                 try await BackendService.signIn(email: email, password: password)
-                await finishSignIn()
+                await finishSignIn(viaProvider: false)
             } catch {
                 if case BackendError.accountDeleted = error {
                     handleAccountDeleted()
@@ -166,7 +166,7 @@ struct SignInView: View {
     /// Shared by both the email/password and Apple/Google paths. No explicit `dismiss()` —
     /// once `loadSignedInState` flips `hasCouple`, `RootView` swaps its whole body to
     /// `MainTabView`, tearing this sheet's presenter down along with it.
-    private func finishSignIn() async {
+    private func finishSignIn(viaProvider: Bool) async {
         await appModel.loadSignedInState()
         // Defense in depth for a stale/resumed session specifically — a *fresh* sign-in
         // attempt is already rejected earlier now (`BackendService`'s sign-in methods each
@@ -189,11 +189,30 @@ struct SignInView: View {
         //
         // `needsOnboarding` is the recorded fact (migration 20261106000000), not a guess.
         if appModel.needsOnboarding {
-            // Somebody on a screen titled "Welcome back" did not mean to create an account, so say
-            // that one has been created. Overwhelmingly this is Hide My Email: the relay address is
-            // a new email, so it is a new user, and their real account is still sitting there
-            // holding the couple and the history.
-            appModel.signedInToNewAccountMessage = "This Apple ID or Google account wasn't linked to a Twofold account, so we've started a new one for you.\n\nIf you already have an account it was made with a different email address — especially likely if you chose \"Hide My Email\". Sign out from Settings and sign in with that email to get back to it."
+            // Only on the provider paths, and the comment above is the reason: auto-provisioning is
+            // a thing Apple and Google do. Email and password cannot create an account here — a
+            // wrong address fails as `invalid_credentials` and never reaches this line — so on that
+            // path `needsOnboarding` never means "we made you a new one". It means the account they
+            // just proved they own has not finished onboarding.
+            //
+            // Said to everyone, the message was a flat untruth to the larger group. Anybody who
+            // quit onboarding between creating their account and the paywall — which is most of
+            // this branch's real traffic, because the account is created at `.saveAccount`, several
+            // screens before the paywall — signed back in with the exact email and password they
+            // had just chosen, and was told their Apple or Google account was not linked, that a
+            // new account had been started, and to go and sign in with some other address. There is
+            // no other address. Their account was found, and it was theirs.
+            //
+            // They are still routed into onboarding either way; `RootView` does that off
+            // `needsOnboarding` the moment this sheet closes. The only thing that changes here is
+            // whether they are handed an explanation that does not apply to them.
+            if viaProvider {
+                // Somebody on a screen titled "Welcome back" did not mean to create an account, so
+                // say that one has been created. Overwhelmingly this is Hide My Email: the relay
+                // address is a new email, so it is a new user, and their real account is still
+                // sitting there holding the couple and the history.
+                appModel.signedInToNewAccountMessage = "This Apple ID or Google account wasn't linked to a Twofold account, so we've started a new one for you.\n\nIf you already have an account it was made with a different email address — especially likely if you chose \"Hide My Email\". Sign out from Settings and sign in with that email to get back to it."
+            }
             dismiss()
             return
         }
