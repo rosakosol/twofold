@@ -26,6 +26,21 @@
       "productID": "com.orangefinch.Twofold.streak.repair",
       "referenceName": "Streak Repair",
       "type": "Consumable"
+    },
+    {
+      "displayPrice": "2.99",
+      "familyShareable": false,
+      "internalID": "5C1A0F43",
+      "localizations": [
+        {
+          "description": "A one-off PDF or Word copy of your relationship record",
+          "displayName": "Relationship Record Export",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "com.orangefinch.Twofold.record.export",
+      "referenceName": "Relationship Record Export",
+      "type": "Consumable"
     }
   ],
   "settings": {

@@ -37,7 +37,7 @@ struct PaywallView: View {
     @Environment(AppModel.self) private var appModel
     @State private var store = SubscriptionStore()
     @State private var selectedTier: SubscriptionTier
-    @State private var selectedPeriod: BillingPeriod = .yearly
+    @State private var selectedPeriod: BillingPeriod
     @State private var isPurchasing = false
     @State private var isRestoring = false
     @State private var showingSignOutConfirm = false
@@ -63,10 +63,19 @@ struct PaywallView: View {
 
     /// `initialTier` lets a specific upsell (e.g. `DeckPremiumGateView`'s "Continue to Premium")
     /// land directly on the plan it's actually selling, instead of always defaulting to Plus.
-    init(onSubscribed: @escaping () -> Void = {}, isDismissable: Bool = true, initialTier: SubscriptionTier = .plus) {
+    /// `initialPeriod` exists for the same reason as `initialTier` — to open on a specific plan
+    /// rather than the default. Only the App Store screenshot hook passes it today; every real
+    /// call site takes the default, so the yearly card stays pre-selected as it always was.
+    init(
+        onSubscribed: @escaping () -> Void = {},
+        isDismissable: Bool = true,
+        initialTier: SubscriptionTier = .plus,
+        initialPeriod: BillingPeriod = .yearly
+    ) {
         self.onSubscribed = onSubscribed
         self.isDismissable = isDismissable
         _selectedTier = State(initialValue: initialTier)
+        _selectedPeriod = State(initialValue: initialPeriod)
     }
 
     private var isShowingError: Binding<Bool> {

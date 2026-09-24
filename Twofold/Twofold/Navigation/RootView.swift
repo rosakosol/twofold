@@ -58,6 +58,8 @@ struct RootView: View {
     @State private var streakRepairOffer: StreakRepairOffer?
     #if DEBUG
     @State private var showingRecordExportScreenshot = false
+    /// Which plan the paywall screenshot hook asked for, nil when it was not asked for.
+    @State private var paywallScreenshotPlan: PaywallScreenshotPlan?
     #endif
     @State private var gameDeepLink: SessionRoute?
     /// Which MainTabView tab is showing — lives here rather than inside MainTabView so a widget
@@ -132,6 +134,7 @@ struct RootView: View {
             // state — the offer is a sheet, and what surrounds it is half the screenshot.
             seedStreakRepairScreenshotIfRequested()
             seedRecordExportScreenshotIfRequested()
+            seedPaywallScreenshotIfRequested()
             #endif
             // Before `checkSubscription`, not after: this is what decides whether the person is
             // exempt from the paywall at all, so resolving it first keeps the loading state above
@@ -339,6 +342,15 @@ struct RootView: View {
         .fullScreenCover(isPresented: $showingRecordExportScreenshot) {
             NavigationStack { RelationshipTimelineView() }
         }
+        // `isDismissable: true`, which is how Settings and the upsells present it. The other value
+        // is `RootView`'s own lapsed-subscription gate, and that variant puts a "Sign Out" button
+        // in the top-left — the one exit from a forced wall. Correct there, and misleading in a
+        // store listing, where it reads as an app asking you to sign out rather than to subscribe.
+        .fullScreenCover(item: $paywallScreenshotPlan) { plan in
+            NavigationStack {
+                PaywallView(initialTier: plan.tier, initialPeriod: plan.period)
+            }
+        }
         #endif
         .fullScreenCover(item: $recordDeepLink) { destination in
             NavigationStack { recordDeepLinkDestination(destination) }
@@ -527,6 +539,30 @@ struct RootView: View {
     }
 
     #if DEBUG
+    /// Opens the paywall on one exact plan, for App Store screenshots.
+    ///
+    /// Four of the six purchases in this app are the paywall's own cards, and which one is on
+    /// screen is `@State` that only a tap can change — so capturing all four means driving the UI
+    /// four times, or saying which to open. This says which.
+    ///
+    ///   xcrun simctl launch booted com.orangefinch.Twofold -paywallScreenshot plus -paywallPeriod yearly
+    ///
+    /// Prices are not faked here, unlike the streak repair hook. They come from the project's own
+    /// `Twofold.storekit` file, enabled through a scheme that lives in `xcuserdata` (gitignored) so
+    /// turning it on for a screenshot run does not change the shared scheme for everybody. That
+    /// matters more for these four than for anything else being captured: a paywall screenshot is
+    /// a price list, and Apple compares it against the prices actually configured.
+    private func seedPaywallScreenshotIfRequested() {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard let flag = arguments.firstIndex(of: "-paywallScreenshot"), flag + 1 < arguments.count else { return }
+        let tier: SubscriptionTier = arguments[flag + 1].lowercased() == "premium" ? .premium : .plus
+        var period: BillingPeriod = .yearly
+        if let periodFlag = arguments.firstIndex(of: "-paywallPeriod"), periodFlag + 1 < arguments.count {
+            period = arguments[periodFlag + 1].lowercased() == "monthly" ? .monthly : .yearly
+        }
+        paywallScreenshotPlan = PaywallScreenshotPlan(tier: tier, period: period)
+    }
+
     private func seedRecordExportScreenshotIfRequested() {
         guard ProcessInfo.processInfo.arguments.contains("-recordExportScreenshot") else { return }
 
@@ -892,3 +928,14 @@ struct RootView: View {
     RootView()
         .environment(AppModel())
 }
+
+#if DEBUG
+/// Which paywall plan the screenshot hook asked for. `Identifiable` so it can drive a
+/// `fullScreenCover(item:)`, which is what guarantees the cover is rebuilt per plan rather than
+/// reusing a presentation seeded with the previous one.
+struct PaywallScreenshotPlan: Identifiable {
+    let id = UUID()
+    let tier: SubscriptionTier
+    let period: BillingPeriod
+}
+#endif
