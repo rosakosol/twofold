@@ -509,7 +509,6 @@ struct RootView: View {
     ///
     /// Credits are left alone: the count comes back 0 when the lookup fails, which is the state
     /// the buy card renders from, so nothing needs faking for that.
-    #if DEBUG
     /// Which tier to write after a successful read of the couple row, or nil to leave what is
     /// already there.
     ///
@@ -527,6 +526,7 @@ struct RootView: View {
         fetched ?? deviceTier
     }
 
+    #if DEBUG
     private func seedRecordExportScreenshotIfRequested() {
         guard ProcessInfo.processInfo.arguments.contains("-recordExportScreenshot") else { return }
 
