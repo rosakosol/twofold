@@ -124,10 +124,10 @@
 		<!-- Two things with no category of their own in Apple's list:
 		     - The birthday (day and month, no year), for the reminder and the celebration screen.
 		       App functionality.
-		     - The onboarding answers - how you found us, relationship situation, travel frequency,
-		       goals, and both partners' gender - which Analytics.setOnboardingTraits sends to
-		       PostHog as person properties. Analytics. These reach no other destination: they are
-		       never written to the Twofold account. -->
+		     - The onboarding answers other than gender - how you found us, relationship situation,
+		       travel frequency and goals - which Analytics.setOnboardingTraits sends to PostHog as
+		       person properties. Analytics. Gender is declared below instead. None of these reach
+		       any other destination: they are never written to the Twofold account. -->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypeOtherDataTypes</string>
@@ -138,6 +138,24 @@
 			<key>NSPrivacyCollectedDataTypePurposes</key>
 			<array>
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+		<!-- Gender, asked for both partners during onboarding and sent to PostHog by
+		     Analytics.setOnboardingTraits. Declared as sensitive rather than as another "other"
+		     answer because of what the pair means: in an app for couples, one person's gender
+		     alongside their partner's implies sexual orientation, which Apple's definition of
+		     sensitive information covers. The app's own use of it is narrow - picking the right
+		     pronoun - but the inference does not depend on what we use it for. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeSensitiveInfo</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
 				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
 			</array>
 		</dict>
