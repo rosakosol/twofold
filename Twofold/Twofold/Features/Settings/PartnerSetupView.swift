@@ -105,6 +105,27 @@ struct PartnerSetupView: View {
                         }
                     }
 
+                    // Read-only, and only once connected: it comes from their profile row, not
+                    // from a field here. There is deliberately no way to type a birthday on
+                    // somebody else's behalf — one date, authored by whoever it belongs to, so the
+                    // reminder cannot end up with two answers. Until they add one there is nothing
+                    // to show and nothing this person can do about it except ask.
+                    if appModel.partnerConnected {
+                        SectionCard {
+                            HStack {
+                                Text("Birthday").foregroundStyle(Theme.subtleInk)
+                                Spacer()
+                                Text(appModel.partner.birthday?.displayText ?? "Not set")
+                                    .foregroundStyle(appModel.partner.birthday == nil ? Theme.subtleInk : Theme.ink)
+                            }
+                            if appModel.partner.birthday == nil {
+                                Text("Only \(appModel.partner.name) can add this, from their own Account screen.")
+                                    .font(.caption2)
+                                    .foregroundStyle(Theme.subtleInk)
+                            }
+                        }
+                    }
+
                     // Shown whether or not a partner is connected. It is the one field here that
                     // belongs to the couple rather than to this person's private notes about them,
                     // and it used to disappear from this screen the moment they paired.

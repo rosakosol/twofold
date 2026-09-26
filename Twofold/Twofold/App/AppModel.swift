@@ -1251,6 +1251,26 @@ final class AppModel {
         couple.startedDatingOn = date
     }
 
+    /// Sets or clears this person's own birthday. Nil removes it, which is always allowed — it is
+    /// optional wherever it is asked for, including onboarding.
+    ///
+    /// Only ever `partnerA`, who is always me. There is no partner equivalent on purpose: a
+    /// birthday belongs to the person whose it is, and the partner's arrives with their profile
+    /// (see `BackendService.fetchCoupleState`). Letting each side record a guess at the other's
+    /// would give the reminder two dates and no way to choose.
+    ///
+    /// Applied locally after the write rather than before, so a failure leaves the screen showing
+    /// what is actually stored.
+    func updateBirthday(_ birthday: Birthday?) async {
+        guard birthday != couple.partnerA.birthday else { return }
+        do {
+            try await BackendService.updateBirthday(birthday)
+            couple.partnerA.birthday = birthday
+        } catch {
+            writeRefusedMessage = error.localizedDescription
+        }
+    }
+
     /// Incoming connection requests (double verification — see the migration's own header
     /// comment) — safe to call any time, including while already connected (just returns
     /// empty), so call sites don't need to guard on `partnerConnected` themselves.

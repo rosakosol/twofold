@@ -624,7 +624,9 @@ enum BackendService {
             name: profile.firstName.isEmpty ? "You" : profile.firstName,
             homeCity: profile.homePlaceId.flatMap { places[$0] },
             accentColor: Person.palette[1],
-            avatarURL: await avatarSignedURLOrNil(profile.avatarPath)
+            avatarURL: await avatarSignedURLOrNil(profile.avatarPath),
+            birthday: Birthday(month: profile.birthdayMonth, day: profile.birthdayDay),
+            timeZoneIdentifier: profile.timezone
         )
 
         return OwnProfileState(
@@ -780,6 +782,12 @@ enum BackendService {
         var onboardingCompletedAt: String?
         /// Same raw-string treatment, same reason. See migration 20261110001200.
         var onboardingAccountCreatedAt: String?
+        /// Month and day, no year — migration 20261110001300. Both null together.
+        var birthdayMonth: Int?
+        var birthdayDay: Int?
+        /// IANA identifier, written on every foreground by `updateDeviceContext`. Read here so a
+        /// birthday can be judged where its owner actually is — see `Person.isBirthdayToday`.
+        var timezone: String?
 
         enum CodingKeys: String, CodingKey {
             case id
@@ -798,6 +806,9 @@ enum BackendService {
             case partnerSubscriptionLapseShown = "partner_subscription_lapse_shown"
             case onboardingCompletedAt = "onboarding_completed_at"
             case onboardingAccountCreatedAt = "onboarding_account_created_at"
+            case birthdayMonth = "birthday_month"
+            case birthdayDay = "birthday_day"
+            case timezone
         }
     }
 
@@ -923,6 +934,31 @@ enum BackendService {
         try await supabase
             .from("profiles")
             .update(PartnerHomeCityUpdate(partnerHomePlaceId: placeID))
+            .eq("id", value: userID)
+            .execute()
+    }
+
+    private struct BirthdayUpdate: Encodable {
+        var birthdayMonth: Int?
+        var birthdayDay: Int?
+        enum CodingKeys: String, CodingKey {
+            case birthdayMonth = "birthday_month"
+            case birthdayDay = "birthday_day"
+        }
+    }
+
+    /// Sets or clears this person's own birthday. Nil clears both halves, which is what "remove
+    /// it" means — the column pair is all-or-nothing by check constraint, and giving one is always
+    /// optional.
+    ///
+    /// Only ever your own row, like every other write here: a birthday is a fact about its owner,
+    /// and the partner reads it through `profiles_select_self_or_partner` rather than being given
+    /// a way to author it.
+    static func updateBirthday(_ birthday: Birthday?) async throws {
+        guard let userID = currentUserID else { throw BackendError.notAuthenticated }
+        try await supabase
+            .from("profiles")
+            .update(BirthdayUpdate(birthdayMonth: birthday?.month, birthdayDay: birthday?.day))
             .eq("id", value: userID)
             .execute()
     }
@@ -2117,7 +2153,12 @@ enum BackendService {
                 name: name,
                 homeCity: profile.homePlaceId.flatMap { places[$0] },
                 accentColor: Person.palette[paletteIndex],
-                avatarURL: avatarURL
+                avatarURL: avatarURL,
+                // Read from whichever row this person is, so a partner's birthday is the one they
+                // entered themselves. Unlike `nameOverride` above, there is nothing to override —
+                // a birthday has one right answer and its owner is the only one who knows it.
+                birthday: Birthday(month: profile.birthdayMonth, day: profile.birthdayDay),
+                timeZoneIdentifier: profile.timezone
             )
         }
 

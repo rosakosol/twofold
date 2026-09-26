@@ -40,6 +40,9 @@ struct AccountView: View {
     /// Kept apart from `errorMessage` so a success is not announced in red under a failure's
     /// heading — the same split `PaywallView` makes between `restoreNotice` and `errorMessage`.
     @State private var successMessage: String?
+    /// Nil until the picker is used, so an account with no birthday shows the prompt rather than
+    /// today's date pre-selected — which would read as a value somebody had chosen.
+    @State private var birthdayDate: Date?
 
     private var passwordsMismatch: Bool {
         !confirmPassword.isEmpty && confirmPassword != newPassword
@@ -93,6 +96,8 @@ struct AccountView: View {
                         .foregroundStyle(Theme.subtleInk)
                 }
 
+                birthdaySection
+
                 if hasPasswordSignIn {
                     passwordSection
                 } else {
@@ -105,6 +110,45 @@ struct AccountView: View {
         .navigationTitle("Account")
         .navigationBarTitleDisplayMode(.inline)
         .postHogScreenView("Settings: Account")
+        .onAppear { birthdayDate = appModel.couple.partnerA.birthday?.date() }
+    }
+
+    /// Your own birthday. Optional here, as it is everywhere it is asked for.
+    ///
+    /// Only ever your own — your partner's is shown on their screen, sourced from their row, and
+    /// there is nowhere in the app to type a birthday on somebody else's behalf. See
+    /// `AppModel.updateBirthday`.
+    private var birthdaySection: some View {
+        SectionCard {
+            Text("Birthday").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.subtleInk)
+
+            if let birthdayDate {
+                DatePicker(
+                    "Birthday",
+                    selection: Binding(get: { birthdayDate }, set: { saveBirthday(Birthday(date: $0)) }),
+                    displayedComponents: .date
+                )
+                .datePickerStyle(.compact)
+                .labelsHidden()
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                Button("Remove birthday", role: .destructive) { saveBirthday(nil) }
+                    .font(.caption)
+            } else {
+                Button("Add your birthday") {
+                    // Seeded rather than saved — opening a picker is not the same as choosing a
+                    // date, so nothing is written until the picker is actually moved.
+                    birthdayDate = Calendar.current.date(from: DateComponents(year: 2024, month: 1, day: 1))
+                }
+                .font(.body)
+            }
+
+            // Said once, here, because "we only store the day" is the kind of claim people
+            // reasonably want to see before typing a date of birth into anything.
+            Text("We only keep the day and month — never the year. \(appModel.partner.name) will see it so they don't miss it.")
+                .font(.caption2)
+                .foregroundStyle(Theme.subtleInk)
+        }
     }
 
     /// Only for accounts that have a password. See this file's header for why an Apple or Google
@@ -175,6 +219,11 @@ struct AccountView: View {
                     .foregroundStyle(Theme.ink)
             }
         }
+    }
+
+    private func saveBirthday(_ birthday: Birthday?) {
+        birthdayDate = birthday?.date()
+        Task { await appModel.updateBirthday(birthday) }
     }
 
     private func save() {
