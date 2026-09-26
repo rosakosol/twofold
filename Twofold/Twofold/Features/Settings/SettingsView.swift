@@ -4,7 +4,7 @@
 //
 //  Reached from HomeView's toolbar avatar. Top-level profile/settings shell — each row pushes
 //  a focused, single-purpose screen rather than everything living inline here as it used to.
-//  Own-profile editing lives in AboutYouView, couple-level settings in AboutRelationshipView,
+//  Own-profile editing lives in AboutYouView, sign-in details in AccountView,
 //  and everything partner-relationship-scoped (connect, edit, archive, remove) lives in
 //  PartnerSetupView, reachable both pre- and post-connection.
 //
@@ -71,6 +71,18 @@ struct SettingsView: View {
                                 title: appModel.partnerConnected ? "About your partner" : "Connect with your partner",
                                 systemImage: appModel.partnerConnected ? "person.fill.checkmark" : "person.fill.badge.plus"
                             )
+                        }
+                        .buttonStyle(.plain)
+
+                        Divider()
+
+                        // The sign-in itself, which had no home in the app at all: nothing showed
+                        // which address this account is, and changing a password meant sending
+                        // yourself a reset email while already signed in.
+                        NavigationLink {
+                            AccountView()
+                        } label: {
+                            SettingsRow(title: "Account", systemImage: "key.fill")
                         }
                         .buttonStyle(.plain)
                     }

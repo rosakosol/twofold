@@ -135,8 +135,20 @@ enum BackendService {
         try await supabase.auth.session(from: url)
     }
 
-    /// Requires an active session — always true right after `completePasswordRecovery(from:)`
-    /// succeeds, which is the only place this is called from (`ResetPasswordView`).
+    /// Requires an active session, and has two callers with one each. `ResetPasswordView` runs it
+    /// straight after `completePasswordRecovery(from:)`, on the session that emailed link just
+    /// established. `AccountView` runs it on the ordinary signed-in session, for somebody changing
+    /// a password they still know rather than recovering one they have lost.
+    ///
+    /// For an account created with Apple or Google this *sets* a password rather than replacing
+    /// one: `encrypted_password` starts null and the provider lives in `auth.identities`, which
+    /// this does not touch. They keep the provider button and gain an email/password route — under
+    /// whatever address the account carries, which for Apple's Hide My Email is a relay nobody
+    /// chose. `AccountView` shows that address directly above the form for exactly that reason.
+    ///
+    /// Assumes `secure_password_change = false` (config.toml). Turning it on would require a
+    /// reauthentication nonce first, and this call would start failing for anyone whose sign-in is
+    /// not recent.
     static func updatePassword(_ newPassword: String) async throws {
         try await supabase.auth.update(user: UserAttributes(password: newPassword))
     }
@@ -318,6 +330,22 @@ enum BackendService {
 
     static var currentUserID: UUID? {
         supabase.auth.currentSession?.user.id
+    }
+
+    /// How this account can sign in — "email", "apple", "google" — read from the session already
+    /// on disk, so it costs nothing and needs no await.
+    ///
+    /// The distinction it exists for is "has a password" versus "has a provider", which is not the
+    /// same as "signed in with a provider *this* time". An account can hold several identities: one
+    /// created with an address and a password, later used with Apple, genuinely has a password to
+    /// change. So callers should ask whether this contains "email", never whether it contains
+    /// anything else — `AccountView` is the one that cares.
+    ///
+    /// Empty when the session carries no identities, which is not evidence of anything. It is the
+    /// cached copy from the last token refresh, fine for choosing which controls to draw and not a
+    /// thing to enforce on: the server decides what a session may actually do.
+    static var currentUserSignInProviders: [String] {
+        supabase.auth.currentSession?.user.identities?.map(\.provider) ?? []
     }
 
     /// The signed-in account's email, for identifying this user in third-party dashboards that
