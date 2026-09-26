@@ -70,7 +70,7 @@ async function sendEmails(email: string): Promise<void> {
     console.warn("[waitlist] Zoho SMTP not configured - skipping confirmation emails:", (err as Error).message);
     return;
   }
-  const { transport, from } = mailer;
+  const { transport, from, sender } = mailer;
 
   try {
     const confirmationHtml = renderTemplate("waitlist-confirmation", {
@@ -88,12 +88,16 @@ async function sendEmails(email: string): Promise<void> {
     });
 
     const results = await Promise.allSettled([
+      // An announcement rather than a receipt: nobody filed a ticket, they signed up to hear from
+      // us, so this is the one piece of mail the site sends where support@ as the From reads
+      // wrong. `sender` supplies Reply-To: support@ with it, so a reply still reaches the queue.
       transport.sendMail({
-        from,
+        ...sender("announcement"),
         to: email,
         subject: extractSubject(confirmationHtml),
         html: confirmationHtml,
       }),
+      // Internal, to us. Stays transactional - there is nobody outside to read the From.
       transport.sendMail({
         from,
         to: notifyEmail,
