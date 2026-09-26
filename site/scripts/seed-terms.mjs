@@ -33,6 +33,19 @@
  *   - Live position and route come from adsb.lol, adsb.fi, airplanes.live and adsbdb.com, none of
  *     which the accuracy disclaimer named.
  *
+ * Republished 2026-09-27, because the document in Studio had gone back to the pre-09-13 draft -
+ * every one of the six points above had reappeared, and "Accounts nobody uses" and "Reporting
+ * someone, and blocking them" were missing entirely (95 blocks against this script's 112). The
+ * list above is therefore also the checklist for spotting it again: if the published terms say
+ * "Apple or Google", "14 days" or "USD", they are that draft.
+ *
+ * Two things the Studio copy had right and this did not, kept:
+ *
+ *   - Web payment is processed by Stripe *via RevenueCat*. billing.ts never talks to Stripe
+ *     directly - RevenueCat hosts the checkout against a connected Stripe account - so naming
+ *     only Stripe skipped the party that actually takes the card.
+ *   - "the laws of the state of Victoria", which is how the jurisdiction is normally written.
+ *
  * Deliberately NOT included, despite being in the reference policy this was modelled on:
  * a mandatory-arbitration clause and a class-action waiver. Twofold is an Australian
  * consumer-facing app; the Australian Consumer Law's guarantees can't be contracted out of,
@@ -108,7 +121,7 @@ const body = [
     `App Store subscriptions renew automatically at the end of each billing period unless cancelled at least 24 hours before renewal, and are managed from your device's Settings → Apple ID → Subscriptions, under Apple's standard terms.`
   ),
   bullet(
-    `Web subscriptions renew automatically at the end of each billing period and can be cancelled at any time. Payment is processed by Stripe - we never see or store your card details.`
+    `Web subscriptions renew automatically at the end of each billing period and can be cancelled at any time. Payment is processed by Stripe via RevenueCat - we never see or store your card details.`
   ),
   bullet(
     `A subscription started on the web is tied to the Apple ID you sign in with at checkout. Sign in with that same Apple ID in the app to get what you've paid for.`
@@ -333,7 +346,7 @@ const body = [
   // ---------------------------------------------------------- governing law
   h2('Governing law'),
   ptext(
-    `These terms are governed by the laws of Victoria, Australia, and you and we submit to the non-exclusive jurisdiction of the courts there. If you're a consumer somewhere else, you keep the benefit of any mandatory protections your local law gives you.`
+    `These terms are governed by the laws of the state of Victoria, Australia, and you and we submit to the non-exclusive jurisdiction of the courts there. If you're a consumer somewhere else, you keep the benefit of any mandatory protections your local law gives you.`
   ),
   ptext(
     `If there's a problem, contact us first - we'd much rather sort it out directly than have either of us go anywhere near a court.`
@@ -360,9 +373,9 @@ const doc = {
   _type: 'legalPage',
   pageId: 'terms',
   title: 'Terms of Use',
-  lastUpdated: '2026-09-13',
+  lastUpdated: '2026-09-27',
   noticeText:
-    `Draft - pending legal review. These terms describe how Twofold actually works today, but they have not been reviewed by a lawyer, and the points marked [TO CONFIRM] still need a decision before Twofold is publicly released.`,
+    `Draft - pending legal review. These terms describe how Twofold actually works today, but they have not been reviewed by a lawyer.`,
   body,
 }
 
