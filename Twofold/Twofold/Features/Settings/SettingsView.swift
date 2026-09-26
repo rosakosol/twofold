@@ -58,15 +58,12 @@ struct SettingsView: View {
 
                         Divider()
 
-                        NavigationLink {
-                            AboutRelationshipView()
-                        } label: {
-                            SettingsRow(title: "About your relationship", systemImage: "heart.fill")
-                        }
-                        .buttonStyle(.plain)
-
-                        Divider()
-
+                        // One row, where there used to be two. "About your relationship" held the
+                        // anniversary and "About your partner" held their name, photo and city —
+                        // and nothing told you which of the two a given detail was behind, because
+                        // both phrases describe the same two people. The anniversary moved into
+                        // `PartnerSetupView` with its date-picker bound and its happy-anniversary
+                        // moment intact.
                         Button {
                             showingPartnerSetup = true
                         } label: {

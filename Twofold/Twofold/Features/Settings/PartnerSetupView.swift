@@ -6,10 +6,14 @@
 //  (Home's "Set up your partner" card, and Settings' "Connect with your partner" row) and
 //  post-connection (Settings' "About your partner" row, same destination, different label).
 //  Pre-connection it's name/photo/city/anniversary plus the connect step, so first-time setup
-//  doesn't require bouncing between screens. Once connected, anniversary editing moves solely to
-//  AboutRelationshipView (couple-level, not partner-specific) and this screen instead surfaces
-//  Archived Data and Remove Partner — both are about *this* partner relationship, same as
-//  everything else here.
+//  doesn't require bouncing between screens. Once connected it keeps the anniversary and adds
+//  Archived Data and Remove Partner.
+//
+//  The anniversary used to live on a second screen once a couple was connected, behind its own
+//  "About your relationship" row in Settings. Two rows, and no way to predict which of them held
+//  the date you wanted — "your relationship" and "your partner" describe the same two people. So
+//  there is one row now, and this is it. That screen's date-picker bound and its
+//  happy-anniversary moment both came across rather than being dropped on the way.
 //
 
 import PostHog
@@ -24,6 +28,28 @@ struct PartnerSetupView: View {
     @State private var anniversaryDate: Date = .now
     @State private var partnerAvatarError: String?
     @State private var isSaving = false
+    @State private var showingHappyAnniversary = false
+
+    /// End of today rather than the live `Date.now` instant.
+    ///
+    /// Inherited from the screen this absorbed, along with the reason: bounding at the exact
+    /// current instant silently puts "today" out of reach whenever the picker's held time-of-day
+    /// — here whatever `couple.startedDatingOn` carries — falls later in the day than the clock.
+    /// This screen previously used `...Date.now` and had that bug; the merge is a good moment to
+    /// stop having it.
+    private var latestSelectableDate: Date {
+        let startOfToday = Calendar.current.startOfDay(for: .now)
+        return Calendar.current.date(byAdding: DateComponents(day: 1, second: -1), to: startOfToday) ?? .now
+    }
+
+    /// Month and day against today, deliberately not `Calendar.isDateInToday`, which also wants
+    /// the year to match and so is essentially never true of a real anniversary.
+    private var isAnniversaryToday: Bool {
+        let calendar = Calendar.current
+        let picked = calendar.dateComponents([.month, .day], from: anniversaryDate)
+        let today = calendar.dateComponents([.month, .day], from: .now)
+        return picked.month == today.month && picked.day == today.day
+    }
 
     var body: some View {
         @Bindable var appModel = appModel
@@ -79,12 +105,13 @@ struct PartnerSetupView: View {
                         }
                     }
 
-                    if !appModel.partnerConnected {
-                        SectionCard {
-                            Text("Anniversary").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.subtleInk)
-                            DatePicker("Together since", selection: $anniversaryDate, in: ...Date.now, displayedComponents: .date)
-                                .datePickerStyle(.compact)
-                        }
+                    // Shown whether or not a partner is connected. It is the one field here that
+                    // belongs to the couple rather than to this person's private notes about them,
+                    // and it used to disappear from this screen the moment they paired.
+                    SectionCard {
+                        Text("Anniversary").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.subtleInk)
+                        DatePicker("Together since", selection: $anniversaryDate, in: ...latestSelectableDate, displayedComponents: .date)
+                            .datePickerStyle(.compact)
                     }
 
                     if !appModel.partnerConnected {
@@ -124,24 +151,35 @@ struct PartnerSetupView: View {
             }
         }
         .postHogScreenView("Settings: Partner Setup")
+        .fullScreenCover(isPresented: $showingHappyAnniversary, onDismiss: dismiss.callAsFunction) {
+            HappyAnniversaryView(
+                years: max(0, Calendar.current.dateComponents([.year], from: anniversaryDate, to: .now).year ?? 0),
+                onContinue: { showingHappyAnniversary = false }
+            )
+        }
     }
 
     private func save() {
         isSaving = true
         Task {
             await appModel.updatePartnerName(partnerName)
-            // City and anniversary are only editable here pre-connection — once paired, city is
-            // real shared data (not a guess) and anniversary editing lives solely in
-            // AboutRelationshipView, so saving them here post-connection would just be
-            // re-writing an unchanged value from a field that isn't even shown.
-            if !appModel.partnerConnected {
-                if let partnerCity {
-                    await appModel.updatePartnerHomeCity(partnerCity)
-                }
-                await appModel.updateAnniversaryDate(anniversaryDate)
+            // City stays pre-connection only: once paired it is real shared data rather than a
+            // guess, and the field above is read-only, so writing it back would just re-save an
+            // unchanged value. The anniversary is different — it is editable in both states now,
+            // so it saves in both.
+            if !appModel.partnerConnected, let partnerCity {
+                await appModel.updatePartnerHomeCity(partnerCity)
             }
+            await appModel.updateAnniversaryDate(anniversaryDate)
             isSaving = false
-            dismiss()
+            // Setting the date to today is worth marking rather than silently closing. Carried
+            // over from the screen this absorbed; without it the merge would have quietly deleted
+            // the one moment of delight in Settings.
+            if isAnniversaryToday {
+                showingHappyAnniversary = true
+            } else {
+                dismiss()
+            }
         }
     }
 }

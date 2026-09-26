@@ -4,7 +4,7 @@
 //
 //  Same-day-anniversary surprise — reused in two places: `AnniversaryDateView` pushes this
 //  instead of straight to notificationsSell/personalizedInsight when the date just picked during
-//  onboarding is today, and `AboutRelationshipView` (Settings' anniversary editor, reachable any
+//  onboarding is today, and `PartnerSetupView` (Settings' anniversary editor, reachable any
 //  time post-onboarding) presents this as a full-screen cover on the same condition. Deliberately
 //  has no dependency on `OnboardingModel` — `onContinue` is supplied by whichever caller knows
 //  what "done" means for it (push further onboarding steps vs. just dismissing a settings sheet).
