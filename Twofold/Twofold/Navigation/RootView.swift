@@ -11,6 +11,12 @@ import SwiftUI
 ///
 /// Exists so the sheet does not have to read the number back out of `AppModel.streakRepair`, which
 /// the repair clears on success — see `RootView.streakRepairOffer`.
+/// Whose birthday is being marked. Nil `partnerName` means your own.
+private struct BirthdayCelebration: Identifiable {
+    let id = UUID()
+    let partnerName: String?
+}
+
 private struct StreakRepairOffer: Identifiable {
     let id = UUID()
     let streak: Int
@@ -56,6 +62,15 @@ struct RootView: View {
     ///
     /// Same shape as `DailyActivityCard`'s `RepairingStreak`, for the same reason.
     @State private var streakRepairOffer: StreakRepairOffer?
+    /// Which birthday has already been marked, as "<year>-<whose>".
+    ///
+    /// Keyed like `streakRepairOfferedForMissedDate` rather than being a plain Bool, and for the
+    /// same reason: the point is once per occasion, not once ever. The year makes it come back
+    /// next year, and the suffix keeps two birthdays in the same year independent — otherwise
+    /// whoever's fell first would suppress the other's.
+    @AppStorage("birthdayCelebrationShownFor") private var birthdayCelebrationShownFor = ""
+    /// The birthday currently on screen, carrying whose it is.
+    @State private var birthdayCelebration: BirthdayCelebration?
     #if DEBUG
     @State private var showingRecordExportScreenshot = false
     /// Which plan the paywall screenshot hook asked for, nil when it was not asked for.
@@ -333,6 +348,20 @@ struct RootView: View {
         // Watched rather than checked once on appear: the state arrives from a round trip that
         // lands well after this view first draws, and on a foreground it can change again.
         .onChange(of: appModel.streakRepair?.missedDateRaw) { _, _ in offerStreakRepairIfDue() }
+        // Watched rather than checked once, because the couple state that carries both birthdays
+        // lands well after this view first draws — the same reason the streak repair check above
+        // is an `onChange`. Also re-checked on foreground, so a phone left open overnight finds
+        // the birthday in the morning rather than at the next cold launch.
+        .onChange(of: appModel.couple) { _, _ in showBirthdayIfDue() }
+        .fullScreenCover(item: $birthdayCelebration) { celebration in
+            HappyBirthdayView(
+                partnerName: celebration.partnerName,
+                onContinue: { birthdayCelebration = nil },
+                onSendMessage: celebration.partnerName == nil
+                    ? nil
+                    : { message in await BackendService.sendBirthdayWish(message: message) }
+            )
+        }
         .sheet(item: $streakRepairOffer) { offer in
             StreakRepairPromptView(streak: offer.streak)
         }
@@ -657,6 +686,31 @@ struct RootView: View {
         streakRepairOffer = StreakRepairOffer(streak: streak)
     }
     #endif
+
+    /// Shows the birthday screen at most once for each birthday each year.
+    ///
+    /// Your own and your partner's are both marked, and if they somehow share a date the partner's
+    /// wins — it is the one with something to do on it.
+    private func showBirthdayIfDue() {
+        guard birthdayCelebration == nil else { return }
+        let year = Calendar.current.component(.year, from: .now)
+
+        // Partner first, deliberately.
+        if appModel.partnerConnected, appModel.partner.isBirthdayToday {
+            let key = "\(year)-partner"
+            guard birthdayCelebrationShownFor != key else { return }
+            birthdayCelebrationShownFor = key
+            birthdayCelebration = BirthdayCelebration(partnerName: appModel.partner.name)
+            return
+        }
+
+        if appModel.couple.partnerA.isBirthdayToday {
+            let key = "\(year)-self"
+            guard birthdayCelebrationShownFor != key else { return }
+            birthdayCelebrationShownFor = key
+            birthdayCelebration = BirthdayCelebration(partnerName: nil)
+        }
+    }
 
     private func offerStreakRepairIfDue() {
         guard let repair = appModel.streakRepair,

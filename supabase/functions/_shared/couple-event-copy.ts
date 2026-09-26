@@ -15,6 +15,7 @@ export type EventType =
   | "game_results_ready"
   | "game_partner_finished"
   | "game_reminder"
+  | "birthday_wish"
   | "game_turn";
 
 /// What a session was, for the two events whose copy depends on it. A sudoku is a race against a
@@ -90,6 +91,14 @@ export function buildMessage(eventType: EventType, actorName: string, game: Game
       };
     case "game_reminder":
       return { title: "Reminder", body: detail ? `${actorName} wants you to complete "${detail}".` : `${actorName} sent you a reminder to complete your game.` };
+    // Sent from the birthday screen, by a partner pressing a button on the day. `detail` carries
+    // whatever they typed, and arrives already length-capped and single-lined by the caller — the
+    // same treatment every other free-text detail here gets, for the same reason.
+    case "birthday_wish":
+      return {
+        title: "Happy birthday! 🎂",
+        body: detail ? `${actorName}: ${detail}` : `${actorName} is wishing you a happy birthday.`,
+      };
     case "game_turn":
       // Names the game, because these two are the only ones that can be waiting on you and a
       // couple may well have both going at once — "it's your turn" alone would not say where.
@@ -158,6 +167,8 @@ export function buildSelfMessage(eventType: EventType, game: GameContext = {}): 
       };
     case "game_reminder":
       return { title: "Reminder", body: detail ? `Complete "${detail}".` : "Complete your game." };
+    case "birthday_wish":
+      return { title: "Sent 🎂", body: "Your birthday message is on its way." };
     case "game_turn":
       return { title: "Move played", body: "Your move was played." };
   }

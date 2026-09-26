@@ -94,3 +94,20 @@ Deno.test("the self-target harness reports the same branch as the real push", ()
     "Results are ready!",
   );
 });
+
+// A birthday wish is the one event here that carries words somebody actually typed, rather than a
+// detail the app derived. Both halves are worth pinning: that the typed words survive, and that
+// there is a sentence when there are none.
+
+Deno.test("a birthday wish carries the sender's own words", () => {
+  const { title, body } = buildMessage("birthday_wish", "Erin", { detail: "have the best day" });
+  assertEquals(title, "Happy birthday! 🎂");
+  assertEquals(body, "Erin: have the best day");
+});
+
+Deno.test("a birthday wish with no message still reads as a sentence", () => {
+  // The screen lets Send through with an empty field on purpose — requiring words before somebody
+  // may say happy birthday is a strange gate. So this branch is reachable, not theoretical.
+  const { body } = buildMessage("birthday_wish", "Erin", {});
+  assertEquals(body, "Erin is wishing you a happy birthday.");
+});

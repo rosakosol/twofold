@@ -46,6 +46,7 @@ const VALID_EVENT_TYPES: EventType[] = [
   "game_results_ready",
   "game_partner_finished",
   "game_reminder",
+  "birthday_wish",
 ];
 
 // Event type -> notification_preferences column, mirroring the pattern in _shared/notify.ts.
@@ -93,6 +94,9 @@ const PREFERENCE_COLUMN: Partial<Record<EventType, PreferenceColumn>> = {
   // came back undefined and the check below was skipped — and the comment above this map called
   // that "never muted", which read as a decision rather than the omission it was.
   game_reminder: "partner_game_reminder",
+  // Listed from the start, unlike `game_reminder` above, which had to be retrofitted in
+  // 20261110000900 after shipping unmutable. See 20261110001400.
+  birthday_wish: "partner_birthday_wish",
 };
 
 Deno.serve(async (req) => {

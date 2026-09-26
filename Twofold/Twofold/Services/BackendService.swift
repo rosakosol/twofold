@@ -4418,6 +4418,10 @@ enum BackendService {
         case gameResultsReady = "game_results_ready"
         case gamePartnerFinished = "game_partner_finished"
         case gameReminder = "game_reminder"
+        /// A happy-birthday message, sent by a partner pressing Send on `HappyBirthdayView`.
+        /// Unlike the rest of these it is not a side effect of some other action — it is the
+        /// action, which is why `sendBirthdayWish` reports whether it landed.
+        case birthdayWish = "birthday_wish"
     }
 
     /// Tells the caller's partner (if any) about something the caller just did — best-effort,
@@ -4456,6 +4460,33 @@ enum BackendService {
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
         _ = try? await URLSession.shared.data(for: request)
+    }
+
+    /// The same call as `notifyPartner`, with the outcome kept rather than discarded.
+    ///
+    /// Every other couple notification is a side effect of something that already succeeded — the
+    /// trip is saved whether or not the push lands, so swallowing the result is right there and
+    /// telling somebody their trip "failed" would be a lie. A birthday message is the opposite:
+    /// pressing Send *is* the action, and reporting success for a request that never left would
+    /// leave someone believing they had said something they had not.
+    ///
+    /// Returns false for any non-2xx or transport error. Does not throw, because the caller has
+    /// nothing useful to do with the distinction between them.
+    static func sendBirthdayWish(message: String) async -> Bool {
+        guard let accessToken = currentAccessToken else { return false }
+        var body: [String: Any] = ["eventType": CoupleNotificationEvent.birthdayWish.rawValue]
+        if !message.isEmpty { body["detail"] = message }
+
+        var request = URLRequest(url: SupabaseConfig.projectURL.appendingPathComponent("functions/v1/notify-couple-event"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(SupabaseConfig.publishableKey, forHTTPHeaderField: "apiKey")
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        guard let (_, response) = try? await URLSession.shared.data(for: request),
+              let http = response as? HTTPURLResponse else { return false }
+        return (200..<300).contains(http.statusCode)
     }
 
     struct CoupleNotificationPreferences {
