@@ -14,6 +14,7 @@ enum OnboardingStep: Hashable {
     case yourName
     case partnerName
     case gender
+    case birthday
     case coupleLocations
     case anniversaryDate
     case happyAnniversary
@@ -55,6 +56,7 @@ enum OnboardingStep: Hashable {
         case .yourName: "Onboarding: Your Name"
         case .partnerName: "Onboarding: Partner Name"
         case .gender: "Onboarding: Gender"
+        case .birthday: "Onboarding: Birthday"
         case .coupleLocations: "Onboarding: Couple Locations"
         case .anniversaryDate: "Onboarding: Anniversary Date"
         case .happyAnniversary: "Onboarding: Happy Anniversary"

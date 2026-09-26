@@ -127,6 +127,11 @@ final class OnboardingModel {
     var partnerCity: Place?
     var anniversaryDate: Date?
 
+    /// Optional at every point it is asked for — the onboarding screen has a Skip, and Settings
+    /// treats it as a field you may simply not fill in. Nil here means "not given", never
+    /// "not asked".
+    var birthday: Birthday?
+
     var userGender: Gender?
     var partnerGender: Gender?
 

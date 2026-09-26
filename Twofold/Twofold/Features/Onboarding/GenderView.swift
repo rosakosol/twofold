@@ -34,7 +34,7 @@ struct GenderView: View {
             primaryAction: {
                 onboarding.userGender = userGender
                 onboarding.partnerGender = partnerGender
-                onboarding.path.append(.coupleLocations)
+                onboarding.path.append(.birthday)
             },
             primaryDisabled: userGender == nil || partnerGender == nil
         )

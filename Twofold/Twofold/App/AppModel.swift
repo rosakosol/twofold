@@ -2161,6 +2161,14 @@ final class AppModel {
             couple.startedDatingOn = anniversaryDate
         }
 
+        // Only when they gave one. `BirthdayView` has a Skip, and skipping leaves this nil — which
+        // must stay nil rather than being written as some default, both because there is no
+        // sensible default for a birthday and because the column pair is all-or-nothing.
+        if let birthday = onboarding.birthday {
+            try? await BackendService.updateBirthday(birthday)
+            couple.partnerA.birthday = birthday
+        }
+
         inviteCode = onboarding.inviteCode
     }
 
