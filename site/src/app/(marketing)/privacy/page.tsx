@@ -23,7 +23,7 @@ export default async function PrivacyPage() {
     <LegalPageLayout
       doc={doc}
       fallbackTitle="Privacy Policy"
-      fallbackLastUpdated="12 July 2026"
+      fallbackLastUpdated="27 September 2026"
       fallbackNotice={
         <>
           <strong>Showing a summary.</strong> We couldn&apos;t load the full Privacy Policy just now, so
@@ -39,14 +39,17 @@ export default async function PrivacyPage() {
         To connect you with your partner and show the distance between you, Twofold collects the
         information you provide directly: your name, profile photo, home city, anniversary date,
         flight details, trips, memories, and any content you save within the app (including
-        doodles and game answers).
+        doodles and game answers). If you choose to give a birthday, we store the day and the
+        month only - never the year, so we hold no date of birth and nothing that reveals your
+        age.
       </p>
 
       <h2>How it&apos;s shared with your partner</h2>
       <p>
-        Once you&apos;re connected, your home city, trips, memories, flights, and shared activity are
-        visible to your partner - that&apos;s the core purpose of the app. Personal notes (like your
-        nickname for your partner) stay private to you unless you choose to share them.
+        Once you&apos;re connected, your home city, trips, memories, flights, shared activity and
+        your birthday if you&apos;ve given one are visible to your partner - that&apos;s the core purpose
+        of the app. Personal notes (like your nickname for your partner) stay private to you
+        unless you choose to share them.
       </p>
 
       <h2>How we use your information</h2>

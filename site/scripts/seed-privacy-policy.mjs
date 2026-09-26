@@ -62,7 +62,30 @@
  * rate_limit_events after at most 1 day (20260918000000), and PostHog is the US cloud
  * (AnalyticsConfig.host). Where a fact still isn't knowable from the code - registered
  * address, Supabase/Vercel regions, backup window, PostHog retention, minimum age - the text
- * says [TO CONFIRM] rather than inventing something.
+ * says [TO CONFIRM] rather than inventing something. Those have since been answered and the
+ * markers are gone, so the notice banner no longer sends readers looking for them.
+ *
+ * Revised on 2026-09-27 for birthdays (20261110001300 through 20261110001600), which added a
+ * category of personal data the policy did not mention anywhere:
+ *
+ *   - profiles.birthday_month / birthday_day, optional, entered in onboarding (BirthdayView) and
+ *     editable or removable in Settings -> Account (AccountView). Readable by the partner under
+ *     profiles_select_self_or_partner, so it belongs in "What your partner can see" too.
+ *   - The day and month are stored, deliberately without a year (see 20261110001300). That is a
+ *     privacy decision rather than an implementation detail, so the policy says it outright -
+ *     it is the difference between a birthday and a date of birth, and a reader is entitled to
+ *     know which one we hold.
+ *   - Two notification kinds, each with its own switch: partner_birthday_reminder (three days
+ *     out and on the morning, via send-birthday-reminders) and partner_birthday_wish (a message
+ *     the partner types on the day). The wish text is passed to notify-couple-event as `detail`
+ *     and pushed; nothing writes it to a table, which is worth stating in a policy that is
+ *     otherwise precise about what is kept.
+ *   - profiles.timezone is now read server-side to choose the hour a reminder arrives, so the
+ *     profile bullet no longer implies it is only for daily-question rollover.
+ *
+ * No analytics change: Analytics.swift sends no birthday event, so the analytics bullets stand.
+ * The data export still covers trips, flights, games and memories rather than profile fields,
+ * which is already how "Your rights" describes it.
  */
 import {sanityWriteClient} from './lib/sanity-write-client.mjs'
 import {resetKeys, h2, p, span, link, ptext, bullet, li} from './lib/portable-text.mjs'
@@ -91,7 +114,10 @@ const body = [
     `Account details. You can create an account with Apple, with Google, or with an email address and a password. Sign in with Apple or Google and we receive an email address and a unique identifier from them, and never see a password. Choose email and password instead and your password is stored by our authentication provider as a salted hash - we can't read it, and it is never visible to us or to your partner.`
   ),
   bullet(
-    `Your profile. Your first name, a profile photo, an accent colour, the city you call home, and the date you started dating. Your device also reports its timezone, so daily questions and streaks roll over at your local midnight rather than ours, and the language it is set to, so notifications we send from our servers can be written in it.`
+    `Your profile. Your first name, a profile photo, an accent colour, the city you call home, and the date you started dating. Your device also reports its timezone, so that daily questions and streaks roll over at your local midnight rather than ours and so that anything we time for you arrives at a sensible hour where you are, and the language it is set to, so notifications we send from our servers can be written in it.`
+  ),
+  bullet(
+    `Your birthday, if you give it. Optional, asked once during setup and changeable or removable afterwards in Settings. We ask for the day and the month only - never the year - so there is no date of birth here and nothing that can work out your age. See "Birthdays" below.`
   ),
   bullet(
     `Notes about your partner. A nickname and photo you can set for your partner, and - before you've connected - your guess at the city they're in. These are yours alone; your partner never sees what you've chosen.`
@@ -169,10 +195,25 @@ const body = [
     `The camera is used only when you capture a boarding pass or travel document. Photos you attach to a memory are chosen through the standard iOS picker, which hands us only the photos you pick - Twofold never gets access to your photo library as a whole - and those photos are uploaded to your shared album. If you turn on the app lock, Face ID, Touch ID or your device passcode is handled entirely by iOS on your device: we never see it, the result never leaves the device, and whether the lock is on is stored only on that device.`
   ),
 
+  // ------------------------------------------------------------- birthdays
+  h2('Birthdays'),
+  p(
+    span(`We ask for the day and the month, and never the year. `, 'strong'),
+    span(
+      `That is enough to know when to celebrate, and it means we are not holding a date of birth - so nothing here can be used to work out how old you are, or to identify you the way a full date of birth can. Giving it is optional at every point we ask, and you can change it or take it back out in Settings at any time.`
+    )
+  ),
+  ptext(
+    `Your birthday is yours rather than something your partner records about you: you enter your own, they enter theirs, and neither of you can type one in on the other's behalf. Once you're connected, each of you can see the other's.`
+  ),
+  ptext(
+    `If you've given one, we use it for two things, both of which your partner can switch off for themselves in Settings → Notifications. We remind them three days before your birthday and again on the morning of it - timed by their clock so it doesn't arrive in the middle of their night, and dated by yours so it lands on the right day wherever the two of you are. And on the day itself, the app marks it for both of you, and offers your partner a message to send you. Anything they type there is delivered to your phone as a notification and is not stored on our servers afterwards.`
+  ),
+
   // ---------------------------------------------------------- how we use it
   h2('How we use your information'),
   bullet(`To run the core features: the globe, distance, trips, memories, flight tracking, games and widgets.`),
-  bullet(`To send the notifications you've asked for - partner activity, flight updates, streaks and reminders.`),
+  bullet(`To send the notifications you've asked for - partner activity, flight updates, streaks, birthdays and reminders.`),
   bullet(`To process and restore subscriptions, whether bought in the app or on this website.`),
   bullet(`To read a flight email you've shared with us, when you ask us to.`),
   bullet(`To answer your support requests, and to run the public feedback board.`),
@@ -194,6 +235,7 @@ const body = [
   ),
   bullet(`Your answers to games and prompts, and your shared streaks.`),
   bullet(`Drawings you make on a shared pad.`),
+  bullet(`Your birthday, if you've given one - the day and month, since that is all we hold.`),
   ptext(`These stay private to you:`),
   bullet(`The nickname and photo you've set for your partner.`),
   bullet(`Your answers to the setup questions, including gender.`),
@@ -423,9 +465,9 @@ const doc = {
   _type: 'legalPage',
   pageId: 'privacy',
   title: 'Privacy Policy',
-  lastUpdated: '2026-09-13',
+  lastUpdated: '2026-09-27',
   noticeText:
-    `Draft - pending legal review. This policy describes how Twofold actually works today, but it has not been reviewed by a lawyer, and the points marked [TO CONFIRM] still need a decision before Twofold is publicly released.`,
+    `Draft - pending legal review. This policy describes how Twofold actually works today, but it has not been reviewed by a lawyer.`,
   body,
 }
 
