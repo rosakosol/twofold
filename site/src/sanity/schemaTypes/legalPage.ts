@@ -57,7 +57,7 @@ export default defineType({
                     type: 'url',
                     title: 'URL',
                     // `type: 'url'` permits only http/https unless the schemes are listed, and
-                    // these two pages link to hello@/support@ more than anywhere else. Needs
+                    // these two pages link to support@ more than anywhere else. Needs
                     // Studio >= 6.7.0: before that, a custom `scheme` was ignored whenever
                     // uri() was combined with another rule, so mailto: was rejected anyway.
                     validation: (Rule) =>

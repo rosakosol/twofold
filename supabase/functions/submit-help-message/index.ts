@@ -13,7 +13,7 @@
 // Requires these Supabase secrets - sending fails with a 500 until they're set:
 //   - ZOHO_SMTP_USER / ZOHO_SMTP_PASSWORD: the Zoho mailbox login and an **app-specific
 //     password** (Zoho > Security > App Passwords). Not the account's normal login password.
-//     This must be a real licensed mailbox (rosa@) - **never an alias**. support@/hello@/etc.
+//     This must be a real licensed mailbox (rosa@) - **never an alias**. support@/waitlist@/etc.
 //     are aliases on that mailbox and have no password of their own, so authenticating as one
 //     always fails with a bare `535 Authentication Failed` that looks exactly like a wrong
 //     password. Send *as* the alias via ZOHO_FROM_ADDRESS below, authenticate as the mailbox.
@@ -27,6 +27,10 @@
 //   - ZOHO_SMTP_PORT (optional, default 465): 465 implicit TLS, or 587 for STARTTLS.
 //   - ZOHO_FROM_ADDRESS (optional, defaults to ZOHO_SMTP_USER): Zoho only permits sending as
 //     the authenticated mailbox or one of its verified aliases - an unverified From is rejected.
+//     Send transactional mail, and anything a user might reply to, as support@ - it is the one
+//     address we advertise, and ingest-support-email turns replies to it into queue rows. hello@
+//     exists for welcome and announcement mail only, always with Reply-To: support@, and is
+//     never printed as somewhere to write; see ingest-support-email/parsing.ts.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";

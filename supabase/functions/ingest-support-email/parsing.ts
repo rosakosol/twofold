@@ -5,6 +5,21 @@
 // pure function over a string, and every one of those strings was written by a stranger.
 
 /// Our own addresses. Mail from any of these is our own notification coming back to us.
+///
+/// `hello@` is here because of the split the addresses are deliberately kept on:
+///
+///   * `support@` is the only address a user is ever told to write to. It is what the app, the
+///     website, the FAQ and both legal documents print, and what this function ingests into the
+///     support queue. 20261109001400 is what unifying on it looked like.
+///   * `hello@` is outbound only - the From on a welcome or announcement email, where a robotic
+///     address would set the wrong tone. Those go out with `Reply-To: support@`, so a reply
+///     lands in the queue rather than in a mailbox nobody works. It is never advertised as
+///     somewhere to write, which is the mistake 20261109001400 was fixing.
+///
+/// Being outbound makes the guard more load-bearing, not less: a bounce or a vacation
+/// auto-reply arriving *from* hello@ is our own mail coming back, and must not open a ticket.
+/// Some clients also ignore `Reply-To`, so hello@ forwards into the same mailbox this reads -
+/// which is the other way mail from it reaches here.
 export function isOurOwnAddress(address: string): boolean {
   const normalised = address.trim().toLowerCase();
   const ours = [
