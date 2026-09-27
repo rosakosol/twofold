@@ -14,7 +14,9 @@
 //  - Today's question is only today's. Restored only on the day it was recorded, because on any
 //    later day the honest answer is that the app doesn't know yet which question it will be — the
 //    backend assigns it, and guessing would show a question that isn't the one the couple
-//    actually gets.
+//    actually gets. It carries its own `questionRecordedAt` for that test rather than reading the
+//    snapshot's `recordedAt`, which any write moves — including the streak-only write that happens
+//    on every foreground, before the Games hub has asked for a question at all.
 //  - Deck progress is what the Games hub's topic bars are built from, and it decays slowest of
 //    the three: a deck you finished stays finished. Kept for the full window, because "you have
 //    completed nothing" is a worse thing to tell someone than a count that's a day behind.
@@ -41,6 +43,17 @@ enum OfflineGameStateCache {
         var deckProgress: [String: DeckProgress]?
         var userID: String?
         var recordedAt: Date
+        /// When the *question* was recorded, which is not when the snapshot was.
+        ///
+        /// `recordedAt` moves on every write, and a streak-only write carries the question forward
+        /// without bringing its date — so on the first launch of a new day, `refreshDailyStreak()`
+        /// was enough to re-stamp yesterday's question as today's. The Games hub then painted it
+        /// from cache and swapped it for the real one when the network answered, which is the flash
+        /// this exists to stop.
+        ///
+        /// Optional because a snapshot written before this field existed has no value for it, and
+        /// the safe reading of "no date" is "not today".
+        var questionRecordedAt: Date?
     }
 
     /// Two days, not thirty: a streak is a daily thing, and one older than this says more about
@@ -79,7 +92,11 @@ enum OfflineGameStateCache {
             deckProgress: deckProgress.map { Dictionary(uniqueKeysWithValues: $0.map { ($0.key.uuidString, $0.value) }) }
                 ?? existing?.deckProgress,
             userID: userID?.uuidString,
-            recordedAt: Date()
+            recordedAt: Date(),
+            // Stamped only by a write that actually carries a question. A streak-only write keeps
+            // the question — deliberately, see above — and must keep its original date with it,
+            // or carrying it forward silently ages into claiming it is today's.
+            questionRecordedAt: questionText == nil ? existing?.questionRecordedAt : Date()
         )
         guard let data = try? JSONEncoder().encode(snapshot) else { return }
         // Today's question text and the streak. Same reasoning as OfflineDataCache, including
@@ -99,7 +116,8 @@ enum OfflineGameStateCache {
         guard let snapshot = read(), let userID, snapshot.userID == userID.uuidString else { return nil }
         guard Date().timeIntervalSince(snapshot.recordedAt) < maxStreakAge else { return nil }
 
-        let isToday = Calendar.current.isDateInToday(snapshot.recordedAt)
+        // The question's own date, not the snapshot's. See `questionRecordedAt`.
+        let isToday = snapshot.questionRecordedAt.map(Calendar.current.isDateInToday) ?? false
         return Restored(
             dailyStreak: snapshot.dailyStreak,
             longestDailyStreak: snapshot.longestDailyStreak,

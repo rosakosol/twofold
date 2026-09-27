@@ -144,8 +144,47 @@ struct OfflineGameStateCacheTests {
         OfflineGameStateCache.clear()
     }
 
-    /// Ages the stored snapshot by editing `recordedAt` in place — the only way to test a
-    /// day-boundary rule without waiting for one.
+    /// The sequence that actually happens on the first launch of a new day, and the reason the
+    /// test above passed while the card still flashed yesterday's question.
+    ///
+    /// `refreshAll()` reaches `refreshDailyStreak()` before the Games hub is ever visited, and that
+    /// calls `recordGameStateForOffline()` with `questionText` still nil. The write merges, so
+    /// yesterday's question is carried forward — and `recordedAt` is stamped with *now*. One
+    /// streak-only write is therefore enough to re-date yesterday's question as today's, after
+    /// which `restore` hands it back and `startOrResumeDailyQuestion` paints it before the network
+    /// answers.
+    @Test("a streak-only write the next day doesn't re-date yesterday's question as today's")
+    func streakWriteDoesNotRedateTheQuestion() throws {
+        OfflineGameStateCache.clear()
+        record(userID: userID)
+        try rewindRecording(byDays: 1)
+
+        // What `refreshDailyStreak()` does, and all it does.
+        OfflineGameStateCache.record(
+            dailyStreak: 41, longestDailyStreak: 55,
+            dailyStreakResetsAt: Date().addingTimeInterval(3600),
+            questionText: nil, questionSessionID: nil,
+            myAnswered: false, partnerAnswered: false,
+            deckProgress: nil, userID: userID
+        )
+
+        let restored = try #require(OfflineGameStateCache.restore(for: userID))
+        #expect(restored.dailyStreak == 41, "the streak is what that write was for")
+        #expect(
+            restored.questionText == nil,
+            "yesterday's question came back dated today, which is the flash on the Games hub"
+        )
+        #expect(restored.questionSessionID == nil, "and its session would be answered into")
+        OfflineGameStateCache.clear()
+    }
+
+    /// Ages the stored snapshot in place — the only way to test a day-boundary rule without waiting
+    /// for one.
+    ///
+    /// Both timestamps, because the snapshot now carries two: `recordedAt` for the streak's
+    /// two-day window and `questionRecordedAt` for the question's one-day one. Rewinding only the
+    /// first would age the snapshot while leaving the question dated today, which is the very state
+    /// these tests exist to rule out.
     private func rewindRecording(byDays days: Int) throws {
         let url = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -153,8 +192,12 @@ struct OfflineGameStateCacheTests {
         var json = try #require(
             try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any]
         )
+        let seconds = Double(days) * 24 * 60 * 60
         let recordedAt = try #require(json["recordedAt"] as? Double)
-        json["recordedAt"] = recordedAt - Double(days) * 24 * 60 * 60
+        json["recordedAt"] = recordedAt - seconds
+        if let questionRecordedAt = json["questionRecordedAt"] as? Double {
+            json["questionRecordedAt"] = questionRecordedAt - seconds
+        }
         try JSONSerialization.data(withJSONObject: json).write(to: url)
     }
 
