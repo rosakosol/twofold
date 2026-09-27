@@ -1053,15 +1053,51 @@ struct HomeView: View {
         return names.joined(separator: " & ")
     }
 
+    /// The card above the fold: a countdown to the next trip, or — once one is under way — the fact
+    /// that it is.
+    ///
+    /// The under-way case used to be unreachable here. `upcomingTrips` includes active trips, but
+    /// `Trip.isActive` only returned true while an attached flight was in the air, so a trip with
+    /// no tracked flight counted as past the moment it began and never reached this card. Once
+    /// that was fixed, the card started showing in-progress trips and its copy did not fit them:
+    /// it counts down to `departureDate`, which is behind you mid-trip, so a `max(0, …)` clamp
+    /// pinned the count at zero and announced "Next reunion — Today" on day four of a visit.
+    ///
+    /// The clamp is gone with it. `upcomingTrips` is `isUpcoming || isActive`, and `isUpcoming` is
+    /// `departureDate > .now`, so the only trips that now reach the countdown have a departure
+    /// strictly ahead of them and `daysUntil` — which counts calendar days — cannot go negative.
+    /// The sibling call sites in TripRowView, TripsCarouselCards and RelationshipMilestoneStats
+    /// keep theirs: those are reached by past trips too.
+    ///
+    /// Deliberately not a countdown to the end. The remaining days are knowable — `arrivalDate` is
+    /// right there — but putting a timer on a visit turns the good half of a long-distance
+    /// relationship into a countdown to the goodbye.
+    /// Who is going where, in the tense that matches whether it has happened yet.
+    ///
+    /// `.solo` names the traveller because only one of them is moving and which one matters. The
+    /// other categories do not: both are already "your trip together", and naming a traveller on a
+    /// trip they are taking jointly would read as though the other were being left behind.
+    private func tripSubtitle(_ trip: Trip) -> String {
+        guard trip.category == .solo else {
+            return trip.isActive ? "You're together now" : "Your trip together"
+        }
+        let names = travelerNames(trip.travelerIDs)
+        let plural = trip.travelerIDs.count > 1
+        if trip.isActive {
+            return plural ? "\(names) are with you" : "\(names) is with you"
+        }
+        return plural ? "\(names) fly to you" : "\(names) flies to you"
+    }
+
     private func nextReunionCard(trip: Trip) -> some View {
-        let daysToGo = max(0, TimeMath.daysUntil(trip.departureDate))
+        let daysToGo = TimeMath.daysUntil(trip.departureDate)
         return SectionCard {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Next reunion")
+                    Text(trip.isActive ? "Right now" : "Next reunion")
                         .font(.subheadline)
                         .foregroundStyle(Theme.subtleInk)
-                    Text(daysToGo == 0 ? "Today 💛" : "\(daysToGo) days to go")
+                    Text(trip.isActive ? "Together 💛" : (daysToGo == 0 ? "Today 💛" : "\(daysToGo) days to go"))
                         .font(.title3.weight(.bold))
                         .foregroundStyle(Theme.ink)
                 }
@@ -1074,7 +1110,9 @@ struct HomeView: View {
 
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(trip.category == .solo ? "\(travelerNames(trip.travelerIDs)) \(trip.travelerIDs.count > 1 ? "fly" : "flies") to you" : "Your trip together")
+                    // Past tense once they have gone. "Max flies to you" is a promise, and reading
+                    // it on day four of the visit makes the app look like it has not noticed.
+                    Text(tripSubtitle(trip))
                         .font(.subheadline)
                         .foregroundStyle(Theme.subtleInk)
                         .lineLimit(1)
