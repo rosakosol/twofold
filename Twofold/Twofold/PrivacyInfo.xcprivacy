@@ -73,6 +73,23 @@
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
 			</array>
 		</dict>
+		<!-- Settings > Help > Support, and the Report Abuse flow that shares its form: a category, a
+		     free-text message, and for a report the identifiers of the person being reported.
+		     submit-help-message stores it as a row (submit_support_request resolves the profile
+		     itself), so it is linked, and the row deliberately outlives a deleted account - a
+		     request would otherwise be destroyed by the request made inside it. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeCustomerSupport</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypeUserID</string>
