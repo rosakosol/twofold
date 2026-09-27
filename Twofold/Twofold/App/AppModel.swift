@@ -1497,25 +1497,26 @@ final class AppModel {
             return
         }
         do {
-            let sessionID = try await BackendService.getDailyQuestionSession()
-            todaysDailySessionID = sessionID
-
-            // Concurrent, because only the session detail ever needed the id — the answer status
-            // and the streak are independent of it and of each other. Serially this was five round
-            // trips deep before the streak appeared (session, detail, status, streak, then the
-            // repair state the streak fetch awaits), each one waiting out the last. Now it is the
-            // session, then everything else at once.
-            async let detail = try? BackendService.fetchGameSession(id: sessionID)
-            async let status = try? BackendService.fetchDailyQuestionStatus()
+            // One call for the question, concurrent with the streak.
+            //
+            // This used to be the session id, then `fetchGameSession(id:)` for the text, then the
+            // answered flags — and the middle one is the generic detail loader, which is four
+            // sequential queries of its own. Five round trips deep for one sentence, each waiting
+            // out the last, which is what made the card take seconds on a working connection.
+            // `get_daily_question` (20261110001700) returns the lot in one row.
+            //
+            // The streak stays a separate call rather than being folded in: it is per couple rather
+            // than per question, `refreshAll()` fetches it on its own for the Home card, and it
+            // awaits the repair state after itself. Running it alongside costs nothing, and the card
+            // draws the question without waiting for it.
+            async let question = try? BackendService.fetchDailyQuestion()
             async let streakRefreshed: Void = refreshDailyStreak()
 
-            if let detail = await detail, let round = detail.rounds.first,
-               case let .deepConversation(topic)? = detail.content[round.contentID] {
-                todaysDailyQuestionText = topic.topic
-            }
-            if let status = await status {
-                todaysMyAnswered = status.mine
-                todaysPartnerAnswered = status.partner
+            if let question = await question {
+                todaysDailySessionID = question.sessionID
+                todaysDailyQuestionText = question.question
+                todaysMyAnswered = question.mine
+                todaysPartnerAnswered = question.partner
             }
             await streakRefreshed
         } catch {

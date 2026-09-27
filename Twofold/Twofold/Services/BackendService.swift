@@ -4175,9 +4175,37 @@ enum BackendService {
     /// — see `get_daily_question_session` (an ordinary 1-round `deep_conversations`
     /// session flagged `is_daily`, so it plays through the exact same `GameSessionStore` flow as
     /// any other game).
-    static func getDailyQuestionSession() async throws -> UUID {
-        let id: UUID = try await supabase.rpc("get_daily_question_session").execute().value
-        return id
+    /// Named for the RPC rather than for the feature: `DailyQuestionRow` is already taken, by a row
+    /// of the `daily_questions` bank itself. This is one day's assigned question plus its state.
+    private struct DailyQuestionSessionRow: Decodable {
+        var sessionId: UUID
+        var question: String
+        var myAnswered: Bool
+        var partnerAnswered: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case sessionId = "session_id"
+            case question
+            case myAnswered = "my_answered"
+            case partnerAnswered = "partner_answered"
+        }
+    }
+
+    /// Today's question, whole, in one round trip.
+    ///
+    /// Replaces a chain of three: the session id, then `fetchGameSession(id:)` for the text, then the
+    /// answered flags. Five sequential round trips for one sentence, because the middle one is the
+    /// generic detail loader and issues four queries of its own. It is right for a ten-round deck
+    /// session and wrong for a daily one, which has exactly one round and one question — see
+    /// migration 20261110001700.
+    ///
+    /// The wrappers for the two RPCs this supersedes are gone, having no callers left.
+    /// `get_daily_question_session` and `get_daily_question_status` both remain on the server,
+    /// because builds already on phones call them and cannot be recalled.
+    static func fetchDailyQuestion() async throws -> (sessionID: UUID, question: String, mine: Bool, partner: Bool)? {
+        let rows: [DailyQuestionSessionRow] = try await supabase.rpc("get_daily_question").execute().value
+        guard let row = rows.first else { return nil }
+        return (row.sessionId, row.question, row.myAnswered, row.partnerAnswered)
     }
 
     private struct DailyStreakRow: Decodable {
@@ -4207,24 +4235,6 @@ enum BackendService {
         let rows: [DailyStreakRow] = try await supabase.rpc("get_daily_streak").execute().value
         guard let row = rows.first else { return (0, 0, nil) }
         return (row.currentStreak, row.longestStreak, row.nextBoundary)
-    }
-
-    private struct DailyQuestionStatusRow: Decodable {
-        var myAnswered: Bool
-        var partnerAnswered: Bool
-
-        enum CodingKeys: String, CodingKey {
-            case myAnswered = "my_answered"
-            case partnerAnswered = "partner_answered"
-        }
-    }
-
-    /// No row yet means today's session hasn't even been created (neither partner has opened
-    /// it), which reads the same as "nobody's answered" — see `get_daily_question_status`.
-    static func fetchDailyQuestionStatus() async throws -> (mine: Bool, partner: Bool) {
-        let rows: [DailyQuestionStatusRow] = try await supabase.rpc("get_daily_question_status").execute().value
-        guard let row = rows.first else { return (false, false) }
-        return (row.myAnswered, row.partnerAnswered)
     }
 
     private struct DeckProgressRow: Decodable {
