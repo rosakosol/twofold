@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { APP_STORE_URL, PLANS } from "@/lib/marketing/config";
 import type { ResolvedPlan } from "@/lib/marketing/sanity";
-import { getSession, onAuthChange, signInWithApple, signOut } from "@/lib/marketing/auth";
+import { getSession, onAuthChange, signInWithProvider, sendMagicLink, signOut } from "@/lib/marketing/auth";
 import { providerFallbackName, providerLabel, sessionProvider } from "@/lib/marketing/provider";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -134,6 +134,13 @@ function PricingContent({
   // Empty until the offering resolves; every read falls back to the plan's own label, so
   // the cards are fully priced on first paint and only refine afterwards.
   const [livePrices, setLivePrices] = useState<LivePrices>({});
+  // Set when a signed-out visitor picks a plan: which plan they picked, and therefore that the
+  // sign-in step is what is on screen. Null the rest of the time.
+  const [signInFor, setSignInFor] = useState<Pending | null>(null);
+  const [oauthPending, setOauthPending] = useState<"apple" | "google" | null>(null);
+  const [magicLinkEmail, setMagicLinkEmail] = useState("");
+  const [magicLinkStatus, setMagicLinkStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [signInError, setSignInError] = useState<string | null>(null);
   const successRef = useRef<HTMLDivElement>(null);
   // Whatever this session was actually created with - Apple here, but equally a Google or
   // magic-link session carried over from the feedback board, which shares this project.
@@ -156,8 +163,20 @@ function PricingContent({
 
     const currentSession = await getSession();
     if (!currentSession) {
+      // Ask which account, rather than answering for them.
+      //
+      // This called `signInWithApple()` outright, sending every buyer into an Apple redirect — while
+      // the app signs people in with Apple, Google *or* an email address (BackendService.swift). A
+      // Google or email account holder got an Apple identity instead, which is a different Supabase
+      // user, and the subscription attached to that one: paid for, and invisible in the app they
+      // bought it for. Apple's Hide My Email makes it certain rather than likely, since a relay
+      // address cannot match the account they already have.
+      //
+      // Nothing about the payment needed Apple. Web checkout bills a card through Stripe (see
+      // billing.ts) — the sign-in is only how the entitlement finds an account, so the right set of
+      // methods is whichever ones can reach the account they already use.
       sessionStorage.setItem(PENDING_KEY, JSON.stringify({ planId, period: billingPeriod } satisfies Pending));
-      await signInWithApple();
+      setSignInFor({ planId, period: billingPeriod });
       return;
     }
 
@@ -215,6 +234,31 @@ function PricingContent({
    * to decide whether to resume a purchase, and guessing "no subscription" from a network blip is
    * how somebody gets charged twice.
    */
+  async function startOAuth(provider: "apple" | "google") {
+    setSignInError(null);
+    setOauthPending(provider);
+    try {
+      await signInWithProvider(provider);
+      // On success the browser leaves for the provider, so there is no success state to set.
+    } catch {
+      setOauthPending(null);
+      setSignInError("We couldn't start that sign-in. Please try again.");
+    }
+  }
+
+  async function submitMagicLink(event: React.FormEvent) {
+    event.preventDefault();
+    setSignInError(null);
+    setMagicLinkStatus("sending");
+    try {
+      await sendMagicLink(magicLinkEmail);
+      setMagicLinkStatus("sent");
+    } catch {
+      setMagicLinkStatus("error");
+      setSignInError("We couldn't send that link. Please check the address and try again.");
+    }
+  }
+
   async function checkSubscriptionStatus(currentSession: Session): Promise<boolean | null> {
     const { data, error } = await createClient()
       .from("profiles")
@@ -328,18 +372,21 @@ function PricingContent({
           <h1>One subscription, shared by both of you</h1>
           <p className="lead">Subscribe here on the web or right inside the app - either partner&apos;s subscription unlocks the full experience for you both.</p>
           {/* Signed-out only. It describes something about to happen ("you'll sign in at
-              checkout"), so it's simply untrue once there's a session - and it names Apple,
-              which attemptPurchase does force for a signed-out buyer but which says nothing
-              about a Google or magic-link session carried over from the feedback board. The
-              "Signed in as …" line below replaces it, and says which account. Gated on
-              !authLoading as well so a signed-in visitor never sees it flash on first paint. */}
+              checkout"), so it's simply untrue once there's a session. The "Signed in as …" line
+              below replaces it, and says which account. Gated on !authLoading as well so a
+              signed-in visitor never sees it flash on first paint.
+
+              It named Apple until the sign-in step stopped forcing it. Naming one provider was the
+              visible half of a bug that cost people money: a Google or email account holder who
+              signed in with Apple got a second Supabase user, and their subscription attached to
+              it. What matters is not which provider but that it is the same one as in the app. */}
           {!authLoading && !session && (
             <div className="apple-note">
               <svg className="icon">
-                <use href="/assets/icons.svg#icon-apple" />
+                <use href="/assets/icons.svg#icon-check-circle" />
               </svg>
-              You&apos;ll sign in with Apple at checkout - it&apos;s how we match your web purchase to your
-              Twofold account.
+              You&apos;ll sign in at checkout with the same account you use in the app - it&apos;s how
+              we match your web purchase to your Twofold account.
             </div>
           )}
         </Reveal>
@@ -382,6 +429,98 @@ function PricingContent({
                 used - your subscription will already be active.
               </p>
               <AppStoreBadge />
+            </div>
+          ) : signInFor ? (
+            /* The sign-in step, shown in place of the cards once a plan is picked. It replaces an
+               immediate redirect to Apple — see attemptPurchase for why that was the wrong default.
+
+               All three are here because the app has all three, and the only thing that matters is
+               landing on the account they already use. The order matches the app's own sign-in
+               screen so the button they reach for is where they expect it. */
+            <div className="card waitlist-card" style={{ marginTop: 12, maxWidth: 460, marginLeft: "auto", marginRight: "auto" }}>
+              {magicLinkStatus === "sent" ? (
+                <>
+                  <h3 style={{ marginBottom: 10 }}>Check your email</h3>
+                  <p style={{ marginBottom: 20 }}>
+                    We sent a sign-in link to <strong>{magicLinkEmail}</strong>. Open it, then pick your
+                    plan again — the link may open in a new tab, so we won&apos;t carry your choice over.
+                  </p>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => {
+                      setMagicLinkStatus("idle");
+                      setSignInFor(null);
+                    }}
+                  >
+                    Back to plans
+                  </button>
+                </>
+              ) : (
+                <>
+                  <h3 style={{ marginBottom: 6 }}>Sign in to subscribe</h3>
+                  <p style={{ marginBottom: 20 }}>
+                    Use the <strong>same method you use in the Twofold app</strong>. That&apos;s how your
+                    subscription reaches your account — a different one makes a new, empty account.
+                  </p>
+
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    style={{ width: "100%", marginBottom: 8 }}
+                    disabled={oauthPending !== null}
+                    onClick={() => startOAuth("apple")}
+                  >
+                    {oauthPending === "apple" ? "Opening…" : "Continue with Apple"}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    style={{ width: "100%", marginBottom: 16 }}
+                    disabled={oauthPending !== null}
+                    onClick={() => startOAuth("google")}
+                  >
+                    {oauthPending === "google" ? "Opening…" : "Continue with Google"}
+                  </button>
+
+                  <form onSubmit={submitMagicLink} noValidate>
+                    <div className="field-row">
+                      <label className="sr-only" htmlFor="pricing-signin-email">
+                        Email address
+                      </label>
+                      <input
+                        id="pricing-signin-email"
+                        name="email"
+                        type="email"
+                        inputMode="email"
+                        autoComplete="email"
+                        placeholder="yourname@email.com"
+                        value={magicLinkEmail}
+                        onChange={(event) => setMagicLinkEmail(event.target.value)}
+                        required
+                      />
+                      <button type="submit" className="btn btn-ghost" disabled={magicLinkStatus === "sending"}>
+                        {magicLinkStatus === "sending" ? "Sending…" : "Email me a link"}
+                      </button>
+                    </div>
+                  </form>
+
+                  {signInError && (
+                    <p className="form-status" data-state="error" role="status" aria-live="polite">
+                      {signInError}
+                    </p>
+                  )}
+
+                  <button
+                    type="button"
+                    className="text-link"
+                    style={{ marginTop: 16, background: "none", border: "none", cursor: "pointer" }}
+                    onClick={() => setSignInFor(null)}
+                  >
+                    Back to plans
+                  </button>
+                </>
+              )}
             </div>
           ) : (
             <>

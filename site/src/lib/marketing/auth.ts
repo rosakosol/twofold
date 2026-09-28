@@ -29,11 +29,36 @@ export function onAuthChange(callback: (session: import("@supabase/supabase-js")
   return () => subscription.unsubscribe();
 }
 
-export async function signInWithApple(redirectTo?: string) {
+/** The two OAuth providers the iOS app signs in with. */
+export type OAuthProvider = "apple" | "google";
+
+/**
+ * Starts an OAuth redirect. The browser navigates away on success, so nothing returns.
+ *
+ * `redirectTo` defaults to this page without its query string, which is what makes the pending-plan
+ * resume in PricingClient work: the session is established back on /pricing rather than on the
+ * board's /auth/callback, and the flow picks up where it left off.
+ */
+export async function signInWithProvider(provider: OAuthProvider, redirectTo?: string) {
   const supabase = createClient();
   const { error } = await supabase.auth.signInWithOAuth({
-    provider: "apple",
+    provider,
     options: { redirectTo: redirectTo || window.location.href.split("?")[0] },
+  });
+  if (error) throw error;
+}
+
+/**
+ * Emails a sign-in link, for the app's third sign-in method — `signUp`/`signInWithPassword` in
+ * BackendService.swift. There is no password field here on purpose: a password set in the app is
+ * the same credential, but asking for it on a marketing page is the shape of a phishing form, and
+ * a link to the address on the account reaches the same Supabase user either way.
+ */
+export async function sendMagicLink(email: string, redirectTo?: string) {
+  const supabase = createClient();
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: redirectTo || window.location.href.split("?")[0] },
   });
   if (error) throw error;
 }
