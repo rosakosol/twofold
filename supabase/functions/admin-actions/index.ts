@@ -109,13 +109,15 @@ async function deleteAccount(
   // somebody can retry; a live subscription against an account nobody can sign in to is a charge
   // they cannot stop. Of the two ways to be wrong, only one takes money.
   //
-  // `immediately`, not at period end — the same choice delete-account makes, and for the same
-  // reason: the access an end-of-period cancellation would preserve is access to an app the person
-  // can no longer sign in to.
+  // At period end, like every other caller — RevenueCat's cancel endpoint has no immediate mode, and
+  // ending one on the spot means refunding it, which is not a decision an admin deletion should make
+  // silently. Stopping the renewal is what prevents the charge; the paid period running out against
+  // a deleted account costs nobody anything.
   let cancelled = 0;
   const revenueCatKey = Deno.env.get("REVENUECAT_REST_API_KEY");
-  if (!revenueCatKey) {
-    console.error("[admin-actions] REVENUECAT_REST_API_KEY is not set");
+  const projectId = Deno.env.get("REVENUECAT_PROJECT_ID");
+  if (!revenueCatKey || !projectId) {
+    console.error("[admin-actions] REVENUECAT_REST_API_KEY or REVENUECAT_PROJECT_ID is not set");
     return bad(
       "We can't tell whether this account has a web subscription, so it hasn't been deleted. " +
         "Deleting it while a subscription is live would keep charging them.",
@@ -124,11 +126,7 @@ async function deleteAccount(
   }
 
   try {
-    cancelled = await cancelWebSubscriptions(profileId, {
-      revenueCatKey,
-      stripeKey: Deno.env.get("STRIPE_SECRET_KEY"),
-      mode: "immediately",
-    });
+    cancelled = await cancelWebSubscriptions(profileId, { revenueCatKey, projectId });
   } catch (err) {
     console.error("[admin-actions] could not cancel web subscription:", (err as Error).message);
     return bad(
@@ -193,15 +191,12 @@ async function cancelSubscription(
   if (!profileId) return bad("No account given.");
 
   const revenueCatKey = Deno.env.get("REVENUECAT_REST_API_KEY");
-  if (!revenueCatKey) return bad("Billing provider is not configured.", 503);
+  const projectId = Deno.env.get("REVENUECAT_PROJECT_ID");
+  if (!revenueCatKey || !projectId) return bad("Billing provider is not configured.", 503);
 
   let cancelled = 0;
   try {
-    cancelled = await cancelWebSubscriptions(profileId, {
-      revenueCatKey,
-      stripeKey: Deno.env.get("STRIPE_SECRET_KEY"),
-      mode: "at_period_end",
-    });
+    cancelled = await cancelWebSubscriptions(profileId, { revenueCatKey, projectId });
   } catch (err) {
     console.error("[admin-actions] could not cancel subscription:", (err as Error).message);
     return bad("Couldn't cancel that subscription. Nothing has changed.", 503);

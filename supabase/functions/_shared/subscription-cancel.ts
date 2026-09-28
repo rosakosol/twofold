@@ -5,29 +5,46 @@
 // way to cancel one for somebody else. `DeleteAccountView` warns about that and links to Apple's
 // own subscription management, and the FAQ says the same (20261105000000).
 //
-// A subscription bought on the website is different. It is billed through Stripe, we hold the
-// credentials, and the person cannot cancel it themselves once their account is gone — there is no
-// Apple Settings screen for it and no way left to sign in. The FAQ currently promises they can
-// "email support@twofoldapp.com.au and we will cancel it for you", which is a promise kept by hand,
-// only for the people who think to ask, and only for as long as somebody is reading that inbox.
+// A subscription bought on the website is different — it is ours to end, and the person cannot do
+// it themselves once their account is gone. So: cancel it during deletion, and treat a failure to
+// cancel as a reason not to delete (see `delete-account`). Charging a deleted account is the one
+// outcome worth refusing to risk.
 //
-// So: cancel it during deletion, and treat a failure to cancel as a reason not to delete (see
-// `delete-account`). Charging a deleted account is the one outcome worth refusing to risk.
+// ---------------------------------------------------------------------------
+// Why this talks to RevenueCat rather than Stripe
+// ---------------------------------------------------------------------------
+//
+// It used to call Stripe directly: read the subscriber from RevenueCat's v1 API, pull
+// `store_transaction_id`, resolve the Stripe subscription *item* (`si_…`) to its subscription
+// (`sub_…`), and cancel that. It had to, because the web provider was Stripe Billing — RevenueCat
+// did not own those subscriptions and had no endpoint that could end one.
+//
+// The web provider is RevenueCat Billing now, so RevenueCat owns them and will cancel them itself.
+// That removes the Stripe secret from this path entirely, along with the `si_…` shape assumption
+// that was never verified against a live response and that `delete-account` silently depended on.
+//
+// ---------------------------------------------------------------------------
+// Period end, not immediately
+// ---------------------------------------------------------------------------
+//
+// Deletion used to cancel immediately, on the reasoning that the access it would preserve is access
+// to an app the person can no longer sign in to. RevenueCat's cancel endpoint is period-end only —
+// ending one on the spot means refunding it, which is a different decision and not one account
+// deletion should make on somebody's behalf.
+//
+// Period end is the right answer anyway, and the old reasoning was thin. What matters is that no
+// further charge ever occurs, and cancelling stops the renewal that would cause one. Stripe refunds
+// nothing for an immediate cancellation, so ending it early only took away time already paid for.
+//
+// ---------------------------------------------------------------------------
+// Requires
+// ---------------------------------------------------------------------------
+//
+//   - REVENUECAT_REST_API_KEY — a RevenueCat secret API key with v2 permissions. The v1-only keys
+//     that predate the v2 API will 401 here.
+//   - REVENUECAT_PROJECT_ID   — the project these customers live in; every v2 path is scoped to it.
 
-/// RevenueCat's v1 subscriber payload, narrowed to what cancellation needs.
-export interface RevenueCatSubscription {
-  store?: string;
-  expires_date?: string | null;
-  store_transaction_id?: string | null;
-  unsubscribe_detected_at?: string | null;
-}
-
-export interface ActiveSubscription {
-  productId: string;
-  store: string;
-  storeTransactionId: string | null;
-  expiresAt: string | null;
-}
+const REVENUECAT_API_BASE = "https://api.revenuecat.com/v2";
 
 /// Stores where the subscription is the buyer's to cancel and nobody else's.
 ///
@@ -36,232 +53,170 @@ export interface ActiveSubscription {
 /// would mean reporting a failure for something that was never a charge.
 const STORE_MANAGED = new Set(["app_store", "play_store", "amazon", "promotional", "mac_app_store"]);
 
+/// The one store RevenueCat's own cancel endpoint accepts. Documented as "Web Billing subscriptions
+/// only", so anything else that is still billing has to be refused rather than attempted.
+const REVENUECAT_CANCELLABLE = "rc_billing";
+
+/// How many pages of subscriptions to walk before giving up. Nobody holds a thousand subscriptions;
+/// this exists so a malformed `next_page` cannot spin forever against a paid API.
+const MAX_PAGES = 10;
+
+/// RevenueCat's v2 Subscription, narrowed to what cancellation needs.
+export interface Subscription {
+  /// RevenueCat's own id — what the cancel endpoint takes. Not the store's id.
+  id: string;
+  /// amazon | app_store | mac_app_store | play_store | promotional | stripe | rc_billing | …
+  store: string;
+  /// RevenueCat's own answer to "should this customer have access right now", which replaces the
+  /// expiry arithmetic this file used to do against `expires_date`. Worth taking over our own
+  /// reading: it accounts for grace periods and billing retries, which a date comparison does not.
+  gives_access: boolean;
+  /// will_renew | will_not_renew | will_change_product | …
+  auto_renewal_status?: string;
+  product_id?: string | null;
+}
+
 export function isStoreManaged(store: string): boolean {
   return STORE_MANAGED.has(store.trim().toLowerCase());
 }
 
-/// Subscriptions that have not yet expired, from a v1 `GET /subscribers/{id}` body.
+/// Already cancelled, so there is nothing to do and nothing to report as failed. Kept separate from
+/// the store check because the two mean different things: this one *was* ours and has been dealt
+/// with. Calling cancel again would be asking RevenueCat to end an already-ending subscription,
+/// which is how an idempotent path starts returning errors.
+function alreadyCancelled(subscription: Subscription): boolean {
+  return subscription.auto_renewal_status === "will_not_renew";
+}
+
+export interface Partitioned {
+  /// Ours, live, and RevenueCat will end them.
+  cancellable: Subscription[];
+  /// Apple's or Google's, or a grant. Reporting zero for these is correct, not a failure.
+  storeManaged: Subscription[];
+  /// Still granting access, still capable of billing, and nothing here can stop it — a subscription
+  /// left on the old Stripe provider, or a store we have never sold through. Never silently
+  /// skipped: skipping is what leaves somebody paying.
+  unsupported: Subscription[];
+}
+
+/// Sorts what a customer holds into what this function can do about each of them.
 ///
-/// `expires_date` is null for a lifetime/non-renewing grant, which counts as active — an absent
-/// expiry is not an expiry in the past. Everything else is compared against `nowMs` rather than
-/// trusting the entitlements map, because entitlements collapse several products into one answer
-/// and cancellation needs the individual subscription that is still billing.
-export function activeSubscriptions(
-  subscriptions: Record<string, RevenueCatSubscription> | undefined,
-  nowMs: number,
-): ActiveSubscription[] {
-  const out: ActiveSubscription[] = [];
-  for (const [productId, sub] of Object.entries(subscriptions ?? {})) {
-    const expiresAt = sub?.expires_date ?? null;
-    if (expiresAt !== null) {
-      const expiryMs = Date.parse(expiresAt);
-      // An unparseable date is treated as still active on purpose: the cost of trying to cancel
-      // something already finished is a no-op, and the cost of skipping something still billing is
-      // a charge against a deleted account.
-      if (Number.isFinite(expiryMs) && expiryMs <= nowMs) continue;
+/// Anything not currently granting access is dropped first. An expired subscription is not billing
+/// anyone and cancelling it would be a no-op at best.
+export function partitionForCancellation(subscriptions: Subscription[]): Partitioned {
+  const out: Partitioned = { cancellable: [], storeManaged: [], unsupported: [] };
+
+  for (const subscription of subscriptions) {
+    if (!subscription.gives_access) continue;
+
+    const store = subscription.store.trim().toLowerCase();
+    if (isStoreManaged(store)) {
+      out.storeManaged.push(subscription);
+    } else if (store === REVENUECAT_CANCELLABLE) {
+      if (!alreadyCancelled(subscription)) out.cancellable.push(subscription);
+    } else {
+      out.unsupported.push(subscription);
     }
-    out.push({
-      productId,
-      store: (sub?.store ?? "unknown").trim().toLowerCase(),
-      storeTransactionId: sub?.store_transaction_id ?? null,
-      expiresAt,
-    });
   }
+
   return out;
 }
 
-/// The subscriptions this function is able to end itself.
-export function cancellableSubscriptions(active: ActiveSubscription[]): ActiveSubscription[] {
-  return active.filter((s) => !isStoreManaged(s.store));
+interface SubscriptionPage {
+  items?: Subscription[];
+  next_page?: string | null;
 }
 
-export async function fetchSubscriber(
-  appUserId: string,
+/// Every subscription RevenueCat holds for this customer id, following pagination.
+///
+/// A 404 is an id RevenueCat has never heard of, which is a customer with no subscriptions rather
+/// than an error — the caller asks under two spellings and at most one of them will exist.
+export async function listCustomerSubscriptions(
+  projectId: string,
+  customerId: string,
   apiKey: string,
   fetchImpl: typeof fetch = fetch,
-): Promise<Record<string, RevenueCatSubscription> | null> {
-  const response = await fetchImpl(
-    `https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(appUserId)}`,
-    { headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" } },
-  );
-  if (response.status === 404) return null;
-  if (!response.ok) throw new Error(`RevenueCat API returned ${response.status}`);
-  const body = await response.json();
-  return body?.subscriber?.subscriptions ?? {};
-}
+): Promise<Subscription[]> {
+  const subscriptions: Subscription[] = [];
+  let url: string | null =
+    `${REVENUECAT_API_BASE}/projects/${encodeURIComponent(projectId)}` +
+    `/customers/${encodeURIComponent(customerId)}/subscriptions?limit=100`;
 
-/// RevenueCat reports a Stripe subscription's `store_transaction_id` as the subscription *item*
-/// (`si_…`), not the subscription (`sub_…`), and Stripe's cancel endpoint takes the latter. One
-/// extra lookup resolves it. Ids that already look like a subscription are passed through, since
-/// nothing guarantees RevenueCat will keep reporting the item forever.
-export async function resolveStripeSubscriptionId(
-  storeTransactionId: string,
-  stripeKey: string,
-  fetchImpl: typeof fetch = fetch,
-): Promise<string> {
-  if (storeTransactionId.startsWith("sub_")) return storeTransactionId;
-  if (!storeTransactionId.startsWith("si_")) {
-    throw new Error(`unrecognised Stripe transaction id shape`);
-  }
-  const response = await fetchImpl(
-    `https://api.stripe.com/v1/subscription_items/${encodeURIComponent(storeTransactionId)}`,
-    { headers: { Authorization: `Bearer ${stripeKey}`, Accept: "application/json" } },
-  );
-  if (!response.ok) throw new Error(`Stripe subscription_items returned ${response.status}`);
-  const body = await response.json();
-  const subscriptionId = body?.subscription;
-  if (typeof subscriptionId !== "string" || subscriptionId.length === 0) {
-    throw new Error("Stripe subscription_item carried no subscription id");
-  }
-  return subscriptionId;
-}
+  for (let page = 0; url && page < MAX_PAGES; page += 1) {
+    const response: Response = await fetchImpl(url, {
+      headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
+    });
+    if (response.status === 404) return [];
+    if (!response.ok) throw new Error(`RevenueCat API returned ${response.status}`);
 
-/// Cancels immediately rather than at period end.
-///
-/// At period end would leave a live subscription attached to an account that no longer exists,
-/// renewing if the flag were ever cleared, and visible to nobody. The access it would preserve is
-/// access to an app the person can no longer sign in to, so there is nothing to preserve. Stripe
-/// issues no refund for either, which is the same outcome Apple gives.
-export async function cancelStripeSubscription(
-  subscriptionId: string,
-  stripeKey: string,
-  fetchImpl: typeof fetch = fetch,
-): Promise<void> {
-  const response = await fetchImpl(
-    `https://api.stripe.com/v1/subscriptions/${encodeURIComponent(subscriptionId)}`,
-    { method: "DELETE", headers: { Authorization: `Bearer ${stripeKey}` } },
-  );
-  // Already gone is the outcome we wanted. Stripe answers a second DELETE with 404, and a
-  // re-called deletion must not fail on it — this whole function is meant to be safe to retry.
-  if (response.status === 404) return;
-  if (!response.ok) throw new Error(`Stripe cancel returned ${response.status}`);
+    const body = await response.json() as SubscriptionPage;
+    subscriptions.push(...(body.items ?? []));
+
+    // `next_page` is documented as a URL. Relative is handled too rather than assumed away, since
+    // the alternative is a silently truncated list and a subscription that keeps billing.
+    const next = body.next_page;
+    url = !next ? null : next.startsWith("http") ? next : `${REVENUECAT_API_BASE}${next}`;
+  }
+
+  return subscriptions;
 }
 
 /// Stops a subscription renewing, leaving the period already paid for intact.
 ///
-/// The counterpart to `cancelStripeSubscription` above, and the difference is not a detail. That
-/// one ends the subscription there and then, which is right for account deletion — the access it
-/// would preserve is access to an app the person can no longer sign in to. It is wrong for
-/// somebody who is cancelling and keeping their account: they have paid for a period, Stripe
-/// refunds none of it, and ending it early takes away time they bought for nothing in return.
-///
-/// It is also the behaviour the rest of the codebase already assumes. `resolveWillRenew` exists
-/// precisely because "cancelling does not end anything — it stops the renewal, and the entitlement
-/// runs to the end of the period already paid for", and the app stops nagging a subscriber to
-/// cancel on the strength of it. A portal that cancelled immediately would contradict the model
-/// every other screen is built on.
-export async function endStripeSubscriptionAtPeriodEnd(
+/// RevenueCat has no immediate-cancel; ending one on the spot is the refund endpoint, which this
+/// deliberately does not call. See the header.
+export async function cancelSubscription(
+  projectId: string,
   subscriptionId: string,
-  stripeKey: string,
+  apiKey: string,
   fetchImpl: typeof fetch = fetch,
 ): Promise<void> {
   const response = await fetchImpl(
-    `https://api.stripe.com/v1/subscriptions/${encodeURIComponent(subscriptionId)}`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${stripeKey}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: "cancel_at_period_end=true",
-    },
+    `${REVENUECAT_API_BASE}/projects/${encodeURIComponent(projectId)}` +
+      `/subscriptions/${encodeURIComponent(subscriptionId)}/actions/cancel`,
+    { method: "POST", headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" } },
   );
-  // A subscription Stripe no longer has is one nobody is being charged for, which is the outcome
-  // asked for. Same reasoning as the 404 branch in cancelStripeSubscription: both are meant to be
-  // safe to call twice.
+  // Already gone is the outcome we wanted, and this whole path is meant to be safe to retry.
   if (response.status === 404) return;
-  if (!response.ok) throw new Error(`Stripe cancel-at-period-end returned ${response.status}`);
+  if (!response.ok) throw new Error(`RevenueCat cancel returned ${response.status}`);
 }
-
-/// When the subscription should actually stop.
-///
-/// Explicit at every call site rather than defaulted, because the two callers want opposite things
-/// and the wrong one is silent either way: `immediately` for a deletion, where nothing is left to
-/// preserve, and `at_period_end` for a person who is staying and has paid through a date.
-export type CancelMode = "immediately" | "at_period_end";
 
 /// Ends every web subscription an account holds. Returns how many were acted on.
 ///
-/// Throws if any of them could not be ended, and deliberately does not swallow — both callers
-/// treat a failure as something the person must be told about rather than something to log. For
+/// Throws if any of them could not be ended, and deliberately does not swallow — both callers treat
+/// a failure as something the person must be told about rather than something to log. For
 /// `delete-account` that means refusing to delete; for the account portal it means saying the
 /// cancellation did not happen, so nobody is left believing a charge has stopped when it has not.
-///
-/// Shared so the two cannot drift. This logic lived inside delete-account, and a second copy in
-/// the portal would be a pair that agrees in testing and disagrees in production, about money.
 export async function cancelWebSubscriptions(
   appUserId: string,
-  options: { revenueCatKey: string; stripeKey?: string; mode: CancelMode; fetchImpl?: typeof fetch },
+  options: { projectId: string; revenueCatKey: string; fetchImpl?: typeof fetch },
 ): Promise<number> {
   const fetchImpl = options.fetchImpl ?? fetch;
 
-  // Both spellings, because the two purchase channels write different ones.
-  //
-  // iOS calls `Purchases.shared.logIn(userID.uuidString)` and Swift uppercases, which is why this
-  // uppercased and why `revenuecat-webhook` and `sync-my-subscription` do. The website does not: it
-  // hands `session.user.id` to `Purchases.configure`/`changeUser` (see
-  // site/src/lib/marketing/billing.ts), and Supabase renders uuids lowercase. RevenueCat's
-  // app_user_id is case-sensitive, so a website subscription lives under the lowercase customer and
-  // uppercasing was the one spelling guaranteed not to find it.
-  //
-  // Which was silent, and worse than silent. `GET /v1/subscribers/{id}` creates the id it is asked
-  // about and answers 200 with empty maps instead of 404 — the premise of `isBlankSubscriber` in the
-  // webhook — so this returned 0, both callers read that as "nothing to cancel", the portal said the
-  // renewal had stopped and `delete-account` deleted the account. Stripe went on billing, and after
-  // a deletion there is no account left to cancel from.
-  //
-  // Merged rather than "the first spelling that answers", because a person can hold one under each:
-  // an App Store subscription bought in the app and a second bought on the website, which is the
-  // double-charge this same casing split makes possible. Deduped on the store transaction id so
-  // finding one subscription twice does not try to cancel it twice — a second Stripe call against an
-  // already-cancelled subscription throws, which would report a failure for a cancellation that
-  // worked.
-  //
-  // Costs one extra RevenueCat call on a path taken once per cancellation or deletion. It also
-  // creates a blank customer record under the spelling that holds nothing, exactly as the webhook's
-  // own alternate-casing retry already does.
-  const spellings = [appUserId.toUpperCase(), appUserId.toLowerCase()]
-    .filter((id, index, all) => all.indexOf(id) === index);
-
-  const active: ActiveSubscription[] = [];
-  const seen = new Set<string>();
+  // Both spellings, because one person can be two customer ids. Swift's `UUID.uuidString` uppercases
+  // and that is what `Purchases.logIn` sends, while Postgres holds uuids lowercase and the website
+  // used to buy under that form. Deduped on RevenueCat's own subscription id, so a customer that
+  // answers to both spellings is not cancelled twice.
+  const spellings = [...new Set([appUserId.toUpperCase(), appUserId.toLowerCase()])];
+  const byId = new Map<string, Subscription>();
   for (const spelling of spellings) {
-    const subscriptions = await fetchSubscriber(spelling, options.revenueCatKey, fetchImpl);
-    if (subscriptions === null) continue;
-    for (const subscription of activeSubscriptions(subscriptions, Date.now())) {
-      const key = subscription.storeTransactionId ?? `${subscription.productId}:${subscription.store}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      active.push(subscription);
+    for (const subscription of await listCustomerSubscriptions(options.projectId, spelling, options.revenueCatKey, fetchImpl)) {
+      byId.set(subscription.id, subscription);
     }
   }
 
-  const cancellable = cancellableSubscriptions(active);
-  if (cancellable.length === 0) return 0;
+  const { cancellable, unsupported } = partitionForCancellation([...byId.values()]);
 
-  if (!options.stripeKey) {
-    throw new Error("STRIPE_SECRET_KEY is not set, and this account has a web subscription");
+  // Before cancelling anything, so a mixed set does not half-succeed and report a number that
+  // implies the rest were fine.
+  if (unsupported.length > 0) {
+    const stores = [...new Set(unsupported.map((s) => s.store))].join(", ");
+    throw new Error(`no cancellation path for store "${stores}"`);
   }
 
   for (const subscription of cancellable) {
-    if (subscription.store !== "stripe" && subscription.store !== "rc_billing") {
-      // An unrecognised store is not silently skipped: skipping is what leaves somebody paying.
-      throw new Error(`no cancellation path for store "${subscription.store}"`);
-    }
-    if (!subscription.storeTransactionId) {
-      throw new Error("web subscription carried no store transaction id");
-    }
-    // Both RevenueCat web stores bill through Stripe and report a Stripe id here.
-    const stripeId = await resolveStripeSubscriptionId(
-      subscription.storeTransactionId,
-      options.stripeKey,
-      fetchImpl,
-    );
-    if (options.mode === "immediately") {
-      await cancelStripeSubscription(stripeId, options.stripeKey, fetchImpl);
-    } else {
-      await endStripeSubscriptionAtPeriodEnd(stripeId, options.stripeKey, fetchImpl);
-    }
+    await cancelSubscription(options.projectId, subscription.id, options.revenueCatKey, fetchImpl);
   }
+
   return cancellable.length;
 }

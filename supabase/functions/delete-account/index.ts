@@ -50,10 +50,11 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 // needed the same operation: two copies of the logic that decides whether somebody keeps being
 // charged is exactly the pair that agrees in testing and disagrees in production.
 //
-// Note the mode. Deletion cancels `immediately`, which is right only here — the access an
-// end-of-period cancellation would preserve is access to an app the person can no longer sign in
-// to. The portal passes `at_period_end`, because somebody who is staying has paid through a date
-// and Stripe refunds none of it.
+// Both callers now end a subscription the same way, at period end, because that is the only thing
+// RevenueCat's cancel endpoint does — ending one on the spot means refunding it, which account
+// deletion should not decide on somebody's behalf. Deletion used to pass `immediately`, on the
+// reasoning that the access preserved is access to an app the person can no longer sign in to. What
+// actually matters is that no further charge occurs, and stopping the renewal is what secures that.
 import { cancelWebSubscriptions } from "../_shared/subscription-cancel.ts";
 import { serveWithCors } from "../_shared/cors.ts";
 
@@ -76,16 +77,13 @@ Deno.serve(serveWithCors(async (req) => {
   let cancelledSubscriptions = 0;
   try {
     const revenueCatKey = Deno.env.get("REVENUECAT_REST_API_KEY");
-    if (!revenueCatKey) {
-      // Without it we cannot even tell whether there is a web subscription, and "assume there
+    const projectId = Deno.env.get("REVENUECAT_PROJECT_ID");
+    if (!revenueCatKey || !projectId) {
+      // Without these we cannot even tell whether there is a web subscription, and "assume there
       // isn't" is the assumption that charges people.
-      throw new Error("REVENUECAT_REST_API_KEY is not set");
+      throw new Error("REVENUECAT_REST_API_KEY or REVENUECAT_PROJECT_ID is not set");
     }
-    cancelledSubscriptions = await cancelWebSubscriptions(user.id, {
-      revenueCatKey,
-      stripeKey: Deno.env.get("STRIPE_SECRET_KEY"),
-      mode: "immediately",
-    });
+    cancelledSubscriptions = await cancelWebSubscriptions(user.id, { revenueCatKey, projectId });
   } catch (err) {
     // Deliberately before any deletion, and deliberately fatal. Nothing has been scrubbed yet, so
     // the account is exactly as it was and the retry the client is told to make is a clean one.

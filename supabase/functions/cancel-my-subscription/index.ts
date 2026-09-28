@@ -10,12 +10,14 @@
 // same gate and same reasoning as `delete-account`, which this deliberately resembles.
 //
 // ---------------------------------------------------------------------------
-// At period end, never immediately
+// At period end
 // ---------------------------------------------------------------------------
 //
-// `delete-account` cancels immediately, and is right to: after it runs there is no account left to
-// hold the access. Here the person is staying. They have paid through a date, Stripe refunds
-// nothing, and ending it early would take that time away in exchange for nothing.
+// The person is staying. They have paid through a date, nothing is refunded for ending it early,
+// and doing so would take that time away in exchange for nothing. `delete-account` ends one the
+// same way for its own reasons — see the header of `_shared/subscription-cancel.ts`, which is now
+// the only place this choice is made, since RevenueCat's cancel is period-end and there is no
+// other mode to pass.
 //
 // It also matches the model the rest of the app already shows. `resolveWillRenew` exists because
 // cancelling stops the renewal rather than the entitlement, and the app stops nagging someone to
@@ -26,10 +28,14 @@
 // ---------------------------------------------------------------------------
 //
 // An App Store subscription is not ours to cancel and never will be — Apple offers developers no
-// mechanism. `cancellableSubscriptions` filters those out, so this reports 0 rather than failing,
+// mechanism. `partitionForCancellation` sets those aside, so this reports 0 rather than failing,
 // and the portal shows Apple's own settings link for that case instead of a button. Reporting
 // success for an App Store cancellation would be the worst outcome available: the person believes
 // they have stopped a charge that is still coming.
+//
+// A subscription left on the old Stripe web provider is neither ours to cancel through RevenueCat
+// nor somebody else's to handle, so it raises rather than being quietly counted as nothing. The
+// person is told it did not happen, which is the only honest answer while one exists.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { cancelWebSubscriptions } from "../_shared/subscription-cancel.ts";
@@ -52,8 +58,9 @@ Deno.serve(serveWithCors(async (req) => {
   }
 
   const revenueCatKey = Deno.env.get("REVENUECAT_REST_API_KEY");
-  if (!revenueCatKey) {
-    console.error("[cancel-my-subscription] REVENUECAT_REST_API_KEY is not set");
+  const projectId = Deno.env.get("REVENUECAT_PROJECT_ID");
+  if (!revenueCatKey || !projectId) {
+    console.error("[cancel-my-subscription] REVENUECAT_REST_API_KEY or REVENUECAT_PROJECT_ID is not set");
     return Response.json(
       { error: "We couldn't reach our billing provider just now. Please try again shortly." },
       { status: 503 },
@@ -62,11 +69,7 @@ Deno.serve(serveWithCors(async (req) => {
 
   let cancelled = 0;
   try {
-    cancelled = await cancelWebSubscriptions(user.id, {
-      revenueCatKey,
-      stripeKey: Deno.env.get("STRIPE_SECRET_KEY"),
-      mode: "at_period_end",
-    });
+    cancelled = await cancelWebSubscriptions(user.id, { revenueCatKey, projectId });
   } catch (err) {
     // No subscription id, customer id or key in the log line — the message is ours, and the user
     // id is omitted the same way `revenuecat-webhook` omits it.
