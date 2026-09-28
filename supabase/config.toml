@@ -586,3 +586,32 @@ entrypoint = "./functions/purge-support-attachments/index.ts"
 enabled = true
 verify_jwt = true
 entrypoint = "./functions/fetch-support-attachments/index.ts"
+
+# Registered late, and the reason is worth recording: it was never here, so `functions deploy` used
+# the CLI's default of `verify_jwt = true` while production had been running it with false. A deploy
+# would have silently flipped it. Same class of omission as purge-dormant-accounts (eb3a256), and
+# the same fix — the setting belongs in source control, not in whatever the last deploy happened to
+# pass on the command line.
+#
+# False because the function does its own auth: it reads the caller's Authorization header into a
+# user-scoped client and refuses on `auth.getUser()` returning nobody, before it resolves a couple
+# or consumes any rate-limit budget.
+[functions.notify-couple-event]
+enabled = true
+verify_jwt = false
+import_map = "./functions/notify-couple-event/deno.json"
+entrypoint = "./functions/notify-couple-event/index.ts"
+
+# Deployed before it was registered, so it inherited the CLI default of true — which is correct
+# here, and is recorded rather than left to chance. The hourly cron in 20261110001500 calls it
+# through `net.http_post` with the service role key, which satisfies that.
+[functions.send-birthday-reminders]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/send-birthday-reminders/index.ts"
+
+# Deployed before it was registered, same as the two above. True matches production.
+[functions.delete-account]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/delete-account/index.ts"
