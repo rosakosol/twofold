@@ -22,37 +22,81 @@ struct DisconnectPartnerView: View {
     @State private var showingRemovePartnerConfirm = false
     @State private var isRemovingPartner = false
     @State private var removePartnerError: String?
-    @State private var subscriptionStore = SubscriptionStore()
     @State private var showingCancelSubscriptionOffer = false
     @State private var showingCustomerCenter = false
+    @State private var showingWebSubscriptionManaged = false
 
-    /// Same check `PartnerManagesSubscriptionView`'s call sites already use — the couple's active
-    /// tier is real, but not backed by *this* device's own RevenueCat entitlement, meaning it's
-    /// only here because the partner about to be disconnected is the one actually paying for it.
-    /// Without a warning, disconnecting silently drops this person back to the free tier with no
-    /// idea why their premium features just vanished.
+    /// The couple is covered, and by the partner about to be disconnected — so disconnecting drops
+    /// this person to the free plan, and they should be told before they do it rather than discover
+    /// it when their features vanish.
     ///
-    /// Gated on `hasResolvedEntitlements`, and that matters more here than anywhere else this
-    /// pattern appears. `subscribedTier` starts nil, which is indistinguishable from "not asked
-    /// yet" — so without the gate this is *true for the payer* until the fetch returns, and the
-    /// person actually funding the couple's plan is warned they are about to lose it. On a screen
-    /// about an irreversible action, a warning that is wrong for a beat is worse than a warning
-    /// that arrives a beat late.
-    private var wouldLosePaidAccess: Bool {
-        subscriptionStore.hasResolvedEntitlements
-            && appModel.subscriptionTier != nil
-            && subscriptionStore.subscribedTier == nil
+    /// This asked whether *this device* held a RevenueCat entitlement, which is not the same
+    /// question and gets the answer backwards for anyone who subscribed on the website: their
+    /// entitlement lives on RevenueCat's web customer, never in this device's receipts, so the
+    /// person actually paying was warned they were about to lose their partner's subscription, and
+    /// `isPayer` below never fired for them at all. `viewerHoldsSubscription` is the real answer —
+    /// their own profile row ORed with this device's entitlement, so it covers a website purchase
+    /// and still covers the webhook lag the device check was there for.
+    ///
+    /// Reads `isSubscriptionActive` rather than `subscriptionTier != nil`: the tier is deliberately
+    /// left stale when a subscription lapses (see `AppModel.isDeckLocked`), so a couple whose plan
+    /// ended months ago still has one recorded, and the old condition warned them about losing
+    /// access that was already gone.
+    ///
+    /// Gated on resolution, which matters more here than anywhere else this pattern appears. Both
+    /// flags start false, which is indistinguishable from "not asked yet" — so without the gate
+    /// this is true for the payer until the fetch returns, and on a screen about an irreversible
+    /// action a warning that is wrong for a beat is worse than one that arrives a beat late.
+    private var wouldLosePaidAccess: Bool { standing == .partnerPays }
+
+    /// The inverse: the couple's plan is this person's own, wherever they bought it. Mutually
+    /// exclusive with `wouldLosePaidAccess` by construction. Drives the post-disconnect "manage your
+    /// now-solo subscription" offer, since the partner's access ends immediately on disconnect
+    /// regardless of what happens to the billing.
+    private var isPayer: Bool { standing == .viewerPays }
+
+    private var standing: SubscriptionStanding {
+        Self.subscriptionStanding(
+            hasResolved: appModel.hasResolvedSubscription,
+            coupleIsCovered: appModel.isSubscriptionActive,
+            viewerHoldsSubscription: appModel.viewerHoldsSubscription
+        )
     }
 
-    /// The inverse of `wouldLosePaidAccess` — this device's own RevenueCat entitlement is what's
-    /// backing the couple's plan, i.e. this person is the one actually paying. Mutually exclusive
-    /// with `wouldLosePaidAccess` (can't be both the payer and not). Drives the post-disconnect
-    /// "manage your now-solo subscription" offer, since `appModel.partner`'s access disappears
-    /// immediately on disconnect regardless of what happens to this device's own billing.
-    private var isPayer: Bool {
-        subscriptionStore.hasResolvedEntitlements
-            && appModel.isSubscriptionActive
-            && subscriptionStore.isSubscribed
+    /// Where that offer's "manage" button can actually lead. `CustomerCenterView` only knows this
+    /// device's own purchase history, so for a subscription bought on the website it opens on a bare
+    /// "no subscription" screen — the same dead end `WebSubscriptionManagedView` exists to replace
+    /// in Settings.
+    private var payerManagesOnWeb: Bool {
+        AppModel.isWebManagedStore(appModel.viewerSubscriptionStore)
+    }
+
+    /// Whose subscription is covering this couple, as far as this screen needs to know.
+    ///
+    /// One function rather than two booleans because the two were documented as mutually exclusive
+    /// and nothing made them so — they read different fields, and for a website subscriber both came
+    /// out wrong at once: `wouldLosePaidAccess` true and `isPayer` false, for the person paying.
+    /// Three cases that cannot overlap is the shape the screen actually wants.
+    static func subscriptionStanding(
+        hasResolved: Bool,
+        coupleIsCovered: Bool,
+        viewerHoldsSubscription: Bool
+    ) -> SubscriptionStanding {
+        // Nothing is claimed until both flags are real. They start false, which is the same shape as
+        // "not asked yet", and the wrong half-second here is a warning about an irreversible action.
+        guard hasResolved, coupleIsCovered else { return .neither }
+        return viewerHoldsSubscription ? .viewerPays : .partnerPays
+    }
+
+    enum SubscriptionStanding: Equatable {
+        /// The partner about to be disconnected is the one paying — disconnecting ends this
+        /// person's access, and the confirmation says so.
+        case partnerPays
+        /// This person's own subscription, wherever they bought it. The partner loses access on
+        /// disconnect; the subscription itself carries on until they choose otherwise.
+        case viewerPays
+        /// Nobody is covered, or we do not know yet. The confirmation says nothing about money.
+        case neither
     }
 
     var body: some View {
@@ -157,9 +201,6 @@ struct DisconnectPartnerView: View {
                 )
             )
         }
-        .task {
-            await subscriptionStore.refreshEntitlementsOnly()
-        }
         .alert("Remove \(appModel.partner.name)?", isPresented: $showingRemovePartnerConfirm) {
             Button("Remove Partner", role: .destructive) {
                 Task {
@@ -184,7 +225,11 @@ struct DisconnectPartnerView: View {
             CancelSubscriptionOfferView(
                 onManage: {
                     showingCancelSubscriptionOffer = false
-                    showingCustomerCenter = true
+                    if payerManagesOnWeb {
+                        showingWebSubscriptionManaged = true
+                    } else {
+                        showingCustomerCenter = true
+                    }
                 },
                 onNotNow: {
                     showingCancelSubscriptionOffer = false
@@ -195,6 +240,12 @@ struct DisconnectPartnerView: View {
         .sheet(isPresented: $showingCustomerCenter, onDismiss: { dismiss() }) {
             CustomerCenterView()
                 .postHogScreenView("Disconnect: Manage Subscription")
+        }
+        .sheet(isPresented: $showingWebSubscriptionManaged, onDismiss: { dismiss() }) {
+            WebSubscriptionManagedView {
+                showingWebSubscriptionManaged = false
+            }
+            .postHogScreenView("Disconnect: Web Subscription Managed")
         }
         .postHogScreenView("Settings: Disconnect Partner")
     }

@@ -107,6 +107,66 @@ struct WebSubscriptionManagementTests {
         )
     }
 
+    // MARK: - Who the disconnect screen thinks is paying
+
+    /// The same bug one screen over, and the more expensive one: `wouldLosePaidAccess` asked whether
+    /// this device held an entitlement, so the website subscriber — the person actually paying — was
+    /// warned that disconnecting would cost them their partner's subscription, and the offer to keep
+    /// managing their own never appeared.
+    @Test("a website subscriber is the payer on the disconnect screen")
+    func webSubscriberIsThePayer() {
+        #expect(
+            DisconnectPartnerView.subscriptionStanding(
+                hasResolved: true,
+                coupleIsCovered: true,
+                viewerHoldsSubscription: true
+            ) == .viewerPays
+        )
+    }
+
+    @Test("the partner's subscription is still called the partner's")
+    func partnerPaysIsUnchanged() {
+        #expect(
+            DisconnectPartnerView.subscriptionStanding(
+                hasResolved: true,
+                coupleIsCovered: true,
+                viewerHoldsSubscription: false
+            ) == .partnerPays
+        )
+    }
+
+    /// The gate, and the reason it is a gate rather than a default. Both inputs start false, which
+    /// is the same shape as "not asked yet" — and the wrong answer for half a second here is a
+    /// warning attached to an irreversible action.
+    @Test("nothing is claimed about money before the answer lands")
+    func unresolvedClaimsNothing() {
+        #expect(
+            DisconnectPartnerView.subscriptionStanding(
+                hasResolved: false,
+                coupleIsCovered: true,
+                viewerHoldsSubscription: false
+            ) == .neither
+        )
+        #expect(
+            DisconnectPartnerView.subscriptionStanding(
+                hasResolved: false,
+                coupleIsCovered: true,
+                viewerHoldsSubscription: true
+            ) == .neither
+        )
+    }
+
+    @Test("an uncovered couple is told nothing about a subscription")
+    func uncoveredSaysNothing() {
+        #expect(
+            DisconnectPartnerView.subscriptionStanding(
+                hasResolved: true,
+                coupleIsCovered: false,
+                viewerHoldsSubscription: false
+            ) == .neither
+        )
+    }
+
     // MARK: - What counts as a web store
 
     @Test("both RevenueCat web stores count", arguments: ["stripe", "rc_billing", "RC_BILLING", " Stripe "])
