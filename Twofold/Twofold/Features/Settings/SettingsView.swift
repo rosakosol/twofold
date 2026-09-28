@@ -27,6 +27,7 @@ struct SettingsView: View {
     /// though the couple is genuinely covered. See `subscriptionStore`/`PartnerManagesSubscriptionView`.
     @State private var showingCustomerCenter = false
     @State private var showingPartnerManagesSubscription = false
+    @State private var showingWebSubscriptionManaged = false
     /// Nil until looked up, and left nil if the lookup fails — this card is an FYI about money,
     /// and a failed query is not a reason to tell anyone anything.
     @State private var redundantSubscription: BackendService.RedundantSubscription?
@@ -99,14 +100,16 @@ struct SettingsView: View {
                     SubscriptionBanner(
                         isSubscribed: appModel.isSubscriptionActive || subscriptionStore.isSubscribed
                     ) {
-                        if subscriptionStore.isSubscribed {
-                            // Bought on this device, so this is the one place it can be changed.
-                            showingCustomerCenter = true
-                        } else if appModel.isSubscriptionActive {
-                            // Covered, but not from here — the partner holds it.
-                            showingPartnerManagesSubscription = true
-                        } else {
-                            showingPaywall = true
+                        switch Self.subscriptionDestination(
+                            deviceHoldsEntitlement: subscriptionStore.isSubscribed,
+                            coupleIsCovered: appModel.isSubscriptionActive,
+                            viewerHoldsSubscription: appModel.viewerHoldsSubscription,
+                            viewerSubscriptionStore: appModel.viewerSubscriptionStore
+                        ) {
+                        case .customerCenter: showingCustomerCenter = true
+                        case .manageOnWeb: showingWebSubscriptionManaged = true
+                        case .partnerManages: showingPartnerManagesSubscription = true
+                        case .paywall: showingPaywall = true
                         }
                     }
 
@@ -330,6 +333,12 @@ struct SettingsView: View {
                 guard wasShowing, !isShowing else { return }
                 Task { await syncSubscriptionAfterCustomerCenter() }
             }
+            .sheet(isPresented: $showingWebSubscriptionManaged) {
+                WebSubscriptionManagedView {
+                    showingWebSubscriptionManaged = false
+                }
+                .postHogScreenView("Settings: Web Subscription Managed")
+            }
             .sheet(isPresented: $showingPartnerManagesSubscription) {
                 PartnerManagesSubscriptionView(partnerName: appModel.partner.name) {
                     showingPartnerManagesSubscription = false
@@ -374,6 +383,48 @@ struct SettingsView: View {
     private func requestReview() {
         guard let scene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene else { return }
         AppStore.requestReview(in: scene)
+    }
+
+    /// Where the subscription banner's tap should lead.
+    enum SubscriptionDestination: Equatable {
+        /// This device's own StoreKit purchase — RevenueCat's Customer Center can change it.
+        case customerCenter
+        /// Bought on twofoldapp.com.au, so the website is the only surface that can change it.
+        case manageOnWeb
+        /// The couple is covered by the other partner's purchase, which is not this person's to end.
+        case partnerManages
+        case paywall
+    }
+
+    /// Pulled out as a static pure function for the same reason `RootView.hasAccess` is: the
+    /// interesting cases are only reachable through `Purchases.shared`, which traps under XCTest.
+    ///
+    /// Order matters. The device's own entitlement is checked first because it is the only one of
+    /// these that can actually be changed in-app, and somebody holding both an App Store
+    /// subscription and a lapsed website one should be sent to the one that is live.
+    ///
+    /// `viewerHoldsSubscription` guards the store, and is not redundant with `coupleIsCovered`.
+    /// `subscription_store` is left stale rather than nulled when a subscription lapses, exactly as
+    /// `subscription_tier` is — so somebody whose own web subscription ended and whose partner now
+    /// pays still has "rc_billing" sitting in their row. Reading the store without checking whose
+    /// access this actually is would send them to the website to cancel something already gone,
+    /// while their partner's live subscription went unmentioned.
+    static func subscriptionDestination(
+        deviceHoldsEntitlement: Bool,
+        coupleIsCovered: Bool,
+        viewerHoldsSubscription: Bool,
+        viewerSubscriptionStore: String?
+    ) -> SubscriptionDestination {
+        if deviceHoldsEntitlement { return .customerCenter }
+        guard coupleIsCovered else { return .paywall }
+        if viewerHoldsSubscription, AppModel.isWebManagedStore(viewerSubscriptionStore) {
+            return .manageOnWeb
+        }
+        // Everything left over: covered, not from this device, and not positively known to be a web
+        // purchase. The partner is the overwhelmingly common case and the only one this screen can
+        // say anything useful about — an unrecognised or missing store falls here rather than
+        // sending somebody to a website that may have nothing for them.
+        return .partnerManages
     }
 
     /// Re-checks RevenueCat's own entitlement state right after the Customer Center closes and

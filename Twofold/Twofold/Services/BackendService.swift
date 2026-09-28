@@ -581,6 +581,10 @@ enum BackendService {
         var anniversaryDate: Date?
         var subscriptionActive: Bool
         var subscriptionTier: String?
+        /// Where this account's own subscription was bought — `profiles.subscription_store`, written
+        /// by `revenuecat-webhook`. See `AppModel.viewerSubscriptionStore` for why it is only ever
+        /// read as the viewer's own and never as the couple's.
+        var subscriptionStore: String?
         var partnerConnectedCelebrationShown: Bool
         var setupChecklistDismissed: Bool
         /// Non-nil only while there's an unacknowledged "your subscription lapsed because {name}
@@ -637,6 +641,7 @@ enum BackendService {
             anniversaryDate: profile.anniversaryDate.flatMap { Self.dateOnlyFormatter.date(from: $0) },
             subscriptionActive: profile.subscriptionActive,
             subscriptionTier: profile.subscriptionTier,
+            subscriptionStore: profile.subscriptionStore,
             partnerConnectedCelebrationShown: profile.partnerConnectedCelebrationShown,
             setupChecklistDismissed: profile.setupChecklistDismissed,
             partnerSubscriptionLapsePartnerName: profile.partnerSubscriptionLapsePartnerName,
@@ -772,6 +777,10 @@ enum BackendService {
         var anniversaryDate: String?
         var subscriptionActive: Bool
         var subscriptionTier: String?
+        /// "app_store", "rc_billing", "stripe", "promotional"… — migration 20261109000500. Null for
+        /// anyone whose last webhook predates the column, which is why every reader treats nil as
+        /// "we don't know" rather than as a default.
+        var subscriptionStore: String?
         var partnerConnectedCelebrationShown: Bool
         var setupChecklistDismissed: Bool
         var partnerSubscriptionLapsePartnerName: String?
@@ -800,6 +809,7 @@ enum BackendService {
             case anniversaryDate = "anniversary_date"
             case subscriptionActive = "subscription_active"
             case subscriptionTier = "subscription_tier"
+            case subscriptionStore = "subscription_store"
             case partnerConnectedCelebrationShown = "partner_connected_celebration_shown"
             case setupChecklistDismissed = "setup_checklist_dismissed"
             case partnerSubscriptionLapsePartnerName = "partner_subscription_lapse_partner_name"
@@ -2073,6 +2083,12 @@ enum BackendService {
         /// The higher of the two partners' tiers ("premium" beats "plus") — nil only if neither
         /// has ever purchased since this column was added (pre-existing subscribers).
         var subscriptionTier: String?
+        /// Where the *caller's own* subscription was bought, from `meProfile` — deliberately not
+        /// the couple's, for the same reason `viewerSubscriptionActive` exists above. It answers
+        /// "where do I go to change this", which is meaningless about the other partner's purchase.
+        /// Only meaningful while `viewerSubscriptionActive` is true: like `subscription_tier`, the
+        /// column is left stale rather than nulled when a subscription lapses.
+        var viewerSubscriptionStore: String?
         /// Both of these are the *caller's own* flags (from `meProfile`, never the partner's) —
         /// each side dismisses their own copy of these one-time prompts independently.
         var partnerConnectedCelebrationShown: Bool
@@ -2287,6 +2303,7 @@ enum BackendService {
             subscriptionActive: meProfile.subscriptionActive || partnerProfile.subscriptionActive,
             viewerSubscriptionActive: meProfile.subscriptionActive,
             subscriptionTier: effectiveTier,
+            viewerSubscriptionStore: meProfile.subscriptionStore,
             partnerConnectedCelebrationShown: meProfile.partnerConnectedCelebrationShown,
             setupChecklistDismissed: meProfile.setupChecklistDismissed
         )

@@ -101,6 +101,16 @@ final class AppModel {
     /// subscribers from before this column existed (`start_game_session` treats that the same
     /// as "plus" server-side, so this being nil never actually locks anyone out of content).
     var subscriptionTier: String?
+    /// Where the viewer's *own* subscription was bought — `profiles.subscription_store`, written by
+    /// `revenuecat-webhook` ("app_store", "rc_billing", "stripe", "promotional"…).
+    ///
+    /// The viewer's own row, never the couple-wide OR. What it is for is answering "where do I go to
+    /// change this", and the website cannot cancel a subscription bought on the other partner's
+    /// Apple Account any more than this app can. Nil is a real and common answer — nobody
+    /// subscribed, a purchase older than migration 20261109000500, or a cold offline launch before
+    /// the first fetch — so every reader has to treat it as "we don't know" and offer nothing on the
+    /// strength of it.
+    var viewerSubscriptionStore: String?
 
     /// Server-persisted "seen it" flags — deliberately not UserDefaults/@AppStorage, since those
     /// live in the app's local sandbox and get wiped on every uninstall/reinstall, showing these
@@ -751,6 +761,7 @@ final class AppModel {
         hasResolvedSubscription = true
         hasLoadedCoupleState = true
         subscriptionTier = profile.subscriptionTier
+        viewerSubscriptionStore = profile.subscriptionStore
         // Same reasoning as `performAdopt` — see OfflineSessionCache. Solo (unpaired) here, so
         // partnerConnected is false; restoring that keeps the setup card honest either way.
         OfflineSessionCache.record(
@@ -846,6 +857,26 @@ final class AppModel {
             Task { await BackendService.syncSubscriptionFromStore() }
         }
         return Self.isSubscribed(backendSaysActive: false, deviceTier: deviceTier)
+    }
+
+    /// Whether a `profiles.subscription_store` value names a subscription billed through our own
+    /// Stripe account, and therefore one the website can actually change.
+    ///
+    /// Mirrors `WEB_STORES` in site/src/lib/account/subscription.ts and the complement of
+    /// `STORE_MANAGED` in supabase/functions/_shared/subscription-cancel.ts — three copies now, kept
+    /// in sync by hand the same way this repo already accepts for `FlightStatus` and the support
+    /// categories. There is no codegen between Swift, Deno and Next.
+    ///
+    /// Only a positively recognised web store returns true. Nil, empty and unrecognised all return
+    /// false, which is the direction that fails safe: the cost of a false negative is a screen that
+    /// says less than it could, and the cost of a false positive is sending an App Store subscriber
+    /// to a website that cannot cancel anything for them — the mistake
+    /// `site/src/lib/account/subscription.ts` was written to avoid, for the same reason.
+    static func isWebManagedStore(_ store: String?) -> Bool {
+        guard let store = store?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() else {
+            return false
+        }
+        return store == "stripe" || store == "rc_billing"
     }
 
     func markSubscriptionActive(tier: String) {
@@ -1166,6 +1197,9 @@ final class AppModel {
         // Tier, which gates content. A new free account inheriting "premium" sees premium decks
         // until the next refresh corrects it.
         subscriptionTier = nil
+        // Same reasoning one step further on: a new account inheriting "rc_billing" would be sent
+        // to the website to manage a subscription belonging to whoever was signed in before.
+        viewerSubscriptionStore = nil
 
         // All of these carry a name — an ex-partner's, or that of someone who asked to connect.
         partnerDisconnectedMessage = nil
@@ -1883,6 +1917,7 @@ final class AppModel {
         hasResolvedSubscription = true
         hasLoadedCoupleState = true
         subscriptionTier = state.subscriptionTier
+        viewerSubscriptionStore = state.viewerSubscriptionStore
         // The backend has just told us the couple-wide truth — remember it so a later cold launch
         // with no network doesn't fall back to `false` and paywall a real subscriber.
         OfflineSessionCache.record(
