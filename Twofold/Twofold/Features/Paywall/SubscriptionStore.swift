@@ -48,7 +48,7 @@ enum SubscriptionTier: String, CaseIterable {
                 "Track 5 flights live each month",
                 "2000+ questions, including premium decks",
                 "Chess, and Sudoku on Hard & Expert",
-                "Every Word Search theme, and unlimited Word Guess",
+                "Every Word Search theme, and Word Guess with no daily limit",
                 "Flight delay analysis, gate & aircraft details",
                 "Your Relationship Record, exported as a keepsake",
                 "A monthly streak repair, and the Smart Rotating widget",

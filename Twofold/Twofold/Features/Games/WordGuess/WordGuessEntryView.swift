@@ -127,7 +127,7 @@ struct WordGuessEntryView: View {
                 Text("That's today's word done")
                     .font(.headline)
                     .foregroundStyle(Theme.ink)
-                Text("A new one arrives tomorrow. Premium plays as many as you like.")
+                Text("A new one arrives tomorrow. Premium has no daily limit.")
                     .font(.caption)
                     .foregroundStyle(Theme.subtleInk)
                     .multilineTextAlignment(.center)
@@ -145,7 +145,7 @@ struct WordGuessEntryView: View {
     @ViewBuilder
     private var allowanceNote: some View {
         if !isPremium && !limitReached {
-            Text("One word a day on Plus. Premium plays as many as you like.")
+            Text("One word a day on Plus. Premium has no daily limit.")
                 .font(.caption2)
                 .foregroundStyle(Theme.subtleInk)
                 .frame(maxWidth: .infinity)
