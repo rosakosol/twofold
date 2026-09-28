@@ -17,11 +17,15 @@ export const ENTITLEMENTS = {
 // groups the four Web Billing packages below.
 export const WEB_OFFERING_ID = "web_default";
 
-// Package identifiers within WEB_OFFERING_ID. These are RevenueCat's own package
-// identifiers — RevenueCat doesn't allow renaming a package's identifier after
-// creation, so these match whatever the dashboard actually generated (its display
-// name, in this case). If you ever recreate these packages with cleaner identifiers,
-// update the four values below to match.
+// Package identifiers within WEB_OFFERING_ID, and they must match the dashboard exactly —
+// `findPackage` looks packages up by this string, and a miss is silent: `pkg` comes back null and
+// the page shows its "web checkout is being finalized" card instead of a checkout.
+//
+// These were the packages' display names ("Twofold Plus Monthly"), which is what the dashboard
+// generated when they were first created against the Stripe provider. They were recreated under
+// RevenueCat Billing with these identifiers instead. RevenueCat does not allow renaming a package
+// identifier after creation, so recreating the packages is the only way to change them, and these
+// four values are the other half of that change.
 export interface PlanPeriod {
   packageId: string;
   price: number;
@@ -47,8 +51,8 @@ export const PLANS: Record<"plus" | "premium", Plan> = {
     name: "Twofold Plus",
     entitlement: ENTITLEMENTS.plus,
     tagline: "Everything you need for long-distance love",
-    monthly: { packageId: "Twofold Plus Monthly", price: 9.99, priceLabel: "$9.99" },
-    yearly: { packageId: "Twofold Plus Yearly", price: 59.99, priceLabel: "$59.99", perMonthLabel: "$5.00" },
+    monthly: { packageId: "plus_monthly", price: 9.99, priceLabel: "$9.99" },
+    yearly: { packageId: "plus_yearly", price: 59.99, priceLabel: "$59.99", perMonthLabel: "$5.00" },
     features: [
       "Everything you need for long-distance love",
       "Unlimited trips & memories",
@@ -64,8 +68,8 @@ export const PLANS: Record<"plus" | "premium", Plan> = {
     name: "Twofold Premium",
     entitlement: ENTITLEMENTS.premium,
     tagline: "The full relationship globe experience",
-    monthly: { packageId: "Twofold Premium Monthly", price: 19.99, priceLabel: "$19.99" },
-    yearly: { packageId: "Twofold Premium Yearly", price: 119.99, priceLabel: "$119.99", perMonthLabel: "$10.00" },
+    monthly: { packageId: "premium_monthly", price: 19.99, priceLabel: "$19.99" },
+    yearly: { packageId: "premium_yearly", price: 119.99, priceLabel: "$119.99", perMonthLabel: "$10.00" },
     features: [
       "Everything in Twofold Plus",
       "Track 5 flights live each month",
