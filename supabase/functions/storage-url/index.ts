@@ -89,6 +89,10 @@ interface Input {
   op?: unknown;
   paths?: unknown;
   contentType?: unknown;
+  /// Optional on the wire as well as here — a client older than the size bound does not send it,
+  /// and the write path below says why that still signs. `unknown` like the rest: this is a
+  /// stranger's JSON, and every field is narrowed with a `typeof` check before it is used.
+  contentLength?: unknown;
 }
 
 function bad(message: string, status = 400): Response {
