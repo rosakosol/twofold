@@ -1489,27 +1489,66 @@ enum BackendService {
             .value
     }
 
+    /// Why the server would not start tracking a flight.
+    ///
+    /// `enable_flight_tracking` has always reported a `reason` beside its `enabled: false`, and the
+    /// client has always thrown it away and shown the allowance sentence for every refusal. That was
+    /// true-by-accident while the allowance was the only reason it ever refused. Since
+    /// 20261110001800 it also refuses a couple whose subscription has lapsed, and telling them their
+    /// month's flights are used up is both wrong and unactionable — the allowance resets on the 1st
+    /// and theirs never will.
+    ///
+    /// A reason this build does not recognise falls back to the allowance sentence, which is what
+    /// every refusal used to say: a newer server adding a reason must not produce an empty message.
+    enum FlightTrackingRefusal: String {
+        case limitReached = "limit_reached"
+        case subscriptionRequired = "subscription_required"
+        case flightOver = "flight_over"
+
+        var message: String {
+            switch self {
+            case .limitReached:
+                "You've used all your live-tracked flights this month. Your allowance resets on the 1st."
+            case .subscriptionRequired:
+                "Live tracking needs an active subscription. Everything you've already saved stays exactly where it is."
+            case .flightOver:
+                "This flight has already arrived, so there's nothing left to follow."
+            }
+        }
+
+        static func message(for reason: String?) -> String {
+            guard let reason, let refusal = Self(rawValue: reason) else {
+                return Self.limitReached.message
+            }
+            return refusal.message
+        }
+    }
+
+    struct FlightTrackingResult: Decodable {
+        var enabled: Bool
+        /// Only ever set when `enabled` is false. See `FlightTrackingRefusal`.
+        var reason: String?
+    }
+
     /// Spends one of the couple's monthly live-tracking slots on a flight that was saved without
     /// it — the flight a couple added after their allowance was gone.
     ///
-    /// Returns false when there is nothing to spend, or when the flight has already arrived and
-    /// there would be nothing left to poll. The server decides both: `enable_flight_tracking` is
-    /// the only thing that may grant tracking, for the same reason the subscription columns are
-    /// the webhook's alone — a client that could grant itself a slot has no allowance at all.
-    @discardableResult
-    static func enableFlightTracking(flightID: UUID) async throws -> Bool {
+    /// Not enabled when there is nothing to spend, when the couple's subscription has lapsed, or
+    /// when the flight has already arrived and there would be nothing left to poll. The server
+    /// decides all three: `enable_flight_tracking` is the only thing that may grant tracking, for
+    /// the same reason the subscription columns are the webhook's alone — a client that could grant
+    /// itself a slot has no allowance at all.
+    static func enableFlightTracking(flightID: UUID) async throws -> FlightTrackingResult {
         struct Params: Encodable {
             let pFlightId: UUID
             enum CodingKeys: String, CodingKey {
                 case pFlightId = "p_flight_id"
             }
         }
-        struct Result: Decodable { var enabled: Bool }
-        let result: Result = try await supabase
+        return try await supabase
             .rpc("enable_flight_tracking", params: Params(pFlightId: flightID))
             .execute()
             .value
-        return result.enabled
     }
 
     /// A couple's game sessions, for a data export.

@@ -307,21 +307,21 @@ struct FlightTrackingView: View {
 
     /// Spends a slot, or explains why it could not.
     ///
-    /// The refusal is the server's to make — `enable_flight_tracking` owns the allowance — so a
-    /// `false` here is a real answer rather than an error, and says the one thing the person can
-    /// act on: the allowance is gone until the 1st.
+    /// The refusal is the server's to make — `enable_flight_tracking` owns both the allowance and
+    /// the subscription check — so a `false` here is a real answer rather than an error, and says
+    /// the one thing the person can act on. Which sentence that is depends on which refusal it was:
+    /// the allowance one told a lapsed couple to wait for the 1st, which never helps them.
     private func enableTracking() {
         isEnablingTracking = true
         enableTrackingError = nil
         Task {
             defer { isEnablingTracking = false }
             do {
-                let enabled = try await BackendService.enableFlightTracking(flightID: flight.id)
-                if enabled {
+                let result = try await BackendService.enableFlightTracking(flightID: flight.id)
+                if result.enabled {
                     await appModel.refreshFlights()
                 } else {
-                    enableTrackingError = "You've used all your live-tracked flights this month. "
-                        + "Your allowance resets on the 1st."
+                    enableTrackingError = BackendService.FlightTrackingRefusal.message(for: result.reason)
                 }
             } catch {
                 enableTrackingError = "Couldn't turn tracking on. Try again."

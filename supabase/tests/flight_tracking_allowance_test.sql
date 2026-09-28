@@ -30,6 +30,15 @@ on conflict (id) do update set first_name = excluded.first_name;
 insert into public.couples (id, partner_a_id, partner_b_id)
 values ('cccccccc-4444-0000-0000-000000000003', 'aaaaaaaa-4444-0000-0000-000000000001', 'bbbbbbbb-4444-0000-0000-000000000002');
 
+-- Subscribed, because since 20261110001800 `enable_flight_tracking` refuses a couple who are not:
+-- starting new polling is adding to their story, which is what a subscription buys (20261028000000),
+-- and flights were the one kind of content that gate could not reach through RLS. This file is about
+-- the allowance, which is a question that only arises for a couple allowed to spend it — the refusal
+-- itself is asserted in subscription_gates_writes_test.sql. Without this every assertion below reads
+-- the subscription refusal instead of the limit it means to measure.
+update public.profiles set subscription_active = true
+where id in ('aaaaaaaa-4444-0000-0000-000000000001', 'bbbbbbbb-4444-0000-0000-000000000002');
+
 -- MARK: the limits themselves
 
 select is(public.flight_limit_for_tier('plus'), 2, 'Plus tracks 2 flights a month');

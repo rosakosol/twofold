@@ -12,7 +12,7 @@
 --   * Either partner's subscription covers both, which is what the terms promise.
 
 begin;
-select plan(12);
+select plan(16);
 
 create extension if not exists pgtap;
 
@@ -137,6 +137,59 @@ select is(
   (select count(*)::int from public.memories where couple_id = 'ffffffff-9999-0000-0000-0000000000a1'),
   2,
   'the paying couple''s additions all landed'
+);
+
+-- ---------------------------------------------------------------------------
+-- Flights, which are the expensive ones
+-- ---------------------------------------------------------------------------
+--
+-- Every other kind of content is gated by an RLS policy. Flights cannot be: nothing grants clients
+-- INSERT on `public.flights` at all, because `add-flight` writes them as service_role after paying
+-- AeroAPI for the lookup, and `enable_flight_tracking` is the one that starts the polling. So the
+-- gate has to be written into that function by hand or it is not written anywhere — and this is the
+-- content that actually costs money, roughly 85c per tracked flight across its life.
+
+reset role;
+insert into public.flights (id, couple_id, flight_number_iata, status, scheduled_out, tracking_enabled)
+values
+  ('22222222-9999-0000-0000-0000000000a1', 'ffffffff-9999-0000-0000-0000000000a1',
+   'QF1', 'scheduled', now() + interval '2 days', false),
+  ('22222222-9999-0000-0000-0000000000b1', 'ffffffff-9999-0000-0000-0000000000b1',
+   'QF2', 'scheduled', now() + interval '2 days', false);
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"eeeeeeee-9999-0000-0000-00000000000c","role":"authenticated"}';
+
+select is(
+  (select public.enable_flight_tracking('22222222-9999-0000-0000-0000000000b1') ->> 'reason'),
+  'subscription_required',
+  'a lapsed couple cannot start tracking a flight — the priciest thing in the app'
+);
+
+-- The refusal has to actually withhold the polling, not merely report that it did.
+reset role;
+select is(
+  (select tracking_enabled from public.flights where id = '22222222-9999-0000-0000-0000000000b1'),
+  false,
+  'and the flight is left untracked'
+);
+
+-- Nor may the refusal quietly spend one of the month's slots on the way past.
+select is(
+  (select count(*)::int from public.flight_additions
+   where flight_id = '22222222-9999-0000-0000-0000000000b1'),
+  0,
+  'and no slot is spent by the attempt'
+);
+
+-- The other direction, because a gate that refuses everybody is the more expensive mistake.
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"eeeeeeee-9999-0000-0000-00000000000a","role":"authenticated"}';
+
+select is(
+  (select public.enable_flight_tracking('22222222-9999-0000-0000-0000000000a1') ->> 'enabled'),
+  'true',
+  'the non-paying partner of a paying couple still can — coverage is the couple''s'
 );
 
 reset role;

@@ -128,3 +128,80 @@ struct FlightAllowanceTests {
         #expect(allowance.remaining == 5)
     }
 }
+
+//
+//  Which refusal it was, for the one control that shows it.
+//
+//  `enable_flight_tracking` has always answered `{enabled: false, reason: ...}` and the client has
+//  always thrown the reason away and shown the allowance sentence — "you've used all your
+//  live-tracked flights this month, your allowance resets on the 1st." That was correct by accident
+//  while `limit_reached` was the only refusal it could give.
+//
+//  20261110001800 added a second one. The subscription gate of 20261028000000 never reached flights
+//  — no policy grants clients INSERT on `public.flights`, so RLS could not express it — which left
+//  the one kind of content that costs real money as the only kind a lapsed couple could still add.
+//  Closing that made the hardcoded sentence a lie: it tells somebody whose subscription has lapsed
+//  to wait for a reset that will not help them.
+//
+//  Bodies are the exact jsonb the function builds, so a reason renamed on either side fails here.
+//
+struct FlightTrackingRefusalTests {
+
+    private func result(_ json: String) throws -> BackendService.FlightTrackingResult {
+        try JSONDecoder().decode(BackendService.FlightTrackingResult.self, from: Data(json.utf8))
+    }
+
+    @Test("the lapsed-subscription refusal does not read as a spent allowance")
+    func subscriptionRefusalIsItsOwnSentence() throws {
+        let refused = try result(#"{"reason": "subscription_required", "enabled": false}"#)
+        #expect(!refused.enabled)
+        let message = BackendService.FlightTrackingRefusal.message(for: refused.reason)
+        #expect(message.contains("subscription"))
+        #expect(!message.contains("1st"), "a lapsed couple was told to wait for a reset: \(message)")
+        #expect(!message.contains("_"), "a machine-readable code reached the screen: \(message)")
+    }
+
+    @Test("the allowance refusal still names the reset")
+    func allowanceRefusalUnchanged() throws {
+        let refused = try result(#"{"used": 5, "limit": 5, "reason": "limit_reached", "enabled": false}"#)
+        #expect(!refused.enabled)
+        let message = BackendService.FlightTrackingRefusal.message(for: refused.reason)
+        #expect(message.contains("1st"))
+        #expect(!message.contains("subscription"))
+    }
+
+    /// A flight that arrived between the card rendering and the button being tapped. Rare, and it
+    /// used to read as a spent allowance too.
+    @Test("an arrived flight says so rather than blaming the allowance")
+    func arrivedFlightHasItsOwnSentence() throws {
+        let refused = try result(#"{"enabled": false, "reason": "flight_over"}"#)
+        let message = BackendService.FlightTrackingRefusal.message(for: refused.reason)
+        #expect(message.contains("arrived"))
+        #expect(!message.contains("1st"))
+    }
+
+    /// The fallback has to be a sentence, not an empty string: a server that grows a fourth reason
+    /// must not leave the card showing nothing where an explanation should be.
+    @Test("a reason this build has never heard of still explains itself")
+    func unknownReasonFallsBack() throws {
+        for reason in ["something_new", ""] {
+            let message = BackendService.FlightTrackingRefusal.message(for: reason)
+            #expect(!message.isEmpty)
+            #expect(!message.contains("_"), "a machine-readable code reached the screen: \(message)")
+        }
+        #expect(!BackendService.FlightTrackingRefusal.message(for: nil).isEmpty)
+    }
+
+    /// The success shapes both have to decode, or a granted slot reads as a thrown error and the
+    /// person is told to try again after it already worked.
+    @Test("both success bodies decode, with no reason attached")
+    func successDecodes() throws {
+        let spent = try result(#"{"used": 2, "limit": 5, "enabled": true}"#)
+        #expect(spent.enabled)
+        #expect(spent.reason == nil)
+
+        let already = try result(#"{"enabled": true, "already_tracking": true}"#)
+        #expect(already.enabled)
+        #expect(already.reason == nil)
+    }
+}

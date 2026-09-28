@@ -194,6 +194,38 @@ Deno.serve(async (req) => {
     );
   }
 
+  // Adding needs a subscription — the same rule 20261028000000 put in RLS for trips, memories and
+  // everything else a couple adds to their story. It has to be written out here because this
+  // function inserts as service_role, so no policy on `public.flights` is consulted and none could
+  // be: clients have no INSERT on that table at all. Flights were therefore the one kind of content
+  // a lapsed couple could still add, and the only kind that costs money — about 2c of lookups here
+  // and about 85c of polling over the life of a tracked flight.
+  //
+  // Refused rather than saved-untracked, unlike the over-allowance case below. That case exists so
+  // a couple who have spent their month still keep their own record of the journey; this one is
+  // about whether they may add to that record at all, and the answer for every other kind of
+  // content is no.
+  //
+  // Checked before the AeroAPI calls for the same reason the pairing check is: a refused caller
+  // should not cost anything.
+  const { data: subscribed, error: subscribedErr } = await userClient
+    .rpc("couple_is_subscribed", { p_couple_id: couple.id });
+  if (subscribedErr) {
+    // A failed read is not an answer. 503 so the client can retry, rather than telling a paying
+    // couple to subscribe because one query blipped.
+    console.error("[add-flight] subscription check failed:", subscribedErr.message);
+    return Response.json({ error: "Couldn't check your subscription. Please try again." }, { status: 503 });
+  }
+  if (subscribed !== true) {
+    return Response.json(
+      {
+        error: "Tracking a new flight needs an active subscription. Everything you've already saved stays where it is.",
+        code: "subscription_required",
+      },
+      { status: 403 },
+    );
+  }
+
   // After the couple check, like `resolve-flight`: an unpaired caller is refused above and never
   // reaches AeroAPI, so they should not consume a budget either.
   const limited = await enforceRateLimit(userClient, RATE_LIMIT);
