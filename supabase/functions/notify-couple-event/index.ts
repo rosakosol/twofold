@@ -64,7 +64,12 @@ type PreferenceColumn =
   | "partner_memory_added"
   | "partner_game_started"
   | "partner_game_results_ready"
-  | "partner_game_partner_finished";
+  | "partner_game_partner_finished"
+  // Both were added to the map below without being added here, so this file stopped type-checking
+  // and the guard the comment above describes stopped guarding. The values happen to be right, so
+  // nothing misbehaved — but a union that does not compile cannot catch the typo it exists for.
+  | "partner_game_reminder"
+  | "partner_birthday_wish";
 
 /// `detail` is client-supplied and lands verbatim in the notification body, on a lock screen.
 /// Capped because it had no bound at all: "X added a trip: <anything>" with `anything` being
