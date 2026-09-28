@@ -23,6 +23,35 @@ function isConfigured(): boolean {
   return Boolean(key && !key.includes("TODO"));
 }
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * The spelling of a Supabase user id that RevenueCat already knows this person by.
+ *
+ * **RevenueCat's `app_user_id` is case-sensitive**, and the two halves of this product were
+ * spelling it differently. iOS calls `Purchases.shared.logIn(userID.uuidString)` and Swift's
+ * `uuidString` is uppercase, so every App Store customer lives under an UPPERCASE id — which is
+ * why every server path uppercases before asking (`sync-my-subscription`, `reconcile-subscriptions`).
+ * This file passed `session.user.id` straight through, and Postgres renders uuids lowercase, so a
+ * purchase made here created a *second* customer under the lowercase spelling.
+ *
+ * One person, two RevenueCat customers, neither aware of the other. `cancelWebSubscriptions` asked
+ * about the uppercase one and found nothing — and `GET /v1/subscribers/{id}` answers 200 with empty
+ * maps rather than 404, so nothing failed: the account portal reported the subscription cancelled,
+ * Stripe kept billing, and deleting the account removed the only way left to stop it.
+ *
+ * Uppercasing here is what stops new purchases forking. It does not retrieve the customers already
+ * created under the lowercase spelling: `_shared/subscription-cancel.ts` looks under both for that,
+ * and the webhook has always recorded whichever spelling arrived against the lowercase `profiles`
+ * row, so the database has been right about them throughout. See `revenuecat-webhook/ids.ts`.
+ *
+ * Only UUIDs are touched. `anonymousAppUserId()` returns RevenueCat's own `$RCAnonymousID:…`, which
+ * is case-sensitive in a way we do not get to reinterpret.
+ */
+export function revenueCatAppUserId(appUserId: string): string {
+  return UUID_PATTERN.test(appUserId.trim()) ? appUserId.trim().toUpperCase() : appUserId;
+}
+
 /**
  * Configures (once) and returns the shared Purchases instance, switching it to `appUserId` if it
  * was configured for somebody else. Null if unavailable.
@@ -39,8 +68,13 @@ function isConfigured(): boolean {
  * transfers an anonymous customer's purchases to the identified one, which is exactly the
  * sign-in-after-browsing case this page is built around.
  */
-export async function getPurchases(appUserId: string): Promise<Purchases | null> {
+export async function getPurchases(rawAppUserId: string): Promise<Purchases | null> {
   if (!isConfigured()) return null;
+
+  // Canonicalised here rather than at each call site, so that every route into the SDK — offerings,
+  // prices, customer info, and the purchase itself — identifies the buyer the same way the app does.
+  // A call site that forgot would buy under a customer nothing else can find.
+  const appUserId = revenueCatAppUserId(rawAppUserId);
 
   if (!purchasesPromise) {
     purchasesPromise = (async () => {

@@ -7,9 +7,9 @@ import { APP_STORE_URL, PLANS } from "@/lib/marketing/config";
 import type { ResolvedPlan } from "@/lib/marketing/sanity";
 import { getSession, onAuthChange, signInWithApple, signOut } from "@/lib/marketing/auth";
 import { providerFallbackName, providerLabel, sessionProvider } from "@/lib/marketing/provider";
+import { createClient } from "@/lib/supabase/client";
 import {
   fetchOfferings,
-  fetchCustomerInfo,
   findPackage,
   purchasePackage,
   activeEntitlements,
@@ -196,17 +196,48 @@ function PricingContent({
     }
   }
 
-  async function checkSubscriptionStatus(currentSession: Session) {
-    const customerInfo = await fetchCustomerInfo(currentSession.user.id);
-    const active = activeEntitlements(customerInfo);
-    if (active.includes(PLANS.premium.entitlement)) {
-      setSubscribedTier("Premium");
-    } else if (active.includes(PLANS.plus.entitlement)) {
-      setSubscribedTier("Plus");
-    } else {
+  /**
+   * Whether this person already has a subscription — read from their profile row rather than from
+   * RevenueCat's client SDK.
+   *
+   * The SDK can only answer for the customer it is configured as, and that was never the whole
+   * picture. It could not see an App Store subscription at all, so an iOS subscriber opening this
+   * page was told they had nothing and invited to buy a second one. Now that `billing.ts`
+   * canonicalises the app user id to the uppercase spelling the app uses, it would also stop seeing
+   * the web customers created under the old lowercase spelling — the same harm, aimed at the people
+   * this fix is for.
+   *
+   * `profiles` has neither blind spot. `revenuecat-webhook` writes it from whichever spelling an
+   * event arrives under, and `reconcile-subscriptions` sweeps up behind it, so one row is right
+   * about both channels and both spellings.
+   *
+   * Three outcomes, not two. A failed read is `null` — unknown — never `false`: the caller uses this
+   * to decide whether to resume a purchase, and guessing "no subscription" from a network blip is
+   * how somebody gets charged twice.
+   */
+  async function checkSubscriptionStatus(currentSession: Session): Promise<boolean | null> {
+    const { data, error } = await createClient()
+      .from("profiles")
+      .select("subscription_active, subscription_tier")
+      .eq("id", currentSession.user.id)
+      .maybeSingle();
+
+    if (error) {
+      console.warn("[twofold] could not read subscription status", error.message);
       setSubscribedTier(null);
+      return null;
     }
-    return active;
+
+    if (!data?.subscription_active) {
+      setSubscribedTier(null);
+      return false;
+    }
+
+    // An active subscription with an unrecognised tier still counts as active. The badge is
+    // cosmetic; the boolean is what guards the charge.
+    const tier = data.subscription_tier?.trim().toLowerCase();
+    setSubscribedTier(tier === "premium" ? "Premium" : tier === "plus" ? "Plus" : null);
+    return true;
   }
 
   useEffect(() => {
@@ -219,14 +250,18 @@ function PricingContent({
       setAuthLoading(false);
 
       if (initialSession) {
-        const active = await checkSubscriptionStatus(initialSession);
+        const alreadySubscribed = await checkSubscriptionStatus(initialSession);
         if (cancelled) return;
 
         // Resume a purchase that was interrupted by the Apple sign-in redirect.
+        //
+        // Only on a positive "they have nothing". `null` is an unread status, and resuming a
+        // checkout on the strength of a failed lookup is how an existing subscriber gets billed a
+        // second time — the one outcome here nobody can undo from this page.
         if (!attemptedPendingResume.current) {
           attemptedPendingResume.current = true;
           const pending = sessionStorage.getItem(PENDING_KEY);
-          if (pending && active.length === 0) {
+          if (pending && alreadySubscribed === false) {
             sessionStorage.removeItem(PENDING_KEY);
             const { planId, period: pendingPeriod } = JSON.parse(pending) as Pending;
             setPeriod(pendingPeriod);

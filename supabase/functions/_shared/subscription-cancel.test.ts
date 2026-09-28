@@ -235,3 +235,130 @@ Deno.test("a web subscription with no Stripe key throws rather than reporting su
     "STRIPE_SECRET_KEY",
   );
 });
+
+// ---------------------------------------------------------------------------
+// Which spelling of the id RevenueCat holds it under
+// ---------------------------------------------------------------------------
+//
+// The two purchase channels disagree, and this function only ever asked one of them.
+//
+// iOS calls `Purchases.shared.logIn(userID.uuidString)`, and Swift uppercases — which is why every
+// server-side lookup here and in `revenuecat-webhook` uppercases too. The website does not: it
+// passes `session.user.id` straight to `Purchases.configure`/`changeUser`
+// (site/src/lib/marketing/billing.ts, via PricingClient), and Supabase renders uuids lowercase. So a
+// subscription bought on the website is attached to the LOWERCASE customer, and RevenueCat's
+// app_user_id is case-sensitive.
+//
+// Asking under the wrong spelling is silent. `GET /v1/subscribers/{id}` creates the id it was asked
+// about and answers 200 with empty maps rather than 404 — the whole premise of `isBlankSubscriber`
+// in the webhook — so this function saw no subscriptions, reported 0 cancelled, and both callers
+// read that as "nothing to cancel". The portal then said "Your subscription won't renew" and
+// `delete-account` went ahead and deleted the account. Stripe kept billing in both cases, and after
+// the second there is no account left to cancel from.
+//
+// Every test above passes "abc" as the id to a fake that answers any RevenueCat URL, which is why
+// none of them could see this. These name the spelling.
+
+/// RevenueCat as it actually behaves: the subscription exists under exactly one spelling, and any
+/// other id comes back 200-with-nothing rather than 404.
+function revenueCatHolding(
+  heldUnderId: string,
+  subscriptions: Record<string, unknown>,
+): { askedFor: string[]; fetchImpl: typeof fetch } {
+  const askedFor: string[] = [];
+  const fetchImpl = ((url: string | URL) => {
+    const href = String(url);
+    if (href.includes("api.revenuecat.com")) {
+      const id = decodeURIComponent(href.split("/subscribers/")[1]);
+      askedFor.push(id);
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({ subscriber: { subscriptions: id === heldUnderId ? subscriptions : {} } }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      );
+    }
+    return Promise.resolve(new Response("{}", { status: 200, headers: { "content-type": "application/json" } }));
+  }) as typeof fetch;
+  return { askedFor, fetchImpl };
+}
+
+const LOWER_ID = "f3318dc2-0000-4000-8000-00000000abcd";
+const WEB_SUBSCRIPTION = {
+  web_premium: { store: "rc_billing", expires_date: null, store_transaction_id: "sub_web" },
+};
+
+Deno.test("a subscription bought on the website is found and cancelled", async () => {
+  const { askedFor, fetchImpl } = revenueCatHolding(LOWER_ID, WEB_SUBSCRIPTION);
+
+  const cancelled = await cancelWebSubscriptions(LOWER_ID, {
+    revenueCatKey: "rc",
+    stripeKey: "sk",
+    mode: "at_period_end",
+    fetchImpl,
+  });
+
+  assertEquals(cancelled, 1, "a web subscription went uncancelled while the portal reported success");
+  assertEquals(askedFor.includes(LOWER_ID), true, "the lowercase spelling was never asked about");
+});
+
+Deno.test("deleting an account still ends a website subscription", async () => {
+  // The worse half of the same bug: a silent 0 here is not a failure, so deletion proceeds. There
+  // is then no account, no portal and no way for the person to stop the charge themselves.
+  const { fetchImpl } = revenueCatHolding(LOWER_ID, WEB_SUBSCRIPTION);
+
+  const cancelled = await cancelWebSubscriptions(LOWER_ID, {
+    revenueCatKey: "rc",
+    stripeKey: "sk",
+    mode: "immediately",
+    fetchImpl,
+  });
+
+  assertEquals(cancelled, 1);
+});
+
+Deno.test("an App Store subscription held under the uppercase id is still nothing to cancel", async () => {
+  // The direction that must not change. Looking under both spellings must not turn Apple's
+  // subscription into something this tries to end through Stripe.
+  const { fetchImpl } = revenueCatHolding(LOWER_ID.toUpperCase(), {
+    ios_premium: { store: "app_store", expires_date: null, store_transaction_id: "1000" },
+  });
+
+  const cancelled = await cancelWebSubscriptions(LOWER_ID, {
+    revenueCatKey: "rc",
+    stripeKey: "sk",
+    mode: "at_period_end",
+    fetchImpl,
+  });
+  assertEquals(cancelled, 0);
+});
+
+Deno.test("one subscription found under both spellings is cancelled once", async () => {
+  // Asking twice must not mean cancelling twice: the second Stripe call would be against a
+  // subscription that is already gone, which throws, which reports a failure for a cancellation
+  // that worked.
+  const stripeCalls: string[] = [];
+  const fetchImpl = ((url: string | URL) => {
+    const href = String(url);
+    if (href.includes("api.revenuecat.com")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({ subscriber: { subscriptions: WEB_SUBSCRIPTION } }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      );
+    }
+    if (href.includes("api.stripe.com/v1/subscriptions/")) stripeCalls.push(href);
+    return Promise.resolve(new Response("{}", { status: 200, headers: { "content-type": "application/json" } }));
+  }) as typeof fetch;
+
+  const cancelled = await cancelWebSubscriptions(LOWER_ID, {
+    revenueCatKey: "rc",
+    stripeKey: "sk",
+    mode: "at_period_end",
+    fetchImpl,
+  });
+
+  assertEquals(cancelled, 1);
+  assertEquals(stripeCalls.length, 1);
+});

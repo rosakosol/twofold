@@ -195,12 +195,48 @@ export async function cancelWebSubscriptions(
 ): Promise<number> {
   const fetchImpl = options.fetchImpl ?? fetch;
 
-  // Uppercased for the same reason the webhook does it: `Purchases.shared.logIn` sends the
-  // uppercased UUID, so that is the id RevenueCat holds.
-  const subscriptions = await fetchSubscriber(appUserId.toUpperCase(), options.revenueCatKey, fetchImpl);
-  if (subscriptions === null) return 0;
+  // Both spellings, because the two purchase channels write different ones.
+  //
+  // iOS calls `Purchases.shared.logIn(userID.uuidString)` and Swift uppercases, which is why this
+  // uppercased and why `revenuecat-webhook` and `sync-my-subscription` do. The website does not: it
+  // hands `session.user.id` to `Purchases.configure`/`changeUser` (see
+  // site/src/lib/marketing/billing.ts), and Supabase renders uuids lowercase. RevenueCat's
+  // app_user_id is case-sensitive, so a website subscription lives under the lowercase customer and
+  // uppercasing was the one spelling guaranteed not to find it.
+  //
+  // Which was silent, and worse than silent. `GET /v1/subscribers/{id}` creates the id it is asked
+  // about and answers 200 with empty maps instead of 404 — the premise of `isBlankSubscriber` in the
+  // webhook — so this returned 0, both callers read that as "nothing to cancel", the portal said the
+  // renewal had stopped and `delete-account` deleted the account. Stripe went on billing, and after
+  // a deletion there is no account left to cancel from.
+  //
+  // Merged rather than "the first spelling that answers", because a person can hold one under each:
+  // an App Store subscription bought in the app and a second bought on the website, which is the
+  // double-charge this same casing split makes possible. Deduped on the store transaction id so
+  // finding one subscription twice does not try to cancel it twice — a second Stripe call against an
+  // already-cancelled subscription throws, which would report a failure for a cancellation that
+  // worked.
+  //
+  // Costs one extra RevenueCat call on a path taken once per cancellation or deletion. It also
+  // creates a blank customer record under the spelling that holds nothing, exactly as the webhook's
+  // own alternate-casing retry already does.
+  const spellings = [appUserId.toUpperCase(), appUserId.toLowerCase()]
+    .filter((id, index, all) => all.indexOf(id) === index);
 
-  const cancellable = cancellableSubscriptions(activeSubscriptions(subscriptions, Date.now()));
+  const active: ActiveSubscription[] = [];
+  const seen = new Set<string>();
+  for (const spelling of spellings) {
+    const subscriptions = await fetchSubscriber(spelling, options.revenueCatKey, fetchImpl);
+    if (subscriptions === null) continue;
+    for (const subscription of activeSubscriptions(subscriptions, Date.now())) {
+      const key = subscription.storeTransactionId ?? `${subscription.productId}:${subscription.store}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      active.push(subscription);
+    }
+  }
+
+  const cancellable = cancellableSubscriptions(active);
   if (cancellable.length === 0) return 0;
 
   if (!options.stripeKey) {
