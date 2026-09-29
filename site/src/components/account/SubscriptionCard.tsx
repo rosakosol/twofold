@@ -63,7 +63,13 @@ export function SubscriptionCard({ snapshot }: { snapshot: SubscriptionSnapshot 
             <CardTitle>Subscription</CardTitle>
             <CardDescription>{planSummary(snapshot)}</CardDescription>
           </div>
-          {snapshot.active && <Badge variant="secondary">{tierLabel(snapshot.tier)}</Badge>}
+          <div className="flex shrink-0 gap-2">
+            {/* Only on a positive `true`. Null means the webhook has not spoken for this
+                subscription yet, and a "Free trial" badge on somebody who is actually paying is a
+                worse error than no badge at all. */}
+            {snapshot.active && snapshot.isTrial === true && <Badge>Free trial</Badge>}
+            {snapshot.active && <Badge variant="secondary">{tierLabel(snapshot.tier)}</Badge>}
+          </div>
         </div>
       </CardHeader>
 
@@ -77,15 +83,22 @@ export function SubscriptionCard({ snapshot }: { snapshot: SubscriptionSnapshot 
         {control.kind === "web" && !requested && snapshot.willRenew !== false && (
           <>
             {/* Three readings, not two. `isTrial` is null when the webhook has not yet seen this
-                subscription, and null is not false — saying "you keep everything" to somebody whose
-                trial it cannot vouch for is the mistake this column was added to stop, so an unknown
-                gets the both-cases sentence rather than the reassuring one. */}
+                subscription, and null is not false.
+
+                The trial sentence says what is certainly true — no charge — rather than when access
+                stops, which is not established. RevenueCat documents a paid period as running to its
+                end and says nothing about trials. An earlier version of this claimed access ended
+                immediately, on the strength of a sandbox subscription that looked like it: sandbox
+                compresses a fourteen-day trial to about four minutes and a month to five, so a
+                cancellation forty minutes in had in fact converted and renewed a dozen times, and was
+                ending at an ordinary period boundary. Worth knowing before trusting any duration
+                measured against test data. */}
             <p className="text-sm text-muted-foreground">
               {snapshot.isTrial === true
-                ? "Cancelling ends your free trial straight away — there's no paid period left to run out, so you'd lose access now rather than later."
+                ? "Cancelling ends your free trial, so you won't be charged."
                 : snapshot.isTrial === false
                   ? "Cancelling stops the renewal. You keep everything until the end of the period you've already paid for."
-                  : "Cancelling stops the renewal. If you're still in your free trial, access ends straight away — otherwise you keep everything until the end of the period you've already paid for."}
+                  : "Cancelling stops the renewal, and if you're still in your free trial you won't be charged. Anything you've already paid for stays yours until the end of that period."}
             </p>
             <AlertDialog>
               <AlertDialogTrigger
@@ -101,10 +114,10 @@ export function SubscriptionCard({ snapshot }: { snapshot: SubscriptionSnapshot 
                   <AlertDialogTitle>Cancel your subscription?</AlertDialogTitle>
                   <AlertDialogDescription>
                     {snapshot.isTrial === true
-                      ? `Your free trial ends straight away and you'll lose ${tierLabel(snapshot.tier)} now, rather than at the end of the trial.`
+                      ? `Your free trial won't convert, so you won't be charged for ${tierLabel(snapshot.tier)}.`
                       : snapshot.isTrial === false
                         ? `It won't renew, and you'll keep ${tierLabel(snapshot.tier)} until the end of the period you've paid for.`
-                        : `It won't renew. If you're still in your free trial, ${tierLabel(snapshot.tier)} ends straight away; otherwise you keep it until the end of the period you've paid for.`}
+                        : `It won't renew. If you're still in your free trial you won't be charged; otherwise you keep ${tierLabel(snapshot.tier)} until the end of the period you've paid for.`}
                     {" "}
                     If you&apos;re connected to a partner, they&apos;re covered by your subscription
                     too and will lose it at the same time.
@@ -121,9 +134,8 @@ export function SubscriptionCard({ snapshot }: { snapshot: SubscriptionSnapshot 
 
         {control.kind === "web" && (requested || snapshot.willRenew === false) && (
           <p className="text-sm text-muted-foreground">
-            This subscription won&apos;t renew. You keep {tierLabel(snapshot.tier)} until the end of
-            the period you&apos;ve paid for — unless you were still in your free trial, in which case
-            it has ended already.
+            This subscription won&apos;t renew, so there&apos;s nothing more to pay. You keep{" "}
+            {tierLabel(snapshot.tier)} until the end of the period you&apos;ve paid for.
           </p>
         )}
 
@@ -163,6 +175,10 @@ export function SubscriptionCard({ snapshot }: { snapshot: SubscriptionSnapshot 
 
 function planSummary(snapshot: SubscriptionSnapshot): string {
   if (!snapshot.active) return "Free plan";
+  // A trial says so instead of "since September 2026", which reads as a settled subscription and is
+  // the one thing somebody on day two of a trial most needs to know about their own account. Only on
+  // a positive `true`, for the same reason the badge is: an unknown falls through to the date.
+  if (snapshot.isTrial === true) return `${tierLabel(snapshot.tier)}, free trial`;
   if (!snapshot.startedAt) return `${tierLabel(snapshot.tier)}, active`;
   const started = new Date(snapshot.startedAt);
   if (Number.isNaN(started.getTime())) return `${tierLabel(snapshot.tier)}, active`;
