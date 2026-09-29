@@ -171,7 +171,7 @@ Deno.test("the customer is found under the uppercase spelling the app signs in w
   const cancelled: string[] = [];
   const count = await cancelWebSubscriptions(USER, {
     projectId: PROJECT,
-    revenueCatKey: KEY,
+    v2Key: KEY,
     fetchImpl: stubFor({ [USER.toUpperCase()]: [sub({ id: "s1" })] }, cancelled),
   });
   assertEquals(count, 1);
@@ -184,7 +184,7 @@ Deno.test("the customer is found under the lowercase spelling the website bought
   const cancelled: string[] = [];
   const count = await cancelWebSubscriptions(USER, {
     projectId: PROJECT,
-    revenueCatKey: KEY,
+    v2Key: KEY,
     fetchImpl: stubFor({ [USER.toLowerCase()]: [sub({ id: "s1" })] }, cancelled),
   });
   assertEquals(count, 1);
@@ -196,7 +196,7 @@ Deno.test("one subscription answering to both spellings is cancelled once", asyn
   const both = [sub({ id: "s1" })];
   const count = await cancelWebSubscriptions(USER, {
     projectId: PROJECT,
-    revenueCatKey: KEY,
+    v2Key: KEY,
     fetchImpl: stubFor({ [USER.toUpperCase()]: both, [USER.toLowerCase()]: both }, cancelled),
   });
   assertEquals(count, 1);
@@ -207,7 +207,7 @@ Deno.test("an App Store subscription is reported as nothing to cancel, not as a 
   const cancelled: string[] = [];
   const count = await cancelWebSubscriptions(USER, {
     projectId: PROJECT,
-    revenueCatKey: KEY,
+    v2Key: KEY,
     fetchImpl: stubFor({ [USER.toUpperCase()]: [sub({ id: "apple", store: "app_store" })] }, cancelled),
   });
   assertEquals(count, 0);
@@ -222,7 +222,7 @@ Deno.test("a legacy Stripe subscription throws rather than reporting success", a
     () =>
       cancelWebSubscriptions(USER, {
         projectId: PROJECT,
-        revenueCatKey: KEY,
+        v2Key: KEY,
         fetchImpl: stubFor({ [USER.toUpperCase()]: [sub({ id: "legacy", store: "stripe" })] }, cancelled),
       }),
     Error,
@@ -238,7 +238,7 @@ Deno.test("a mixed set cancels nothing rather than some of it", async () => {
   await assertRejects(() =>
     cancelWebSubscriptions(USER, {
       projectId: PROJECT,
-      revenueCatKey: KEY,
+      v2Key: KEY,
       fetchImpl: stubFor(
         { [USER.toUpperCase()]: [sub({ id: "web" }), sub({ id: "legacy", store: "stripe" })] },
         cancelled,
@@ -252,7 +252,7 @@ Deno.test("an account with nothing at all cancels nothing and does not fail", as
   const cancelled: string[] = [];
   const count = await cancelWebSubscriptions(USER, {
     projectId: PROJECT,
-    revenueCatKey: KEY,
+    v2Key: KEY,
     fetchImpl: stubFor({}, cancelled),
   });
   assertEquals(count, 0);

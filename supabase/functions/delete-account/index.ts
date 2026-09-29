@@ -76,14 +76,15 @@ Deno.serve(serveWithCors(async (req) => {
 
   let cancelledSubscriptions = 0;
   try {
-    const revenueCatKey = Deno.env.get("REVENUECAT_REST_API_KEY");
+    // The v2 key, not the v1 one the webhook uses — see the header of _shared/subscription-cancel.ts.
+    const v2Key = Deno.env.get("REVENUECAT_V2_API_KEY");
     const projectId = Deno.env.get("REVENUECAT_PROJECT_ID");
-    if (!revenueCatKey || !projectId) {
+    if (!v2Key || !projectId) {
       // Without these we cannot even tell whether there is a web subscription, and "assume there
       // isn't" is the assumption that charges people.
-      throw new Error("REVENUECAT_REST_API_KEY or REVENUECAT_PROJECT_ID is not set");
+      throw new Error("REVENUECAT_V2_API_KEY or REVENUECAT_PROJECT_ID is not set");
     }
-    cancelledSubscriptions = await cancelWebSubscriptions(user.id, { revenueCatKey, projectId });
+    cancelledSubscriptions = await cancelWebSubscriptions(user.id, { v2Key, projectId });
   } catch (err) {
     // Deliberately before any deletion, and deliberately fatal. Nothing has been scrubbed yet, so
     // the account is exactly as it was and the retry the client is told to make is a clean one.

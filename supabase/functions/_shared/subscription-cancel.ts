@@ -40,9 +40,16 @@
 // Requires
 // ---------------------------------------------------------------------------
 //
-//   - REVENUECAT_REST_API_KEY — a RevenueCat secret API key with v2 permissions. The v1-only keys
-//     that predate the v2 API will 401 here.
-//   - REVENUECAT_PROJECT_ID   — the project these customers live in; every v2 path is scoped to it.
+//   - REVENUECAT_V2_API_KEY  — a RevenueCat secret key with v2 permissions, covering customers
+//     (read) and subscriptions (read, cancel).
+//   - REVENUECAT_PROJECT_ID  — the project these customers live in; every v2 path is scoped to it.
+//
+// Deliberately NOT `REVENUECAT_REST_API_KEY`, which is this project's v1 key and is what
+// `revenuecat-webhook`, `sync-my-subscription` and `reconcile-subscriptions` authenticate their
+// `GET /v1/subscribers/{id}` calls with. The two are not interchangeable — a v2 key presented to v1
+// is refused with a 403 — and those three are what write entitlement state into `profiles`. Sharing
+// one variable between the two surfaces would mean a key rotation that fixes cancellation silently
+// stops anybody's subscription being recorded at all.
 
 const REVENUECAT_API_BASE = "https://api.revenuecat.com/v2";
 
@@ -189,7 +196,7 @@ export async function cancelSubscription(
 /// cancellation did not happen, so nobody is left believing a charge has stopped when it has not.
 export async function cancelWebSubscriptions(
   appUserId: string,
-  options: { projectId: string; revenueCatKey: string; fetchImpl?: typeof fetch },
+  options: { projectId: string; v2Key: string; fetchImpl?: typeof fetch },
 ): Promise<number> {
   const fetchImpl = options.fetchImpl ?? fetch;
 
@@ -200,7 +207,7 @@ export async function cancelWebSubscriptions(
   const spellings = [...new Set([appUserId.toUpperCase(), appUserId.toLowerCase()])];
   const byId = new Map<string, Subscription>();
   for (const spelling of spellings) {
-    for (const subscription of await listCustomerSubscriptions(options.projectId, spelling, options.revenueCatKey, fetchImpl)) {
+    for (const subscription of await listCustomerSubscriptions(options.projectId, spelling, options.v2Key, fetchImpl)) {
       byId.set(subscription.id, subscription);
     }
   }
@@ -215,7 +222,7 @@ export async function cancelWebSubscriptions(
   }
 
   for (const subscription of cancellable) {
-    await cancelSubscription(options.projectId, subscription.id, options.revenueCatKey, fetchImpl);
+    await cancelSubscription(options.projectId, subscription.id, options.v2Key, fetchImpl);
   }
 
   return cancellable.length;

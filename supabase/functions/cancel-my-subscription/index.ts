@@ -57,10 +57,11 @@ Deno.serve(serveWithCors(async (req) => {
     return Response.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const revenueCatKey = Deno.env.get("REVENUECAT_REST_API_KEY");
+  // The v2 key, not the v1 one the webhook uses — see the header of _shared/subscription-cancel.ts.
+  const v2Key = Deno.env.get("REVENUECAT_V2_API_KEY");
   const projectId = Deno.env.get("REVENUECAT_PROJECT_ID");
-  if (!revenueCatKey || !projectId) {
-    console.error("[cancel-my-subscription] REVENUECAT_REST_API_KEY or REVENUECAT_PROJECT_ID is not set");
+  if (!v2Key || !projectId) {
+    console.error("[cancel-my-subscription] REVENUECAT_V2_API_KEY or REVENUECAT_PROJECT_ID is not set");
     return Response.json(
       { error: "We couldn't reach our billing provider just now. Please try again shortly." },
       { status: 503 },
@@ -69,7 +70,7 @@ Deno.serve(serveWithCors(async (req) => {
 
   let cancelled = 0;
   try {
-    cancelled = await cancelWebSubscriptions(user.id, { revenueCatKey, projectId });
+    cancelled = await cancelWebSubscriptions(user.id, { v2Key, projectId });
   } catch (err) {
     // No subscription id, customer id or key in the log line — the message is ours, and the user
     // id is omitted the same way `revenuecat-webhook` omits it.

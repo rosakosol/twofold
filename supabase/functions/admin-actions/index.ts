@@ -114,10 +114,10 @@ async function deleteAccount(
   // silently. Stopping the renewal is what prevents the charge; the paid period running out against
   // a deleted account costs nobody anything.
   let cancelled = 0;
-  const revenueCatKey = Deno.env.get("REVENUECAT_REST_API_KEY");
+  const v2Key = Deno.env.get("REVENUECAT_V2_API_KEY");
   const projectId = Deno.env.get("REVENUECAT_PROJECT_ID");
-  if (!revenueCatKey || !projectId) {
-    console.error("[admin-actions] REVENUECAT_REST_API_KEY or REVENUECAT_PROJECT_ID is not set");
+  if (!v2Key || !projectId) {
+    console.error("[admin-actions] REVENUECAT_V2_API_KEY or REVENUECAT_PROJECT_ID is not set");
     return bad(
       "We can't tell whether this account has a web subscription, so it hasn't been deleted. " +
         "Deleting it while a subscription is live would keep charging them.",
@@ -126,7 +126,7 @@ async function deleteAccount(
   }
 
   try {
-    cancelled = await cancelWebSubscriptions(profileId, { revenueCatKey, projectId });
+    cancelled = await cancelWebSubscriptions(profileId, { v2Key, projectId });
   } catch (err) {
     console.error("[admin-actions] could not cancel web subscription:", (err as Error).message);
     return bad(
@@ -190,13 +190,13 @@ async function cancelSubscription(
 ): Promise<Response> {
   if (!profileId) return bad("No account given.");
 
-  const revenueCatKey = Deno.env.get("REVENUECAT_REST_API_KEY");
+  const v2Key = Deno.env.get("REVENUECAT_V2_API_KEY");
   const projectId = Deno.env.get("REVENUECAT_PROJECT_ID");
-  if (!revenueCatKey || !projectId) return bad("Billing provider is not configured.", 503);
+  if (!v2Key || !projectId) return bad("Billing provider is not configured.", 503);
 
   let cancelled = 0;
   try {
-    cancelled = await cancelWebSubscriptions(profileId, { revenueCatKey, projectId });
+    cancelled = await cancelWebSubscriptions(profileId, { v2Key, projectId });
   } catch (err) {
     console.error("[admin-actions] could not cancel subscription:", (err as Error).message);
     return bad("Couldn't cancel that subscription. Nothing has changed.", 503);
