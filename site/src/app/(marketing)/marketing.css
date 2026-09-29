@@ -1481,6 +1481,17 @@ section {
   outline: none;
   transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
 }
+
+/* Undoes the `flex: 1 1 240px` above. That is a *width* basis in .field-row's row, and becomes a
+   240px *height* basis in this column — which is what rendered the signup fields tall enough to fill
+   the card. Everything else in that rule is wanted; only the flexing is row-shaped. Placed after it
+   deliberately: the selectors have equal specificity, so source order is what decides. */
+.auth-form input[type="text"],
+.auth-form input[type="email"],
+.auth-form input[type="password"] {
+  flex: 0 0 auto;
+  width: 100%;
+}
 .waitlist-form input:focus,
 .field-row input:focus,
 .auth-form input:focus {
