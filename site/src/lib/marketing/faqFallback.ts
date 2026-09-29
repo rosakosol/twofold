@@ -60,7 +60,7 @@ export const FAQ_FALLBACK: FaqFallbackItem[] = [
     order: 3,
     question: "How do I cancel or manage my subscription?",
     answer:
-      "If you subscribed in the app, manage or cancel it from your device's Settings → Apple ID → Subscriptions. If you subscribed on the web, manage it from your account on the pricing page, or email support@twofoldapp.com.au and we'll sort it out. If you are still in your free trial, cancelling means you will not be charged. Otherwise you keep access until the end of the period you've already paid for.",
+      "If you subscribed in the app, manage or cancel it from your device's Settings → Apple ID → Subscriptions. If you subscribed on the web, sign in at twofoldapp.com.au/account and cancel it there, or email support@twofoldapp.com.au and we'll sort it out. To change plan, update your card or download an invoice, use the billing portal linked from your receipt emails. If you are still in your free trial, cancelling means you will not be charged. Otherwise you keep access until the end of the period you've already paid for.",
   },
   {
     category: "subscriptions",

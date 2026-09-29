@@ -344,9 +344,13 @@ Deno.test("anything we cannot pin down is null, never a guess", () => {
 // resolveIsTrial
 // ---------------------------------------------------------------------------
 //
-// Cancelling during a trial ends access immediately; cancelling a paid period does not. The screens
-// that say so need to know which, and an unknown must never read as "not a trial" — that is the
-// direction that tells somebody they keep access they are about to lose.
+// The screens that describe cancelling need to know which of the two a subscription is, and an
+// unknown must never read as "not a trial" — that is the direction that makes a claim about somebody
+// else's money.
+//
+// Deliberately says nothing about when access stops on cancellation. 20261111000200 withdrew that
+// claim: it came from a sandbox subscription whose trial converted in four minutes, read as though
+// the clock were real.
 
 const TRIAL_SUBSCRIBER = {
   entitlements: {
