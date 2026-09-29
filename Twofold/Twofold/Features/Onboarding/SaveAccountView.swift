@@ -38,9 +38,8 @@ struct SaveAccountView: View {
 
     private var canContinueWithEmail: Bool {
         !email.trimmingCharacters(in: .whitespaces).isEmpty
-            && password.count >= 6
             && confirmPassword == password
-            && PasswordStrength.evaluate(password) > .weak
+            && PasswordPolicy.isAcceptable(password, name: onboarding.firstName, email: email)
             && hasAcceptedTerms
     }
 
@@ -81,7 +80,7 @@ struct SaveAccountView: View {
                                 textContentType: .newPassword
                             )
 
-                            PasswordStrengthView(password: password)
+                            PasswordStrengthView(password: password, name: onboarding.firstName, email: email)
 
                             AuthField(
                                 title: "Confirm password",

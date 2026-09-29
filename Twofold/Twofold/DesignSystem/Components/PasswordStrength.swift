@@ -2,46 +2,17 @@
 //  PasswordStrength.swift
 //  Twofold
 //
-//  Shared client-side password strength check for every onboarding screen that creates a
-//  password (CreateAccountView, SaveAccountView) — length plus character variety, not a strict
-//  entropy calculation. Deliberately lenient (no forced symbol/uppercase requirement) so it steers
-//  someone away from "123456" without turning into its own source of signup friction.
+//  The strength meter. The rule it draws lives in `Shared/PasswordPolicy.swift`, which is also what
+//  the Continue buttons gate on and what the website ports — one rule, three readers.
+//
+//  The meter used to be the only feedback: a bar that said "Weak" while the button sat disabled,
+//  leaving you to guess which unstated rule you had broken. It now shows the reason too, because a
+//  refusal nobody can act on is the same dead end as no button at all.
 //
 
 import SwiftUI
 
-enum PasswordStrength: Int, Comparable {
-    case weak
-    case fair
-    case strong
-
-    static func < (lhs: PasswordStrength, rhs: PasswordStrength) -> Bool {
-        lhs.rawValue < rhs.rawValue
-    }
-
-    static func evaluate(_ password: String) -> PasswordStrength {
-        let length = password.count
-        var varietyCount = 0
-        if password.rangeOfCharacter(from: .uppercaseLetters) != nil { varietyCount += 1 }
-        if password.rangeOfCharacter(from: .lowercaseLetters) != nil { varietyCount += 1 }
-        if password.rangeOfCharacter(from: .decimalDigits) != nil { varietyCount += 1 }
-        if password.rangeOfCharacter(from: CharacterSet.alphanumerics.inverted) != nil { varietyCount += 1 }
-
-        if length >= 12 && varietyCount >= 3 { return .strong }
-        if length >= 10 && varietyCount >= 2 { return .strong }
-        if length >= 8 && varietyCount >= 2 { return .fair }
-        if length >= 8 { return .fair }
-        return .weak
-    }
-
-    var label: String {
-        switch self {
-        case .weak: "Weak"
-        case .fair: "Fair"
-        case .strong: "Strong"
-        }
-    }
-
+extension PasswordStrength {
     var color: Color {
         switch self {
         case .weak: Theme.heartRed
@@ -51,27 +22,42 @@ enum PasswordStrength: Int, Comparable {
     }
 }
 
-/// A 3-segment strength bar + label, shown once a password field is non-empty — same "live
-/// feedback while typing" spirit as the existing "Passwords don't match" caption these screens
+/// A 3-segment strength bar + label + reason, shown once a password field is non-empty — same
+/// "live feedback while typing" spirit as the "Passwords don't match" caption these screens
 /// already show.
+///
+/// `name` and `email` are passed so the meter judges the password the same way the button does:
+/// without them it would rate somebody's own name as fair and the button would still refuse it.
 struct PasswordStrengthView: View {
     let password: String
+    var name: String?
+    var email: String?
 
-    private var strength: PasswordStrength { PasswordStrength.evaluate(password) }
+    private var strength: PasswordStrength { PasswordPolicy.evaluate(password, name: name, email: email) }
+    private var reason: String? { PasswordPolicy.rejectionReason(password, name: name, email: email) }
 
     var body: some View {
         if !password.isEmpty {
-            HStack(spacing: Theme.Spacing.sm) {
-                HStack(spacing: 4) {
-                    ForEach(0..<3, id: \.self) { index in
-                        Capsule()
-                            .fill(index <= strength.rawValue ? strength.color : Theme.subtleInk.opacity(0.2))
-                            .frame(height: 4)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: Theme.Spacing.sm) {
+                    HStack(spacing: 4) {
+                        ForEach(0..<3, id: \.self) { index in
+                            Capsule()
+                                .fill(index <= strength.rawValue ? strength.color : Theme.subtleInk.opacity(0.2))
+                                .frame(height: 4)
+                        }
                     }
+                    Text(strength.label)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(strength.color)
                 }
-                Text(strength.label)
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(strength.color)
+
+                if let reason {
+                    Text(reason)
+                        .font(.caption2)
+                        .foregroundStyle(Theme.subtleInk)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
     }

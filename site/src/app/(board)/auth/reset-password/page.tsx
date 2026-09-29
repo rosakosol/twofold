@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, CheckCircle2 } from "lucide-react";
+import { passwordRejectionReason, passwordStrengthLabel } from "@/lib/marketing/passwordStrength";
 
 /**
  * Where a password-recovery email lands.
@@ -52,10 +53,17 @@ export default function ResetPasswordPage() {
 type Stage = "verifying" | "ready" | "saving" | "done" | "invalid";
 
 export function passwordProblem(password: string, confirmation: string): string | null {
-  // Mirrors the app's own ResetPasswordView so the same password is accepted in both places, and
-  // matches config.toml's `minimum_password_length`. A rule enforced here but not there (or the
-  // other way round) shows up as a password that works on one device and not the other.
-  if (password.length < 6) return "Use at least 6 characters.";
+  // Defers to the shared policy rather than restating it. This used to be its own `length < 6`
+  // check, described as mirroring the app's ResetPasswordView — and it did, until the app's rule was
+  // tightened and this one was not. Two hand-copied rules about the same password is how the weakest
+  // one becomes the real one: recovery is available to anybody holding the email, so a six-character
+  // password accepted here is a six-character password on every account in the product.
+  //
+  // No name or email passed: this page is reached from a recovery link and knows neither. The
+  // personal-information rule therefore cannot fire here, which is a gap the signup forms do not
+  // have — worth closing if this page ever learns who it is serving.
+  const reason = passwordRejectionReason(password);
+  if (reason) return reason;
   if (password !== confirmation) return "Those two passwords don't match.";
   return null;
 }
@@ -186,6 +194,14 @@ function ResetPasswordForm() {
             onChange={(e) => setPassword(e.target.value)}
             disabled={stage === "saving"}
           />
+          {/* Live, like the app's meter. The rule is strict enough now that finding out on submit
+              means typing a whole password again to be told a second thing about it. */}
+          {password !== "" && (
+            <p className="text-muted-foreground text-xs">
+              Password strength: {passwordStrengthLabel(password)}
+              {passwordRejectionReason(password) && ` — ${passwordRejectionReason(password)}`}
+            </p>
+          )}
         </div>
 
         <div className="space-y-1.5">

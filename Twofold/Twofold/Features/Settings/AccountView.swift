@@ -73,9 +73,8 @@ struct AccountView: View {
     /// because this is "only" a change. A password set here is the account's real password from
     /// then on, so letting it be weaker than one chosen at signup would just move the weak spot.
     private var canSave: Bool {
-        newPassword.count >= 6
-            && confirmPassword == newPassword
-            && PasswordStrength.evaluate(newPassword) > .weak
+        confirmPassword == newPassword
+            && PasswordPolicy.isAcceptable(newPassword, email: BackendService.currentUserEmail)
             && !isSaving
     }
 
@@ -163,6 +162,8 @@ struct AccountView: View {
                 isSecure: true,
                 textContentType: .newPassword
             )
+
+            PasswordStrengthView(password: newPassword, email: BackendService.currentUserEmail)
 
             AuthField(
                 title: "Confirm password",

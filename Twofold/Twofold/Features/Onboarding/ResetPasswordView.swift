@@ -23,8 +23,14 @@ struct ResetPasswordView: View {
         !confirmPassword.isEmpty && newPassword != confirmPassword
     }
 
+    /// The same bar signup sets. It used to be `count >= 6` and nothing else, which made this the
+    /// way around the password rule rather than a way back into the account: anyone could reset to
+    /// "123456" from an email link, and for somebody who signed up on the website with a one-time
+    /// link this is the *first* password their account has ever had.
     private var canSubmit: Bool {
-        newPassword.count >= 6 && newPassword == confirmPassword && !isSubmitting
+        newPassword == confirmPassword
+            && PasswordPolicy.isAcceptable(newPassword, email: BackendService.currentUserEmail)
+            && !isSubmitting
     }
 
     var body: some View {
@@ -48,6 +54,8 @@ struct ResetPasswordView: View {
                             isSecure: true,
                             textContentType: .newPassword
                         )
+
+                        PasswordStrengthView(password: newPassword, email: BackendService.currentUserEmail)
 
                         AuthField(
                             title: "Confirm password",

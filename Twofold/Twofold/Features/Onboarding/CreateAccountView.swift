@@ -35,9 +35,8 @@ struct CreateAccountView: View {
     private var canContinue: Bool {
         !firstName.trimmingCharacters(in: .whitespaces).isEmpty
             && !email.trimmingCharacters(in: .whitespaces).isEmpty
-            && password.count >= 6
             && confirmPassword == password
-            && PasswordStrength.evaluate(password) > .weak
+            && PasswordPolicy.isAcceptable(password, name: firstName, email: email)
             && hasAcceptedTerms
     }
 
@@ -68,7 +67,7 @@ struct CreateAccountView: View {
                         textContentType: .newPassword
                     )
 
-                    PasswordStrengthView(password: password)
+                    PasswordStrengthView(password: password, name: firstName, email: email)
 
                     AuthField(
                         title: "Confirm password",

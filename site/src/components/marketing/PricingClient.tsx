@@ -14,7 +14,12 @@ import {
   isExistingAccountError,
   signOut,
 } from "@/lib/marketing/auth";
-import { isStrongEnough, passwordStrengthLabel } from "@/lib/marketing/passwordStrength";
+import {
+  isAcceptablePassword,
+  passwordRejectionReason,
+  passwordStrengthLabel,
+} from "@/lib/marketing/passwordStrength";
+import { nameError } from "@/lib/marketing/nameValidator";
 import { providerFallbackName, providerLabel, sessionProvider } from "@/lib/marketing/provider";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -266,14 +271,19 @@ function PricingContent({
   /// field — see lib/marketing/passwordStrength.ts for the strength half. An account the app would
   /// refuse to create must not be creatable here, or the two surfaces disagree about who has a
   /// valid account.
+  // Shown under the fields as well as gating the button — see passwordStrength.ts on why a stricter
+  // rule has to explain itself.
+  const nameProblem = firstName.trim() === "" ? null : nameError(firstName);
+  const passwordProblem =
+    password === "" ? null : passwordRejectionReason(password, firstName, email);
+
   const canSubmitEmail =
     authMode === "signin"
       ? email.trim() !== "" && password !== ""
-      : firstName.trim() !== "" &&
+      : nameError(firstName) === null &&
         email.trim() !== "" &&
-        password.length >= 6 &&
         confirmPassword === password &&
-        isStrongEnough(password) &&
+        isAcceptablePassword(password, firstName, email) &&
         acceptedTerms;
 
   async function submitEmailAuth(event: React.FormEvent) {
@@ -546,6 +556,9 @@ function PricingContent({
                       value={firstName}
                       onChange={(event) => setFirstName(event.target.value)}
                     />
+                    {nameProblem && (
+                      <p style={{ fontSize: "0.85em", opacity: 0.8 }}>{nameProblem}</p>
+                    )}
                   </>
                 )}
 
@@ -589,8 +602,8 @@ function PricingContent({
                         dead button with no reason is the same dead end as no button. */}
                     {password !== "" && (
                       <p style={{ fontSize: "0.85em", opacity: 0.8, marginBottom: 8 }}>
-                        Password strength: {passwordStrengthLabel(password)}
-                        {!isStrongEnough(password) && " — use at least 8 characters"}
+                        Password strength: {passwordStrengthLabel(password, firstName, email)}
+                        {passwordProblem && ` — ${passwordProblem}`}
                       </p>
                     )}
                     {confirmPassword !== "" && confirmPassword !== password && (
