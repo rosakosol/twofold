@@ -70,7 +70,13 @@ enum PasswordStrength: Int, Comparable {
 enum PasswordPolicy {
     static let minLength = 10
     /// Where "fair" becomes "strong". Not a gate — everything below still has to pass every rule.
-    static let strongLength = 14
+    ///
+    /// Twelve rather than fourteen, which is where most length-based meters put their top label. It
+    /// was fourteen when the rule still admitted single-class passphrases and extra length was doing
+    /// real work; with all four classes mandatory, twelve is already past the point where the label
+    /// is honest. The cost of being conservative here is not caution, it is a meter that reads
+    /// "Fair" at a genuinely good password and teaches people to stop looking at it.
+    static let strongLength = 12
 
     /// The passwords that turn up first in every credential-stuffing list. Compared after trailing
     /// digits are stripped, so "password123" and "letmein2024" are caught by their stems.

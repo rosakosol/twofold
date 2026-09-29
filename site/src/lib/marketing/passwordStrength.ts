@@ -16,8 +16,12 @@ export type PasswordStrength = "weak" | "fair" | "strong";
 const RANK: Record<PasswordStrength, number> = { weak: 0, fair: 1, strong: 2 };
 
 export const MIN_PASSWORD_LENGTH = 10;
-/** Where "fair" becomes "strong". Not a gate — everything below still passes every rule. */
-const STRONG_LENGTH = 14;
+/**
+ * Where "fair" becomes "strong". Not a gate — everything below still passes every rule. Twelve is
+ * where most length-based meters put their top label; see PasswordPolicy.strongLength for why it is
+ * not fourteen.
+ */
+const STRONG_LENGTH = 12;
 
 /** Mirrors `PasswordPolicy.commonPasswords`, same entries, same order. */
 const COMMON_PASSWORDS = new Set([

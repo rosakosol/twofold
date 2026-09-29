@@ -114,9 +114,13 @@ struct PasswordPolicyTests {
         #expect(PasswordPolicy.isAcceptable("Tangerine1!Tangerine1!"))
     }
 
-    @Test("length is what separates fair from strong")
+    /// Pins the boundary itself, not just a value either side of it — the threshold is a judgement
+    /// call that has already moved once, and the next person to move it should have to see this.
+    @Test("twelve characters is where fair becomes strong")
     func strengthTiers() {
-        #expect(PasswordPolicy.evaluate("Rivet9!Har") == .fair)
+        #expect(PasswordPolicy.evaluate("Rivet9!Har") == .fair)     // 10
+        #expect(PasswordPolicy.evaluate("Rivet9!Harb") == .fair)    // 11
+        #expect(PasswordPolicy.evaluate("Rivet9!Harbo") == .strong) // 12
         #expect(PasswordPolicy.evaluate("Rivet9!Harbour") == .strong)
     }
 
