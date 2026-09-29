@@ -76,9 +76,16 @@ export function SubscriptionCard({ snapshot }: { snapshot: SubscriptionSnapshot 
 
         {control.kind === "web" && !requested && snapshot.willRenew !== false && (
           <>
+            {/* Three readings, not two. `isTrial` is null when the webhook has not yet seen this
+                subscription, and null is not false — saying "you keep everything" to somebody whose
+                trial it cannot vouch for is the mistake this column was added to stop, so an unknown
+                gets the both-cases sentence rather than the reassuring one. */}
             <p className="text-sm text-muted-foreground">
-              Cancelling stops the renewal. You keep everything until the end of the period
-              you&apos;ve already paid for.
+              {snapshot.isTrial === true
+                ? "Cancelling ends your free trial straight away — there's no paid period left to run out, so you'd lose access now rather than later."
+                : snapshot.isTrial === false
+                  ? "Cancelling stops the renewal. You keep everything until the end of the period you've already paid for."
+                  : "Cancelling stops the renewal. If you're still in your free trial, access ends straight away — otherwise you keep everything until the end of the period you've already paid for."}
             </p>
             <AlertDialog>
               <AlertDialogTrigger
@@ -93,9 +100,14 @@ export function SubscriptionCard({ snapshot }: { snapshot: SubscriptionSnapshot 
                 <AlertDialogHeader>
                   <AlertDialogTitle>Cancel your subscription?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    It won&apos;t renew, and you&apos;ll keep {tierLabel(snapshot.tier)} until the
-                    end of the period you&apos;ve paid for. If you&apos;re connected to a partner,
-                    they&apos;re covered by your subscription too and will lose it at the same time.
+                    {snapshot.isTrial === true
+                      ? `Your free trial ends straight away and you'll lose ${tierLabel(snapshot.tier)} now, rather than at the end of the trial.`
+                      : snapshot.isTrial === false
+                        ? `It won't renew, and you'll keep ${tierLabel(snapshot.tier)} until the end of the period you've paid for.`
+                        : `It won't renew. If you're still in your free trial, ${tierLabel(snapshot.tier)} ends straight away; otherwise you keep it until the end of the period you've paid for.`}
+                    {" "}
+                    If you&apos;re connected to a partner, they&apos;re covered by your subscription
+                    too and will lose it at the same time.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -110,7 +122,8 @@ export function SubscriptionCard({ snapshot }: { snapshot: SubscriptionSnapshot 
         {control.kind === "web" && (requested || snapshot.willRenew === false) && (
           <p className="text-sm text-muted-foreground">
             This subscription won&apos;t renew. You keep {tierLabel(snapshot.tier)} until the end of
-            the period you&apos;ve paid for.
+            the period you&apos;ve paid for — unless you were still in your free trial, in which case
+            it has ended already.
           </p>
         )}
 

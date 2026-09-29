@@ -37,6 +37,11 @@ export interface SubscriptionSnapshot {
   store: string | null;
   willRenew: boolean | null;
   startedAt: string | null;
+  /// True while the subscription is in a free trial, null when unknown — see
+  /// `profiles.subscription_is_trial`. Null must read as "we do not know", never as false:
+  /// cancelling during a trial ends access immediately, and telling a trialist otherwise costs them
+  /// the rest of their trial.
+  isTrial: boolean | null;
 }
 
 const STORE_LABELS: Record<string, string> = {

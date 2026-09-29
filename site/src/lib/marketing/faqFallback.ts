@@ -53,14 +53,14 @@ export const FAQ_FALLBACK: FaqFallbackItem[] = [
     order: 2,
     question: "Can I subscribe on the web instead of in the app?",
     answer:
-      "Yes. You can subscribe right from our pricing page using Sign in with Apple - it unlocks your account the same way an in-app purchase does. Open the app afterward and sign in with the same Apple ID to see it active.",
+      "Yes. You can subscribe right from our pricing page - sign in with Apple, with Google, or with an email address and password, whichever you already use in the app. Use the same one, because that is how your subscription reaches your account: signing in a different way makes a second, empty account and the subscription attaches to that one instead. Open the app afterwards and sign in the same way to see it active. If you do not have a Twofold account yet, you can create one at checkout.",
   },
   {
     category: "subscriptions",
     order: 3,
     question: "How do I cancel or manage my subscription?",
     answer:
-      "If you subscribed in the app, manage or cancel it from your device's Settings → Apple ID → Subscriptions. If you subscribed on the web, manage it from your account on the pricing page, or email support@twofoldapp.com.au and we'll sort it out. Either way, you keep access until the end of the period you've already paid for.",
+      "If you subscribed in the app, manage or cancel it from your device's Settings → Apple ID → Subscriptions. If you subscribed on the web, manage it from your account on the pricing page, or email support@twofoldapp.com.au and we'll sort it out. If you are still in your free trial, cancelling ends your access straight away - there is no paid period left to run out. Otherwise you keep access until the end of the period you've already paid for.",
   },
   {
     category: "subscriptions",

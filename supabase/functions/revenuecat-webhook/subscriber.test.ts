@@ -16,6 +16,7 @@ import {
   resolveStore,
   resolveWillRenew,
   type RestSubscriber,
+  resolveIsTrial,
 } from "./subscriber.ts";
 
 const NOW = Date.parse("2026-09-10T00:00:00Z");
@@ -336,4 +337,63 @@ Deno.test("anything we cannot pin down is null, never a guess", () => {
     const tier = label === "no tier at all" ? null : "premium";
     assertEquals(resolveStore(subscriber, tier), null, label);
   }
+});
+
+
+// ---------------------------------------------------------------------------
+// resolveIsTrial
+// ---------------------------------------------------------------------------
+//
+// Cancelling during a trial ends access immediately; cancelling a paid period does not. The screens
+// that say so need to know which, and an unknown must never read as "not a trial" — that is the
+// direction that tells somebody they keep access they are about to lose.
+
+const TRIAL_SUBSCRIBER = {
+  entitlements: {
+    "Twofold Premium": { expires_date: "2099-01-01T00:00:00Z", product_identifier: "premium_monthly" },
+  },
+  subscriptions: { premium_monthly: { store: "rc_billing", period_type: "trial" } },
+};
+
+Deno.test("a subscription in its trial says so", () => {
+  assertEquals(resolveIsTrial(TRIAL_SUBSCRIBER, "premium"), true);
+});
+
+Deno.test("an introductory period counts as a trial, because it is one to whoever cancels", () => {
+  const subscriber = {
+    ...TRIAL_SUBSCRIBER,
+    subscriptions: { premium_monthly: { store: "rc_billing", period_type: "intro" } },
+  };
+  assertEquals(resolveIsTrial(subscriber, "premium"), true);
+});
+
+Deno.test("a paid subscription is not a trial", () => {
+  const subscriber = {
+    ...TRIAL_SUBSCRIBER,
+    subscriptions: { premium_monthly: { store: "rc_billing", period_type: "normal" } },
+  };
+  assertEquals(resolveIsTrial(subscriber, "premium"), false);
+});
+
+Deno.test("casing and padding are RevenueCat's to vary, not ours to depend on", () => {
+  const subscriber = {
+    ...TRIAL_SUBSCRIBER,
+    subscriptions: { premium_monthly: { store: "rc_billing", period_type: "  TRIAL " } },
+  };
+  assertEquals(resolveIsTrial(subscriber, "premium"), true);
+});
+
+/// Null, never false. False would be a claim that this is a paid subscription, and the screen acting
+/// on it promises access the person may be about to lose.
+Deno.test("anything we cannot pin down is null, never false", () => {
+  assertEquals(resolveIsTrial(TRIAL_SUBSCRIBER, null), null);
+  assertEquals(resolveIsTrial({ entitlements: {}, subscriptions: {} }, "premium"), null);
+  assertEquals(
+    resolveIsTrial({ ...TRIAL_SUBSCRIBER, subscriptions: { premium_monthly: { store: "rc_billing" } } }, "premium"),
+    null,
+  );
+  assertEquals(
+    resolveIsTrial({ ...TRIAL_SUBSCRIBER, subscriptions: { premium_monthly: { period_type: "" } } }, "premium"),
+    null,
+  );
 });

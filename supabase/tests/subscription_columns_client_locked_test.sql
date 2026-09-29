@@ -18,7 +18,7 @@
 -- contains — would restore it. So the trigger is tested with those grants deliberately handed back.
 
 begin;
-select plan(16);
+select plan(18);
 
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
 values
@@ -67,6 +67,17 @@ select throws_ok(
   '42501',
   null,
   'a user cannot claim which storefront sold their subscription'
+);
+
+-- `subscription_is_trial` decides what the cancel screens promise. A client that could set it to
+-- false would be told it keeps access until the end of a period it does not have; set to true, it
+-- would be warned about a trial it is not in. Neither is a privilege escalation, which is exactly
+-- why a column like this is easy to leave out of the trigger.
+select throws_ok(
+  $$update public.profiles set subscription_is_trial = false where id = 'aaaaaaaa-3333-0000-0000-000000000001'$$,
+  '42501',
+  null,
+  'a user cannot claim their subscription is or is not a trial'
 );
 
 -- Reading it is fine and necessary — the account screen has to know what to offer. SELECT on
@@ -153,6 +164,13 @@ select throws_ok(
   '42501',
   null,
   'and refuses subscription_store too, which grants alone would not have'
+);
+
+select throws_ok(
+  $$update public.profiles set subscription_is_trial = false where id = 'aaaaaaaa-3333-0000-0000-000000000001'$$,
+  '42501',
+  null,
+  'and subscription_is_trial, added in 20261111000100'
 );
 
 -- ---------------------------------------------------------------------------

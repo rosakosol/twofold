@@ -29,6 +29,8 @@ export interface RestSubscription {
   /// Which storefront sold it: "app_store", "play_store", "stripe", "rc_billing", "promotional"…
   /// The same field `_shared/subscription-cancel.ts` reads to decide what is ours to cancel.
   store?: string | null;
+  /// "trial" | "intro" | "normal" — see `resolveIsTrial`.
+  period_type?: string | null;
   [key: string]: unknown;
 }
 
@@ -192,6 +194,32 @@ export function resolveStore(subscriber: RestSubscriber, tier: Tier): string | n
 
   const normalised = store.trim().toLowerCase();
   return normalised === "" ? null : normalised;
+}
+
+/// Whether the active subscription is still in a free trial.
+///
+/// RevenueCat reports this as `period_type` on the subscription backing the entitlement: "trial",
+/// "intro" or "normal". Both "trial" and "intro" count, because they are the same thing to the
+/// person cancelling — no paid period has begun, so there is nothing left to run out and access ends
+/// on the spot.
+///
+/// Null rather than false when it cannot be determined, and every consumer has to keep that
+/// distinction. Reading an unknown as "not a trial" tells somebody they keep access they are about
+/// to lose, which is the failure this exists to prevent; reading it as "trial" only warns somebody
+/// who did not need warning. The asymmetry is the same one `resolveStore` is built on.
+export function resolveIsTrial(subscriber: RestSubscriber, tier: Tier): boolean | null {
+  if (tier === null) return null;
+
+  const entitlement = subscriber.entitlements?.[tier === "premium" ? ENTITLEMENT_PREMIUM : ENTITLEMENT_PLUS];
+  const productId = entitlement?.product_identifier;
+  if (typeof productId !== "string") return null;
+
+  const periodType = subscriber.subscriptions?.[productId]?.period_type;
+  if (typeof periodType !== "string") return null;
+
+  const normalised = periodType.trim().toLowerCase();
+  if (normalised === "") return null;
+  return normalised === "trial" || normalised === "intro";
 }
 
 /// What to log when an active subscriber yields no start date. Turns the unverified assumption

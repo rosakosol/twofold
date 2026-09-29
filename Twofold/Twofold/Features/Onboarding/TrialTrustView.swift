@@ -52,7 +52,13 @@ struct TrialTrustView: View {
                         }
                     }
 
-                    Text("We'll remind you before your free trial ends.")
+                    // Said here rather than only at the point of cancelling, because this is the
+                    // screen that sells the trial as risk-free. Cancelling during a trial ends
+                    // access immediately — there is no paid period to run out — and somebody who
+                    // believes otherwise cancels early "to be safe" and loses the days they had
+                    // left. One `Text` rather than two so the sentences share their styling and
+                    // cannot drift apart.
+                    Text("We'll remind you before your free trial ends. If you cancel during the trial, your access ends straight away.")
                         .font(.caption)
                         .foregroundStyle(Theme.subtleInk)
                         .frame(maxWidth: .infinity, alignment: .center)

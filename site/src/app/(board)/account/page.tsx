@@ -32,7 +32,7 @@ export default async function AccountPage() {
     supabase
       .from("profiles")
       .select(
-        "first_name, subscription_active, subscription_tier, subscription_store, subscription_will_renew, subscription_started_at",
+        "first_name, subscription_active, subscription_tier, subscription_store, subscription_will_renew, subscription_started_at, subscription_is_trial",
       )
       .eq("id", user.id)
       .maybeSingle(),
@@ -62,6 +62,7 @@ export default async function AccountPage() {
     store: profile?.subscription_store ?? null,
     willRenew: profile?.subscription_will_renew ?? null,
     startedAt: profile?.subscription_started_at ?? null,
+    isTrial: profile?.subscription_is_trial ?? null,
   };
 
   return (

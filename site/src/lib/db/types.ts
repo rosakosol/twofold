@@ -2014,6 +2014,7 @@ export type Database = {
           subscription_checked_at: string | null
           subscription_started_at: string | null
           subscription_store: string | null
+          subscription_is_trial: boolean | null
           subscription_tier: string | null
           subscription_will_renew: boolean | null
           timezone: string | null
@@ -2043,6 +2044,7 @@ export type Database = {
           subscription_checked_at?: string | null
           subscription_started_at?: string | null
           subscription_store?: string | null
+          subscription_is_trial?: boolean | null
           subscription_tier?: string | null
           subscription_will_renew?: boolean | null
           timezone?: string | null
@@ -2072,6 +2074,7 @@ export type Database = {
           subscription_checked_at?: string | null
           subscription_started_at?: string | null
           subscription_store?: string | null
+          subscription_is_trial?: boolean | null
           subscription_tier?: string | null
           subscription_will_renew?: boolean | null
           timezone?: string | null
