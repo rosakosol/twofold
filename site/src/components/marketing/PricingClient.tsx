@@ -5,7 +5,16 @@ import { useSearchParams } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { APP_STORE_URL, PLANS } from "@/lib/marketing/config";
 import type { ResolvedPlan } from "@/lib/marketing/sanity";
-import { getSession, onAuthChange, signInWithProvider, sendMagicLink, signOut } from "@/lib/marketing/auth";
+import {
+  getSession,
+  onAuthChange,
+  signInWithProvider,
+  signUpWithPassword,
+  signInWithPassword,
+  isExistingAccountError,
+  signOut,
+} from "@/lib/marketing/auth";
+import { isStrongEnough, passwordStrengthLabel } from "@/lib/marketing/passwordStrength";
 import { providerFallbackName, providerLabel, sessionProvider } from "@/lib/marketing/provider";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -138,8 +147,15 @@ function PricingContent({
   // sign-in step is what is on screen. Null the rest of the time.
   const [signInFor, setSignInFor] = useState<Pending | null>(null);
   const [oauthPending, setOauthPending] = useState<"apple" | "google" | null>(null);
-  const [magicLinkEmail, setMagicLinkEmail] = useState("");
-  const [magicLinkStatus, setMagicLinkStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  // Create by default: most people who reach this step have no Twofold account, because anyone who
+  // installed the app first met a non-dismissable paywall during onboarding and subscribed there.
+  const [authMode, setAuthMode] = useState<"create" | "signin">("create");
+  const [firstName, setFirstName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [emailSubmitting, setEmailSubmitting] = useState(false);
   const [signInError, setSignInError] = useState<string | null>(null);
   const successRef = useRef<HTMLDivElement>(null);
   // Whatever this session was actually created with - Apple here, but equally a Google or
@@ -246,17 +262,53 @@ function PricingContent({
     }
   }
 
-  async function submitMagicLink(event: React.FormEvent) {
+  /// Mirrors `CreateAccountView.canContinue` and `SaveAccountView.canContinueWithEmail` field for
+  /// field — see lib/marketing/passwordStrength.ts for the strength half. An account the app would
+  /// refuse to create must not be creatable here, or the two surfaces disagree about who has a
+  /// valid account.
+  const canSubmitEmail =
+    authMode === "signin"
+      ? email.trim() !== "" && password !== ""
+      : firstName.trim() !== "" &&
+        email.trim() !== "" &&
+        password.length >= 6 &&
+        confirmPassword === password &&
+        isStrongEnough(password) &&
+        acceptedTerms;
+
+  async function submitEmailAuth(event: React.FormEvent) {
     event.preventDefault();
+    if (!canSubmitEmail || emailSubmitting) return;
     setSignInError(null);
-    setMagicLinkStatus("sending");
+    setEmailSubmitting(true);
+
     try {
-      await sendMagicLink(magicLinkEmail);
-      setMagicLinkStatus("sent");
-    } catch {
-      setMagicLinkStatus("error");
-      setSignInError("We couldn't send that link. Please check the address and try again.");
+      if (authMode === "signin") {
+        await signInWithPassword(email, password);
+      } else {
+        const data = await signUpWithPassword(firstName, email, password);
+        // Supabase can report an existing address as a success carrying a user with no identities,
+        // rather than as an error — see isExistingAccountError. Treated the same either way: send
+        // them to sign in rather than leaving them on a form that appeared to work.
+        if (isExistingAccountError(null, data)) {
+          setAuthMode("signin");
+          setSignInError("An account with this email already exists. Sign in to use it.");
+          setEmailSubmitting(false);
+          return;
+        }
+      }
+      // The session lands via onAuthChange, and the pending-plan effect resumes the purchase.
+    } catch (err) {
+      if (authMode === "create" && isExistingAccountError(err)) {
+        setAuthMode("signin");
+        setSignInError("An account with this email already exists. Sign in to use it.");
+      } else if (authMode === "signin") {
+        setSignInError("That email and password didn't match an account. Please try again.");
+      } else {
+        setSignInError("We couldn't create your account. Please try again.");
+      }
     }
+    setEmailSubmitting(false);
   }
 
   async function checkSubscriptionStatus(currentSession: Session): Promise<boolean | null> {
@@ -378,15 +430,22 @@ function PricingContent({
 
               It named Apple until the sign-in step stopped forcing it. Naming one provider was the
               visible half of a bug that cost people money: a Google or email account holder who
-              signed in with Apple got a second Supabase user, and their subscription attached to
-              it. What matters is not which provider but that it is the same one as in the app. */}
+              signed in with Apple got a second Supabase user, and their subscription attached to it.
+
+              It then said "the same account you use in the app", which assumed a reader who already
+              has one. Most people reading this page do not: anyone who installs the app first meets
+              a non-dismissable paywall during onboarding and subscribes there. The two groups this
+              page actually serves are people who found the site before the app, and people who quit
+              at that paywall — see migration 20261110001200, which exists because that is the most
+              likely place to stop. So it describes making an account, and treats already having one
+              as the other case rather than the assumed one. */}
           {!authLoading && !session && (
             <div className="apple-note">
               <svg className="icon">
                 <use href="/assets/icons.svg#icon-check-circle" />
               </svg>
-              You&apos;ll sign in at checkout with the same account you use in the app - it&apos;s how
-              we match your web purchase to your Twofold account.
+              You&apos;ll create your Twofold account at checkout - the same one you&apos;ll sign in
+              with when you download the app.
             </div>
           )}
         </Reveal>
@@ -434,93 +493,176 @@ function PricingContent({
             /* The sign-in step, shown in place of the cards once a plan is picked. It replaces an
                immediate redirect to Apple — see attemptPurchase for why that was the wrong default.
 
-               All three are here because the app has all three, and the only thing that matters is
-               landing on the account they already use. The order matches the app's own sign-in
-               screen so the button they reach for is where they expect it. */
-            <div className="card waitlist-card" style={{ marginTop: 12, maxWidth: 460, marginLeft: "auto", marginRight: "auto" }}>
-              {magicLinkStatus === "sent" ? (
-                <>
-                  <h3 style={{ marginBottom: 10 }}>Check your email</h3>
-                  <p style={{ marginBottom: 20 }}>
-                    We sent a sign-in link to <strong>{magicLinkEmail}</strong>. Open it, then pick your
-                    plan again — the link may open in a new tab, so we won&apos;t carry your choice over.
-                  </p>
-                  <button
-                    type="button"
-                    className="btn btn-ghost"
-                    onClick={() => {
-                      setMagicLinkStatus("idle");
-                      setSignInFor(null);
-                    }}
-                  >
-                    Back to plans
-                  </button>
-                </>
-              ) : (
-                <>
-                  <h3 style={{ marginBottom: 6 }}>Sign in to subscribe</h3>
-                  <p style={{ marginBottom: 20 }}>
-                    Use the <strong>same method you use in the Twofold app</strong>. That&apos;s how your
-                    subscription reaches your account — a different one makes a new, empty account.
-                  </p>
+               All three of the app's methods are here, and that is the point rather than a nicety.
+               Apple and Google alone would have no correct option for somebody whose Twofold account
+               is an email address, and those people are disproportionately who this page is for: an
+               account is created at `.saveAccount`, *before* the onboarding paywall, so anyone who
+               quit at that paywall already has one. For them a provider button is not a login, it is
+               a second account and a stranded subscription.
 
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    style={{ width: "100%", marginBottom: 8 }}
-                    disabled={oauthPending !== null}
-                    onClick={() => startOAuth("apple")}
-                  >
-                    {oauthPending === "apple" ? "Opening…" : "Continue with Apple"}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-ghost"
-                    style={{ width: "100%", marginBottom: 16 }}
-                    disabled={oauthPending !== null}
-                    onClick={() => startOAuth("google")}
-                  >
-                    {oauthPending === "google" ? "Opening…" : "Continue with Google"}
-                  </button>
+               Create is the default because most people here have no account at all — anyone who
+               installed the app first subscribed during onboarding. */
+            <div className="card waitlist-card" style={{ marginTop: 12, maxWidth: 460, marginLeft: "auto", marginRight: "auto", textAlign: "left" }}>
+              <h3 style={{ marginBottom: 6 }}>
+                {authMode === "create" ? "Create your account" : "Sign in"}
+              </h3>
+              <p style={{ marginBottom: 20 }}>
+                {authMode === "create"
+                  ? "Your subscription lives on this account, and it's what you'll sign in with when you download the app."
+                  : "Use the account you already have in Twofold, so your subscription reaches it rather than a new one."}
+              </p>
 
-                  <form onSubmit={submitMagicLink} noValidate>
-                    <div className="field-row">
-                      <label className="sr-only" htmlFor="pricing-signin-email">
-                        Email address
-                      </label>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ width: "100%", marginBottom: 8 }}
+                disabled={oauthPending !== null}
+                onClick={() => startOAuth("apple")}
+              >
+                {oauthPending === "apple" ? "Opening…" : "Continue with Apple"}
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{ width: "100%", marginBottom: 16 }}
+                disabled={oauthPending !== null}
+                onClick={() => startOAuth("google")}
+              >
+                {oauthPending === "google" ? "Opening…" : "Continue with Google"}
+              </button>
+
+              <p style={{ textAlign: "center", fontSize: "0.85em", opacity: 0.7, marginBottom: 12 }}>or</p>
+
+              <form className="auth-form" onSubmit={submitEmailAuth} noValidate>
+                {authMode === "create" && (
+                  <>
+                    <label className="sr-only" htmlFor="signup-first-name">First name</label>
+                    <input
+                      id="signup-first-name"
+                      name="given-name"
+                      type="text"
+                      autoComplete="given-name"
+                      placeholder="First name"
+                      value={firstName}
+                      onChange={(event) => setFirstName(event.target.value)}
+                    />
+                  </>
+                )}
+
+                <label className="sr-only" htmlFor="signup-email">Email address</label>
+                <input
+                  id="signup-email"
+                  name="email"
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  placeholder="yourname@email.com"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                />
+
+                <label className="sr-only" htmlFor="signup-password">Password</label>
+                <input
+                  id="signup-password"
+                  name="password"
+                  type="password"
+                  autoComplete={authMode === "create" ? "new-password" : "current-password"}
+                  placeholder="Password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                />
+
+                {authMode === "create" && (
+                  <>
+                    <label className="sr-only" htmlFor="signup-confirm">Confirm password</label>
+                    <input
+                      id="signup-confirm"
+                      name="confirm-password"
+                      type="password"
+                      autoComplete="new-password"
+                      placeholder="Confirm password"
+                      value={confirmPassword}
+                      onChange={(event) => setConfirmPassword(event.target.value)}
+                    />
+
+                    {/* Says which rule is unmet rather than only disabling the button, because a
+                        dead button with no reason is the same dead end as no button. */}
+                    {password !== "" && (
+                      <p style={{ fontSize: "0.85em", opacity: 0.8, marginBottom: 8 }}>
+                        Password strength: {passwordStrengthLabel(password)}
+                        {!isStrongEnough(password) && " — use at least 8 characters"}
+                      </p>
+                    )}
+                    {confirmPassword !== "" && confirmPassword !== password && (
+                      <p style={{ fontSize: "0.85em", opacity: 0.8, marginBottom: 8 }}>
+                        Those passwords don&apos;t match.
+                      </p>
+                    )}
+
+                    {/* The same gate the app puts on every route off SaveAccountView, and the same
+                        sentence, so the thing being agreed to does not depend on where you signed
+                        up. */}
+                    <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: "0.85em", marginBottom: 16 }}>
                       <input
-                        id="pricing-signin-email"
-                        name="email"
-                        type="email"
-                        inputMode="email"
-                        autoComplete="email"
-                        placeholder="yourname@email.com"
-                        value={magicLinkEmail}
-                        onChange={(event) => setMagicLinkEmail(event.target.value)}
-                        required
+                        type="checkbox"
+                        checked={acceptedTerms}
+                        onChange={(event) => setAcceptedTerms(event.target.checked)}
+                        style={{ marginTop: 3 }}
                       />
-                      <button type="submit" className="btn btn-ghost" disabled={magicLinkStatus === "sending"}>
-                        {magicLinkStatus === "sending" ? "Sending…" : "Email me a link"}
-                      </button>
-                    </div>
-                  </form>
+                      <span>
+                        I&apos;m 16 or over, and I agree to the <a href="/terms">Terms of Use</a> and{" "}
+                        <a href="/privacy">Privacy Policy</a>.
+                      </span>
+                    </label>
+                  </>
+                )}
 
-                  {signInError && (
-                    <p className="form-status" data-state="error" role="status" aria-live="polite">
-                      {signInError}
-                    </p>
-                  )}
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ width: "100%" }}
+                  disabled={!canSubmitEmail || emailSubmitting}
+                >
+                  {emailSubmitting
+                    ? "One moment…"
+                    : authMode === "create"
+                      ? "Create account"
+                      : "Sign in"}
+                </button>
+              </form>
 
-                  <button
-                    type="button"
-                    className="text-link"
-                    style={{ marginTop: 16, background: "none", border: "none", cursor: "pointer" }}
-                    onClick={() => setSignInFor(null)}
-                  >
-                    Back to plans
-                  </button>
-                </>
+              {signInError && (
+                <p className="form-status" data-state="error" role="status" aria-live="polite">
+                  {signInError}
+                </p>
               )}
+
+              <div style={{ marginTop: 16, textAlign: "center" }}>
+                <button
+                  type="button"
+                  className="text-link"
+                  style={{ background: "none", border: "none", cursor: "pointer" }}
+                  onClick={() => {
+                    setAuthMode(authMode === "create" ? "signin" : "create");
+                    setSignInError(null);
+                  }}
+                >
+                  {authMode === "create"
+                    ? "Already have a Twofold account? Sign in"
+                    : "Need an account? Create one"}
+                </button>
+              </div>
+
+              <div style={{ marginTop: 10, textAlign: "center" }}>
+                <button
+                  type="button"
+                  className="text-link"
+                  style={{ background: "none", border: "none", cursor: "pointer" }}
+                  onClick={() => setSignInFor(null)}
+                >
+                  Back to plans
+                </button>
+              </div>
             </div>
           ) : (
             <>

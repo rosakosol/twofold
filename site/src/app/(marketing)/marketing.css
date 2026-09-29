@@ -236,6 +236,7 @@ section {
      bumped to exactly 16px on phone-width screens. Desktop keeps the smaller size. */
   .waitlist-form input,
   .field-row input,
+  .auth-form input,
   .support-field input,
   .support-field textarea,
   .support-field .support-select {
@@ -1455,8 +1456,20 @@ section {
   flex-wrap: wrap;
   justify-content: center;
 }
+/* The sign-in/signup form on /pricing. It wants .field-row's input treatment but not its layout:
+   that is a flex row with wrap, which is right for one field beside a button and wrong for five
+   stacked ones. Sharing the declarations below rather than copying them, so the two cannot drift. */
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .waitlist-form input,
-.field-row input {
+.field-row input,
+.auth-form input[type="text"],
+.auth-form input[type="email"],
+.auth-form input[type="password"] {
   flex: 1 1 240px;
   border: 1px solid var(--border-soft);
   background: var(--card-bg-alt);
@@ -1469,7 +1482,8 @@ section {
   transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
 }
 .waitlist-form input:focus,
-.field-row input:focus {
+.field-row input:focus,
+.auth-form input:focus {
   border-color: var(--sky-blue);
   box-shadow: 0 0 0 4px rgba(79, 169, 224, 0.14);
 }
