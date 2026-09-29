@@ -25,16 +25,34 @@ struct PanelSwapTests {
     @Observable fileprivate final class Model { var selection: Selection? = Selection(id: 1) }
 
     /// Presents, swaps the selection, and reports whether the same sheet stayed up.
-    private func sheetSurvivesSwap(_ content: @escaping (Model) -> AnyView) async -> (survived: Bool, stillPresented: Bool) {
+    /// `swapBudget` is how long to wait for the presentation identity to change after the
+    /// selection does, and the two tests need very different values.
+    ///
+    /// The survival case can never see a change, so it spends the whole budget every run — keeping
+    /// it short is what keeps the suite quick. The rebuild case returns the instant the change
+    /// lands, so a long budget costs nothing on a healthy machine and is only ever spent when the
+    /// behaviour has actually regressed, which is exactly when waiting is worth it.
+    ///
+    /// Sharing one budget is what made this flaky. Three seconds is ample in isolation and not
+    /// ample in a loaded full-suite run, so the rebuild had not happened yet, `after` was still
+    /// `before`, and the negative control reported that a rebuilt panel had survived. Green alone,
+    /// red in a full run — twice, in two sessions, each time looking like a real regression.
+    private func sheetSurvivesSwap(
+        swapBudget: TimeInterval,
+        _ content: @escaping (Model) -> AnyView
+    ) async -> (survived: Bool, stillPresented: Bool) {
         // Exclusive for the whole harness, not just the presentation: another suite dismissing on
         // this process's one window mid-measurement is what made the negative control below report
         // that a rebuilt panel had survived. See WindowPresentationTestLock.
         await WindowPresentationTestLock.withExclusiveWindow {
-            await sheetSurvivesSwapLocked(content)
+            await sheetSurvivesSwapLocked(content, swapBudget: swapBudget)
         }
     }
 
-    private func sheetSurvivesSwapLocked(_ content: @escaping (Model) -> AnyView) async -> (survived: Bool, stillPresented: Bool) {
+    private func sheetSurvivesSwapLocked(
+        _ content: @escaping (Model) -> AnyView,
+        swapBudget: TimeInterval
+    ) async -> (survived: Bool, stillPresented: Bool) {
         let model = Model()
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
         let host = UIHostingController(rootView: content(model))
@@ -57,7 +75,7 @@ struct PanelSwapTests {
         // Polling for the change also makes the two cases cost what they should: a rebuild returns
         // as soon as it lands, and only the survival case spends the whole budget, which is
         // unavoidable — proving something did not happen means waiting long enough to be sure.
-        await waitUntil(within: 3) { host.presentedViewController !== before }
+        await waitUntil(within: swapBudget) { host.presentedViewController !== before }
         let after = host.presentedViewController
 
         window.isHidden = true
@@ -78,7 +96,8 @@ struct PanelSwapTests {
     /// What the map now uses.
     @Test("a panel bound to isPresented survives a change of subject")
     func isPresentedKeepsThePanel() async {
-        let result = await sheetSurvivesSwap { model in
+        // Short, because this case always spends it: nothing will ever change.
+        let result = await sheetSurvivesSwap(swapBudget: 3) { model in
             AnyView(
                 Color.clear.sheet(
                     isPresented: Binding(get: { model.selection != nil }, set: { if !$0 { model.selection = nil } })
@@ -97,7 +116,10 @@ struct PanelSwapTests {
     /// using the more natural-looking `item:` form.
     @Test("a panel bound to item is rebuilt instead")
     func itemRebuildsThePanel() async {
-        let result = await sheetSurvivesSwap { model in
+        // Generous, because this case returns as soon as the rebuild lands. It is only ever spent
+        // in full if `sheet(item:)` has genuinely stopped rebuilding, which is the finding this
+        // test exists to report — worth twenty seconds to be sure of.
+        let result = await sheetSurvivesSwap(swapBudget: 20) { model in
             AnyView(
                 Color.clear.sheet(item: Binding(get: { model.selection }, set: { model.selection = $0 })) { selection in
                     Text("Place \(selection.id)")
