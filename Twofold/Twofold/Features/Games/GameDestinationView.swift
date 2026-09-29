@@ -35,6 +35,5 @@ func gameDestinationView(gameType: GameType, sessionID: UUID, title: String? = n
     case .wordGuess: WordGuessGameView(sessionID: sessionID)
     case .wordSearch: WordSearchGameView(sessionID: sessionID)
     case .connectFour: ConnectFourGameView(sessionID: sessionID)
-    case .chess: ChessGameView(sessionID: sessionID)
     }
 }

@@ -12,7 +12,7 @@
 //
 //  "Most games" is the part worth keeping honest. This screen used to promise "play games" flatly,
 //  which was true when the only games were the decks and stopped being true when Connect 4 and
-//  Chess arrived — those validate every move server-side, so offline they do not work at all.
+//  Connect 4 arrived — it validates every move server-side, so offline it does not work at all.
 //  A list that overpromises is worse than no list: it sends somebody to a board that will refuse
 //  them, having just told them it would be fine. See `available`/`unavailable` for the three ways
 //  a game behaves here.
@@ -34,7 +34,7 @@ struct OfflineNoticeView: View {
     ///     the session started, and each device builds the same puzzle from it without fetching
     ///     anything — so carrying one on is free, and starting a fresh one still needs the round
     ///     trip that hands out that uuid.
-    ///   * Connect 4 and Chess do not work at all. Every move is validated and stored server-side
+    ///   * Connect 4 does not work at all. Every move is validated and stored server-side
     ///     before the board moves; there is nothing to queue, because a move's legality isn't this
     ///     device's to decide.
     /// Text only, unlike `unavailable`. Every row here draws the same checkmark, so an icon per
@@ -49,7 +49,7 @@ struct OfflineNoticeView: View {
     ]
 
     private let unavailable: [(icon: String, text: String)] = [
-        ("arrow.left.arrow.right", "Connect 4 and Chess — every move needs a connection"),
+        ("arrow.left.arrow.right", "Connect 4 — every move needs a connection"),
         ("plus.circle", "Starting a new Sudoku, Word Guess or Word Search"),
         ("magnifyingglass", "Searching for flights or places"),
         ("arrow.triangle.2.circlepath", "Live flight tracking and your partner's updates"),

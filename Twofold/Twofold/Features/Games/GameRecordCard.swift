@@ -200,18 +200,3 @@ struct GameRecordCard: View {
     .padding()
     .background(Theme.backgroundGradient)
 }
-
-#Preview("Chess — no bests") {
-    GameRecordCard(
-        records: [GameRecord(
-            gameType: .chess, variant: nil,
-            myFinished: 4, partnerFinished: 4,
-            myWins: 1, partnerWins: 2, draws: 1,
-            myBest: nil, partnerBest: nil
-        )],
-        partnerName: "Erin",
-        formatBest: nil
-    )
-    .padding()
-    .background(Theme.backgroundGradient)
-}

@@ -32,10 +32,7 @@ enum BackendError: LocalizedError {
     case notYourTurn
     case columnFull
     case gameAlreadyFinished
-    /// Chess needs both of them, and needs Premium. Named separately so the screen can offer the
     /// right thing — an invite, or the paywall.
-    case chessNeedsPartner
-    case chessRequiresPremium
     /// The piece cannot go there. An ordinary part of playing rather than an error, and the board
     /// re-reads rather than retrying.
     case illegalMove
@@ -53,8 +50,6 @@ enum BackendError: LocalizedError {
         case .notYourTurn: "It's not your turn yet."
         case .columnFull: "That column is full."
         case .gameAlreadyFinished: "This game has finished."
-        case .chessNeedsPartner: "Chess needs both of you. Invite your partner to play."
-        case .chessRequiresPremium: "Chess is part of Twofold Premium."
         case .illegalMove: "That piece can't move there."
         }
     }
@@ -4053,7 +4048,7 @@ enum BackendService {
 
     /// The running record for the four games that keep one server-side.
     ///
-    /// A query rather than a download: Connect 4 and chess keep their results in
+    /// A query rather than a download: Connect 4 keeps its results in
     /// `game_sessions.outcome`, and Word Guess's and Word Search's are inside response payloads, so
     /// aggregating on the device would mean fetching every response either of them has ever
     /// written to draw one line of text.
@@ -4066,94 +4061,6 @@ enum BackendService {
         } catch {
             return []
         }
-    }
-
-    // MARK: - Chess
-
-    struct ChessStart: Decodable {
-        let sessionID: UUID
-        let resumed: Bool
-
-        enum CodingKeys: String, CodingKey {
-            case resumed
-            case sessionID = "session_id"
-        }
-    }
-
-    /// What a move did, as the server sees it.
-    ///
-    /// `outcome` is the server's own reading of the position, not the client's — see
-    /// `supabase/functions/_shared/chess-rules.ts`. The app draws the board with ChessKit and would
-    /// usually agree, but nothing here depends on it agreeing.
-    struct ChessMoveResult: Decodable {
-        let moveNumber: Int
-        let finished: Bool
-        let winnerID: UUID?
-        /// "checkmate", "stalemate", "insufficient_material", "repetition", "fifty_moves", or nil
-        /// while the game is still on.
-        let outcome: String?
-        let inCheck: Bool
-
-        enum CodingKeys: String, CodingKey {
-            case finished, outcome
-            case moveNumber = "move_number"
-            case winnerID = "winner_id"
-            case inCheck = "in_check"
-        }
-    }
-
-    static func startChessSession() async throws -> ChessStart {
-        do {
-            let rows: [ChessStart] = try await supabase
-                .rpc("start_chess_session")
-                .execute()
-                .value
-            guard let start = rows.first else { throw BackendError.notAuthenticated }
-            Analytics.capture(Analytics.Event.sessionStart, properties: [
-                "game_type": GameType.chess.rawValue,
-                "resumed": start.resumed
-            ])
-            return start
-        } catch {
-            let description = "\(error)"
-            if description.contains("chess_needs_partner") { throw BackendError.chessNeedsPartner }
-            if description.contains("chess_requires_premium") { throw BackendError.chessRequiresPremium }
-            throw error
-        }
-    }
-
-    /// Sends a move to `play-chess-move`, which validates it and decides whether it ended the game.
-    ///
-    /// An edge function rather than an RPC because chess rules do not belong in plpgsql — and *not*
-    /// because the client is trusted to judge the move. `game_moves` grants the client no insert at
-    /// all; this call is the only way a move reaches the table.
-    static func playChessMove(sessionID: UUID, from: String, to: String, promotion: String?) async throws -> ChessMoveResult {
-        guard let accessToken = currentAccessToken else { throw BackendError.notAuthenticated }
-
-        var body: [String: Any] = ["sessionId": sessionID.uuidString, "from": from, "to": to]
-        if let promotion { body["promotion"] = promotion }
-
-        var request = URLRequest(url: SupabaseConfig.projectURL.appendingPathComponent("functions/v1/play-chess-move"))
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(SupabaseConfig.publishableKey, forHTTPHeaderField: "apiKey")
-        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse else { throw BackendError.requestFailed(message: nil) }
-
-        guard (200..<300).contains(http.statusCode) else {
-            // The named refusals are ordinary things a shared board does, not failures: somebody
-            // moved first, the piece cannot go there, or the game ended while this screen was open.
-            let text = String(data: data, encoding: .utf8) ?? ""
-            if text.contains("chess_not_your_turn") { throw BackendError.notYourTurn }
-            if text.contains("chess_illegal_move") { throw BackendError.illegalMove }
-            if text.contains("chess_finished") { throw BackendError.gameAlreadyFinished }
-            throw BackendError.requestFailed(message: nil)
-        }
-
-        return try JSONDecoder().decode(ChessMoveResult.self, from: data)
     }
 
     /// Every finished sudoku solve visible to this account, flattened for `SudokuStats`.
@@ -4404,7 +4311,7 @@ enum BackendService {
         // Nothing to resolve. These `content_id`s are not keys into anything — they *are* the
         // puzzle, generated from those 128 bits on each device, so there is no row to go and get.
         // For Word Guess that is also what keeps the answer off the server entirely.
-        case .sudoku, .wordGuess, .wordSearch, .connectFour, .chess:
+        case .sudoku, .wordGuess, .wordSearch, .connectFour:
             return [:]
         case .triviaBattle:
             let rows: [TriviaQuestionRow] = try await supabase.from("trivia_questions").select().in("id", values: unique).execute().value
@@ -4562,7 +4469,7 @@ enum BackendService {
         var partnerGameStarted: Bool
         var partnerGameResultsReady: Bool
         var partnerGamePartnerFinished: Bool
-        /// Chess and Connect 4 only — the one event that fires repeatedly *within* a game rather
+        /// Connect 4 only — the one event that fires repeatedly *within* a game rather
         /// than once, which is why it is not folded into `partnerGameStarted`.
         var partnerGameTurn: Bool
         var partnerGameReminder: Bool

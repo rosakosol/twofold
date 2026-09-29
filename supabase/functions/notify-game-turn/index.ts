@@ -1,4 +1,4 @@
-// Tells the opponent it is their move, for Chess and Connect 4.
+// Tells the opponent it is their move, for Connect 4.
 //
 // Why this is not `notify-couple-event`
 // -------------------------------------
@@ -7,8 +7,8 @@
 // 401 if there isn't one — and derives the recipient as "the other half of that user's couple".
 // That is exactly right for something a person did in the app, and unusable here: this is invoked
 // by a database trigger on `game_moves` (see 20261020000000), under the service role, with no end
-// user on the connection at all. The chess half could not supply a user JWT even in principle —
-// its move arrives through `play-chess-move`, running as the service role itself.
+// user on the connection at all: the move arrives through a trigger, not through anything a
+// person's session touched.
 //
 // The alternative was teaching `notify-couple-event` to accept an explicit actor and recipient
 // when the caller holds the service key. That is a spoofing surface on the one function every
@@ -59,8 +59,8 @@ Deno.serve(async (req) => {
   if (!actorId || !recipientId || !sessionId) {
     return Response.json({ error: "actorId, recipientId and sessionId are required" }, { status: 400 });
   }
-  if (gameType !== "chess" && gameType !== "connect_four") {
-    return Response.json({ error: "gameType must be chess or connect_four" }, { status: 400 });
+  if (gameType !== "connect_four") {
+    return Response.json({ error: "gameType must be connect_four" }, { status: 400 });
   }
   // A game cannot be waiting on the person who just moved. The trigger already refuses this, so
   // reaching it means one of the two is wrong and a push would be actively confusing.

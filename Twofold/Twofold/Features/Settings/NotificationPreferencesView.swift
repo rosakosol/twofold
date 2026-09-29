@@ -82,7 +82,7 @@ struct NotificationPreferencesView: View {
                     // Named for the two games it applies to, because it is the only toggle here
                     // that does not cover every game — the rest are play-your-half-whenever and
                     // nobody is waiting on anybody.
-                    toggleRow("It's my turn in Chess or Connect 4", isOn: $partnerGameTurn)
+                    toggleRow("It's my turn in Connect 4", isOn: $partnerGameTurn)
                     // Until 20261110000900 this one could not be switched off — not by
                     // decision, but because the event was missing from the server's
                     // preference map.

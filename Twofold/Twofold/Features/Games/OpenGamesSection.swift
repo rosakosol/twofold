@@ -5,7 +5,7 @@
 //  What is already on, at the top of the Games tab.
 //
 //  Five games were added that have no deck list to surface them. A sudoku left half-solved, a word
-//  search three words short, a chess game where the partner has moved — none of those appeared
+//  search three words short, a Connect 4 board where the partner has moved — none of those appeared
 //  anywhere except by opening the game and finding out. The games plan called this out before any
 //  of them existed: a board where your partner has moved is the strongest re-engagement surface
 //  this app has, and it had nowhere to live.

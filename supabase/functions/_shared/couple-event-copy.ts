@@ -112,10 +112,13 @@ export function buildMessage(eventType: EventType, actorName: string, game: Game
 }
 
 /// The turn-based games, by name. Returns null for anything else: this event should only ever
-/// carry `chess` or `connect_four`, and inventing a label for a third would be guessing.
+/// carry `connect_four`, and inventing a label for a second would be guessing.
+///
+/// Chess used to be the other one. It is gone (20261111000600), and the `chess` label it left
+/// behind in the `game_type` enum cannot produce an event — nothing can create a chess session
+/// any more.
 function turnGameName(gameType?: string): string | null {
   switch (gameType) {
-    case "chess": return "Chess";
     case "connect_four": return "Connect 4";
     default: return null;
   }

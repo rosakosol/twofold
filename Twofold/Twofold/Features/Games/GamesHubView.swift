@@ -246,10 +246,11 @@ struct GamesHubView: View {
 
     /// Where a game type's card leads.
     ///
-    /// The deck games open their deck list. The other five have no decks, so each opens the small
-    /// screen standing in for one — a difficulty, a theme, today's word, or a board. Chess opens
-    /// even without Premium: its entry screen explains what it is and offers the paywall, where a
-    /// card that refused to open would only teach people it is broken.
+    /// The deck games open their deck list. The other four have no decks, so each opens the small
+    /// screen standing in for one — a difficulty, a theme, today's word, or a board.
+    ///
+    /// A gated game still opens: its entry screen explains what it is and offers the paywall,
+    /// where a card that refused to open would only teach people it is broken.
     @ViewBuilder
     private func entryView(for gameType: GameType) -> some View {
         switch gameType {
@@ -257,7 +258,6 @@ struct GamesHubView: View {
         case .wordGuess: WordGuessEntryView()
         case .wordSearch: WordSearchThemePickerView()
         case .connectFour: ConnectFourEntryView()
-        case .chess: ChessEntryView()
         case .triviaBattle, .moreLikely, .thisOrThat, .deepConversations:
             GameTypeDecksView(gameType: gameType)
         }

@@ -72,7 +72,7 @@ struct GameTile: View {
             spacing: Theme.Spacing.sm
         ) {
             ForEach(GameType.allCases) { gameType in
-                GameTile(gameType: gameType, isLocked: gameType == .chess)
+                GameTile(gameType: gameType, isLocked: gameType == .wordSearch)
             }
         }
         .padding()
