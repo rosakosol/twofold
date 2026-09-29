@@ -20,6 +20,13 @@ struct ConnectFourEntryView: View {
     @State private var route: StartedConnectFour?
     @State private var errorMessage: String?
     @State private var records: [GameRecord] = []
+    @State private var showingPaywall = false
+
+    /// Premium since 20261111000700, when chess was withdrawn and this took its place as a named
+    /// Premium game. The server refuses too — `start_connect_four_session` raises
+    /// `connect_four_requires_premium` — so this only decides what the screen offers, never
+    /// whether a board can actually be created.
+    private var isPremium: Bool { appModel.subscriptionTier == "premium" }
 
     var body: some View {
         ScrollView {
@@ -43,7 +50,11 @@ struct ConnectFourEntryView: View {
                     .foregroundStyle(Theme.subtleInk)
                     .fixedSize(horizontal: false, vertical: true)
 
-                startButton
+                if isPremium {
+                    startButton
+                } else {
+                    premiumGate
+                }
 
                 if let errorMessage {
                     Text(errorMessage)
@@ -63,6 +74,9 @@ struct ConnectFourEntryView: View {
         .navigationDestination(item: $route) { started in
             ConnectFourGameView(sessionID: started.id)
         }
+        .sheet(isPresented: $showingPaywall) {
+            NavigationStack { PaywallView(initialTier: .premium) }
+        }
     }
 
     /// A finished board rather than an empty one. "Four in a row" is quicker to see than to read,
@@ -75,6 +89,30 @@ struct ConnectFourEntryView: View {
             onDrop: { _ in }
         )
         .accessibilityHidden(true)
+    }
+
+    /// Shown in place of Play, not instead of the screen.
+    ///
+    /// The board above stays visible deliberately: somebody deciding whether Premium is worth it
+    /// should be able to see what they would be getting, and a screen that refused to render
+    /// would only teach them the game is broken. Same reasoning the games hub gives for opening a
+    /// gated game's entry screen at all.
+    private var premiumGate: some View {
+        SectionCard {
+            VStack(spacing: Theme.Spacing.sm) {
+                Text("Connect 4 is part of Premium")
+                    .font(.headline)
+                    .foregroundStyle(Theme.ink)
+                Text("One board between you, played a move at a time.")
+                    .font(.caption)
+                    .foregroundStyle(Theme.subtleInk)
+                    .multilineTextAlignment(.center)
+                Button("See Premium") { showingPaywall = true }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Theme.skyBlueText)
+            }
+            .frame(maxWidth: .infinity)
+        }
     }
 
     private var startButton: some View {

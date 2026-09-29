@@ -27,6 +27,10 @@ enum BackendError: LocalizedError {
     /// Connect 4 is the one game here that cannot be played alone — a board with one player is not
     /// a game, so the screen says so rather than starting one nobody can answer.
     case connectFourNeedsPartner
+    /// Both moved behind Premium when chess was withdrawn (20261111000700). Thrown by the RPCs
+    /// rather than only checked in the app, so an edited client cannot start one either.
+    case connectFourRequiresPremium
+    case wordSearchRequiresPremium
     /// Ordinary outcomes of a shared board rather than failures: somebody moved first, the column
     /// filled up, or the game ended while this screen was open.
     case notYourTurn
@@ -47,6 +51,8 @@ enum BackendError: LocalizedError {
         case .accountDeleted: "This account has been deleted and can't be used to sign in. Create a new account to keep using Twofold."
         case .wordGuessDailyLimit: "You've played today's word. A new one arrives tomorrow."
         case .connectFourNeedsPartner: "Connect 4 needs both of you. Invite your partner to play."
+        case .connectFourRequiresPremium: "Connect 4 is part of Twofold Premium."
+        case .wordSearchRequiresPremium: "Word Search is part of Twofold Premium."
         case .notYourTurn: "It's not your turn yet."
         case .columnFull: "That column is full."
         case .gameAlreadyFinished: "This game has finished."
@@ -3862,10 +3868,20 @@ enum BackendService {
             enum CodingKeys: String, CodingKey { case pTheme = "p_theme" }
         }
         // `returns table` comes back as a set, so this decodes as an array of one.
-        let rows: [WordSearchSessionStart] = try await supabase
-            .rpc("start_word_search_session", params: Params(pTheme: theme.rawValue))
-            .execute()
-            .value
+        let rows: [WordSearchSessionStart]
+        do {
+            rows = try await supabase
+                .rpc("start_word_search_session", params: Params(pTheme: theme.rawValue))
+                .execute()
+                .value
+        } catch {
+            // Translated here rather than shown raw: the RPC's message is a Postgres exception,
+            // and the screen has a real thing to offer instead. See 20261111000700.
+            if "\(error)".contains("word_search_requires_premium") {
+                throw BackendError.wordSearchRequiresPremium
+            }
+            throw error
+        }
         guard let start = rows.first else { throw BackendError.notAuthenticated }
         Analytics.capture(Analytics.Event.sessionStart, properties: [
             "game_type": GameType.wordSearch.rawValue,
@@ -3935,6 +3951,9 @@ enum BackendService {
             ])
             return start
         } catch {
+            if "\(error)".contains("connect_four_requires_premium") {
+                throw BackendError.connectFourRequiresPremium
+            }
             if "\(error)".contains("connect_four_needs_partner") {
                 throw BackendError.connectFourNeedsPartner
             }

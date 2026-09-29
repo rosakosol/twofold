@@ -63,7 +63,10 @@ struct WordSearchThemePickerView: View {
     }
 
     private func row(_ theme: WordSearchTheme) -> some View {
-        let locked = theme.requiresPremium && !isPremium
+        // The whole game, not the theme. Travel and Love were free while Word Search was on every
+        // plan; since 20261111000700 reaching this screen at all is what Premium buys, so a
+        // per-theme split would only be a second answer to a question already settled.
+        let locked = !isPremium
         return Button {
             if locked { showingPaywall = true } else { start(theme) }
         } label: {

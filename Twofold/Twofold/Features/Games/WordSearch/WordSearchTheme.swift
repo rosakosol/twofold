@@ -54,16 +54,6 @@ enum WordSearchTheme: String, CaseIterable, Codable, Hashable {
         }
     }
 
-    /// Travel and Love are included everywhere. They are the app's own two subjects, so the free
-    /// pair is the pair that belongs to Twofold rather than the two that happened to be written
-    /// first — and the same split the RPC enforces.
-    var requiresPremium: Bool {
-        switch self {
-        case .travel, .love: false
-        case .food, .nature, .cities, .music: true
-        }
-    }
-
     /// The pool a grid is drawn from.
     ///
     /// Four to ten letters, so every one of them fits a ten-by-ten grid — ten exactly fills a row,

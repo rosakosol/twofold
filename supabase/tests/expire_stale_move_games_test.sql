@@ -17,10 +17,14 @@ values
   ('aaaaaaaa-8888-0000-0000-000000000001', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'a@expire.test', 'x', now(), now(), now()),
   ('bbbbbbbb-8888-0000-0000-000000000002', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'b@expire.test', 'x', now(), now(), now());
 
-insert into public.profiles (id, first_name) values
-  ('aaaaaaaa-8888-0000-0000-000000000001', 'Ada'),
-  ('bbbbbbbb-8888-0000-0000-000000000002', 'Mel')
-on conflict (id) do update set first_name = excluded.first_name;
+-- Premium: this exercises `start_connect_four_session`, which requires it since 20261111000700.
+insert into public.profiles (id, first_name, subscription_active, subscription_tier) values
+  ('aaaaaaaa-8888-0000-0000-000000000001', 'Ada', true, 'premium'),
+  ('bbbbbbbb-8888-0000-0000-000000000002', 'Mel', true, 'premium')
+on conflict (id) do update set
+  first_name = excluded.first_name,
+  subscription_active = excluded.subscription_active,
+  subscription_tier = excluded.subscription_tier;
 
 insert into public.couples (id, partner_a_id, partner_b_id)
 values ('cccccccc-8888-0000-0000-000000000003', 'aaaaaaaa-8888-0000-0000-000000000001', 'bbbbbbbb-8888-0000-0000-000000000002');

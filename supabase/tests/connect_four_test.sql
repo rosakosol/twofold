@@ -21,11 +21,17 @@ values
   ('bbbbbbbb-7777-0000-0000-000000000002', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'b@four.test', 'x', now(), now(), now()),
   ('dddddddd-7777-0000-0000-000000000004', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'd@four.test', 'x', now(), now(), now());
 
-insert into public.profiles (id, first_name) values
-  ('aaaaaaaa-7777-0000-0000-000000000001', 'Ada'),
-  ('bbbbbbbb-7777-0000-0000-000000000002', 'Mel'),
-  ('dddddddd-7777-0000-0000-000000000004', 'Dev')
-on conflict (id) do update set first_name = excluded.first_name;
+-- Premium, because Connect 4 moved behind it in 20261111000700. Set on both partners rather
+-- than one: `couple_effective_tier` reads the pair, and seeding only one would pass for the wrong
+-- reason if that function ever changed which half it trusts.
+insert into public.profiles (id, first_name, subscription_active, subscription_tier) values
+  ('aaaaaaaa-7777-0000-0000-000000000001', 'Ada', true, 'premium'),
+  ('bbbbbbbb-7777-0000-0000-000000000002', 'Mel', true, 'premium'),
+  ('dddddddd-7777-0000-0000-000000000004', 'Dev', true, 'premium')
+on conflict (id) do update set
+  first_name = excluded.first_name,
+  subscription_active = excluded.subscription_active,
+  subscription_tier = excluded.subscription_tier;
 
 insert into public.couples (id, partner_a_id, partner_b_id)
 values ('cccccccc-7777-0000-0000-000000000003', 'aaaaaaaa-7777-0000-0000-000000000001', 'bbbbbbbb-7777-0000-0000-000000000002');
