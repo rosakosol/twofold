@@ -9,8 +9,10 @@
  *
  * Written against how Twofold actually works - the two subscription tiers and both purchase
  * channels, invite code expiry, what removing a partner and deleting an account really do,
- * which third parties supply flight and weather data. Where a fact isn't knowable from the
- * code (legal entity, minimum age, governing state) the text says [TO CONFIRM].
+ * which third parties supply flight and weather data. The three facts that are not knowable from
+ * the code have since been answered and are stated outright: operated by Orange Finch, minimum age
+ * 16, governed by the laws of Victoria. Nothing is marked [TO CONFIRM] any more, and the counter at
+ * the end of this file asserts that.
  *
  * Revised 2026-09-13. These had drifted further than the privacy policy, having gone six weeks
  * longer without a pass:
