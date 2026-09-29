@@ -14,11 +14,8 @@ import {
   isExistingAccountError,
   signOut,
 } from "@/lib/marketing/auth";
-import {
-  isAcceptablePassword,
-  passwordRejectionReason,
-  passwordStrengthLabel,
-} from "@/lib/marketing/passwordStrength";
+import { isAcceptablePassword } from "@/lib/marketing/passwordStrength";
+import { PasswordStrengthMeter } from "@/components/marketing/PasswordStrengthMeter";
 import { nameError } from "@/lib/marketing/nameValidator";
 import { providerFallbackName, providerLabel, sessionProvider } from "@/lib/marketing/provider";
 import { createClient } from "@/lib/supabase/client";
@@ -271,11 +268,9 @@ function PricingContent({
   /// field — see lib/marketing/passwordStrength.ts for the strength half. An account the app would
   /// refuse to create must not be creatable here, or the two surfaces disagree about who has a
   /// valid account.
-  // Shown under the fields as well as gating the button — see passwordStrength.ts on why a stricter
-  // rule has to explain itself.
+  // Shown under the field as well as gating the button — see passwordStrength.ts on why a stricter
+  // rule has to explain itself. The password's own reason is rendered by PasswordStrengthMeter.
   const nameProblem = firstName.trim() === "" ? null : nameError(firstName);
-  const passwordProblem =
-    password === "" ? null : passwordRejectionReason(password, firstName, email);
 
   const canSubmitEmail =
     authMode === "signin"
@@ -600,12 +595,7 @@ function PricingContent({
 
                     {/* Says which rule is unmet rather than only disabling the button, because a
                         dead button with no reason is the same dead end as no button. */}
-                    {password !== "" && (
-                      <p style={{ fontSize: "0.85em", opacity: 0.8, marginBottom: 8 }}>
-                        Password strength: {passwordStrengthLabel(password, firstName, email)}
-                        {passwordProblem && ` — ${passwordProblem}`}
-                      </p>
-                    )}
+                    <PasswordStrengthMeter password={password} name={firstName} email={email} />
                     {confirmPassword !== "" && confirmPassword !== password && (
                       <p style={{ fontSize: "0.85em", opacity: 0.8, marginBottom: 8 }}>
                         Those passwords don&apos;t match.

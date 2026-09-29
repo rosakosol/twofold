@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, CheckCircle2 } from "lucide-react";
-import { passwordRejectionReason, passwordStrengthLabel } from "@/lib/marketing/passwordStrength";
+import { passwordRejectionReason } from "@/lib/marketing/passwordStrength";
+import { PasswordStrengthMeter } from "@/components/marketing/PasswordStrengthMeter";
 
 /**
  * Where a password-recovery email lands.
@@ -194,14 +195,10 @@ function ResetPasswordForm() {
             onChange={(e) => setPassword(e.target.value)}
             disabled={stage === "saving"}
           />
-          {/* Live, like the app's meter. The rule is strict enough now that finding out on submit
-              means typing a whole password again to be told a second thing about it. */}
-          {password !== "" && (
-            <p className="text-muted-foreground text-xs">
-              Password strength: {passwordStrengthLabel(password)}
-              {passwordRejectionReason(password) && ` — ${passwordRejectionReason(password)}`}
-            </p>
-          )}
+          {/* Live, like the app's meter, and the same one the signup form shows. The rule is strict
+              enough now that finding out on submit means typing a whole password again to be told a
+              second thing about it. No name or email to pass: a recovery link knows neither. */}
+          <PasswordStrengthMeter password={password} />
         </div>
 
         <div className="space-y-1.5">
