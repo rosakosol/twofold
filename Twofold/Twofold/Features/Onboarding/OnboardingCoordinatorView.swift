@@ -103,33 +103,23 @@ struct OnboardingCoordinatorView: View {
             }
         }
         .environment(onboarding)
-        .task {
-            // Read once, into the model the whole flow already reads from, so no screen needs its
-            // own AppModel lookup to know which variant it is in.
-            onboarding.isResumingAuthenticatedAccount = appModel.needsOnboarding
-            // Read here too, and kept apart from the flag above: one says the account already
-            // exists, the other says it is paying, and only the second may skip a paywall.
-            // `loadSignedInState` adopts the profile before routing here, so this is the server's
-            // answer rather than a guess.
-            onboarding.hasActiveSubscription = appModel.isSubscriptionActive
-            // Put the two names back into the flow's own model when resuming, because the screens
-            // ahead read them from there and nothing else refills it — `OnboardingModel` is
-            // rebuilt empty every launch, and the only reason these screens had names the first
-            // time is that the person had just typed them.
-            //
-            // Without this the screen resuming lands on is titled "Connect with  💞", and the
-            // reveal at the end calls them "You". Both were collected, both were saved, and both
-            // are already in `appModel.couple` — adopted by `loadSignedInState` before routing
-            // here. Only the placeholders are skipped: `fetchOwnProfile` substitutes "You" for an
-            // empty name, and an unpaired couple's partner is "Partner", neither of which is worth
-            // copying over a blank.
-            if appModel.hasSavedOnboardingProgress {
-                let myName = appModel.couple.partnerA.name
-                if !myName.isEmpty, myName != "You" { onboarding.firstName = myName }
-                let theirName = appModel.couple.partnerB.name
-                if !theirName.isEmpty, theirName != "Partner" { onboarding.partnerName = theirName }
-            }
-        }
+        .task { syncFromAppModel() }
+        // Re-read whenever the answers change, not only when this view appears.
+        //
+        // `.task` alone was a snapshot taken at the wrong moment. This coordinator is already on
+        // screen at Welcome before anyone signs in — `RootView` shows it whenever `hasCouple` is
+        // false — and `SignInView` is a sheet presented *from* it. So the snapshot was taken while
+        // signed out, with both flags false, and signing in never changed them: the sheet dismisses,
+        // the coordinator stays mounted, and `.task` does not run again.
+        //
+        // What that produced: somebody who bought on the website, signed in, and was walked to
+        // "Save your progress" to create the account they had just used to pay — `TwofoldPreviewView`
+        // guards that step on `isResumingAuthenticatedAccount`, which was still false. A few screens
+        // later the same staleness would have shown them the paywall, `InvitePartnerView` reading a
+        // `hasActiveSubscription` that was false for an account mid-subscription.
+        .onChange(of: appModel.needsOnboarding) { syncFromAppModel() }
+        .onChange(of: appModel.isSubscriptionActive) { syncFromAppModel() }
+        .onChange(of: appModel.hasSavedOnboardingProgress) { syncFromAppModel() }
         .onOpenURL { url in
             // Google's sign-in flow redirects back into the app via its own URL scheme.
             if GIDSignIn.sharedInstance.handle(url) { return }
@@ -227,6 +217,34 @@ struct OnboardingCoordinatorView: View {
             // recovery link either works or has expired, and both readings are the same sentence.
             passwordRecoveryError = "This password reset link is no longer valid — request a new one from the sign-in screen."
         }
+    }
+
+    /// Copies what the flow needs out of `AppModel`, so no screen needs its own lookup to know
+    /// which variant it is in.
+    ///
+    /// Called on appear *and* on every change to what it reads — see the modifiers above for the
+    /// bug that made the difference.
+    private func syncFromAppModel() {
+        // One says the account already exists, the other says it is paying, and only the second may
+        // skip a paywall. Kept apart deliberately: an account can exist without paying, which is
+        // most of this flow's traffic.
+        onboarding.isResumingAuthenticatedAccount = appModel.needsOnboarding
+        onboarding.hasActiveSubscription = appModel.isSubscriptionActive
+
+        // Put the two names back into the flow's own model when resuming, because the screens ahead
+        // read them from there and nothing else refills it — `OnboardingModel` is rebuilt empty
+        // every launch, and the only reason these screens had names the first time is that the
+        // person had just typed them.
+        //
+        // Without this the screen resuming lands on is titled "Connect with  💞", and the reveal at
+        // the end calls them "You". Only the placeholders are skipped: `fetchOwnProfile` substitutes
+        // "You" for an empty name, and an unpaired couple's partner is "Partner", neither of which
+        // is worth copying over a blank.
+        guard appModel.hasSavedOnboardingProgress else { return }
+        let myName = appModel.couple.partnerA.name
+        if !myName.isEmpty, myName != "You" { onboarding.firstName = myName }
+        let theirName = appModel.couple.partnerB.name
+        if !theirName.isEmpty, theirName != "Partner" { onboarding.partnerName = theirName }
     }
 
     @ViewBuilder
