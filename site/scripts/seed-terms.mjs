@@ -121,13 +121,16 @@ const body = [
     `App Store subscriptions renew automatically at the end of each billing period unless cancelled at least 24 hours before renewal, and are managed from your device's Settings → Apple ID → Subscriptions, under Apple's standard terms.`
   ),
   bullet(
-    `Web subscriptions renew automatically at the end of each billing period and can be cancelled at any time. Payment is processed by Stripe via RevenueCat - we never see or store your card details.`
+    `Web subscriptions renew automatically at the end of each billing period and can be cancelled at any time from your account page at twofoldapp.com.au/account. To change plan, update your card or download an invoice, use the billing portal linked from your receipt emails. Payment is processed by Stripe via RevenueCat - we never see or store your card details.`
   ),
   bullet(
-    `A subscription started on the web is tied to the Apple ID you sign in with at checkout. Sign in with that same Apple ID in the app to get what you've paid for.`
+    `A subscription started on the web belongs to the Twofold account you sign in with, or create, at checkout - whether that is Apple, Google, or an email address and password. Sign in the same way in the app to get what you've paid for. Signing in a different way makes a separate account, and your subscription will not be on it.`
   ),
   bullet(
-    `Our prices are set in Australian dollars, and are shown to you in your own currency wherever the App Store or our web checkout supports it. The amount shown at checkout is the amount you pay; tax may be included in it or added to it depending on where you are.`
+    `Where a free trial is offered, it converts automatically into a paid subscription at the end of the trial unless you cancel before then. Cancel during the trial and you will not be charged.`
+  ),
+  bullet(
+    `Prices are charged in Australian dollars in Australia, and in US dollars elsewhere. Where the App Store or our web checkout can show you a local equivalent, it will. The amount shown at checkout is the amount you pay; tax may be included in it or added to it depending on where you are.`
   ),
   ptext(
     `If we change our prices, we'll tell you before the change applies to you, and you'll be able to cancel before it takes effect.`
@@ -154,7 +157,7 @@ const body = [
   // ------------------------------------------------- cancellation & refunds
   h2('Cancelling and refunds'),
   bullet(
-    `Cancel any time. You keep access until the end of the period you've already paid for, and we don't pro-rate a partial period.`
+    `Cancel any time. If you are still in a free trial, cancelling means you will not be charged. Otherwise you keep access until the end of the period you've already paid for, and we don't pro-rate a partial period.`
   ),
   bullet(
     `After that, the account carries on read-only: your trips, memories, photos, flights and answers stay where they are and stay exportable, and adding new ones is what needs a subscription again. The same applies if your partner is the one who was paying, or if they end the connection.`
@@ -201,6 +204,9 @@ const body = [
   ),
   bullet(
     `Deleting your account doesn't delete shared content, because it's your partner's history too. It ends your connection, which starts the same 90-day clock - and unlike removing a partner, getting back together can't bring it back, because the account it was tied to is gone.`
+  ),
+  bullet(
+    `If you subscribed on this website, deleting your account cancels that subscription for you, and we will not delete the account unless the cancellation goes through first - so deleting can never leave a charge running against an account you can no longer sign in to. An App Store subscription belongs to your Apple Account and only you can cancel it; do that before you delete, because afterwards you cannot sign in to find it.`
   ),
   p(
     span(`Export anything you want to keep before the 90 days are up, and before you delete your account. `, 'strong'),

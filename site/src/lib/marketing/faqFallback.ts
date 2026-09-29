@@ -116,14 +116,14 @@ export const FAQ_FALLBACK: FaqFallbackItem[] = [
     order: 5,
     question: "Can I download a copy of my data?",
     answer:
-      "Yes, on any plan and at any time. Go to Settings -> Help -> Export your data. You choose what to include - trips, memories and their photos, flights, games - and whether you want spreadsheets (CSV, which open in Numbers, Excel or Google Sheets) or a data file (JSON, for moving your information somewhere else). Photos come out as ordinary image files. Large exports download the photos as they go, so they are best done on Wi-Fi. If a relationship has ended, the same export is on each archive in Settings -> Archived Data, and is worth doing before its 90 days are up. The Relationship Record - your story written out as a PDF or Word document to keep or print - is a separate, Premium feature, and is not part of a data export.",
+      "Yes, on any plan and at any time. Go to Settings -> Help -> Export your data. You choose what to include - trips, memories and their photos, flights, games - and whether you want spreadsheets (CSV, which open in Numbers, Excel or Google Sheets) or a data file (JSON, for moving your information somewhere else). Photos come out as ordinary image files. Large exports download the photos as they go, so they are best done on Wi-Fi. If a relationship has ended, the same export is on each archive in Settings -> Help -> Archived Data, and is worth doing before its 90 days are up. The Relationship Record - your story written out as a PDF or Word document to keep or print - is a separate, Premium feature, and is not part of a data export.",
   },
   {
     category: "privacy",
     order: 6,
     question: "What happens to shared data if we disconnect?",
     answer:
-      "Removing a partner archives your shared data rather than deleting it. Your trips, memories, photos, flights and games all stay readable to both of you in Settings -> Archived Data, but neither of you can add to them or change them any more. An archive is kept for 90 days and is then permanently deleted, automatically, for both of you - the exact date is shown on the archive itself. Neither partner can bring that date forward or push it back. If you reconnect with the same partner inside those 90 days, you will be offered your shared history back - as long as you both still have your accounts, since an archive belongs to the two accounts that made it and a deleted one cannot be signed into again. You can also hide an archive from your own list at any time: that changes only your view and deletes nothing for either of you. If you want to keep what is in an archive, export it before the 90 days are up - you will get your trips, memories, flights and games as files you can open anywhere, with the photos alongside them.",
+      "Removing a partner archives your shared data rather than deleting it. Your trips, memories, photos, flights and games all stay readable to both of you in Settings -> Help -> Archived Data, but neither of you can add to them or change them any more. An archive is kept for 90 days and is then permanently deleted, automatically, for both of you - the exact date is shown on the archive itself. Neither partner can bring that date forward or push it back. If you reconnect with the same partner inside those 90 days, you will be offered your shared history back - as long as you both still have your accounts, since an archive belongs to the two accounts that made it and a deleted one cannot be signed into again. You can also hide an archive from your own list at any time: that changes only your view and deletes nothing for either of you. If you want to keep what is in an archive, export it before the 90 days are up - you will get your trips, memories, flights and games as files you can open anywhere, with the photos alongside them.",
   },
   {
     category: "privacy",
@@ -152,6 +152,34 @@ export const FAQ_FALLBACK: FaqFallbackItem[] = [
     question: "What's the difference between a Trip and a Flight?",
     answer:
       "A Trip is the overall journey - dates, destination, who's going - and can have one or more Flights and Memories linked to it. A Flight is a specific tracked flight; a Memory is a photo/note tied to a place and date. Neither requires the other.",
+  },
+  {
+    category: "subscriptions",
+    order: 61,
+    question: "Does deleting my account cancel my subscription?",
+    answer:
+      "It depends where you subscribed. If you bought your subscription on our website, deleting your account cancels it automatically - you do not need to do anything, and we will not delete your account unless the cancellation goes through first. If you subscribed in the app, the subscription belongs to your Apple Account rather than to Twofold, and Apple only lets you cancel it yourself - we have no way to do it for you, even after your account is gone. Cancel it first at Settings -> Apple Account -> Subscriptions on your device, or from the button on the delete screen, because once your account is deleted you cannot sign in to find it. Cancelling does not shorten anything you have already paid for - you keep access until the end of the current period, and if you are still in a free trial you will not be charged.",
+  },
+  {
+    category: "subscriptions",
+    order: 205,
+    question: "What happens to my trips and memories if my subscription ends?",
+    answer:
+      "They stay exactly where they are. Twofold does not lock you out of your own history: with no active subscription you can still open the app, read every trip, memory, photo, flight and answer, export all of it, and delete any of it. What needs a subscription is adding - new trips, memories and flights, and the daily question. The same applies if your partner was the one paying, or if a connection ends. Start subscribing again and everything picks up where it left off.",
+  },
+  {
+    category: "privacy",
+    order: 110,
+    question: "What happens if I stop using Twofold?",
+    answer:
+      "Opening the app now and again is all it takes to keep everything, whether or not you are subscribed - a lapsed subscription never puts your content at risk. If nobody opens an account for two years we close it and delete what was in it, because keeping people's relationship histories forever when they have clearly moved on is not something we are willing to do. We will email you 30 days before and again 7 days before, and opening the app is enough to stop it - there is nothing to reply to or confirm. If you are connected to someone, either of you opening the app keeps both accounts and your whole shared history. If you would like a copy first, Settings -> Help -> Export your data works at any time, on any plan.",
+  },
+  {
+    category: "privacy",
+    order: 111,
+    question: "Where are our photos and data stored?",
+    answer:
+      "Your account, trips, memories, flights and games are stored with Supabase, and your photos, profile pictures, drawing pads and travel documents are stored with Cloudflare. Both hold the data on our behalf and neither uses it for anything else. Nothing is public: photo storage is private, and when the app shows you a photo it asks our server for a one-off link that works only for you and expires within the hour, so a link cannot be shared, guessed or kept. Flight tracking uses AeroAPI, weather uses Apple WeatherKit, notifications go through Apple, and payments are handled by Apple or by Stripe via RevenueCat - Twofold never sees your card details. You can export everything at any time from Settings -> Help -> Export your data, on any plan.",
   },
 ];
 

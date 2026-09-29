@@ -39,9 +39,11 @@ export default async function PrivacyPage() {
         To connect you with your partner and show the distance between you, Twofold collects the
         information you provide directly: your name, profile photo, home city, anniversary date,
         flight details, trips, memories, and any content you save within the app (including
-        doodles and game answers). If you choose to give a birthday, we store the day and the
-        month only - never the year, so we hold no date of birth and nothing that reveals your
-        age.
+        doodles and game answers). Signing in also means an email address, and a password if you
+        choose one rather than Apple or Google - passwords are stored by our authentication
+        provider as a salted hash we cannot read. If you choose to give a birthday, we store the
+        day and the month only - never the year, so we hold no date of birth and nothing that
+        reveals your age.
       </p>
 
       <h2>How it&apos;s shared with your partner</h2>
@@ -66,9 +68,11 @@ export default async function PrivacyPage() {
         sign-in, held in Sydney; an object storage provider for the photos, profile pictures,
         drawings and travel documents you upload, held in the Oceania region; Apple for
         notifications, weather and App Store purchases; a flight data provider for schedules and
-        live status; and Stripe for subscriptions bought on this website - Twofold never sees or
-        stores your payment card details. Each processes data only as needed to power the relevant
-        feature, and the published policy names them in full.
+        live status; a subscription management provider, which records whether your subscription
+        is active, receives your account identifier and email address, and hosts the checkout page
+        you complete when you subscribe here; and Stripe for payment processing on this website -
+        Twofold never sees or stores your payment card details. Each processes data only as needed
+        to power the relevant feature, and the published policy names them in full.
       </p>
 
       <h2>Your choices</h2>

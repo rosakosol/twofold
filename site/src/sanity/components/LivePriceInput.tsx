@@ -7,7 +7,7 @@ import {perMonthLabelFor, priceLabelFor} from '@/lib/marketing/priceDisplay'
 
 // Read-only price display for the `plan` documents.
 //
-// Prices are Stripe's, not Sanity's — /pricing reads them straight off the RevenueCat offering
+// Prices are RevenueCat's, not Sanity's — /pricing reads them straight off the RevenueCat offering
 // and only falls back to the stored label. An editable field here was therefore a trap: typing
 // "$7.99" changed the marketing copy, never the charge, and the two silently disagreed. So the
 // fields are readOnly and this renders what a visitor will actually be charged, fetched live.
@@ -121,13 +121,13 @@ export function LivePriceInput(props: StringInputProps) {
             {live ?? fallback ?? '—'}
           </Text>
           <Badge tone={live ? 'positive' : 'caution'} fontSize={0}>
-            {live ? 'live from Stripe' : 'fallback'}
+            {live ? 'live from RevenueCat' : 'fallback'}
           </Badge>
         </Flex>
 
         {live ? (
           <Text size={1} muted>
-            What a visitor is actually charged, in their own currency. Change it in Stripe — this
+            What a visitor is actually charged, in their own currency. Change it in RevenueCat — this
             field can&apos;t, and editing it here would only have moved the label.
           </Text>
         ) : (

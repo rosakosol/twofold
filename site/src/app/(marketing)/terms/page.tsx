@@ -11,7 +11,7 @@ export default async function TermsPage() {
     <LegalPageLayout
       doc={doc}
       fallbackTitle="Terms of Use"
-      fallbackLastUpdated="12 July 2026"
+      fallbackLastUpdated="30 September 2026"
       fallbackNotice={
         <>
           <strong>Showing a summary.</strong> We couldn&apos;t load the full Terms of Use just now, so
@@ -39,8 +39,9 @@ export default async function TermsPage() {
       <h2>Subscriptions</h2>
       <p>
         Twofold Plus and Twofold Premium are auto-renewing subscriptions, billed either through
-        the App Store or, if purchased on this website, through Stripe. Either partner&apos;s active
-        subscription unlocks the corresponding features for both of you.
+        the App Store or, if purchased on this website, through RevenueCat Billing with Stripe as
+        the payment processor. Either partner&apos;s active subscription unlocks the corresponding
+        features for both of you.
       </p>
       <ul>
         <li>
@@ -50,10 +51,18 @@ export default async function TermsPage() {
         </li>
         <li>
           <strong>Web subscriptions</strong> (twofoldapp.com.au/pricing) renew automatically at the
-          end of each billing period and can be cancelled at any time; you keep access until the
-          end of the period already paid for. Payment is processed by Stripe via RevenueCat -
-          Twofold does not store your card details. Prices are shown in USD and may be subject to
-          applicable taxes.
+          end of each billing period and can be cancelled at any time from{" "}
+          <a href="/account">your account page</a>. To change plan, update your card or download an
+          invoice, use the billing portal linked from your receipt emails. Payment is processed by
+          Stripe via RevenueCat - Twofold does not store your card details. Prices are charged in
+          Australian dollars in Australia and US dollars elsewhere, and may be subject to applicable
+          taxes.
+        </li>
+        <li>
+          <strong>Free trials</strong>, where offered, convert automatically into a paid
+          subscription at the end of the trial unless you cancel before then. Cancel during the
+          trial and you won&apos;t be charged. Otherwise you keep access until the end of the period
+          you&apos;ve already paid for.
         </li>
         <li>
           Refunds for App Store purchases are handled by Apple under their own policies. Refund
@@ -62,8 +71,16 @@ export default async function TermsPage() {
           a case-by-case basis.
         </li>
         <li>
-          A subscription started on the web is tied to the Apple ID used to sign in at checkout -
-          sign in with that same Apple ID in the app to access what you&apos;ve paid for.
+          A subscription started on the web belongs to the Twofold account you sign in with, or
+          create, at checkout - whether that&apos;s Apple, Google, or an email address and password.
+          Sign in the same way in the app to get what you&apos;ve paid for; signing in a different
+          way makes a separate account, and your subscription won&apos;t be on it.
+        </li>
+        <li>
+          Deleting your account cancels a web subscription for you, and we won&apos;t delete the
+          account unless that cancellation goes through first. An App Store subscription belongs to
+          your Apple Account and only you can cancel it - do that before deleting, because
+          afterwards you can&apos;t sign in to find it.
         </li>
       </ul>
 

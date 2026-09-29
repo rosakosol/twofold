@@ -294,6 +294,7 @@ const body = [
     `Sign-in is permanently disabled. You won't be able to sign back in, and the account can't be restored or recreated.`
   ),
   bullet(`Any active connection ends, and your partner is told you've left - the same as if you'd removed them.`),
+  bullet(`A subscription bought on this website is cancelled for you, and we won't delete the account unless that cancellation goes through first - so deleting can never leave a charge running against an account you can no longer sign in to. A subscription bought in the app belongs to your Apple Account and only you can cancel it.`),
   bullet(`Your own uploads (your profile photo, your drawings) and all your notification tokens are deleted. The files themselves are removed from our storage provider within a day - the account is closed straight away, and the files follow on a job that runs daily.`),
   bullet(
     `Shared content - trips, memories, photos, flights - is not deleted along with your account, because it is your partner's history too. Ending your connection starts the same 90-day archive clock described above, and it is permanently deleted for both of you when that runs out.`
@@ -341,8 +342,8 @@ const body = [
   bullet(
     `A public airline-logo service - our servers fetch logos from it by airline code. Nothing about you is sent, and your device never contacts it directly.`
   ),
-  bullet(`Our subscription management provider - keeps track of whether your subscription is active, across the app and the website. We send them your account identifier and your email address, so that somebody writing to us about a payment can be found in their records. United States.`),
-  bullet(`Stripe - payment processing for subscriptions bought on the website. You see Stripe by name at checkout.`),
+  bullet(`Our subscription management provider - keeps track of whether your subscription is active, across the app and the website. We send them your account identifier and your email address, so that somebody writing to us about a payment can be found in their records. They also host the checkout page you complete when you subscribe on this website, and email you your receipts and a link to manage your subscription. United States.`),
+  bullet(`Stripe - payment processing for subscriptions bought on the website. Your card details go to Stripe directly; we never see them.`),
   bullet(`Our product analytics provider - usage analytics for the iOS app, held in the United States.`),
   bullet(`Our email provider - sending and receiving support, waitlist and account email.`),
   bullet(`Our website host - serving twofoldapp.com.au.`),

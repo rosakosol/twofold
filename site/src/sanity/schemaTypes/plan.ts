@@ -14,7 +14,7 @@ export const PLAN_IDS = [
 // straight off the RevenueCat offering and only falls back to the stored label, so an editable
 // price field was a trap — typing "$7.99" moved the marketing copy and never the charge, and
 // nothing surfaced the disagreement. The three price fields are readOnly and render the live
-// figure instead (LivePriceInput); change a price in Stripe. Entitlement / package IDs live in
+// figure instead (LivePriceInput); change a price in RevenueCat. Entitlement / package IDs live in
 // code for the same reason, since they must match the iOS app and RevenueCat exactly.
 export default defineType({
   name: 'plan',
@@ -49,7 +49,7 @@ export default defineType({
       type: 'string',
       readOnly: true,
       components: {input: LivePriceInput},
-      description: 'Set in Stripe. Shown here so you can see what visitors are charged.',
+      description: 'Set in RevenueCat. Shown here so you can see what visitors are charged.',
     }),
     defineField({
       name: 'yearlyPriceLabel',
@@ -57,7 +57,7 @@ export default defineType({
       type: 'string',
       readOnly: true,
       components: {input: LivePriceInput},
-      description: 'The full yearly charge, from Stripe.',
+      description: 'The full yearly charge, from RevenueCat.',
     }),
     defineField({
       name: 'yearlyPerMonthLabel',
