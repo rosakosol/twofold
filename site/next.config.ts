@@ -48,9 +48,21 @@ const nextConfig: NextConfig = {
               "img-src 'self' data: blob: https:",
               "font-src 'self' data: https://fonts.gstatic.com",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-              // Supabase for auth and data, Sanity for content, RevenueCat for web billing.
-              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.sanity.io https://*.revenuecat.com",
+              // js.stripe.com: RevenueCat Billing's checkout is Stripe Elements underneath, and
+              // Stripe requires its script be loaded from its own origin rather than bundled.
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com",
+              // The checkout renders in an iframe. Without this the directive falls back to
+              // `default-src 'self'` and the frame is refused — which looks, from the page, like
+              // RevenueCat declining to start the purchase rather than like a CSP problem.
+              "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://*.revenuecat.com https://*.revenue.cat",
+              // Supabase for auth and data, Sanity for content, RevenueCat and Stripe for billing.
+              //
+              // RevenueCat is TWO domains, and that is what broke checkout: the SDK calls
+              // `api.revenuecat.com` but sends telemetry to `e.revenue.cat`, which `*.revenuecat.com`
+              // does not match. A blocked request there is not a blocked analytics ping — the SDK
+              // treats it as a failure and reports "Purchase not started due to an error (error code:
+              // 0)", which names neither the domain nor the policy.
+              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.sanity.io https://*.revenuecat.com https://*.revenue.cat https://api.stripe.com",
             ].join("; "),
           },
         ],
