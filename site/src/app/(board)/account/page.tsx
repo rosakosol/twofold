@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { SubscriptionCard } from "@/components/account/SubscriptionCard";
 import { PartnerCard } from "@/components/account/PartnerCard";
 import { DangerZone } from "@/components/account/DangerZone";
-import type { SubscriptionSnapshot } from "@/lib/account/subscription";
+import { parseSubscriptionHistory, type SubscriptionSnapshot } from "@/lib/account/subscription";
 
 export const metadata: Metadata = { title: "Your account" };
 
@@ -28,7 +28,7 @@ export default async function AccountPage() {
   // to Sydney. Awaited one after another they cost twice what they need to, and on a page that
   // shows nothing until all of them land that is the difference between quick and apparently
   // broken. Only the partner lookup below genuinely has to wait, because it needs the couple.
-  const [{ data: profile }, { data: couple }] = await Promise.all([
+  const [{ data: profile }, { data: couple }, { data: historyRow }, { data: archives }] = await Promise.all([
     supabase
       .from("profiles")
       .select(
@@ -44,7 +44,22 @@ export default async function AccountPage() {
       .select("id, partner_a_id, partner_b_id, started_dating_on")
       .eq("status", "active")
       .maybeSingle(),
+    // `profiles` cannot answer "did this person ever subscribe": the webhook nulls the tier and the
+    // start date on lapse, so a former subscriber's row is identical to a stranger's. This reads
+    // the append-only event log through a security-definer function, because that log is service
+    // role only and this page is deliberately all-RLS. See 20261111001000.
+    supabase.rpc("my_subscription_history"),
+    // Dissolved couples, for the deletion warning. The count is what decides which of the three
+    // things about shared data is true, and `scheduled_purge_at` is the date the app's own
+    // Archived Data screen shows — the same date, so the two surfaces cannot disagree.
+    supabase
+      .from("couples")
+      .select("id, scheduled_purge_at")
+      .eq("status", "dissolved")
+      .order("scheduled_purge_at", { ascending: true }),
   ]);
+
+  const history = parseSubscriptionHistory(historyRow);
 
   const partnerId = couple
     ? couple.partner_a_id === user.id
@@ -75,7 +90,7 @@ export default async function AccountPage() {
         </p>
       </header>
 
-      <SubscriptionCard snapshot={snapshot} />
+      <SubscriptionCard snapshot={snapshot} history={history} />
 
       <PartnerCard
         partnerName={partner?.first_name || null}
@@ -87,6 +102,8 @@ export default async function AccountPage() {
         email={user.email ?? ""}
         hasPartner={Boolean(partnerId)}
         partnerName={partner?.first_name || null}
+        archivedCount={archives?.length ?? 0}
+        earliestArchivePurgeAt={archives?.[0]?.scheduled_purge_at ?? null}
         storeManagedSubscription={snapshot.active && snapshot.store !== "stripe" && snapshot.store !== "rc_billing"}
       />
     </div>

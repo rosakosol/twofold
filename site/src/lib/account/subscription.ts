@@ -85,7 +85,63 @@ export function subscriptionControl(snapshot: SubscriptionSnapshot): Subscriptio
 export function tierLabel(tier: string | null): string {
   if (tier === "premium") return "Twofold Premium";
   if (tier === "plus") return "Twofold Plus";
-  return "No plan";
+  // Only reachable for an active subscription whose tier we do not recognise — every caller is
+  // inside an `active` branch. "No plan" was the old fallback and was the wrong thing to tell
+  // somebody who is demonstrably paying for one.
+  return "Twofold";
+}
+
+/**
+ * What the caller's own billing history says, from `my_subscription_history()` (20261111001000).
+ *
+ * Separate from `SubscriptionSnapshot` because it comes from a different place and answers a
+ * different question. The snapshot is `profiles`, which describes only now — the webhook nulls
+ * `subscription_tier` and `subscription_started_at` the moment a subscription lapses, so a row for
+ * somebody who paid for two years is identical to one for somebody who never paid at all. This
+ * comes from the append-only event log, which remembers.
+ */
+export interface SubscriptionHistory {
+  everSubscribed: boolean;
+  lastTier: string | null;
+  /// When it ended. Null while it is still running, and ALSO null for an ending that was never
+  /// recorded — a lapse predating the log, or a reconcile with no event behind it. So null with
+  /// `everSubscribed` true means "it ended, we cannot say when", which has to be said that way
+  /// rather than guessed at.
+  endedAt: string | null;
+}
+
+/** Null-safe read of the RPC's jsonb, for a payload that is shaped by SQL rather than by types. */
+export function parseSubscriptionHistory(raw: unknown): SubscriptionHistory {
+  const row = (raw ?? {}) as Record<string, unknown>;
+  return {
+    everSubscribed: row.ever_subscribed === true,
+    lastTier: typeof row.last_tier === "string" ? row.last_tier : null,
+    endedAt: typeof row.ended_at === "string" ? row.ended_at : null,
+  };
+}
+
+/**
+ * What to say to somebody with no subscription running.
+ *
+ * There is no free plan, and this used to say there was. A person is subscribed or they are not,
+ * and naming "not" as a product invents a tier nobody sells and buries the one fact worth knowing:
+ * that a subscription ended, and when.
+ *
+ * Three cases, and the third is the reason `endedAt` is nullable rather than defaulted. Claiming a
+ * date we do not have would be worse than the sentence that admits it, because somebody reading a
+ * wrong end date has no way to tell it is wrong.
+ */
+export function lapseSummary(history: SubscriptionHistory): string {
+  if (!history.everSubscribed) return "No subscription";
+  const tier = history.lastTier ? tierLabel(history.lastTier) : "Your subscription";
+  if (!history.endedAt) return `${tier}, ended`;
+  const ended = new Date(history.endedAt);
+  if (Number.isNaN(ended.getTime())) return `${tier}, ended`;
+  return `${tier}, ended ${ended.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  })}`;
 }
 
 /** Apple's own subscription management page. Works on desktop and deep-links on iOS. */

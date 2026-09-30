@@ -20,8 +20,10 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import {
   APPLE_SUBSCRIPTIONS_URL,
+  lapseSummary,
   subscriptionControl,
   tierLabel,
+  type SubscriptionHistory,
   type SubscriptionSnapshot,
 } from "@/lib/account/subscription";
 
@@ -31,7 +33,13 @@ import {
  * one; showing a cancel button for it would either do nothing or claim to have stopped a charge
  * that is still coming. So that case gets Apple's own settings link and an honest sentence.
  */
-export function SubscriptionCard({ snapshot }: { snapshot: SubscriptionSnapshot }) {
+export function SubscriptionCard({
+  snapshot,
+  history,
+}: {
+  snapshot: SubscriptionSnapshot;
+  history: SubscriptionHistory;
+}) {
   const control = subscriptionControl(snapshot);
   const [isCancelling, setIsCancelling] = useState(false);
   // Set once the request succeeds. The row is NOT updated here — RevenueCat is the source of truth
@@ -61,7 +69,7 @@ export function SubscriptionCard({ snapshot }: { snapshot: SubscriptionSnapshot 
         <div className="flex items-start justify-between gap-3">
           <div>
             <CardTitle>Subscription</CardTitle>
-            <CardDescription>{planSummary(snapshot)}</CardDescription>
+            <CardDescription>{planSummary(snapshot, history)}</CardDescription>
           </div>
           <div className="flex shrink-0 gap-2">
             {/* Only on a positive `true`. Null means the webhook has not spoken for this
@@ -74,10 +82,28 @@ export function SubscriptionCard({ snapshot }: { snapshot: SubscriptionSnapshot 
       </CardHeader>
 
       <CardContent className="space-y-4">
+        {/* No free plan to be "on". Either a subscription is running or it is not, and for somebody
+            whose subscription has ended the useful thing is that fact and its date, not the name of
+            a tier that does not exist.
+
+            Three readings, because `endedAt` is null both while a subscription runs and for an
+            ending that was never recorded — see SubscriptionHistory. A guessed date is worse than
+            admitting there isn't one, since nobody reading a wrong date can tell it is wrong. */}
         {control.kind === "none" && (
-          <p className="text-sm text-muted-foreground">
-            You&apos;re on the free plan. <a href="/pricing" className="underline">See what&apos;s in Plus and Premium</a>.
-          </p>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              {!history.everSubscribed ? (
+                "You don't have a subscription."
+              ) : (
+                <>
+                  Your {history.lastTier ? tierLabel(history.lastTier) : "Twofold"} subscription
+                  {history.endedAt ? ` ended on ${longDate(history.endedAt)}` : " has ended"}.
+                  Resubscribe to get access to all of Twofold&apos;s features in the app again.
+                </>
+              )}
+            </p>
+            <Button render={<a href="/pricing">{history.everSubscribed ? "Resubscribe" : "See plans"}</a>} />
+          </div>
         )}
 
         {control.kind === "web" && !requested && snapshot.willRenew !== false && (
@@ -173,8 +199,18 @@ export function SubscriptionCard({ snapshot }: { snapshot: SubscriptionSnapshot 
   );
 }
 
-function planSummary(snapshot: SubscriptionSnapshot): string {
-  if (!snapshot.active) return "Free plan";
+/** The same rendering `lapseSummary` uses, so the heading and the sentence never disagree about
+ *  the date. Invalid input falls through to the caller's undated wording rather than "Invalid Date". */
+function longDate(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "an earlier date";
+  return date.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+}
+
+/** One line under "Subscription". Defers to lapseSummary once there is nothing running, which is
+ *  where "Free plan" used to be. */
+function planSummary(snapshot: SubscriptionSnapshot, history: SubscriptionHistory): string {
+  if (!snapshot.active) return lapseSummary(history);
   // A trial says so instead of "since September 2026", which reads as a settled subscription and is
   // the one thing somebody on day two of a trial most needs to know about their own account. Only on
   // a positive `true`, for the same reason the badge is: an unknown falls through to the date.
