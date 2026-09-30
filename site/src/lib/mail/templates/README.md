@@ -5,14 +5,13 @@ Four transactional emails as standalone HTML files, all wired into this site's o
 `waitlist-internal-alert.html` — sent via `lib/mail/renderTemplate.ts` + `lib/mail/zoho.ts`
 from `app/api/support/route.ts` / `app/api/waitlist/route.ts`).
 
-Two related Supabase Auth emails (password reset, the feedback board's magic link) are
-**not** sent by this code at all — they're configured directly in the Supabase Dashboard
+A related Supabase Auth email (password reset) is
+**not** sent by this code at all — it's configured directly in the Supabase Dashboard
 (Authentication → Emails) using Supabase's own `{{ .ConfirmationURL }}`-style Go-template
-syntax, not the simple `{{token}}` syntax below. Paste-ready copies for those live at
-`supabase/templates/recovery.html` and `supabase/templates/magic_link.html` — see that
-folder's own note for what was dropped and why (their original, un-adapted source files
-were deleted from here once the adapted copies existed, to avoid two diverging versions
-of the same email sitting around).
+syntax, not the simple `{{token}}` syntax below. A paste-ready copy lives at
+`supabase/templates/recovery.html` — see that folder's own note for what was dropped and
+why (its original, un-adapted source file was deleted from here once the adapted copy
+existed, to avoid two diverging versions of the same email sitting around).
 
 600px table layout, inline styles, hidden preheader span, bulletproof buttons,
 Georgia/Arial (email-safe stand-ins for Newsreader/Inter). Tested-shape markup for
