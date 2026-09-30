@@ -1,5 +1,5 @@
 // Welcome email, sent once per account shortly after sign-up. Cron-triggered only
-// (supabase/migrations/20261101000000_welcome_email.sql).
+// (supabase/migrations/20261111000900_welcome_email.sql).
 //
 // WHY THIS EXISTS, WHICH IS NOT MARKETING
 //
