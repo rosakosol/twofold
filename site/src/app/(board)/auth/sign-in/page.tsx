@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
-import { Loader2 } from "lucide-react";
+import { Loader2, MailCheck } from "lucide-react";
 import { EmailPasswordForm, type EmailPasswordMode } from "@/components/auth/EmailPasswordForm";
+import { requestPasswordReset } from "@/lib/marketing/auth";
 
 export default function SignInPage() {
   return (
@@ -53,6 +54,12 @@ function SignInForm() {
   // sent by a control they pressed on the feedback board, so the question is which account they
   // already have; someone with none needs the switch below, not the front door.
   const [mode, setMode] = useState<EmailPasswordMode>("signin");
+  // A third state rather than a third EmailPasswordMode: that enum is shared with /pricing's
+  // checkout, where "I've forgotten my password" is not a step, and widening it would put a branch
+  // in the purchase flow that can never be reached there.
+  const [resetStage, setResetStage] = useState<"off" | "form" | "sent">("off");
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetBusy, setResetBusy] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   // Which OAuth provider is mid-redirect, so only the button that was pressed shows a
   // spinner and neither can be pressed twice on a slow connection.
@@ -102,15 +109,41 @@ function SignInForm() {
     window.location.assign(next);
   }
 
+  async function submitReset(event: React.FormEvent) {
+    event.preventDefault();
+    setResetBusy(true);
+    setErrorMessage(null);
+    try {
+      await requestPasswordReset(resetEmail);
+      setResetStage("sent");
+    } catch (err) {
+      // Reported as-is rather than paraphrased. A rate-limit is the likeliest failure here and
+      // says something useful; this is also the path people reach when already locked out, where a
+      // vague message is what sends them to support instead.
+      setErrorMessage(err instanceof Error ? err.message : "Couldn't send that reset email.");
+    }
+    setResetBusy(false);
+  }
+
   return (
     <div className="mx-auto flex min-h-[70vh] max-w-sm items-center px-4">
       <Card className="w-full">
         <CardHeader>
-          <CardTitle>{mode === "create" ? "Create your account" : "Sign in"}</CardTitle>
+          <CardTitle>
+            {resetStage !== "off"
+              ? "Reset your password"
+              : mode === "create"
+                ? "Create your account"
+                : "Sign in"}
+          </CardTitle>
           <CardDescription>
-            {mode === "create"
-              ? "One Twofold account covers the feedback board, a web subscription and the app - it's what you'll sign in with when you download it."
-              : "Vote, comment, and submit feature requests for Twofold."}
+            {resetStage === "sent"
+              ? "If that address has an account, a link to set a new password is on its way."
+              : resetStage === "form"
+                ? "We'll email you a link to set a new one. It works on any device - open it wherever you read your email."
+                : mode === "create"
+                  ? "One Twofold account covers the feedback board, a web subscription and the app - it's what you'll sign in with when you download it."
+                  : "Vote, comment, and submit feature requests for Twofold."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -123,45 +156,159 @@ function SignInForm() {
             </div>
           )}
 
-          <AppleGoogleSignInButtons pending={oauthPending} onPress={handleOAuth} />
-
-          <div className="relative text-center text-xs text-muted-foreground">
-            <span className="bg-card relative z-10 px-2">or</span>
-            <div className="absolute inset-x-0 top-1/2 border-t" />
-          </div>
-
-          {/* The same component /pricing's checkout step uses, so the rules about what makes a
-              valid Twofold account live in one place — an account this page creates has to be one
-              the iOS app will accept, `first_name` metadata and all. Errors are reported up rather
-              than rendered by the form, because the paragraph below also carries OAuth failures. */}
-          <EmailPasswordForm
-            mode={mode}
-            onModeChange={setMode}
-            onError={setErrorMessage}
-            onSuccess={handleSignedIn}
-            chrome={{ form: "flex flex-col gap-3", Field: BoardField, Submit: BoardSubmit }}
-          />
-
-          {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
-
-          {/* The way out for somebody with no account. Without it this page is a door that only
-              opens for people who have already been through it. */}
-          <p className="text-center text-sm">
-            <button
-              type="button"
-              className="text-primary underline-offset-4 hover:underline"
-              onClick={() => {
-                setMode(mode === "create" ? "signin" : "create");
+          {resetStage !== "off" ? (
+            <ResetPanel
+              stage={resetStage}
+              email={resetEmail}
+              busy={resetBusy}
+              onEmailChange={setResetEmail}
+              onSubmit={submitReset}
+              onBack={() => {
+                setResetStage("off");
                 setErrorMessage(null);
               }}
-            >
-              {mode === "create"
-                ? "Already have a Twofold account? Sign in"
-                : "Need an account? Create one"}
-            </button>
-          </p>
+            />
+          ) : (
+            <>
+              <AppleGoogleSignInButtons pending={oauthPending} onPress={handleOAuth} />
+
+              <div className="relative text-center text-xs text-muted-foreground">
+                <span className="bg-card relative z-10 px-2">or</span>
+                <div className="absolute inset-x-0 top-1/2 border-t" />
+              </div>
+
+              {/* The same component /pricing's checkout step uses, so the rules about what makes a
+                  valid Twofold account live in one place — an account this page creates has to be
+                  one the iOS app will accept, `first_name` metadata and all. Errors are reported up
+                  rather than rendered by the form, because the paragraph below the branch also
+                  carries OAuth and reset failures. */}
+              <EmailPasswordForm
+                mode={mode}
+                onModeChange={setMode}
+                onError={setErrorMessage}
+                onSuccess={handleSignedIn}
+                chrome={{ form: "flex flex-col gap-3", Field: BoardField, Submit: BoardSubmit }}
+              />
+
+              {/* The way out for somebody with no account. Without it this page is a door that only
+                  opens for people who have already been through it. */}
+              <p className="text-center text-sm">
+                <button
+                  type="button"
+                  className="text-primary underline-offset-4 hover:underline"
+                  onClick={() => {
+                    setMode(mode === "create" ? "signin" : "create");
+                    setErrorMessage(null);
+                  }}
+                >
+                  {mode === "create"
+                    ? "Already have a Twofold account? Sign in"
+                    : "Need an account? Create one"}
+                </button>
+              </p>
+
+              {/* Only on the sign-in side. Offering to reset a password to somebody in the middle
+                  of choosing one is noise, and the app's own sign-in screen makes the same
+                  distinction. */}
+              {mode === "signin" && (
+                <p className="text-center text-sm">
+                  <button
+                    type="button"
+                    className="text-muted-foreground underline-offset-4 hover:underline"
+                    onClick={() => {
+                      setResetStage("form");
+                      setErrorMessage(null);
+                    }}
+                  >
+                    Forgot your password?
+                  </button>
+                </p>
+              )}
+            </>
+          )}
+
+          {/* Outside the branch on purpose: it carries OAuth failures, the shared form's errors and
+              a failed reset request alike, and a reset is the path people reach already locked out
+              — the one place an error must not be swallowed. */}
+          {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+/**
+ * Request a recovery email.
+ *
+ * Lives on the sign-in card rather than at its own route: "forgot password" is a detour from
+ * signing in, and a separate page would need its own header, its own way back, and its own place
+ * in the nav for a form with one field in it.
+ *
+ * The confirmation never says whether that address had an account. Supabase is configured not to
+ * confirm to a stranger which addresses are registered, and a form that said "no such account"
+ * would hand back exactly what that setting withholds — an oracle for testing whether somebody
+ * uses Twofold.
+ */
+function ResetPanel({
+  stage,
+  email,
+  busy,
+  onEmailChange,
+  onSubmit,
+  onBack,
+}: {
+  stage: "form" | "sent";
+  email: string;
+  busy: boolean;
+  onEmailChange: (value: string) => void;
+  onSubmit: (event: React.FormEvent) => void;
+  onBack: () => void;
+}) {
+  if (stage === "sent") {
+    return (
+      <div className="flex flex-col gap-4">
+        <div className="flex items-start gap-3 rounded-md border p-3">
+          <MailCheck className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
+            Open the link on any device &mdash; it doesn&apos;t have to be the one you asked from.
+            On an iPhone with Twofold installed it opens the app instead of the browser.
+          </p>
+        </div>
+        <button
+          type="button"
+          className="text-sm text-primary underline-offset-4 hover:underline"
+          onClick={onBack}
+        >
+          Back to sign in
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <form onSubmit={onSubmit} className="flex flex-col gap-3">
+        <BoardField
+          type="email"
+          required
+          autoComplete="email"
+          placeholder="you@email.com"
+          aria-label="Email address"
+          value={email}
+          onChange={(e) => onEmailChange(e.target.value)}
+        />
+        <BoardSubmit type="submit" disabled={busy || !email.trim()}>
+          {busy && <Loader2 className="size-4 animate-spin" />}
+          Send reset link
+        </BoardSubmit>
+      </form>
+      <button
+        type="button"
+        className="text-sm text-muted-foreground underline-offset-4 hover:underline"
+        onClick={onBack}
+      >
+        Back to sign in
+      </button>
     </div>
   );
 }
@@ -186,7 +333,12 @@ function AppleGoogleSignInButtons({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Solid black, not the app's light/dark pair. The app flips to white-on-dark via
+      {/* Brand shapes and colours are Apple's and Google's; the scale is not. 44px with a 15px
+          label rather than the app's 50px/19px: a phone button spans the screen, where these sit in
+          a 384px card among 40px inputs, and matching the app's figures made them the loudest thing
+          on the page. Google's own spec is smaller still (40px, 14px), so this stays inside it.
+
+          Solid black, not the app's light/dark pair. The app flips to white-on-dark via
           `.signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)` because it has a
           dark mode to adapt to; this site has none — nothing ever sets the `.dark` class globals.css
           keys its dark variant off — so the black button is the only one that can be correct here. */}
@@ -194,10 +346,10 @@ function AppleGoogleSignInButtons({
         type="button"
         onClick={() => onPress("apple")}
         disabled={busy}
-        className="flex h-[50px] w-full items-center justify-center gap-2 rounded-full bg-black text-[19px] font-medium text-white disabled:pointer-events-none disabled:opacity-60"
+        className="flex h-11 w-full items-center justify-center gap-2 rounded-full bg-black text-[15px] font-medium text-white disabled:pointer-events-none disabled:opacity-60"
       >
         {pending === "apple" ? (
-          <Loader2 className="size-5 animate-spin" />
+          <Loader2 className="size-4 animate-spin" />
         ) : (
           <AppleIcon />
         )}
@@ -208,10 +360,10 @@ function AppleGoogleSignInButtons({
         type="button"
         onClick={() => onPress("google")}
         disabled={busy}
-        className="flex h-[50px] w-full items-center justify-center gap-2.5 rounded-full border border-[#747775] bg-white text-[19px] font-medium text-[#1F1F1F] disabled:pointer-events-none disabled:opacity-60"
+        className="flex h-11 w-full items-center justify-center gap-2.5 rounded-full border border-[#747775] bg-white text-[15px] font-medium text-[#1F1F1F] disabled:pointer-events-none disabled:opacity-60"
       >
         {pending === "google" ? (
-          <Loader2 className="size-[18px] animate-spin" />
+          <Loader2 className="size-4 animate-spin" />
         ) : (
           <GoogleIcon />
         )}
@@ -223,7 +375,7 @@ function AppleGoogleSignInButtons({
 
 function AppleIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="size-5" aria-hidden="true" fill="currentColor">
+    <svg viewBox="0 0 24 24" className="size-[17px]" aria-hidden="true" fill="currentColor">
       <path d="M16.365 1.43c0 1.14-.42 2.2-1.12 3.02-.85.99-2.24 1.76-3.4 1.67a3.6 3.6 0 0 1-.03-.42c0-1.1.5-2.26 1.2-3.03.79-.88 2.14-1.55 3.28-1.6.04.12.07.25.07.36zM20.9 17.05c-.55 1.27-.82 1.84-1.53 2.96-.99 1.57-2.39 3.52-4.12 3.53-1.54.02-1.94-1-4.03-.99-2.1.01-2.53 1.01-4.07.99-1.73-.01-3.05-1.77-4.04-3.33C.32 15.84-.02 10.7 1.7 7.97c1.22-1.93 3.15-3.06 4.96-3.06 1.85 0 3 1.01 4.53 1.01 1.48 0 2.38-1.01 4.52-1.01 1.61 0 3.32.88 4.54 2.4-3.99 2.19-3.34 7.89.65 9.74z" />
     </svg>
   );
@@ -232,7 +384,7 @@ function AppleIcon() {
 /** The official multicolour "G", at the 18×18 the app's own button draws the SDK's asset at. */
 function GoogleIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="size-[18px]" aria-hidden="true">
+    <svg viewBox="0 0 24 24" className="size-4" aria-hidden="true">
       <path
         fill="#4285F4"
         d="M23.52 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.47c-.28 1.5-1.13 2.77-2.4 3.62v3.01h3.88c2.27-2.09 3.57-5.17 3.57-8.82z"

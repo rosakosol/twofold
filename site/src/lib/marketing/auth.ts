@@ -103,6 +103,32 @@ export function isExistingAccountError(error: unknown, data?: { user?: { identit
   return message.includes("already registered") || message.includes("already exists");
 }
 
+/**
+ * Asks Supabase to email a recovery link.
+ *
+ * The web could consume one of these from the day /auth/reset-password was written, but nothing on
+ * the web could ask for one — only the app's own ResetPasswordView could, so anyone who signed up
+ * here and forgot their password had no route back at all. That gap mattered more once the board's
+ * sign-in page dropped magic links for a password.
+ *
+ * `redirectTo` matches what BackendService.requestPasswordReset sends, so both origins land on the
+ * same page. It is also the value the recovery template ignores: since the link is built there from
+ * .SiteURL and .TokenHash, this only has to be allow-listed, not correct. Sent anyway, so the two
+ * callers stay identical and a future template that does honour it needs no change here.
+ *
+ * Resolves the same way whether or not the address has an account, which is deliberate and is why
+ * the caller says "if that address has an account" rather than "check your inbox". Supabase is
+ * configured not to confirm to a stranger which addresses are registered, and a form that
+ * distinguished them would hand that back.
+ */
+export async function requestPasswordReset(email: string) {
+  const supabase = createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+    redirectTo: "https://www.twofoldapp.com.au/auth/reset-password",
+  });
+  if (error) throw error;
+}
+
 export async function signOut() {
   const supabase = createClient();
   await supabase.auth.signOut();
