@@ -2,8 +2,12 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 /**
- * Handles both magic-link and OAuth (Google/Apple) redirects back from Supabase.
- * Supabase appends `?code=...` for the PKCE flow every provider here uses.
+ * Handles the OAuth (Apple/Google) redirect back from Supabase, and any other flow that
+ * returns a PKCE code to be exchanged — the emailed password-reset link among them.
+ * Supabase appends `?code=...` for all of them.
+ *
+ * Magic links used to come through here too. The sign-in page dropped them for email and
+ * password, which needs no round trip at all, so nothing issues one any more.
  *
  * Both failure paths carry the reason forward. They used to collapse into a bare
  * `error=auth_failed`, which the sign-in page then ignored entirely — so a failed

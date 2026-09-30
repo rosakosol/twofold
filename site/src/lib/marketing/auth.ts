@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 // Supabase browser client (@/lib/supabase/client) rather than a separate one — this is
 // the exact same Supabase project and "Sign in with Apple" identity the iOS app uses,
 // so a web purchase and the app see the same account row. Distinct sign-in *surface*
-// from the feedback board's own magic-link/Google auth (src/app/(board)/auth/), but
+// from the feedback board's own sign-in page (src/app/(board)/auth/), but
 // the same underlying Supabase project — no conflict, same pattern as the app's real
 // Sign in with Apple. Requires the Apple provider enabled in Supabase (Auth ->
 // Providers -> Apple) with a web "Services ID".

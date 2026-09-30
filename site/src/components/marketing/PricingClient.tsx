@@ -5,17 +5,11 @@ import { useSearchParams } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { APP_STORE_URL, PLANS } from "@/lib/marketing/config";
 import type { ResolvedPlan } from "@/lib/marketing/sanity";
+import { getSession, onAuthChange, signInWithProvider } from "@/lib/marketing/auth";
 import {
-  getSession,
-  onAuthChange,
-  signInWithProvider,
-  signUpWithPassword,
-  signInWithPassword,
-  isExistingAccountError,
-} from "@/lib/marketing/auth";
-import { isAcceptablePassword } from "@/lib/marketing/passwordStrength";
-import { PasswordStrengthMeter } from "@/components/marketing/PasswordStrengthMeter";
-import { nameError } from "@/lib/marketing/nameValidator";
+  EmailPasswordForm,
+  type EmailPasswordMode,
+} from "@/components/auth/EmailPasswordForm";
 import { providerFallbackName, providerLabel, sessionProvider } from "@/lib/marketing/provider";
 import { signOutAndGoHome } from "@/lib/auth/signOutAndGoHome";
 import { createClient } from "@/lib/supabase/client";
@@ -40,6 +34,15 @@ type Period = "monthly" | "yearly";
 interface Pending {
   planId: PlanId;
   period: Period;
+}
+
+/**
+ * The submit button EmailPasswordForm wears on this page: marketing.css's own primary pill, full
+ * width, the way every other button here is drawn. Module scope rather than inline, so switching
+ * modes does not unmount and remount the form (and empty the fields) on every render.
+ */
+function MarketingSubmit(props: React.ComponentProps<"button">) {
+  return <button {...props} className="btn btn-primary" style={{ width: "100%" }} />;
 }
 
 function AppStoreBadge({ label = "Download on the" }: { label?: string }) {
@@ -151,13 +154,7 @@ function PricingContent({
   const [oauthPending, setOauthPending] = useState<"apple" | "google" | null>(null);
   // Create by default: most people who reach this step have no Twofold account, because anyone who
   // installed the app first met a non-dismissable paywall during onboarding and subscribed there.
-  const [authMode, setAuthMode] = useState<"create" | "signin">("create");
-  const [firstName, setFirstName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [emailSubmitting, setEmailSubmitting] = useState(false);
+  const [authMode, setAuthMode] = useState<EmailPasswordMode>("create");
   const [signInError, setSignInError] = useState<string | null>(null);
   const successRef = useRef<HTMLDivElement>(null);
   // Whatever this session was actually created with - Apple here, but equally a Google or
@@ -233,6 +230,18 @@ function PricingContent({
     }
   }
 
+  async function startOAuth(provider: "apple" | "google") {
+    setSignInError(null);
+    setOauthPending(provider);
+    try {
+      await signInWithProvider(provider);
+      // On success the browser leaves for the provider, so there is no success state to set.
+    } catch {
+      setOauthPending(null);
+      setSignInError("We couldn't start that sign-in. Please try again.");
+    }
+  }
+
   /**
    * Whether this person already has a subscription — read from their profile row rather than from
    * RevenueCat's client SDK.
@@ -252,70 +261,6 @@ function PricingContent({
    * to decide whether to resume a purchase, and guessing "no subscription" from a network blip is
    * how somebody gets charged twice.
    */
-  async function startOAuth(provider: "apple" | "google") {
-    setSignInError(null);
-    setOauthPending(provider);
-    try {
-      await signInWithProvider(provider);
-      // On success the browser leaves for the provider, so there is no success state to set.
-    } catch {
-      setOauthPending(null);
-      setSignInError("We couldn't start that sign-in. Please try again.");
-    }
-  }
-
-  /// Mirrors `CreateAccountView.canContinue` and `SaveAccountView.canContinueWithEmail` field for
-  /// field — see lib/marketing/passwordStrength.ts for the strength half. An account the app would
-  /// refuse to create must not be creatable here, or the two surfaces disagree about who has a
-  /// valid account.
-  // Shown under the field as well as gating the button — see passwordStrength.ts on why a stricter
-  // rule has to explain itself. The password's own reason is rendered by PasswordStrengthMeter.
-  const nameProblem = firstName.trim() === "" ? null : nameError(firstName);
-
-  const canSubmitEmail =
-    authMode === "signin"
-      ? email.trim() !== "" && password !== ""
-      : nameError(firstName) === null &&
-        email.trim() !== "" &&
-        confirmPassword === password &&
-        isAcceptablePassword(password, firstName, email) &&
-        acceptedTerms;
-
-  async function submitEmailAuth(event: React.FormEvent) {
-    event.preventDefault();
-    if (!canSubmitEmail || emailSubmitting) return;
-    setSignInError(null);
-    setEmailSubmitting(true);
-
-    try {
-      if (authMode === "signin") {
-        await signInWithPassword(email, password);
-      } else {
-        const data = await signUpWithPassword(firstName, email, password);
-        // Supabase can report an existing address as a success carrying a user with no identities,
-        // rather than as an error — see isExistingAccountError. Treated the same either way: send
-        // them to sign in rather than leaving them on a form that appeared to work.
-        if (isExistingAccountError(null, data)) {
-          setAuthMode("signin");
-          setSignInError("An account with this email already exists. Sign in to use it.");
-          setEmailSubmitting(false);
-          return;
-        }
-      }
-      // The session lands via onAuthChange, and the pending-plan effect resumes the purchase.
-    } catch (err) {
-      if (authMode === "create" && isExistingAccountError(err)) {
-        setAuthMode("signin");
-        setSignInError("An account with this email already exists. Sign in to use it.");
-      } else if (authMode === "signin") {
-        setSignInError("That email and password didn't match an account. Please try again.");
-      } else {
-        setSignInError("We couldn't create your account. Please try again.");
-      }
-    }
-    setEmailSubmitting(false);
-  }
-
   async function checkSubscriptionStatus(currentSession: Session): Promise<boolean | null> {
     const { data, error } = await createClient()
       .from("profiles")
@@ -578,101 +523,17 @@ function PricingContent({
 
               <p style={{ textAlign: "center", fontSize: "0.85em", opacity: 0.7, marginBottom: 12 }}>or</p>
 
-              <form className="auth-form" onSubmit={submitEmailAuth} noValidate>
-                {authMode === "create" && (
-                  <>
-                    <label className="sr-only" htmlFor="signup-first-name">First name</label>
-                    <input
-                      id="signup-first-name"
-                      name="given-name"
-                      type="text"
-                      autoComplete="given-name"
-                      placeholder="First name"
-                      value={firstName}
-                      onChange={(event) => setFirstName(event.target.value)}
-                    />
-                    {nameProblem && (
-                      <p style={{ fontSize: "0.85em", opacity: 0.8 }}>{nameProblem}</p>
-                    )}
-                  </>
-                )}
-
-                <label className="sr-only" htmlFor="signup-email">Email address</label>
-                <input
-                  id="signup-email"
-                  name="email"
-                  type="email"
-                  inputMode="email"
-                  autoComplete="email"
-                  placeholder="yourname@email.com"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                />
-
-                <label className="sr-only" htmlFor="signup-password">Password</label>
-                <input
-                  id="signup-password"
-                  name="password"
-                  type="password"
-                  autoComplete={authMode === "create" ? "new-password" : "current-password"}
-                  placeholder="Password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                />
-
-                {authMode === "create" && (
-                  <>
-                    <label className="sr-only" htmlFor="signup-confirm">Confirm password</label>
-                    <input
-                      id="signup-confirm"
-                      name="confirm-password"
-                      type="password"
-                      autoComplete="new-password"
-                      placeholder="Confirm password"
-                      value={confirmPassword}
-                      onChange={(event) => setConfirmPassword(event.target.value)}
-                    />
-
-                    {/* Says which rule is unmet rather than only disabling the button, because a
-                        dead button with no reason is the same dead end as no button. */}
-                    <PasswordStrengthMeter password={password} name={firstName} email={email} />
-                    {confirmPassword !== "" && confirmPassword !== password && (
-                      <p style={{ fontSize: "0.85em", opacity: 0.8, marginBottom: 8 }}>
-                        Those passwords don&apos;t match.
-                      </p>
-                    )}
-
-                    {/* The same gate the app puts on every route off SaveAccountView, and the same
-                        sentence, so the thing being agreed to does not depend on where you signed
-                        up. */}
-                    <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: "0.85em", marginBottom: 16 }}>
-                      <input
-                        type="checkbox"
-                        checked={acceptedTerms}
-                        onChange={(event) => setAcceptedTerms(event.target.checked)}
-                        style={{ marginTop: 3 }}
-                      />
-                      <span>
-                        I&apos;m 16 or over, and I agree to the <a href="/terms">Terms of Use</a> and{" "}
-                        <a href="/privacy">Privacy Policy</a>.
-                      </span>
-                    </label>
-                  </>
-                )}
-
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  style={{ width: "100%" }}
-                  disabled={!canSubmitEmail || emailSubmitting}
-                >
-                  {emailSubmitting
-                    ? "One moment…"
-                    : authMode === "create"
-                      ? "Create account"
-                      : "Sign in"}
-                </button>
-              </form>
+              {/* Shared with /auth/sign-in — see EmailPasswordForm. It reports failures back up
+                  rather than rendering them, because the paragraph below is the same one the
+                  Apple/Google buttons write to. No `onSuccess`: the session lands via
+                  onAuthChange and the pending-plan resume runs from there, which is the path this
+                  form's sign-in actually takes (it changes the session in place, with no reload). */}
+              <EmailPasswordForm
+                mode={authMode}
+                onModeChange={setAuthMode}
+                onError={setSignInError}
+                chrome={{ form: "auth-form", Submit: MarketingSubmit }}
+              />
 
               {signInError && (
                 <p className="form-status" data-state="error" role="status" aria-live="polite">
