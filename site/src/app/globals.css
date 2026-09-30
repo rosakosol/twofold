@@ -9,7 +9,18 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-body);
   --font-mono: ui-monospace, monospace;
-  --font-heading: var(--font-display);
+  /* Sans, not the display serif. Newsreader is for marketing copy; the board and the console are
+     a dense product UI and their headings belong in the body face.
+     
+     `.board-shell` used to override this to var(--font-body) and could never have worked: `@theme
+     inline` bakes the resolved value into the utility rather than emitting var(--font-heading), so
+     `font-heading` compiled to var(--font-display) and no later redefinition of the variable could
+     reach it. Every CardTitle, every admin h1 and the feedback headings were serif for as long as
+     that comment claimed otherwise. Fixed at the token instead, where it does apply.
+     
+     Marketing is untouched: it never uses this utility, and marketing.css sets its own
+     h1/h2 font-family directly. */
+  --font-heading: var(--font-body);
   /* Marketing site's exact ink scale, exposed as real Tailwind utilities
      (text-subtle-ink, bg-subtle-ink, etc.) rather than only via arbitrary var() values. */
   --color-ink: var(--ink);
@@ -219,7 +230,8 @@
    (p-*, gap-*, m-*, size-* etc.) app-wide via calc(), so tightening it here densifies
    every board table/card/form at once rather than needing per-component edits. */
 .board-shell {
-  --font-heading: var(--font-body);
+  /* No --font-heading here: it never took effect (see the note in @theme inline above) and the
+     token itself is sans now, so this shell has nothing left to say about type family. */
   --spacing: 0.225rem;
   font-size: 0.9375rem;
   line-height: 1.55;
