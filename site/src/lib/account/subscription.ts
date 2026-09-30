@@ -121,27 +121,21 @@ export function parseSubscriptionHistory(raw: unknown): SubscriptionHistory {
 }
 
 /**
- * What to say to somebody with no subscription running.
+ * A date as every surface on the account page spells it.
  *
- * There is no free plan, and this used to say there was. A person is subscribed or they are not,
- * and naming "not" as a product invents a tier nobody sells and buries the one fact worth knowing:
- * that a subscription ended, and when.
+ * One copy because there were two — SubscriptionCard and DangerZone had written the same function
+ * independently, which is how a subscription's end date and an archive's purge date come to be
+ * formatted differently on one screen.
  *
- * Three cases, and the third is the reason `endedAt` is nullable rather than defaulted. Claiming a
- * date we do not have would be worse than the sentence that admits it, because somebody reading a
- * wrong end date has no way to tell it is wrong.
+ * Returns null rather than "Invalid Date" for input it cannot read, so a caller can fall through to
+ * its own undated wording instead of printing something that looks like a bug to the person whose
+ * account it is.
  */
-export function lapseSummary(history: SubscriptionHistory): string {
-  if (!history.everSubscribed) return "No subscription";
-  const tier = history.lastTier ? tierLabel(history.lastTier) : "Your subscription";
-  if (!history.endedAt) return `${tier}, ended`;
-  const ended = new Date(history.endedAt);
-  if (Number.isNaN(ended.getTime())) return `${tier}, ended`;
-  return `${tier}, ended ${ended.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  })}`;
+export function longDate(iso: string | null): string | null {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
 }
 
 /** Apple's own subscription management page. Works on desktop and deep-links on iOS. */

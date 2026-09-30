@@ -20,7 +20,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import {
   APPLE_SUBSCRIPTIONS_URL,
-  lapseSummary,
+  longDate,
   subscriptionControl,
   tierLabel,
   type SubscriptionHistory,
@@ -69,7 +69,23 @@ export function SubscriptionCard({
         <div className="flex items-start justify-between gap-3">
           <div>
             <CardTitle>Subscription</CardTitle>
-            <CardDescription>{planSummary(snapshot, history)}</CardDescription>
+            {/* A node rather than a string, so a lapsed subscription can wear its status as a badge
+                — "Twofold", then Cancelled, then the date it stopped. The sentence in the body says
+                which tier it was and that it ended; repeating "ended <date>" up here as well said
+                the same thing twice in two different shapes. */}
+            <CardDescription className="flex flex-wrap items-center gap-1.5">
+              {snapshot.active ? (
+                activeSummary(snapshot)
+              ) : !history.everSubscribed ? (
+                "No subscription"
+              ) : (
+                <>
+                  Twofold
+                  <Badge variant="outline">Cancelled</Badge>
+                  {longDate(history.endedAt)}
+                </>
+              )}
+            </CardDescription>
           </div>
           <div className="flex shrink-0 gap-2">
             {/* Only on a positive `true`. Null means the webhook has not spoken for this
@@ -97,7 +113,7 @@ export function SubscriptionCard({
               ) : (
                 <>
                   Your {history.lastTier ? tierLabel(history.lastTier) : "Twofold"} subscription
-                  {history.endedAt ? ` ended on ${longDate(history.endedAt)}` : " has ended"}.
+                  {longDate(history.endedAt) ? ` ended on ${longDate(history.endedAt)}` : " has ended"}.
                   Resubscribe to get access to all of Twofold&apos;s features in the app again.
                 </>
               )}
@@ -199,18 +215,9 @@ export function SubscriptionCard({
   );
 }
 
-/** The same rendering `lapseSummary` uses, so the heading and the sentence never disagree about
- *  the date. Invalid input falls through to the caller's undated wording rather than "Invalid Date". */
-function longDate(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "an earlier date";
-  return date.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
-}
-
-/** One line under "Subscription". Defers to lapseSummary once there is nothing running, which is
- *  where "Free plan" used to be. */
-function planSummary(snapshot: SubscriptionSnapshot, history: SubscriptionHistory): string {
-  if (!snapshot.active) return lapseSummary(history);
+/** The line under "Subscription" while one is running. The lapsed case is composed in the header
+ *  instead, because it carries a badge and this returns a string. */
+function activeSummary(snapshot: SubscriptionSnapshot): string {
   // A trial says so instead of "since September 2026", which reads as a settled subscription and is
   // the one thing somebody on day two of a trial most needs to know about their own account. Only on
   // a positive `true`, for the same reason the badge is: an unknown falls through to the date.
