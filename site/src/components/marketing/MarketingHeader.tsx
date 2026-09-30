@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { UserMenu } from "@/components/layout/UserMenu";
 import { APP_STORE_URL } from "@/lib/marketing/config";
 
 const NAV_LINKS = [
@@ -65,9 +66,13 @@ export function MarketingHeader() {
           </ul>
         </nav>
         <div className="site-nav-actions">
-          <a className="site-nav-cta site-nav-cta-desktop" data-appstore-link href={APP_STORE_URL}>
-            Get the App
-          </a>
+          {/* Where "Get the App" used to be. The App Store is still one tap away — the badge in the
+              hero, the mobile "Download" item in the nav list above, and every appstore-badge on the
+              page — so this slot is better spent on the one thing the navbar could not otherwise
+              reach: which account you are. UserMenu renders the same `.site-nav-cta` pill when
+              signed out, so the bar is unchanged until there is a session, and SiteHeader has used
+              it here since the board group was split out. */}
+          <UserMenu />
           <button
             type="button"
             className="site-nav-toggle"

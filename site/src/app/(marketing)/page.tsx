@@ -102,14 +102,6 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="stat-strip">
-        <div className="stat-strip-inner">
-          <p>
-            <strong>84,392 km</strong> travelled for each other - that&apos;s more than twice around the Earth.
-          </p>
-        </div>
-      </section>
-
       <section aria-labelledby="how-heading">
         <div className="wrap">
           <Reveal className="section-head">

@@ -600,26 +600,6 @@ section {
 }
 
 /* ============================================================
-   Stat bar
-   ============================================================ */
-
-.stat-strip{
-  text-align: center;
-  padding: 22px 0;
-  border-top: 1px solid var(--border-softer);
-  border-bottom: 1px solid var(--border-softer);
-  background: rgba(255, 255, 255, 0.4);
-}
-.stat-strip p{
-  font-size: 0.98rem;
-  color: var(--subtle-ink);
-}
-.stat-strip strong{
-  color: var(--heart-red);
-  font-weight: 600;
-}
-
-/* ============================================================
    How it works (steps)
    ============================================================ */
 

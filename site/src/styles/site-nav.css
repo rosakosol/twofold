@@ -206,10 +206,6 @@
     display: inline-flex;
   }
 
-  .site-nav-actions .site-nav-cta-desktop {
-    display: none;
-  }
-
   .site-nav-email {
     display: none;
   }
