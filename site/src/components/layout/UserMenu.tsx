@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Bookmark, LogOut, Settings, User as UserIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -14,7 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUser } from "@/lib/auth/useUser";
-import { createClient } from "@/lib/supabase/client";
+import { signOutAndGoHome } from "@/lib/auth/signOutAndGoHome";
 
 // There used to be an `avatarUrl()` here building
 // `${supabaseUrl}/storage/v1/object/public/avatars/${userId}/avatar.jpg`. It never worked: the
@@ -29,7 +28,6 @@ import { createClient } from "@/lib/supabase/client";
 
 export function UserMenu() {
   const { user, isLoading } = useUser();
-  const router = useRouter();
 
   if (isLoading) return <Skeleton className="h-9 w-9 rounded-full" />;
 
@@ -48,9 +46,7 @@ export function UserMenu() {
   const initials = email.slice(0, 2).toUpperCase();
 
   async function handleSignOut() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.refresh();
+    await signOutAndGoHome();
   }
 
   return (

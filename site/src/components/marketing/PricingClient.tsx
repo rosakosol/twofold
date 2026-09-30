@@ -12,12 +12,12 @@ import {
   signUpWithPassword,
   signInWithPassword,
   isExistingAccountError,
-  signOut,
 } from "@/lib/marketing/auth";
 import { isAcceptablePassword } from "@/lib/marketing/passwordStrength";
 import { PasswordStrengthMeter } from "@/components/marketing/PasswordStrengthMeter";
 import { nameError } from "@/lib/marketing/nameValidator";
 import { providerFallbackName, providerLabel, sessionProvider } from "@/lib/marketing/provider";
+import { signOutAndGoHome } from "@/lib/auth/signOutAndGoHome";
 import { createClient } from "@/lib/supabase/client";
 import {
   fetchOfferings,
@@ -431,8 +431,7 @@ function PricingContent({
   }, [requestedPlan]);
 
   async function handleSignOut() {
-    await signOut();
-    window.location.reload();
+    await signOutAndGoHome();
   }
 
   return (
