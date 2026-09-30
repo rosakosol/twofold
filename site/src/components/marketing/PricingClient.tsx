@@ -341,6 +341,45 @@ function PricingContent({
     return true;
   }
 
+  /// Picks a purchase back up after the sign-in that interrupted it.
+  ///
+  /// Called from both places a session can arrive, which is the fix for a real bug: this used to
+  /// live only in the mount path. That path exists for the Apple and Google redirects, which
+  /// reload the page — so it ran for them and never for an email and password sign-in, which
+  /// changes the session in place without a reload. Signing in that way left somebody looking at
+  /// a page that had plainly accepted their login and then done nothing with the plan they had
+  /// already chosen. Refreshing by hand took them straight to checkout, because that is the path
+  /// this was on.
+  ///
+  /// Resumes only on a positive "they have nothing". `null` is an unread status, and resuming a
+  /// checkout on the strength of a failed lookup is how an existing subscriber gets billed twice —
+  /// the one outcome on this page nobody can undo.
+  async function resumePendingPurchase(currentSession: Session) {
+    // Read and claim before the first `await`, not after.
+    //
+    // Both callers can fire for one sign-in — a redirect lands with a session *and* raises an auth
+    // change — and an `await` between the check and the claim is a window where both pass it. Two
+    // resumes is two checkouts, which is the outcome this whole function is careful about. The
+    // claim is synchronous, so the second caller finds it already taken.
+    const pending = sessionStorage.getItem(PENDING_KEY);
+    const mine = pending !== null && !attemptedPendingResume.current;
+    if (mine) attemptedPendingResume.current = true;
+
+    // Runs either way: it is what fills in "you're already on Premium" for somebody who arrived
+    // with a session and no pending plan.
+    const alreadySubscribed = await checkSubscriptionStatus(currentSession);
+    if (!mine || !pending) return;
+
+    // Only on a positive "they have nothing". `null` is an unread status, and resuming a checkout
+    // on the strength of a failed lookup is how an existing subscriber gets billed a second time.
+    if (alreadySubscribed !== false) return;
+
+    sessionStorage.removeItem(PENDING_KEY);
+    const { planId, period: pendingPeriod } = JSON.parse(pending) as Pending;
+    setPeriod(pendingPeriod);
+    attemptPurchase(planId, pendingPeriod);
+  }
+
   useEffect(() => {
     let cancelled = false;
 
@@ -349,32 +388,12 @@ function PricingContent({
       if (cancelled) return;
       setSession(initialSession);
       setAuthLoading(false);
-
-      if (initialSession) {
-        const alreadySubscribed = await checkSubscriptionStatus(initialSession);
-        if (cancelled) return;
-
-        // Resume a purchase that was interrupted by the Apple sign-in redirect.
-        //
-        // Only on a positive "they have nothing". `null` is an unread status, and resuming a
-        // checkout on the strength of a failed lookup is how an existing subscriber gets billed a
-        // second time — the one outcome here nobody can undo from this page.
-        if (!attemptedPendingResume.current) {
-          attemptedPendingResume.current = true;
-          const pending = sessionStorage.getItem(PENDING_KEY);
-          if (pending && alreadySubscribed === false) {
-            sessionStorage.removeItem(PENDING_KEY);
-            const { planId, period: pendingPeriod } = JSON.parse(pending) as Pending;
-            setPeriod(pendingPeriod);
-            attemptPurchase(planId, pendingPeriod);
-          }
-        }
-      }
+      if (initialSession && !cancelled) await resumePendingPurchase(initialSession);
     })();
 
     const unsubscribe = onAuthChange((newSession) => {
       setSession(newSession);
-      if (newSession) checkSubscriptionStatus(newSession);
+      if (newSession) void resumePendingPurchase(newSession);
     });
 
     return () => {
