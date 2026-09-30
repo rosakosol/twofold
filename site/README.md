@@ -249,22 +249,24 @@ Set every variable from the table above in Vercel. Then, in the shared Supabase 
 
 Edge functions and migrations deploy from the repo root, not from here.
 
-## Known drift
+## The FAQ mirror
 
-`src/lib/marketing/faqFallback.ts` is the cold-start copy of `faq_entries`, and its own comment
-calls it "a MIRROR, not an independent copy". Comparing the two (23 rows each) as of
-2026-09-30, eleven answers differ:
+`src/lib/marketing/faqFallback.ts` is the cold-start copy of `faq_entries`, rendered only when
+the Supabase read fails outright. Its own comment calls it "a MIRROR, not an independent copy",
+and as of 2026-09-30 it is one again — regenerated from the rows, verified field by field.
 
-- **`What's the difference between Plus and Premium?` is materially wrong in the fallback.** It
-  lists Word Search and Connect 4 as Plus features. `20261111000700` made both Premium-only and
-  `20261111000800` corrected the row; the fallback was not updated. If Supabase is unreachable,
-  the FAQ page advertises two Premium games as included in Plus.
-- Six differ only by arrow character: the rows use `→` (`Settings → Help`), the fallback `->`.
-  Worth settling in one direction — the rows are canonical, so the fallback is the one to change.
-- Four differ in wording, mostly where the row was later edited to drop a hardcoded address
-  (`reach out below` vs `reach out via support@…`).
-- One question was renamed in the rows (`Does Twofold track my location continuously?`) and the
-  fallback still has the old title (`How does Twofold use my location?`), so that answer has no
-  fallback at all and the old one never renders.
+It had drifted in eleven of twenty-three answers, and one of those mattered: the Plus/Premium
+comparison still listed Word Search and Connect 4 as Plus features, months after
+`20261111000700` made both Premium-only. A Supabase outage would have had the FAQ advertising
+two Premium games as included in the cheaper plan. Also fixed: six rows differing only by arrow
+character, a question renamed in the rows whose fallback kept the old title (so that answer had
+no fallback at all and the stale one never rendered), and four edited to drop a hardcoded address.
 
-The mirror needs resyncing from the rows. Nothing checks it, which is how it drifted.
+**Nothing enforces the mirror.** An edit through Studio → FAQ owes an edit here too. Two things
+to know if you regenerate it:
+
+- the live `category` column holds the display label (`Subscriptions & billing`), not the slug
+  this file keys on — `FAQ_CATEGORY_LABELS` is that mapping and has to keep matching the column
+  exactly, because the live page groups on the raw label
+- the page renders the array's order within each group rather than re-sorting it, so items are
+  laid out grouped, in the order `groupFaqEntriesByCategory` would produce
