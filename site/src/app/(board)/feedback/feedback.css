@@ -59,8 +59,13 @@
   gap: 24px;
   flex-wrap: wrap;
 }
+/* No font-family: these inherit the body sans from <body>, and that is deliberate.
+   Newsreader belongs to the marketing pages; the board is a dense product UI and its headings
+   belong in the body face. 8c9c0a8 set out to do this and fixed --font-heading, which is the
+   token behind Tailwind's `font-heading` utility — but this file, the roadmap heading and the
+   roadmap column heads set the family directly, so the token never reached them and all three
+   stayed serif. Setting one here again re-opens that gap. */
 .fb-head h1 {
-  font-family: var(--font-display);
   color: var(--ink);
   font-size: clamp(2rem, 4vw, 2.6rem);
   line-height: 1.05;
@@ -280,7 +285,6 @@
   margin: 40px 0 26px;
 }
 .roadmap-head h2 {
-  font-family: var(--font-display);
   color: var(--ink);
   font-size: clamp(1.6rem, 3vw, 1.9rem);
   margin: 0 0 6px;
@@ -301,7 +305,6 @@
   margin-bottom: 14px;
 }
 .rm-col-head h3 {
-  font-family: var(--font-display);
   color: var(--ink);
   font-size: 1.35rem;
   font-weight: 500;
