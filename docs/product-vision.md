@@ -1,0 +1,535 @@
+# Twofold — Product Vision
+
+**See how far you've gone for each other.**
+
+> This is the product vision: what Twofold is for and how it should feel. It was written before
+> most of the app existed, and some of it describes intentions rather than how the code works
+> today. For the app as built (screens, flows, games, backend), see the [README](../README.md).
+> Pricing and the shared-data lifecycle live there too.
+
+## The Idea
+
+Long-distance relationships are shaped by distance — but also by all the effort two people make to navigate it.
+
+Flights booked months in advance. Airport reunions. Twelve-hour layovers. Business trips. Weekend visits. First dinners in new cities. Tearful goodbyes. Thousands of kilometres travelled just to spend a few days together.
+
+Twofold turns those journeys into a visual story.
+
+Couples can follow each other's travels, track every journey they've taken to see one another, and watch their shared relationship history build across an interactive globe.
+
+> **You've travelled 84,392 km for each other.**
+> That's more than twice around the Earth.
+
+## Core Experience
+
+### Relationship Globe
+
+The centre of Twofold is an interactive 3D globe displaying both partners and their journeys across the world.
+
+Users can:
+
+* See where each partner currently is based on their shared travel
+* View the current distance between each other
+* See active and historical flight routes
+* Explore journeys taken to see each other
+* Rotate and zoom around the globe
+* Zoom into cities and locations to discover memories
+* View the places that have shaped their relationship
+
+When a partner is travelling, their current journey can be displayed directly on the globe.
+
+As the relationship grows, the globe becomes a visual history of everywhere both partners have been and everywhere they have crossed the world for each other.
+
+### Partner Travel
+
+Twofold tracks more than reunion trips.
+
+Partners can share their travel with each other, including:
+
+* Business trips
+* Holidays
+* Personal travel
+* Trips taken together
+* Trips taken to see each other
+
+A partner travelling from Melbourne to Singapore for work can share their flight through Twofold.
+
+The other partner can follow their journey and receive an update when they depart or safely arrive.
+
+> **Dara just landed in Singapore 🇸🇬 ❤️**
+
+Partner location within Twofold is based on intentionally shared trips and travel information.
+
+Twofold is not designed as a continuous live location tracking service.
+
+### Trip Tracking
+
+Couples can record flights and journeys.
+
+Each trip may include:
+
+* Traveller
+* Origin
+* Destination
+* Departure date
+* Arrival date
+* Flight number
+* Flight status
+* Distance travelled
+* Trip purpose
+* Photos
+* Notes
+* Memories
+
+Trips may be categorised as:
+
+* Seeing each other
+* Travelling together
+* Personal travel
+
+Additional trip context may be inferred or optionally added by the user.
+
+Twofold distinguishes between general partner travel and relationship journeys.
+
+Only eligible journeys taken to see each other contribute to metrics such as:
+
+> **Distance travelled for each other**
+
+### Live Flight Tracking
+
+Twofold can track a partner's active flights.
+
+When a flight is added, Twofold resolves the specific flight instance and follows its journey.
+
+Flight tracking may include:
+
+* Scheduled departure
+* Estimated departure
+* Actual departure
+* Delays
+* Cancellation
+* Diversion
+* Estimated arrival
+* Landing soon
+* Arrival
+
+The goal is not to replicate a traditional aviation flight tracker.
+
+Flight data is translated into an experience designed around the person waiting for their partner.
+
+Instead of:
+
+> QF35 — Estimated arrival 18:42
+
+Twofold may display:
+
+> **They're almost there ❤️**
+> Dara is landing in around 30 minutes.
+
+### Flight Notifications
+
+Partners can receive notifications for important travel events.
+
+Notifications may include:
+
+> **They're on their way ✈️**
+> Dara just departed Melbourne.
+
+> **Almost there ❤️**
+> Dara is landing in around 30 minutes.
+
+> **They've landed ❤️**
+> Dara just arrived in Singapore 🇸🇬.
+
+Users can control which flight events they want to be notified about.
+
+Notifications should prioritise emotional context while keeping detailed flight information available as secondary information.
+
+### Live Activities
+
+Twofold uses iOS Live Activities to surface a partner's active journey directly on the Lock Screen and Dynamic Island.
+
+For a general partner trip:
+
+> **Dara is flying to Singapore ✈️**
+> Landing in 4h 21m.
+
+For a reunion journey:
+
+> **Dara is on the way to you ❤️**
+> 4h 21m until you're together.
+
+The Live Activity may progress through:
+
+* Departing
+* In the air
+* Landing soon
+* Landed
+
+The Dynamic Island may display compact journey information such as:
+
+> ✈️ SIN · 4h 21m
+
+Or, for a reunion journey:
+
+> ❤️ 4h 21m closer
+
+The presentation of a Live Activity changes depending on the context of the trip.
+
+A flight taken for business should feel different from a flight taken to reunite with a partner.
+
+### Memory Map
+
+Memories are attached to real places.
+
+Users can save:
+
+* Photos
+* Notes
+* Dates
+* Locations
+* Special moments
+
+When users zoom into the globe, relationship memories appear as markers across the map.
+
+Tapping a marker opens the memory associated with that place.
+
+A city may contain memories such as:
+
+* Where we first met
+* Our first dinner
+* Our Airbnb
+* Our favourite café
+* The last coffee before the airport
+
+Over time, the map becomes a shared visual diary of the relationship.
+
+### Relationship Stats
+
+Twofold turns a couple's journey into meaningful statistics.
+
+Stats may include:
+
+* Total kilometres or miles travelled for each other
+* Distance travelled by each partner
+* Number of reunion trips
+* Total flights tracked
+* Countries visited
+* Cities visited
+* Days spent together
+* Days spent apart
+* Longest journey
+* Most visited destination
+
+Distances can be translated into more emotional and memorable comparisons.
+
+> You've travelled around the Earth **2.1 times** for each other.
+
+> You've travelled **22% of the way to the Moon** for each other.
+
+Relationship statistics should tell a story rather than feel like an analytics dashboard.
+
+### Next Reunion
+
+Couples can track their next planned reunion.
+
+The home experience may display:
+
+* Days until the next reunion
+* Who is travelling
+* Destination
+* Flight details
+* Departure time
+* Arrival time
+* Distance to be travelled
+
+When a reunion flight becomes active, Twofold changes the experience from a countdown into a live journey.
+
+> **47 days until you're together**
+
+Becomes:
+
+> **They're on the way ❤️**
+
+## Shareable Journey Snapshots
+
+Sharing is a core part of Twofold.
+
+Users do not need to wait for an annual recap to share their journey.
+
+At any time, a couple can instantly generate a visual snapshot of their relationship and travel history.
+
+A snapshot may include:
+
+> **We've travelled 84,392 km for each other.**
+>
+> 9 trips
+> 14 flights
+> 4 countries
+> 127 days together
+>
+> 🌍 That's 2.1 times around the Earth.
+
+Snapshots can combine relationship statistics with a visual representation of the couple's journeys across the globe.
+
+Users may create snapshots based on:
+
+* Their entire relationship
+* A specific year
+* A specific trip
+* A reunion journey
+* One partner's travels
+* Countries visited
+* Distance travelled
+* A relationship milestone
+
+Snapshots should be designed as content people genuinely want to share rather than generic app-generated achievement cards.
+
+Users can share through the native iOS share sheet to platforms including TikTok, Instagram, Messages, and other apps.
+
+The shared content itself creates a discovery loop for Twofold.
+
+**Track your journey → generate a snapshot → share your story → another long-distance couple discovers Twofold.**
+
+## Target Audience
+
+Twofold is designed specifically for long-distance couples.
+
+The primary audience includes:
+
+* Gen Z and young millennial couples
+* International couples
+* Couples living in different cities or countries
+* Couples who frequently fly to see each other
+* Couples where one or both partners travel frequently
+* Partners of frequent business travellers
+* Airline and aviation workers and their partners
+* FIFO and rotational workers and their partners
+* Digital nomads
+* Couples who document their relationship online
+* TikTok and Instagram users who share relationship content
+
+Twofold is not intended to be a generic relationship improvement app.
+
+It does not focus on quizzes, daily relationship questions, virtual pets, or AI relationship advice.
+
+The product is centred around **distance, journeys, reunions, travel, and shared memories**.
+
+## Product Principles
+
+### Distance is the Story
+
+Distance should not simply be a number displayed on a profile.
+
+It is the central narrative of Twofold.
+
+Every journey, flight, city, and kilometre contributes to the couple's story.
+
+### The Globe is the Product
+
+The globe is not a decorative visualisation.
+
+It is the primary way users explore their relationship and travel history.
+
+Trips, routes, partners, and memories should feel spatial and connected to the places where they happened.
+
+### Reunion Day Should Feel Special
+
+A flight taken to see a partner is emotionally different from a normal flight.
+
+Twofold should recognise this context.
+
+The language, notifications, Live Activities, and journey experience should transform when a partner is travelling to reunite with the other.
+
+### Built to Be Shared
+
+Twofold should continuously create moments worth sharing.
+
+Relationship statistics, travel milestones, flight journeys, and reunions should be easy to turn into beautiful visual content.
+
+Users should never need to wait for an annual recap to share their journey.
+
+### Emotional, Not Clinical
+
+Twofold tracks significant amounts of travel data but should never feel like an aviation dashboard.
+
+Numbers should be translated into emotionally meaningful stories.
+
+Not:
+
+> Total distance: 84,392 km
+
+But:
+
+> You've crossed the Earth twice for each other.
+
+Not:
+
+> Flight QF35 status: ARRIVED
+
+But:
+
+> Dara just landed in Singapore ❤️
+
+### Shared, Not Individual
+
+Twofold is built around two people.
+
+Subscriptions, journeys, memories, and relationship history should feel shared.
+
+One partner paying for Twofold should unlock the experience for both people.
+
+### Private by Default
+
+A couple's relationship history, memories, and travel information are private.
+
+Partner travel is intentionally shared.
+
+Twofold should not silently track continuous user location.
+
+Sharing outside the relationship is always intentional and controlled by the user.
+
+## MVP
+
+The initial native iOS release will focus on:
+
+1. **Partner Linking** — invite a partner and create a shared relationship.
+2. **Relationship Globe** — view both partners, travel routes, and relationship history.
+3. **Trip Tracking** — add flights and journeys for either partner.
+4. **Live Flight Tracking** — follow tracked flights through departure and arrival.
+5. **Flight Notifications** — receive important updates about a partner's journey.
+6. **Live Activities** — follow active partner flights from the Lock Screen and Dynamic Island.
+7. **Memory Map** — attach photos and memories to real locations.
+8. **Relationship Stats** — calculate distance travelled and relationship milestones.
+9. **Journey Snapshots** — instantly generate and share visual summaries of the couple's journey.
+10. **Subscriptions** — Twofold Plus and Twofold Premium couple-based plans.
+
+The MVP should answer two core questions:
+
+> **Where are they, and have they arrived safely?**
+
+And:
+
+> **How far have we gone for each other?**
+
+## Platform
+
+Twofold will launch as a native iOS application.
+
+The initial platform focus allows Twofold to create a highly polished experience with deep integration into the Apple ecosystem.
+
+Potential technologies include:
+
+* Swift
+* SwiftUI
+* ActivityKit
+* WidgetKit
+* MapKit
+* PhotosUI
+* Core Location
+* StoreKit 2
+* APNs
+* CloudKit or a dedicated backend service
+
+A 3D globe implementation will be evaluated based on performance, visual quality, and interaction requirements.
+
+Flight data will be retrieved through a dedicated Twofold backend.
+
+The iOS application should never directly expose or communicate with commercial flight data provider credentials.
+
+## Flight Tracking Architecture
+
+Conceptually:
+
+```
+Twofold iOS App
+        ↓
+Twofold API
+        ↓
+Flight Data Provider
+        ↓
+Flight Event Webhook
+        ↓
+Twofold API
+        ↓
+APNs
+        ↓
+Notification / Live Activity
+        ↓
+Partner's iPhone
+```
+
+When a user adds a flight:
+
+```
+User enters flight number and date
+        ↓
+Twofold resolves the specific flight instance
+        ↓
+Flight is linked to the partner's trip
+        ↓
+Twofold subscribes to relevant flight events
+        ↓
+Departure event
+        ↓
+Notify partner and start/update Live Activity
+        ↓
+Landing soon event
+        ↓
+Update Live Activity and optionally notify partner
+        ↓
+Arrival event
+        ↓
+Notify partner
+        ↓
+End Live Activity
+        ↓
+Update trip and partner travel state
+```
+
+Twofold should use event-driven flight tracking rather than continuously polling flight status.
+
+## Future Ideas
+
+Potential future features include:
+
+* Live aircraft position on the relationship globe
+* Automatic flight import
+* Calendar flight detection
+* Apple Wallet boarding pass detection
+* Email itinerary import
+* Multi-leg journey support
+* Relationship milestones
+* Journey timelines
+* Home Screen widgets
+* Lock Screen reunion countdown widgets
+* Automatic travel detection
+* Twofold Wrapped
+* Custom snapshot themes
+* Relationship journey videos
+* Printed relationship maps
+* Travel and memory books
+* Shared travel wishlists
+* Places couples want to visit together
+* Reunion history
+* Airport reunion memories
+* Time zone awareness
+* Partner local time widgets
+
+## Vision
+
+Twofold aims to become the visual record of a long-distance relationship.
+
+A shared view of two people moving through the world.
+
+Every flight.
+
+Every kilometre.
+
+Every city.
+
+Every reunion.
+
+Every memory.
+
+**Two people. One journey. Twofold.**
