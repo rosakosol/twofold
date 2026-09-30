@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -27,7 +28,7 @@ import { isTypingTarget } from "@/lib/utils/keyboard";
 import { CATEGORY_LABELS, CATEGORY_VALUES, type FeatureCategory } from "@/lib/utils/constants";
 
 export function FeatureSubmitDialog() {
-  const { user } = useUser();
+  const { user, isLoading } = useUser();
   const router = useRouter();
   const pathname = usePathname();
   const createFeature = useCreateFeature();
@@ -89,6 +90,29 @@ export function FeatureSubmitDialog() {
     return () => document.removeEventListener("keydown", handleKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  // Reading the board is public; opening a request is not. `handleOpenChange` already bounced a
+  // signed-out visitor to /auth/sign-in, but only after they had pressed a button promising a
+  // compose dialog — so the prompt is the control now, rather than something discovered by pressing
+  // the wrong thing. Same `next` either way, so the request they came to write is still one press
+  // from being written.
+  //
+  // Not gated on `isLoading`: the session is unknown for a moment after mount, and swapping the
+  // label in once it resolves would flash "Sign in to request" at signed-in visitors too. During
+  // that window the trigger below still stands, and `handleOpenChange` is the backstop it always
+  // was. The keyboard shortcut is registered above either way, so "c" redirects rather than
+  // doing nothing.
+  if (!user && !isLoading) {
+    return (
+      <Link
+        href={`/auth/sign-in?next=${encodeURIComponent(pathname)}`}
+        className="btn btn-primary new-req"
+      >
+        <LogIn className="h-4 w-4" />
+        Sign in to request
+      </Link>
+    );
+  }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();

@@ -155,7 +155,10 @@
   border: 1px solid var(--border-softer);
 }
 
+/* Also worn by an <a> — VoteButton renders the signed-out prompt as a real link to
+   /auth/sign-in, so the reset below keeps it from picking up an underline. */
 .vote {
+  text-decoration: none;
   display: flex;
   flex-direction: column;
   align-items: center;
