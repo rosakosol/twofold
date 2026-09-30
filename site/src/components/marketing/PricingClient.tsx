@@ -421,12 +421,34 @@ function PricingContent({
     };
   }, [session]);
 
+  // Arrive at the top, however you arrived.
+  //
+  // Two things put people in the middle of this page. The browser restores the scroll position
+  // when you come back from an external checkout, so you return to wherever you were when you
+  // left — which, since you left by pressing a Buy button, is the middle. And the plan scroll
+  // below used `block: "center"`, which puts a card in the centre of the viewport by definition.
+  //
+  // `scrollRestoration` is a global on `history`, so the previous value is put back on unmount
+  // rather than left as "manual" for every other page in the app.
+  useEffect(() => {
+    const previous = history.scrollRestoration;
+    if (previous !== undefined) history.scrollRestoration = "manual";
+    window.scrollTo(0, 0);
+    return () => {
+      if (previous !== undefined) history.scrollRestoration = previous;
+    };
+  }, []);
+
   useEffect(() => {
     if (requestedPlan === "premium" || requestedPlan === "plus") {
       // The referring page (e.g. the Home pricing preview) named a specific plan -
       // scroll it into view rather than changing which cards render, since both
       // plans always render together now.
-      document.getElementById(`plan-${requestedPlan}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      //
+      // `start`, not `center`. Centring is what put somebody following a plan link halfway down
+      // the page with the heading scrolled off — and the same effect re-runs on a checkout return
+      // that keeps `?plan=` in the URL, undoing the scroll to top above.
+      document.getElementById(`plan-${requestedPlan}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }, [requestedPlan]);
 
