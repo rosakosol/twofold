@@ -71,7 +71,7 @@ function Board() {
       <header className="fb-head">
         <div className="fb-head-inner">
           <div>
-            <h1>Feedback</h1>
+            <h1 className="board-page-title">Feedback</h1>
             <p>Vote on ideas, or tell us what would make Twofold better.</p>
           </div>
           <FeatureSubmitDialog />

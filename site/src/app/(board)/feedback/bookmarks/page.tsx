@@ -18,7 +18,7 @@ export default function BookmarksPage() {
     <div className="mx-auto max-w-3xl px-4 py-6">
       <div className="flex items-center gap-2">
         <Bookmark className="h-5 w-5 text-primary" />
-        <h1 className="font-heading text-xl font-semibold tracking-tight">Your bookmarks</h1>
+        <h1 className="board-page-title">Your bookmarks</h1>
       </div>
       <p className="mt-1 text-sm text-muted-foreground">Requests you&apos;ve saved for later.</p>
 

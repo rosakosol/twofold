@@ -59,18 +59,16 @@
   gap: 24px;
   flex-wrap: wrap;
 }
-/* No font-family: these inherit the body sans from <body>, and that is deliberate.
-   Newsreader belongs to the marketing pages; the board is a dense product UI and its headings
-   belong in the body face. 8c9c0a8 set out to do this and fixed --font-heading, which is the
-   token behind Tailwind's `font-heading` utility — but this file, the roadmap heading and the
-   roadmap column heads set the family directly, so the token never reached them and all three
-   stayed serif. Setting one here again re-opens that gap. */
+/* Family, size, weight and tracking come from `.board-page-title` in globals.css, which this
+   h1 carries — the same class /account and /feedback/bookmarks use, so the three page titles are
+   one definition rather than three that agree. Only the margin is this page's own.
+   
+   Nothing here sets font-family, deliberately. 8c9c0a8 set out to take the serif off the board
+   and fixed --font-heading, the token behind Tailwind's `font-heading` utility — but this file
+   set the family directly on three headings, so the token could never reach them and they stayed
+   serif. Setting one here again re-opens that gap. */
 .fb-head h1 {
-  color: var(--ink);
-  font-size: clamp(2rem, 4vw, 2.6rem);
-  line-height: 1.05;
   margin: 0 0 8px;
-  letter-spacing: -0.01em;
 }
 .fb-head p {
   margin: 0;
@@ -286,7 +284,8 @@
 }
 .roadmap-head h2 {
   color: var(--ink);
-  font-size: clamp(1.6rem, 3vw, 1.9rem);
+  font-size: clamp(1.3rem, 2.4vw, 1.5rem);
+  line-height: 1.2;
   margin: 0 0 6px;
 }
 .roadmap-head p {
@@ -306,7 +305,7 @@
 }
 .rm-col-head h3 {
   color: var(--ink);
-  font-size: 1.35rem;
+  font-size: 1.15rem;
   font-weight: 500;
   margin: 0;
 }

@@ -235,6 +235,27 @@
   --spacing: 0.225rem;
   font-size: 0.9375rem;
   line-height: 1.55;
+  /* One size for the title at the top of a board page, because there were three: Feedback set
+     its own clamp in feedback.css, /account used text-2xl and /feedback/bookmarks text-xl, so
+     the same kind of heading was 41px, 24px or 20px depending on which page you were on. Held as
+     a variable rather than a convention — the family on these headings drifted twice already by
+     being agreed rather than defined. */
+  --board-title: clamp(1.6rem, 3vw, 1.9rem);
+}
+
+/* The title at the top of a board page. Sans (the body face, like everything else in this
+   shell), one size, and no `text-*` utility on the element — a utility there is how the three
+   sizes happened. */
+.board-page-title {
+  font-family: var(--font-body);
+  /* Fallback for the class used outside `.board-shell`, where the variable is not defined —
+     the console has its own shell and its own, smaller, title convention. */
+  font-size: var(--board-title, 1.75rem);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin: 0;
 }
 
 /* iOS Safari auto-zooms the page whenever a focused field's font size is under 16px, and

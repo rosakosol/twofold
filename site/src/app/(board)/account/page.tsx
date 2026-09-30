@@ -68,7 +68,7 @@ export default async function AccountPage() {
   return (
     <div className="space-y-8">
       <header>
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">Your account</h1>
+        <h1 className="board-page-title">Your account</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {profile?.first_name ? `${profile.first_name} · ` : ""}
           {user.email}
