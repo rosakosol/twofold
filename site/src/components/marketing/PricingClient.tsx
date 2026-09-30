@@ -10,6 +10,11 @@ import {
   EmailPasswordForm,
   type EmailPasswordMode,
 } from "@/components/auth/EmailPasswordForm";
+import {
+  PasswordResetPanel,
+  passwordResetCopy,
+  type PasswordResetStage,
+} from "@/components/auth/PasswordResetPanel";
 import { providerFallbackName, providerLabel, sessionProvider } from "@/lib/marketing/provider";
 import { signOutAndGoHome } from "@/lib/auth/signOutAndGoHome";
 import { createClient } from "@/lib/supabase/client";
@@ -43,6 +48,18 @@ interface Pending {
  */
 function MarketingSubmit(props: React.ComponentProps<"button">) {
   return <button {...props} className="btn btn-primary" style={{ width: "100%" }} />;
+}
+
+/** The text link the shared reset panel gets back out through, drawn like every other one here. */
+function MarketingBackLink(props: React.ComponentProps<"button">) {
+  return (
+    <button
+      type="button"
+      {...props}
+      className="text-link"
+      style={{ background: "none", border: "none", cursor: "pointer" }}
+    />
+  );
 }
 
 function AppStoreBadge({ label = "Download on the" }: { label?: string }) {
@@ -155,6 +172,12 @@ function PricingContent({
   // Create by default: most people who reach this step have no Twofold account, because anyone who
   // installed the app first met a non-dismissable paywall during onboarding and subscribed there.
   const [authMode, setAuthMode] = useState<EmailPasswordMode>("create");
+  // Whether the card is asking for a recovery email instead of a password. The one state the
+  // checkout genuinely shares with the board's sign-in page, and it was missing here: an account
+  // exists from `.saveAccount` onwards, *before* the onboarding paywall, so somebody who quit at
+  // that paywall and came here to buy is exactly who arrives holding a password they may not
+  // remember — and "That email and password didn't match an account" was the end of the road.
+  const [resetStage, setResetStage] = useState<PasswordResetStage>("off");
   const [signInError, setSignInError] = useState<string | null>(null);
   const successRef = useRef<HTMLDivElement>(null);
   // Whatever this session was actually created with - Apple here, but equally a Google or
@@ -494,79 +517,125 @@ function PricingContent({
                installed the app first subscribed during onboarding. */
             <div className="card waitlist-card" style={{ marginTop: 12, maxWidth: 460, marginLeft: "auto", marginRight: "auto", textAlign: "left" }}>
               <h3 style={{ marginBottom: 6 }}>
-                {authMode === "create" ? "Create your account" : "Sign in"}
+                {resetStage !== "off"
+                  ? passwordResetCopy.title
+                  : authMode === "create"
+                    ? "Create your account"
+                    : "Sign in"}
               </h3>
               <p style={{ marginBottom: 20 }}>
-                {authMode === "create"
-                  ? "Your subscription lives on this account, and it's what you'll sign in with when you download the app."
-                  : "Use the account you already have in Twofold, so your subscription reaches it rather than a new one."}
+                {resetStage === "sent"
+                  ? passwordResetCopy.sent
+                  : resetStage === "form"
+                    ? passwordResetCopy.form
+                    : authMode === "create"
+                      ? "Your subscription lives on this account, and it's what you'll sign in with when you download the app."
+                      : "Use the account you already have in Twofold, so your subscription reaches it rather than a new one."}
               </p>
 
-              <button
-                type="button"
-                className="btn btn-primary"
-                style={{ width: "100%", marginBottom: 8 }}
-                disabled={oauthPending !== null}
-                onClick={() => startOAuth("apple")}
-              >
-                {oauthPending === "apple" ? "Opening…" : "Continue with Apple"}
-              </button>
-              <button
-                type="button"
-                className="btn btn-ghost"
-                style={{ width: "100%", marginBottom: 16 }}
-                disabled={oauthPending !== null}
-                onClick={() => startOAuth("google")}
-              >
-                {oauthPending === "google" ? "Opening…" : "Continue with Google"}
-              </button>
+              {resetStage !== "off" ? (
+                /* Shared with /auth/sign-in — see PasswordResetPanel on why the confirmation never
+                   says whether that address had an account, and why this is a panel on the card
+                   rather than a route: navigating away from here would abandon the plan that was
+                   picked, which lives in this tab's sessionStorage. */
+                <PasswordResetPanel
+                  stage={resetStage}
+                  onStageChange={setResetStage}
+                  onError={setSignInError}
+                  busyLabel="Sending…"
+                  sentNote={
+                    <p style={{ fontSize: "0.9em" }}>
+                      Leave this tab open. Once you&apos;ve set a new password, come back here and
+                      sign in &mdash; the {plans[signInFor.planId].name} plan you picked is still waiting,
+                      and checkout picks up where it left off.
+                    </p>
+                  }
+                  chrome={{ form: "auth-form", Submit: MarketingSubmit, BackLink: MarketingBackLink }}
+                />
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    style={{ width: "100%", marginBottom: 8 }}
+                    disabled={oauthPending !== null}
+                    onClick={() => startOAuth("apple")}
+                  >
+                    {oauthPending === "apple" ? "Opening…" : "Continue with Apple"}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    style={{ width: "100%", marginBottom: 16 }}
+                    disabled={oauthPending !== null}
+                    onClick={() => startOAuth("google")}
+                  >
+                    {oauthPending === "google" ? "Opening…" : "Continue with Google"}
+                  </button>
 
-              <p style={{ textAlign: "center", fontSize: "0.85em", opacity: 0.7, marginBottom: 12 }}>or</p>
+                  <p style={{ textAlign: "center", fontSize: "0.85em", opacity: 0.7, marginBottom: 12 }}>or</p>
 
-              {/* Shared with /auth/sign-in — see EmailPasswordForm. It reports failures back up
-                  rather than rendering them, because the paragraph below is the same one the
-                  Apple/Google buttons write to. No `onSuccess`: the session lands via
-                  onAuthChange and the pending-plan resume runs from there, which is the path this
-                  form's sign-in actually takes (it changes the session in place, with no reload). */}
-              <EmailPasswordForm
-                mode={authMode}
-                onModeChange={setAuthMode}
-                onError={setSignInError}
-                chrome={{ form: "auth-form", Submit: MarketingSubmit }}
-              />
+                  {/* Shared with /auth/sign-in — see EmailPasswordForm. It reports failures back up
+                      rather than rendering them, because the paragraph below is the same one the
+                      Apple/Google buttons write to. No `onSuccess`: the session lands via
+                      onAuthChange and the pending-plan resume runs from there, which is the path this
+                      form's sign-in actually takes (it changes the session in place, with no reload). */}
+                  <EmailPasswordForm
+                    mode={authMode}
+                    onModeChange={setAuthMode}
+                    onError={setSignInError}
+                    chrome={{ form: "auth-form", Submit: MarketingSubmit }}
+                  />
 
+                  <div style={{ marginTop: 16, textAlign: "center" }}>
+                    <MarketingBackLink
+                      onClick={() => {
+                        setAuthMode(authMode === "create" ? "signin" : "create");
+                        setSignInError(null);
+                      }}
+                    >
+                      {authMode === "create"
+                        ? "Already have a Twofold account? Sign in"
+                        : "Need an account? Create one"}
+                    </MarketingBackLink>
+                  </div>
+
+                  {/* Only on the sign-in side. Offering to reset a password to somebody in the middle
+                      of choosing one is noise, and /auth/sign-in and the app's own sign-in screen make
+                      the same distinction. */}
+                  {authMode === "signin" && (
+                    <div style={{ marginTop: 10, textAlign: "center" }}>
+                      <MarketingBackLink
+                        onClick={() => {
+                          setResetStage("form");
+                          setSignInError(null);
+                        }}
+                      >
+                        Forgot your password?
+                      </MarketingBackLink>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Outside the branch: it carries the Apple/Google failures, the shared form's errors
+                  and a failed reset request alike, and a reset is the path people reach already
+                  locked out — the one place an error must not be swallowed. */}
               {signInError && (
                 <p className="form-status" data-state="error" role="status" aria-live="polite">
                   {signInError}
                 </p>
               )}
 
-              <div style={{ marginTop: 16, textAlign: "center" }}>
-                <button
-                  type="button"
-                  className="text-link"
-                  style={{ background: "none", border: "none", cursor: "pointer" }}
-                  onClick={() => {
-                    setAuthMode(authMode === "create" ? "signin" : "create");
-                    setSignInError(null);
-                  }}
-                >
-                  {authMode === "create"
-                    ? "Already have a Twofold account? Sign in"
-                    : "Need an account? Create one"}
-                </button>
-              </div>
-
-              <div style={{ marginTop: 10, textAlign: "center" }}>
-                <button
-                  type="button"
-                  className="text-link"
-                  style={{ background: "none", border: "none", cursor: "pointer" }}
-                  onClick={() => setSignInFor(null)}
-                >
-                  Back to plans
-                </button>
-              </div>
+              {/* Hidden while resetting, where the panel's own "Back to sign in" is the way out —
+                  two competing back controls on one card is a question, not a route. */}
+              {resetStage === "off" && (
+                <div style={{ marginTop: 10, textAlign: "center" }}>
+                  <MarketingBackLink onClick={() => setSignInFor(null)}>
+                    Back to plans
+                  </MarketingBackLink>
+                </div>
+              )}
             </div>
           ) : (
             <>
