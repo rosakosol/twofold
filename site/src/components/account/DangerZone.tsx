@@ -121,14 +121,13 @@ export function DangerZone({
             </li>
           ) : (
             /* Never connected to anyone — so no shared history, no archive, and no 90-day clock,
-               because that clock belongs to an archive and they have none. Saying nothing at all
-               was wrong too: they have played games on their own (20260901001700 made `couple_id`
-               nullable precisely so an unpaired person can), and "what happens to my data" deserves
-               an answer whether or not a partner was ever involved. */
+               because that clock belongs to an archive and they have none. Their solo games go
+               immediately: 20261111001100 made `scrub_account` delete them, on the grounds that
+               there is no second person whose history they also are, which is the only reason
+               anything gets an archive instead of a deletion. */
             <li>
               You&apos;ve never been connected to a partner, so there&apos;s no shared history and
-              nothing waits 90 days. Games you played on your own are kept, no longer under your
-              name.
+              nothing waits 90 days. The games you played on your own are deleted with your account.
             </li>
           )}
           <li>

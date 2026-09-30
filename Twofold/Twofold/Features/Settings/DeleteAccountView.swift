@@ -119,6 +119,18 @@ struct DeleteAccountView: View {
                                 : "Your archived histories stay with the people you shared them with, and are deleted on the dates already shown in Archived Data.")
                         }
 
+                        // The one thing somebody with no partner and no archive has, and the only
+                        // row they see besides the first. 20261111001100 made scrub_account delete
+                        // solo sessions — until then they survived indefinitely, so this row would
+                        // have been untrue as well as absent.
+                        //
+                        // Not shown alongside the shared rows: for those people the 90-day archive
+                        // is the fact that matters, and a line about games they played alone is the
+                        // kind of merely-interesting sentence the comment above is about.
+                        if !hasSharedData {
+                            explainerRow(icon: "gamecontroller", text: "Games you played on your own are deleted with your account.")
+                        }
+
                         if hasSharedData {
                             explainerRow(icon: "square.and.arrow.down", text: "Want a copy? Export it before you delete — you can't sign in to get it afterwards.")
                         }
