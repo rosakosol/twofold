@@ -101,6 +101,22 @@
   gap: 10px;
 }
 
+/* The account row in the collapsed menu — the mirror image of `.site-nav-email` below, which
+   disappears at the same breakpoint this appears at.
+   
+   On a wide screen the avatar and the email beside it say whose account this is, and the menu
+   behind the avatar is where the account page lives. Collapsed, the email is gone and the avatar
+   is a small circle of initials with nothing naming what it opens, so the account page had no
+   visible door at all. It gets a named row like every other destination.
+   
+   A media query rather than marketing.css's `.hide-on-desktop`: that class is device detection
+   (html.is-desktop, set by DeviceClassSetter) and it is not loaded in the (board) group at all,
+   so it would do nothing in this navbar. This has to key off the same 860px that collapses the
+   menu, in both route groups. */
+.site-nav-account {
+  display: none;
+}
+
 /* Signed-in email shown beside the avatar. Hidden below the desktop breakpoint, where
    the navbar has no room for it and the address is already in the avatar menu. */
 .site-nav-email {
@@ -208,6 +224,10 @@
 
   .site-nav-email {
     display: none;
+  }
+
+  .site-nav-account {
+    display: block;
   }
 }
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserMenu } from "@/components/layout/UserMenu";
+import { AccountNavItem } from "@/components/layout/AccountNavItem";
 import { APP_STORE_URL } from "@/lib/marketing/config";
 
 const NAV_LINKS = [
@@ -58,6 +59,9 @@ export function MarketingHeader() {
                 </Link>
               </li>
             ))}
+            {/* Collapsed-menu only — the avatar dropdown is the desktop route. Above Download so
+                the two navbars list the same destinations in the same order. */}
+            <AccountNavItem />
             <li className="hide-on-desktop">
               <a data-appstore-link href={APP_STORE_URL}>
                 Download

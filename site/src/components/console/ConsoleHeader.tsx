@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { UserMenu } from "@/components/layout/UserMenu";
+import { AccountNavItem } from "@/components/layout/AccountNavItem";
 import { useAdminRoles } from "@/lib/auth/useAdminRoles";
 
 /**
@@ -96,6 +97,9 @@ export function ConsoleHeader() {
                 </li>
               );
             })}
+            {/* The same collapsed-menu gap as the other two navbars: this bar renders the same
+                UserMenu, so on a phone the account page was behind an unlabelled avatar here too. */}
+            <AccountNavItem />
           </ul>
         </nav>
 
