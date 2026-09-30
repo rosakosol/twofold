@@ -132,8 +132,12 @@ one overwrites, so re-read `/studio` before running any of them.
 else the one `sanity login` stored) and the Portable Text builders the legal-page scripts use.
 
 House style for copy in Sanity, in `faq_entries` and in the in-code fallbacks: a plain hyphen,
-never an em or en dash. Note this has drifted — a number of `faq_entries` rows and a few
-fallback strings currently contain em dashes.
+never an em or en dash. `20261111001400` normalised the rows after nineteen of them had drifted;
+it uses `replace()` rather than restating each answer, because the Studio FAQ tool writes these
+rows directly and a punctuation pass must not revert an admin's edit.
+
+`faqFallback.ts` describes itself as a character-for-character mirror of those rows. It is not
+currently — see the note at the end of this file.
 
 ## Local development
 
@@ -244,3 +248,23 @@ Set every variable from the table above in Vercel. Then, in the shared Supabase 
 - Auth → URL Configuration → Site URL: the production domain
 
 Edge functions and migrations deploy from the repo root, not from here.
+
+## Known drift
+
+`src/lib/marketing/faqFallback.ts` is the cold-start copy of `faq_entries`, and its own comment
+calls it "a MIRROR, not an independent copy". Comparing the two (23 rows each) as of
+2026-09-30, eleven answers differ:
+
+- **`What's the difference between Plus and Premium?` is materially wrong in the fallback.** It
+  lists Word Search and Connect 4 as Plus features. `20261111000700` made both Premium-only and
+  `20261111000800` corrected the row; the fallback was not updated. If Supabase is unreachable,
+  the FAQ page advertises two Premium games as included in Plus.
+- Six differ only by arrow character: the rows use `→` (`Settings → Help`), the fallback `->`.
+  Worth settling in one direction — the rows are canonical, so the fallback is the one to change.
+- Four differ in wording, mostly where the row was later edited to drop a hardcoded address
+  (`reach out below` vs `reach out via support@…`).
+- One question was renamed in the rows (`Does Twofold track my location continuously?`) and the
+  fallback still has the old title (`How does Twofold use my location?`), so that answer has no
+  fallback at all and the old one never renders.
+
+The mirror needs resyncing from the rows. Nothing checks it, which is how it drifted.
