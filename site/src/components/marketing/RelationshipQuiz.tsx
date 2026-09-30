@@ -17,13 +17,13 @@ const LEAN_WEIGHTS: Record<string, number> = {
 const FALLBACK_RESULTS: Record<"plus" | "premium", QuizResultDoc> = {
   plus: {
     title: "Twofold Plus sounds like your fit",
-    description: "Unlimited trips and memories, 2 live-tracked flights a month, 500+ questions, and Sudoku, Word Guess, Word Search and Connect 4 - everything most long-distance couples need.",
+    description: "Unlimited trips and memories, 2 live-tracked flights a month, 500+ questions, and Sudoku and Word Guess - everything most long-distance couples need.",
     ctaLabel: "Get Twofold Plus",
   },
   premium: {
     title: "Twofold Premium sounds like your fit",
     // The live copy is the `quizResult-premium` doc in Studio; this is the fallback.
-    description: "Everything in Plus, plus 5 live-tracked flights a month, 2000+ questions, Chess and the harder puzzles, flight delay analysis, and your Relationship Record.",
+    description: "Everything in Plus, plus 5 live-tracked flights a month, 2000+ questions, Word Search, Connect 4 and the harder puzzles, flight delay analysis, and your Relationship Record.",
     ctaLabel: "Get Twofold Premium",
   },
 };

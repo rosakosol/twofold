@@ -68,7 +68,7 @@ export const FEATURES_FALLBACK: ResolvedFeature[] = [
       "Questions, puzzles and board games built for two, made to close the distance even when you can't be in the same room - from quick “this or that” rounds to deeper discussion prompts, and puzzles you each solve to compare afterwards.",
     bullets: [
       "500+ questions and conversation starters, 2000+ on Premium",
-      "Sudoku, Word Guess, Word Search and Connect 4 - Chess on Premium",
+      "Sudoku and Word Guess - Word Search and Connect 4 on Premium",
       "Play async - answer whenever you both have a moment",
       "New topics and decks added regularly",
     ],

@@ -19,6 +19,8 @@
  *     "2 flights a month" promises something meaner than what happens.
  *   - The interactive 3D globe is not gated. Plus has always had it, so listing it as a Premium
  *     row with Plus blank was charging for something already given away.
+ *   - Chess was withdrawn (20261111000600), and Word Search and Connect 4 moved behind Premium in
+ *     its place (20261111000700). The Plus list still claimed both games.
  *   - The Relationship Record is real now, and reachable by couples who are still together
  *     (Settings -> Your Relationship Record). It was pulled from this copy when it existed only
  *     for relationships that had ended.
@@ -46,8 +48,8 @@ const PREMIUM_FEATURES = [
   'Everything in Twofold Plus',
   'Track 5 flights live each month',
   '2000+ questions, including premium decks',
-  'Chess, and Sudoku on Hard & Expert',
-  'Every Word Search theme, and unlimited Word Guess',
+  'Word Search and Connect 4',
+  'Every Sudoku difficulty, and Word Guess with no daily limit',
   'Flight delay analysis, gate & aircraft details',
   'Your Relationship Record, exported as a keepsake',
   'A monthly streak repair, and the Smart Rotating widget',
@@ -59,7 +61,7 @@ const PLUS_FEATURES = [
   'Track 2 flights live each month',
   'Save unlimited flights to your trips',
   '500+ questions and conversation starters',
-  'Sudoku, Word Guess, Word Search & Connect 4',
+  'Sudoku and Word Guess',
   'Home Screen & Lock Screen widgets',
 ]
 
@@ -68,13 +70,14 @@ const COMPARISON_ROWS = [
   {_type: 'comparisonRow', _key: 'flights', label: 'Live-tracked flights each month', plus: '2', premium: '5'},
   {_type: 'comparisonRow', _key: 'flightssaved', label: 'Flights saved to your trips', plus: 'Unlimited', premium: 'Unlimited'},
   {_type: 'comparisonRow', _key: 'games', label: 'Questions & conversation decks', plus: '500+', premium: '2000+'},
-  // The five puzzle/board games, each on its own row. Every one of these splits is enforced
-  // server-side (see the `start_*_session` RPCs), so the table can state them as facts.
-  {_type: 'comparisonRow', _key: 'puzzles', label: 'Sudoku, Word Guess, Word Search & Connect 4', plus: 'Yes', premium: 'Yes'},
+  // The four puzzle/board games. Every one of these splits is enforced server-side (see the
+  // `start_*_session` RPCs), so the table can state them as facts.
+  {_type: 'comparisonRow', _key: 'puzzles', label: 'Sudoku & Word Guess', plus: 'Yes', premium: 'Yes'},
   {_type: 'comparisonRow', _key: 'sudokudifficulty', label: 'Sudoku difficulties', plus: 'Easy & Medium', premium: 'All four'},
   {_type: 'comparisonRow', _key: 'wordguess', label: 'Word Guess boards', plus: '1 a day', premium: 'Unlimited'},
-  {_type: 'comparisonRow', _key: 'wordsearchthemes', label: 'Word Search themes', plus: '2', premium: 'All 6'},
-  {_type: 'comparisonRow', _key: 'chess', label: 'Chess', plus: '', premium: 'Yes'},
+  // Premium outright since chess was withdrawn (20261111000700), so no theme split any more.
+  {_type: 'comparisonRow', _key: 'wordsearch', label: 'Word Search', plus: '', premium: 'Yes'},
+  {_type: 'comparisonRow', _key: 'connectfour', label: 'Connect 4', plus: '', premium: 'Yes'},
   {_type: 'comparisonRow', _key: 'streakrepair', label: 'Streak repair', plus: '', premium: '1 a month'},
   {_type: 'comparisonRow', _key: 'widgets', label: 'Home & Lock Screen widgets', plus: 'Yes', premium: 'Yes'},
   {_type: 'comparisonRow', _key: 'liveactivities', label: 'Live Activities for in-progress flights', plus: 'Yes', premium: 'Yes'},
@@ -89,10 +92,10 @@ const COMPARISON_ROWS = [
 ]
 
 const QUIZ_PREMIUM_DESCRIPTION =
-  'Everything in Plus, plus 5 live-tracked flights a month, 2000+ questions, Chess and the harder puzzles, flight delay analysis, and your Relationship Record.'
+  'Everything in Plus, plus 5 live-tracked flights a month, 2000+ questions, Word Search, Connect 4 and the harder puzzles, flight delay analysis, and your Relationship Record.'
 
 const QUIZ_PLUS_DESCRIPTION =
-  'Unlimited trips and memories, 2 live-tracked flights a month, 500+ questions, and Sudoku, Word Guess, Word Search and Connect 4 - everything most long-distance couples need.'
+  'Unlimited trips and memories, 2 live-tracked flights a month, 500+ questions, and Sudoku and Word Guess - everything most long-distance couples need.'
 
 // Compares by value, not by the order a JSON object happens to list its keys in.
 //
