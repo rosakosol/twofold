@@ -1,3 +1,21 @@
+<!--
+  The link is built from .TokenHash rather than .ConfirmationURL, deliberately.
+
+  .ConfirmationURL is a live single-use endpoint on the Supabase domain: GET it and the token is
+  spent. Anything that follows links before the recipient does — Outlook Safe Links, a corporate
+  mail scanner, an email client generating a preview — therefore burns the reset, and the person
+  who asked for it gets "link expired" on a link that was never theirs to lose. It is
+  nondeterministic, which is the tell: one reset works and the next does not, with nothing
+  different about either.
+
+  This shape points at our own page instead and carries the token as a parameter, so a prefetch
+  fetches static HTML and consumes nothing — scanners do not run the React effect that verifies.
+  /auth/reset-password already reads `token_hash` + `type` and calls verifyOtp with them; it has
+  since it was written, and its own comment explains why verifyOtp rather than a code exchange.
+
+  Because the URL is constructed here, `redirectTo` from BackendService.requestPasswordReset no
+  longer decides where the link goes — .SiteURL plus the known path does. Keep them in step.
+-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -42,7 +60,7 @@
         <tr><td class="sp" style="padding:28px 48px 0 48px;">
           <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
             <td bgcolor="#4fa9e0" style="background-color:#4fa9e0;background-image:linear-gradient(180deg,#6ec1f0,#3d8fc9);border-radius:999px;">
-              <a href="{{ .ConfirmationURL }}" style="display:block;padding:14px 32px;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;mso-line-height-rule:exactly;line-height:20px;">Choose a new password</a>
+              <a href="{{ .SiteURL }}/auth/reset-password?token_hash={{ .TokenHash }}&amp;type=recovery" style="display:block;padding:14px 32px;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;mso-line-height-rule:exactly;line-height:20px;">Choose a new password</a>
             </td>
           </tr></table>
         </td></tr>
@@ -62,7 +80,7 @@
         <tr><td class="sp" style="padding:32px 48px 44px 48px;">
           <div style="border-top:1px solid rgba(28,42,56,.06);padding-top:22px;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:22px;mso-line-height-rule:exactly;color:#8695a3;">
             Button not working? Paste this into your browser:<br>
-            <span style="color:#5b6b7a;word-break:break-all;">{{ .ConfirmationURL }}</span>
+            <span style="color:#5b6b7a;word-break:break-all;">{{ .SiteURL }}/auth/reset-password?token_hash={{ .TokenHash }}&amp;type=recovery</span>
           </div>
         </td></tr>
 
