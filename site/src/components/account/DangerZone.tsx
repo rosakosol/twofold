@@ -24,15 +24,29 @@ import { APPLE_SUBSCRIPTIONS_URL } from "@/lib/account/subscription";
  * clear without reading; typing the address is a deliberate act that cannot be done by accident,
  * and it is the same control the support console will use for the same operation.
  */
+/** The archive's own purge date, spelled the way the rest of the account page spells dates.
+ *  A bad value degrades to the undated wording rather than printing "Invalid Date" in a warning. */
+function longDate(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "the date already set";
+  return date.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+}
+
 export function DangerZone({
   email,
   hasPartner,
   partnerName,
+  archivedCount,
+  earliestArchivePurgeAt,
   storeManagedSubscription,
 }: {
   email: string;
   hasPartner: boolean;
   partnerName: string | null;
+  /** Dissolved couples this person is a member of — the archives deletion does NOT bring forward. */
+  archivedCount: number;
+  /** `couples.scheduled_purge_at` of the archive that goes first, or null if there are none. */
+  earliestArchivePurgeAt: string | null;
   storeManagedSubscription: boolean;
 }) {
   const router = useRouter();
@@ -79,6 +93,16 @@ export function DangerZone({
             Your name, photo, and login are permanently removed. You won&apos;t be able to sign back
             in.
           </li>
+          {/* Three states, matching DeleteAccountView: a live partner, an old archive, or neither.
+              The web had only the first two, so the archive sentence was shown to everybody without
+              a live partner — including somebody who has never connected to anyone, who was told
+              their history "stays with the person you shared it with" about a person who does not
+              exist. The app has always hidden these rows from that person for exactly that reason.
+
+              The archive case gets its purge date rather than "90 days". Its clock started when the
+              connection dissolved, not today, so counting 90 from here would be wrong — and
+              `scheduled_purge_at` is the same date the app's Archived Data screen shows, which is
+              the point of reading it rather than computing one. */}
           {hasPartner ? (
             <>
               <li>
@@ -91,12 +115,19 @@ export function DangerZone({
                 nobody can extend it.
               </li>
             </>
-          ) : (
+          ) : archivedCount > 0 ? (
             <li>
-              Your archived history stays with the person you shared it with. Deleting your account
-              doesn&apos;t erase their side of it.
+              {archivedCount === 1
+                ? "Your archived history stays with the person you shared it with"
+                : "Your archived histories stay with the people you shared them with"}
+              , and {archivedCount === 1 ? "is" : "are"} permanently deleted
+              {earliestArchivePurgeAt
+                ? ` on the date already set for ${archivedCount === 1 ? "it" : "the first of them"}, ${longDate(earliestArchivePurgeAt)}`
+                : " on the date already set"}
+              . Deleting your account doesn&apos;t erase their side of it, and doesn&apos;t change
+              that date.
             </li>
-          )}
+          ) : null}
           <li>
             If you want to keep a copy, export it from the app before you delete your account — you
             won&apos;t be able to sign in to get it afterwards.
