@@ -20,7 +20,9 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import {
   APPLE_SUBSCRIPTIONS_URL,
+  endedBadgeLabel,
   longDate,
+  renewalLine,
   subscriptionControl,
   tierLabel,
   type SubscriptionHistory,
@@ -81,7 +83,9 @@ export function SubscriptionCard({
               ) : (
                 <>
                   Twofold
-                  <Badge variant="outline">Cancelled</Badge>
+                  {/* Red, because this is the one state on the card that costs the person
+                      something. "Cancelled" only when they chose to stop — see endedBadgeLabel. */}
+                  <Badge variant="destructive">{endedBadgeLabel(history)}</Badge>
                   {longDate(history.endedAt)}
                 </>
               )}
@@ -113,13 +117,25 @@ export function SubscriptionCard({
               ) : (
                 <>
                   Your {history.lastTier ? tierLabel(history.lastTier) : "Twofold"} subscription
-                  {longDate(history.endedAt) ? ` ended on ${longDate(history.endedAt)}` : " has ended"}.
+                  {history.endedReason === "lapsed" ? " lapsed" : " ended"}
+                  {longDate(history.endedAt) ? ` on ${longDate(history.endedAt)}` : ""}
+                  {history.endedReason === "lapsed"
+                    ? " because a payment didn't go through."
+                    : "."}{" "}
                   Resubscribe to get access to all of Twofold&apos;s features in the app again.
                 </>
               )}
             </p>
             <Button render={<a href="/pricing">{history.everSubscribed ? "Resubscribe" : "See plans"}</a>} />
           </div>
+        )}
+
+        {/* When the next payment is, or when access runs out. Shown for every active subscription
+            regardless of who sells it, because the date is a fact about the person's subscription
+            rather than about what this page can do to it — and it is the question the card was most
+            often failing to answer. Null for a grant that never expires. */}
+        {snapshot.active && renewalLine(snapshot) && (
+          <p className="text-sm text-muted-foreground">{renewalLine(snapshot)}</p>
         )}
 
         {control.kind === "web" && !requested && snapshot.willRenew !== false && (
@@ -135,6 +151,13 @@ export function SubscriptionCard({
                 cancellation forty minutes in had in fact converted and renewed a dozen times, and was
                 ending at an ordinary period boundary. Worth knowing before trusting any duration
                 measured against test data. */}
+            {/* Bought here, so cancelling is ours to do. Changing tier is not — there is no
+                upgrade path on this page, and sending somebody to /pricing to buy a second
+                subscription would be the wrong answer, so it says where that actually happens. */}
+            <p className="text-sm text-muted-foreground">
+              You bought this on the website, so you can cancel it here. To move between Plus and
+              Premium, use the subscription screen in the app.
+            </p>
             <p className="text-sm text-muted-foreground">
               {snapshot.isTrial === true
                 ? "Cancelling ends your free trial, so you won't be charged."
@@ -181,11 +204,25 @@ export function SubscriptionCard({
           </p>
         )}
 
+        {control.kind === "grant" && (
+          // Nothing to offer and nothing to warn about: a grant is not a purchase, so there is no
+          // renewal to stop, no card to fail, and no storefront to send anybody to.
+          <p className="text-sm text-muted-foreground">
+            This was given to you rather than bought, so there&apos;s nothing to pay and nothing to
+            cancel.
+          </p>
+        )}
+
         {control.kind === "elsewhere" && (
           <>
+            {/* What can be done where, rather than only what cannot be done here. The old sentence
+                stopped at "we can't cancel it for you", which leaves somebody who came to cancel
+                knowing only that they are in the wrong place. */}
             <p className="text-sm text-muted-foreground">
-              You bought this through {control.storeLabel}, so it&apos;s managed there — we
-              can&apos;t cancel it for you from here.
+              You bought this through {control.storeLabel}, so {control.storeLabel} handles it —
+              cancelling, changing plan and your receipts all live there. We can&apos;t cancel it
+              for you from here, and a subscription cancelled there stops renewing everywhere,
+              including in the app.
             </p>
             {control.appleLink && (
               <Button variant="outline" render={

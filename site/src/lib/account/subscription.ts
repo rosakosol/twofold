@@ -26,8 +26,10 @@ export type SubscriptionControl =
   | { kind: "none" }
   /** Ours to cancel, here, now. */
   | { kind: "web" }
-  /** Someone else's — Apple, Google, or a grant. `storeLabel` names who, when we can. */
+  /** An app store's — Apple, Google, Amazon. `storeLabel` names which, when we can. */
   | { kind: "elsewhere"; storeLabel: string; appleLink: boolean }
+  /** Given, not bought. There is no storefront, no charge, and nothing anywhere to cancel. */
+  | { kind: "grant" }
   /** Subscribed, but we do not know where it was bought. Offer nothing; explain honestly. */
   | { kind: "unknown" };
 
@@ -46,14 +48,20 @@ export interface SubscriptionSnapshot {
   /// and was withdrawn by 20261111000200 — it was read off a sandbox subscription whose trial had
   /// converted in four minutes.
   isTrial: boolean | null;
+  /// When the current period ends — the next payment date while it is renewing, the moment access
+  /// stops once it is not. Null when there is no subscription, and null for a grant that never
+  /// expires, which a caller must render as "no date" rather than as a missing one.
+  expiresAt: string | null;
 }
 
+// No `promotional` entry: a grant is its own `kind` below, because every sentence this map feeds is
+// about a storefront. "You bought this through a complimentary grant, so it's managed there" was
+// wrong twice in one line — nothing was bought, and there is no there.
 const STORE_LABELS: Record<string, string> = {
   app_store: "the App Store",
   mac_app_store: "the Mac App Store",
   play_store: "Google Play",
   amazon: "Amazon",
-  promotional: "a complimentary grant",
 };
 
 export function subscriptionControl(snapshot: SubscriptionSnapshot): SubscriptionControl {
@@ -67,6 +75,11 @@ export function subscriptionControl(snapshot: SubscriptionSnapshot): Subscriptio
   if (store === "") return { kind: "unknown" };
 
   if (WEB_STORES.has(store)) return { kind: "web" };
+
+  // Before the store-managed check, which `promotional` is also a member of. A grant has no
+  // storefront to send anybody to and no payment to stop, so it is neither ours to cancel nor
+  // somebody else's — it is nothing to cancel.
+  if (store === "promotional") return { kind: "grant" };
 
   if (STORE_MANAGED.has(store)) {
     return {
@@ -103,6 +116,10 @@ export function tierLabel(tier: string | null): string {
 export interface SubscriptionHistory {
   everSubscribed: boolean;
   lastTier: string | null;
+  /// Why it ended: 'cancelled' if they chose to stop, 'lapsed' if a payment failed, null if the
+  /// ending is known but its cause is not. Null is the common case for anything that ended before
+  /// `expiration_reason` was recorded, and for a refund, which is neither word.
+  endedReason: "cancelled" | "lapsed" | null;
   /// When it ended. Null while it is still running, and ALSO null for an ending that was never
   /// recorded — a lapse predating the log, or a reconcile with no event behind it. So null with
   /// `everSubscribed` true means "it ended, we cannot say when", which has to be said that way
@@ -116,6 +133,8 @@ export function parseSubscriptionHistory(raw: unknown): SubscriptionHistory {
   return {
     everSubscribed: row.ever_subscribed === true,
     lastTier: typeof row.last_tier === "string" ? row.last_tier : null,
+    endedReason:
+      row.ended_reason === "cancelled" || row.ended_reason === "lapsed" ? row.ended_reason : null,
     endedAt: typeof row.ended_at === "string" ? row.ended_at : null,
   };
 }
@@ -140,3 +159,43 @@ export function longDate(iso: string | null): string | null {
 
 /** Apple's own subscription management page. Works on desktop and deep-links on iOS. */
 export const APPLE_SUBSCRIPTIONS_URL = "https://apps.apple.com/account/subscriptions";
+
+/**
+ * The word on the badge when nothing is running, and it is red either way.
+ *
+ * Three, not two. "Cancelled" and "Lapsed" are different events and saying the first to somebody
+ * whose card was declined tells them they did something they did not do — while hiding the thing
+ * they could fix. "Ended" is what is left when the log knows a subscription stopped but not why:
+ * anything that stopped before `expiration_reason` existed, and any refund, which is neither.
+ */
+export function endedBadgeLabel(history: SubscriptionHistory): string {
+  if (history.endedReason === "cancelled") return "Cancelled";
+  if (history.endedReason === "lapsed") return "Lapsed";
+  return "Ended";
+}
+
+/**
+ * What the period-end date means for somebody who still has a subscription.
+ *
+ * The same date reads three ways, which is why this returns a sentence rather than a date. Renewing
+ * means a charge is coming; cancelled means access runs out; a trial means neither yet — and the
+ * trial case is the one where getting it wrong costs somebody money they did not expect to spend.
+ *
+ * Null when there is no date to talk about. A promotional or lifetime grant has no `expires_date`,
+ * and inventing a renewal for one would be worse than saying nothing: there is no payment to
+ * announce and nothing runs out.
+ */
+export function renewalLine(snapshot: SubscriptionSnapshot): string | null {
+  const when = longDate(snapshot.expiresAt);
+  if (!when) return null;
+  if (snapshot.isTrial === true) {
+    return snapshot.willRenew === false
+      ? `Your free trial ends on ${when}, and won't convert to a paid subscription.`
+      : `Your free trial ends on ${when}, and becomes a paid subscription that day unless you cancel.`;
+  }
+  if (snapshot.willRenew === false) return `Access continues until ${when}, then stops.`;
+  // Null `willRenew` lands here too: it means the webhook has not spoken for this subscription, and
+  // "renews on" is the true statement for anything that has not been cancelled. Phrased as the
+  // period rather than as a promise about a card, because the amount and method are the store's.
+  return `Renews on ${when}.`;
+}
