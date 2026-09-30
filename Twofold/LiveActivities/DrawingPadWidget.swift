@@ -2,7 +2,8 @@
 //  DrawingPadWidget.swift
 //  LiveActivities
 //
-//  Premium tier — the one widget allowed its own network call: drawing-pads is a private
+//  Split tier: Small (the partner's pad) is Plus, Medium (both pads side by side) is Premium —
+//  see `requiredTier`. The one widget allowed its own network call: drawing-pads is a private
 //  Supabase Storage bucket, but the main app pre-signs both URLs into WidgetSnapshot (see its
 //  doc comment) each time it refreshes, so this still fetches live over the network — just
 //  against a signed URL instead of a permanent public one. Still caches the last-good fetch
@@ -108,7 +109,11 @@ struct DrawingPadWidgetView: View {
 
     @Environment(\.widgetFamily) private var family
 
-    private var isLocked: Bool { WidgetTier.isLocked(required: WidgetTier.premium, current: entry.subscriptionTier) }
+    /// Small is Plus and Medium is Premium. The pricing copy (plan FAQ, paywall, pricing page)
+    /// states the same split, so change it there too if this ever moves.
+    private var requiredTier: String { family == .systemMedium ? WidgetTier.premium : WidgetTier.plus }
+
+    private var isLocked: Bool { WidgetTier.isLocked(required: requiredTier, current: entry.subscriptionTier) }
 
     var body: some View {
         Group {
@@ -118,7 +123,7 @@ struct DrawingPadWidgetView: View {
             }
         }
         .widgetBranded()
-        .widgetLock(requiredTier: WidgetTier.premium, currentTier: entry.subscriptionTier)
+        .widgetLock(requiredTier: requiredTier, currentTier: entry.subscriptionTier)
         // Small only: it shows the partner's drawing, so it opens the partner's drawing — tapping
         // it to be handed your own blank canvas is the same mismatch the "<partner> saved a new
         // drawing" push had. Medium doesn't set this at all; each of its halves carries its own

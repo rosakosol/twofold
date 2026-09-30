@@ -21,6 +21,8 @@
  *     row with Plus blank was charging for something already given away.
  *   - Chess was withdrawn (20261111000600), and Word Search and Connect 4 moved behind Premium in
  *     its place (20261111000700). The Plus list still claimed both games.
+ *   - The Drawing Pad and Time & Weather widgets are split by size: Small on Plus, Medium on
+ *     Premium. The copy named only Smart Rotating as a Premium widget.
  *   - The Relationship Record is real now, and reachable by couples who are still together
  *     (Settings -> Your Relationship Record). It was pulled from this copy when it existed only
  *     for relationships that had ended.
@@ -52,7 +54,8 @@ const PREMIUM_FEATURES = [
   'Every Sudoku difficulty, and Word Guess with no daily limit',
   'Flight delay analysis, gate & aircraft details',
   'Your Relationship Record, exported as a keepsake',
-  'A monthly streak repair, and the Smart Rotating widget',
+  'A monthly streak repair',
+  'Smart Rotating widget, and Drawing Pad and Time & Weather at Medium size',
 ]
 
 const PLUS_FEATURES = [
@@ -80,6 +83,8 @@ const COMPARISON_ROWS = [
   {_type: 'comparisonRow', _key: 'connectfour', label: 'Connect 4', plus: '', premium: 'Yes'},
   {_type: 'comparisonRow', _key: 'streakrepair', label: 'Streak repair', plus: '', premium: '1 a month'},
   {_type: 'comparisonRow', _key: 'widgets', label: 'Home & Lock Screen widgets', plus: 'Yes', premium: 'Yes'},
+  // Gated by size in the widget extension: Small is Plus, Medium is Premium.
+  {_type: 'comparisonRow', _key: 'mediumwidgets', label: 'Drawing Pad & Time & Weather widgets', plus: 'Small', premium: 'Small & Medium'},
   {_type: 'comparisonRow', _key: 'liveactivities', label: 'Live Activities for in-progress flights', plus: 'Yes', premium: 'Yes'},
   // Available on both — not gated anywhere in the app, and deliberately staying that way: it has
   // been free for the app's whole life, and taking it back from existing Plus subscribers costs

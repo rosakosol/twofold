@@ -78,7 +78,8 @@ export const PLANS: Record<"plus" | "premium", Plan> = {
       "Every Sudoku difficulty, and Word Guess with no daily limit",
       "Flight delay analysis, gate & aircraft details",
       "Your Relationship Record, exported as a keepsake",
-      "A monthly streak repair, and the Smart Rotating widget",
+      "A monthly streak repair",
+      "Smart Rotating widget, and Drawing Pad and Time & Weather at Medium size",
     ],
   },
 };

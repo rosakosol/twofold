@@ -2,7 +2,8 @@
 //  TimeWeatherWidget.swift
 //  LiveActivities
 //
-//  Premium tier — reuses WidgetSellView.swift's largeWidget design (time half + weather half,
+//  Split tier: Small (time over weather, stacked) is Plus, Medium (side by side) is Premium —
+//  see `requiredTier`. Medium reuses WidgetSellView.swift's largeWidget design (time half + weather half,
 //  split by a hairline), now with the oversized sun/moon/weather-symbol watermarks that mockup
 //  actually had (PartnersTimeWidget already carried this treatment over; this one hadn't yet) —
 //  a flat gradient alone read as a plain dark tile deep into the night hours, when daylight is
@@ -54,7 +55,13 @@ struct TimeWeatherProvider: TimelineProvider {
 struct TimeWeatherWidgetView: View {
     let entry: TimeWeatherEntry
 
-    private var isLocked: Bool { WidgetTier.isLocked(required: WidgetTier.premium, current: entry.subscriptionTier) }
+    @Environment(\.widgetFamily) private var family
+
+    /// Small is Plus and Medium is Premium. The pricing copy (plan FAQ, paywall, pricing page)
+    /// states the same split, so change it there too if this ever moves.
+    private var requiredTier: String { family == .systemMedium ? WidgetTier.premium : WidgetTier.plus }
+
+    private var isLocked: Bool { WidgetTier.isLocked(required: requiredTier, current: entry.subscriptionTier) }
     private var deepLinkURL: URL? { URL(string: isLocked ? "twofold://paywall" : "twofold://home") }
 
     /// Fixed positions (fraction of width/height) + relative size/peak-opacity — hand-placed
@@ -88,63 +95,114 @@ struct TimeWeatherWidgetView: View {
                     starfield.opacity(nightAmount)
                 }
 
-                HStack(spacing: 0) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Image(systemName: isDaytime ? "sun.max.fill" : "moon.stars.fill")
-                            .font(.subheadline)
-                        Spacer()
-                        Text(TimeMath.timeString(in: timeZone, at: entry.date))
-                            .font(.system(size: 26, weight: .bold, design: .rounded))
-                        Text(entry.partnerCity ?? "")
-                            .font(.caption2)
-                            .opacity(0.85)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
-                    }
-                    .padding()
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .overlay(alignment: .bottomTrailing) {
-                        Image(systemName: isDaytime ? "sun.max.fill" : "moon.stars.fill")
-                            .font(.system(size: 54))
-                            .opacity(0.18)
-                            .offset(x: 12, y: 10)
-                    }
-
-                    Rectangle().fill(.white.opacity(0.2)).frame(width: 1).padding(.vertical)
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Image(systemName: entry.weatherSymbolName ?? "questionmark.circle")
-                            .font(.subheadline)
-                        Spacer()
-                        Text(entry.temperatureLabel ?? "—")
-                            .font(.system(size: 26, weight: .bold, design: .rounded))
-                        // The Apple Weather trademark, required wherever WeatherKit data is
-                        // shown. It doubles as this half's label — it already said "weather".
-                        // The matching link to Apple's legal attribution page lives in the app
-                        // (WeatherAttributionView), since a widget can't host one.
-                        Text(appleWeatherMark)
-                            .font(.caption2)
-                            .opacity(0.85)
-                    }
-                    .padding()
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .overlay(alignment: .bottomTrailing) {
-                        Image(systemName: entry.weatherSymbolName ?? "questionmark.circle")
-                            .font(.system(size: 54))
-                            .opacity(0.18)
-                            .offset(x: 12, y: 10)
-                    }
+                switch family {
+                case .systemMedium: sideBySide(timeZone: timeZone, isDaytime: isDaytime)
+                default: stacked(timeZone: timeZone, isDaytime: isDaytime)
                 }
             }
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .widgetBranded()
-            .widgetLock(requiredTier: WidgetTier.premium, currentTier: entry.subscriptionTier)
+            .widgetLock(requiredTier: requiredTier, currentTier: entry.subscriptionTier)
             .widgetURL(deepLinkURL)
         } else {
             emptyState
-                .widgetLock(requiredTier: WidgetTier.premium, currentTier: entry.subscriptionTier)
+                .widgetLock(requiredTier: requiredTier, currentTier: entry.subscriptionTier)
                 .widgetURL(deepLinkURL)
+        }
+    }
+
+    // MARK: - Small: time over weather
+
+    /// The medium layout halved would leave each half about 70pt wide, too narrow for a 26pt
+    /// time. So Small stacks instead: the time is the headline, and the weather is one line under
+    /// it, still carrying the Apple Weather mark WeatherKit requires wherever its data is shown.
+    private func stacked(timeZone: TimeZone, isDaytime: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                Image(systemName: isDaytime ? "sun.max.fill" : "moon.stars.fill")
+                Spacer()
+                Image(systemName: entry.weatherSymbolName ?? "questionmark.circle")
+            }
+            .font(.subheadline)
+            Spacer()
+            Text(TimeMath.timeString(in: timeZone, at: entry.date))
+                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Text(entry.partnerCity ?? "")
+                .font(.caption2)
+                .opacity(0.85)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            HStack(spacing: 4) {
+                Text(entry.temperatureLabel ?? "—")
+                    .font(.caption.weight(.semibold))
+                Text(appleWeatherMark)
+                    .font(.caption2)
+                    .opacity(0.85)
+            }
+            .lineLimit(1)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .background(alignment: .bottomTrailing) {
+            Image(systemName: isDaytime ? "sun.max.fill" : "moon.stars.fill")
+                .font(.system(size: 54))
+                .opacity(0.16)
+                .offset(x: 12, y: 10)
+        }
+    }
+
+    // MARK: - Medium: time and weather side by side
+
+    private func sideBySide(timeZone: TimeZone, isDaytime: Bool) -> some View {
+        HStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 4) {
+                Image(systemName: isDaytime ? "sun.max.fill" : "moon.stars.fill")
+                    .font(.subheadline)
+                Spacer()
+                Text(TimeMath.timeString(in: timeZone, at: entry.date))
+                    .font(.system(size: 26, weight: .bold, design: .rounded))
+                Text(entry.partnerCity ?? "")
+                    .font(.caption2)
+                    .opacity(0.85)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .padding()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .overlay(alignment: .bottomTrailing) {
+                Image(systemName: isDaytime ? "sun.max.fill" : "moon.stars.fill")
+                    .font(.system(size: 54))
+                    .opacity(0.18)
+                    .offset(x: 12, y: 10)
+            }
+
+            Rectangle().fill(.white.opacity(0.2)).frame(width: 1).padding(.vertical)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Image(systemName: entry.weatherSymbolName ?? "questionmark.circle")
+                    .font(.subheadline)
+                Spacer()
+                Text(entry.temperatureLabel ?? "—")
+                    .font(.system(size: 26, weight: .bold, design: .rounded))
+                // The Apple Weather trademark, required wherever WeatherKit data is
+                // shown. It doubles as this half's label — it already said "weather".
+                // The matching link to Apple's legal attribution page lives in the app
+                // (WeatherAttributionView), since a widget can't host one.
+                Text(appleWeatherMark)
+                    .font(.caption2)
+                    .opacity(0.85)
+            }
+            .padding()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .overlay(alignment: .bottomTrailing) {
+                Image(systemName: entry.weatherSymbolName ?? "questionmark.circle")
+                    .font(.system(size: 54))
+                    .opacity(0.18)
+                    .offset(x: 12, y: 10)
+            }
         }
     }
 
@@ -175,10 +233,16 @@ struct TimeWeatherWidget: Widget {
                 .containerBackground(for: .widget) { Color.clear }
         }
         .configurationDisplayName("Time & Weather")
-        .description("Your partner's time and weather, side by side.")
-        .supportedFamilies([.systemMedium])
+        .description("Your partner's time and weather. Side by side at Medium size.")
+        .supportedFamilies([.systemSmall, .systemMedium])
         .contentMarginsDisabled()
     }
+}
+
+#Preview("Small", as: .systemSmall) {
+    TimeWeatherWidget()
+} timeline: {
+    TimeWeatherEntry(date: .now, subscriptionTier: WidgetTier.plus, partnerCity: "Singapore", timeZone: TimeZone(identifier: "Asia/Singapore"), weatherSymbolName: "cloud.sun.fill", temperatureLabel: "28°")
 }
 
 #Preview(as: .systemMedium) {
