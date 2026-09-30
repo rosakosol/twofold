@@ -8,7 +8,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, MailCheck } from "lucide-react";
 import { EmailPasswordForm, type EmailPasswordMode } from "@/components/auth/EmailPasswordForm";
-import { requestPasswordReset } from "@/lib/marketing/auth";
+import {
+  PasswordResetPanel,
+  passwordResetCopy,
+  type PasswordResetStage,
+} from "@/components/auth/PasswordResetPanel";
 
 export default function SignInPage() {
   return (
@@ -34,6 +38,13 @@ function BoardSubmit(props: React.ComponentProps<"button">) {
   return <Button {...props} className="h-[50px] w-full rounded-full text-base" />;
 }
 
+/** The muted text link the shared reset panel gets back out through. */
+function BoardBackLink(props: React.ComponentProps<"button">) {
+  return (
+    <button type="button" {...props} className="text-sm text-primary underline-offset-4 hover:underline" />
+  );
+}
+
 function SignInForm() {
   const searchParams = useSearchParams();
 
@@ -54,12 +65,9 @@ function SignInForm() {
   // sent by a control they pressed on the feedback board, so the question is which account they
   // already have; someone with none needs the switch below, not the front door.
   const [mode, setMode] = useState<EmailPasswordMode>("signin");
-  // A third state rather than a third EmailPasswordMode: that enum is shared with /pricing's
-  // checkout, where "I've forgotten my password" is not a step, and widening it would put a branch
-  // in the purchase flow that can never be reached there.
-  const [resetStage, setResetStage] = useState<"off" | "form" | "sent">("off");
-  const [resetEmail, setResetEmail] = useState("");
-  const [resetBusy, setResetBusy] = useState(false);
+  // The stage lives here rather than inside the panel because it also picks the card's heading,
+  // which sits in shadcn's CardHeader above it. The address and the in-flight flag are the panel's.
+  const [resetStage, setResetStage] = useState<PasswordResetStage>("off");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   // Which OAuth provider is mid-redirect, so only the button that was pressed shows a
   // spinner and neither can be pressed twice on a slow connection.
@@ -109,38 +117,22 @@ function SignInForm() {
     window.location.assign(next);
   }
 
-  async function submitReset(event: React.FormEvent) {
-    event.preventDefault();
-    setResetBusy(true);
-    setErrorMessage(null);
-    try {
-      await requestPasswordReset(resetEmail);
-      setResetStage("sent");
-    } catch (err) {
-      // Reported as-is rather than paraphrased. A rate-limit is the likeliest failure here and
-      // says something useful; this is also the path people reach when already locked out, where a
-      // vague message is what sends them to support instead.
-      setErrorMessage(err instanceof Error ? err.message : "Couldn't send that reset email.");
-    }
-    setResetBusy(false);
-  }
-
   return (
     <div className="mx-auto flex min-h-[70vh] max-w-sm items-center px-4">
       <Card className="w-full">
         <CardHeader>
           <CardTitle>
             {resetStage !== "off"
-              ? "Reset your password"
+              ? passwordResetCopy.title
               : mode === "create"
                 ? "Create your account"
                 : "Sign in"}
           </CardTitle>
           <CardDescription>
             {resetStage === "sent"
-              ? "If that address has an account, a link to set a new password is on its way."
+              ? passwordResetCopy.sent
               : resetStage === "form"
-                ? "We'll email you a link to set a new one. It works on any device - open it wherever you read your email."
+                ? passwordResetCopy.form
                 : mode === "create"
                   ? "One Twofold account covers the feedback board, a web subscription and the app - it's what you'll sign in with when you download it."
                   : "Vote, comment, and submit feature requests for Twofold."}
@@ -157,15 +149,33 @@ function SignInForm() {
           )}
 
           {resetStage !== "off" ? (
-            <ResetPanel
+            /* Shared with /pricing's checkout step — see PasswordResetPanel on why the
+               confirmation never says whether that address had an account. */
+            <PasswordResetPanel
               stage={resetStage}
-              email={resetEmail}
-              busy={resetBusy}
-              onEmailChange={setResetEmail}
-              onSubmit={submitReset}
-              onBack={() => {
-                setResetStage("off");
-                setErrorMessage(null);
+              onStageChange={setResetStage}
+              onError={setErrorMessage}
+              busyLabel={
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Send reset link
+                </>
+              }
+              sentNote={
+                <div className="flex items-start gap-3 rounded-md border p-3">
+                  <MailCheck className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">
+                    Open the link on any device &mdash; it doesn&apos;t have to be the one you asked
+                    from. On an iPhone with Twofold installed it opens the app instead of the
+                    browser.
+                  </p>
+                </div>
+              }
+              chrome={{
+                form: "flex flex-col gap-3",
+                Field: BoardField,
+                Submit: BoardSubmit,
+                BackLink: BoardBackLink,
               }}
             />
           ) : (
@@ -233,82 +243,6 @@ function SignInForm() {
           {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
         </CardContent>
       </Card>
-    </div>
-  );
-}
-
-/**
- * Request a recovery email.
- *
- * Lives on the sign-in card rather than at its own route: "forgot password" is a detour from
- * signing in, and a separate page would need its own header, its own way back, and its own place
- * in the nav for a form with one field in it.
- *
- * The confirmation never says whether that address had an account. Supabase is configured not to
- * confirm to a stranger which addresses are registered, and a form that said "no such account"
- * would hand back exactly what that setting withholds — an oracle for testing whether somebody
- * uses Twofold.
- */
-function ResetPanel({
-  stage,
-  email,
-  busy,
-  onEmailChange,
-  onSubmit,
-  onBack,
-}: {
-  stage: "form" | "sent";
-  email: string;
-  busy: boolean;
-  onEmailChange: (value: string) => void;
-  onSubmit: (event: React.FormEvent) => void;
-  onBack: () => void;
-}) {
-  if (stage === "sent") {
-    return (
-      <div className="flex flex-col gap-4">
-        <div className="flex items-start gap-3 rounded-md border p-3">
-          <MailCheck className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">
-            Open the link on any device &mdash; it doesn&apos;t have to be the one you asked from.
-            On an iPhone with Twofold installed it opens the app instead of the browser.
-          </p>
-        </div>
-        <button
-          type="button"
-          className="text-sm text-primary underline-offset-4 hover:underline"
-          onClick={onBack}
-        >
-          Back to sign in
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col gap-3">
-      <form onSubmit={onSubmit} className="flex flex-col gap-3">
-        <BoardField
-          type="email"
-          required
-          autoComplete="email"
-          placeholder="you@email.com"
-          aria-label="Email address"
-          value={email}
-          onChange={(e) => onEmailChange(e.target.value)}
-        />
-        <BoardSubmit type="submit" disabled={busy || !email.trim()}>
-          {busy && <Loader2 className="size-4 animate-spin" />}
-          Send reset link
-        </BoardSubmit>
-      </form>
-      <button
-        type="button"
-        className="text-sm text-muted-foreground underline-offset-4 hover:underline"
-        onClick={onBack}
-      >
-        Back to sign in
-      </button>
     </div>
   );
 }
