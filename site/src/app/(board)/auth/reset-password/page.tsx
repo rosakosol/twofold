@@ -163,8 +163,15 @@ function ResetPasswordForm() {
         title="This link has expired"
         description="Password reset links can only be used once, and they don't last long."
       >
+        {/* Both doors, because the web can now ask for one too. This said "from the sign-in screen
+            in Twofold" and nothing else, which was true when only the app could request a reset —
+            it left anybody who asked from the website, on a laptop, with an expired link and an
+            instruction to go and install an iPhone app. */}
         <p className="text-sm text-muted-foreground">
-          Request a new one from the sign-in screen in Twofold, and open it as soon as it arrives.
+          <a href="/auth/sign-in" className="text-primary underline-offset-4 hover:underline">
+            Request a new one here
+          </a>{" "}
+          or from the sign-in screen in Twofold, and open it as soon as it arrives.
         </p>
         {errorMessage && <p className="mt-3 text-sm text-muted-foreground">{errorMessage}</p>}
       </Shell>
@@ -174,9 +181,19 @@ function ResetPasswordForm() {
   if (stage === "done") {
     return (
       <Shell title="Password changed">
-        <div className="flex items-start gap-2 text-sm text-muted-foreground">
-          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-          <p>You can sign in to Twofold with your new password now.</p>
+        <div className="flex flex-col gap-3">
+          <div className="flex items-start gap-2 text-sm text-muted-foreground">
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+            <p>You can sign in with your new password now, in the app or here on the web.</p>
+          </div>
+          {/* A door rather than only an announcement. The session this page held was deliberately
+              ended above, so "you can sign in now" with nothing to press is a dead end for the two
+              journeys that start on the web: the feedback board, and a checkout on /pricing. */}
+          <p className="text-sm">
+            <a href="/auth/sign-in" className="text-primary underline-offset-4 hover:underline">
+              Sign in on the web
+            </a>
+          </p>
         </div>
       </Shell>
     );
