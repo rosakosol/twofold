@@ -60,3 +60,6 @@ images/
 # do want Deno dependencies locked, that wants a deno.json at supabase/functions and a commit
 # that says so.
 deno.lock
+
+site/AGENTS.md
+site/CLAUDE.md
