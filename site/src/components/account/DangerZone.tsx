@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
-import { APPLE_SUBSCRIPTIONS_URL } from "@/lib/account/subscription";
+import { APPLE_SUBSCRIPTIONS_URL, longDate } from "@/lib/account/subscription";
 
 /**
  * Deletion, with the app's own warnings rather than new ones.
@@ -24,14 +24,6 @@ import { APPLE_SUBSCRIPTIONS_URL } from "@/lib/account/subscription";
  * clear without reading; typing the address is a deliberate act that cannot be done by accident,
  * and it is the same control the support console will use for the same operation.
  */
-/** The archive's own purge date, spelled the way the rest of the account page spells dates.
- *  A bad value degrades to the undated wording rather than printing "Invalid Date" in a warning. */
-function longDate(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "the date already set";
-  return date.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
-}
-
 export function DangerZone({
   email,
   hasPartner,
@@ -121,13 +113,24 @@ export function DangerZone({
                 ? "Your archived history stays with the person you shared it with"
                 : "Your archived histories stay with the people you shared them with"}
               , and {archivedCount === 1 ? "is" : "are"} permanently deleted
-              {earliestArchivePurgeAt
+              {longDate(earliestArchivePurgeAt)
                 ? ` on the date already set for ${archivedCount === 1 ? "it" : "the first of them"}, ${longDate(earliestArchivePurgeAt)}`
                 : " on the date already set"}
               . Deleting your account doesn&apos;t erase their side of it, and doesn&apos;t change
               that date.
             </li>
-          ) : null}
+          ) : (
+            /* Never connected to anyone — so no shared history, no archive, and no 90-day clock,
+               because that clock belongs to an archive and they have none. Saying nothing at all
+               was wrong too: they have played games on their own (20260901001700 made `couple_id`
+               nullable precisely so an unpaired person can), and "what happens to my data" deserves
+               an answer whether or not a partner was ever involved. */
+            <li>
+              You&apos;ve never been connected to a partner, so there&apos;s no shared history and
+              nothing waits 90 days. Games you played on your own are kept, no longer under your
+              name.
+            </li>
+          )}
           <li>
             If you want to keep a copy, export it from the app before you delete your account — you
             won&apos;t be able to sign in to get it afterwards.
