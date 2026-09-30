@@ -133,22 +133,26 @@ h1, h2, h3 {
   text-wrap: balance;
 }
 /* The clamp floors are what phones actually get: below ~630px the vw term is smaller than
-   the minimum, so the minimum is the phone size. Keeping the vw term and cap unchanged means
-   tablet and desktop render exactly as before — only phones shrink. */
+   the minimum, so the minimum is the phone size.
+   
+   Trimmed roughly 15% off the desktop caps and a little off the floors. A 4rem h1 was set when
+   these pages were mostly hero — it reads as shouting now that the same scale carries feature
+   rows, pricing and the FAQ, where a heading's job is to be found rather than to land. The vw
+   terms come down with the caps so the growth between phone and desktop stays even. */
 h1 {
-  font-size: clamp(2.05rem, 5.2vw, 4rem);
-  line-height: 1.06;
+  font-size: clamp(1.9rem, 4.6vw, 3.4rem);
+  line-height: 1.07;
   margin: 0;
   font-weight: 500;
 }
 h2 {
-  font-size: clamp(1.55rem, 3.6vw, 2.9rem);
-  line-height: 1.12;
+  font-size: clamp(1.45rem, 3.2vw, 2.45rem);
+  line-height: 1.14;
   margin: 0;
   font-weight: 500;
 }
 h3 {
-  font-size: 1.12rem;
+  font-size: 1.06rem;
   margin: 0;
 }
 p {
@@ -799,7 +803,7 @@ section {
   order: 2;
 }
 .feature-row h2 {
-  font-size: 1.9rem;
+  font-size: 1.7rem;
   margin: 14px 0 12px;
 }
 .feature-row p.desc {
