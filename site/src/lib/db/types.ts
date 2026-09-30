@@ -93,6 +93,56 @@ export type Database = {
         }
         Relationships: []
       }
+      anon_rate_limit_events: {
+        Row: {
+          bucket: string
+          id: number
+          occurred_at: string
+          subject_hash: string
+        }
+        Insert: {
+          bucket: string
+          id?: never
+          occurred_at?: string
+          subject_hash: string
+        }
+        Update: {
+          bucket?: string
+          id?: never
+          occurred_at?: string
+          subject_hash?: string
+        }
+        Relationships: []
+      }
+      birthday_reminder_sends: {
+        Row: {
+          recipient_id: string
+          reminder_kind: string
+          sent_for_year: number
+          updated_at: string
+        }
+        Insert: {
+          recipient_id: string
+          reminder_kind: string
+          sent_for_year: number
+          updated_at?: string
+        }
+        Update: {
+          recipient_id?: string
+          reminder_kind?: string
+          sent_for_year?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "birthday_reminder_sends_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       blocked_profiles: {
         Row: {
           blocked_id: string
@@ -1904,8 +1954,11 @@ export type Database = {
         Row: {
           created_at: string
           daily_streak_reminder: boolean
+          partner_birthday_reminder: boolean
+          partner_birthday_wish: boolean
           partner_drawing_saved: boolean
           partner_game_partner_finished: boolean
+          partner_game_reminder: boolean
           partner_game_results_ready: boolean
           partner_game_started: boolean
           partner_game_turn: boolean
@@ -1919,8 +1972,11 @@ export type Database = {
         Insert: {
           created_at?: string
           daily_streak_reminder?: boolean
+          partner_birthday_reminder?: boolean
+          partner_birthday_wish?: boolean
           partner_drawing_saved?: boolean
           partner_game_partner_finished?: boolean
+          partner_game_reminder?: boolean
           partner_game_results_ready?: boolean
           partner_game_started?: boolean
           partner_game_turn?: boolean
@@ -1934,8 +1990,11 @@ export type Database = {
         Update: {
           created_at?: string
           daily_streak_reminder?: boolean
+          partner_birthday_reminder?: boolean
+          partner_birthday_wish?: boolean
           partner_drawing_saved?: boolean
           partner_game_partner_finished?: boolean
+          partner_game_reminder?: boolean
           partner_game_results_ready?: boolean
           partner_game_started?: boolean
           partner_game_turn?: boolean
@@ -1955,6 +2014,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      pending_object_deletions: {
+        Row: {
+          attempts: number
+          enqueued_at: string
+          key: string
+          last_error: string | null
+        }
+        Insert: {
+          attempts?: number
+          enqueued_at?: string
+          key: string
+          last_error?: string | null
+        }
+        Update: {
+          attempts?: number
+          enqueued_at?: string
+          key?: string
+          last_error?: string | null
+        }
+        Relationships: []
       }
       places: {
         Row: {
@@ -1995,6 +2075,8 @@ export type Database = {
           account_deleted_at: string | null
           anniversary_date: string | null
           avatar_path: string | null
+          birthday_day: number | null
+          birthday_month: number | null
           created_at: string
           dormancy_warned_at: string | null
           first_name: string
@@ -2002,6 +2084,7 @@ export type Database = {
           id: string
           last_active_at: string
           locale: string | null
+          onboarding_account_created_at: string | null
           onboarding_completed_at: string | null
           partner_avatar_path: string | null
           partner_connected_celebration_shown: boolean
@@ -2012,19 +2095,23 @@ export type Database = {
           setup_checklist_dismissed: boolean
           subscription_active: boolean
           subscription_checked_at: string | null
+          subscription_is_trial: boolean | null
+          subscription_probed_at: string | null
           subscription_started_at: string | null
           subscription_store: string | null
-          subscription_is_trial: boolean | null
           subscription_tier: string | null
           subscription_will_renew: boolean | null
           timezone: string | null
           updated_at: string
+          welcome_email_sent_at: string | null
         }
         Insert: {
           accent_color_hex?: string | null
           account_deleted_at?: string | null
           anniversary_date?: string | null
           avatar_path?: string | null
+          birthday_day?: number | null
+          birthday_month?: number | null
           created_at?: string
           dormancy_warned_at?: string | null
           first_name?: string
@@ -2032,6 +2119,7 @@ export type Database = {
           id: string
           last_active_at?: string
           locale?: string | null
+          onboarding_account_created_at?: string | null
           onboarding_completed_at?: string | null
           partner_avatar_path?: string | null
           partner_connected_celebration_shown?: boolean
@@ -2042,19 +2130,23 @@ export type Database = {
           setup_checklist_dismissed?: boolean
           subscription_active?: boolean
           subscription_checked_at?: string | null
+          subscription_is_trial?: boolean | null
+          subscription_probed_at?: string | null
           subscription_started_at?: string | null
           subscription_store?: string | null
-          subscription_is_trial?: boolean | null
           subscription_tier?: string | null
           subscription_will_renew?: boolean | null
           timezone?: string | null
           updated_at?: string
+          welcome_email_sent_at?: string | null
         }
         Update: {
           accent_color_hex?: string | null
           account_deleted_at?: string | null
           anniversary_date?: string | null
           avatar_path?: string | null
+          birthday_day?: number | null
+          birthday_month?: number | null
           created_at?: string
           dormancy_warned_at?: string | null
           first_name?: string
@@ -2062,6 +2154,7 @@ export type Database = {
           id?: string
           last_active_at?: string
           locale?: string | null
+          onboarding_account_created_at?: string | null
           onboarding_completed_at?: string | null
           partner_avatar_path?: string | null
           partner_connected_celebration_shown?: boolean
@@ -2072,13 +2165,15 @@ export type Database = {
           setup_checklist_dismissed?: boolean
           subscription_active?: boolean
           subscription_checked_at?: string | null
+          subscription_is_trial?: boolean | null
+          subscription_probed_at?: string | null
           subscription_started_at?: string | null
           subscription_store?: string | null
-          subscription_is_trial?: boolean | null
           subscription_tier?: string | null
           subscription_will_renew?: boolean | null
           timezone?: string | null
           updated_at?: string
+          welcome_email_sent_at?: string | null
         }
         Relationships: [
           {
@@ -2808,6 +2903,15 @@ export type Database = {
         Args: { p_profile_id: string }
         Returns: undefined
       }
+      consume_anon_rate_limit: {
+        Args: {
+          p_bucket: string
+          p_limit: number
+          p_subject: string
+          p_window: string
+        }
+        Returns: boolean
+      }
       consume_rate_limit: {
         Args: { p_bucket: string; p_limit: number; p_window: string }
         Returns: {
@@ -2884,11 +2988,31 @@ export type Database = {
           requester_id: string
         }[]
       }
+      find_or_create_place: {
+        Args: {
+          p_city: string
+          p_country: string
+          p_iata_code?: string
+          p_latitude?: number
+          p_longitude?: number
+          p_timezone?: string
+        }
+        Returns: string
+      }
       flight_allowance: { Args: { p_couple_id: string }; Returns: Json }
       flight_limit_for_tier: { Args: { p_tier: string }; Returns: number }
       flights_used_this_month: {
         Args: { p_couple_id: string }
         Returns: number
+      }
+      get_daily_question: {
+        Args: never
+        Returns: {
+          my_answered: boolean
+          partner_answered: boolean
+          question: string
+          session_id: string
+        }[]
       }
       get_daily_question_session: { Args: never; Returns: string }
       get_daily_question_status: {
@@ -3002,6 +3126,21 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      list_birthday_reminder_targets: {
+        Args: never
+        Returns: {
+          birthday_year: number
+          days_until: number
+          recipient_id: string
+          recipient_local_hour: number
+          subject_birthday_day: number
+          subject_birthday_month: number
+          subject_id: string
+          subject_name: string
+          today_sent_for_year: number
+          upcoming_sent_for_year: number
+        }[]
+      }
       list_couple_day_bounds: {
         Args: never
         Returns: {
@@ -3046,11 +3185,35 @@ export type Database = {
         Args: { p_at?: string; p_profile_ids: string[] }
         Returns: undefined
       }
+      mark_subscriptions_probed: {
+        Args: { p_ids: string[] }
+        Returns: undefined
+      }
       merge_feature_requests: {
         Args: { source_id: string; target_id: string }
         Returns: undefined
       }
       my_admin_roles: { Args: never; Returns: Json }
+      my_subscription_history: { Args: never; Returns: Json }
+      places_by_ids: {
+        Args: { p_ids: string[] }
+        Returns: {
+          city: string
+          country: string
+          created_at: string
+          iata_code: string | null
+          id: string
+          latitude: number
+          longitude: number
+          timezone: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "places"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       play_connect_four_move: {
         Args: { p_column: number; p_session_id: string }
         Returns: {
@@ -3234,13 +3397,6 @@ export type Database = {
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       spend_record_export_credit: { Args: never; Returns: boolean }
-      start_chess_session: {
-        Args: never
-        Returns: {
-          resumed: boolean
-          session_id: string
-        }[]
-      }
       start_connect_four_session: {
         Args: never
         Returns: {
@@ -3295,6 +3451,10 @@ export type Database = {
           p_subject?: string
         }
         Returns: string
+      }
+      subscriptions_to_reconcile: {
+        Args: { p_checked_cutoff: string }
+        Returns: string[]
       }
       support_attachments_for_send: {
         Args: { p_ids: string[] }
