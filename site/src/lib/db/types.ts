@@ -2095,6 +2095,7 @@ export type Database = {
           setup_checklist_dismissed: boolean
           subscription_active: boolean
           subscription_checked_at: string | null
+          subscription_expires_at: string | null
           subscription_is_trial: boolean | null
           subscription_probed_at: string | null
           subscription_started_at: string | null
@@ -2130,6 +2131,7 @@ export type Database = {
           setup_checklist_dismissed?: boolean
           subscription_active?: boolean
           subscription_checked_at?: string | null
+          subscription_expires_at?: string | null
           subscription_is_trial?: boolean | null
           subscription_probed_at?: string | null
           subscription_started_at?: string | null
@@ -2165,6 +2167,7 @@ export type Database = {
           setup_checklist_dismissed?: boolean
           subscription_active?: boolean
           subscription_checked_at?: string | null
+          subscription_expires_at?: string | null
           subscription_is_trial?: boolean | null
           subscription_probed_at?: string | null
           subscription_started_at?: string | null
@@ -2328,6 +2331,7 @@ export type Database = {
         Row: {
           event_id: string | null
           event_type: string | null
+          expiration_reason: string | null
           id: string
           outcome: string
           profile_id: string
@@ -2338,6 +2342,7 @@ export type Database = {
         Insert: {
           event_id?: string | null
           event_type?: string | null
+          expiration_reason?: string | null
           id?: string
           outcome: string
           profile_id: string
@@ -2348,6 +2353,7 @@ export type Database = {
         Update: {
           event_id?: string | null
           event_type?: string | null
+          expiration_reason?: string | null
           id?: string
           outcome?: string
           profile_id?: string
