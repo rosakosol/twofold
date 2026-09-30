@@ -110,8 +110,8 @@ export function PartnerCard({
               <AlertDialogDescription>
                 You&apos;ll be disconnected and your shared history is archived, not deleted — it
                 goes on the usual 90-day timer, and reconnecting before it expires would offer it
-                back to you. If {name} is the one paying for your subscription, you&apos;ll drop
-                back to the free plan, since you won&apos;t be covered by their purchase any more.
+                back to you. If {name} is the one paying for your subscription, yours ends with the
+                connection, since you won&apos;t be covered by their purchase any more.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

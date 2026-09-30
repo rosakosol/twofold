@@ -26,9 +26,9 @@ struct DisconnectPartnerView: View {
     @State private var showingCustomerCenter = false
     @State private var showingWebSubscriptionManaged = false
 
-    /// The couple is covered, and by the partner about to be disconnected — so disconnecting drops
-    /// this person to the free plan, and they should be told before they do it rather than discover
-    /// it when their features vanish.
+    /// The couple is covered, and by the partner about to be disconnected — so disconnecting leaves
+    /// this person with no subscription, and they should be told before they do it rather than
+    /// discover it when their features vanish.
     ///
     /// This asked whether *this device* held a RevenueCat entitlement, which is not the same
     /// question and gets the answer backwards for anyone who subscribed on the website: their
@@ -253,7 +253,7 @@ struct DisconnectPartnerView: View {
     private var disconnectWarningMessage: String {
         let base = "This will archive all your shared trips, memories, flights, game sessions, stats, and drawings with \(appModel.partner.name) — they'll only be visible afterward in Settings → Help → Archived Data. You'll be able to connect with someone new right away."
         if wouldLosePaidAccess {
-            return base + "\n\n\(appModel.partner.name) is the one paying for your Twofold subscription — disconnecting will drop you back to the free plan, since you won't be covered by their purchase anymore."
+            return base + "\n\n\(appModel.partner.name) is the one paying for your Twofold subscription — disconnecting will leave you without one, since you won't be covered by their purchase anymore. You can subscribe yourself to keep everything."
         }
         if isPayer {
             return base + "\n\n\(appModel.partner.name) will lose premium access right away, since they're covered by your subscription. Your own subscription keeps going afterward — you can cancel it separately once you've disconnected, if you'd rather not keep paying."
