@@ -6,6 +6,7 @@
 
 import { assertEquals } from "jsr:@std/assert@1";
 import {
+  resolveExpiresAt,
   describeMissingStart,
   isBlankSubscriber,
   ENTITLEMENT_PLUS,
@@ -400,4 +401,46 @@ Deno.test("anything we cannot pin down is null, never false", () => {
     resolveIsTrial({ ...TRIAL_SUBSCRIBER, subscriptions: { premium_monthly: { period_type: "" } } }, "premium"),
     null,
   );
+});
+
+Deno.test("resolveExpiresAt reads the active entitlement's own expiry", () => {
+  const subscriber = {
+    entitlements: { [ENTITLEMENT_PREMIUM]: { product_identifier: "p", expires_date: "2026-12-01T00:00:00Z" } },
+  };
+  assertEquals(resolveExpiresAt(subscriber, "premium"), "2026-12-01T00:00:00.000Z");
+});
+
+Deno.test("resolveExpiresAt returns null with no subscription", () => {
+  assertEquals(resolveExpiresAt({ entitlements: {} }, null), null);
+});
+
+Deno.test("resolveExpiresAt returns null for a grant that never expires", () => {
+  // A promotional lifetime grant: `expires_date` is null because nothing expires. Showing a
+  // renewal date for one would be inventing a payment that is never going to be taken.
+  const subscriber = {
+    entitlements: { [ENTITLEMENT_PREMIUM]: { product_identifier: "p", expires_date: null } },
+  };
+  assertEquals(resolveExpiresAt(subscriber, "premium"), null);
+});
+
+Deno.test("resolveExpiresAt returns null rather than an Invalid Date", () => {
+  const subscriber = {
+    entitlements: { [ENTITLEMENT_PLUS]: { product_identifier: "p", expires_date: "not a date" } },
+  };
+  assertEquals(resolveExpiresAt(subscriber, "plus"), null);
+});
+
+Deno.test("resolveExpiresAt ignores the grace period", () => {
+  // isEntitlementActive honours grace so it keeps serving somebody in dunning; the account page
+  // wants the period end, not how long we will chase their bank.
+  const subscriber = {
+    entitlements: {
+      [ENTITLEMENT_PLUS]: {
+        product_identifier: "p",
+        expires_date: "2026-09-01T00:00:00Z",
+        grace_period_expires_date: "2026-09-20T00:00:00Z",
+      },
+    },
+  };
+  assertEquals(resolveExpiresAt(subscriber, "plus"), "2026-09-01T00:00:00.000Z");
 });

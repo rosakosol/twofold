@@ -18,7 +18,7 @@
 -- contains — would restore it. So the trigger is tested with those grants deliberately handed back.
 
 begin;
-select plan(18);
+select plan(20);
 
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
 values
@@ -67,6 +67,23 @@ select throws_ok(
   '42501',
   null,
   'a user cannot claim which storefront sold their subscription'
+);
+
+-- `subscription_expires_at` is a billing fact: the next payment date, or when access stops. A client
+-- that could write it could move its own renewal date, and 20260915000000's whole arrangement is
+-- that a column added later has no UPDATE grant unless somebody grants one. Asserted rather than
+-- assumed, because "a new subscription column silently became writable" is the failure that
+-- migration says is the fragile part of the design.
+select throws_ok(
+  $$update public.profiles set subscription_expires_at = now() + interval '1 year' where id = 'aaaaaaaa-3333-0000-0000-000000000001'$$,
+  '42501',
+  null,
+  'a user cannot move their own subscription_expires_at'
+);
+
+select ok(
+  has_column_privilege('authenticated', 'public.profiles', 'subscription_expires_at', 'SELECT'),
+  'but can read it, which is how the account page shows a renewal date'
 );
 
 -- `subscription_is_trial` decides what the cancel screens promise. A client that could set it to

@@ -222,6 +222,31 @@ export function resolveIsTrial(subscriber: RestSubscriber, tier: Tier): boolean 
   return normalised === "trial" || normalised === "intro";
 }
 
+/// When the current period ends: the next payment date if it is renewing, or the moment access stops
+/// if it is not.
+///
+/// Read off the entitlement rather than the subscription, unlike `resolveStore` and `resolveIsTrial`
+/// — `expires_date` is the field `isEntitlementActive` already decides activity from, so taking the
+/// date from anywhere else would let the card show a date the same file has concluded is in the past.
+///
+/// `grace_period_expires_date` is deliberately NOT preferred here even though `isEntitlementActive`
+/// honours it. A grace period is RevenueCat still serving the entitlement after a failed payment; the
+/// date somebody wants on their account page is when their period ends, not how long we will keep
+/// them entitled while chasing their bank. The two differ by days and only for accounts in dunning.
+///
+/// Null for no subscription, and null for a lifetime grant, where `expires_date` is null because
+/// nothing expires. Both must read as "no date to show" rather than as a date — a promotional grant
+/// with no expiry is the case `tester@` is on, and inventing one for it would be worse than showing
+/// none.
+export function resolveExpiresAt(subscriber: RestSubscriber, tier: Tier): string | null {
+  if (tier === null) return null;
+
+  const entitlement = subscriber.entitlements?.[tier === "premium" ? ENTITLEMENT_PREMIUM : ENTITLEMENT_PLUS];
+  const expires = entitlement?.expires_date;
+  if (typeof expires !== "string" || Number.isNaN(Date.parse(expires))) return null;
+  return new Date(expires).toISOString();
+}
+
 /// What to log when an active subscriber yields no start date. Turns the unverified assumption
 /// above into something answerable from production logs, instead of something discovered by a user
 /// being told to cancel the wrong subscription.

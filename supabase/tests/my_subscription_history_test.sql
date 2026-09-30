@@ -17,7 +17,7 @@
 --     20260926000000 looks like this.
 
 begin;
-select plan(11);
+select plan(17);
 
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
 values
@@ -25,14 +25,20 @@ values
   ('bbbbbbbb-7777-0000-0000-000000000002', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'never@hist.test', 'x', now(), now(), now()),
   ('cccccccc-7777-0000-0000-000000000003', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'again@hist.test', 'x', now(), now(), now()),
   ('dddddddd-7777-0000-0000-000000000004', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'nooff@hist.test', 'x', now(), now(), now()),
-  ('eeeeeeee-7777-0000-0000-000000000005', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'stale@hist.test', 'x', now(), now(), now());
+  ('eeeeeeee-7777-0000-0000-000000000005', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'stale@hist.test', 'x', now(), now(), now()),
+  ('ffffffff-7777-0000-0000-000000000006', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'unsub@hist.test', 'x', now(), now(), now()),
+  ('99999999-7777-0000-0000-000000000007', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'declined@hist.test', 'x', now(), now(), now()),
+  ('88888888-7777-0000-0000-000000000008', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'refund@hist.test', 'x', now(), now(), now());
 
 insert into public.profiles (id, first_name) values
   ('aaaaaaaa-7777-0000-0000-000000000001', 'Lapsed'),
   ('bbbbbbbb-7777-0000-0000-000000000002', 'Never'),
   ('cccccccc-7777-0000-0000-000000000003', 'Again'),
   ('dddddddd-7777-0000-0000-000000000004', 'NoOff'),
-  ('eeeeeeee-7777-0000-0000-000000000005', 'Stale')
+  ('eeeeeeee-7777-0000-0000-000000000005', 'Stale'),
+  ('ffffffff-7777-0000-0000-000000000006', 'Unsub'),
+  ('99999999-7777-0000-0000-000000000007', 'Declined'),
+  ('88888888-7777-0000-0000-000000000008', 'Refund')
 on conflict (id) do update set first_name = excluded.first_name;
 
 -- Lapsed: a null reading before anything was bought, then Plus, then off.
@@ -61,6 +67,26 @@ insert into public.subscription_events (profile_id, event_id, event_type, tier, 
 values
   ('eeeeeeee-7777-0000-0000-000000000005', 'e-1', 'INITIAL_PURCHASE', 'plus', 'stale',      '2026-02-01T00:00:00Z'),
   ('eeeeeeee-7777-0000-0000-000000000005', 'e-2', 'EXPIRATION',       null,   'no_profile', '2026-03-01T00:00:00Z');
+
+-- Unsub: the reason is recorded explicitly on the off-event.
+insert into public.subscription_events (profile_id, event_id, event_type, tier, outcome, state_as_of, expiration_reason)
+values
+  ('ffffffff-7777-0000-0000-000000000006', 'f-1', 'INITIAL_PURCHASE', 'plus', 'written', '2026-02-01T00:00:00Z', null),
+  ('ffffffff-7777-0000-0000-000000000006', 'f-2', 'EXPIRATION',       null,   'written', '2026-06-01T00:00:00Z', 'UNSUBSCRIBE');
+
+-- Declined: no recorded reason, but a BILLING_ISSUE was seen in the window. This is the shape every
+-- lapse already in the table has, since expiration_reason did not exist when they were written.
+insert into public.subscription_events (profile_id, event_id, event_type, tier, outcome, state_as_of)
+values
+  ('99999999-7777-0000-0000-000000000007', 'g-1', 'INITIAL_PURCHASE', 'premium', 'written', '2026-02-01T00:00:00Z'),
+  ('99999999-7777-0000-0000-000000000007', 'g-2', 'BILLING_ISSUE',    'premium', 'stale',   '2026-05-20T00:00:00Z'),
+  ('99999999-7777-0000-0000-000000000007', 'g-3', 'EXPIRATION',       null,      'written', '2026-06-01T00:00:00Z');
+
+-- Refund: a reason we hold, that does not mean either thing.
+insert into public.subscription_events (profile_id, event_id, event_type, tier, outcome, state_as_of, expiration_reason)
+values
+  ('88888888-7777-0000-0000-000000000008', 'h-1', 'INITIAL_PURCHASE', 'plus', 'written', '2026-02-01T00:00:00Z', null),
+  ('88888888-7777-0000-0000-000000000008', 'h-2', 'EXPIRATION',       null,   'written', '2026-06-01T00:00:00Z', 'CUSTOMER_SUPPORT');
 
 -- MARK: a lapsed subscriber gets the tier they had and the date it stopped
 
@@ -141,6 +167,56 @@ select is(
   (public.my_subscription_history() ->> 'ever_subscribed')::boolean,
   false,
   'a stale reading never described the account, so it cannot prove a subscription'
+);
+
+-- MARK: why it ended
+
+set local request.jwt.claims = '{"sub":"ffffffff-7777-0000-0000-000000000006"}';
+
+select is(
+  public.my_subscription_history() ->> 'ended_reason',
+  'cancelled',
+  'UNSUBSCRIBE on the off-event reads as cancelled'
+);
+
+set local request.jwt.claims = '{"sub":"99999999-7777-0000-0000-000000000007"}';
+
+select is(
+  public.my_subscription_history() ->> 'ended_reason',
+  'lapsed',
+  'a BILLING_ISSUE in the window reads as lapsed, with no recorded reason to go on'
+);
+
+select is(
+  (public.my_subscription_history() ->> 'ended_at')::timestamptz,
+  '2026-06-01T00:00:00Z'::timestamptz,
+  'and the date is still the expiration, not the billing issue that led to it'
+);
+
+set local request.jwt.claims = '{"sub":"88888888-7777-0000-0000-000000000008"}';
+
+select is(
+  public.my_subscription_history() ->> 'ended_reason',
+  null,
+  'a refund is neither cancelled nor lapsed, so it says nothing rather than picking one'
+);
+
+set local request.jwt.claims = '{"sub":"aaaaaaaa-7777-0000-0000-000000000001"}';
+
+select is(
+  public.my_subscription_history() ->> 'ended_reason',
+  null,
+  'and an ordinary old lapse with no reason and no signal stays unexplained'
+);
+
+-- MARK: still running means nothing has ended, for any reason
+
+set local request.jwt.claims = '{"sub":"cccccccc-7777-0000-0000-000000000003"}';
+
+select is(
+  public.my_subscription_history() ->> 'ended_reason',
+  null,
+  'somebody who resubscribed has no ending and therefore no reason for one'
 );
 
 -- MARK: the table stays shut, so the function is the only way in

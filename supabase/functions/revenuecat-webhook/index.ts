@@ -67,6 +67,7 @@ import { type CandidateId, collectCandidateUserIds } from "./ids.ts";
 import {
   describeMissingStart,
   isBlankSubscriber,
+  resolveExpiresAt,
   resolveStartedAt,
   resolveTier,
   resolveStore,
@@ -111,6 +112,10 @@ interface WebhookEvent {
   /// consumable idempotent — RevenueCat redelivers, and a repair granted twice is one given away.
   id?: string;
   transaction_id?: string;
+  /// Present on EXPIRATION: UNSUBSCRIBE, BILLING_ERROR, DEVELOPER_INITIATED, PRICE_INCREASE,
+  /// CUSTOMER_SUPPORT or UNKNOWN. The only thing that distinguishes somebody who cancelled from
+  /// somebody whose card was declined — both end up as an expiration with no entitlement.
+  expiration_reason?: string;
   product_id?: string;
   app_user_id?: string;
   original_app_user_id?: string;
@@ -165,6 +170,11 @@ interface SubscriberState {
   /// Which storefront sold it, lowercased, or null when unknown. Decides what the account screen
   /// on the web may offer: an App Store subscription is not ours to cancel, a website one is.
   store: string | null;
+  /// When the current period ends — the next payment date while it is renewing, the moment access
+  /// stops once it is not. Null for no subscription and for a grant that never expires; see
+  /// `resolveExpiresAt`. Cleared on lapse along with the tier, so a date cannot outlive its
+  /// subscription the way `subscription_started_at` once could.
+  expiresAt: string | null;
   /// True while the subscription is in a free trial, null when unknown. Decides what the cancel
   /// screens promise — cancelling a trial ends access immediately, cancelling a paid period does
   /// not — so null must read as "do not know" rather than as false.
@@ -228,6 +238,7 @@ async function fetchSubscriberState(appUserId: string, apiKey: string): Promise<
   const willRenew = resolveWillRenew(subscriber, tier);
   const store = resolveStore(subscriber, tier);
   const isTrial = resolveIsTrial(subscriber, tier);
+  const expiresAt = resolveExpiresAt(subscriber, tier);
 
   // An active subscriber whose start date could not be found. Logged with field names only, never
   // values, because `resolveStartedAt`'s reading of the v1 shape has never been checked against a
@@ -236,7 +247,7 @@ async function fetchSubscriberState(appUserId: string, apiKey: string): Promise<
     console.warn(`[revenuecat-webhook] no purchase date for ${appUserId}: ${describeMissingStart(subscriber, tier)}`);
   }
 
-  return { tier, startedAt, willRenew, store, isTrial, asOfMs };
+  return { tier, startedAt, willRenew, store, isTrial, expiresAt, asOfMs };
 }
 
 type ApplyOutcome = "written" | "no_profile" | "stale";
@@ -293,6 +304,10 @@ async function applyState(
       subscription_will_renew: state.willRenew,
       subscription_store: state.store,
       subscription_is_trial: state.isTrial,
+      // Cleared on lapse for the same reason the start date is: `resolveExpiresAt` returns null
+      // once there is no tier, so a renewal date cannot be left behind advertising a payment that
+      // is never going to be taken.
+      subscription_expires_at: state.expiresAt,
     })
     .eq("id", appUserId)
     .or(freshnessGuard)
@@ -324,6 +339,7 @@ async function recordEvent(
   tier: string | null,
   outcome: ApplyOutcome,
   stateAsOfMs: number | null,
+  expirationReason: string | null,
 ): Promise<void> {
   const { error } = await serviceClient.from("subscription_events").insert({
     profile_id: profileId,
@@ -332,6 +348,10 @@ async function recordEvent(
     tier,
     outcome,
     state_as_of: stateAsOfMs === null ? null : new Date(stateAsOfMs).toISOString(),
+    // Only EXPIRATION events carry one. Stored raw rather than mapped to cancelled/lapsed here:
+    // `my_subscription_history` does that mapping, and the values it cannot classify (a refund, say)
+    // have to stay distinguishable from the ones it can. See 20261111001200.
+    expiration_reason: expirationReason,
   });
   // 23505 is the redelivery case and is expected; anything else is logged and swallowed.
   if (error && error.code !== "23505") {
@@ -374,6 +394,11 @@ Deno.serve(async (req) => {
   // RevenueCat's own event id, used to dedupe redeliveries in `subscription_events`. Null when the
   // payload carries none, which the ledger's partial unique index tolerates.
   const eventId = typeof event?.id === "string" && event.id.length > 0 ? event.id : null;
+  // Present on EXPIRATION, absent everywhere else. Recorded so "cancelled" and "lapsed" stop
+  // looking identical in the log — both arrive as an expiration with no entitlement left.
+  const expirationReason = typeof event?.expiration_reason === "string" && event.expiration_reason.length > 0
+    ? event.expiration_reason
+    : null;
 
   const userIds = collectCandidateUserIds(event ?? {});
   if (userIds.length === 0) {
@@ -480,6 +505,7 @@ Deno.serve(async (req) => {
         state?.tier ?? null,
         outcome,
         state?.asOfMs ?? null,
+        expirationReason,
       );
     }
   }
