@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SlidersHorizontal } from "lucide-react";
 import { UserMenu } from "@/components/layout/UserMenu";
-import { AccountNavItem } from "@/components/layout/AccountNavItem";
+import { SignedInNavItems } from "@/components/layout/SignedInNavItems";
 import { useAdminRoles } from "@/lib/auth/useAdminRoles";
 
 // Same link set as MarketingHeader's NAV_LINKS, so the whole site is reachable from any
@@ -65,7 +65,7 @@ export function SiteHeader() {
               </li>
             ))}
             {/* Collapsed-menu only — the avatar dropdown is the desktop route. */}
-            <AccountNavItem />
+            <SignedInNavItems />
           </ul>
         </nav>
         <div className="site-nav-actions">
