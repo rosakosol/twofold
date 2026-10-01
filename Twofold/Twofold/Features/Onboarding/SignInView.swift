@@ -113,7 +113,7 @@ struct SignInView: View {
                         .padding(.vertical, Theme.Spacing.xs)
 
                         AppleGoogleSignInButtons(
-                            onSuccess: { _, _ in Task { await finishSignIn(viaProvider: true) } },
+                            onSuccess: { _, _ in await finishSignIn(viaProvider: true) },
                             onError: { errorMessage = $0 },
                             onAccountDeleted: { handleAccountDeleted() },
                             isSubmitting: $isSubmitting

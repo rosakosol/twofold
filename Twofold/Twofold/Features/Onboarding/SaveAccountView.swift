@@ -59,7 +59,7 @@ struct SaveAccountView: View {
                     // it waits on the same box.
                     AppleGoogleSignInButtons(
                         onSuccess: { userID, providedFirstName in
-                            Task { await finish(userID: userID, providedFirstName: providedFirstName) }
+                            await finish(userID: userID, providedFirstName: providedFirstName)
                         },
                         onError: { errorMessage = $0 },
                         onAccountDeleted: { handleAccountDeleted() },

@@ -16,7 +16,13 @@ import UIKit
 struct AppleGoogleSignInButtons: View {
     /// Apple only ever hands over a name on the very first authorization — passed through
     /// when available so the caller can use it if it doesn't have a better one already.
-    var onSuccess: (_ userID: UUID, _ providedFirstName: String?) -> Void
+    ///
+    /// Async, and awaited before `isSubmitting` is cleared. Authenticating is only half of a sign-in:
+    /// the caller still loads the profile or writes the onboarding answers. When this was a plain
+    /// closure, callers did that in a detached `Task`, and these buttons cleared `isSubmitting` the
+    /// moment the closure returned. The screen then sat idle and tappable for the whole second half,
+    /// with no spinner, while the sign-in was still running.
+    var onSuccess: (_ userID: UUID, _ providedFirstName: String?) async -> Void
     var onError: (String) -> Void
     /// Called instead of `onError` specifically when the resolved identity belongs to a
     /// previously-deleted account (`BackendError.accountDeleted`) — callers redirect straight
@@ -96,7 +102,7 @@ struct AppleGoogleSignInButtons: View {
 
                 try await BackendService.signInWithApple(idToken: idToken, nonce: currentAppleNonce)
                 guard let userID = BackendService.currentUserID else { throw BackendError.notAuthenticated }
-                onSuccess(userID, credential.fullName?.givenName)
+                await onSuccess(userID, credential.fullName?.givenName)
             } catch {
                 if case BackendError.accountDeleted = error {
                     onAccountDeleted()
@@ -129,7 +135,7 @@ struct AppleGoogleSignInButtons: View {
         Task {
             do {
                 let userID = try await BackendService.signInWithGoogle()
-                onSuccess(userID, nil)
+                await onSuccess(userID, nil)
             } catch {
                 if case BackendError.accountDeleted = error {
                     onAccountDeleted()
