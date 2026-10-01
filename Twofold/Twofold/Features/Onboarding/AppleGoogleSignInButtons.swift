@@ -26,6 +26,13 @@ struct AppleGoogleSignInButtons: View {
 
     @Environment(\.colorScheme) private var colorScheme
     @State private var currentAppleNonce: String = ""
+    /// Drives the spinner on the Google button, and nothing else.
+    ///
+    /// `isSubmitting` is shared with the screen hosting these buttons and means "some sign-in is in
+    /// progress", which is right for disabling every button at once and wrong for a spinner: the
+    /// Google button used to spin while an email sign-in ran, because the email path sets that same
+    /// flag. A spinner should sit on the button that was tapped.
+    @State private var isGoogleInFlight = false
 
     var body: some View {
         VStack(spacing: Theme.Spacing.md) {
@@ -40,7 +47,7 @@ struct AppleGoogleSignInButtons: View {
 
             Button(action: continueWithGoogle) {
                 HStack(spacing: 10) {
-                    if isSubmitting {
+                    if isGoogleInFlight {
                         ProgressView().tint(Color(red: 0x1F / 255, green: 0x1F / 255, blue: 0x1F / 255))
                     } else if let googleLogo {
                         googleLogo
@@ -118,6 +125,7 @@ struct AppleGoogleSignInButtons: View {
     private func continueWithGoogle() {
         guard !isSubmitting else { return }
         isSubmitting = true
+        isGoogleInFlight = true
         Task {
             do {
                 let userID = try await BackendService.signInWithGoogle()
@@ -130,6 +138,7 @@ struct AppleGoogleSignInButtons: View {
                 }
             }
             isSubmitting = false
+            isGoogleInFlight = false
         }
     }
 

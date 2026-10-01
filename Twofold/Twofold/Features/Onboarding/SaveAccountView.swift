@@ -23,6 +23,10 @@ struct SaveAccountView: View {
     @State private var password = ""
     @State private var confirmPassword = ""
     @State private var isSubmitting = false
+    /// Whether the in-flight sign-up is the email one, for the Continue button's spinner. Apple and
+    /// Google set `isSubmitting` too, and Continue used to spin for them. Same arrangement as
+    /// `SignInView.isPasswordInFlight`, cleared by an `onChange` on `isSubmitting` in `body`.
+    @State private var isEmailInFlight = false
     @State private var errorMessage: String?
     /// Set when `signUp` fails specifically because this email already has an account — reveals
     /// a "Sign In" button rather than silently retrying with whatever password was just typed
@@ -96,7 +100,7 @@ struct SaveAccountView: View {
                             }
 
                             Button(action: continueWithEmail) {
-                                if isSubmitting {
+                                if isEmailInFlight {
                                     ProgressView().tint(.white).frame(maxWidth: .infinity)
                                 } else {
                                     Text("Continue").font(.headline).frame(maxWidth: .infinity)
@@ -137,10 +141,14 @@ struct SaveAccountView: View {
         .sheet(isPresented: $showingSignIn) {
             SignInView(initialEmail: email)
         }
+        .onChange(of: isSubmitting) { _, submitting in
+            if !submitting { isEmailInFlight = false }
+        }
     }
 
     private func continueWithEmail() {
         isSubmitting = true
+        isEmailInFlight = true
         errorMessage = nil
         emailAlreadyExists = false
         Task {

@@ -26,6 +26,12 @@ struct SignInView: View {
     @State private var email: String
     @State private var password = ""
     @State private var isSubmitting = false
+    /// Whether the in-flight sign-in is the email/password one, for the Sign In button's spinner.
+    /// `isSubmitting` alone can't say: Apple and Google set it too, through
+    /// `AppleGoogleSignInButtons`, and the Sign In button used to spin for those. Cleared whenever
+    /// `isSubmitting` goes false (see the `onChange` in `body`), so every path that ends a sign-in
+    /// resets it without having to remember to.
+    @State private var isPasswordInFlight = false
     @State private var errorMessage: String?
     @State private var showingForgotPassword = false
 
@@ -88,7 +94,7 @@ struct SignInView: View {
                         Button {
                             signInWithPassword()
                         } label: {
-                            if isSubmitting {
+                            if isPasswordInFlight {
                                 ProgressView().tint(.white).frame(maxWidth: .infinity)
                             } else {
                                 Text("Sign In").font(.headline).frame(maxWidth: .infinity)
@@ -142,11 +148,15 @@ struct SignInView: View {
             .sheet(isPresented: $showingForgotPassword) {
                 ForgotPasswordView()
             }
+            .onChange(of: isSubmitting) { _, submitting in
+                if !submitting { isPasswordInFlight = false }
+            }
         }
     }
 
     private func signInWithPassword() {
         isSubmitting = true
+        isPasswordInFlight = true
         errorMessage = nil
         Task {
             do {
