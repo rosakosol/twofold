@@ -19,24 +19,32 @@ struct FlightRowView: View {
     /// Dynamic Type: oversized at default sizes and undersized at large ones.
     @ScaledMetric(relativeTo: .subheadline) private var logoSize: CGFloat = 32
 
+    /// Still to arrive: departing, in the air, or landing.
+    private var isAhead: Bool { (flight.bestArrival ?? flight.scheduledArrival) > .now }
+
     var body: some View {
         HStack(spacing: Theme.Spacing.md) {
-            AirlineLogoView(url: flight.displayLogoURL, size: logoSize)
+            AirlineLogoView(url: flight.displayLogoURL, size: logoSize, fallbackCode: flight.airlineCode)
 
             VStack(alignment: .leading, spacing: 2) {
+                // "Departs in 24d 8h" in accent while it is ahead, "Arrived 10 days ago" in
+                // textSecondary once it is behind you (section 6, Travel).
                 Text(flight.countdownSummary)
-                    .font(.subheadline)
-                    .foregroundStyle(Theme.textSecondary)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(isAhead ? Theme.accent : Theme.textSecondary)
+                    .lineLimit(1)
                 HStack(spacing: Theme.Spacing.xs) {
                     Text(flight.origin.displayCode)
-                    Image(systemName: "arrow.right")
+                    Image(systemName: "arrow.right").accessibilityLabel("to")
                     Text(flight.destination.displayCode)
                 }
-                .font(.headline)
+                .font(.system(size: 17, weight: .bold))
+                .foregroundStyle(Theme.textPrimary)
 
-                Text("\([flight.airlineName, flight.displayNumber].compactMap { $0 }.joined(separator: " · "))\(flight.scheduledOut.map { " · \($0.formatted(.dateTime.day().month(.abbreviated)))" } ?? "")")
+                Text("\([flight.airlineName, flight.displayNumber].compactMap { $0 }.joined(separator: " "))\(flight.scheduledOut.map { " · \($0.formatted(.dateTime.day().month(.abbreviated)))" } ?? "")")
                     .font(.caption)
                     .foregroundStyle(Theme.textSecondary)
+                    .lineLimit(1)
             }
 
             Spacer()

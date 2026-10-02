@@ -55,6 +55,8 @@ struct AirlineLogoView: View {
     let url: URL?
     var width: CGFloat = 36
     var height: CGFloat = 18
+    /// The airline's two-letter code, shown as a badge when there is no logo (section 6, Travel).
+    var fallbackCode: String?
 
     @State private var loadedImage: UIImage?
     @State private var loadedURL: URL?
@@ -63,17 +65,19 @@ struct AirlineLogoView: View {
     /// immediately on a known failure instead of waiting on a retry that isn't coming.
     @State private var failedURL: URL?
 
-    init(url: URL?, width: CGFloat = 36, height: CGFloat = 18) {
+    init(url: URL?, width: CGFloat = 36, height: CGFloat = 18, fallbackCode: String? = nil) {
         self.url = url
         self.width = width
         self.height = height
+        self.fallbackCode = fallbackCode
     }
 
     /// Square convenience initializer for call sites that just want a single dimension.
-    init(url: URL?, size: CGFloat) {
+    init(url: URL?, size: CGFloat, fallbackCode: String? = nil) {
         self.url = url
         self.width = size
         self.height = size
+        self.fallbackCode = fallbackCode
     }
 
     private var resolvedImage: UIImage? {
@@ -104,10 +108,20 @@ struct AirlineLogoView: View {
         }
     }
 
+    @ViewBuilder
     private var fallback: some View {
-        Image(systemName: "airplane")
-            .foregroundStyle(.secondary)
-            .frame(width: width, height: height)
+        if let fallbackCode, !fallbackCode.isEmpty {
+            Text(fallbackCode.prefix(2).uppercased())
+                .font(.system(size: min(width, height) * 0.38, weight: .bold))
+                .foregroundStyle(Theme.accent)
+                .frame(width: width, height: height)
+                .background(Theme.accentBackground, in: RoundedRectangle(cornerRadius: min(width, height) * 0.28, style: .continuous))
+                .accessibilityLabel(fallbackCode)
+        } else {
+            Image(systemName: "airplane")
+                .foregroundStyle(Theme.textSecondary)
+                .frame(width: width, height: height)
+        }
     }
 
     private func load(_ url: URL) async {

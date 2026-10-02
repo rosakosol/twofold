@@ -413,6 +413,11 @@ final class AppModel {
         )
     }
 
+    /// The soonest reunion still ahead: the one trip whose countdown tile is coral on Travel.
+    var nextReunionTripID: Trip.ID? {
+        upcomingTrips.first { $0.category == .reunion && $0.departureDate > .now }?.id
+    }
+
     var nextReunionDaysToGo: Int {
         guard let trip = upcomingTrips.first else { return 0 }
         let days = TimeMath.daysUntil(trip.departureDate)

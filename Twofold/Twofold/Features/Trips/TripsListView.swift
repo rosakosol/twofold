@@ -161,7 +161,7 @@ struct TripsListView: View {
     /// visibly less round side by side with the tab bar this panel sits directly above. Local to
     /// this view rather than a `Theme.Radius` change, since ordinary cards elsewhere aren't meant
     /// to match tab-bar curvature.
-    private let panelCornerRadius: CGFloat = 40
+    private let panelCornerRadius: CGFloat = Theme.Radius.sheet
 
     var body: some View {
         NavigationStack {
@@ -220,8 +220,15 @@ struct TripsListView: View {
                     // own header comment for why the drag specifically has to escape SwiftUI's
                     // own diffing/layout pipeline, not just be reorganized within it.
                     DraggablePanelHost(
+                        // The sheet over the globe (section 6, Travel): blur with the `sheet` tint
+                        // on top, so the globe reads through faintly at the edges.
                         content: browsePanelContent(settledDetent: settledDetent, expandedHeight: expandedHeight)
-                            .background(Theme.backgroundGradient),
+                            .background {
+                                ZStack {
+                                    Rectangle().fill(.regularMaterial)
+                                    Theme.sheet
+                                }
+                            },
                         // Both are measured now, so both are clamped here rather than trusted:
                         // the detents have to stay ordered (minimised <= peek <= expanded) or the
                         // drag has no room to resolve between them.
@@ -411,7 +418,8 @@ struct TripsListView: View {
                 // Collapsing is drag-only (the handle above) — no separate button, so there's
                 // exactly one interaction to learn for both directions.
                 Text("Travel")
-                    .font(.title.weight(.bold))
+                    .font(.system(size: 34, weight: .bold))
+                    .tracking(-0.7)
                     .foregroundStyle(Theme.textPrimary)
                     // Always on screen, so this never goes stale the way a measurement taken only
                     // at one detent would.
@@ -443,10 +451,15 @@ struct TripsListView: View {
                                 showingAddFlight = true
                             }
                         } label: {
-                            Image(systemName: "plus.circle.fill")
-                                .font(.title2)
-                                .foregroundStyle(Theme.accent)
+                            // The primary "+" (section 6, Travel): a gradient circle.
+                            Image(systemName: "plus")
+                                .font(.system(size: 18, weight: .bold))
+                                .foregroundStyle(Theme.onPrimaryButton)
+                                .frame(width: 44, height: 44)
+                                .background(Theme.primaryButtonGradient, in: Circle())
                         }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(tab == .trips ? "Add a trip" : "Add a flight")
                     }
                 }
             }
