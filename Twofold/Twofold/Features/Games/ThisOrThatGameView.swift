@@ -171,25 +171,22 @@ struct ThisOrThatGameView: View {
                         rightLabel: "🅱️ THAT",
                         isDisabled: isSubmitting,
                         content: {
-                            VStack(spacing: Theme.Spacing.lg) {
-                                Text("\(round.roundNumber) / \(store.rounds.count)")
+                            VStack(spacing: Theme.Spacing.md) {
+                                Text("\(round.roundNumber) of \(store.rounds.count)")
                                     .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(.white.opacity(0.7))
+                                    .foregroundStyle(Theme.onFill)
                                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                                Spacer(minLength: Theme.Spacing.md)
+                                Spacer(minLength: Theme.Spacing.sm)
 
-                                // One flowing "Answer or Answer" phrase, not separate stacked
-                                // lines — built as a single AttributedString/Text rather than
-                                // the `Text + Text` concatenation this replaced, which iOS 26
-                                // deprecated in favor of exactly this. Constrained to one
-                                // line — shrinking to fit rather than wrapping keeps the card
-                                // height consistent regardless of how long either option is.
-                                optionsPhrase(prompt)
-                                    .font(.title2)
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.4)
-                                    .frame(maxWidth: .infinity)
+                                // Option A on the left with a left arrow, option B on the right
+                                // with a right arrow (section 6, Games): each points the way you
+                                // swipe to choose it.
+                                optionLine(prompt.optionA, arrow: "arrow.left", alignment: .leading)
+                                orDivider
+                                optionLine(prompt.optionB, arrow: "arrow.right", alignment: .trailing)
+
+                                Spacer(minLength: Theme.Spacing.sm)
 
                                 // Revisiting an already-answered round via the back button —
                                 // sits right under the question, rather than the previous
@@ -198,10 +195,10 @@ struct ThisOrThatGameView: View {
                                 if let previousAnswerLabel = previousAnswerLabel(for: round, prompt: prompt) {
                                     Text("You chose: \(previousAnswerLabel)")
                                         .font(.caption.weight(.bold))
-                                        .foregroundStyle(.white)
+                                        .foregroundStyle(Theme.onFill)
                                         .padding(.horizontal, Theme.Spacing.sm)
                                         .padding(.vertical, 6)
-                                        .background(.white.opacity(0.22), in: Capsule())
+                                        .background(Theme.onFill.opacity(0.22), in: Capsule())
                                 }
 
                                 Spacer(minLength: Theme.Spacing.md)
@@ -211,8 +208,8 @@ struct ThisOrThatGameView: View {
                         onChooseRight: { submit(round: round, value: ThisOrThatChoice.optionB.rawValue) }
                     )
 
-                    Text("Swipe a side")
-                        .font(.caption)
+                    Text("Swipe towards your answer")
+                        .font(.subheadline)
                         .foregroundStyle(Theme.textSecondary)
 
                     GameRoundNavRow(
@@ -231,25 +228,35 @@ struct ThisOrThatGameView: View {
         }
     }
 
-    /// Both options now read in plain white (the card itself is the sky-blue-to-leaf-green
-    /// gradient, see `SwipeChoiceCard`) rather than tinting each option its own swipe-direction
-    /// color — colored text didn't hold up for contrast against the new gradient background.
-    private func optionsPhrase(_ prompt: ThisOrThatPrompt) -> Text {
-        var optionA = AttributedString(prompt.optionA)
-        optionA.foregroundColor = .white
-        optionA.font = .title2.weight(.heavy)
+    /// One option, in 30pt bold with its swipe arrow. Long options shrink rather than wrap past two
+    /// lines, so the card keeps its height from round to round.
+    private func optionLine(_ text: String, arrow: String, alignment: HorizontalAlignment) -> some View {
+        HStack(spacing: Theme.Spacing.sm) {
+            if alignment == .leading {
+                Image(systemName: arrow).accessibilityHidden(true)
+            }
+            Text(text)
+                .multilineTextAlignment(alignment == .leading ? .leading : .trailing)
+                .lineLimit(2)
+                .minimumScaleFactor(0.5)
+            if alignment == .trailing {
+                Image(systemName: arrow).accessibilityHidden(true)
+            }
+        }
+        .font(.system(size: 30, weight: .bold))
+        .foregroundStyle(Theme.onFill)
+        .frame(maxWidth: .infinity, alignment: alignment == .leading ? .leading : .trailing)
+    }
 
-        var or = AttributedString(" or ")
-        or.foregroundColor = .white.opacity(0.75)
-        var phrase = optionA
-        phrase += or
-
-        var optionB = AttributedString(prompt.optionB)
-        optionB.foregroundColor = .white
-        optionB.font = .title2.weight(.heavy)
-        phrase += optionB
-
-        return Text(phrase)
+    private var orDivider: some View {
+        HStack(spacing: Theme.Spacing.sm) {
+            Rectangle().fill(Theme.onFill.opacity(0.5)).frame(height: 1)
+            Text("or")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Theme.onFill)
+            Rectangle().fill(Theme.onFill.opacity(0.5)).frame(height: 1)
+        }
+        .accessibilityElement(children: .combine)
     }
 
     /// What to show in the card's "You chose: ___" pill when revisiting an already-answered

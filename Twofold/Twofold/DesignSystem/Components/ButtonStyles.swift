@@ -74,6 +74,32 @@ struct TwofoldCoralButtonStyle: ButtonStyle {
     }
 }
 
+/// The primary button in a game's own gradient instead of the blue one, for a game's main action
+/// (section 6: the deep conversation input "uses the deck gradient"). White text: every game
+/// gradient clears 4.5:1 under it.
+struct TwofoldGameButtonStyle: ButtonStyle {
+    let gameType: GameType
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 17, weight: .semibold))
+            .tint(isEnabled ? Theme.onFill : Theme.textSecondary)
+            .foregroundStyle(isEnabled ? Theme.onFill : Theme.textSecondary)
+            .frame(maxWidth: .infinity, minHeight: 54)
+            .padding(.horizontal, Theme.Spacing.md)
+            .background {
+                if isEnabled {
+                    Capsule().fill(gameType.gradient)
+                } else {
+                    Capsule().fill(Theme.segmentTrack)
+                }
+            }
+            .contentShape(Capsule())
+            .opacity(configuration.isPressed ? 0.85 : 1)
+    }
+}
+
 extension ButtonStyle where Self == TwofoldPrimaryButtonStyle {
     static var twofoldPrimary: TwofoldPrimaryButtonStyle { TwofoldPrimaryButtonStyle() }
 }

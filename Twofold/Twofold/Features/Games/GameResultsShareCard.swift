@@ -6,10 +6,9 @@
 //  `GameResultShareLayout`. Each owns its own visual identity so swiping through them in
 //  `GameResultsShareView` reads as distinct cards/stickers, not one card with a palette swap.
 //
-//  Colors come from `ShareCardPalette` (the dark-mode/Daylight handoff's own sky/leaf/heart
-//  canvas system for exportable cards) rather than the app's `Theme.*` tokens — this card is an
-//  image that leaves the app, so it needs its own dark-canvas/light-pastel look regardless of
-//  in-app chrome, the same way `ShareCard.dc.html`'s Quote/Chat/Score/Tally layouts do.
+//  Colors come from `ShareCardPalette` in one of three styles (Deck colour, Night, Paper; see
+//  `ShareCardStyle`) rather than the app's `Theme.*` tokens: this card is an image that leaves the
+//  app, so it looks the same whatever appearance the sender's phone is in.
 //
 
 import SwiftUI
@@ -17,19 +16,18 @@ import SwiftUI
 struct GameResultsShareCard: View {
     let data: GameResultShareData
     let layout: GameResultShareLayout
-    /// Chosen on the share screen rather than fixed per layout.
-    ///
-    /// Each layout used to hardcode its own accent — score snapshot tinted by the match result,
-    /// speech bubble always pink, and so on — which meant a game type with a single layout had a
-    /// single colour and no say in it. Every game type offers all three now; `defaultAccent` keeps
-    /// the old per-result tint as the *starting* choice rather than the only one.
-    var accent: ShareCardAccent
+    /// Chosen on the share screen: the game's own colour by default, or Night or Paper.
+    var style: ShareCardStyle = .deck
 
-    @Environment(\.colorScheme) private var colorScheme
-
-    private func palette(_ accent: ShareCardAccent) -> ShareCardPalette {
-        .resolve(accent, for: colorScheme)
+    /// The deck colour's stops: the daily question's own gradient for the daily question, the
+    /// game's colour otherwise.
+    private var deckStops: [UInt32] {
+        if data.isDaily { return [0x00875F, 0x1A6FD6, 0x5B3FD6] }
+        let stops = data.gameType.gradientStops
+        return [stops.from, stops.to]
     }
+
+    private var palette: ShareCardPalette { .resolve(style, deck: deckStops) }
 
     var body: some View {
         Group {
@@ -54,20 +52,9 @@ struct GameResultsShareCard: View {
 
     // MARK: - Score snapshot
 
-    /// Where the colour picker starts: tinted by the actual result for the match games (matching
-    /// `GameResultsView.similarityTint`), falling back to `.sky` for Trivia and the Daily Question,
-    /// which have no single "how well did we do" colour to react to.
-    static func defaultAccent(for data: GameResultShareData) -> ShareCardAccent {
-        guard let matchPercent = data.matchPercent else { return .sky }
-        switch matchPercent {
-        case 80...: return .leaf
-        case 50..<80: return .sky
-        default: return .heart
-        }
-    }
 
     private var scoreSnapshotBody: some View {
-        let palette = palette(accent)
+        let palette = self.palette
         return cardChrome(background: canvasBackground(palette), textColor: palette.foreground, brandMark: .top) {
             VStack(spacing: 4) {
                 Image(systemName: data.gameType.icon)
@@ -195,7 +182,7 @@ struct GameResultsShareCard: View {
     // MARK: - Daily streak
 
     private var dailyStreakBody: some View {
-        let palette = palette(accent)
+        let palette = self.palette
         return cardChrome(background: canvasBackground(palette), textColor: palette.foreground, brandMark: .top) {
             Text(data.title.uppercased())
                 .font(.caption2.weight(.semibold))
@@ -246,7 +233,7 @@ struct GameResultsShareCard: View {
     // MARK: - Names & answer
 
     private var namesAndAnswerBody: some View {
-        let palette = palette(accent)
+        let palette = self.palette
         return cardChrome(background: canvasBackground(palette), textColor: palette.foreground, brandMark: .bottom) {
             Text(data.title.uppercased())
                 .font(.caption2.weight(.semibold))
@@ -296,7 +283,7 @@ struct GameResultsShareCard: View {
         // the three for the Daily Question. Sharing an accent meant swiping between them changed
         // only the arrangement of the text on an identical canvas, which reads as the same card
         // twice rather than a choice. Every accent is now used exactly once per game.
-        let palette = palette(accent)
+        let palette = self.palette
         return VStack(spacing: Theme.Spacing.lg) {
             TwofoldBrandMark(color: palette.foreground, size: 20, textStyle: .subheadline)
 
@@ -404,7 +391,7 @@ struct GameResultsShareCard: View {
         dailyStreak: nil
     )
     return ScrollView {
-        GameResultsShareCard(data: data, layout: .scoreSnapshot, accent: GameResultsShareCard.defaultAccent(for: data))
+        GameResultsShareCard(data: data, layout: .scoreSnapshot, style: .deck)
             .padding()
     }
     .background(Color.black)

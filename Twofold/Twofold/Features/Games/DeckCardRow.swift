@@ -194,7 +194,7 @@ struct DeckCardRow: View {
             // A completed deck's pale green fill barely reads as different from the page
             // background on its own — a green edge (instead of the generic neutral one) gives
             // it real separation and doubles as a second "done" cue alongside the checkmark tick:
-            // green genuinely means "completed" here (Aurora rule #2), so it keeps its own accent
+            // green genuinely means "completed" here (principle 2 of the redesign), so it keeps its own accent
             // line in both appearances. An incomplete card has no state of its own to signal, so
             // it gets a plain neutral hairline instead — not a colored gradient, which used to
             // show here with no real meaning behind it.

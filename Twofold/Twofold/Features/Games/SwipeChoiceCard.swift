@@ -56,20 +56,12 @@ struct SwipeChoiceCard<Content: View>: View {
     /// system is allowed to take away.
     @GestureState private var isDragging = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.colorScheme) private var colorScheme
 
     private let threshold: CGFloat = 110
 
-    /// Light mode: the same sky-blue-to-leaf-green gradient Trivia Battle uses
-    /// (`GameType.triviaBattle.iconGradient`) so every game's cards read as one consistent family
-    /// rather than This or That/More Likely looking like a different, plainer app. Dark mode:
-    /// each game's own `iconGradient` instead (the same colors its badge/icon use everywhere
-    /// else) — the shared blue-green wash read as too generic/samey once cards elsewhere in dark
-    /// mode started picking up badge-colored washes of their own (see `TopicsSection`).
-    private var cardGradient: LinearGradient {
-        let colors = colorScheme == .dark ? gameType.iconGradient : [Theme.accent, Theme.success]
-        return LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
-    }
+    /// The game's own colour (section 2.5), the same in both appearances: a game's colour follows
+    /// it from its tile to this card to its results.
+    private var cardGradient: LinearGradient { gameType.gradient }
 
     private var leftStampOpacity: Double { Double(max(0, min(1, -offset.width / threshold))) }
     private var rightStampOpacity: Double { Double(max(0, min(1, offset.width / threshold))) }
@@ -82,7 +74,12 @@ struct SwipeChoiceCard<Content: View>: View {
             content
                 .frame(maxWidth: .infinity, minHeight: 240)
                 .padding(Theme.Spacing.lg)
-                .background(cardGradient, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                .background {
+                    RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+                        .fill(cardGradient)
+                        .overlay { BrandHighlight() }
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                }
                 .overlay {
                     RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
                         .fill(.white)
@@ -99,8 +96,10 @@ struct SwipeChoiceCard<Content: View>: View {
                 // opacity-0 except mid-swipe, so this is the only thing here the rest of the
                 // time.
                 .overlay(alignment: .topTrailing) { brandMark }
-                .shadow(color: .black.opacity(0.2), radius: 18, y: 10)
-                .rotationEffect(.degrees(offset.width / 18))
+                .shadow(color: Theme.Shadow.color, radius: 20, y: 14)
+                // The tilt is a flourish on top of the drag, so Reduce Motion drops it; the card
+                // still follows the finger, which is the gesture itself.
+                .rotationEffect(.degrees(reduceMotion ? 0 : offset.width / 18))
                 .offset(offset)
                 .contentShape(Rectangle())
                 .gesture(
@@ -223,7 +222,7 @@ struct SwipeChoiceCard<Content: View>: View {
             // here — that one is size 56 for a full-screen splash).
             Text("twofold")
                 .font(.system(size: 13, weight: .regular, design: .serif))
-                .foregroundStyle(.white.opacity(0.85))
+                .foregroundStyle(Theme.onFill)
         }
         // Matches the content's own inset from the card edge (see `content.padding(Theme.Spacing.lg)`
         // above) so this sits at the same distance from the corner as the "1/8" round counter

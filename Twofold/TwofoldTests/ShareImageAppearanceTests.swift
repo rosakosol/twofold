@@ -65,10 +65,12 @@ struct ShareImageAppearanceTests {
         #expect(isDark(renderer.uiImage) == false, "`.preferredColorScheme` now works here — the explicit environment pass could be simplified")
     }
 
-    /// And the real card, since a probe view only proves the mechanism. Rendered dark, the game
-    /// results card must not come out on a light background.
-    @Test("the game results card renders dark when the environment is dark")
-    func gameResultsCardHonoursDarkMode() throws {
+    /// The game results card no longer follows the phone's appearance at all: since the redesign it
+    /// renders in a style the sender picks (Deck colour, Night or Paper), the same in light and
+    /// dark. That is what makes the preview and the exported image the same picture whatever
+    /// environment `ImageRenderer` hands it, so it is the property pinned here.
+    @Test("the game results card looks the same in both appearances, and its styles differ")
+    func gameResultsCardIgnoresAppearance() throws {
         let data = GameResultShareData(
             gameType: .deepConversations,
             title: "Daily Question",
@@ -86,13 +88,13 @@ struct ShareImageAppearanceTests {
             dailyStreak: 12
         )
         let layout = try #require(data.availableLayouts.first)
-        let card = GameResultsShareCard(data: data, layout: layout, accent: .sky)
 
-        let dark = try #require(ImageRenderer(content: card.frame(width: 360).environment(\.colorScheme, .dark)).uiImage)
-        let light = try #require(ImageRenderer(content: card.frame(width: 360).environment(\.colorScheme, .light)).uiImage)
+        func render(_ style: ShareCardStyle, _ scheme: ColorScheme) throws -> Data? {
+            let card = GameResultsShareCard(data: data, layout: layout, style: style)
+            return try #require(ImageRenderer(content: card.frame(width: 360).environment(\.colorScheme, scheme)).uiImage).pngData()
+        }
 
-        // Compared against each other rather than to a fixed colour: the card's exact palette is a
-        // design choice that may change, but the two appearances must never be the same image.
-        #expect(dark.pngData() != light.pngData(), "the card renders identically in both appearances — it is no longer reading the environment")
+        #expect(try render(.night, .dark) == render(.night, .light), "a share style changed with the phone's appearance")
+        #expect(try render(.night, .light) != render(.paper, .light), "Night and Paper rendered the same picture")
     }
 }

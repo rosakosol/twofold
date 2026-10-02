@@ -180,7 +180,8 @@ struct DeepConversationsGameView: View {
                             PillBadge(text: resolvedTopic.displayName, tint: resolvedTopic.color, isNeutral: true)
                         }
                         Text(topic.topic)
-                            .font(.title3.weight(.semibold))
+                            .font(.system(size: 24, weight: .bold))
+                            .foregroundStyle(Theme.textPrimary)
                             .multilineTextAlignment(.center)
                     }
                     .frame(maxWidth: .infinity)
@@ -195,18 +196,41 @@ struct DeepConversationsGameView: View {
 
     private func responseInput(round: GameSessionRound) -> some View {
         VStack(spacing: Theme.Spacing.sm) {
-            TextEditor(text: $responseText)
-                .frame(height: 120)
-                .scrollContentBackground(.hidden)
-                .padding(Theme.Spacing.sm)
-                .themedCardBackground(cornerRadius: Theme.Radius.card)
+            // A labelled field (section 6, Games): the label above, a 20pt-cornered field with the
+            // control outline, since a multi-line field cannot be a capsule.
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                Text("Your answer")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.textSecondary)
+                TextEditor(text: $responseText)
+                    .frame(height: 120)
+                    .scrollContentBackground(.hidden)
+                    .padding(Theme.Spacing.sm)
+                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.Radius.tile, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: Theme.Radius.tile, style: .continuous)
+                            .strokeBorder(Theme.controlLine, lineWidth: 1)
+                    }
+                    .accessibilityLabel("Your answer")
+            }
+
+            // Answers stay hidden until both of you have answered: the database only reveals a
+            // session's responses once it is complete. This says so where the answer is written.
+            Label {
+                Text("\(appModel.partnerConnected ? appModel.partner.name : "Your partner") sees it once you've both answered")
+            } icon: {
+                Image(systemName: "lock.fill").accessibilityHidden(true)
+            }
+            .font(.footnote)
+            .foregroundStyle(Theme.textSecondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             Button {
                 submit(round: round, value: responseText.trimmingCharacters(in: .whitespacesAndNewlines))
             } label: {
                 Text("Next")
             }
-            .buttonStyle(.twofoldPrimary)
+            .buttonStyle(TwofoldGameButtonStyle(gameType: .deepConversations))
             // On the daily question, an empty "Next" tap would otherwise be a skip in
             // everything but name — require real text there, same intent as hiding SkipButton
             // below.

@@ -215,99 +215,93 @@ struct GameResultsView: View {
         }
     }
 
+    /// The results header (section 6, Games): a card in the game's own gradient, white text, the
+    /// two of you, and the number the whole reveal builds up to.
     @ViewBuilder
     private var gameTypeHeader: some View {
         switch gameType {
-        // Neither generated game's comparison is a per-round answer table — sudoku's is two solve
-        // times against one grid, Word Guess's is two scores against one word — so both get their
-        // own screen rather than a case here. Nothing routes either into this view; these cases
-        // exist so the switch stays exhaustive and so that if something ever does, it shows an
-        // empty header rather than another game's.
+        // Neither generated game's comparison is a per-round answer table, so each has its own
+        // screen rather than a case here. Nothing routes them into this view; these cases keep
+        // the switch exhaustive and show an empty header rather than another game's.
         case .sudoku, .wordGuess, .wordSearch, .connectFour:
             EmptyView()
         case .triviaBattle:
             let myScore = GameLogic.triviaScore(responses: store.responses, responderID: myID)
-            VStack(spacing: Theme.Spacing.xs) {
-                Image(systemName: "trophy.fill").font(.system(size: 40)).foregroundStyle(Theme.success)
+            resultsHeaderCard {
+                Image(systemName: "trophy.fill").font(.system(size: 36)).accessibilityHidden(true)
                 if isSolo {
-                    Text("You got \(myScore)/\(store.rounds.count)!")
+                    Text("You got \(myScore) of \(store.rounds.count)")
                         .font(.title3.weight(.bold))
                         .multilineTextAlignment(.center)
                     Text("Invite your partner to play and compare scores.")
-                        .font(.caption)
-                        .foregroundStyle(Theme.textSecondary)
+                        .font(.subheadline)
+                        .opacity(0.92)
+                        .multilineTextAlignment(.center)
                 } else {
                     let partnerScore = GameLogic.triviaScore(responses: store.responses, responderID: partnerID)
-                    Text("You got \(myScore)/\(store.rounds.count), \(partnerName) got \(partnerScore)/\(store.rounds.count)")
+                    AvatarPair(me: appModel.currentUser, partner: appModel.partner, size: 40, isOnColour: true)
+                    Text("You got \(myScore) of \(store.rounds.count), \(partnerName) got \(partnerScore) of \(store.rounds.count)")
                         .font(.title3.weight(.bold))
                         .multilineTextAlignment(.center)
                 }
             }
         case .moreLikely, .thisOrThat:
             if isSolo {
-                VStack(spacing: Theme.Spacing.sm) {
-                    Image(systemName: "person.2.fill").font(.system(size: 40)).foregroundStyle(Theme.accent)
+                resultsHeaderCard {
+                    Image(systemName: "person.2.fill").font(.system(size: 36)).accessibilityHidden(true)
                     Text("Your answers are saved")
                         .font(.title3.weight(.bold))
                     Text("Invite your partner to see how you match up.")
                         .font(.subheadline)
-                        .foregroundStyle(Theme.textSecondary)
+                        .opacity(0.92)
                         .multilineTextAlignment(.center)
                 }
             } else {
                 let matches = GameLogic.matchCount(rounds: store.rounds, responses: store.responses, partnerAID: myID, partnerBID: partnerID)
-                // More breathing room here than the header's other two cases (`Theme.Spacing.md`,
-                // not `.xs`) — this is the one number the whole screen is building up to, so it gets
-                // real separation from the "You matched" line underneath it.
-                VStack(spacing: Theme.Spacing.md) {
+                resultsHeaderCard {
                     if let matchPercent {
-                        similarityPercent(matchPercent)
+                        Text("\(matchPercent)%")
+                            .font(.system(size: 56, weight: .bold))
+                            .tracking(-1.5)
+                        Text("answer similarity")
+                            .font(.subheadline.weight(.semibold))
+                            .opacity(0.92)
                     }
-                    Text("❤️ You matched \(matches) / \(store.rounds.count) answers!")
-                        .font(.title3.weight(.bold))
+                    AvatarPair(me: appModel.currentUser, partner: appModel.partner, size: 40, isOnColour: true)
+                        .padding(.vertical, Theme.Spacing.xs)
+                    Text("You matched \(matches) of \(store.rounds.count) answers")
+                        .font(.headline)
                         .multilineTextAlignment(.center)
                 }
             }
         case .deepConversations:
-            VStack(spacing: Theme.Spacing.xs) {
-                Image(systemName: "bubble.left.and.bubble.right.fill").font(.system(size: 40)).foregroundStyle(Theme.success)
+            resultsHeaderCard {
+                Image(systemName: "bubble.left.and.bubble.right.fill").font(.system(size: 36)).accessibilityHidden(true)
+                if !isSolo {
+                    AvatarPair(me: appModel.currentUser, partner: appModel.partner, size: 40, isOnColour: true)
+                }
                 Text(isSolo ? "You shared your thoughts" : "You both shared your thoughts")
                     .font(.title3.weight(.bold))
+                    .multilineTextAlignment(.center)
             }
         }
     }
 
-    /// Plain, large percentage — replaced the earlier half-circle gauge (`AnswerSimilarityGauge`),
-    /// which read as visually noisy/misaligned against the rest of this screen; the number itself
-    /// is the thing worth making big, not an arc around it. In dark mode this is the one Aurora
-    /// "hero" moment on the results screen (rule #3) — the single number the whole reveal builds
-    /// up to — so it gets the hero card treatment; every round row above it stays flat.
-    private func similarityPercent(_ percent: Int) -> some View {
-        let content = VStack(spacing: 2) {
-            Text("\(percent)%")
-                .font(.system(size: 64, weight: .bold, design: .rounded))
-                .foregroundStyle(similarityTint(percent))
-            Text("answer similarity")
-                .font(.caption)
-                .foregroundStyle(Theme.textSecondary)
+    private func resultsHeaderCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        VStack(spacing: Theme.Spacing.sm) {
+            content()
         }
+        .foregroundStyle(Theme.onFill)
+        .padding(Theme.Spacing.lg)
         .frame(maxWidth: .infinity)
-
-        return Group {
-            if colorScheme == .dark {
-                content.heroCard(padding: Theme.Spacing.lg)
-            } else {
-                content
-            }
+        .background {
+            RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+                .fill(gameType.gradient)
+                .overlay { BrandHighlight() }
+                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         }
-    }
-
-    private func similarityTint(_ percent: Int) -> Color {
-        switch percent {
-        case 80...: Theme.success
-        case 50..<80: Theme.accent
-        default: Theme.coral
-        }
+        .shadow(color: Theme.Shadow.color, radius: Theme.Shadow.radius, y: Theme.Shadow.y)
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Share
@@ -374,11 +368,11 @@ struct GameResultsView: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             Text(questionText(for: round))
                 .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Theme.textPrimary)
                 .multilineTextAlignment(.leading)
-                // Clears the checkmark badge's corner footprint (24pt badge + 8pt padding on
-                // each side) — without this, a full-width-wrapping question's top line renders
-                // right under the badge instead of next to it.
-                .padding(.trailing, matched ? 36 : 0)
+                // Clears the "Match" pill in the corner, so a wrapping question's top line sits
+                // beside it rather than under it.
+                .padding(.trailing, matched ? 76 : 0)
 
             if gameType == .deepConversations {
                 responseBlock(name: "You", text: mine?.answerValue)
@@ -411,30 +405,24 @@ struct GameResultsView: View {
         }
         .padding(Theme.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        // Same 10%-green fill `DeckCardRow` uses for its own "both completed" state — one
-        // consistent "you're both done here" look across Games, not two subtly different greens.
-        // Flat `Theme.surface` (no dark-mode wash) for a non-matching round, same as
-        // `DeckCardRow`'s own incomplete-card fill.
-        .background(matched ? Theme.success.opacity(0.1) : Theme.surface, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+        // Matched rows on `successBackground`, the rest on `surfaceGradient` (section 6, Games),
+        // each with the standard card edge. The "Match" pill says it in words as well.
+        .background {
+            let shape = RoundedRectangle(cornerRadius: Theme.Radius.tile, style: .continuous)
+            if matched {
+                shape.fill(Theme.successBackground)
+            } else {
+                shape.fill(Theme.surfaceGradient)
+            }
+        }
         .overlay {
-            // The matched tint alone reads as barely different from an unmatched card against
-            // the screen's own pale gradient — a visible edge gives it real separation instead of
-            // relying on a subtle fill alone: green genuinely means "matched" (Aurora rule #2), so
-            // it keeps its own accent line in both appearances, same as `DeckCardRow`'s completed
-            // state. A non-matching card has no state of its own to signal, so it gets a plain
-            // neutral hairline instead — not a colored gradient with no real meaning behind it.
-            RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                .strokeBorder(
-                    matched
-                        ? AnyShapeStyle(Theme.success.opacity(0.5))
-                        : (colorScheme == .dark ? AnyShapeStyle(Theme.line) : AnyShapeStyle(Theme.textSecondary.opacity(0.25))),
-                    lineWidth: matched ? 1.5 : 1.25
-                )
+            RoundedRectangle(cornerRadius: Theme.Radius.tile, style: .continuous)
+                .strokeBorder(Theme.line, lineWidth: 1)
         }
         .animation(.easeOut(duration: 0.4), value: matched)
         .overlay(alignment: .topTrailing) {
             if matched {
-                MatchCheckmarkBadge()
+                MatchPill()
                     .padding(Theme.Spacing.sm)
             }
         }
@@ -602,25 +590,21 @@ struct GameResultsView: View {
     }
 }
 
-/// A small green checkmark that pops in with a delayed spring once its row lands — separate from
-/// the row's own insertion transition so it reads as its own little "match!" beat.
-private struct MatchCheckmarkBadge: View {
+/// The "Match" status pill, popping in with a delayed spring once its row lands so it reads as its
+/// own little beat. Reduce Motion gets it without the spring.
+private struct MatchPill: View {
     @State private var appeared = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        ZStack {
-            Circle().fill(Theme.successFill)
-            Image(systemName: "checkmark")
-                .font(.caption.weight(.bold))
-                .foregroundStyle(.white)
-        }
-        .frame(width: 24, height: 24)
-        .scaleEffect(appeared ? 1 : 0.3)
-        .opacity(appeared ? 1 : 0)
-        .onAppear {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.6).delay(0.15)) {
-                appeared = true
+        StatusPill(kind: .success, text: "Match")
+            .scaleEffect(appeared ? 1 : 0.3)
+            .opacity(appeared ? 1 : 0)
+            .onAppear {
+                guard !reduceMotion else { appeared = true; return }
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.6).delay(0.15)) {
+                    appeared = true
+                }
             }
-        }
     }
 }

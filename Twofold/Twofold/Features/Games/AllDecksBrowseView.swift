@@ -157,7 +157,7 @@ struct AllDecksBrowseView: View {
                 .padding(.horizontal, Theme.Spacing.md)
                 .padding(.vertical, Theme.Spacing.xs)
                 // Dark mode's selected pill now carries a real blue chip fill + text (blue =
-                // interactive/selected, Aurora rule #2) instead of the same neutral card wash
+                // interactive/selected, principle 2 of the redesign) instead of the same neutral card wash
                 // every unselected pill also had — that read as barely distinguishable next to
                 // its unselected neighbors. Light mode is untouched (solid blue gradient fill).
                 .foregroundStyle(foregroundColor(isSelected: isSelected))

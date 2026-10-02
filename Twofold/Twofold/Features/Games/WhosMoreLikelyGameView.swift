@@ -172,9 +172,9 @@ struct WhosMoreLikelyGameView: View {
                         isDisabled: isSubmitting,
                         content: {
                             VStack(spacing: Theme.Spacing.lg) {
-                                Text("\(round.roundNumber) / \(store.rounds.count)")
+                                Text("\(round.roundNumber) of \(store.rounds.count)")
                                     .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(.white.opacity(0.7))
+                                    .foregroundStyle(Theme.onFill)
                                     .frame(maxWidth: .infinity, alignment: .leading)
 
                                 Spacer(minLength: Theme.Spacing.sm)
@@ -183,9 +183,10 @@ struct WhosMoreLikelyGameView: View {
                                 // avatar row via the spacer on each side, rather than sitting
                                 // right under the progress line.
                                 Text(prompt.prompt)
-                                    .font(.title3.weight(.bold))
-                                    .foregroundStyle(.white)
+                                    .font(.system(size: 30, weight: .bold))
+                                    .foregroundStyle(Theme.onFill)
                                     .multilineTextAlignment(.center)
+                                    .minimumScaleFactor(0.6)
                                     .frame(maxWidth: .infinity)
 
                                 // Revisiting an already-answered round via the back button —
@@ -195,10 +196,10 @@ struct WhosMoreLikelyGameView: View {
                                 if let previousAnswerLabel = previousAnswerLabel(for: round) {
                                     Text("You chose: \(previousAnswerLabel)")
                                         .font(.caption.weight(.bold))
-                                        .foregroundStyle(.white)
+                                        .foregroundStyle(Theme.onFill)
                                         .padding(.horizontal, Theme.Spacing.sm)
                                         .padding(.vertical, 6)
-                                        .background(.white.opacity(0.22), in: Capsule())
+                                        .background(Theme.onFill.opacity(0.22), in: Capsule())
                                 }
 
                                 Spacer(minLength: Theme.Spacing.sm)
@@ -208,12 +209,12 @@ struct WhosMoreLikelyGameView: View {
                                         HStack(spacing: 4) {
                                             Image(systemName: "chevron.left")
                                                 .font(.caption2.weight(.bold))
-                                                .foregroundStyle(.white.opacity(0.75))
+                                                .foregroundStyle(Theme.onFill.opacity(0.92))
                                             AvatarView(person: appModel.currentUser, size: 56, showsRing: true)
                                         }
                                         Text(appModel.currentUser.name)
                                             .font(.caption.weight(.semibold))
-                                            .foregroundStyle(.white)
+                                            .foregroundStyle(Theme.onFill)
                                             .lineLimit(1)
                                             .minimumScaleFactor(0.6)
                                             .frame(maxWidth: 72)
@@ -223,11 +224,11 @@ struct WhosMoreLikelyGameView: View {
                                             AvatarView(person: appModel.partner, size: 56, showsRing: true)
                                             Image(systemName: "chevron.right")
                                                 .font(.caption2.weight(.bold))
-                                                .foregroundStyle(.white.opacity(0.75))
+                                                .foregroundStyle(Theme.onFill.opacity(0.92))
                                         }
                                         Text(appModel.partner.name)
                                             .font(.caption.weight(.semibold))
-                                            .foregroundStyle(.white)
+                                            .foregroundStyle(Theme.onFill)
                                             .lineLimit(1)
                                             .minimumScaleFactor(0.6)
                                             .frame(maxWidth: 72)
@@ -239,8 +240,8 @@ struct WhosMoreLikelyGameView: View {
                         onChooseRight: { submit(round: round, value: partnerID.uuidString) }
                     )
 
-                    Text("Swipe a side")
-                        .font(.caption)
+                    Text("Swipe towards your answer")
+                        .font(.subheadline)
                         .foregroundStyle(Theme.textSecondary)
 
                     GameRoundNavRow(

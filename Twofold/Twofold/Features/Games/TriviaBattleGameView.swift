@@ -180,15 +180,20 @@ struct TriviaBattleGameView: View {
 
     // MARK: - Round
 
-    /// Kahoot-style: a fixed color+shape per grid position, not tied to the answer's content —
-    /// same reasoning as the old numbered-keycap emoji (answer text is free-form, so the marker
-    /// has to be positional), just bolder.
-    private static let optionStyles: [(color: Color, icon: String)] = [
-        (Theme.indigo, "triangle.fill"),
-        (Theme.accent, "diamond.fill"),
-        (Theme.success, "circle.fill"),
-        (Theme.coral, "square.fill"),
-    ]
+    /// A fixed shape per grid position, not tied to the answer's content: answer text is free-form,
+    /// so the marker has to be positional. The shapes, not only the colours, tell the four apart
+    /// (section 9), so a colour-blind player loses nothing.
+    private static let optionShapes = ["triangle.fill", "diamond.fill", "circle.fill", "square.fill"]
+
+    /// Tile `index`'s fill: a gradient from its own tint to the next tile's (section 2.6; tile 4
+    /// wraps to tile 1).
+    private static func tileGradient(_ index: Int) -> LinearGradient {
+        let bases = Brand.triviaBases
+        return LinearGradient(
+            colors: [Brand.tint(bases[index % 4]), Brand.tint(bases[(index + 1) % 4])],
+            startPoint: .topLeading, endPoint: .bottomTrailing
+        )
+    }
 
     private func roundView(round: GameSessionRound, question: TriviaQuestion) -> some View {
         GeometryReader { geometry in
@@ -202,7 +207,8 @@ struct TriviaBattleGameView: View {
                             PillBadge(text: resolvedTopic.displayName, tint: resolvedTopic.color, isNeutral: true)
                         }
                         Text(question.question)
-                            .font(.title3.weight(.bold))
+                            .font(.system(size: 24, weight: .bold))
+                            .foregroundStyle(Theme.textPrimary)
                             .multilineTextAlignment(.center)
                         // Shown when revisiting an already-answered question via the back
                         // button — the option itself also gets a checkmark badge below, this
@@ -242,7 +248,7 @@ struct TriviaBattleGameView: View {
         VStack(spacing: Theme.Spacing.md) {
             LazyVGrid(columns: [GridItem(.flexible(), spacing: Theme.Spacing.sm), GridItem(.flexible())], spacing: Theme.Spacing.sm) {
                 ForEach(Array(orderedOptions(round: round, question: question).enumerated()), id: \.offset) { index, option in
-                    let style = Self.optionStyles[index % Self.optionStyles.count]
+                    let shape = Self.optionShapes[index % 4]
                     let previousAnswer = store.myResponse(for: round, myID: myID)?.answerValue
                     // `chosenOption` wins while a submit is being held for *this* round (see its
                     // own doc comment) — `previousAnswer` only catches up once the deferred
@@ -258,35 +264,40 @@ struct TriviaBattleGameView: View {
                         submit(round: round, value: option, isCorrect: option == question.correctAnswer)
                     } label: {
                         VStack(spacing: Theme.Spacing.xs) {
-                            Image(systemName: style.icon)
-                                .font(.title3)
-                                .foregroundStyle(.white)
+                            // Decorative: the position and the label carry the answer.
+                            Image(systemName: shape)
+                                .font(.system(size: 28))
+                                .foregroundStyle(Brand.triviaShapes[index % 4])
+                                .accessibilityHidden(true)
                             Text(option)
-                                .font(.subheadline.weight(.bold))
-                                .foregroundStyle(.white)
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundStyle(Theme.textPrimary)
                                 .multilineTextAlignment(.center)
                                 .lineLimit(4)
-                                .minimumScaleFactor(0.7)
+                                .minimumScaleFactor(0.6)
                         }
-                        .frame(maxWidth: .infinity, minHeight: 100)
+                        .frame(maxWidth: .infinity, minHeight: 112)
                         .padding(Theme.Spacing.sm)
-                        .background(style.color, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                        .background(Self.tileGradient(index), in: RoundedRectangle(cornerRadius: Theme.Radius.tile, style: .continuous))
                         .saturation(shouldDim ? 0 : 1)
                         .opacity(shouldDim ? 0.55 : 1)
+                        // The chosen answer: blue, because blue is the colour of a selected state.
+                        // A white border would vanish on these pale tiles.
                         .overlay(alignment: .topTrailing) {
                             if wasPreviouslyChosen {
-                                ZStack {
-                                    Circle().fill(.white)
-                                    Image(systemName: "checkmark").font(.caption2.weight(.bold)).foregroundStyle(style.color)
-                                }
-                                .frame(width: 22, height: 22)
-                                .padding(6)
+                                Image(systemName: "checkmark")
+                                    .font(.caption2.weight(.bold))
+                                    .foregroundStyle(Theme.onFill)
+                                    .frame(width: 22, height: 22)
+                                    .background(Theme.accentFill, in: Circle())
+                                    .padding(6)
+                                    .accessibilityHidden(true)
                             }
                         }
                         .overlay {
                             if wasPreviouslyChosen {
-                                RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                                    .strokeBorder(.white, lineWidth: 3)
+                                RoundedRectangle(cornerRadius: Theme.Radius.tile, style: .continuous)
+                                    .strokeBorder(Theme.accent, lineWidth: 3)
                             }
                         }
                     }

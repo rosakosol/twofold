@@ -17,8 +17,9 @@ struct SkipButton: View {
 
     var body: some View {
         Button("Skip", action: action)
-            .font(.subheadline)
-            .foregroundStyle(Theme.textSecondary)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(Theme.accent)
+            .frame(minWidth: 44, minHeight: 44)
             .disabled(isDisabled)
     }
 }

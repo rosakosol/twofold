@@ -19,7 +19,7 @@ struct GameCard: View {
 
     /// This game type's own accent — same value `DeckCardRow` falls back to for a non-topic
     /// badge tint, used here for just the icon glyph. The card surface itself stays neutral (see
-    /// `themedCardBackground`) — a game *type* isn't itself a blue/green/red state, so per Aurora
+    /// `themedCardBackground`) — a game *type* isn't itself a blue/green/red state, so per principle 2 of the redesign
     /// rule #2 it doesn't get a colored card wash, just this one colored accent on the icon.
     private var accentColor: Color { gameType.iconGradient.first ?? Theme.accent }
 

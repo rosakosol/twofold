@@ -122,19 +122,12 @@ struct GamesHubView: View {
                         .padding(.horizontal, Theme.Spacing.sm)
                         .padding(.vertical, Theme.Spacing.xs)
                         .frame(maxWidth: .infinity)
+                        .frame(minHeight: 36)
                         .foregroundStyle(Theme.textPrimary)
-                        .background(Theme.surface, in: Capsule())
-                        // A plain flat fill left these three pills with no edge of their own at
-                        // all in dark mode, reading as one undifferentiated bar rather than three
-                        // distinct filters. Neutral hairline (not a colored gradient — these pills
-                        // don't represent a blue/green/red state, just a filter choice, and Aurora
-                        // rule #2 keeps color meaningful rather than decorative). Light mode
-                        // already reads fine against its own pale background without a border.
-                        .overlay {
-                            if colorScheme == .dark {
-                                Capsule().strokeBorder(Theme.line, lineWidth: 1.25)
-                            }
-                        }
+                        // A chip (section 5): `raised` with a `line` edge in both appearances.
+                        // Neutral, because a filter is a choice, not a state.
+                        .background(Theme.raised, in: Capsule())
+                        .overlay { Capsule().strokeBorder(Theme.line, lineWidth: 1) }
                 }
                 .buttonStyle(.plain)
                 // Floating badge (hovering over the pill's corner) rather than sitting inline
@@ -146,7 +139,7 @@ struct GamesHubView: View {
                     if filter == .yourTurn, let count = deckBrowseFilterCounts[filter], count > 0 {
                         Text("\(count)")
                             .font(.caption2.weight(.bold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Theme.onFill)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
                             .background(Theme.coralFill, in: Capsule())

@@ -14,14 +14,25 @@ struct AvatarPair: View {
     let me: Person
     let partner: Person?
     var size: CGFloat = 44
+    /// On a coloured gradient a bare coral heart can all but disappear (about 1.3:1 on blue), so
+    /// there it sits on a small white disc: still coral, still the two of you, but visible.
+    var isOnColour: Bool = false
 
     var body: some View {
         HStack(spacing: size * 0.16) {
             AvatarView(person: me, size: size, showsRing: true)
             if let partner {
-                Image(systemName: "heart.fill")
-                    .font(.system(size: size * 0.32, weight: .bold))
-                    .foregroundStyle(Theme.coral)
+                if isOnColour {
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: size * 0.26, weight: .bold))
+                        .foregroundStyle(Theme.coralFill)
+                        .frame(width: size * 0.5, height: size * 0.5)
+                        .background(.white, in: Circle())
+                } else {
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: size * 0.32, weight: .bold))
+                        .foregroundStyle(Theme.coral)
+                }
                 AvatarView(person: partner, size: size, showsRing: true)
             }
         }

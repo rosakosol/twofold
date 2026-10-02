@@ -26,6 +26,18 @@ enum ShareCardAccent: CaseIterable {
     }
 }
 
+/// The three styles a game's results can be shared in (docs/TWOFOLD_DESIGN.md, section 6, Games).
+/// Each is fixed: a share card is an image that leaves the device, so it looks the same whatever
+/// appearance the sender's phone is in.
+enum ShareCardStyle: String, CaseIterable, Hashable {
+    /// The game's own gradient, white text. The default.
+    case deck = "Deck colour"
+    /// `#141A23`, the number in the dark-mode accent.
+    case night = "Night"
+    /// `#FAF7F2`, ink `#2A2118`, the number in the light-mode accent.
+    case paper = "Paper"
+}
+
 /// A fully-resolved set of colors for one accent, in one appearance. Every share card that draws
 /// from this (not a raw hex) picks up both themes for free.
 struct ShareCardPalette {
@@ -69,6 +81,70 @@ struct ShareCardPalette {
 
     static func resolve(_ accent: ShareCardAccent, for colorScheme: ColorScheme) -> ShareCardPalette {
         resolve(accent, dark: colorScheme == .dark)
+    }
+
+    /// The palette for a share style. `deck` is the gradient's colours, in order; the daily
+    /// question passes its own three-stop gradient, a game its two.
+    static func resolve(_ style: ShareCardStyle, deck: [UInt32]) -> ShareCardPalette {
+        switch style {
+        case .deck:
+            let stops = deck.count >= 3 ? deck : [deck[0], deck[deck.count - 1], deck[deck.count - 1]]
+            return ShareCardPalette(
+                canvas: stops.prefix(3).map { Color(hex: $0) },
+                glow: Color.white.opacity(0.22),
+                accent: .white,
+                chip: Color.white.opacity(0.2),
+                chipLine: Color.white.opacity(0.35),
+                fill: .white,
+                bubbleForeground: Color(hex: deck[deck.count - 1]),
+                foreground: .white,
+                surface: Color.white.opacity(0.16),
+                surfaceLine: Color.white.opacity(0.24),
+                track: Color.white.opacity(0.24),
+                rule: Color.white.opacity(0.2),
+                ringColor: Color.white.opacity(0.9),
+                globeFill: Color.white.opacity(0.08),
+                globeLine: Color.white.opacity(0.3)
+            )
+        case .night:
+            let night = Color(hex: 0x141A23)
+            return ShareCardPalette(
+                canvas: [night, night, night],
+                glow: Color(hex: 0x6AA5F5, alpha: 0.16),
+                accent: Color(hex: 0x6AA5F5),
+                chip: Color(hex: 0x6AA5F5, alpha: 0.18),
+                chipLine: Color(hex: 0x6AA5F5, alpha: 0.4),
+                fill: Color(hex: 0x6AA5F5),
+                bubbleForeground: Color(hex: 0x0B0F16),
+                foreground: Color(hex: 0xF3F5F8),
+                surface: Color.white.opacity(0.07),
+                surfaceLine: Color.white.opacity(0.14),
+                track: Color.white.opacity(0.16),
+                rule: Color.white.opacity(0.12),
+                ringColor: Color.white.opacity(0.9),
+                globeFill: Color.white.opacity(0.05),
+                globeLine: Color.white.opacity(0.22)
+            )
+        case .paper:
+            let paper = Color(hex: 0xFAF7F2), ink = Color(hex: 0x2A2118)
+            return ShareCardPalette(
+                canvas: [paper, paper, paper],
+                glow: .clear,
+                accent: Color(hex: 0x1767D0),
+                chip: Color(hex: 0x1767D0, alpha: 0.1),
+                chipLine: Color(hex: 0x1767D0, alpha: 0.3),
+                fill: Color(hex: 0x1767D0),
+                bubbleForeground: .white,
+                foreground: ink,
+                surface: ink.opacity(0.05),
+                surfaceLine: ink.opacity(0.12),
+                track: ink.opacity(0.12),
+                rule: ink.opacity(0.12),
+                ringColor: ink.opacity(0.22),
+                globeFill: ink.opacity(0.05),
+                globeLine: ink.opacity(0.2)
+            )
+        }
     }
 
     private struct AccentColors {

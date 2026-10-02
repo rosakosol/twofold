@@ -205,6 +205,44 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
         }
     }
 
+    /// The game's colour (docs/TWOFOLD_DESIGN.md, section 2.5). It follows the game everywhere:
+    /// its tile, its play card, its results header and its share card. White text on all of them.
+    var gradient: LinearGradient { Brand.gradient(gradientStops.from, gradientStops.to) }
+
+    /// The two stops of `gradient`, for anything that needs the colours rather than the gradient
+    /// (a share card's canvas).
+    var gradientStops: (from: UInt32, to: UInt32) {
+        switch self {
+        case .deepConversations, .sudoku: (0x3A56D9, 0x2B3FB0)
+        case .thisOrThat, .wordSearch: (0x1A6FD6, 0x0B5FB0)
+        case .triviaBattle, .wordGuess: (0x1F8636, 0x16702A)
+        case .moreLikely, .connectFour: (0xD23A52, 0xB8274A)
+        }
+    }
+
+    /// The hue behind `gradient`, for the tinted icon chips puzzles use on neutral cards (2.6).
+    var baseHue: UInt32 {
+        switch self {
+        case .deepConversations, .sudoku: 0x3A56D9
+        case .thisOrThat, .wordSearch: 0x1A6FD6
+        case .triviaBattle, .wordGuess: 0x1F8636
+        case .moreLikely, .connectFour: 0xD23A52
+        }
+    }
+
+    /// A tinted chip behind the game's icon: 26% of the hue over white, 45% over the night colour.
+    var chipTint: Color { Brand.tint(baseHue) }
+
+    /// The icon on `chipTint`, in the hue's text-safe tone for each appearance.
+    var chipForeground: Color {
+        switch baseHue {
+        case 0x3A56D9: Brand.triviaShapes[0]
+        case 0x1A6FD6: Brand.triviaShapes[1]
+        case 0x1F8636: Brand.triviaShapes[2]
+        default: Brand.triviaShapes[3]
+        }
+    }
+
     var ctaTitle: String {
         switch self {
         case .deepConversations: "Start conversation"

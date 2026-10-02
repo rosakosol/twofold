@@ -79,8 +79,8 @@ struct DailyActivityCard: View {
 
 
     var body: some View {
-        // The Games hub's one Aurora hero object (rule #3) — the couple's daily streak sits at
-        // the very top of the tab, above every flat deck/topic card below it.
+        // The streak card (section 6, Games): the Games hub's hero, at the top of the tab, with
+        // today's deep question inside it.
         SectionCard(isHero: true) {
             streakSummary
 
@@ -93,15 +93,15 @@ struct DailyActivityCard: View {
                     ShimmeringGlobeHeart()
                         .frame(width: 28, height: 28)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Today's Deep Question")
+                        Text("Today's deep question")
                             .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Theme.onFill)
                         Text(appModel.todaysDailyQuestionText
                             ?? (isLoadingQuestion ? Self.questionSkeletonText : "A new question, just for you two"))
                             .font(.caption2)
                             // 0.85 landed at 4.46:1 against the deepened banner — just under AA.
                             // 0.92 reads the same as a softened white and clears it at 4.9:1.
-                            .foregroundStyle(.white.opacity(0.92))
+                            .foregroundStyle(Theme.onFill.opacity(0.92))
                             // Two lines is right at normal sizes — this is a teaser, and the full
                             // question is one tap away. At accessibility sizes two lines isn't
                             // enough to reach the end of any real question, so the teaser became a
@@ -119,16 +119,20 @@ struct DailyActivityCard: View {
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.85))
+                        .foregroundStyle(Theme.onFill.opacity(0.92))
+                        .accessibilityHidden(true)
                 }
                 .padding(Theme.Spacing.md)
-                .background(
+                .background {
                     // Today's deep question wears the `dailyQuestion` gradient everywhere it
-                    // appears (spec section 2.3). White text clears 4.5:1 across all of it.
-                    Theme.dailyQuestion,
-                    in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                )
-                .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                    // appears (section 2.3); white text clears 4.5:1 across all of it. Corners are
+                    // concentric with the card around it: its 26pt less its 16pt padding.
+                    RoundedRectangle(cornerRadius: innerRadius, style: .continuous)
+                        .fill(Theme.dailyQuestion)
+                        .overlay { BrandHighlight() }
+                        .clipShape(RoundedRectangle(cornerRadius: innerRadius, style: .continuous))
+                }
+                .contentShape(RoundedRectangle(cornerRadius: innerRadius, style: .continuous))
             }
             .buttonStyle(.plain)
         }
@@ -169,15 +173,19 @@ struct DailyActivityCard: View {
         }
     }
 
+    /// Coral, because a streak is the two of you keeping something going (principle 1).
     private var flameBadge: some View {
         ZStack {
-            Circle().fill(Theme.primaryButtonGradient)
+            Circle().fill(Theme.coralGradient)
             Image(systemName: "flame.fill")
                 .font(.title3)
-                .foregroundStyle(Theme.onPrimaryButton)
+                .foregroundStyle(Theme.onFill)
         }
         .frame(width: 44, height: 44)
+        .accessibilityHidden(true)
     }
+
+    private var innerRadius: CGFloat { Theme.Radius.card - Theme.Spacing.md }
 
     private var streakText: some View {
         VStack(alignment: .leading, spacing: 2) {
