@@ -170,18 +170,18 @@ struct HomeView: View {
                         // read as a profile, which is not where it goes.
                         Image(systemName: "gearshape.fill")
                             .font(.title2)
-                            .foregroundStyle(Theme.textPrimary)
+                            .foregroundStyle(Theme.accent)
                     }
                     .accessibilityLabel("Settings")
                 }
                 ToolbarItem(placement: .principal) {
-                    HStack(spacing: Theme.Spacing.sm) {
-                        AvatarView(person: appModel.currentUser, size: 30)
-                        Image(systemName: "heart.fill").foregroundStyle(Theme.coral).font(.caption)
-                        AvatarView(person: appModel.partner, size: 30)
-                    }
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel(appModel.partnerConnected ? "\(appModel.currentUser.name) and \(appModel.partner.name)" : appModel.currentUser.name)
+                    // DESIGN: 34pt rather than the spec's 44pt. A 44pt photo with its ring is taller
+                    // than the navigation bar's content area and gets clipped there.
+                    AvatarPair(
+                        me: appModel.currentUser,
+                        partner: appModel.partnerConnected ? appModel.partner : nil,
+                        size: 34
+                    )
                 }
             }
             .sheet(item: $reviewingShare, onDismiss: refreshPendingShares) { share in
@@ -323,14 +323,8 @@ struct HomeView: View {
                 // announcement that has been made and is over, so it goes when the state does —
                 // see the `canAddContent` check that now wraps both of these cards. Same shape as
                 // `noSubscriptionCard`, which it stands in for.
-                Button { showingPaywall = true } label: {
-                    Text("See plans")
-                        .font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, Theme.Spacing.sm)
-                }
-                .background(Theme.primaryButtonGradient, in: Capsule())
-                .foregroundStyle(Theme.onPrimaryButton)
+                Button("See plans") { showingPaywall = true }
+                    .buttonStyle(.twofoldPrimary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -354,14 +348,8 @@ struct HomeView: View {
                     .foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
 
-                Button { showingPaywall = true } label: {
-                    Text("See plans")
-                        .font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, Theme.Spacing.sm)
-                }
-                .background(Theme.primaryButtonGradient, in: Capsule())
-                .foregroundStyle(Theme.onPrimaryButton)
+                Button("See plans") { showingPaywall = true }
+                    .buttonStyle(.twofoldPrimary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -966,7 +954,7 @@ struct HomeView: View {
                     }
                 }
                 Spacer()
-                PillBadge(text: flight.status.displayLabel, tint: flight.status.semanticColor)
+                StatusPill(flight: flight)
             }
 
             // No minimumScaleFactor here — cities stay a fixed size regardless of name length;

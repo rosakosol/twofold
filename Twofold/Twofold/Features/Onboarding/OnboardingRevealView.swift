@@ -92,12 +92,8 @@ struct OnboardingRevealView: View {
                         Text("Go to Twofold")
                     }
                 }
-                .font(.headline)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Theme.primaryButtonGradient, in: Capsule())
-                .foregroundStyle(Theme.onPrimaryButton)
             }
+            .buttonStyle(.twofoldPrimary)
             .disabled(isFinishing)
             .padding(.horizontal, Theme.Spacing.lg)
             .padding(.bottom, Theme.Spacing.xl)

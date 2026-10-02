@@ -105,12 +105,8 @@ struct DistanceRevealShareView: View {
         if let image = mapSnapshot != nil ? renderImage(card) : nil {
             ShareLink(item: Image(uiImage: image), preview: SharePreview("The distance between us", image: Image(uiImage: image))) {
                 Label("Share", systemImage: "square.and.arrow.up")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Theme.primaryButtonGradient, in: Capsule())
-                    .foregroundStyle(Theme.onPrimaryButton)
             }
+            .buttonStyle(.twofoldPrimary)
         }
     }
 

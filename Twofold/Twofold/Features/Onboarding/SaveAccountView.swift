@@ -101,14 +101,12 @@ struct SaveAccountView: View {
 
                             Button(action: continueWithEmail) {
                                 if isEmailInFlight {
-                                    ProgressView().tint(Theme.onPrimaryButton).frame(maxWidth: .infinity)
+                                    ProgressView()
                                 } else {
-                                    Text("Continue").font(.headline).frame(maxWidth: .infinity)
+                                    Text("Continue")
                                 }
                             }
-                            .padding()
-                            .background(canContinueWithEmail && !isSubmitting ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.textSecondary.opacity(0.3)), in: Capsule())
-                            .foregroundStyle(Theme.onPrimaryButton)
+                            .buttonStyle(.twofoldPrimary)
                             .disabled(!canContinueWithEmail || isSubmitting)
 
                             if emailAlreadyExists {

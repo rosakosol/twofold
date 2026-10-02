@@ -60,18 +60,12 @@ struct EditTripView: View {
             }
 
             Section {
-                Picker("Who's travelling?", selection: $traveler) {
-                    Text(appModel.currentUser.name).tag(TripTraveler.you)
-                    Text(appModel.partner.name).tag(TripTraveler.partner)
-                    Text("Both").tag(TripTraveler.both)
-                }
-                .pickerStyle(.segmented)
-                Picker("Trip category", selection: $category) {
-                    ForEach(TripCategory.allCases) { category in
-                        Text(category.displayName).tag(category)
-                    }
-                }
-                .pickerStyle(.segmented)
+                TwofoldSegmentedControl(
+                    selection: $traveler,
+                    options: [(TripTraveler.you, appModel.currentUser.name), (TripTraveler.partner, appModel.partner.name), (TripTraveler.both, "Both")],
+                    accessibilityLabel: "Who's travelling?"
+                )
+                TwofoldSegmentedControl(selection: $category, options: TripCategory.allCases.map { ($0, $0.displayName) }, accessibilityLabel: "Trip category")
             }
 
             Section("Notes") {

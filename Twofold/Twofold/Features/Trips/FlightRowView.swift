@@ -40,16 +40,7 @@ struct FlightRowView: View {
             }
 
             Spacer()
-            // A flight added from a schedule-only candidate (see AeroFlightCandidate.canTrack)
-            // has no faFlightID yet — its `status` still just reads "Scheduled" like any normal
-            // upcoming flight, which would otherwise look identical to one that's actually being
-            // live-tracked. Tracking starts automatically (refresh-due-flights' cron backfills a
-            // real faFlightID once AeroAPI assigns one), so this is purely informational.
-            if flight.faFlightID == nil {
-                PillBadge(text: "Not live yet", tint: Theme.textSecondary)
-            } else {
-                PillBadge(text: flight.status.displayLabel, tint: flight.status.semanticColor)
-            }
+            StatusPill(flight: flight)
         }
         .padding(Theme.Spacing.sm)
         // Without this, the row's own `Spacer()` and other empty space don't count as part of

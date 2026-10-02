@@ -5,30 +5,21 @@
 
 import SwiftUI
 
-/// Rounded white card container used across the Globe, Trips, and Stats screens.
+/// The standard card (docs/TWOFOLD_DESIGN.md, section 5): `surface`, a 1pt `line` border, 26pt
+/// corners, 16pt padding. The same in both appearances apart from the tokens themselves.
 struct SectionCard<Content: View>: View {
     var content: Content
-    /// `false` only for cards that sit directly over their own busy blue/green content (e.g. the
-    /// Memories map's "Add your first memory" hint, floating over the map itself) — the dark-mode
-    /// wash below is the same blue-to-green tint as the map, so it disappeared into it instead of
-    /// reading as a card. Everywhere else keeps the wash (the default).
-    var appliesDarkWash: Bool = true
-    /// True for the one screen-level "hero" object (Aurora rule #3 — one gradient per screen,
-    /// only the primary object) — swaps the ordinary dark-mode card tint for `Surface.hero`'s
-    /// gradient, `Line.hero`'s border, and the hero drop shadow. At most one card per screen
-    /// should ever set this.
-    var isHeroInDark: Bool = false
+    /// For a card floating over its own busy content (the Memories map's hint): adds the floating
+    /// shadow so it lifts off the map instead of sitting flush in it.
+    var isFloating: Bool = false
+    /// The card a screen is built around. Takes `surfaceGradient` for a touch of depth. At most one
+    /// per screen.
+    var isHero: Bool = false
 
-    @Environment(\.colorScheme) private var colorScheme
-
-    /// Explicit init (rather than relying on the synthesized memberwise one) so `content` can
-    /// stay the trailing closure regardless of which of the two flags after it a call site sets —
-    /// the synthesized init requires arguments in declaration order, which broke callers wanting
-    /// to pass `isHeroInDark` without also spelling out `appliesDarkWash`.
-    init(appliesDarkWash: Bool = true, isHeroInDark: Bool = false, @ViewBuilder content: () -> Content) {
+    init(isFloating: Bool = false, isHero: Bool = false, @ViewBuilder content: () -> Content) {
         self.content = content()
-        self.appliesDarkWash = appliesDarkWash
-        self.isHeroInDark = isHeroInDark
+        self.isFloating = isFloating
+        self.isHero = isHero
     }
 
     var body: some View {
@@ -36,39 +27,22 @@ struct SectionCard<Content: View>: View {
             content
         }
         .padding(Theme.Spacing.md)
-        // `Theme.surface` is a flat system color with no elevation/shadow of its own —
-        // against dark mode's now-deep `Theme.backgroundGradient`, a stack of these otherwise
-        // read as one undifferentiated slab of dark gray with no visible seams between cards. In
-        // dark mode `Theme.cardGradientDark` (Aurora's neutral `Surface.card` tint) lifts the
-        // card a shade brighter than the page instead; light mode keeps the plain fill.
         .background {
-            ZStack {
-                Theme.surface
-                if colorScheme == .dark {
-                    if isHeroInDark {
-                        Theme.surfaceGradient
-                    } else if appliesDarkWash {
-                        Theme.surfaceGradient
-                    }
-                }
+            let shape = RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+            if isHero {
+                shape.fill(Theme.surfaceGradient)
+            } else {
+                shape.fill(Theme.surface)
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-        // Both appearances get a hairline now — Aurora rule #5 ("depth = three surface steps +
-        // a 1px hairline") wants one in dark mode too, not just light's existing edge.
         .overlay {
             RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                .strokeBorder(
-                    colorScheme == .dark
-                        ? (isHeroInDark ? Theme.line : Theme.line)
-                        : Theme.textSecondary.opacity(0.18),
-                    lineWidth: 1
-                )
+                .strokeBorder(Theme.line, lineWidth: 1)
         }
         .shadow(
-            color: colorScheme == .dark && isHeroInDark ? Theme.Shadow.color : .clear,
-            radius: colorScheme == .dark && isHeroInDark ? Theme.Shadow.radius : 0,
-            y: colorScheme == .dark && isHeroInDark ? Theme.Shadow.y : 0
+            color: isFloating ? Theme.Shadow.color : .clear,
+            radius: isFloating ? Theme.Shadow.radius : 0,
+            y: isFloating ? Theme.Shadow.y : 0
         )
     }
 }

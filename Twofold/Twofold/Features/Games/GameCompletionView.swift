@@ -74,12 +74,8 @@ struct GameCompletionView: View {
 
                 Button(action: onPlayAnother) {
                     Text("Play Another Game")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding()
                 }
-                .background(Theme.primaryButtonGradient, in: Capsule())
-                .foregroundStyle(Theme.onPrimaryButton)
+                .buttonStyle(.twofoldPrimary)
 
                 if let onEditAnswers {
                     Button(action: onEditAnswers) {

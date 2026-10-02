@@ -79,12 +79,8 @@ struct DistanceShareView: View {
         if let image {
             ShareLink(item: Image(uiImage: image), preview: SharePreview("The distance between us", image: Image(uiImage: image))) {
                 Label("Share", systemImage: "square.and.arrow.up")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Theme.primaryButtonGradient, in: Capsule())
-                    .foregroundStyle(Theme.onPrimaryButton)
             }
+            .buttonStyle(.twofoldPrimary)
         }
     }
 

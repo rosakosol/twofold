@@ -117,12 +117,8 @@ struct FlightShareView: View {
         if page == 0 {
             ShareLink(item: shareText) {
                 Text("Share Text")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Theme.primaryButtonGradient, in: Capsule())
-                    .foregroundStyle(Theme.onPrimaryButton)
             }
+            .buttonStyle(.twofoldPrimary)
         } else {
             ctaRow(image: currentPageImage())
         }
@@ -137,16 +133,12 @@ struct FlightShareView: View {
             ShareLink(item: Image(uiImage: image), preview: SharePreview("Flight share", image: Image(uiImage: image))) {
                 shareButtonLabel
             }
+            .buttonStyle(.twofoldPrimary)
         }
     }
 
     private var shareButtonLabel: some View {
         Label("Share", systemImage: "square.and.arrow.up")
-            .font(.headline)
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(Theme.primaryButtonGradient, in: Capsule())
-            .foregroundStyle(Theme.onPrimaryButton)
     }
 
     @MainActor

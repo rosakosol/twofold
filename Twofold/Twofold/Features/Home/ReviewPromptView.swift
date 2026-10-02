@@ -59,12 +59,8 @@ struct ReviewPromptView: View {
                     dismiss()
                 } label: {
                     Text("Yes, Rate Twofold!")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding()
                 }
-                .background(Theme.primaryButtonGradient, in: Capsule())
-                .foregroundStyle(Theme.onPrimaryButton)
+                .buttonStyle(.twofoldPrimary)
 
                 Button("Not Right Now") { dismiss() }
                     .font(.subheadline)

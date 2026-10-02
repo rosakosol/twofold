@@ -46,12 +46,12 @@ struct FlightStatsCard: View {
                     Divider()
 
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: Theme.Spacing.sm), GridItem(.flexible())], spacing: Theme.Spacing.sm) {
-                        milestoneTile(icon: "building.2.fill", label: "Airports", value: "\(stats.airports.count)", tint: Theme.accent)
-                        milestoneTile(icon: "airplane.circle.fill", label: "Airlines", value: "\(stats.airlines.count)", tint: Theme.accent)
-                        milestoneTile(icon: "globe.americas.fill", label: "Countries", value: "\(stats.countries.count)", tint: Theme.success)
-                        milestoneTile(icon: "globe.desk.fill", label: "Long Haul", value: "\(stats.longHaulCount)", tint: Theme.indigo)
-                        milestoneTile(icon: "house.fill", label: "Domestic", value: "\(stats.domesticCount)", tint: Theme.violetFill)
-                        milestoneTile(icon: "airplane.departure", label: "International", value: "\(stats.internationalCount)", tint: Theme.coral)
+                        StatTile(icon: "building.2.fill", label: "Airports", value: "\(stats.airports.count)", chip: .blue)
+                        StatTile(icon: "airplane.circle.fill", label: "Airlines", value: "\(stats.airlines.count)", chip: .blue)
+                        StatTile(icon: "globe.americas.fill", label: "Countries", value: "\(stats.countries.count)", chip: .green)
+                        StatTile(icon: "globe.desk.fill", label: "Long Haul", value: "\(stats.longHaulCount)", chip: .indigo)
+                        StatTile(icon: "house.fill", label: "Domestic", value: "\(stats.domesticCount)", chip: .violet)
+                        StatTile(icon: "airplane.departure", label: "International", value: "\(stats.internationalCount)", chip: .coral)
                     }
 
                     if let onShowAllStats {
@@ -97,39 +97,6 @@ struct FlightStatsCard: View {
         .accessibilityElement(children: .combine)
     }
 
-    private func milestoneTile(icon: String, label: String, value: String, tint: Color) -> some View {
-        HStack(spacing: Theme.Spacing.sm) {
-            ZStack {
-                Circle().fill(tint.opacity(0.15))
-                Image(systemName: icon).font(.subheadline).foregroundStyle(tint)
-            }
-            .frame(width: 36, height: 36)
-            .accessibilityHidden(true)
-
-            VStack(alignment: .leading, spacing: 1) {
-                // `.lineLimit(1)` here matters for row-height consistency — without it, a longer
-                // label ("International") can wrap to 2 lines while a shorter one ("Airports")
-                // stays on 1, leaving tiles at different heights (see
-                // `RelationshipStatsCard.milestoneTile`'s identical fix).
-                Text(label)
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(Theme.textSecondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-                Text(value)
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(Theme.textPrimary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(Theme.Spacing.sm)
-        .themedCardBackground(cornerRadius: 14)
-        // Repeated 6-8× per card — without this, each tile reads as two separate VoiceOver swipes
-        // ("Longest trip", then "14 days") instead of one ("Longest trip: 14 days").
-        .accessibilityElement(children: .combine)
-    }
 }
 
 #Preview {

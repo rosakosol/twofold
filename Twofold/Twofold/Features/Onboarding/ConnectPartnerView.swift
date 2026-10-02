@@ -44,24 +44,16 @@ struct ConnectPartnerView: View {
                     }
                 } label: {
                     Text("Invite my partner")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Theme.primaryButtonGradient, in: Capsule())
-                        .foregroundStyle(Theme.onPrimaryButton)
                 }
+                .buttonStyle(.twofoldPrimary)
                 .disabled(isCreatingCode)
 
                 Button {
                     onboarding.path.append(.enterPartnerCode)
                 } label: {
                     Text("I have a partner code")
-                        .font(.subheadline.weight(.medium))
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Theme.surface, in: Capsule())
-                        .foregroundStyle(Theme.textPrimary)
                 }
+                .buttonStyle(.twofoldSecondary)
 
                 if let errorMessage {
                     Text(errorMessage)

@@ -25,23 +25,15 @@ struct NextTripView: View {
                     onboarding.path.append(.addTripDetails)
                 } label: {
                     Text("Add our next trip")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Theme.primaryButtonGradient, in: Capsule())
-                        .foregroundStyle(Theme.onPrimaryButton)
                 }
+                .buttonStyle(.twofoldPrimary)
 
                 Button {
                     onboarding.path.append(.reveal)
                 } label: {
                     Text("We don't know yet")
-                        .font(.subheadline.weight(.medium))
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Theme.surface, in: Capsule())
-                        .foregroundStyle(Theme.textPrimary)
                 }
+                .buttonStyle(.twofoldSecondary)
             }
             .padding(.horizontal, Theme.Spacing.lg)
             .padding(.bottom, Theme.Spacing.xl)

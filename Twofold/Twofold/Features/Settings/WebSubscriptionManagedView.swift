@@ -61,12 +61,8 @@ struct WebSubscriptionManagedView: View {
                 VStack(spacing: Theme.Spacing.sm) {
                     Link(destination: portal) {
                         Text("Manage on the web")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Theme.primaryButtonGradient, in: Capsule())
-                            .foregroundStyle(Theme.onPrimaryButton)
                     }
+                    .buttonStyle(.twofoldPrimary)
 
                     Button("Not now", action: onDismiss)
                         .font(.subheadline)

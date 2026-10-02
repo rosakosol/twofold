@@ -104,17 +104,20 @@ struct FullTripStatsView: View {
     /// segments until their labels are useless.
     private var controls: some View {
         VStack(spacing: Theme.Spacing.sm) {
-            Picker("Kind", selection: $scope) {
-                Text("All").tag(TripScope.all)
-                Text("Reunion").tag(TripScope.reunion)
-                Text("Together").tag(TripScope.together)
+            TwofoldSegmentedControl(
+                selection: $scope,
                 // Bare first names. "Solo · Rosa" repeated a category the segment already sits
                 // beside; a name alongside Reunion and Together reads as "the trips that were
                 // theirs" without needing the word.
-                Text(appModel.currentUser.name).tag(TripScope.soloMine)
-                Text(appModel.partner.name).tag(TripScope.soloPartner)
-            }
-            .pickerStyle(.segmented)
+                options: [
+                    (TripScope.all, "All"),
+                    (TripScope.reunion, "Reunion"),
+                    (TripScope.together, "Together"),
+                    (TripScope.soloMine, appModel.currentUser.name),
+                    (TripScope.soloPartner, appModel.partner.name),
+                ],
+                accessibilityLabel: "Kind"
+            )
 
             periodMenu
                 .frame(maxWidth: .infinity, alignment: .trailing)

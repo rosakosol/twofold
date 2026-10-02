@@ -77,12 +77,8 @@ struct ConnectionRequestReviewView: View {
                             respond(accept: false)
                         } label: {
                             Text("Decline")
-                                .font(.headline)
-                                .frame(maxWidth: .infinity)
-                                .padding()
                         }
-                        .background(Theme.surface, in: Capsule())
-                        .foregroundStyle(Theme.textPrimary)
+                        .buttonStyle(.twofoldSecondary)
 
                         Button {
                             if restorable != nil {
@@ -92,12 +88,8 @@ struct ConnectionRequestReviewView: View {
                             }
                         } label: {
                             Text("Accept")
-                                .font(.headline)
-                                .frame(maxWidth: .infinity)
-                                .padding()
                         }
-                        .background(Theme.primaryButtonGradient, in: Capsule())
-                        .foregroundStyle(Theme.onPrimaryButton)
+                        .buttonStyle(.twofoldPrimary)
                     }
                     .padding(.horizontal, Theme.Spacing.lg)
                     .padding(.bottom, Theme.Spacing.xl)

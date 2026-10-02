@@ -54,15 +54,12 @@ struct StreakRepairRow: View {
 
             Button(action: freezeAvailable ? onUseFreeze : onBuy) {
                 HStack(spacing: Theme.Spacing.xs) {
-                    if isWorking { ProgressView().controlSize(.small).tint(.white) }
+                    if isWorking { ProgressView().controlSize(.small) }
                     Text(buttonTitle)
-                        .font(.subheadline.weight(.semibold))
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, Theme.Spacing.sm)
             }
-            .background(Theme.primaryButtonGradient, in: Capsule())
-            .foregroundStyle(Theme.onPrimaryButton)
+            // Coral: streak repair is one of the two places the spec gives the coral button.
+            .buttonStyle(.twofoldCoral)
             .disabled(isWorking)
 
             if freezeAvailable {

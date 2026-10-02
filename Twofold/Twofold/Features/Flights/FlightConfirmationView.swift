@@ -108,22 +108,23 @@ struct FlightConfirmationView: View {
 
                     VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                         Text("Who's travelling?").font(.caption).foregroundStyle(Theme.textSecondary)
-                        Picker("Who's travelling?", selection: $travelerChoice) {
-                            Text(appModel.currentUser.name).tag(TravelerChoice.me)
-                            // Disabled rather than just warned-about — `appModel.partner` is a
+                        TwofoldSegmentedControl(
+                            selection: $travelerChoice,
+                            options: [
+                                (TravelerChoice.me, appModel.currentUser.name),
+                                (TravelerChoice.partner, appModel.partner.name),
+                                (TravelerChoice.both, "Both of us"),
+                            ],
+                            accessibilityLabel: "Who's travelling?",
+                            // Disabled rather than just warned-about: `appModel.partner` is a
                             // placeholder person pre-pairing, with no real profile row behind its
-                            // id, so letting this actually get submitted as a flight's traveler
-                            // would attribute it to someone who doesn't exist yet. `FlightConfirmationView`
-                            // only ever runs in the live app (never during onboarding — see
-                            // `AddFlightFlowView.Completion.confirmAndTrack`'s doc comment), so
-                            // there's no "partner isn't connected yet" exemption to make here.
-                            // Same reasoning applies to "Both", since it includes the partner.
-                            Text(appModel.partner.name).tag(TravelerChoice.partner)
-                                .disabled(!appModel.partnerConnected)
-                            Text("Both of us").tag(TravelerChoice.both)
-                                .disabled(!appModel.partnerConnected)
-                        }
-                        .pickerStyle(.segmented)
+                            // id, so submitting it as a flight's traveler would attribute the
+                            // flight to someone who doesn't exist yet. This screen only runs in the
+                            // live app, never during onboarding (see
+                            // `AddFlightFlowView.Completion.confirmAndTrack`), so there is no "not
+                            // connected yet" exemption to make. "Both" includes the partner too.
+                            disabledValues: appModel.partnerConnected ? [] : [.partner, .both]
+                        )
                     }
 
                     if !linkableTrips.isEmpty {

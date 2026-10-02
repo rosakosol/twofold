@@ -141,15 +141,11 @@ struct RelationshipTimelineView: View {
 
                     Button { buyOneExport() } label: {
                         HStack(spacing: Theme.Spacing.xs) {
-                            if isBuying { ProgressView().controlSize(.small).tint(.white) }
+                            if isBuying { ProgressView().controlSize(.small) }
                             Text(isBuying ? "Just a moment…" : "Buy this export")
-                                .font(.subheadline.weight(.semibold))
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, Theme.Spacing.sm)
                     }
-                    .background(Theme.primaryButtonGradient, in: Capsule())
-                    .foregroundStyle(Theme.onPrimaryButton)
+                    .buttonStyle(.twofoldPrimary)
                     .disabled(isBuying)
 
                     Button { showingPaywall = true } label: {
@@ -460,12 +456,8 @@ private struct ExportReadySheet: View {
             VStack(spacing: Theme.Spacing.sm) {
                 ShareLink(item: url, preview: SharePreview("Our Story", image: Image(systemName: "book.closed"))) {
                     Text("Save or Share")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding()
                 }
-                .background(Theme.primaryButtonGradient, in: Capsule())
-                .foregroundStyle(Theme.onPrimaryButton)
+                .buttonStyle(.twofoldPrimary)
 
                 Button("Not Right Now") { dismiss() }
                     .font(.subheadline)

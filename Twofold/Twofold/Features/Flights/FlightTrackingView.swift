@@ -288,16 +288,11 @@ struct FlightTrackingView: View {
 
                     Button(action: enableTracking) {
                         HStack {
-                            if isEnablingTracking { ProgressView().tint(.white).controlSize(.small) }
+                            if isEnablingTracking { ProgressView().controlSize(.small) }
                             Text(isEnablingTracking ? "Turning on…" : "Turn on live tracking")
                         }
-                        .font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, Theme.Spacing.sm)
-                        .foregroundStyle(Theme.onPrimaryButton)
-                        .background(Theme.primaryButtonGradient, in: Capsule())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.twofoldPrimary)
                     .disabled(isEnablingTracking)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -377,17 +372,7 @@ struct FlightTrackingView: View {
                 .minimumScaleFactor(0.8)
 
             HStack(spacing: Theme.Spacing.sm) {
-                // See FlightRowView's matching check — a pending flight (added from a
-                // schedule-only candidate, no faFlightID yet) still just derives to "Scheduled"
-                // like any normal live flight, which reads as tracking already having started.
-                if flight.faFlightID == nil {
-                    PillBadge(text: "Not live yet", tint: Theme.textSecondary)
-                } else {
-                    PillBadge(text: flight.status.displayLabel, tint: flight.status.semanticColor)
-                }
-                if flight.isDelayed, flight.status != .cancelled {
-                    Image(systemName: flight.status.icon).font(.caption2).foregroundStyle(Theme.warning)
-                }
+                StatusPill(flight: flight)
                 Text(flight.countdownSummary)
                     .font(.title2.weight(.bold))
             }

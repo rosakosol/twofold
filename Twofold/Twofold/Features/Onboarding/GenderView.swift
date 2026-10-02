@@ -71,26 +71,12 @@ struct GenderView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, Theme.Spacing.md)
-            // Dark mode swaps the unselected border for `Theme.cardGradientDark`'s translucent
-            // wash instead — same "raised, not outlined" treatment as `SectionCard` and the other
-            // onboarding cards. Selected keeps its accent border in both appearances.
-            .background {
-                ZStack {
-                    Theme.surface
-                    if colorScheme == .dark {
-                        Theme.surfaceGradient
-                    }
-                }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+            .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
             .overlay {
-                if isSelected {
-                    RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                        .strokeBorder(Theme.selectionGradient, lineWidth: 2)
-                } else if colorScheme != .dark {
-                    RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                        .strokeBorder(Theme.textSecondary.opacity(0.25), lineWidth: 1.25)
-                }
+                // Blue is the colour of a selected state: a 2pt `accent` border once chosen, the
+                // standard 1pt `line` otherwise.
+                RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+                    .strokeBorder(isSelected ? Theme.accent : Theme.line, lineWidth: isSelected ? 2 : 1)
             }
         }
         .buttonStyle(.plain)

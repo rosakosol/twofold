@@ -98,30 +98,22 @@ struct AddTripDetailsView: View {
 
                     VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                         Text("Who's travelling?").font(.caption).foregroundStyle(Theme.textSecondary)
-                        Picker("Who's travelling?", selection: $traveler) {
-                            Text("You").tag(TripTraveler.you)
-                            // Disabled (not just warned-about) outside onboarding — same
-                            // reasoning as `FlightConfirmationView`'s picker: post-onboarding,
-                            // `appModel.partner` being a placeholder with no real profile behind
-                            // it means selecting it shouldn't even be possible. Still fully
-                            // enabled during onboarding itself, where not having a partner
-                            // connected yet is the expected, normal state, not a problem to flag.
-                            Text(partnerName).tag(TripTraveler.partner)
-                                .disabled(mode == .standalone && !appModel.partnerConnected)
-                            Text("Both").tag(TripTraveler.both)
-                                .disabled(mode == .standalone && !appModel.partnerConnected)
-                        }
-                        .pickerStyle(.segmented)
+                        TwofoldSegmentedControl(
+                            selection: $traveler,
+                            options: [(TripTraveler.you, "You"), (TripTraveler.partner, partnerName), (TripTraveler.both, "Both")],
+                            accessibilityLabel: "Who's travelling?",
+                            // Disabled (not just warned-about) outside onboarding, for the same
+                            // reason as `FlightConfirmationView`'s control: post-onboarding,
+                            // `appModel.partner` is a placeholder with no real profile behind it.
+                            // Fully enabled during onboarding itself, where having no partner
+                            // connected yet is the normal state.
+                            disabledValues: mode == .standalone && !appModel.partnerConnected ? [.partner, .both] : []
+                        )
                     }
 
                     VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                         Text("What kind of trip is this?").font(.caption).foregroundStyle(Theme.textSecondary)
-                        Picker("Trip category", selection: $category) {
-                            ForEach(TripCategory.allCases) { category in
-                                Text(category.displayName).tag(category)
-                            }
-                        }
-                        .pickerStyle(.segmented)
+                        TwofoldSegmentedControl(selection: $category, options: TripCategory.allCases.map { ($0, $0.displayName) }, accessibilityLabel: "Trip category")
                     }
                 }
             },

@@ -56,11 +56,7 @@ struct StreakRepairPromptView: View {
             VStack(spacing: Theme.Spacing.sm) {
                 if case .repaired = store.phase {
                     Button("Done") { dismiss() }
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Theme.primaryButtonGradient, in: Capsule())
-                        .foregroundStyle(Theme.onPrimaryButton)
+                        .buttonStyle(.twofoldPrimary)
                 } else {
                     Button {
                         Task { await repairNow() }
@@ -70,11 +66,8 @@ struct StreakRepairPromptView: View {
                             Text(primaryTitle)
                                 .font(.headline)
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Theme.primaryButtonGradient, in: Capsule())
-                        .foregroundStyle(Theme.onPrimaryButton)
                     }
+                    .buttonStyle(.twofoldPrimary)
                     .disabled(isWorking)
 
                     // Plain, and as easy to reach as the other one. This is a popup someone did not

@@ -125,11 +125,8 @@ struct ConnectFourEntryView: View {
                 Text("Play")
                     .font(.headline)
             }
-            .frame(maxWidth: .infinity)
-            .padding()
         }
-        .background(Theme.primaryButtonGradient, in: Capsule())
-        .foregroundStyle(Theme.onPrimaryButton)
+        .buttonStyle(.twofoldPrimary)
         .disabled(isStarting)
     }
 

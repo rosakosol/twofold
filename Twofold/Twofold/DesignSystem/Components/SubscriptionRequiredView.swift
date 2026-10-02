@@ -64,12 +64,8 @@ struct SubscriptionRequiredView: View {
             VStack(spacing: Theme.Spacing.sm) {
                 Button { showingPaywall = true } label: {
                     Text("See plans")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding()
                 }
-                .background(Theme.primaryButtonGradient, in: Capsule())
-                .foregroundStyle(Theme.onPrimaryButton)
+                .buttonStyle(.twofoldPrimary)
 
                 Button("Not now") { dismiss() }
                     .font(.subheadline)

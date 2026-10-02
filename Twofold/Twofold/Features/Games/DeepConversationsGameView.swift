@@ -205,12 +205,8 @@ struct DeepConversationsGameView: View {
                 submit(round: round, value: responseText.trimmingCharacters(in: .whitespacesAndNewlines))
             } label: {
                 Text("Next")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding()
             }
-            .background(Theme.primaryButtonGradient, in: Capsule())
-            .foregroundStyle(Theme.onPrimaryButton)
+            .buttonStyle(.twofoldPrimary)
             // On the daily question, an empty "Next" tap would otherwise be a skip in
             // everything but name — require real text there, same intent as hiding SkipButton
             // below.

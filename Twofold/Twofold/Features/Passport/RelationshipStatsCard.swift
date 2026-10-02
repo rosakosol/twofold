@@ -81,35 +81,35 @@ struct RelationshipStatsCard: View {
 
                     LazyVGrid(columns: milestoneColumns, spacing: Theme.Spacing.sm) {
                         if showReunionsStat {
-                            milestoneTile(icon: "heart.fill", label: "Total Reunions", value: "\(stats.reunionCount)", tint: Theme.coral)
+                            StatTile(icon: "heart.fill", label: "Total Reunions", value: "\(stats.reunionCount)", chip: .coral)
                         }
-                        milestoneTile(icon: "airplane", label: "Furthest Apart", value: MeasurementPreference.distanceLabel(km: stats.longestDistanceKm), tint: Theme.accent)
-                        milestoneTile(
+                        StatTile(icon: "airplane", label: "Furthest Apart", value: MeasurementPreference.distanceLabel(km: stats.longestDistanceKm), chip: .blue)
+                        StatTile(
                             icon: "arrow.up.right",
                             label: "Longest Trip",
                             value: stats.longestTrip.map { RelationshipMilestoneStats.tripDuration($0) } ?? "—",
                             detail: stats.longestTrip?.destination.displayCity,
-                            tint: Theme.success
+                            chip: .green
                         )
-                        milestoneTile(
+                        StatTile(
                             icon: "arrow.down.left",
                             label: "Shortest Trip",
                             value: stats.shortestTrip.map { RelationshipMilestoneStats.tripDuration($0) } ?? "—",
                             detail: stats.shortestTrip?.destination.displayCity,
-                            tint: Theme.success
+                            chip: .indigo
                         )
-                        milestoneTile(
+                        StatTile(
                             icon: "hourglass",
                             label: "Longest Gap",
                             value: stats.longestSeparationDays.map { "\($0) days" } ?? "—",
-                            tint: Theme.violetFill
+                            chip: .violet
                         )
-                        milestoneTile(
+                        StatTile(
                             icon: "calendar.badge.clock",
                             label: "Next Reunion",
                             value: stats.nextReunionDaysToGo.map { $0 == 0 ? "Today!" : "\($0) days" } ?? "Plan one",
                             detail: stats.nextReunion?.destination.displayCity,
-                            tint: Theme.indigo
+                            chip: .coral
                         )
                     }
                 }
@@ -172,47 +172,6 @@ struct RelationshipStatsCard: View {
         .accessibilityElement(children: .combine)
     }
 
-    private func milestoneTile(icon: String, label: String, value: String, detail: String? = nil, tint: Color) -> some View {
-        HStack(spacing: Theme.Spacing.sm) {
-            ZStack {
-                Circle().fill(tint.opacity(0.15))
-                Image(systemName: icon).font(.subheadline).foregroundStyle(tint)
-            }
-            .frame(width: 36, height: 36)
-            .accessibilityHidden(true)
-
-            VStack(alignment: .leading, spacing: 1) {
-                // `.lineLimit(1)` here matters as much as the value/detail reservation below —
-                // without it, a longer label ("Furthest Apart", "Longest Separation")
-                // wraps to 2 lines while its shorter row-neighbor ("Total Reunions", "Next
-                // Reunion") stays on 1, so the two tiles in that row end up different heights
-                // despite the value/detail lines already being reserved consistently.
-                Text(label)
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(Theme.textSecondary)
-                    .lineLimit(capsLinesToFitGrid ? 1 : nil)
-                    .minimumScaleFactor(capsLinesToFitGrid ? 0.75 : 1)
-                Text(value)
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(Theme.textPrimary)
-                    .lineLimit(capsLinesToFitGrid ? 1 : nil)
-                    .minimumScaleFactor(capsLinesToFitGrid ? 0.8 : 1)
-                // Always reserve the detail line's height (even when there's no detail) so every
-                // tile in the grid ends up the same height — some milestones (reunions, longest
-                // separation) never have a detail string, which otherwise made their tiles shorter
-                // than their row neighbors.
-                Text(detail ?? " ")
-                    .font(.caption2)
-                    .foregroundStyle(Theme.textSecondary)
-                    .lineLimit(capsLinesToFitGrid ? 1 : nil)
-                    .opacity(detail == nil ? 0 : 1)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(Theme.Spacing.sm)
-        .themedCardBackground(cornerRadius: 14)
-        .accessibilityElement(children: .combine)
-    }
 }
 
 #Preview {

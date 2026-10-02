@@ -108,11 +108,8 @@ struct WordGuessEntryView: View {
                 Text("Play today's word")
                     .font(.headline)
             }
-            .frame(maxWidth: .infinity)
-            .padding()
         }
-        .background(Theme.primaryButtonGradient, in: Capsule())
-        .foregroundStyle(Theme.onPrimaryButton)
+        .buttonStyle(.twofoldPrimary)
         .disabled(isStarting)
     }
 

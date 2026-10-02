@@ -419,12 +419,7 @@ struct TripsListView: View {
 
                 if showingControls {
                     HStack(spacing: Theme.Spacing.md) {
-                        Picker("Section", selection: $tab) {
-                            ForEach(TripsTab.allCases, id: \.self) { option in
-                                Text(option.rawValue).tag(option)
-                            }
-                        }
-                        .pickerStyle(.segmented)
+                        TwofoldSegmentedControl(selection: $tab, accessibilityLabel: "Section")
 
                         // Goes straight to whichever add flow matches the currently-visible tab — this
                         // used to be a Menu offering both "Add Trip"/"Add Flight" regardless of `tab`,

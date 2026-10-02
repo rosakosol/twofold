@@ -54,14 +54,12 @@ struct ForgotPasswordView: View {
                             send()
                         } label: {
                             if isSubmitting {
-                                ProgressView().tint(Theme.onPrimaryButton).frame(maxWidth: .infinity)
+                                ProgressView()
                             } else {
-                                Text("Send Reset Link").font(.headline).frame(maxWidth: .infinity)
+                                Text("Send Reset Link")
                             }
                         }
-                        .padding()
-                        .background(canSubmit ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.textSecondary.opacity(0.3)), in: Capsule())
-                        .foregroundStyle(Theme.onPrimaryButton)
+                        .buttonStyle(.twofoldPrimary)
                         .disabled(!canSubmit)
                     }
                     .padding(.horizontal, Theme.Spacing.lg)

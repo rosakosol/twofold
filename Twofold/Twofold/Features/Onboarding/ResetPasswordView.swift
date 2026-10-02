@@ -79,14 +79,12 @@ struct ResetPasswordView: View {
                             save()
                         } label: {
                             if isSubmitting {
-                                ProgressView().tint(Theme.onPrimaryButton).frame(maxWidth: .infinity)
+                                ProgressView()
                             } else {
-                                Text("Save Password").font(.headline).frame(maxWidth: .infinity)
+                                Text("Save Password")
                             }
                         }
-                        .padding()
-                        .background(canSubmit ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.textSecondary.opacity(0.3)), in: Capsule())
-                        .foregroundStyle(Theme.onPrimaryButton)
+                        .buttonStyle(.twofoldPrimary)
                         .disabled(!canSubmit)
                     }
                     .padding(.horizontal, Theme.Spacing.lg)

@@ -5,33 +5,26 @@
 
 import SwiftUI
 
+/// A tag: a game type, a topic, an airport code. Not a status (that is `StatusPill`, which always
+/// carries an icon). A capsule, 12pt semibold.
 struct PillBadge: View {
     let text: String
     var tint: Color = Theme.success
-    /// True for pure category/label pills with no real state behind them (a game topic, a game
-    /// type tag) — Aurora rule #2 says a hue means state (blue = live, green = matched, red =
-    /// destructive/love) and never appears decoratively, so these get the neutral chip treatment
-    /// in dark mode instead of carrying their own decorative color. Light mode is untouched
-    /// either way — this only ever changes the dark-mode rendering.
+    /// A category with no state behind it (a game type, a topic): neutral, so a hue never appears
+    /// where it means nothing (spec principle 2).
     var isNeutral: Bool = false
-
-    @Environment(\.colorScheme) private var colorScheme
-
-    private var isDarkNeutral: Bool { isNeutral && colorScheme == .dark }
-    private var textColor: Color { isDarkNeutral ? Theme.textSecondary : tint }
 
     var body: some View {
         Text(text)
             .font(.caption.weight(.semibold))
-            .padding(.horizontal, Theme.Spacing.sm)
+            .lineLimit(1)
+            .padding(.horizontal, 10)
             .padding(.vertical, 4)
-            .foregroundStyle(textColor)
-            .background(isDarkNeutral ? Theme.raised : tint.opacity(0.15), in: Capsule())
+            .foregroundStyle(isNeutral ? Theme.textSecondary : tint)
+            .background(isNeutral ? AnyShapeStyle(Theme.raised) : AnyShapeStyle(tint.opacity(0.14)), in: Capsule())
             .overlay {
-                // Aurora chips carry a hairline edge alongside the fill — light mode's flat fill
-                // with no border is left exactly as it was.
-                if colorScheme == .dark {
-                    Capsule().stroke(isDarkNeutral ? Theme.line : tint.opacity(0.34), lineWidth: 1)
+                if isNeutral {
+                    Capsule().strokeBorder(Theme.line, lineWidth: 1)
                 }
             }
     }

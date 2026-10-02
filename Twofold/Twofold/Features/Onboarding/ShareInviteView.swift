@@ -64,24 +64,16 @@ struct ShareInviteView: View {
                     message: Text("Join me on Twofold — download the app and enter code \(code), or tap this link if you already have it installed:")
                 ) {
                     Label("Share invite", systemImage: "square.and.arrow.up")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding()
                 }
-                .background(Theme.primaryButtonGradient, in: Capsule())
-                .foregroundStyle(Theme.onPrimaryButton)
+                .buttonStyle(.twofoldPrimary)
 
                 Button {
                     UIPasteboard.general.string = shareURL.absoluteString
                     didCopy = true
                 } label: {
                     Label(didCopy ? "Copied!" : "Copy link", systemImage: didCopy ? "checkmark" : "doc.on.doc")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding()
                 }
-                .background(Theme.surface, in: Capsule())
-                .foregroundStyle(Theme.textPrimary)
+                .buttonStyle(.twofoldSecondary)
 
                 Text("We'll let you know the moment they join.")
                     .font(.caption)

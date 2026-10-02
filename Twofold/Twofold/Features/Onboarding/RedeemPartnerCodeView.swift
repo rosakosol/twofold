@@ -145,12 +145,8 @@ struct RedeemPartnerCodeView: View {
                     if isRedeeming { ProgressView().tint(.white) }
                     Text(isRedeeming ? "Connecting…" : "Connect")
                 }
-                .font(.headline)
-                .frame(maxWidth: .infinity)
-                .padding()
             }
-            .background(canRedeem ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.textSecondary.opacity(0.3)), in: Capsule())
-            .foregroundStyle(Theme.onPrimaryButton)
+            .buttonStyle(.twofoldPrimary)
             .disabled(!canRedeem)
             .padding(.horizontal, Theme.Spacing.lg)
             .padding(.bottom, Theme.Spacing.xl)
@@ -181,12 +177,8 @@ struct RedeemPartnerCodeView: View {
                 dismiss()
             } label: {
                 Text("Done")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding()
             }
-            .background(Theme.primaryButtonGradient, in: Capsule())
-            .foregroundStyle(Theme.onPrimaryButton)
+            .buttonStyle(.twofoldPrimary)
             .padding(.horizontal, Theme.Spacing.lg)
             .padding(.bottom, Theme.Spacing.xl)
         }

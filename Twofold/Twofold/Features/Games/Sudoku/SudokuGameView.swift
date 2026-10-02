@@ -220,11 +220,8 @@ struct SudokuGameView: View {
                     )
                     .font(.headline)
                 }
-                .frame(maxWidth: .infinity)
-                .padding()
             }
-            .background(Theme.primaryButtonGradient, in: Capsule())
-            .foregroundStyle(Theme.onPrimaryButton)
+            .buttonStyle(.twofoldPrimary)
             .disabled(isStartingRematch)
 
             if let rematchFailed {

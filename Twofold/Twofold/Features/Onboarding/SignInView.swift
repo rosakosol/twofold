@@ -95,14 +95,12 @@ struct SignInView: View {
                             signInWithPassword()
                         } label: {
                             if isPasswordInFlight {
-                                ProgressView().tint(Theme.onPrimaryButton).frame(maxWidth: .infinity)
+                                ProgressView()
                             } else {
-                                Text("Sign In").font(.headline).frame(maxWidth: .infinity)
+                                Text("Sign In")
                             }
                         }
-                        .padding()
-                        .background(canSubmit ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.textSecondary.opacity(0.3)), in: Capsule())
-                        .foregroundStyle(Theme.onPrimaryButton)
+                        .buttonStyle(.twofoldPrimary)
                         .disabled(!canSubmit)
 
                         HStack {

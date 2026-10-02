@@ -46,30 +46,30 @@ struct TripStatsCard: View {
                     Divider()
 
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: Theme.Spacing.sm), GridItem(.flexible())], spacing: Theme.Spacing.sm) {
-                        milestoneTile(
+                        StatTile(
                             icon: "arrow.up.right",
                             label: "Longest Trip",
                             value: stats.longestTrip.map { RelationshipMilestoneStats.tripDuration($0) } ?? "—",
                             detail: stats.longestTrip?.destination.displayCity,
-                            tint: Theme.success
+                            chip: .green
                         )
-                        milestoneTile(
+                        StatTile(
                             icon: "arrow.down.left",
                             label: "Shortest Trip",
                             value: stats.shortestTrip.map { RelationshipMilestoneStats.tripDuration($0) } ?? "—",
                             detail: stats.shortestTrip?.destination.displayCity,
-                            tint: Theme.success
+                            chip: .green
                         )
-                        milestoneTile(
+                        StatTile(
                             icon: "mappin.and.ellipse",
                             label: "Top Destination",
                             value: stats.topDestination?.name ?? "—",
                             detail: stats.topDestination.map { $0.count == 1 ? "1 trip" : "\($0.count) trips" },
-                            tint: Theme.accent
+                            chip: .blue
                         )
-                        milestoneTile(icon: "heart.fill", label: "Reunion Trips", value: "\(stats.reunionCount)", tint: Theme.coral)
-                        milestoneTile(icon: "calendar.badge.clock", label: "Upcoming", value: "\(stats.upcomingCount)", tint: Theme.indigo)
-                        milestoneTile(icon: "checkmark.circle.fill", label: "Completed", value: "\(stats.pastCount)", tint: Theme.violetFill)
+                        StatTile(icon: "heart.fill", label: "Reunion Trips", value: "\(stats.reunionCount)", chip: .coral)
+                        StatTile(icon: "calendar.badge.clock", label: "Upcoming", value: "\(stats.upcomingCount)", chip: .indigo)
+                        StatTile(icon: "checkmark.circle.fill", label: "Completed", value: "\(stats.pastCount)", chip: .violet)
                     }
 
                     // Identical to `FlightStatsCard`'s own drill-in row — same tinted pill, same
@@ -118,48 +118,6 @@ struct TripStatsCard: View {
         .accessibilityElement(children: .combine)
     }
 
-    private func milestoneTile(icon: String, label: String, value: String, detail: String? = nil, tint: Color) -> some View {
-        HStack(spacing: Theme.Spacing.sm) {
-            ZStack {
-                Circle().fill(tint.opacity(0.15))
-                Image(systemName: icon).font(.subheadline).foregroundStyle(tint)
-            }
-            .frame(width: 36, height: 36)
-            .accessibilityHidden(true)
-
-            VStack(alignment: .leading, spacing: 1) {
-                // `.lineLimit(1)` here matters as much as the value/detail reservation below —
-                // without it, a longer label ("Top Destination") wraps to 2 lines while a shorter
-                // row-neighbor ("Reunion Trips") stays on 1, leaving the two tiles in that row
-                // different heights despite the value/detail lines already being reserved
-                // consistently (see `RelationshipStatsCard.milestoneTile`'s identical fix).
-                Text(label)
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(Theme.textSecondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-                Text(value)
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(Theme.textPrimary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-                // Always reserve the detail line's height (even when there's no detail) so every
-                // tile in the grid ends up the same height — same fix `RelationshipStatsCard`'s
-                // own `milestoneTile` already applies. Without this, a tile with a detail (e.g.
-                // "Top Destination") is a line taller than its row-sibling without one (e.g.
-                // "Reunion Trips"), so the two don't line up.
-                Text(detail ?? " ")
-                    .font(.caption2)
-                    .foregroundStyle(Theme.textSecondary)
-                    .lineLimit(1)
-                    .opacity(detail == nil ? 0 : 1)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(Theme.Spacing.sm)
-        .themedCardBackground(cornerRadius: 14)
-        .accessibilityElement(children: .combine)
-    }
 }
 
 #Preview {

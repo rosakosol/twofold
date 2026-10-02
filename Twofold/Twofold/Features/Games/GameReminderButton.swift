@@ -36,12 +36,8 @@ struct GameReminderButton: View {
                     Text("Send Reminder")
                 }
             }
-            .font(.headline)
-            .frame(maxWidth: .infinity)
-            .padding()
-            .foregroundStyle(Theme.textPrimary)
-            .background(Theme.surface, in: Capsule())
         }
+        .buttonStyle(.twofoldSecondary)
         .disabled(isSending)
     }
 }

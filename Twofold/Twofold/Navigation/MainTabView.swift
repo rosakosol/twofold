@@ -28,7 +28,6 @@ struct MainTabView: View {
     init(selection: Binding<MainTab> = .constant(.home), statsSection: Binding<StatsSection?> = .constant(nil)) {
         _selection = selection
         _statsSection = statsSection
-        Self.configureTabBarAppearance()
     }
 
     var body: some View {
@@ -54,6 +53,11 @@ struct MainTabView: View {
                     .postHogScreenView("Passport")
             }
         }
+        // The floating tab bar of the redesign (section 5) is the system's own on iOS 26: a Liquid
+        // Glass capsule above the content, with a pill behind the active tab. The only thing
+        // set here is that the active tab's icon and label are `accent`. A custom
+        // `UITabBarAppearance` background used to sit here; on iOS 26 it replaces the glass with
+        // an opaque bar, so it is gone.
         .tint(Theme.accent)
         // Here rather than on any one screen: a refused write can come from Trips, Memories or a
         // sheet presented over either, and the alert has to outlive whichever of those the person
@@ -86,26 +90,6 @@ struct MainTabView: View {
                 .accessibilityValue("\(appModel.refreshAllCount)")
         }
         #endif
-    }
-
-    /// Applied once via `UITabBar.appearance()` — SwiftUI's `TabView` has no direct modifier for
-    /// the bar's own background/border/unselected-item color, only `.tint()` for the selected
-    /// state. The colours are the `tabBar`, `line` and `textSecondary` tokens, which adapt to
-    /// appearance themselves.
-    private static func configureTabBarAppearance() {
-        let appearance = UITabBarAppearance()
-        appearance.configureWithDefaultBackground()
-        appearance.backgroundColor = UIColor(Theme.tabBar)
-        appearance.shadowColor = UIColor(Theme.line)
-
-        let unselected = UIColor(Theme.textSecondary)
-        for itemAppearance in [appearance.stackedLayoutAppearance, appearance.inlineLayoutAppearance, appearance.compactInlineLayoutAppearance] {
-            itemAppearance.normal.iconColor = unselected
-            itemAppearance.normal.titleTextAttributes = [.foregroundColor: unselected]
-        }
-
-        UITabBar.appearance().standardAppearance = appearance
-        UITabBar.appearance().scrollEdgeAppearance = appearance
     }
 }
 

@@ -62,12 +62,7 @@ struct PassportView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: Theme.Spacing.lg) {
-                    Picker("Section", selection: $section) {
-                        ForEach(StatsSection.allCases, id: \.self) { option in
-                            Text(option.rawValue).tag(option)
-                        }
-                    }
-                    .pickerStyle(.segmented)
+                    TwofoldSegmentedControl(selection: $section, accessibilityLabel: "Section")
 
                     switch section {
                     case .relationship:
@@ -208,12 +203,11 @@ private struct FullStatsView: View {
                 // name. Full width gives the names room, and the menu keeps its trailing position
                 // on the row beneath.
                 VStack(spacing: Theme.Spacing.sm) {
-                    Picker("Who", selection: $scope) {
-                        Text("All").tag(StatScope.all)
-                        Text(appModel.currentUser.name).tag(StatScope.user)
-                        Text(appModel.partner.name).tag(StatScope.partner)
-                    }
-                    .pickerStyle(.segmented)
+                    TwofoldSegmentedControl(
+                        selection: $scope,
+                        options: [(StatScope.all, "All"), (StatScope.user, appModel.currentUser.name), (StatScope.partner, appModel.partner.name)],
+                        accessibilityLabel: "Who"
+                    )
 
                     periodMenu
                         .frame(maxWidth: .infinity, alignment: .trailing)

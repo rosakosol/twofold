@@ -71,12 +71,8 @@ struct PendingConnectionApprovalView: View {
                             if isRefreshing { ProgressView() }
                             Text(isRefreshing ? "Checking…" : "Check again")
                         }
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Theme.surface, in: Capsule())
-                        .foregroundStyle(Theme.textPrimary)
                     }
+                    .buttonStyle(.twofoldSecondary)
                     .disabled(isRefreshing)
 
                     Button {
@@ -92,12 +88,8 @@ struct PendingConnectionApprovalView: View {
                             if isSendingReminder { ProgressView() }
                             Text(isSendingReminder ? "Sending…" : "Send a reminder")
                         }
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Theme.primaryButtonGradient, in: Capsule())
-                        .foregroundStyle(Theme.onPrimaryButton)
                     }
+                    .buttonStyle(.twofoldPrimary)
                     .disabled(isSendingReminder)
                 }
                 .padding(.horizontal, Theme.Spacing.lg)

@@ -95,12 +95,8 @@ struct GameResultsView: View {
 
                         Button(action: onPlayAnother) {
                             Text("Play Another Game")
-                                .font(.headline)
-                                .frame(maxWidth: .infinity)
-                                .padding()
                         }
-                        .background(Theme.primaryButtonGradient, in: Capsule())
-                        .foregroundStyle(Theme.onPrimaryButton)
+                        .buttonStyle(.twofoldPrimary)
                     }
                 }
                 // Asymmetric on purpose — a full `.lg` top inset here left a lot of dead space

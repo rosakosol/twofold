@@ -71,12 +71,7 @@ struct ExportDataView: View {
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(Theme.textPrimary)
 
-                        Picker("Data", selection: $options.dataFormat) {
-                            ForEach(CoupleDataExporter.Options.DataFormat.allCases) { format in
-                                Text(format.label).tag(format)
-                            }
-                        }
-                        .pickerStyle(.segmented)
+                        TwofoldSegmentedControl(selection: $options.dataFormat, options: CoupleDataExporter.Options.DataFormat.allCases.map { ($0, $0.label) }, accessibilityLabel: "Data")
 
                         Text(options.dataFormat == .csv
                              ? "Opens in Numbers, Excel or Google Sheets."
@@ -101,12 +96,8 @@ struct ExportDataView: View {
                                 preview: SharePreview("Twofold export", image: Image(systemName: "doc.zipper"))
                             ) {
                                 Text("Save or share")
-                                    .font(.headline)
-                                    .frame(maxWidth: .infinity)
-                                    .padding()
                             }
-                            .background(Theme.primaryButtonGradient, in: Capsule())
-                            .foregroundStyle(Theme.onPrimaryButton)
+                            .buttonStyle(.twofoldPrimary)
 
                             Button("Build it again") { self.result = nil }
                                 .font(.subheadline)
@@ -115,18 +106,11 @@ struct ExportDataView: View {
                         } else {
                             Button(action: runExport) {
                                 HStack(spacing: Theme.Spacing.xs) {
-                                    if isExporting { ProgressView().controlSize(.small).tint(.white) }
+                                    if isExporting { ProgressView().controlSize(.small) }
                                     Text(isExporting ? status : "Export")
-                                        .font(.headline)
                                 }
-                                .frame(maxWidth: .infinity)
-                                .padding()
                             }
-                            .background(
-                                (options.isEmpty || isExporting) ? AnyShapeStyle(Theme.textSecondary.opacity(0.3)) : AnyShapeStyle(Theme.primaryButtonGradient),
-                                in: Capsule()
-                            )
-                            .foregroundStyle(Theme.onPrimaryButton)
+                            .buttonStyle(.twofoldPrimary)
                             .disabled(options.isEmpty || isExporting)
 
                             if options.isEmpty {

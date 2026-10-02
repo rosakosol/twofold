@@ -19,12 +19,7 @@ struct AppearanceSettingsView: View {
                     // `.inline` renders as unreliable, unresponsive rows outside a real `List` —
                     // `SectionCard` is a plain VStack, so segmented (also a better fit for a
                     // 3-way choice) is what actually registers taps here.
-                    Picker("Appearance", selection: $store.appearance) {
-                        ForEach(AppAppearance.allCases, id: \.self) { option in
-                            Text(option.displayName).tag(option)
-                        }
-                    }
-                    .pickerStyle(.segmented)
+                    TwofoldSegmentedControl(selection: $store.appearance, options: AppAppearance.allCases.map { ($0, $0.displayName) }, accessibilityLabel: "Appearance")
                 }
 
                 Text("Controls whether Twofold uses Light or Dark appearance, or follows your device's system setting — on this device only.")

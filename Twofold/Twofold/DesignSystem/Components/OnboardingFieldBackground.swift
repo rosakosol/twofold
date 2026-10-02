@@ -13,30 +13,17 @@
 
 import SwiftUI
 
+/// A single-line field on the redesign's terms (section 5): a capsule on `surface` with a 1pt
+/// `controlLine` outline. The outline is what marks the field, so it is the control-outline token
+/// (3.5:1 / 3.4:1), not the decorative `line` a card uses.
 private struct OnboardingFieldBackground: ViewModifier {
-    @Environment(\.colorScheme) private var colorScheme
-
     func body(content: Content) -> some View {
-        // No `.padding()` here — every call site already applies its own immediately before
-        // this modifier, so adding a second one here would double it up.
+        // No `.padding()` here: every call site applies its own immediately before this modifier.
         content
-            // Same dark-mode treatment as `SectionCard`: a translucent `Theme.cardGradientDark`
-            // wash lifts the field a shade brighter than the page instead of relying on a
-            // hairline border to separate it. Light mode keeps the plain fill + border.
-            .background {
-                ZStack {
-                    Theme.surface
-                    if colorScheme == .dark {
-                        Theme.surfaceGradient
-                    }
-                }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+            .background(Theme.surface, in: Capsule(style: .continuous))
             .overlay {
-                if colorScheme != .dark {
-                    RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                        .strokeBorder(Theme.textSecondary.opacity(0.25), lineWidth: 1.25)
-                }
+                Capsule(style: .continuous)
+                    .strokeBorder(Theme.controlLine, lineWidth: 1)
             }
     }
 }

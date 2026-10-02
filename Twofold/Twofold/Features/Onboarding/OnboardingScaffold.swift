@@ -135,24 +135,13 @@ struct OnboardingScaffold<Content: View>: View {
         VStack(spacing: Theme.Spacing.sm) {
             if let primaryTitle, let primaryAction {
                 Button(action: primaryAction) {
-                    Group {
-                        if primaryLoading {
-                            ProgressView().tint(.white)
-                        } else {
-                            Text(primaryTitle)
-                        }
+                    if primaryLoading {
+                        ProgressView()
+                    } else {
+                        Text(primaryTitle)
                     }
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding()
                 }
-                .background(
-                    primaryDisabled
-                        ? AnyShapeStyle(Theme.textSecondary.opacity(0.3))
-                        : AnyShapeStyle(Theme.primaryButtonGradient),
-                    in: Capsule()
-                )
-                .foregroundStyle(Theme.onPrimaryButton)
+                .buttonStyle(.twofoldPrimary)
                 .disabled(primaryDisabled)
                 // A bare `ProgressView()` (the loading state above) has no default accessible
                 // label of its own — without this, VoiceOver announces nothing while a purchase/
@@ -278,7 +267,7 @@ struct OnboardingCard: View {
                 }
                 Spacer(minLength: 0)
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(isSelected ? Theme.success : Theme.textSecondary.opacity(0.3))
+                    .foregroundStyle(isSelected ? Theme.accent : Theme.controlLine)
             }
             .padding(Theme.Spacing.md)
             .background { cardSurface(isSelected: isSelected, colorScheme: colorScheme) }
@@ -306,46 +295,27 @@ struct OnboardingOptionRow: View {
                     .multilineTextAlignment(.leading)
                 Spacer()
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(isSelected ? Theme.success : Theme.textSecondary.opacity(0.3))
+                    .foregroundStyle(isSelected ? Theme.accent : Theme.controlLine)
             }
             .padding(Theme.Spacing.md)
             .background { cardSurface(isSelected: isSelected, colorScheme: colorScheme) }
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
-            .overlay { cardBorder(isSelected: isSelected, colorScheme: colorScheme) }
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.tile, style: .continuous))
+            .overlay { cardBorder(isSelected: isSelected, colorScheme: colorScheme, cornerRadius: Theme.Radius.tile) }
         }
         .buttonStyle(.plain)
     }
 }
 
-/// Shared by `OnboardingCard`/`OnboardingOptionRow`/`GenderView`/`PaywallView`'s plan card — an
-/// *unselected* card used to render with a `.clear` border, meaning it had literally no edge at
-/// all against `Theme.surface`. That was invisible-but-tolerable in light mode (the
-/// card's own fill already reads as distinct from the page), but in dark mode, with
-/// `Theme.backgroundGradient` now a deep gradient, every unselected card blended into both the
-/// background and each other. Rather than a light-on-dark stroke there, unselected dark-mode
-/// cards instead get `Theme.cardGradientDark`'s translucent wash on top of the fill — same
-/// treatment as `SectionCard` — so the card itself reads as raised without an outline. Applied
-/// regardless of `isSelected`: an earlier version only washed *unselected* cards, leaving a
-/// selected card's own accent border sitting on the same flat dark-gray fill it was meant to
-/// replace. Selected cards keep their accent-colored border in both appearances; it's a selection
-/// indicator, not a page-contrast fix, so it doesn't need the dark-mode-only swap.
+/// The option card's surface and border (docs/TWOFOLD_DESIGN.md, sections 2.2 and 5): `surface` with
+/// a 1pt `line` border, and a 2pt `accent` border once selected, because blue is the colour of a
+/// selected state. Shared by `OnboardingCard` and `OnboardingOptionRow`.
 @ViewBuilder
 private func cardSurface(isSelected: Bool, colorScheme: ColorScheme) -> some View {
-    ZStack {
-        Theme.surface
-        if colorScheme == .dark {
-            Theme.surfaceGradient
-        }
-    }
+    Theme.surface
 }
 
 @ViewBuilder
-private func cardBorder(isSelected: Bool, colorScheme: ColorScheme) -> some View {
-    if isSelected {
-        RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-            .strokeBorder(Theme.selectionGradient, lineWidth: 2)
-    } else if colorScheme != .dark {
-        RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-            .strokeBorder(Theme.textSecondary.opacity(0.25), lineWidth: 1.25)
-    }
+private func cardBorder(isSelected: Bool, colorScheme: ColorScheme, cornerRadius: CGFloat = Theme.Radius.card) -> some View {
+    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        .strokeBorder(isSelected ? Theme.accent : Theme.line, lineWidth: isSelected ? 2 : 1)
 }

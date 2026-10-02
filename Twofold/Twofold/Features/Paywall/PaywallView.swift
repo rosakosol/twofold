@@ -193,11 +193,7 @@ struct PaywallView: View {
                 Button("Try Again") {
                     Task { await store.loadOfferings() }
                 }
-                .font(.headline)
-                .foregroundStyle(Theme.onPrimaryButton)
-                .padding(.horizontal, Theme.Spacing.lg)
-                .padding(.vertical, Theme.Spacing.sm)
-                .background(Theme.primaryButtonGradient, in: Capsule())
+                .buttonStyle(.twofoldPrimary)
                 .padding(.top, Theme.Spacing.sm)
             }
             .padding(Theme.Spacing.lg)
@@ -226,12 +222,7 @@ struct PaywallView: View {
                         .frame(maxWidth: .infinity, alignment: .trailing)
                         .padding(.trailing, Theme.Spacing.md)
 
-                        Picker("Plan", selection: $selectedTier) {
-                            ForEach(SubscriptionTier.allCases, id: \.self) { tier in
-                                Text(tier.displayName).tag(tier)
-                            }
-                        }
-                        .pickerStyle(.segmented)
+                        TwofoldSegmentedControl(selection: $selectedTier, options: SubscriptionTier.allCases.map { ($0, $0.displayName) }, accessibilityLabel: "Plan")
                     }
 
                     // `sm`, not `md`. This list carries eight lines for Premium rather than the
@@ -558,26 +549,12 @@ private struct PeriodCard: View {
             .padding(.horizontal, Theme.Spacing.lg)
             .padding(.vertical, Theme.Spacing.md)
             .frame(maxWidth: .infinity)
-            // Dark mode swaps the unselected border for `Theme.cardGradientDark`'s translucent
-            // wash instead — same "raised, not outlined" treatment as `SectionCard` and the other
-            // onboarding cards. Selected keeps its accent border in both appearances.
-            .background {
-                ZStack {
-                    Theme.surface
-                    if colorScheme == .dark {
-                        Theme.surfaceGradient
-                    }
-                }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+            .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
             .overlay {
-                if isSelected {
-                    RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                        .strokeBorder(Theme.accent, lineWidth: 2)
-                } else if colorScheme != .dark {
-                    RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                        .strokeBorder(Theme.textSecondary.opacity(0.25), lineWidth: 1.25)
-                }
+                // Blue is the colour of a selected state: a 2pt `accent` border once chosen, the
+                // standard 1pt `line` otherwise.
+                RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+                    .strokeBorder(isSelected ? Theme.accent : Theme.line, lineWidth: isSelected ? 2 : 1)
             }
         }
         .buttonStyle(.plain)

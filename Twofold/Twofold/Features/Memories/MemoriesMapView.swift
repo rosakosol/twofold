@@ -330,11 +330,9 @@ struct MemoriesMapView: View {
 
     private var emptyStateHint: some View {
         Button(action: onTapAddMemory) {
-            // Flat even in dark mode (`appliesDarkWash: false`) — this floats directly over the
-            // map itself, and `SectionCard`'s usual dark-mode wash is the same blue-to-green tint
-            // as the map underneath it, so the card all but vanished into it instead of standing
-            // out as a hint to tap.
-            SectionCard(appliesDarkWash: false) {
+            // Floating: this sits directly over the map, so it takes the floating shadow to lift
+            // off it and read as something to tap.
+            SectionCard(isFloating: true) {
                 HStack(spacing: Theme.Spacing.md) {
                     ZStack {
                         Circle().fill(Theme.accent.opacity(0.15))

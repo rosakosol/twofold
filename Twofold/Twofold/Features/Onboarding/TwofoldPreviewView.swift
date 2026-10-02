@@ -111,7 +111,7 @@ struct TwofoldPreviewView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                     } else if let daysTogether {
                         SectionCard {
-                            StatTile(icon: "heart.fill", value: "\(daysTogether)", label: "Days together", tint: Theme.coral)
+                            StatTile(icon: "heart.fill", value: "\(daysTogether)", label: "Days together", chip: .coral)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     } else {

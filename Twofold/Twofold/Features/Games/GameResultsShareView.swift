@@ -93,11 +93,7 @@ struct GameResultsShareView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 if hasTopicPicker {
-                    Picker("View", selection: $activeTab) {
-                        Text("Share Result").tag(Tab.result)
-                        Text("Questions & Answers").tag(Tab.questions)
-                    }
-                    .pickerStyle(.segmented)
+                    TwofoldSegmentedControl(selection: $activeTab, options: [(Tab.result, "Share Result"), (Tab.questions, "Questions & Answers")], accessibilityLabel: "View")
                     .padding(.horizontal, Theme.Spacing.lg)
                     .padding(.top, Theme.Spacing.sm)
                 }
@@ -246,6 +242,7 @@ struct GameResultsShareView: View {
                 } label: {
                     shareButtonLabel
                 }
+                .buttonStyle(.twofoldPrimary)
                 .confirmationDialog(
                     partnerAnswerWarning,
                     isPresented: presenting($pendingShare),
@@ -265,17 +262,13 @@ struct GameResultsShareView: View {
                 ShareLink(item: Image(uiImage: image), preview: SharePreview("\(data.title) results", image: Image(uiImage: image))) {
                     shareButtonLabel
                 }
+                .buttonStyle(.twofoldPrimary)
             }
         }
     }
 
     private var shareButtonLabel: some View {
         Label("Share", systemImage: "square.and.arrow.up")
-            .font(.headline)
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(Theme.primaryButtonGradient, in: Capsule())
-            .foregroundStyle(Theme.onPrimaryButton)
     }
 
     private var partnerAnswerWarning: String {

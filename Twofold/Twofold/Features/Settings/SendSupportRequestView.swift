@@ -128,17 +128,11 @@ struct SendSupportRequestView: View {
 
                     Button(action: send) {
                         HStack {
-                            if isSaving { ProgressView().tint(.white) }
+                            if isSaving { ProgressView() }
                             Text(isSaving ? "Sending…" : "Send to Support")
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .foregroundStyle(Theme.onPrimaryButton)
-                        .background(
-                            canSend ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.textSecondary.opacity(0.3)),
-                            in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                        )
                     }
+                    .buttonStyle(.twofoldPrimary)
                     .disabled(!canSend)
                 }
                 .padding(Theme.Spacing.md)

@@ -115,13 +115,13 @@ struct PersonalizedInsightView: View {
 
                 HStack(spacing: Theme.Spacing.lg) {
                     if let hoursApart {
-                        StatTile(icon: "clock", value: "\(hoursApart)h", label: "Time difference", tint: Theme.success)
+                        StatTile(icon: "clock", value: "\(hoursApart)h", label: "Time difference", chip: .green)
                     }
                     StatTile(
                         icon: "globe",
                         value: "\(Geo.percentOfEarthCircumference(distanceKm).formatted(.number.precision(.fractionLength(0))))%",
                         label: "Around the Earth",
-                        tint: Theme.coral
+                        chip: .coral
                     )
                 }
                 .opacity(stage >= 4 ? 1 : 0)
@@ -204,12 +204,8 @@ struct PersonalizedInsightView: View {
                 onboarding.path.append(.memoriesSell)
             } label: {
                 Text("Continue")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding()
             }
-            .background(Theme.primaryButtonGradient, in: Capsule())
-            .foregroundStyle(Theme.onPrimaryButton)
+            .buttonStyle(.twofoldPrimary)
 
             Button {
                 showingShare = true
