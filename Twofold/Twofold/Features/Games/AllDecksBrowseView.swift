@@ -135,7 +135,7 @@ struct AllDecksBrowseView: View {
             }
             .padding(Theme.Spacing.lg)
         }
-        .background(Theme.backgroundGradient.ignoresSafeArea())
+        .background(ScreenBackground())
         .navigationTitle("All Games")
         .navigationBarTitleDisplayMode(.inline)
         .task { await appModel.loadGameDecksIfNeeded() }

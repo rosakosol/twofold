@@ -18,19 +18,19 @@ struct StatsShareButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: "square.and.arrow.up")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Theme.textSecondary)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(Theme.accent)
                 // `square.and.arrow.up` is not centred inside its own layout box. Measured at
                 // 15pt semibold: an 18×22 box with the ink spanning y 3…20, so three points of
                 // air above the arrow and one below the tray. Centring the *box* therefore hangs
                 // the glyph a point low inside the circle, which is what reads as "not centred".
                 .offset(y: -1)
-                // A square frame, not `.padding(8)`. That box is taller than it is wide (22 vs
-                // 18), so padding it evenly gave a 34×38 container — and `Circle()` insets to the
-                // smaller side, leaving the circle floating in two points of slack it had no
-                // reason to have. 34 keeps the drawn circle exactly the size it already was.
-                .frame(width: 34, height: 34)
-                .background(Theme.backgroundGradient, in: Circle())
+                // A square frame, not padding: the glyph's box is taller than it is wide, so even
+                // padding gives an oval container and the circle floats in slack. 44pt is the
+                // spec's circular nav button and the minimum tap target.
+                .frame(width: 44, height: 44)
+                .background(Theme.raised, in: Circle())
+                .overlay { Circle().strokeBorder(Theme.line, lineWidth: 1) }
         }
         .accessibilityLabel(label)
     }

@@ -22,7 +22,7 @@ struct DrawingPadFullScreenView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Theme.backgroundGradient.ignoresSafeArea()
+                ScreenBackground()
                 if let url {
                     AsyncImage(url: url) { phase in
                         if let image = phase.image {

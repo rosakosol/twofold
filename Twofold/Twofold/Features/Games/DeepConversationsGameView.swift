@@ -108,7 +108,7 @@ struct DeepConversationsGameView: View {
         }
         // Pinned static regardless of any surrounding animated transaction — see the other 3
         // typed game views for why.
-        .background(Theme.backgroundGradient.ignoresSafeArea().transaction { $0.animation = nil })
+        .background(ScreenBackground().transaction { $0.animation = nil })
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             // A custom `.principal` item, not just relying on `.navigationTitle` above — an

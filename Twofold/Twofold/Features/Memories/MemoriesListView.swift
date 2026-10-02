@@ -408,6 +408,6 @@ struct MemoriesListView: View {
     NavigationStack {
         MemoriesListView()
             .environment(AppModel())
-            .background(Theme.backgroundGradient.ignoresSafeArea())
+            .background(ScreenBackground())
     }
 }

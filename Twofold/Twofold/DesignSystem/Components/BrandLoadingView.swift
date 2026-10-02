@@ -39,7 +39,7 @@ struct BrandLoadingView: View {
 
 #Preview {
     ZStack {
-        Theme.backgroundGradient.ignoresSafeArea()
+        ScreenBackground()
         BrandLoadingView()
     }
 }

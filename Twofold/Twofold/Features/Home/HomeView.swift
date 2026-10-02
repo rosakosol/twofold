@@ -157,7 +157,7 @@ struct HomeView: View {
                 }
                 .padding(Theme.Spacing.md)
             }
-            .background(Theme.backgroundGradient.ignoresSafeArea())
+            .background(ScreenBackground())
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -154,7 +154,7 @@ struct TopicDetailView: View {
                 }
                 .padding(Theme.Spacing.lg)
             }
-            .background(Theme.backgroundGradient.ignoresSafeArea())
+            .background(ScreenBackground())
             .navigationTitle(topic.displayName)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

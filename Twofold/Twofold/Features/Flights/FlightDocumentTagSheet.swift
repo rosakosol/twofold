@@ -75,7 +75,7 @@ struct FlightDocumentTagSheet: View {
         }
         .padding(Theme.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.backgroundGradient.ignoresSafeArea())
+        .background(ScreenBackground())
         .animation(.snappy(duration: 0.2), value: docType)
         .navigationTitle("Add document")
         .navigationBarTitleDisplayMode(.inline)

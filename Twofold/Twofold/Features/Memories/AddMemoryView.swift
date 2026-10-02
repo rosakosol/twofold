@@ -130,7 +130,7 @@ struct AddMemoryView: View {
                 }
                 bottomBar
             }
-            .background(Theme.backgroundGradient.ignoresSafeArea())
+            .background(ScreenBackground())
             .navigationTitle(isEditing ? "Edit memory" : "Add a memory")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

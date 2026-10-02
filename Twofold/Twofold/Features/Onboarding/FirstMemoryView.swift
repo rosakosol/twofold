@@ -23,8 +23,7 @@ struct FirstMemoryView: View {
     @State private var showingForm = false
 
     var body: some View {
-        Theme.backgroundGradient
-            .ignoresSafeArea()
+        ScreenBackground()
             .onAppear { showingForm = true }
             .sheet(isPresented: $showingForm, onDismiss: {
                 // Notification/Live Activity sell screens now follow the memory screens —

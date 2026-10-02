@@ -44,7 +44,7 @@ struct DeckEntryView: View {
         // background below undersized before it snaps to full width. See the 4 typed game views
         // for the fuller version of this same fix.
         .transition(.identity)
-        .background(Theme.backgroundGradient.ignoresSafeArea())
+        .background(ScreenBackground())
         // Only while this view is showing its own content. Once `phase` flips to `.playing`, the
         // game view mounted below owns the nav bar and supplies its own wrapped title as a
         // `.principal` toolbar item — and because this view renders that game *inline* rather than

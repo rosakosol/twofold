@@ -91,7 +91,7 @@ struct ResetPasswordView: View {
                 }
                 .padding(.bottom, Theme.Spacing.xl)
             }
-            .background(Theme.backgroundGradient.ignoresSafeArea())
+            .background(ScreenBackground())
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     // Bails out of the just-established recovery session rather than leaving it

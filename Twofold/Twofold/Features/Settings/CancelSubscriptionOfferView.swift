@@ -59,7 +59,7 @@ struct CancelSubscriptionOfferView: View {
                 .padding(.horizontal, Theme.Spacing.lg)
                 .padding(.bottom, Theme.Spacing.xl)
             }
-            .background(Theme.backgroundGradient.ignoresSafeArea())
+            .background(ScreenBackground())
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Close", action: onNotNow)

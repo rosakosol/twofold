@@ -95,7 +95,7 @@ struct ConnectionRequestReviewView: View {
                     .padding(.bottom, Theme.Spacing.xl)
                 }
             }
-            .background(Theme.backgroundGradient.ignoresSafeArea())
+            .background(ScreenBackground())
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Close") { dismiss() }

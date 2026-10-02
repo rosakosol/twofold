@@ -51,7 +51,7 @@ struct DistanceRevealShareView: View {
                     .padding(.bottom, Theme.Spacing.md)
             }
             .padding(.top, Theme.Spacing.md)
-            .background(Theme.backgroundGradient.ignoresSafeArea())
+            .background(ScreenBackground())
             .navigationTitle("Share")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

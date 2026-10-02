@@ -16,7 +16,7 @@ struct AppLockView: View {
 
     var body: some View {
         ZStack {
-            Theme.backgroundGradient.ignoresSafeArea()
+            ScreenBackground()
 
             VStack(spacing: Theme.Spacing.xl) {
                 Spacer()

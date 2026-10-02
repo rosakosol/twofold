@@ -157,7 +157,7 @@ struct DeleteAccountView: View {
             }
             .padding(Theme.Spacing.md)
         }
-        .background(Theme.backgroundGradient.ignoresSafeArea())
+        .background(ScreenBackground())
         .navigationTitle("Delete Account")
         .navigationBarTitleDisplayMode(.inline)
         .alert("Delete your account permanently?", isPresented: $showingConfirm) {

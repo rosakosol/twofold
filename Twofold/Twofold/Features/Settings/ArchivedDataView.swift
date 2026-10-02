@@ -87,7 +87,7 @@ struct ArchivedDataView: View {
                 .scrollContentBackground(.hidden)
             }
         }
-        .background(Theme.backgroundGradient.ignoresSafeArea())
+        .background(ScreenBackground())
         .navigationTitle("Archived Data")
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
@@ -224,7 +224,7 @@ struct ArchivedCoupleDetailView: View {
             }
             .padding(Theme.Spacing.md)
         }
-        .background(Theme.backgroundGradient.ignoresSafeArea())
+        .background(ScreenBackground())
         .navigationTitle(couple.partnerName)
         .navigationBarTitleDisplayMode(.inline)
         .task {

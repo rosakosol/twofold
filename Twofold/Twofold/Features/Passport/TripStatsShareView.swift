@@ -30,7 +30,7 @@ struct TripStatsShareView: View {
                 ShareCardAppearancePicker(selection: Binding(get: { resolvedAppearance }, set: { appearance = $0 }))
                     .padding(.bottom, Theme.Spacing.md)
             }
-            .background(Theme.backgroundGradient.ignoresSafeArea())
+            .background(ScreenBackground())
             .navigationTitle("Trip Stats")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

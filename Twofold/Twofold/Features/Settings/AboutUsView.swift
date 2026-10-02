@@ -42,7 +42,7 @@ struct AboutUsView: View {
             }
             .padding(Theme.Spacing.md)
         }
-        .background(Theme.backgroundGradient.ignoresSafeArea())
+        .background(ScreenBackground())
         .navigationTitle("About Us")
         .navigationBarTitleDisplayMode(.inline)
         .postHogScreenView("Settings: About Us")

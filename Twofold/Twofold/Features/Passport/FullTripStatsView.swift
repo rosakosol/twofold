@@ -85,7 +85,7 @@ struct FullTripStatsView: View {
             }
             .padding(Theme.Spacing.md)
         }
-        .background(Theme.backgroundGradient.ignoresSafeArea())
+        .background(ScreenBackground())
         .navigationTitle("Trip Stats")
         .navigationBarTitleDisplayMode(.inline)
         .postHogScreenView("Passport: Full Trip Stats")

@@ -55,7 +55,7 @@ struct AvatarCropView: View {
             }
             .padding(Theme.Spacing.lg)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Theme.backgroundGradient.ignoresSafeArea())
+            .background(ScreenBackground())
             .navigationTitle("Adjust photo")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

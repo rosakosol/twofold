@@ -28,8 +28,7 @@ struct ConnectFourGameView: View {
 
     var body: some View {
         ZStack {
-            Theme.backgroundGradient
-                .ignoresSafeArea()
+            ScreenBackground()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             switch store.phase {

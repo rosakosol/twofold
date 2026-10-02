@@ -69,7 +69,7 @@ struct PartnerRequiredGateView: View {
 
                 Spacer()
             }
-            .background(Theme.backgroundGradient.ignoresSafeArea())
+            .background(ScreenBackground())
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Close") { dismiss() }

@@ -105,7 +105,7 @@ struct GameResultsShareView: View {
                     questionsTab
                 }
             }
-            .background(Theme.backgroundGradient.ignoresSafeArea())
+            .background(ScreenBackground())
             .navigationTitle("Share Result")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

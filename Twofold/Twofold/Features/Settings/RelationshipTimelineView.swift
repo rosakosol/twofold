@@ -67,7 +67,7 @@ struct RelationshipTimelineView: View {
             }
             .padding(Theme.Spacing.md)
         }
-        .background(Theme.backgroundGradient.ignoresSafeArea())
+        .background(ScreenBackground())
         .navigationTitle("Our Story")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -471,7 +471,7 @@ private struct ExportReadySheet: View {
         // See `ReviewPromptView` for why the height has to be filled before the background is
         // applied: without it the gradient covers only the content, not the 300pt detent.
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Theme.backgroundGradient.ignoresSafeArea())
+        .background(ScreenBackground())
         .presentationDetents([.height(300)])
     }
 }

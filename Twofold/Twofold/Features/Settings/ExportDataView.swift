@@ -136,7 +136,7 @@ struct ExportDataView: View {
             }
             .padding(Theme.Spacing.md)
         }
-        .background(Theme.backgroundGradient.ignoresSafeArea())
+        .background(ScreenBackground())
         .navigationTitle("Export your data")
         .navigationBarTitleDisplayMode(.inline)
         .postHogScreenView("Settings: Export Data")

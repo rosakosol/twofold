@@ -44,7 +44,7 @@ struct LanguageSettingsView: View {
             }
             .padding(Theme.Spacing.md)
         }
-        .background(Theme.backgroundGradient.ignoresSafeArea())
+        .background(ScreenBackground())
         .navigationTitle("Language")
         .navigationBarTitleDisplayMode(.inline)
         .postHogScreenView("Settings: Language")

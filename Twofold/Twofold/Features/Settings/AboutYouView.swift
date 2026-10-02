@@ -100,7 +100,7 @@ struct AboutYouView: View {
                 Task { await appModel.updateCurrentCityIfChanged(place) }
             }
         }
-        .background(Theme.backgroundGradient.ignoresSafeArea())
+        .background(ScreenBackground())
         .navigationTitle("About You")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

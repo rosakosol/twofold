@@ -140,7 +140,7 @@ struct MemoryDetailView: View {
                 }
             }
         }
-        .background(Theme.backgroundGradient.ignoresSafeArea())
+        .background(ScreenBackground())
         .navigationTitle("Memory")
         .navigationBarTitleDisplayMode(.inline)
         .postHogScreenView("Memories: Memory Detail")

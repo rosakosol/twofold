@@ -170,14 +170,14 @@ struct PaywallView: View {
 
     private var loadingState: some View {
         ZStack {
-            Theme.backgroundGradient.ignoresSafeArea()
+            ScreenBackground()
             ProgressView()
         }
     }
 
     private func errorState(_ message: String) -> some View {
         ZStack {
-            Theme.backgroundGradient.ignoresSafeArea()
+            ScreenBackground()
             VStack(spacing: Theme.Spacing.md) {
                 Image(systemName: "exclamationmark.triangle")
                     .font(.system(size: 40))

@@ -106,7 +106,7 @@ struct OfflineNoticeView: View {
             .padding(.bottom, Theme.Spacing.xl)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Theme.backgroundGradient.ignoresSafeArea())
+        .background(ScreenBackground())
     }
 
     private func section(title: String, rows: [(icon: String, text: String)], tint: Color) -> some View {

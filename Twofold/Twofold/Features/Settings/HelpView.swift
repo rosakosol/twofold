@@ -87,7 +87,7 @@ struct HelpView: View {
             }
             .padding(Theme.Spacing.md)
         }
-        .background(Theme.backgroundGradient.ignoresSafeArea())
+        .background(ScreenBackground())
         .navigationTitle("Help")
         .navigationBarTitleDisplayMode(.inline)
         .postHogScreenView("Settings: Help")

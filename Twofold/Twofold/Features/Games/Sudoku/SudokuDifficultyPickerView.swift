@@ -53,7 +53,7 @@ struct SudokuDifficultyPickerView: View {
             }
             .padding(Theme.Spacing.md)
         }
-        .background(Theme.backgroundGradient.ignoresSafeArea())
+        .background(ScreenBackground())
         .navigationTitle("Sudoku")
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(item: $route) { started in

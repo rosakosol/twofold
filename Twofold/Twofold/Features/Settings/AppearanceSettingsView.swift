@@ -29,7 +29,7 @@ struct AppearanceSettingsView: View {
             }
             .padding(Theme.Spacing.md)
         }
-        .background(Theme.backgroundGradient.ignoresSafeArea())
+        .background(ScreenBackground())
         .navigationTitle("Appearance")
         .navigationBarTitleDisplayMode(.inline)
         .postHogScreenView("Settings: Appearance")

@@ -15,7 +15,7 @@ import SwiftUI
 struct PrivacyCoverView: View {
     var body: some View {
         ZStack {
-            Theme.backgroundGradient
+            ScreenBackground()
             TwofoldBrandMark()
         }
         .ignoresSafeArea()

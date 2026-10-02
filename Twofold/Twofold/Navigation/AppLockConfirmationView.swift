@@ -106,7 +106,7 @@ struct AppLockConfirmationView: View {
             .padding(.bottom, Theme.Spacing.xl)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Theme.backgroundGradient.ignoresSafeArea())
+        .background(ScreenBackground())
         // The detents live here rather than at the call site because the decision depends on the
         // text size, which is only in scope inside the sheet's own content. Half a screen fits the
         // message comfortably at ordinary sizes; at accessibility sizes the same message runs to

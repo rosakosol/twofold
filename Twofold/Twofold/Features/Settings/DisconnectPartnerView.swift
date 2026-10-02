@@ -162,7 +162,7 @@ struct DisconnectPartnerView: View {
             }
             .padding(Theme.Spacing.md)
         }
-        .background(Theme.backgroundGradient.ignoresSafeArea())
+        .background(ScreenBackground())
         .navigationTitle("Disconnect Partner")
         .navigationBarTitleDisplayMode(.inline)
         .confirmationDialog(

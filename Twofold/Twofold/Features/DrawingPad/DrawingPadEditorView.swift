@@ -75,7 +75,7 @@ struct DrawingPadEditorView: View {
 
                 bottomToolbar
             }
-            .background(Theme.backgroundGradient.ignoresSafeArea())
+            .background(ScreenBackground())
             .navigationTitle("Your pad")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

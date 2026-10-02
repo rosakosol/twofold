@@ -92,7 +92,7 @@ struct GameCompletionView: View {
             .padding(.top, Theme.Spacing.sm)
             .padding(.bottom, Theme.Spacing.xl)
         }
-        .background(Theme.backgroundGradient.ignoresSafeArea())
+        .background(ScreenBackground())
         .onAppear {
             // `AppModel.gameDecks`/`deckProgress` are cached for the whole app session and only
             // ever refreshed explicitly — without this, the deck list's "you're done" checkmark

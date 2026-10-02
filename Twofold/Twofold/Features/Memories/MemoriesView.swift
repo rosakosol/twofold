@@ -30,7 +30,7 @@ struct MemoriesView: View {
                 modeToggle
                     .padding(.bottom, Theme.Spacing.md)
             }
-            .background(Theme.backgroundGradient.ignoresSafeArea())
+            .background(ScreenBackground())
             .navigationTitle("Memories")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {

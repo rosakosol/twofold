@@ -55,7 +55,7 @@ struct PulsingGlobeHeart: View {
 
 #Preview {
     ZStack {
-        Theme.backgroundGradient.ignoresSafeArea()
+        ScreenBackground()
         VStack(spacing: 48) {
             PulsingGlobeHeart()
             PulsingGlobeHeart(size: 56, showsGlow: false)

@@ -111,7 +111,7 @@ struct GameHistoryView: View {
                 }
             }
         }
-        .background(Theme.backgroundGradient.ignoresSafeArea())
+        .background(ScreenBackground())
         .navigationTitle("Completed games")
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }

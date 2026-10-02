@@ -38,7 +38,7 @@ struct PendingFlightShareReviewView: View {
                     failureView
                 }
             }
-            .background(Theme.backgroundGradient.ignoresSafeArea())
+            .background(ScreenBackground())
             .navigationTitle("Review flight")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

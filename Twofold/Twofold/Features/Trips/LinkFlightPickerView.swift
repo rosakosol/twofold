@@ -54,7 +54,7 @@ struct LinkFlightPickerView: View {
                 }
             }
             .listStyle(.plain)
-            .background(Theme.backgroundGradient.ignoresSafeArea())
+            .background(ScreenBackground())
             .scrollContentBackground(.hidden)
             .navigationTitle("Link a Flight")
             .navigationBarTitleDisplayMode(.inline)

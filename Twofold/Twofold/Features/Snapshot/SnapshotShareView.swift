@@ -31,7 +31,7 @@ struct SnapshotShareView: View {
                 themePicker
                     .padding(.bottom, Theme.Spacing.md)
             }
-            .background(Theme.backgroundGradient.ignoresSafeArea())
+            .background(ScreenBackground())
             .navigationTitle("Snapshot")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

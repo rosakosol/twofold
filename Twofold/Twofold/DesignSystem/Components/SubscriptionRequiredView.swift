@@ -75,7 +75,7 @@ struct SubscriptionRequiredView: View {
         .padding(.horizontal, Theme.Spacing.lg)
         .padding(.vertical, Theme.Spacing.xl)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Theme.backgroundGradient.ignoresSafeArea())
+        .background(ScreenBackground())
         .sheet(isPresented: $showingPaywall) {
             NavigationStack { PaywallView() }
         }

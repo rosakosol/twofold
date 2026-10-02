@@ -61,7 +61,7 @@ struct SupportView: View {
             }
             .padding(Theme.Spacing.md)
         }
-        .background(Theme.backgroundGradient.ignoresSafeArea())
+        .background(ScreenBackground())
         .navigationTitle("Support")
         .navigationBarTitleDisplayMode(.inline)
         .task { await loadFAQ() }

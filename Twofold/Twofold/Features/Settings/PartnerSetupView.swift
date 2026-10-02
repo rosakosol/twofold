@@ -142,7 +142,7 @@ struct PartnerSetupView: View {
                 }
                 .padding(Theme.Spacing.md)
             }
-            .background(Theme.backgroundGradient.ignoresSafeArea())
+            .background(ScreenBackground())
             .navigationTitle("Your Partner")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -81,7 +81,7 @@ struct PassportView: View {
                 }
                 .padding(Theme.Spacing.md)
             }
-            .background(Theme.backgroundGradient.ignoresSafeArea())
+            .background(ScreenBackground())
             .refreshable { await appModel.refreshAll() }
             .navigationTitle("Stats")
             .onChange(of: requestedSection) { _, requested in
@@ -239,7 +239,7 @@ private struct FullStatsView: View {
             }
             .padding(Theme.Spacing.md)
         }
-        .background(Theme.backgroundGradient.ignoresSafeArea())
+        .background(ScreenBackground())
         .navigationTitle("Flight Stats")
         .navigationBarTitleDisplayMode(.inline)
         .postHogScreenView("Passport: Full Stats")
@@ -576,7 +576,7 @@ struct StatShareView: View {
                 ShareCardAppearancePicker(selection: Binding(get: { resolvedAppearance }, set: { appearance = $0 }))
                     .padding(.bottom, Theme.Spacing.md)
             }
-            .background(Theme.backgroundGradient.ignoresSafeArea())
+            .background(ScreenBackground())
             .navigationTitle(stat.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

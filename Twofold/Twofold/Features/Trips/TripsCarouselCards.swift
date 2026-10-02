@@ -181,7 +181,7 @@ struct FlightCarouselCard: View {
 
 #Preview {
     ZStack {
-        Theme.backgroundGradient.ignoresSafeArea()
+        ScreenBackground()
         VStack {
             TripCarouselCard(trip: MockData.reunionTrip, travelers: [MockData.rosa, MockData.dara])
             FlightCarouselCard(flight: MockData.activeFlight)

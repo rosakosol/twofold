@@ -76,7 +76,7 @@ struct ReviewPromptView: View {
         // sheet was left bare — the gradient appeared cropped top and bottom because it was never
         // drawn there. Filling the frame first gives the background the whole sheet to cover.
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Theme.backgroundGradient.ignoresSafeArea())
+        .background(ScreenBackground())
         .presentationDetents([.height(300)])
         .presentationDragIndicator(.visible)
     }

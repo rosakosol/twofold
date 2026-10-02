@@ -29,7 +29,7 @@ struct RelationshipStatsShareView: View {
                 ShareCardAppearancePicker(selection: Binding(get: { resolvedAppearance }, set: { appearance = $0 }))
                     .padding(.bottom, Theme.Spacing.md)
             }
-            .background(Theme.backgroundGradient.ignoresSafeArea())
+            .background(ScreenBackground())
             .navigationTitle("Relationship Stats")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -38,7 +38,7 @@ struct PartnerInviteNudgeView: View {
                 Spacer()
             }
             .padding(Theme.Spacing.md)
-            .background(Theme.backgroundGradient.ignoresSafeArea())
+            .background(ScreenBackground())
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Not now") { dismiss() }

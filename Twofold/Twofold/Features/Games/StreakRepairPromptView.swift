@@ -91,7 +91,7 @@ struct StreakRepairPromptView: View {
             .padding(.bottom, Theme.Spacing.xl)
         }
         .frame(maxWidth: .infinity)
-        .background(Theme.backgroundGradient.ignoresSafeArea())
+        .background(ScreenBackground())
         .task { await store.loadPrice() }
         .postHogScreenView("Streak Repair Offer")
     }

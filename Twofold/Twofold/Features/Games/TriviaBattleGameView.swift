@@ -121,7 +121,7 @@ struct TriviaBattleGameView: View {
         // Pinned against the round-transition spring below via `.transaction { $0.animation = nil }`
         // — without it, the full-bleed background was observed interpolating its own width
         // alongside that animation instead of staying static.
-        .background(Theme.backgroundGradient.ignoresSafeArea().transaction { $0.animation = nil })
+        .background(ScreenBackground().transaction { $0.animation = nil })
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             // A custom `.principal` item, not just relying on `.navigationTitle` above — an

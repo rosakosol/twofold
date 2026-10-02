@@ -73,8 +73,7 @@ struct GameResultsView: View {
             //
             // As a sibling with its own fill, it takes the stack's full offered size once and stops
             // depending on what the content does.
-            Theme.backgroundGradient
-                .ignoresSafeArea()
+            ScreenBackground()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             ScrollView {

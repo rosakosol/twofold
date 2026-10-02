@@ -63,7 +63,7 @@ struct LinkMemoryPickerView: View {
                 }
             }
             .listStyle(.plain)
-            .background(Theme.backgroundGradient.ignoresSafeArea())
+            .background(ScreenBackground())
             .scrollContentBackground(.hidden)
             .navigationTitle("Link a Memory")
             .navigationBarTitleDisplayMode(.inline)

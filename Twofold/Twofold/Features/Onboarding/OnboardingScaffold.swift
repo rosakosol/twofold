@@ -74,7 +74,7 @@ struct OnboardingScaffold<Content: View>: View {
                 scrollContent
             }
         }
-        .background(Theme.backgroundGradient.ignoresSafeArea())
+        .background(ScreenBackground())
         .navigationBarTitleDisplayMode(.inline)
     }
 

@@ -493,7 +493,7 @@ struct RootView: View {
     /// depending on *why* it is waiting reads as the app flickering between screens.
     private var loadingScreen: some View {
         ZStack {
-            Theme.backgroundGradient.ignoresSafeArea()
+            ScreenBackground()
             BrandLoadingView()
         }
     }

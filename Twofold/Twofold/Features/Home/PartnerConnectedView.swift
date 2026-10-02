@@ -71,7 +71,7 @@ struct PartnerConnectedView: View {
             .padding(.horizontal, Theme.Spacing.lg)
             .padding(.bottom, Theme.Spacing.xl)
         }
-        .background(Theme.backgroundGradient.ignoresSafeArea())
+        .background(ScreenBackground())
         .interactiveDismissDisabled()
         .onAppear {
             if reduceMotion {

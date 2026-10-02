@@ -126,7 +126,7 @@ struct TripDetailsView: View {
             }
             .padding(Theme.Spacing.md)
         }
-        .background(Theme.backgroundGradient.ignoresSafeArea())
+        .background(ScreenBackground())
     }
 
     private func header(_ trip: Trip) -> some View {

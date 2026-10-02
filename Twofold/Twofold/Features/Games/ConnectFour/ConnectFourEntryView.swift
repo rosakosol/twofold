@@ -65,7 +65,7 @@ struct ConnectFourEntryView: View {
             }
             .padding(Theme.Spacing.md)
         }
-        .background(Theme.backgroundGradient.ignoresSafeArea())
+        .background(ScreenBackground())
         .navigationTitle(GameType.connectFour.displayName)
         .navigationBarTitleDisplayMode(.inline)
         // Reloaded every time the screen appears: coming back after a game is exactly when the

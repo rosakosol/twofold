@@ -73,7 +73,7 @@ struct RedeemPartnerCodeView: View {
                     formView
                 }
             }
-            .background(Theme.backgroundGradient.ignoresSafeArea())
+            .background(ScreenBackground())
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Cancel") { dismiss() }

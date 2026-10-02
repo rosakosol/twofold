@@ -58,7 +58,7 @@ struct GamesHubView: View {
                 }
                 .padding(Theme.Spacing.md)
             }
-            .background(Theme.backgroundGradient.ignoresSafeArea())
+            .background(ScreenBackground())
             .navigationTitle("Games")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {

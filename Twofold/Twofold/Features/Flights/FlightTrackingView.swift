@@ -154,7 +154,7 @@ struct FlightTrackingView: View {
             }
             .refreshable { await refreshFromProvider() }
         }
-        .background(Theme.backgroundGradient.ignoresSafeArea())
+        .background(ScreenBackground())
         .navigationTitle(navigationTitleText)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

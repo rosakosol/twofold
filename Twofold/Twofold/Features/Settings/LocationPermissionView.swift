@@ -53,7 +53,7 @@ struct LocationPermissionView: View {
             }
             .padding(Theme.Spacing.md)
         }
-        .background(Theme.backgroundGradient.ignoresSafeArea())
+        .background(ScreenBackground())
         .navigationTitle("Location Permission")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {

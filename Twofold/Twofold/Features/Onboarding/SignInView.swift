@@ -137,7 +137,7 @@ struct SignInView: View {
                 }
                 .padding(.bottom, Theme.Spacing.xl)
             }
-            .background(Theme.backgroundGradient.ignoresSafeArea())
+            .background(ScreenBackground())
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Cancel") { dismiss() }

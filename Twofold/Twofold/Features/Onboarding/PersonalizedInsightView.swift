@@ -131,7 +131,7 @@ struct PersonalizedInsightView: View {
             .padding(.vertical, Theme.Spacing.md)
         }
         .safeAreaInset(edge: .bottom) { bottomBar(distanceKm: distanceKm, myCity: myCity, partnerCity: partnerCity) }
-        .background(Theme.backgroundGradient.ignoresSafeArea())
+        .background(ScreenBackground())
         .navigationBarTitleDisplayMode(.inline)
         .sensoryFeedback(trigger: stage) { _, newStage in
             switch newStage {

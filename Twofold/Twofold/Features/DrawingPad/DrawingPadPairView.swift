@@ -48,7 +48,7 @@ struct DrawingPadPairView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Theme.backgroundGradient.ignoresSafeArea()
+                ScreenBackground()
 
                 HStack(alignment: .top, spacing: Theme.Spacing.md) {
                     pane(name: "You", screenTitle: "Your pad", url: myURL)

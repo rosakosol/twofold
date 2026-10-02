@@ -43,7 +43,7 @@ struct DistanceShareView: View {
                     .padding(.horizontal, Theme.Spacing.lg)
                     .padding(.bottom, Theme.Spacing.md)
             }
-            .background(Theme.backgroundGradient.ignoresSafeArea())
+            .background(ScreenBackground())
             .navigationTitle("Distance")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

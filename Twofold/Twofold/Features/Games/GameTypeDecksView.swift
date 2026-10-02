@@ -64,7 +64,7 @@ struct GameTypeDecksView: View {
             }
             .padding(Theme.Spacing.lg)
         }
-        .background(Theme.backgroundGradient.ignoresSafeArea())
+        .background(ScreenBackground())
         .navigationTitle(gameType.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .task { await appModel.loadGameDecksIfNeeded() }
