@@ -16,6 +16,9 @@ import WeatherKit
 struct CurrentWeatherReading: Hashable {
     var symbolName: String
     var temperatureC: Double
+    /// Whether the sun is up at the reading's location, from WeatherKit's own sun position. Nil
+    /// when unknown; callers fall back to the hour.
+    var isDaylight: Bool? = nil
 
     var temperatureLabel: String {
         "\(Int(temperatureC.rounded()))°"
@@ -57,7 +60,8 @@ enum TwofoldWeatherService {
             let weather = try await service.weather(for: location, including: .current)
             return CurrentWeatherReading(
                 symbolName: weather.symbolName,
-                temperatureC: weather.temperature.converted(to: .celsius).value
+                temperatureC: weather.temperature.converted(to: .celsius).value,
+                isDaylight: weather.isDaylight
             )
         } catch {
             // The city is one of the two partners' home cities, and `print` lands in the unified

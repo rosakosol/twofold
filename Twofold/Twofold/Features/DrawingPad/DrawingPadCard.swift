@@ -32,16 +32,20 @@ struct DrawingPadCard: View {
 
     var body: some View {
         SectionCard {
-            HStack {
+            HStack(spacing: Theme.Spacing.sm) {
                 Text("Drawing pad")
                     .font(.headline)
+                    .foregroundStyle(Theme.textPrimary)
                 Spacer()
                 // A real button, not just the card's tap gesture: a gesture on a container is
-                // invisible to VoiceOver and undiscoverable to everyone else, and this card has
-                // spent its life with two tappable previews and an inert background.
-                Button { fullScreen = .bothPads } label: { expandBadge }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("See both drawings side by side")
+                // invisible to VoiceOver and undiscoverable to everyone else.
+                CircularNavButton(systemImage: "arrow.up.left.and.arrow.down.right", accessibilityLabel: "See both drawings side by side") {
+                    fullScreen = .bothPads
+                }
+                // The card's primary action (section 6, Home). Opens your own pad, the same place
+                // tapping your preview goes.
+                Button("Draw") { showingEditor = true }
+                    .buttonStyle(.twofoldPrimaryCompact)
             }
             HStack(spacing: Theme.Spacing.md) {
                 padPreview(title: "You", url: appModel.myDrawingURL, isMine: true)
@@ -72,14 +76,6 @@ struct DrawingPadCard: View {
         .task { await appModel.loadDrawingPads() }
     }
 
-    private var expandBadge: some View {
-        Image(systemName: "arrow.up.left.and.arrow.down.right")
-            .font(.footnote.weight(.semibold))
-            .foregroundStyle(Theme.textSecondary)
-            .padding(Theme.Spacing.sm)
-            .background(Theme.textSecondary.opacity(0.1), in: Circle())
-    }
-
     private func padPreview(title: String, url: URL?, isMine: Bool) -> some View {
         VStack(spacing: Theme.Spacing.xs) {
             Button {
@@ -89,19 +85,23 @@ struct DrawingPadCard: View {
                     fullScreen = .partnerPad
                 }
             } label: {
+                // Paper (section 6, Home): white in light mode, a warm #E9E4DA in dark, with the
+                // drawing multiplied onto it so its white background takes the paper's colour
+                // instead of sitting on it as a white rectangle.
                 ZStack {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous).fill(.white)
+                    RoundedRectangle(cornerRadius: innerRadius, style: .continuous).fill(Brand.paper)
                     CachedRemoteImage(url: url) { image in
-                        image.resizable().scaledToFit()
+                        image.resizable().scaledToFit().blendMode(.multiply)
                     } placeholder: {
                         if isMine { emptyPadHint }
                     }
                 }
+                .compositingGroup()
                 .frame(height: 120)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: innerRadius, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .strokeBorder(Theme.textSecondary.opacity(0.15))
+                    RoundedRectangle(cornerRadius: innerRadius, style: .continuous)
+                        .strokeBorder(Theme.line)
                 )
             }
             // No `.disabled(!isMine)` here anymore — that was the actual cause of the partner's
@@ -123,8 +123,13 @@ struct DrawingPadCard: View {
             Image(systemName: "pencil.and.scribble")
             Text("Tap to draw").font(.caption2)
         }
-        .foregroundStyle(Theme.textSecondary)
+        // The paper's own ink, not `textSecondary`: the paper stays light in dark mode, where the
+        // adaptive token turns pale and would vanish on it.
+        .foregroundStyle(Brand.paperInkSecondary)
     }
+
+    /// Concentric with the card around it: its 26pt corners less its 16pt padding.
+    private var innerRadius: CGFloat { Theme.Radius.card - Theme.Spacing.md }
 }
 
 #Preview {

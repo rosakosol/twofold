@@ -18,15 +18,18 @@ import SwiftUI
 /// 54pt capsule on `primaryButtonGradient`, 17pt semibold. The label is white in light mode and
 /// `#0B0F16` in dark mode, where the gradient is a light blue (6.8:1).
 struct TwofoldPrimaryButtonStyle: ButtonStyle {
+    /// A 44pt capsule sized to its label, for a primary action that sits inside a card header
+    /// rather than across the bottom of a screen ("Draw" on the drawing pad card).
+    var isCompact = false
     @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 17, weight: .semibold))
+            .font(.system(size: isCompact ? 15 : 17, weight: .semibold))
             .tint(isEnabled ? Theme.onPrimaryButton : Theme.textSecondary)
             .foregroundStyle(isEnabled ? Theme.onPrimaryButton : Theme.textSecondary)
-            .frame(maxWidth: .infinity, minHeight: 54)
-            .padding(.horizontal, Theme.Spacing.md)
+            .frame(maxWidth: isCompact ? nil : .infinity, minHeight: isCompact ? 44 : 54)
+            .padding(.horizontal, isCompact ? 20 : Theme.Spacing.md)
             .background {
                 if isEnabled {
                     Capsule().fill(Theme.primaryButtonGradient)
@@ -102,6 +105,7 @@ struct TwofoldGameButtonStyle: ButtonStyle {
 
 extension ButtonStyle where Self == TwofoldPrimaryButtonStyle {
     static var twofoldPrimary: TwofoldPrimaryButtonStyle { TwofoldPrimaryButtonStyle() }
+    static var twofoldPrimaryCompact: TwofoldPrimaryButtonStyle { TwofoldPrimaryButtonStyle(isCompact: true) }
 }
 
 extension ButtonStyle where Self == TwofoldSecondaryButtonStyle {

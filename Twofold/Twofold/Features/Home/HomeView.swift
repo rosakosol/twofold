@@ -802,11 +802,12 @@ struct HomeView: View {
         SectionCard {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("SAME CITY")
-                        .font(.caption2.weight(.semibold))
+                    Text("Same city")
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Theme.textSecondary)
                     Text("You're both in \(city.displayCity)")
                         .font(.title3.weight(.bold))
+                        .foregroundStyle(Theme.textPrimary)
                 }
                 Spacer()
                 Image(systemName: "heart.fill")
@@ -823,29 +824,26 @@ struct HomeView: View {
         SectionCard {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("DISTANCE BETWEEN YOU")
-                        .font(.caption2.weight(.semibold))
+                    Text("Distance between you")
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Theme.textSecondary)
                     Text(MeasurementPreference.distanceLabel(km: distanceKm))
-                        .font(.title.weight(.bold))
+                        .font(.system(size: 36, weight: .bold))
+                        .tracking(-1)
+                        .foregroundStyle(Theme.textPrimary)
                 }
                 Spacer()
-                Button {
+                CircularNavButton(systemImage: "square.and.arrow.up", accessibilityLabel: "Share distance") {
                     distanceShareContext = DistanceShareContext(myCity: myCity, partnerCity: partnerCity, distanceKm: distanceKm)
-                } label: {
-                    Image(systemName: "square.and.arrow.up.circle.fill")
-                        .font(.largeTitle)
-                        .foregroundStyle(Theme.accent)
                 }
-                .accessibilityLabel("Share distance")
             }
             // Hidden below 0.05% — anything less rounds to a deadpan, uninformative "0.0%" at
             // this line's own one-decimal precision (nearby but not exactly the same city, e.g.,
             // still shows the real km figure above just fine, but "that's 0.0% of the way around
             // the earth" reads as a bug, not a fact).
             if Geo.percentOfEarthCircumference(distanceKm) >= 0.05 {
-                Text("That's \(Geo.percentOfEarthCircumference(distanceKm), format: .number.precision(.fractionLength(1)))% of the way around the earth 🌍")
-                    .font(.caption)
+                Text("\(Geo.percentOfEarthCircumference(distanceKm), format: .number.precision(.fractionLength(1)))% of the way around the Earth")
+                    .font(.subheadline)
                     .foregroundStyle(Theme.textSecondary)
             }
 
@@ -858,23 +856,15 @@ struct HomeView: View {
                 // consumes taps whether or not it does anything with them. Turning it is what the
                 // full-screen view exists for.
                 .allowsHitTesting(false)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.image, style: .continuous))
                 // Added after `allowsHitTesting(false)`, so the badge is a sibling layered on top
                 // of the inert map and takes taps normally. Order matters here: modifying the map
                 // first and overlaying second is what keeps the button live.
                 .overlay(alignment: .topTrailing) {
-                    Button {
+                    CircularNavButton(systemImage: "arrow.up.left.and.arrow.down.right", accessibilityLabel: "See the globe full screen") {
                         globeFullScreenContext = GlobeFullScreenContext(myCity: myCity, partnerCity: partnerCity, distanceKm: distanceKm)
-                    } label: {
-                        Image(systemName: "arrow.up.left.and.arrow.down.right")
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(Theme.textPrimary)
-                            .padding(Theme.Spacing.sm)
-                            .background(.regularMaterial, in: Circle())
-                            .padding(Theme.Spacing.sm)
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("See the globe full screen")
+                    .padding(Theme.Spacing.sm)
                 }
         }
         // The whole card, as asked. The share button keeps its own taps — it's a `Button`, so it
@@ -940,16 +930,17 @@ struct HomeView: View {
         SectionCard {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(flight.status.isActivelyTracked ? "TRACKING NOW" : "NEXT FLIGHT")
-                        .font(.caption2.weight(.semibold))
+                    Text(flight.status.isActivelyTracked ? "Tracking now" : "Next flight")
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Theme.textSecondary)
                     HStack(spacing: Theme.Spacing.xs) {
                         // 24pt, not 18 — at 18pt, .scaledToFill() cropping a wide tailfin logo
                         // into a near-square frame was cutting away most of the actual mark,
                         // reading as "no logo" even though it was technically rendering.
                         AirlineLogoView(url: flight.displayLogoURL, size: 24)
-                        Text([flight.airlineName, flight.displayNumber].compactMap { $0 }.joined(separator: " · "))
+                        Text([flight.airlineName, flight.displayNumber].compactMap { $0 }.joined(separator: " "))
                             .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Theme.textPrimary)
                             .lineLimit(1)
                     }
                 }
@@ -957,15 +948,19 @@ struct HomeView: View {
                 StatusPill(flight: flight)
             }
 
-            // No minimumScaleFactor here — cities stay a fixed size regardless of name length;
-            // a long pair truncates with an ellipsis instead of shrinking the whole row.
+            // The route as airport codes, 30pt bold (section 6, Home): "FCO → SFO". Codes are short
+            // and fixed-width enough that the line never needs to shrink.
             HStack(alignment: .firstTextBaseline) {
                 HStack(spacing: Theme.Spacing.xs) {
-                    Text(flight.origin.displayName)
+                    Text(flight.origin.displayCode)
                     Image(systemName: "arrow.right")
-                    Text(flight.destination.displayName)
+                        .font(.system(size: 20, weight: .bold))
+                        .accessibilityLabel("to")
+                    Text(flight.destination.displayCode)
                 }
-                .font(.title3.weight(.bold))
+                .font(.system(size: 30, weight: .bold))
+                .tracking(-0.6)
+                .foregroundStyle(Theme.textPrimary)
                 .lineLimit(1)
 
                 Spacer(minLength: Theme.Spacing.sm)
@@ -981,9 +976,10 @@ struct HomeView: View {
 
             HStack(alignment: .center) {
                 Text(flight.countdownSummary)
-                    .font(.subheadline.weight(.medium))
+                    .font(.system(size: 17, weight: .bold))
                     .foregroundStyle(Theme.accent)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.8)
 
                 Spacer(minLength: Theme.Spacing.sm)
 
@@ -1014,7 +1010,7 @@ struct HomeView: View {
             // to how it reads on the detail screen.
             FlightMapView(flight: flight, interactive: false, edgePadding: 12)
                 .frame(height: 200)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.image, style: .continuous))
                 .allowsHitTesting(false)
         }
     }

@@ -2,9 +2,8 @@
 //  TimeZoneCard.swift
 //  Twofold
 //
-//  "It's 3am for Rosa right now" — a live-updating card showing a partner's
-//  local time, with a background that continuously blends between day and
-//  night palettes based on the hour at their location.
+//  "It's 11:24 pm for Alex in Rome": a live-updating card showing a partner's local time, on the
+//  night sky after their sunset and the day sky before it (docs/TWOFOLD_DESIGN.md, section 6).
 //
 
 import SwiftUI
@@ -44,102 +43,87 @@ struct TimeZoneCard: View {
         }
     }
 
-    private func cardBody(at date: Date) -> some View {
+    /// Day or night where the partner is (section 6, Home): from WeatherKit's sun position when
+    /// there is a reading, so it follows their real sunrise and sunset; from the hour otherwise.
+    private func isDaytime(at date: Date) -> Bool {
+        if let isDaylight = weather?.isDaylight { return isDaylight }
         let hour = TimeMath.hourFraction(in: timeZone, at: date)
-        let daylight = TimeMath.daylightFactor(hour: hour)
-        let isDaytime = hour >= 6 && hour < 18
+        return hour >= 6 && hour < 18
+    }
+
+    private func cardBody(at date: Date) -> some View {
+        let isDay = isDaytime(at: date)
+        // White at night (10:1+). By day the sky is light, so the spec's dark inks instead:
+        // #0E1A26 (7:1) and #1E3A55 (4.7:1).
+        let primary = isDay ? Brand.daySkyText : Color.white
+        let secondary = isDay ? Brand.daySkySecondaryText : Color.white.opacity(0.85)
 
         return VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
             lineLayout {
-                Text(sameCity
-                    ? "It's \(TimeMath.timeString(in: timeZone, at: date)) right now\(cityName.map { " in \($0)" } ?? "")"
-                    : "It's \(TimeMath.timeString(in: timeZone, at: date)) for \(person.name) right now\(cityName.map { " in \($0)" } ?? "")")
-                    .font(.headline)
-                    // Three lines is plenty at normal sizes and keeps the card compact. At
-                    // accessibility sizes the same sentence legitimately needs more than three
-                    // lines, and capping it there truncated the partner's city away entirely —
-                    // the one thing the card exists to say.
-                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 3)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                if let weather {
-                    Spacer(minLength: Theme.Spacing.xs)
-                    weatherBadge(weather, font: .subheadline.weight(.medium))
-                }
-            }
-
-            if !sameCity, let comparisonTimeZone {
-                lineLayout {
-                    Text("It's \(TimeMath.timeString(in: comparisonTimeZone, at: date)) for you")
-                        .font(.caption)
+                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                    Text(sameCity
+                        ? "It's \(TimeMath.timeString(in: timeZone, at: date))\(cityName.map { " in \($0)" } ?? "")"
+                        : "It's \(TimeMath.timeString(in: timeZone, at: date)) for \(person.name)\(cityName.map { " in \($0)" } ?? "")")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundStyle(primary)
+                        // At accessibility sizes the sentence needs more than three lines, and
+                        // capping it there truncated the partner's city, the one thing the card
+                        // exists to say.
+                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 3)
                         .fixedSize(horizontal: false, vertical: true)
-                        .opacity(0.85)
 
-                    if let myWeather {
-                        Spacer(minLength: Theme.Spacing.xs)
-                        weatherBadge(myWeather, font: .caption)
+                    if !sameCity, let comparisonTimeZone {
+                        Text("It's \(TimeMath.timeString(in: comparisonTimeZone, at: date)) for you\(myWeather.map { " · \($0.temperatureLabel)" } ?? "")")
+                            .font(.system(size: 14))
+                            .foregroundStyle(secondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
+
+                if !dynamicTypeSize.isAccessibilitySize {
+                    Spacer(minLength: Theme.Spacing.xs)
+                }
+
+                if let weather {
+                    weatherColumn(weather, isDay: isDay, color: primary)
+                }
             }
 
-            // Laid out, not overlaid. As a `.bottomTrailing` overlay this reserved no space of
-            // its own and was drawn into the card's bottom padding, directly beneath the last
-            // temperature badge — legible, but jammed hard against it and against the card edge,
-            // reading as a collision rather than a footnote. As a trailing-aligned line it sits
-            // under the readings it attributes with real spacing, and still costs one caption2
-            // line inside the card rather than a row of its own beneath it.
-            //
-            // Only present when there's actually a reading on screen to attribute.
+            // Apple requires its mark wherever WeatherKit data is shown.
             if weather != nil || myWeather != nil {
-                WeatherAttributionView(tint: .white.opacity(0.9))
+                WeatherAttributionView(tint: secondary)
                     .frame(maxWidth: .infinity, alignment: .trailing)
                     .padding(.top, 2)
             }
         }
-        .foregroundStyle(.white)
         .padding(Theme.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
             ZStack {
-                LinearGradient(
-                    colors: [
-                        Theme.DayNight.nightTop.interpolated(to: Theme.DayNight.dayTop, amount: daylight),
-                        Theme.DayNight.nightBottom.interpolated(to: Theme.DayNight.dayBottom, amount: daylight),
-                    ],
-                    startPoint: .topTrailing,
-                    endPoint: .bottomLeading
-                )
-                // The card's text is white, which is fine against the night palette (16.8:1) and
-                // badly broken against the day one: white on `dayBottom` (#F2A93C) measures 2.00:1
-                // and on `dayTop` 3.42:1, so for roughly half of every day — whenever it's daylight
-                // where the partner is — the whole card was close to unreadable.
-                //
-                // Scaled by `daylight` rather than applied flat: night needs no help and shouldn't
-                // be dimmed, and darkening the day stops themselves turned the sunset amber to mud.
-                // This keeps the palette and only takes the edge off it as the sun comes up. Worst
-                // case across the full cycle is 5.11:1 at midday, past AA's 4.5:1.
-                Color.black.opacity(0.40 * daylight)
+                if isDay {
+                    Brand.daySky
+                    RadialGradient(colors: [Brand.daySkyGlow, .clear], center: .topTrailing, startRadius: 0, endRadius: 220)
+                } else {
+                    Brand.nightSky
+                    RadialGradient(colors: [Brand.nightSkyGlow, .clear], center: .topTrailing, startRadius: 0, endRadius: 220)
+                }
             }
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         }
-        .overlay(alignment: .topLeading) {
-            Image(systemName: isDaytime ? "sun.max.fill" : "moon.stars.fill")
-                .font(.system(size: 72))
-                .opacity(0.16)
-                .foregroundStyle(.white)
-                .offset(x: -12, y: -12)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+        .accessibilityElement(children: .combine)
     }
 
-    private func weatherBadge(_ weather: CurrentWeatherReading, font: Font) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: weather.symbolName)
-                .symbolRenderingMode(.multicolor)
+    /// The emoji top-right (section 6, Home): ☀️ by day, 🌙 at night, with the temperature under it.
+    /// The sun is drawn a little larger than the moon, since at the same size it reads smaller.
+    private func weatherColumn(_ weather: CurrentWeatherReading, isDay: Bool, color: Color) -> some View {
+        VStack(alignment: .trailing, spacing: 0) {
+            Text(isDay ? "☀️" : "🌙")
+                .font(.system(size: isDay ? 34 : 28))
+                .accessibilityLabel(isDay ? "Daytime" : "Night time")
             Text(weather.temperatureLabel)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(color)
         }
-        .font(font)
-        .foregroundStyle(.white)
     }
 
 }
@@ -149,11 +133,11 @@ struct TimeZoneCard: View {
         TimeZoneCard(
             person: MockData.rosa, timeZone: TimeZone(identifier: "Australia/Melbourne")!,
             comparisonTimeZone: TimeZone(identifier: "Asia/Singapore"),
-            weather: CurrentWeatherReading(symbolName: "moon.stars.fill", temperatureC: 14),
+            weather: CurrentWeatherReading(symbolName: "moon.stars.fill", temperatureC: 14, isDaylight: false),
             myWeather: CurrentWeatherReading(symbolName: "sun.max.fill", temperatureC: 29)
         )
         TimeZoneCard(person: MockData.dara, timeZone: TimeZone(identifier: "Asia/Singapore")!, comparisonTimeZone: TimeZone(identifier: "Australia/Melbourne"))
-        TimeZoneCard(person: MockData.rosa, timeZone: TimeZone(identifier: "Australia/Melbourne")!, sameCity: true, cityName: "Melbourne", weather: CurrentWeatherReading(symbolName: "cloud.sun.fill", temperatureC: 18))
+        TimeZoneCard(person: MockData.rosa, timeZone: TimeZone(identifier: "Australia/Melbourne")!, sameCity: true, cityName: "Melbourne", weather: CurrentWeatherReading(symbolName: "cloud.sun.fill", temperatureC: 18, isDaylight: true))
     }
     .padding()
     .background(Theme.backgroundGradient)
