@@ -42,20 +42,20 @@ struct PartnerRequiredGateView: View {
                             .opacity(0.18)
                         Image(systemName: "person.2.fill")
                             .font(.system(size: 36))
-                            .foregroundStyle(Theme.skyBlueText)
+                            .foregroundStyle(Theme.accent)
                         Circle()
-                            .strokeBorder(Theme.subtleInk.opacity(0.15), lineWidth: 1)
+                            .strokeBorder(Theme.textSecondary.opacity(0.15), lineWidth: 1)
                     }
                     .frame(width: 96, height: 96)
 
                     VStack(spacing: Theme.Spacing.sm) {
                         Text("Partner required")
                             .font(.title2.weight(.bold))
-                            .foregroundStyle(Theme.ink)
+                            .foregroundStyle(Theme.textPrimary)
                             .multilineTextAlignment(.center)
                         Text("This is more fun together — connect with your partner to unlock it.")
                             .font(.subheadline)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, Theme.Spacing.lg)
                     }
@@ -106,11 +106,11 @@ private extension PartnerRequiredGateView {
         VStack(spacing: Theme.Spacing.sm) {
             Text("Waiting on \(request.inviterFirstName)")
                 .font(.title2.weight(.bold))
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(Theme.textPrimary)
                 .multilineTextAlignment(.center)
             Text("You've sent your request — this unlocks the moment \(request.inviterFirstName) accepts. We'll let you know.")
                 .font(.subheadline)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, Theme.Spacing.lg)
         }

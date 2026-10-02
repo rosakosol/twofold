@@ -98,7 +98,7 @@ struct RedeemPartnerCodeView: View {
                      ? "Tapping connect will link your accounts straight away."
                      : "Ask your partner for the code Twofold gave them, or tap their invite link again.")
                     .font(.subheadline)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, Theme.Spacing.lg)
             }
@@ -133,7 +133,7 @@ struct RedeemPartnerCodeView: View {
             if let errorMessage {
                 Text(errorMessage)
                     .font(.caption)
-                    .foregroundStyle(Theme.heartRedText)
+                    .foregroundStyle(Theme.error)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, Theme.Spacing.lg)
             }
@@ -149,8 +149,8 @@ struct RedeemPartnerCodeView: View {
                 .frame(maxWidth: .infinity)
                 .padding()
             }
-            .background(canRedeem ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.subtleInk.opacity(0.3)), in: Capsule())
-            .foregroundStyle(.white)
+            .background(canRedeem ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.textSecondary.opacity(0.3)), in: Capsule())
+            .foregroundStyle(Theme.onPrimaryButton)
             .disabled(!canRedeem)
             .padding(.horizontal, Theme.Spacing.lg)
             .padding(.bottom, Theme.Spacing.xl)
@@ -169,7 +169,7 @@ struct RedeemPartnerCodeView: View {
                     .font(.title2.weight(.bold))
                 Text("\(inviterName) needs to accept before you're connected — we'll let you know.")
                     .font(.subheadline)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, Theme.Spacing.lg)
             }
@@ -186,7 +186,7 @@ struct RedeemPartnerCodeView: View {
                     .padding()
             }
             .background(Theme.primaryButtonGradient, in: Capsule())
-            .foregroundStyle(.white)
+            .foregroundStyle(Theme.onPrimaryButton)
             .padding(.horizontal, Theme.Spacing.lg)
             .padding(.bottom, Theme.Spacing.xl)
         }

@@ -73,14 +73,11 @@ struct DeleteAccountView: View {
                     SectionCard {
                         Label("Cancel your subscription first", systemImage: "creditcard.trianglebadge.exclamationmark")
                             .font(.headline)
-                            // heartRedText, not heartRed: Theme.swift calls the latter's light
-                            // value a sub-4.5:1 pairing on text and licenses only the deepened tone
-                            // for text, icons and strokes. Dark mode is identical either way.
-                            .foregroundStyle(Theme.heartRedText)
+                            .foregroundStyle(Theme.error)
 
                         Text("Deleting your account does not cancel an App Store subscription — only you can, and only while you can still sign in. Otherwise you keep being billed.")
                             .font(.subheadline)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
 
                         Button {
                             openSubscriptionManagement()
@@ -89,18 +86,18 @@ struct DeleteAccountView: View {
                                 .font(.subheadline.weight(.semibold))
                         }
                         .buttonStyle(.plain)
-                        .foregroundStyle(Theme.skyBlueText)
+                        .foregroundStyle(Theme.accent)
 
                         Text("Subscribed on our website instead? We cancel that one for you.")
                             .font(.footnote)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                     }
                 }
 
                 SectionCard {
                     Label("This can't be undone", systemImage: "exclamationmark.triangle.fill")
                         .font(.headline)
-                        .foregroundStyle(Theme.heartRedText)
+                        .foregroundStyle(Theme.error)
 
                     VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
                         explainerRow(icon: "person.crop.circle.badge.xmark", text: "Your name, photo, and login are gone for good. You won't be able to sign back in.")
@@ -138,7 +135,7 @@ struct DeleteAccountView: View {
                 }
 
                 if let errorMessage {
-                    Text(errorMessage).font(.caption).foregroundStyle(Theme.heartRedText)
+                    Text(errorMessage).font(.caption).foregroundStyle(Theme.error)
                 }
 
                 Button(role: .destructive) {
@@ -154,7 +151,7 @@ struct DeleteAccountView: View {
                     .frame(maxWidth: .infinity)
                     .padding()
                     .foregroundStyle(.white)
-                    .background(Theme.heartRedFill, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+                    .background(Theme.errorFill, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                 }
                 .disabled(isDeleting)
             }
@@ -199,12 +196,12 @@ struct DeleteAccountView: View {
     private func explainerRow(icon: String, text: String) -> some View {
         HStack(alignment: .top, spacing: Theme.Spacing.sm) {
             Image(systemName: icon)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
                 .frame(width: 20)
                 .accessibilityHidden(true)
             Text(text)
                 .font(.subheadline)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
         }
     }
 

@@ -34,20 +34,20 @@ struct CoupleLocationsView: View {
                         if locationService.state == .requesting {
                             HStack(spacing: Theme.Spacing.xs) {
                                 ProgressView()
-                                Text("Finding your city…").foregroundStyle(Theme.subtleInk)
+                                Text("Finding your city…").foregroundStyle(Theme.textSecondary)
                             }
                             .font(.caption)
                         } else if case .deniedOrRestricted = locationService.state {
                             Text("Location access is off — you can still search for your city above.")
                                 .font(.caption2)
-                                .foregroundStyle(Theme.subtleInk)
+                                .foregroundStyle(Theme.textSecondary)
                         } else if case .failed = locationService.state {
                             Button {
                                 locationService.requestCurrentLocation()
                             } label: {
                                 Label("Try again", systemImage: "location.fill")
                                     .font(.caption.weight(.semibold))
-                                    .foregroundStyle(Theme.skyBlueText)
+                                    .foregroundStyle(Theme.accent)
                             }
                         }
                     }

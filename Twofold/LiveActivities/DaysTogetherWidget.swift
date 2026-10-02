@@ -77,7 +77,7 @@ struct DaysTogetherWidgetView: View {
             .padding()
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
             .background(
-                LinearGradient(colors: [Color(hex: "8A2E4C"), LiveActivityPalette.heartRed], startPoint: .topLeading, endPoint: .bottomTrailing)
+                Brand.relationshipSummary
             )
             .overlay(alignment: .bottomTrailing) {
                 Image(systemName: "heart.fill")
@@ -159,7 +159,7 @@ struct DaysTogetherWidgetView: View {
     }
 
     private var emptyState: some View {
-        WidgetEmptyState(systemImage: "heart.fill", message: "Set your anniversary date", tint: LiveActivityPalette.heartRed)
+        WidgetEmptyState(systemImage: "heart.fill", message: "Set your anniversary date", tint: LiveActivityPalette.coral)
     }
 }
 

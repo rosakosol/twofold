@@ -15,7 +15,7 @@ struct WorldVisitedMapView: View {
     /// Boundary names (`WorldCountryBoundary.name`, already alias-resolved — see
     /// `WorldMap.visitedNames(from:)`) to fill in as visited.
     let visitedCountryNames: Set<String>
-    var visitedColor: Color = Theme.leafGreen
+    var visitedColor: Color = Theme.success
     var unvisitedColor: Color = .white.opacity(0.08)
     var strokeColor: Color = .white.opacity(0.22)
     /// The bundled boundary points are normalized to a 0...1 box that's true equirectangular
@@ -59,5 +59,5 @@ struct WorldVisitedMapView: View {
 #Preview {
     WorldVisitedMapView(visitedCountryNames: ["Australia", "Singapore", "United Kingdom", "United States of America"])
         .padding()
-        .background(Color(hex: "0B111F"))
+        .background(Color(hex: 0x0B0F16))
 }

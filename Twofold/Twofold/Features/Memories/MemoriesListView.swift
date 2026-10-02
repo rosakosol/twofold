@@ -150,7 +150,7 @@ struct MemoriesListView: View {
                                     } header: {
                                         Text(group.title)
                                             .font(.subheadline.weight(.bold))
-                                            .foregroundStyle(Theme.subtleInk)
+                                            .foregroundStyle(Theme.textSecondary)
                                             .textCase(nil)
                                             .listRowInsets(EdgeInsets(top: Theme.Spacing.sm, leading: Theme.Spacing.md, bottom: Theme.Spacing.xs, trailing: 0))
                                             .onAppear { currentVisibleYear = group.year }
@@ -252,7 +252,7 @@ struct MemoriesListView: View {
                 } label: {
                     Text(String(year).suffix(2))
                         .font(.caption2.weight(currentVisibleYear == year ? .bold : .regular))
-                        .foregroundStyle(currentVisibleYear == year ? Theme.skyBlueText : Theme.subtleInk)
+                        .foregroundStyle(currentVisibleYear == year ? Theme.accent : Theme.textSecondary)
                 }
             }
         }
@@ -314,7 +314,7 @@ struct MemoriesListView: View {
     private func selectionIndicator(isSelected: Bool) -> some View {
         Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
             .font(.title3)
-            .foregroundStyle(isSelected ? Theme.skyBlueText : Theme.subtleInk.opacity(0.35))
+            .foregroundStyle(isSelected ? Theme.accent : Theme.textSecondary.opacity(0.35))
     }
 
     private func toggleSelection(_ memory: Memory) {
@@ -349,17 +349,17 @@ struct MemoriesListView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(memory.title)
                         .font(.headline)
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                         .lineLimit(1)
                     if let place = memory.place {
                         Text(place.city)
                             .font(.subheadline)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                             .lineLimit(1)
                     }
                     Text(memory.date, format: .dateTime.day().month(.abbreviated).year())
                         .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                 }
                 Spacer(minLength: 0)
             }
@@ -374,15 +374,15 @@ struct MemoriesListView: View {
                 SectionCard {
                     HStack(spacing: Theme.Spacing.md) {
                         ZStack {
-                            Circle().fill(Theme.skyBlue.opacity(0.15))
-                            Image(systemName: "photo.badge.plus").foregroundStyle(Theme.skyBlueText)
+                            Circle().fill(Theme.accent.opacity(0.15))
+                            Image(systemName: "photo.badge.plus").foregroundStyle(Theme.accent)
                         }
                         .frame(width: 40, height: 40)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Add your first memory").font(.headline).foregroundStyle(Theme.ink)
+                            Text("Add your first memory").font(.headline).foregroundStyle(Theme.textPrimary)
                             Text("Tap to save a photo from a moment together.")
                                 .font(.caption)
-                                .foregroundStyle(Theme.subtleInk)
+                                .foregroundStyle(Theme.textSecondary)
                         }
                         Spacer(minLength: 0)
                     }
@@ -398,7 +398,7 @@ struct MemoriesListView: View {
     private var noMatchState: some View {
         Text("No memories match these filters.")
             .font(.subheadline)
-            .foregroundStyle(Theme.subtleInk)
+            .foregroundStyle(Theme.textSecondary)
             .frame(maxWidth: .infinity)
             .padding(.top, Theme.Spacing.xl)
     }

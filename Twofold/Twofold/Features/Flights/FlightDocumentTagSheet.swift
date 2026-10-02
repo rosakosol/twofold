@@ -59,7 +59,7 @@ struct FlightDocumentTagSheet: View {
 
             if docType == .other {
                 VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                    Text("Name").font(.caption).foregroundStyle(Theme.subtleInk)
+                    Text("Name").font(.caption).foregroundStyle(Theme.textSecondary)
                     TextField("Visa, insurance, hotel booking…", text: $customName)
                         .textFieldStyle(.plain)
                         .focused($nameFocused)
@@ -102,10 +102,10 @@ struct FlightDocumentTagSheet: View {
             HStack(spacing: Theme.Spacing.sm) {
                 Text(type == .other ? "Something else" : type.label)
                     .font(.subheadline.weight(.medium))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                 Spacer(minLength: 0)
                 Image(systemName: docType == type ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(docType == type ? Theme.skyBlueText : Theme.subtleInk.opacity(0.4))
+                    .foregroundStyle(docType == type ? Theme.accent : Theme.textSecondary.opacity(0.4))
             }
             .padding(Theme.Spacing.sm)
             .frame(maxWidth: .infinity)

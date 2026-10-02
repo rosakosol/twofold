@@ -121,7 +121,7 @@ struct FlightTrackingView: View {
             // everything below it (journeyCard, departureCard, ...) stays flat `SectionCard`.
             Group {
                 if colorScheme == .dark {
-                    header.twofoldHeroCard(padding: Theme.Spacing.md)
+                    header.heroCard(padding: Theme.Spacing.md)
                 } else {
                     header
                 }
@@ -270,20 +270,20 @@ struct FlightTrackingView: View {
                 VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
                     HStack(spacing: Theme.Spacing.sm) {
                         Image(systemName: "dot.radiowaves.left.and.right")
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                         Text("Not being tracked")
                             .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(Theme.ink)
+                            .foregroundStyle(Theme.textPrimary)
                     }
                     Text("This flight is saved, but it isn't being followed — no status updates, "
                         + "alerts or Live Activity. Turning tracking on uses one of this month's "
                         + "live-tracked flights.")
                         .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
 
                     if let enableTrackingError {
-                        Text(enableTrackingError).font(.caption).foregroundStyle(Theme.heartRedText)
+                        Text(enableTrackingError).font(.caption).foregroundStyle(Theme.error)
                     }
 
                     Button(action: enableTracking) {
@@ -294,7 +294,7 @@ struct FlightTrackingView: View {
                         .font(.subheadline.weight(.semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, Theme.Spacing.sm)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onPrimaryButton)
                         .background(Theme.primaryButtonGradient, in: Capsule())
                     }
                     .buttonStyle(.plain)
@@ -336,16 +336,16 @@ struct FlightTrackingView: View {
             SectionCard {
                 HStack(spacing: Theme.Spacing.sm) {
                     ZStack {
-                        Circle().fill(Theme.subtleInk.opacity(0.08))
-                        Image(systemName: "lock.fill").font(.subheadline).foregroundStyle(Theme.subtleInk)
+                        Circle().fill(Theme.textSecondary.opacity(0.08))
+                        Image(systemName: "lock.fill").font(.subheadline).foregroundStyle(Theme.textSecondary)
                     }
                     .frame(width: 32, height: 32)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(feature.title).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.ink)
-                        Text("Unlock with Premium").font(.caption).foregroundStyle(Theme.subtleInk)
+                        Text(feature.title).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.textPrimary)
+                        Text("Unlock with Premium").font(.caption).foregroundStyle(Theme.textSecondary)
                     }
                     Spacer(minLength: 0)
-                    Image(systemName: "crown.fill").font(.caption).foregroundStyle(Theme.skyBlueText)
+                    Image(systemName: "crown.fill").font(.caption).foregroundStyle(Theme.accent)
                 }
             }
         }
@@ -361,7 +361,7 @@ struct FlightTrackingView: View {
                     AirlineLogoView(url: flight.displayLogoURL, size: 28)
                     Text([flight.airlineName, flight.displayNumber].compactMap { $0 }.joined(separator: " · "))
                         .font(.subheadline)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .lineLimit(1)
                 }
             }
@@ -381,12 +381,12 @@ struct FlightTrackingView: View {
                 // schedule-only candidate, no faFlightID yet) still just derives to "Scheduled"
                 // like any normal live flight, which reads as tracking already having started.
                 if flight.faFlightID == nil {
-                    PillBadge(text: "Not live yet", tint: Theme.subtleInk)
+                    PillBadge(text: "Not live yet", tint: Theme.textSecondary)
                 } else {
                     PillBadge(text: flight.status.displayLabel, tint: flight.status.semanticColor)
                 }
                 if flight.isDelayed, flight.status != .cancelled {
-                    Image(systemName: flight.status.icon).font(.caption2).foregroundStyle(Theme.heartRedText)
+                    Image(systemName: flight.status.icon).font(.caption2).foregroundStyle(Theme.warning)
                 }
                 Text(flight.countdownSummary)
                     .font(.title2.weight(.bold))
@@ -395,7 +395,7 @@ struct FlightTrackingView: View {
             if flight.faFlightID == nil {
                 Text("This flight is on the airline's schedule — we'll start tracking it live automatically once AeroAPI makes it available, usually a few days before departure.")
                     .font(.caption2)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .multilineTextAlignment(.center)
             }
 
@@ -406,7 +406,7 @@ struct FlightTrackingView: View {
             if let userLocalTimeLabel {
                 Text(userLocalTimeLabel)
                     .font(.subheadline)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
             }
 
             // `trackingEnabled == false` means two different things now, and this line used to
@@ -420,7 +420,7 @@ struct FlightTrackingView: View {
                 // spinner that cycles and stops with nothing to show for it.
                 Text("No longer being tracked — this flight's history is kept for reference.")
                     .font(.caption2)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .multilineTextAlignment(.center)
             }
         }
@@ -526,7 +526,7 @@ struct FlightTrackingView: View {
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.white)
                 .padding(10)
-                .background(isCameraLocked ? AnyShapeStyle(Theme.skyBlueFill) : AnyShapeStyle(.black.opacity(0.55)), in: Circle())
+                .background(isCameraLocked ? AnyShapeStyle(Theme.accentFill) : AnyShapeStyle(.black.opacity(0.55)), in: Circle())
                 .overlay {
                     if isCameraLocked {
                         Circle().strokeBorder(.white.opacity(0.85), lineWidth: 1.5)
@@ -559,7 +559,7 @@ struct FlightTrackingView: View {
                     AirlineLogoView(url: flight.displayLogoURL, size: 24)
                     Text([flight.airlineName, flight.displayNumber].compactMap { $0 }.joined(separator: " · "))
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                         .lineLimit(1)
                 }
             }
@@ -572,7 +572,7 @@ struct FlightTrackingView: View {
             )
 
             HStack {
-                Rectangle().fill(Theme.subtleInk.opacity(0.2)).frame(width: 2, height: 28).padding(.leading, 15)
+                Rectangle().fill(Theme.textSecondary.opacity(0.2)).frame(width: 2, height: 28).padding(.leading, 15)
                 Spacer()
             }
 
@@ -623,8 +623,8 @@ struct FlightTrackingView: View {
     private func journeyRow(code: String, city: String, time: Date?, timeZone: TimeZone?, terminal: String?, gate: String?, statusLine: String) -> some View {
         HStack(alignment: .top, spacing: Theme.Spacing.md) {
             ZStack {
-                Circle().fill(Theme.skyBlue.opacity(0.15))
-                Image(systemName: "airplane").font(.caption).foregroundStyle(Theme.skyBlueText)
+                Circle().fill(Theme.accent.opacity(0.15))
+                Image(systemName: "airplane").font(.caption).foregroundStyle(Theme.accent)
             }
             .frame(width: 32, height: 32)
             .accessibilityHidden(true)
@@ -641,17 +641,17 @@ struct FlightTrackingView: View {
                     if let homeLine = Self.homeTimeLine(for: time, airportZone: timeZone ?? homeTimeZone, homeZone: homeTimeZone) {
                         Text(homeLine)
                             .font(.caption)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                     }
                 } else {
-                    Text("Time not available").font(.subheadline).foregroundStyle(Theme.subtleInk)
+                    Text("Time not available").font(.subheadline).foregroundStyle(Theme.textSecondary)
                 }
                 Text(Self.terminalGateLine(terminal: terminal, gate: gate))
                     .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                 Text(statusLine)
                     .font(.caption.weight(.medium))
-                    .foregroundStyle(Theme.skyBlueText)
+                    .foregroundStyle(Theme.accent)
             }
             Spacer(minLength: 0)
         }
@@ -677,13 +677,13 @@ struct FlightTrackingView: View {
     private func portCardHeader(icon: String, title: String, code: String, city: String) -> some View {
         HStack(spacing: Theme.Spacing.sm) {
             ZStack {
-                Circle().fill(Theme.skyBlue.opacity(0.15))
-                Image(systemName: icon).font(.subheadline).foregroundStyle(Theme.skyBlueText)
+                Circle().fill(Theme.accent.opacity(0.15))
+                Image(systemName: icon).font(.subheadline).foregroundStyle(Theme.accent)
             }
             .frame(width: 32, height: 32)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.subheadline.weight(.semibold))
-                Text("\(code) · \(city)").font(.caption).foregroundStyle(Theme.subtleInk).lineLimit(1)
+                Text("\(code) · \(city)").font(.caption).foregroundStyle(Theme.textSecondary).lineLimit(1)
             }
             Spacer(minLength: 0)
         }
@@ -692,7 +692,7 @@ struct FlightTrackingView: View {
     private var departureCard: some View {
         SectionCard {
             portCardHeader(icon: "airplane.departure", title: "Departure", code: flight.origin.displayCode, city: flight.origin.displayName)
-            Text("All times shown in local time").font(.caption2).foregroundStyle(Theme.subtleInk)
+            Text("All times shown in local time").font(.caption2).foregroundStyle(Theme.textSecondary)
             detailRow(label: "Scheduled", value: Self.timeOrNA(flight.scheduledOut, timeZone: flight.origin.timeZone, fallback: homeTimeZone))
             detailRow(label: flight.actualOut != nil ? "Actual" : "Estimated", value: Self.timeOrNA(flight.actualOut ?? flight.estimatedOut, timeZone: flight.origin.timeZone, fallback: homeTimeZone))
             if let delta = Self.delayDelta(scheduled: flight.scheduledOut, actualOrEstimated: flight.actualOut ?? flight.estimatedOut) {
@@ -706,7 +706,7 @@ struct FlightTrackingView: View {
     private var arrivalCard: some View {
         SectionCard {
             portCardHeader(icon: "airplane.arrival", title: "Arrival", code: flight.destination.displayCode, city: flight.destination.displayName)
-            Text("All times shown in local time").font(.caption2).foregroundStyle(Theme.subtleInk)
+            Text("All times shown in local time").font(.caption2).foregroundStyle(Theme.textSecondary)
             detailRow(label: "Scheduled", value: Self.timeOrNA(flight.scheduledIn, timeZone: flight.destination.timeZone, fallback: homeTimeZone))
             detailRow(label: flight.actualIn != nil ? "Actual" : "Estimated", value: Self.timeOrNA(flight.actualIn ?? flight.estimatedIn, timeZone: flight.destination.timeZone, fallback: homeTimeZone))
             if let delta = Self.delayDelta(scheduled: flight.scheduledIn, actualOrEstimated: flight.actualIn ?? flight.estimatedIn) {
@@ -718,14 +718,14 @@ struct FlightTrackingView: View {
         }
     }
 
-    private func detailRow(label: String, value: String, tint: Color = Theme.ink) -> some View {
+    private func detailRow(label: String, value: String, tint: Color = Theme.textPrimary) -> some View {
         let isUnavailable = value == "Not available"
         return HStack {
-            Text(label).font(.caption).foregroundStyle(Theme.subtleInk)
+            Text(label).font(.caption).foregroundStyle(Theme.textSecondary)
             Spacer()
             Text(value)
                 .font(.subheadline.weight(isUnavailable ? .regular : .medium))
-                .foregroundStyle(isUnavailable ? Theme.subtleInk.opacity(0.6) : tint)
+                .foregroundStyle(isUnavailable ? Theme.textSecondary.opacity(0.6) : tint)
         }
     }
 
@@ -740,9 +740,9 @@ struct FlightTrackingView: View {
     private static func delayDelta(scheduled: Date?, actualOrEstimated: Date?) -> DelayDelta? {
         guard let scheduled, let actualOrEstimated else { return nil }
         let minutes = Int((actualOrEstimated.timeIntervalSince(scheduled) / 60).rounded())
-        if minutes <= -1 { return DelayDelta(text: "\(abs(minutes)) min early", color: Theme.leafGreen) }
-        if minutes < 15 { return DelayDelta(text: "On time", color: Theme.leafGreen) }
-        return DelayDelta(text: "+\(minutes) min", color: Theme.heartRed)
+        if minutes <= -1 { return DelayDelta(text: "\(abs(minutes)) min early", color: Theme.success) }
+        if minutes < 15 { return DelayDelta(text: "On time", color: Theme.success) }
+        return DelayDelta(text: "+\(minutes) min", color: Theme.warning)
     }
 
     private func delayDeltaCaption(_ delta: DelayDelta) -> some View {
@@ -779,7 +779,7 @@ struct FlightTrackingView: View {
             } else {
             SectionCard {
                 HStack(spacing: Theme.Spacing.xs) {
-                    Image(systemName: "sparkles").foregroundStyle(Theme.skyBlueText)
+                    Image(systemName: "sparkles").foregroundStyle(Theme.accent)
                     Text("Good to know").font(.subheadline.weight(.semibold))
                 }
 
@@ -809,7 +809,7 @@ struct FlightTrackingView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(.vertical, Theme.Spacing.sm)
         .background(
-            LinearGradient(colors: [Theme.skyBlue, Theme.skyBlue.opacity(0.65)], startPoint: .top, endPoint: .bottom),
+            Theme.flight,
             in: RoundedRectangle(cornerRadius: 14, style: .continuous)
         )
     }
@@ -840,7 +840,7 @@ struct FlightTrackingView: View {
                         Text(hoursApart == 0 ? "Same time" : "\(hoursApart > 0 ? "+" : "")\(hoursApart)h")
                             .font(.caption2.weight(.bold))
                     }
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .frame(width: 56)
                     timeZoneChip(code: flight.destination.displayCode, timeZone: destTZ, date: context.date)
                 }
@@ -854,13 +854,13 @@ struct FlightTrackingView: View {
         return VStack(spacing: 4) {
             Image(systemName: isDaytime ? "sun.max.fill" : "moon.stars.fill")
                 .font(.caption)
-                .foregroundStyle(isDaytime ? Theme.skyBlueText : Theme.subtleInk)
-            Text(code).font(.caption2.weight(.semibold)).foregroundStyle(Theme.subtleInk)
-            Text(TimeMath.timeString(in: timeZone, at: date)).font(.subheadline.weight(.bold)).foregroundStyle(Theme.ink)
+                .foregroundStyle(isDaytime ? Theme.accent : Theme.textSecondary)
+            Text(code).font(.caption2.weight(.semibold)).foregroundStyle(Theme.textSecondary)
+            Text(TimeMath.timeString(in: timeZone, at: date)).font(.subheadline.weight(.bold)).foregroundStyle(Theme.textPrimary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(.vertical, Theme.Spacing.sm)
-        .background(Theme.subtleInk.opacity(0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(Theme.textSecondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     // MARK: - Updates timeline
@@ -885,13 +885,13 @@ struct FlightTrackingView: View {
             if keyEvents.isEmpty {
                 Text("No updates yet - we'll show gate changes, delays, and milestones here as they happen.")
                     .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
             } else {
                 ForEach(showAllEvents ? keyEvents : Array(keyEvents.prefix(4))) { event in
                     HStack(alignment: .top, spacing: Theme.Spacing.sm) {
                         ZStack {
-                            Circle().fill(event.type.isUrgent ? Theme.heartRed.opacity(0.15) : Theme.skyBlue.opacity(0.15))
-                            Image(systemName: event.type.icon).font(.caption).foregroundStyle(event.type.isUrgent ? Theme.heartRedText : Theme.skyBlueText)
+                            Circle().fill(event.type.isUrgent ? Theme.warning.opacity(0.15) : Theme.accent.opacity(0.15))
+                            Image(systemName: event.type.icon).font(.caption).foregroundStyle(event.type.isUrgent ? Theme.warning : Theme.accent)
                         }
                         .frame(width: 28, height: 28)
                         .accessibilityHidden(true)
@@ -900,7 +900,7 @@ struct FlightTrackingView: View {
                             Text(event.label(timeZone: flight.destination.timeZone)).font(.subheadline.weight(.medium))
                             Text(event.occurredAt, format: Date.FormatStyle(timeZone: flight.origin.timeZone ?? .current).hour().minute())
                                 .font(.caption2)
-                                .foregroundStyle(Theme.subtleInk)
+                                .foregroundStyle(Theme.textSecondary)
                         }
                         Spacer(minLength: 0)
                     }
@@ -955,13 +955,13 @@ struct FlightTrackingView: View {
                 }
 
                 VStack(spacing: Theme.Spacing.xs) {
-                    delayBucketRow(label: "Early", percent: delayStats.earlyPercent, color: Theme.leafGreen)
-                    delayBucketRow(label: "On time", percent: delayStats.onTimePercent, color: Theme.leafGreen)
-                    delayBucketRow(label: "15m late", percent: delayStats.late15Percent, color: .orange)
-                    delayBucketRow(label: "30m late", percent: delayStats.late30Percent, color: .orange)
-                    delayBucketRow(label: "45m+ late", percent: delayStats.late45Percent, color: Theme.heartRed)
-                    delayBucketRow(label: "Cancelled", percent: delayStats.cancelledPercent, color: Theme.heartRed)
-                    delayBucketRow(label: "Diverted", percent: delayStats.divertedPercent, color: Theme.heartRed)
+                    delayBucketRow(label: "Early", percent: delayStats.earlyPercent, color: Theme.success)
+                    delayBucketRow(label: "On time", percent: delayStats.onTimePercent, color: Theme.success)
+                    delayBucketRow(label: "15m late", percent: delayStats.late15Percent, color: Theme.warning)
+                    delayBucketRow(label: "30m late", percent: delayStats.late30Percent, color: Theme.warning)
+                    delayBucketRow(label: "45m+ late", percent: delayStats.late45Percent, color: Theme.warning)
+                    delayBucketRow(label: "Cancelled", percent: delayStats.cancelledPercent, color: Theme.error)
+                    delayBucketRow(label: "Diverted", percent: delayStats.divertedPercent, color: Theme.error)
                 }
             }
         }
@@ -969,10 +969,10 @@ struct FlightTrackingView: View {
 
     private func delayHeadlineStat(value: String, label: String) -> some View {
         VStack(spacing: 2) {
-            Text(value).font(.title3.weight(.bold)).foregroundStyle(Theme.ink)
+            Text(value).font(.title3.weight(.bold)).foregroundStyle(Theme.textPrimary)
             Text(label)
                 .font(.caption2)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -983,12 +983,12 @@ struct FlightTrackingView: View {
         HStack(spacing: Theme.Spacing.sm) {
             Text(label)
                 .font(.caption)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
                 .frame(width: 72, alignment: .leading)
 
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Theme.subtleInk.opacity(0.08))
+                    Capsule().fill(Theme.textSecondary.opacity(0.08))
                     Capsule().fill(color).frame(width: geo.size.width * min(max(percent, 0), 100) / 100)
                 }
             }
@@ -996,7 +996,7 @@ struct FlightTrackingView: View {
 
             Text("\(Int(percent.rounded()))%")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(Theme.textPrimary)
                 .frame(width: 36, alignment: .trailing)
         }
     }
@@ -1014,7 +1014,7 @@ struct FlightTrackingView: View {
             if documents.isEmpty {
                 Text("Boarding passes, itineraries, visas — anything you'll want on the day.")
                     .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 // The rows used to butt straight up against the controls above them. `lg` rather
@@ -1083,11 +1083,11 @@ struct FlightTrackingView: View {
             Button("Choose File", systemImage: "folder") { showingFileImporter = true }
         } label: {
             ZStack {
-                Circle().fill(Theme.skyBlue.opacity(0.15))
+                Circle().fill(Theme.accent.opacity(0.15))
                 if isUploadingDocument {
                     ProgressView().controlSize(.small)
                 } else {
-                    Image(systemName: "plus").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.skyBlueText)
+                    Image(systemName: "plus").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.accent)
                 }
             }
             .frame(width: 32, height: 32)
@@ -1101,7 +1101,7 @@ struct FlightTrackingView: View {
             Text(label.uppercased())
                 .font(.caption2.weight(.bold))
                 .tracking(0.5)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
 
             ForEach(documents) { document in
                 SwipeToDeleteRow(
@@ -1117,7 +1117,7 @@ struct FlightTrackingView: View {
     private func documentRow(_ document: FlightDocument) -> some View {
         HStack(spacing: Theme.Spacing.sm) {
             flightDocumentIcon(document.docType.icon, size: 16)
-                .foregroundStyle(Theme.skyBlueText)
+                .foregroundStyle(Theme.accent)
                 .frame(width: 18)
 
             // The filename, not the tag — the tag is the group heading directly above, so a row

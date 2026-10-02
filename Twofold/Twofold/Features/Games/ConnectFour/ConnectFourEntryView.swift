@@ -33,7 +33,7 @@ struct ConnectFourEntryView: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.md) {
                 Text("One board between you. Take turns dropping a disc — first to get four in a row, in any direction, wins.")
                     .font(.subheadline)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 // No bests for a board game: there is no time or score to keep, only the record.
@@ -47,7 +47,7 @@ struct ConnectFourEntryView: View {
 
                 Text("Played a move at a time, whenever you each get to it — there's no clock. You'll be told when it's your turn.")
                     .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 if isPremium {
@@ -59,7 +59,7 @@ struct ConnectFourEntryView: View {
                 if let errorMessage {
                     Text(errorMessage)
                         .font(.caption)
-                        .foregroundStyle(Theme.heartRedText)
+                        .foregroundStyle(Theme.error)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -102,14 +102,14 @@ struct ConnectFourEntryView: View {
             VStack(spacing: Theme.Spacing.sm) {
                 Text("Connect 4 is part of Premium")
                     .font(.headline)
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                 Text("One board between you, played a move at a time.")
                     .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .multilineTextAlignment(.center)
                 Button("See Premium") { showingPaywall = true }
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Theme.skyBlueText)
+                    .foregroundStyle(Theme.accent)
             }
             .frame(maxWidth: .infinity)
         }
@@ -129,7 +129,7 @@ struct ConnectFourEntryView: View {
             .padding()
         }
         .background(Theme.primaryButtonGradient, in: Capsule())
-        .foregroundStyle(.white)
+        .foregroundStyle(Theme.onPrimaryButton)
         .disabled(isStarting)
     }
 

@@ -56,7 +56,7 @@ struct SignInView: View {
                             .font(.system(.title, design: .rounded, weight: .bold))
                         Text("Sign in to pick up right where you left off.")
                             .font(.body)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                             .multilineTextAlignment(.center)
                     }
                     .padding(.top, Theme.Spacing.lg)
@@ -79,7 +79,7 @@ struct SignInView: View {
                         if let errorMessage {
                             Text(errorMessage)
                                 .font(.caption)
-                                .foregroundStyle(Theme.heartRedText)
+                                .foregroundStyle(Theme.error)
                         }
 
                         Button {
@@ -87,7 +87,7 @@ struct SignInView: View {
                         } label: {
                             Text("Forgot password?")
                                 .font(.caption.weight(.medium))
-                                .foregroundStyle(Theme.skyBlueText)
+                                .foregroundStyle(Theme.accent)
                         }
                         .frame(maxWidth: .infinity, alignment: .trailing)
 
@@ -95,20 +95,20 @@ struct SignInView: View {
                             signInWithPassword()
                         } label: {
                             if isPasswordInFlight {
-                                ProgressView().tint(.white).frame(maxWidth: .infinity)
+                                ProgressView().tint(Theme.onPrimaryButton).frame(maxWidth: .infinity)
                             } else {
                                 Text("Sign In").font(.headline).frame(maxWidth: .infinity)
                             }
                         }
                         .padding()
-                        .background(canSubmit ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.subtleInk.opacity(0.3)), in: Capsule())
-                        .foregroundStyle(.white)
+                        .background(canSubmit ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.textSecondary.opacity(0.3)), in: Capsule())
+                        .foregroundStyle(Theme.onPrimaryButton)
                         .disabled(!canSubmit)
 
                         HStack {
-                            Rectangle().fill(Theme.subtleInk.opacity(0.2)).frame(height: 1)
-                            Text("or").font(.caption).foregroundStyle(Theme.subtleInk)
-                            Rectangle().fill(Theme.subtleInk.opacity(0.2)).frame(height: 1)
+                            Rectangle().fill(Theme.textSecondary.opacity(0.2)).frame(height: 1)
+                            Text("or").font(.caption).foregroundStyle(Theme.textSecondary)
+                            Rectangle().fill(Theme.textSecondary.opacity(0.2)).frame(height: 1)
                         }
                         .padding(.vertical, Theme.Spacing.xs)
 
@@ -125,7 +125,7 @@ struct SignInView: View {
                             } label: {
                                 Text("Have an invite code instead?")
                                     .font(.subheadline.weight(.medium))
-                                    .foregroundStyle(Theme.skyBlueText)
+                                    .foregroundStyle(Theme.accent)
                             }
                             .padding(.top, Theme.Spacing.sm)
                         }

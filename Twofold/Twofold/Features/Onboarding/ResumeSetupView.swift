@@ -56,7 +56,7 @@ struct ResumeSetupView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(Theme.Spacing.md)
-                .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card))
+                .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.Radius.card))
             },
             primaryTitle: "Pick up where you left off",
             primaryAction: { onboarding.path.append(.invitePartner) },
@@ -89,12 +89,12 @@ struct ResumeSetupView: View {
     private func savedRow(_ systemImage: String, _ text: String) -> some View {
         HStack(spacing: Theme.Spacing.sm) {
             Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(Theme.leafGreenText)
+                .foregroundStyle(Theme.success)
                 .accessibilityHidden(true)
             Label(text, systemImage: systemImage)
                 .labelStyle(.titleOnly)
                 .font(.subheadline)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
         }
     }
 }

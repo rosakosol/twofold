@@ -127,12 +127,12 @@ enum TimeMath {
         calendarDaysBetween(date, now, calendar: calendar)
     }
 
-    /// Same hex values as Theme.DayNight — duplicated here (not imported from Theme.swift,
-    /// which stays main-app-only) since these four colors are all a widget needs from it.
+    /// The partner-time sky, for widgets, which cannot see Theme.DayNight. Both read the same
+    /// `Brand` values, so they cannot drift.
     enum DayNight {
-        static let nightTop = Color(hex: "0B1D3A")
-        static let nightBottom = Color(hex: "1B2A4A")
-        static let dayTop = Color(hex: "3E8FD9")
-        static let dayBottom = Color(hex: "F2A93C")
+        static let nightTop = Brand.nightSkyTop
+        static let nightBottom = Brand.nightSkyBottom
+        static let dayTop = Brand.daySkyTop
+        static let dayBottom = Brand.daySkyBottom
     }
 }

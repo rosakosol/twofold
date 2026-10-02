@@ -41,7 +41,7 @@ struct ConfettiBurstView: View {
         let delay: Double
     }
 
-    private static let colors: [Color] = [Theme.heartRed, Theme.skyBlue, Theme.leafGreen, .yellow, .purple, .orange]
+    private static let colors: [Color] = [Theme.coral, Theme.accent, Theme.success, Theme.indigo, Theme.violetFill]
 
     /// One generator for the whole table, not one per particle.
     ///

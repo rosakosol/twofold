@@ -28,16 +28,16 @@ struct SettingsRow: View {
                 ProgressView().frame(maxWidth: .infinity)
             } else {
                 Label(title, systemImage: systemImage)
-                    .foregroundStyle(isDestructive ? Theme.heartRedText : Theme.ink)
+                    .foregroundStyle(isDestructive ? Theme.error : Theme.textPrimary)
                 Spacer()
                 if let unavailableBadge {
-                    PillBadge(text: unavailableBadge, tint: Theme.subtleInk)
+                    PillBadge(text: unavailableBadge, tint: Theme.textSecondary)
                 } else {
                     if let value {
-                        Text(value).foregroundStyle(Theme.subtleInk)
+                        Text(value).foregroundStyle(Theme.textSecondary)
                     }
                     if showsChevron {
-                        Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
+                        Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.textSecondary)
                             .accessibilityHidden(true)
                     }
                 }

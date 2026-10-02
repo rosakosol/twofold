@@ -96,19 +96,19 @@ struct SaveAccountView: View {
                             if passwordsMismatch {
                                 Text("Passwords don't match")
                                     .font(.caption)
-                                    .foregroundStyle(Theme.heartRedText)
+                                    .foregroundStyle(Theme.error)
                             }
 
                             Button(action: continueWithEmail) {
                                 if isEmailInFlight {
-                                    ProgressView().tint(.white).frame(maxWidth: .infinity)
+                                    ProgressView().tint(Theme.onPrimaryButton).frame(maxWidth: .infinity)
                                 } else {
                                     Text("Continue").font(.headline).frame(maxWidth: .infinity)
                                 }
                             }
                             .padding()
-                            .background(canContinueWithEmail && !isSubmitting ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.subtleInk.opacity(0.3)), in: Capsule())
-                            .foregroundStyle(.white)
+                            .background(canContinueWithEmail && !isSubmitting ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.textSecondary.opacity(0.3)), in: Capsule())
+                            .foregroundStyle(Theme.onPrimaryButton)
                             .disabled(!canContinueWithEmail || isSubmitting)
 
                             if emailAlreadyExists {
@@ -117,7 +117,7 @@ struct SaveAccountView: View {
                                 } label: {
                                     Text("Sign In")
                                         .font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(Theme.skyBlueText)
+                                        .foregroundStyle(Theme.accent)
                                 }
                             }
                         }
@@ -126,14 +126,14 @@ struct SaveAccountView: View {
                             showingEmailForm = true
                         }
                         .font(.subheadline.weight(.medium))
-                        .foregroundStyle(Theme.skyBlueText)
+                        .foregroundStyle(Theme.accent)
                         .frame(maxWidth: .infinity)
                     }
 
                     if let errorMessage {
                         Text(errorMessage)
                             .font(.caption)
-                            .foregroundStyle(Theme.heartRedText)
+                            .foregroundStyle(Theme.error)
                     }
                 }
             }

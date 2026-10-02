@@ -47,7 +47,7 @@ extension View {
 
 #Preview {
     ZStack {
-        LiveActivityPalette.skyBlue
+        LiveActivityPalette.accent
     }
     .widgetBranded()
     .frame(width: 160, height: 160)

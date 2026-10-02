@@ -70,7 +70,7 @@ struct AnimatedBalloonsView: View {
 
 #Preview {
     ZStack {
-        LinearGradient(colors: [Color(hex: "7B5BD6"), Color(hex: "F2A93C")], startPoint: .top, endPoint: .bottom)
+        Theme.coralGradient
             .ignoresSafeArea()
         AnimatedBalloonsView()
     }

@@ -20,15 +20,15 @@ struct StatCardHeader: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             HStack(spacing: Theme.Spacing.sm) {
                 ZStack {
-                    Circle().fill(Theme.skyBlueText.opacity(0.15))
-                    Image(systemName: icon).font(.subheadline).foregroundStyle(Theme.skyBlueText)
+                    Circle().fill(Theme.accent.opacity(0.15))
+                    Image(systemName: icon).font(.subheadline).foregroundStyle(Theme.accent)
                 }
                 .frame(width: 32, height: 32)
                 Text(title)
                     .font(.headline)
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
             }
-            Text("\(Text(value).font(.system(size: 34, weight: .bold, design: .rounded)).foregroundStyle(Theme.skyBlueText))\(Text(unit.map { " \($0)" } ?? "").font(.title3.weight(.semibold)).foregroundStyle(Theme.subtleInk))")
+            Text("\(Text(value).font(.system(size: 34, weight: .bold, design: .rounded)).foregroundStyle(Theme.accent))\(Text(unit.map { " \($0)" } ?? "").font(.title3.weight(.semibold)).foregroundStyle(Theme.textSecondary))")
         }
     }
 }
@@ -42,13 +42,13 @@ struct StatBreakdownRow: View {
         HStack {
             Text(label)
                 .font(.subheadline)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
             Spacer()
             Text(value)
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(Theme.textPrimary)
                 .monospacedDigit()
         }
     }
@@ -88,7 +88,7 @@ struct StatRankedRows: View {
                     }
                 }
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Theme.skyBlueText)
+                .foregroundStyle(Theme.accent)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }

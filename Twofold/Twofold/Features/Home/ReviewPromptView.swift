@@ -47,7 +47,7 @@ struct ReviewPromptView: View {
                     .font(.headline)
                 Text("Enjoying Twofold so far?")
                     .font(.subheadline)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
             }
             .multilineTextAlignment(.center)
             .padding(.horizontal, Theme.Spacing.lg)
@@ -64,11 +64,11 @@ struct ReviewPromptView: View {
                         .padding()
                 }
                 .background(Theme.primaryButtonGradient, in: Capsule())
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onPrimaryButton)
 
                 Button("Not Right Now") { dismiss() }
                     .font(.subheadline)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
             }
             .padding(.horizontal, Theme.Spacing.lg)
 

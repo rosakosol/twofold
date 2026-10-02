@@ -27,7 +27,7 @@ struct DeckPremiumGateView: View {
                         .opacity(0.18)
                     Text(deck.emoji).font(.system(size: 44))
                     Circle()
-                        .strokeBorder(Theme.subtleInk.opacity(0.15), lineWidth: 1)
+                        .strokeBorder(Theme.textSecondary.opacity(0.15), lineWidth: 1)
                 }
                 .frame(width: 96, height: 96)
                 .overlay(alignment: .bottomTrailing) {
@@ -35,7 +35,7 @@ struct DeckPremiumGateView: View {
                         Circle().fill(Theme.primaryButtonGradient)
                         Image(systemName: "crown.fill")
                             .font(.caption)
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Theme.onPrimaryButton)
                     }
                     .frame(width: 30, height: 30)
                 }
@@ -43,11 +43,11 @@ struct DeckPremiumGateView: View {
                 VStack(spacing: Theme.Spacing.sm) {
                     Text(deck.title)
                         .font(.title2.weight(.bold))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                         .multilineTextAlignment(.center)
                     Text("This deck is part of Twofold Premium. Upgrade to unlock it, plus every other Premium deck across every topic.")
                         .font(.subheadline)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, Theme.Spacing.lg)
                 }
@@ -63,7 +63,7 @@ struct DeckPremiumGateView: View {
                         .padding()
                 }
                 .background(Theme.primaryButtonGradient, in: Capsule())
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onPrimaryButton)
                 .padding(.horizontal, Theme.Spacing.lg)
                 .padding(.bottom, Theme.Spacing.xl)
             }

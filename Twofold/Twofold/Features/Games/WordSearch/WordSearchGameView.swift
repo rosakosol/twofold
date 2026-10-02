@@ -170,19 +170,19 @@ struct WordSearchGameView: View {
                 Text(theme.displayName.uppercased())
                     .font(.caption.weight(.bold))
                     .tracking(0.8)
-                    .foregroundStyle(Theme.skyBlueText)
+                    .foregroundStyle(Theme.accent)
                     .padding(.horizontal, Theme.Spacing.sm)
                     .padding(.vertical, Theme.Spacing.xs)
-                    .background(Theme.cardBackground, in: Capsule())
+                    .background(Theme.surface, in: Capsule())
             }
             Spacer()
             Text("\(play.found.count)/\(play.totalCount)")
                 .font(.subheadline.weight(.semibold))
                 .monospacedDigit()
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(Theme.textPrimary)
             Label(PuzzleClock.text(play.elapsed), systemImage: "clock")
                 .font(.subheadline.weight(.medium))
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
                 // Without this the whole row twitches every second as the digits change width.
                 .monospacedDigit()
         }
@@ -204,11 +204,11 @@ struct WordSearchGameView: View {
                     Text(word)
                         .font(.caption.weight(isFound ? .regular : .semibold))
                         .strikethrough(isFound)
-                        .foregroundStyle(isFound ? Theme.subtleInk : Theme.ink)
+                        .foregroundStyle(isFound ? Theme.textSecondary : Theme.textPrimary)
                         .padding(.horizontal, Theme.Spacing.sm)
                         .padding(.vertical, 5)
                         .background(
-                            isFound ? Theme.leafGreen.opacity(0.15) : Theme.cardBackground,
+                            isFound ? Theme.success.opacity(0.15) : Theme.surface,
                             in: Capsule()
                         )
                         .accessibilityLabel(isFound ? "\(word), found" : word)
@@ -236,7 +236,7 @@ struct WordSearchGameView: View {
         VStack(spacing: Theme.Spacing.sm) {
             clearedSummary(play: play)
 
-            // Outside the card: `GameReminderButton` is filled with `Theme.cardBackground` so it
+            // Outside the card: `GameReminderButton` is filled with `Theme.surface` so it
             // reads as raised against the page, which is the one colour it would disappear into
             // inside a `SectionCard`. Same placement the deck games use.
             if appModel.hasCouple {
@@ -250,22 +250,22 @@ struct WordSearchGameView: View {
             VStack(spacing: Theme.Spacing.sm) {
                 Image(systemName: "checkmark.seal.fill")
                     .font(.largeTitle)
-                    .foregroundStyle(Theme.leafGreenText)
+                    .foregroundStyle(Theme.success)
 
                 Text("Cleared in \(PuzzleClock.text(play.elapsed))")
                     .font(.title3.weight(.bold))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
 
                 if appModel.hasCouple {
                     Text("Your time is saved. You'll see how it compares once \(appModel.partner.name) has cleared theirs.")
                         .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
                 } else {
                     Text("Your time is saved.")
                         .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                 }
             }
             .frame(maxWidth: .infinity)

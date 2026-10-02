@@ -54,7 +54,7 @@ struct MainTabView: View {
                     .postHogScreenView("Passport")
             }
         }
-        .tint(Theme.skyBlue)
+        .tint(Theme.accent)
         // Here rather than on any one screen: a refused write can come from Trips, Memories or a
         // sheet presented over either, and the alert has to outlive whichever of those the person
         // is dismissing when it arrives.
@@ -90,22 +90,15 @@ struct MainTabView: View {
 
     /// Applied once via `UITabBar.appearance()` — SwiftUI's `TabView` has no direct modifier for
     /// the bar's own background/border/unselected-item color, only `.tint()` for the selected
-    /// state. Dark-mode branches carry the Aurora `TwofoldDark.TabBar` tokens; light-mode branches
-    /// return the system's own defaults so light mode is visually untouched, mirroring the
-    /// dynamic-`UIColor` pattern `Theme.cardBackground`/`Theme.subtleInk` already use.
+    /// state. The colours are the `tabBar`, `line` and `textSecondary` tokens, which adapt to
+    /// appearance themselves.
     private static func configureTabBarAppearance() {
         let appearance = UITabBarAppearance()
         appearance.configureWithDefaultBackground()
-        appearance.backgroundColor = UIColor { traits in
-            traits.userInterfaceStyle == .dark ? UIColor(TwofoldDark.TabBar.background) : .clear
-        }
-        appearance.shadowColor = UIColor { traits in
-            traits.userInterfaceStyle == .dark ? UIColor(TwofoldDark.TabBar.border) : .separator
-        }
+        appearance.backgroundColor = UIColor(Theme.tabBar)
+        appearance.shadowColor = UIColor(Theme.line)
 
-        let unselected = UIColor { traits in
-            traits.userInterfaceStyle == .dark ? UIColor(TwofoldDark.TabBar.itemForeground) : .secondaryLabel
-        }
+        let unselected = UIColor(Theme.textSecondary)
         for itemAppearance in [appearance.stackedLayoutAppearance, appearance.inlineLayoutAppearance, appearance.compactInlineLayoutAppearance] {
             itemAppearance.normal.iconColor = unselected
             itemAppearance.normal.titleTextAttributes = [.foregroundColor: unselected]

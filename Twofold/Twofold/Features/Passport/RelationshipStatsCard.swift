@@ -62,7 +62,7 @@ struct RelationshipStatsCard: View {
 
                     Text(stats.timeTogetherLabel)
                         .font(.system(size: timeTogetherFontSize, weight: .bold, design: .rounded))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity)
 
@@ -81,35 +81,35 @@ struct RelationshipStatsCard: View {
 
                     LazyVGrid(columns: milestoneColumns, spacing: Theme.Spacing.sm) {
                         if showReunionsStat {
-                            milestoneTile(icon: "heart.fill", label: "Total Reunions", value: "\(stats.reunionCount)", tint: Theme.heartRedText)
+                            milestoneTile(icon: "heart.fill", label: "Total Reunions", value: "\(stats.reunionCount)", tint: Theme.coral)
                         }
-                        milestoneTile(icon: "airplane", label: "Furthest Apart", value: MeasurementPreference.distanceLabel(km: stats.longestDistanceKm), tint: Theme.skyBlueText)
+                        milestoneTile(icon: "airplane", label: "Furthest Apart", value: MeasurementPreference.distanceLabel(km: stats.longestDistanceKm), tint: Theme.accent)
                         milestoneTile(
                             icon: "arrow.up.right",
                             label: "Longest Trip",
                             value: stats.longestTrip.map { RelationshipMilestoneStats.tripDuration($0) } ?? "—",
                             detail: stats.longestTrip?.destination.displayCity,
-                            tint: Theme.leafGreenText
+                            tint: Theme.success
                         )
                         milestoneTile(
                             icon: "arrow.down.left",
                             label: "Shortest Trip",
                             value: stats.shortestTrip.map { RelationshipMilestoneStats.tripDuration($0) } ?? "—",
                             detail: stats.shortestTrip?.destination.displayCity,
-                            tint: Theme.leafGreenText
+                            tint: Theme.success
                         )
                         milestoneTile(
                             icon: "hourglass",
                             label: "Longest Gap",
                             value: stats.longestSeparationDays.map { "\($0) days" } ?? "—",
-                            tint: .purple
+                            tint: Theme.violetFill
                         )
                         milestoneTile(
                             icon: "calendar.badge.clock",
                             label: "Next Reunion",
                             value: stats.nextReunionDaysToGo.map { $0 == 0 ? "Today!" : "\($0) days" } ?? "Plan one",
                             detail: stats.nextReunion?.destination.displayCity,
-                            tint: .orange
+                            tint: Theme.indigo
                         )
                     }
                 }
@@ -136,14 +136,14 @@ struct RelationshipStatsCard: View {
             AvatarView(person: couple.partnerA, size: 44, showsRing: true)
 
             Rectangle()
-                .fill(Theme.heartRedText.opacity(0.4))
+                .fill(Theme.coral.opacity(0.4))
                 .frame(width: 56, height: 2)
                 .overlay {
                     Image(systemName: "heart.fill")
                         .font(.subheadline)
-                        .foregroundStyle(Theme.heartRedText)
+                        .foregroundStyle(Theme.coral)
                         .padding(6)
-                        .background(Theme.cardBackground, in: Circle())
+                        .background(Theme.surface, in: Circle())
                 }
                 .accessibilityHidden(true)
 
@@ -159,12 +159,12 @@ struct RelationshipStatsCard: View {
         VStack(spacing: 2) {
             Text(label.uppercased())
                 .font(.caption2.weight(.semibold))
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
                 .lineLimit(capsLinesToFitGrid ? 1 : nil)
                 .minimumScaleFactor(capsLinesToFitGrid ? 0.8 : 1)
             Text(value)
                 .font(.system(size: heroValueFontSize, weight: .bold, design: .rounded))
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(Theme.textPrimary)
                 .lineLimit(capsLinesToFitGrid ? 1 : nil)
                 .minimumScaleFactor(capsLinesToFitGrid ? 0.6 : 1)
         }
@@ -189,12 +189,12 @@ struct RelationshipStatsCard: View {
                 // despite the value/detail lines already being reserved consistently.
                 Text(label)
                     .font(.caption2.weight(.semibold))
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .lineLimit(capsLinesToFitGrid ? 1 : nil)
                     .minimumScaleFactor(capsLinesToFitGrid ? 0.75 : 1)
                 Text(value)
                     .font(.subheadline.weight(.bold))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                     .lineLimit(capsLinesToFitGrid ? 1 : nil)
                     .minimumScaleFactor(capsLinesToFitGrid ? 0.8 : 1)
                 // Always reserve the detail line's height (even when there's no detail) so every
@@ -203,7 +203,7 @@ struct RelationshipStatsCard: View {
                 // than their row neighbors.
                 Text(detail ?? " ")
                     .font(.caption2)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .lineLimit(capsLinesToFitGrid ? 1 : nil)
                     .opacity(detail == nil ? 0 : 1)
             }

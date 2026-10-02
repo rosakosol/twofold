@@ -41,13 +41,13 @@ struct ShareInviteView: View {
             VStack(spacing: Theme.Spacing.sm) {
                 Text("Your code is")
                     .font(.headline)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                 Text(code)
                     .font(.system(size: 40, weight: .bold, design: .rounded))
-                    .foregroundStyle(Theme.skyBlueText)
+                    .foregroundStyle(Theme.accent)
                 Text("Share this with your partner so they can join you on Twofold.")
                     .font(.subheadline)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, Theme.Spacing.lg)
             }
@@ -69,7 +69,7 @@ struct ShareInviteView: View {
                         .padding()
                 }
                 .background(Theme.primaryButtonGradient, in: Capsule())
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onPrimaryButton)
 
                 Button {
                     UIPasteboard.general.string = shareURL.absoluteString
@@ -80,17 +80,17 @@ struct ShareInviteView: View {
                         .frame(maxWidth: .infinity)
                         .padding()
                 }
-                .background(Theme.cardBackground, in: Capsule())
-                .foregroundStyle(Theme.ink)
+                .background(Theme.surface, in: Capsule())
+                .foregroundStyle(Theme.textPrimary)
 
                 Text("We'll let you know the moment they join.")
                     .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
 
                 Button(action: onContinue) {
                     Text("Continue to Twofold")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Theme.skyBlueText)
+                        .foregroundStyle(Theme.accent)
                 }
                 .padding(.top, Theme.Spacing.xs)
             }

@@ -55,13 +55,13 @@ struct FlightTrackingTests {
 
     @Test func delayedCancelledDivertedAreNotSemanticallyGreen() {
         for status: FlightStatus in [.delayed, .cancelled, .diverted] {
-            #expect(status.semanticColor == Theme.heartRed)
+            #expect(status.semanticColor == Theme.error)
         }
     }
 
     @Test func arrivedAndLandedAreSemanticallyGreen() {
-        #expect(FlightStatus.arrived.semanticColor == Theme.leafGreen)
-        #expect(FlightStatus.landed.semanticColor == Theme.leafGreen)
+        #expect(FlightStatus.arrived.semanticColor == Theme.success)
+        #expect(FlightStatus.landed.semanticColor == Theme.success)
     }
 
     @Test func isActivelyTrackedCoversOnlyInProgressStates() {

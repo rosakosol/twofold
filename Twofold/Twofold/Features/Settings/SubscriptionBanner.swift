@@ -49,7 +49,7 @@ struct SubscriptionBanner: View {
                 Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.white.opacity(0.85))
             }
             .padding(Theme.Spacing.md)
-            .background(Theme.primaryButtonGradient, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+            .background(Theme.heroBlue, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
             .shadow(color: .black.opacity(0.15), radius: 10, y: 4)
             .contentShape(Rectangle())
         }

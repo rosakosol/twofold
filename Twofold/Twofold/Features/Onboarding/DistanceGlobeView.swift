@@ -52,7 +52,7 @@ struct DistanceGlobeView: View {
             if let mapSnapshot {
                 globeContent(mapSnapshot)
             } else {
-                Color(hex: "0E2A52")
+                Brand.nightSkyTop
                 ProgressView().tint(.white)
             }
         }
@@ -205,7 +205,7 @@ struct DistanceGlobeView: View {
                         path.addLine(to: point)
                     }
                 }
-                .stroke(Color(hex: "6FD3FF"), style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [2, 11]))
+                .stroke(Color(hex: 0x6AA5F5), style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [2, 11]))
             }
             .frame(width: Self.globeSize, height: Self.globeSize)
             .scaleEffect(Self.globeOverscan)
@@ -216,8 +216,8 @@ struct DistanceGlobeView: View {
             // spot the map layer projects their city to) but aren't clipped to the circle — only
             // the outer card's own bounds constrain them from here.
             ZStack {
-                pin(photo: selfPhoto, tint: Theme.skyBlue, city: myCity, at: myPoint)
-                pin(photo: partnerPhoto, tint: Theme.heartRed, city: partnerCity, at: partnerPoint)
+                pin(photo: selfPhoto, tint: Theme.accent, city: myCity, at: myPoint)
+                pin(photo: partnerPhoto, tint: Theme.coral, city: partnerCity, at: partnerPoint)
             }
             .frame(width: Self.globeSize, height: Self.globeSize)
             .scaleEffect(Self.globeOverscan)

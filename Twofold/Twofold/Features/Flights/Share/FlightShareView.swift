@@ -73,11 +73,11 @@ struct FlightShareView: View {
             Spacer(minLength: 0)
             Text(shareText)
                 .font(.system(.subheadline, design: .monospaced))
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(Theme.textPrimary)
                 .multilineTextAlignment(.leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(Theme.Spacing.lg)
-                .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .background(Theme.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
             Spacer(minLength: 0)
         }
         .padding(.horizontal, Theme.Spacing.lg)
@@ -104,7 +104,7 @@ struct FlightShareView: View {
         HStack(spacing: 6) {
             ForEach(0..<Self.pageCount, id: \.self) { index in
                 Circle()
-                    .fill(index == page ? Theme.ink : Theme.subtleInk.opacity(0.3))
+                    .fill(index == page ? Theme.textPrimary : Theme.textSecondary.opacity(0.3))
                     .frame(width: 6, height: 6)
             }
         }
@@ -121,7 +121,7 @@ struct FlightShareView: View {
                     .frame(maxWidth: .infinity)
                     .padding()
                     .background(Theme.primaryButtonGradient, in: Capsule())
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onPrimaryButton)
             }
         } else {
             ctaRow(image: currentPageImage())
@@ -146,7 +146,7 @@ struct FlightShareView: View {
             .frame(maxWidth: .infinity)
             .padding()
             .background(Theme.primaryButtonGradient, in: Capsule())
-            .foregroundStyle(.white)
+            .foregroundStyle(Theme.onPrimaryButton)
     }
 
     @MainActor

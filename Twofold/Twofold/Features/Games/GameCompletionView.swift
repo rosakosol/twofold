@@ -49,7 +49,7 @@ struct GameCompletionView: View {
                             .font(.title2.weight(.bold))
                         Text("Now it's \(partnerName)'s turn. We've sent them an invitation. Results unlock once you've both completed the game.")
                             .font(.subheadline)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, Theme.Spacing.lg)
                     }
@@ -79,7 +79,7 @@ struct GameCompletionView: View {
                         .padding()
                 }
                 .background(Theme.primaryButtonGradient, in: Capsule())
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onPrimaryButton)
 
                 if let onEditAnswers {
                     Button(action: onEditAnswers) {
@@ -127,13 +127,13 @@ struct GameCompletionView: View {
         VStack(spacing: Theme.Spacing.xs) {
             Image(systemName: "wifi.slash")
                 .font(.title2)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
             Text("Saved for later")
                 .font(.subheadline.weight(.bold))
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(Theme.textPrimary)
             Text("You're offline. Your \(pendingSyncCount == 1 ? "answer is" : "answers are") saved on this device and will send automatically once you're back online.")
                 .font(.caption)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)
         }
         .padding(Theme.Spacing.md)
@@ -145,17 +145,17 @@ struct GameCompletionView: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             Text("What you shared")
                 .font(.subheadline.weight(.bold))
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(Theme.textPrimary)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             ForEach(myAnswersRecap) { entry in
                 VStack(alignment: .leading, spacing: 4) {
                     Text(entry.question)
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                     Text(entry.answer.isEmpty ? "Skipped this one" : entry.answer)
                         .font(.subheadline)
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(Theme.Spacing.sm)

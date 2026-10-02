@@ -27,7 +27,7 @@ struct WordSearchThemePickerView: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.md) {
                 Text("Eight words hidden in the same grid on both your phones. Find them all, then compare.")
                     .font(.subheadline)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
 
                 GameRecordCard(
                     records: records.filter { $0.gameType == .wordSearch },
@@ -42,7 +42,7 @@ struct WordSearchThemePickerView: View {
                 if let errorMessage {
                     Text(errorMessage)
                         .font(.caption)
-                        .foregroundStyle(Theme.heartRedText)
+                        .foregroundStyle(Theme.error)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -75,10 +75,10 @@ struct WordSearchThemePickerView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(theme.displayName)
                             .font(.headline)
-                            .foregroundStyle(Theme.ink)
+                            .foregroundStyle(Theme.textPrimary)
                         Text(theme.blurb)
                             .font(.caption)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                             .multilineTextAlignment(.leading)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -86,9 +86,9 @@ struct WordSearchThemePickerView: View {
                     if starting == theme {
                         ProgressView()
                     } else if locked {
-                        Image(systemName: "lock.fill").foregroundStyle(Theme.subtleInk)
+                        Image(systemName: "lock.fill").foregroundStyle(Theme.textSecondary)
                     } else {
-                        Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
+                        Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.textSecondary)
                     }
                 }
             }

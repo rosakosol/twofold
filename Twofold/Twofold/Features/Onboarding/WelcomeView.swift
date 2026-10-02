@@ -50,9 +50,9 @@ struct WelcomeView: View {
             // Twofold brand wash
             LinearGradient(
                 colors: [
-                    Color(hex: "1E3A5F").opacity(0.82),
-                    Color(hex: "3E7CA6").opacity(0.78),
-                    Color(hex: "6FBF8B").opacity(0.82),
+                    Brand.nightSkyTop.opacity(0.82),
+                    Brand.accentFill.opacity(0.78),
+                    Brand.successFill.opacity(0.82),
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -110,14 +110,12 @@ struct WelcomeView: View {
                             .font(.headline)
                             .frame(maxWidth: .infinity)
                             .padding()
-                            // The screen behind this is a fixed brand gradient regardless of
-                            // theme, but the button itself still inverts in dark mode like any
-                            // ordinary "white" button would — a dark-filled, white-text pill —
-                            // rather than looking identical to its light-mode self. Fixed colors
-                            // on both sides (not `Theme.ink`, which would go near-white in dark
-                            // mode and wash out against either fill).
-                            .background(colorScheme == .dark ? Color(hex: "1C2A38") : .white, in: Capsule())
-                            .foregroundStyle(colorScheme == .dark ? .white : Color(hex: "1C2A38"))
+                            // The screen behind this is a fixed brand gradient in both
+                            // appearances (spec principle 4), so the button on it is fixed too:
+                            // white with fixed dark ink. `textPrimary` would go near-white in dark
+                            // mode and vanish on the white pill.
+                            .background(.white, in: Capsule())
+                            .foregroundStyle(Theme.inkOnFixedLight)
                     }
 
                     Button {

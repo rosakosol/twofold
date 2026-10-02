@@ -20,14 +20,14 @@ struct SettingsFooterView: View {
         VStack(spacing: Theme.Spacing.xs) {
             HStack(spacing: Theme.Spacing.sm) {
                 Link("Privacy Policy", destination: URL(string: "https://www.twofoldapp.com.au/privacy")!)
-                Text("·").foregroundStyle(Theme.subtleInk)
+                Text("·").foregroundStyle(Theme.textSecondary)
                 Link("Terms of Use", destination: URL(string: "https://www.twofoldapp.com.au/terms")!)
             }
             .font(.caption)
 
             Text(versionLabel)
                 .font(.caption2)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.top, Theme.Spacing.lg)

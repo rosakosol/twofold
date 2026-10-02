@@ -37,7 +37,7 @@ struct LinkFlightPickerView: View {
                     if untetheredFlights.isEmpty {
                         Text("Every tracked flight is already linked to a trip.")
                             .font(.subheadline)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                     } else {
                         ForEach(untetheredFlights) { flight in
                             Button {

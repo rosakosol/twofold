@@ -81,7 +81,7 @@ struct TwofoldPreviewView: View {
                                 .font(.subheadline)
                         }
                         Image(systemName: "plus")
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                         VStack(spacing: Theme.Spacing.xs) {
                             avatarCircle(partnerImage, size: 88)
                             Text(onboarding.partnerName.isEmpty ? "Partner" : onboarding.partnerName)
@@ -96,13 +96,13 @@ struct TwofoldPreviewView: View {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text("Next reunion")
                                         .font(.subheadline)
-                                        .foregroundStyle(Theme.subtleInk)
+                                        .foregroundStyle(Theme.textSecondary)
                                     Text(daysToGo == 0 ? "Today 💛" : "\(daysToGo) days to go")
                                         .font(.title2.weight(.bold))
                                     if let flight = trip.mostRelevantFlight {
                                         Text("\(flight.flightNumber) · \(trip.origin.displayCity) → \(trip.destination.displayCity)")
                                             .font(.caption)
-                                            .foregroundStyle(Theme.subtleInk)
+                                            .foregroundStyle(Theme.textSecondary)
                                     }
                                 }
                                 Spacer(minLength: 0)
@@ -111,7 +111,7 @@ struct TwofoldPreviewView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                     } else if let daysTogether {
                         SectionCard {
-                            StatTile(icon: "heart.fill", value: "\(daysTogether)", label: "Days together", tint: Theme.heartRed)
+                            StatTile(icon: "heart.fill", value: "\(daysTogether)", label: "Days together", tint: Theme.coral)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     } else {
@@ -122,7 +122,7 @@ struct TwofoldPreviewView: View {
                                         .font(.subheadline.weight(.semibold))
                                     Text("Add a flight anytime to start your countdown.")
                                         .font(.caption)
-                                        .foregroundStyle(Theme.subtleInk)
+                                        .foregroundStyle(Theme.textSecondary)
                                 }
                                 Spacer(minLength: 0)
                             }
@@ -141,11 +141,11 @@ struct TwofoldPreviewView: View {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(memory.title)
                                         .font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(Theme.ink)
+                                        .foregroundStyle(Theme.textPrimary)
                                     if let place = memory.place {
                                         Text(place.city)
                                             .font(.caption)
-                                            .foregroundStyle(Theme.subtleInk)
+                                            .foregroundStyle(Theme.textSecondary)
                                     }
                                 }
                                 Spacer(minLength: 0)
@@ -187,12 +187,12 @@ struct TwofoldPreviewView: View {
             if let image {
                 image.resizable().scaledToFill()
             } else {
-                Circle().fill(Theme.cardBackground)
+                Circle().fill(Theme.surface)
                 // Scales with the circle itself — at this screen's 88pt, a fixed body-size icon
                 // looked lost in the middle.
                 Image(systemName: "person.fill")
                     .font(.system(size: size * 0.4))
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
             }
         }
         .frame(width: size, height: size)

@@ -47,7 +47,7 @@ struct ExportDataView: View {
                     VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
                         Text("What to include")
                             .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(Theme.ink)
+                            .foregroundStyle(Theme.textPrimary)
 
                         Toggle("Trips", isOn: $options.trips)
                         Toggle("Memories", isOn: $options.memories)
@@ -61,7 +61,7 @@ struct ExportDataView: View {
                         Toggle("Flights", isOn: $options.flights)
                         Toggle("Games", isOn: $options.games)
                     }
-                    .tint(Theme.skyBlue)
+                    .tint(Theme.accent)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
@@ -69,7 +69,7 @@ struct ExportDataView: View {
                     VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
                         Text("Format")
                             .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(Theme.ink)
+                            .foregroundStyle(Theme.textPrimary)
 
                         Picker("Data", selection: $options.dataFormat) {
                             ForEach(CoupleDataExporter.Options.DataFormat.allCases) { format in
@@ -82,7 +82,7 @@ struct ExportDataView: View {
                              ? "Opens in Numbers, Excel or Google Sheets."
                              : "One file per table, for moving your data somewhere else.")
                             .font(.caption)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
 
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -93,7 +93,7 @@ struct ExportDataView: View {
                         if let result {
                             Text(result.summary)
                                 .font(.caption)
-                                .foregroundStyle(Theme.subtleInk)
+                                .foregroundStyle(Theme.textSecondary)
                                 .fixedSize(horizontal: false, vertical: true)
 
                             ShareLink(
@@ -106,11 +106,11 @@ struct ExportDataView: View {
                                     .padding()
                             }
                             .background(Theme.primaryButtonGradient, in: Capsule())
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Theme.onPrimaryButton)
 
                             Button("Build it again") { self.result = nil }
                                 .font(.subheadline)
-                                .foregroundStyle(Theme.skyBlueText)
+                                .foregroundStyle(Theme.accent)
                                 .frame(maxWidth: .infinity)
                         } else {
                             Button(action: runExport) {
@@ -123,22 +123,22 @@ struct ExportDataView: View {
                                 .padding()
                             }
                             .background(
-                                (options.isEmpty || isExporting) ? AnyShapeStyle(Theme.subtleInk.opacity(0.3)) : AnyShapeStyle(Theme.primaryButtonGradient),
+                                (options.isEmpty || isExporting) ? AnyShapeStyle(Theme.textSecondary.opacity(0.3)) : AnyShapeStyle(Theme.primaryButtonGradient),
                                 in: Capsule()
                             )
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Theme.onPrimaryButton)
                             .disabled(options.isEmpty || isExporting)
 
                             if options.isEmpty {
                                 Text("Pick at least one thing to export.")
                                     .font(.caption)
-                                    .foregroundStyle(Theme.subtleInk)
+                                    .foregroundStyle(Theme.textSecondary)
                                     .frame(maxWidth: .infinity)
                             }
                         }
 
                         if let errorMessage {
-                            Text(errorMessage).font(.caption).foregroundStyle(Theme.heartRedText)
+                            Text(errorMessage).font(.caption).foregroundStyle(Theme.error)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -146,7 +146,7 @@ struct ExportDataView: View {
 
                 Text("Photos are downloaded as part of the export, so a large one can take a while and is best done on Wi-Fi.")
                     .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, Theme.Spacing.xs)
             }

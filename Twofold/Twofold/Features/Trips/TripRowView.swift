@@ -85,7 +85,7 @@ struct TripRowView: View {
                     Text(RelationshipMilestoneStats.tripDuration(trip))
                 }
                 .font(.caption)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
                 .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
             }
         }
@@ -102,7 +102,7 @@ struct TripRowView: View {
         HStack(spacing: -8) {
             ForEach(travelers) { person in
                 AvatarView(person: person, size: 20)
-                    .overlay(Circle().stroke(Theme.cardBackground, lineWidth: 1.5))
+                    .overlay(Circle().stroke(Theme.surface, lineWidth: 1.5))
             }
         }
         .frame(width: leadingColumnWidth)
@@ -121,23 +121,23 @@ struct TripRowView: View {
                     .font(.system(size: countdownFontSize, weight: .bold, design: .rounded))
                 Text(days == 0 ? "Today" : (days == 1 ? "day" : "days"))
                     .font(.caption2)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
             } else if trip.isActive {
                 Image(systemName: "airplane")
                     .font(.subheadline)
-                    .foregroundStyle(Theme.skyBlueText)
+                    .foregroundStyle(Theme.accent)
                     .accessibilityHidden(true)
                 Text("Now")
                     .font(.caption2)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
             } else {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.subheadline)
-                    .foregroundStyle(Theme.leafGreenText)
+                    .foregroundStyle(Theme.success)
                     .accessibilityHidden(true)
                 Text("Done")
                     .font(.caption2)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
             }
         }
         .frame(width: leadingColumnWidth)

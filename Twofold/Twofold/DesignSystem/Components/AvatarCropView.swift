@@ -49,7 +49,7 @@ struct AvatarCropView: View {
 
                 Text("Drag to reposition · pinch to zoom")
                     .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
 
                 Spacer(minLength: 0)
             }

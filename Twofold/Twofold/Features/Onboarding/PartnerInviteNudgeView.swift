@@ -24,7 +24,7 @@ struct PartnerInviteNudgeView: View {
                         .font(.title2.weight(.bold))
                     Text("Twofold is even better shared. Invite your partner to see everything together.")
                         .font(.subheadline)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, Theme.Spacing.lg)
                 }

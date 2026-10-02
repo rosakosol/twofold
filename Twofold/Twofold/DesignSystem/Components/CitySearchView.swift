@@ -99,7 +99,7 @@ struct CitySearchView: View {
                 if let errorMessage {
                     Text(errorMessage)
                         .font(.caption)
-                        .foregroundStyle(Theme.heartRedText)
+                        .foregroundStyle(Theme.error)
                 }
             }
             .overlay {
@@ -120,9 +120,9 @@ struct CitySearchView: View {
 
     private func cityRow(title: String, subtitle: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(title).foregroundStyle(Theme.ink)
+            Text(title).foregroundStyle(Theme.textPrimary)
             if !subtitle.isEmpty {
-                Text(subtitle).font(.caption).foregroundStyle(Theme.subtleInk)
+                Text(subtitle).font(.caption).foregroundStyle(Theme.textSecondary)
             }
         }
     }

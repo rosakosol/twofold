@@ -16,7 +16,7 @@ struct PassportShareCard: View {
 
     var body: some View {
         VStack(spacing: Theme.Spacing.sm) {
-            TwofoldBrandMark(color: Theme.ink, size: 24, textStyle: .title3)
+            TwofoldBrandMark(color: Theme.textPrimary, size: 24, textStyle: .title3)
             FlightStatsCard(stats: stats)
         }
         .padding(Theme.Spacing.sm)

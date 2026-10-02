@@ -106,7 +106,7 @@ struct OnboardingScaffold<Content: View>: View {
                         if let subtitle {
                             Text(subtitle)
                                 .font(subtitleFont)
-                                .foregroundStyle(Theme.subtleInk)
+                                .foregroundStyle(Theme.textSecondary)
                                 .multilineTextAlignment(titleAlignment == .center ? .center : .leading)
                         }
                     }
@@ -148,11 +148,11 @@ struct OnboardingScaffold<Content: View>: View {
                 }
                 .background(
                     primaryDisabled
-                        ? AnyShapeStyle(Theme.subtleInk.opacity(0.3))
+                        ? AnyShapeStyle(Theme.textSecondary.opacity(0.3))
                         : AnyShapeStyle(Theme.primaryButtonGradient),
                     in: Capsule()
                 )
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onPrimaryButton)
                 .disabled(primaryDisabled)
                 // A bare `ProgressView()` (the loading state above) has no default accessible
                 // label of its own — without this, VoiceOver announces nothing while a purchase/
@@ -162,13 +162,13 @@ struct OnboardingScaffold<Content: View>: View {
                 if let primaryCaption {
                     Text(primaryCaption)
                         .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                 }
             }
             if let secondaryTitle, let secondaryAction {
                 Button(secondaryTitle, action: secondaryAction)
                     .font(.subheadline.weight(.medium))
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
             }
             if let footer {
                 footer
@@ -267,18 +267,18 @@ struct OnboardingCard: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                         .multilineTextAlignment(.leading)
                     if let subtitle {
                         Text(subtitle)
                             .font(.caption)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                             .multilineTextAlignment(.leading)
                     }
                 }
                 Spacer(minLength: 0)
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(isSelected ? Theme.leafGreenText : Theme.subtleInk.opacity(0.3))
+                    .foregroundStyle(isSelected ? Theme.success : Theme.textSecondary.opacity(0.3))
             }
             .padding(Theme.Spacing.md)
             .background { cardSurface(isSelected: isSelected, colorScheme: colorScheme) }
@@ -302,11 +302,11 @@ struct OnboardingOptionRow: View {
             HStack {
                 Text(title)
                     .font(.subheadline.weight(.medium))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                     .multilineTextAlignment(.leading)
                 Spacer()
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(isSelected ? Theme.leafGreenText : Theme.subtleInk.opacity(0.3))
+                    .foregroundStyle(isSelected ? Theme.success : Theme.textSecondary.opacity(0.3))
             }
             .padding(Theme.Spacing.md)
             .background { cardSurface(isSelected: isSelected, colorScheme: colorScheme) }
@@ -319,7 +319,7 @@ struct OnboardingOptionRow: View {
 
 /// Shared by `OnboardingCard`/`OnboardingOptionRow`/`GenderView`/`PaywallView`'s plan card — an
 /// *unselected* card used to render with a `.clear` border, meaning it had literally no edge at
-/// all against `Theme.cardBackground`. That was invisible-but-tolerable in light mode (the
+/// all against `Theme.surface`. That was invisible-but-tolerable in light mode (the
 /// card's own fill already reads as distinct from the page), but in dark mode, with
 /// `Theme.backgroundGradient` now a deep gradient, every unselected card blended into both the
 /// background and each other. Rather than a light-on-dark stroke there, unselected dark-mode
@@ -332,9 +332,9 @@ struct OnboardingOptionRow: View {
 @ViewBuilder
 private func cardSurface(isSelected: Bool, colorScheme: ColorScheme) -> some View {
     ZStack {
-        Theme.cardBackground
+        Theme.surface
         if colorScheme == .dark {
-            Theme.cardGradientDark
+            Theme.surfaceGradient
         }
     }
 }
@@ -346,6 +346,6 @@ private func cardBorder(isSelected: Bool, colorScheme: ColorScheme) -> some View
             .strokeBorder(Theme.selectionGradient, lineWidth: 2)
     } else if colorScheme != .dark {
         RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-            .strokeBorder(Theme.subtleInk.opacity(0.25), lineWidth: 1.25)
+            .strokeBorder(Theme.textSecondary.opacity(0.25), lineWidth: 1.25)
     }
 }

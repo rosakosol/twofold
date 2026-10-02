@@ -234,35 +234,35 @@ private struct CoverPageView: View {
                 Spacer()
 
                 HStack(spacing: Theme.Spacing.lg) {
-                    avatar(selfPhoto, tint: Theme.skyBlue)
+                    avatar(selfPhoto, tint: Theme.accent)
                     Image(systemName: "heart.fill")
                         .font(.system(size: 28))
-                        .foregroundStyle(Theme.heartRed)
-                    avatar(partnerPhoto, tint: Theme.heartRed)
+                        .foregroundStyle(Theme.coral)
+                    avatar(partnerPhoto, tint: Theme.coral)
                 }
 
                 VStack(spacing: Theme.Spacing.sm) {
                     Text("Our Story")
                         .font(.system(size: 44, weight: .bold, design: .serif))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                     Text("\(selfName) & \(partnerName)")
                         .font(.title2.weight(.medium))
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                     if !dateRange.isEmpty {
                         Text(dateRange)
                             .font(.headline)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                     }
                     Text("\(itemCount) \(itemCount == 1 ? "moment" : "moments") together")
                         .font(.subheadline)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                 }
 
                 Spacer()
 
                 Text("twofold")
                     .font(.system(size: 22, weight: .regular, design: .serif))
-                    .foregroundStyle(Theme.subtleInk.opacity(0.6))
+                    .foregroundStyle(Theme.textSecondary.opacity(0.6))
             }
             .padding(60)
         }
@@ -297,21 +297,21 @@ private struct StoryPageChrome<Content: View>: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: Theme.Spacing.sm) {
                 Image(systemName: kindIcon)
-                    .foregroundStyle(Theme.skyBlue)
+                    .foregroundStyle(Theme.accent)
                 Text(kindLabel.uppercased())
                     .font(.caption.weight(.semibold))
                     .tracking(1)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                 Spacer()
                 Text(dateText)
                     .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
             }
             .padding(.bottom, Theme.Spacing.sm)
 
             Text(title)
                 .font(.system(size: 28, weight: .bold, design: .rounded))
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(Theme.textPrimary)
                 .padding(.bottom, Theme.Spacing.lg)
 
             content
@@ -322,7 +322,7 @@ private struct StoryPageChrome<Content: View>: View {
                 Spacer()
                 Text("twofold")
                     .font(.system(size: 12, design: .serif))
-                    .foregroundStyle(Theme.subtleInk.opacity(0.5))
+                    .foregroundStyle(Theme.textSecondary.opacity(0.5))
                 Spacer()
             }
         }
@@ -360,24 +360,24 @@ private struct TripPageView: View {
                 // page (with attachments, for flights) immediately after this one.
                 ForEach(linkedFlights) { flight in
                     HStack(spacing: Theme.Spacing.sm) {
-                        Image(systemName: "airplane.circle.fill").foregroundStyle(Theme.skyBlue)
+                        Image(systemName: "airplane.circle.fill").foregroundStyle(Theme.accent)
                         Text("\(flight.displayNumber)\(flight.airlineName.map { " · \($0)" } ?? "")")
                             .font(.subheadline.weight(.medium))
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                     }
                 }
                 ForEach(linkedMemories) { memory in
                     HStack(spacing: Theme.Spacing.sm) {
-                        Image(systemName: "heart.fill").foregroundStyle(Theme.heartRed)
+                        Image(systemName: "heart.fill").foregroundStyle(Theme.coral)
                         Text(memory.title)
                             .font(.subheadline.weight(.medium))
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                     }
                 }
                 if !description.isEmpty {
                     Text(description)
                         .font(.body)
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                         .lineSpacing(4)
                 }
             }
@@ -388,18 +388,18 @@ private struct TripPageView: View {
         HStack(spacing: Theme.Spacing.md) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(trip.origin.displayCity).font(.headline)
-                Text(coupleHistoryDateFormatter.string(from: trip.departureDate)).font(.caption).foregroundStyle(Theme.subtleInk)
+                Text(coupleHistoryDateFormatter.string(from: trip.departureDate)).font(.caption).foregroundStyle(Theme.textSecondary)
             }
             Spacer()
-            Image(systemName: "arrow.right").foregroundStyle(Theme.subtleInk)
+            Image(systemName: "arrow.right").foregroundStyle(Theme.textSecondary)
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
                 Text(trip.destination.displayCity).font(.headline)
-                Text(coupleHistoryDateFormatter.string(from: trip.arrivalDate)).font(.caption).foregroundStyle(Theme.subtleInk)
+                Text(coupleHistoryDateFormatter.string(from: trip.arrivalDate)).font(.caption).foregroundStyle(Theme.textSecondary)
             }
         }
         .padding(Theme.Spacing.md)
-        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
     }
 }
 
@@ -427,14 +427,14 @@ private struct MemoryPageView: View {
                 }
                 if let place = memory.place {
                     HStack(spacing: Theme.Spacing.xs) {
-                        Image(systemName: "mappin.circle.fill").foregroundStyle(Theme.heartRed)
-                        Text(place.displayCity).font(.subheadline).foregroundStyle(Theme.subtleInk)
+                        Image(systemName: "mappin.circle.fill").foregroundStyle(Theme.coral)
+                        Text(place.displayCity).font(.subheadline).foregroundStyle(Theme.textSecondary)
                     }
                 }
                 if !description.isEmpty {
                     Text(description)
                         .font(.body)
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                         .lineSpacing(4)
                 }
             }
@@ -465,7 +465,7 @@ private struct FlightPageView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(flight.displayNumber).font(.headline)
                         if let airlineName = flight.airlineName {
-                            Text(airlineName).font(.caption).foregroundStyle(Theme.subtleInk)
+                            Text(airlineName).font(.caption).foregroundStyle(Theme.textSecondary)
                         }
                     }
                 }
@@ -478,24 +478,24 @@ private struct FlightPageView: View {
         HStack(spacing: Theme.Spacing.md) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(flight.origin.displayCode).font(.title3.weight(.bold))
-                Text(flight.origin.displayName).font(.caption).foregroundStyle(Theme.subtleInk)
+                Text(flight.origin.displayName).font(.caption).foregroundStyle(Theme.textSecondary)
                 if let departure = flight.bestDeparture {
-                    Text(coupleHistoryDateTimeFormatter.string(from: departure)).font(.caption2).foregroundStyle(Theme.subtleInk)
+                    Text(coupleHistoryDateTimeFormatter.string(from: departure)).font(.caption2).foregroundStyle(Theme.textSecondary)
                 }
             }
             Spacer()
-            Image(systemName: "airplane").foregroundStyle(Theme.skyBlue)
+            Image(systemName: "airplane").foregroundStyle(Theme.accent)
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
                 Text(flight.destination.displayCode).font(.title3.weight(.bold))
-                Text(flight.destination.displayName).font(.caption).foregroundStyle(Theme.subtleInk)
+                Text(flight.destination.displayName).font(.caption).foregroundStyle(Theme.textSecondary)
                 if let arrival = flight.bestArrival {
-                    Text(coupleHistoryDateTimeFormatter.string(from: arrival)).font(.caption2).foregroundStyle(Theme.subtleInk)
+                    Text(coupleHistoryDateTimeFormatter.string(from: arrival)).font(.caption2).foregroundStyle(Theme.textSecondary)
                 }
             }
         }
         .padding(Theme.Spacing.md)
-        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
     }
 }
 
@@ -507,14 +507,14 @@ private struct AttachmentImagePageView: View {
         VStack(spacing: Theme.Spacing.sm) {
             Text(attachment.docType.label)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
             Image(uiImage: image)
                 .resizable()
                 .scaledToFit()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             Text("twofold")
                 .font(.system(size: 10, design: .serif))
-                .foregroundStyle(Theme.subtleInk.opacity(0.5))
+                .foregroundStyle(Theme.textSecondary.opacity(0.5))
         }
         .padding(30)
         .frame(maxWidth: .infinity, maxHeight: .infinity)

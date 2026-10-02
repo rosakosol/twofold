@@ -35,7 +35,7 @@ struct SudokuDifficultyPickerView: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.md) {
                 Text("The same grid on both your phones. Solve it apart, compare when you're done.")
                     .font(.subheadline)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
 
                 if let stats, stats.hasAnything, stats.head2HeadTotal > 0 {
                     headToHead(stats)
@@ -48,7 +48,7 @@ struct SudokuDifficultyPickerView: View {
                 if let errorMessage {
                     Text(errorMessage)
                         .font(.caption)
-                        .foregroundStyle(Theme.heartRedText)
+                        .foregroundStyle(Theme.error)
                 }
             }
             .padding(Theme.Spacing.md)
@@ -74,7 +74,7 @@ struct SudokuDifficultyPickerView: View {
                 Text("HEAD TO HEAD")
                     .font(.caption2.weight(.bold))
                     .tracking(1)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
 
                 HStack(spacing: Theme.Spacing.lg) {
                     tally(String(stats.myWins), label: "You", isLeading: stats.myWins > stats.partnerWins)
@@ -90,7 +90,7 @@ struct SudokuDifficultyPickerView: View {
 
                 Text("\(stats.head2HeadTotal) \(stats.head2HeadTotal == 1 ? "puzzle" : "puzzles") you've both finished")
                     .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
             }
             .frame(maxWidth: .infinity)
         }
@@ -101,11 +101,11 @@ struct SudokuDifficultyPickerView: View {
             Text(value)
                 .font(.system(size: 30, weight: .bold, design: .rounded))
                 .monospacedDigit()
-                .foregroundStyle(isLeading ? Theme.leafGreenText : Theme.ink)
+                .foregroundStyle(isLeading ? Theme.success : Theme.textPrimary)
             Text(label.uppercased())
                 .font(.caption2.weight(.semibold))
                 .tracking(0.5)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
@@ -119,7 +119,7 @@ struct SudokuDifficultyPickerView: View {
         if let row = stats?.rows.first(where: { $0.difficulty == difficulty }), !row.isEmpty {
             HStack(spacing: Theme.Spacing.sm) {
                 bestTime(row.myBest, name: "You", solved: row.mySolved)
-                Text("·").foregroundStyle(Theme.subtleInk)
+                Text("·").foregroundStyle(Theme.textSecondary)
                 bestTime(row.partnerBest, name: appModel.partner.name, solved: row.partnerSolved)
             }
             .font(.caption)
@@ -130,7 +130,7 @@ struct SudokuDifficultyPickerView: View {
         // "—" rather than an omitted name: which of the two has not played this difficulty is
         // itself the interesting part, and dropping their side would read as a layout bug.
         Text("\(name) \(elapsed.map(PuzzleClock.text) ?? "—")")
-            .foregroundStyle(elapsed == nil ? Theme.subtleInk : Theme.ink)
+            .foregroundStyle(elapsed == nil ? Theme.textSecondary : Theme.textPrimary)
             .lineLimit(1)
             .accessibilityLabel(
                 elapsed.map { "\(name), best \(PuzzleClock.text($0)), \(solved) solved" }
@@ -162,10 +162,10 @@ struct SudokuDifficultyPickerView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(difficulty.displayName)
                             .font(.headline)
-                            .foregroundStyle(Theme.ink)
+                            .foregroundStyle(Theme.textPrimary)
                         Text(difficulty.blurb)
                             .font(.caption)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                         bestTimes(difficulty)
                             .padding(.top, Theme.Spacing.xs)
                     }
@@ -173,9 +173,9 @@ struct SudokuDifficultyPickerView: View {
                     if starting == difficulty {
                         ProgressView()
                     } else if locked {
-                        Image(systemName: "lock.fill").foregroundStyle(Theme.subtleInk)
+                        Image(systemName: "lock.fill").foregroundStyle(Theme.textSecondary)
                     } else {
-                        Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
+                        Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.textSecondary)
                     }
                 }
             }

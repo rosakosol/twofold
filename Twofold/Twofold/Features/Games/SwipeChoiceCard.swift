@@ -67,7 +67,7 @@ struct SwipeChoiceCard<Content: View>: View {
     /// else) — the shared blue-green wash read as too generic/samey once cards elsewhere in dark
     /// mode started picking up badge-colored washes of their own (see `TopicsSection`).
     private var cardGradient: LinearGradient {
-        let colors = colorScheme == .dark ? gameType.iconGradient : [Theme.skyBlue, Theme.leafGreen]
+        let colors = colorScheme == .dark ? gameType.iconGradient : [Theme.accent, Theme.success]
         return LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
     }
 

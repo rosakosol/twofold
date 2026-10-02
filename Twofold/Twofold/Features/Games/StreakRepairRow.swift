@@ -35,18 +35,18 @@ struct StreakRepairRow: View {
             HStack(spacing: Theme.Spacing.sm) {
                 Image(systemName: "flame.fill")
                     .font(.subheadline)
-                    .foregroundStyle(Theme.heartRedText)
+                    .foregroundStyle(Theme.coral)
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Your \(streak)-day streak ended")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                     // States the fact and nothing about how long they have. A deadline here would
                     // be pressure, and the offer lapsing quietly is kinder than a countdown — the
                     // same choice the popup makes.
                     Text("You missed yesterday. Bring it back and carry on.")
                         .font(.caption2)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 0)
@@ -62,7 +62,7 @@ struct StreakRepairRow: View {
                 .padding(.vertical, Theme.Spacing.sm)
             }
             .background(Theme.primaryButtonGradient, in: Capsule())
-            .foregroundStyle(.white)
+            .foregroundStyle(Theme.onPrimaryButton)
             .disabled(isWorking)
 
             if freezeAvailable {
@@ -70,12 +70,12 @@ struct StreakRepairRow: View {
                 // not know it is included may not press it.
                 Text("Included with Premium — one a month.")
                     .font(.caption2)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
             }
         }
         .padding(Theme.Spacing.sm)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: 14))
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
     }
 
     private var buttonTitle: String {

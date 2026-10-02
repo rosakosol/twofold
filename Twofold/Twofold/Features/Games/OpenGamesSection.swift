@@ -32,14 +32,14 @@ struct OpenGamesSection: View {
                 HStack(spacing: Theme.Spacing.sm) {
                     Text("Playing now")
                         .font(.title3.weight(.bold))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                     if yourTurnCount > 0 {
                         Text("\(yourTurnCount)")
                             .font(.caption2.weight(.bold))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(Theme.heartRedFill, in: Capsule())
+                            .background(Theme.coralFill, in: Capsule())
                             .accessibilityLabel("\(yourTurnCount) waiting for you")
                     }
                 }
@@ -69,10 +69,10 @@ struct OpenGamesSection: View {
             HStack(spacing: Theme.Spacing.xs) {
                 Image(systemName: game.gameType.icon)
                     .font(.caption)
-                    .foregroundStyle(Theme.skyBlueText)
+                    .foregroundStyle(Theme.accent)
                 Text(game.gameType.displayName)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                     .lineLimit(1)
             }
 
@@ -81,14 +81,14 @@ struct OpenGamesSection: View {
             if let label = game.label {
                 Text(label.capitalized)
                     .font(.caption2)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
             }
 
             Spacer(minLength: 0)
 
             Text(game.isMyTurn ? "Your turn" : "Waiting on \(partnerName)")
                 .font(.caption.weight(game.isMyTurn ? .bold : .regular))
-                .foregroundStyle(game.isMyTurn ? Theme.heartRedText : Theme.subtleInk)
+                .foregroundStyle(game.isMyTurn ? Theme.coral : Theme.textSecondary)
                 // A long name would otherwise set the card's width for the whole row. It shrinks a
                 // little before it truncates, so most names stay whole.
                 .lineLimit(1)
@@ -97,14 +97,14 @@ struct OpenGamesSection: View {
         }
         .padding(Theme.Spacing.sm)
         .frame(width: 150, height: 96, alignment: .leading)
-        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: 14))
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
         // A ring rather than a fill on the ones that need you: a card whose whole background
         // changes colour reads as a different kind of card, where this is the same card with
         // something waiting in it.
         .overlay {
             if game.isMyTurn {
                 RoundedRectangle(cornerRadius: 14)
-                    .strokeBorder(Theme.heartRed.opacity(0.55), lineWidth: 1.5)
+                    .strokeBorder(Theme.coral.opacity(0.55), lineWidth: 1.5)
             }
         }
         .accessibilityElement(children: .combine)

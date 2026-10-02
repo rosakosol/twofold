@@ -377,7 +377,7 @@ struct TripsListView: View {
     /// doesn't reliably respond to VoiceOver's double-tap.
     private var dragHandle: some View {
         Capsule()
-            .fill(Theme.subtleInk.opacity(0.35))
+            .fill(Theme.textSecondary.opacity(0.35))
             .frame(width: 36, height: 5)
             .frame(maxWidth: .infinity)
             .frame(height: dragHandleHeight)
@@ -412,7 +412,7 @@ struct TripsListView: View {
                 // exactly one interaction to learn for both directions.
                 Text("Travel")
                     .font(.title.weight(.bold))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                     // Always on screen, so this never goes stale the way a measurement taken only
                     // at one detent would.
                     .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { measuredTitleHeight = $0 }
@@ -450,7 +450,7 @@ struct TripsListView: View {
                         } label: {
                             Image(systemName: "plus.circle.fill")
                                 .font(.title2)
-                                .foregroundStyle(Theme.skyBlueText)
+                                .foregroundStyle(Theme.accent)
                         }
                     }
                 }
@@ -480,13 +480,13 @@ struct TripsListView: View {
                     selectedFlightIDs.removeAll()
                 }
             }
-            .foregroundStyle(Theme.skyBlueText)
+            .foregroundStyle(Theme.accent)
 
             Spacer(minLength: 0)
 
             Text("\(selectedCount) Selected")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(Theme.textPrimary)
 
             Spacer(minLength: 0)
 
@@ -769,7 +769,7 @@ struct TripsListView: View {
     private func selectionIndicator(isSelected: Bool) -> some View {
         Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
             .font(.title3)
-            .foregroundStyle(isSelected ? Theme.skyBlueText : Theme.subtleInk.opacity(0.35))
+            .foregroundStyle(isSelected ? Theme.accent : Theme.textSecondary.opacity(0.35))
     }
 
     private func toggleTripSelection(_ trip: Trip) {
@@ -860,15 +860,15 @@ struct TripsListView: View {
         SectionCard {
             HStack(spacing: Theme.Spacing.md) {
                 ZStack {
-                    Circle().fill(Theme.skyBlue.opacity(0.15))
-                    Image(systemName: icon).foregroundStyle(Theme.skyBlueText)
+                    Circle().fill(Theme.accent.opacity(0.15))
+                    Image(systemName: icon).foregroundStyle(Theme.accent)
                 }
                 .frame(width: 40, height: 40)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.headline).foregroundStyle(Theme.ink)
+                    Text(title).font(.headline).foregroundStyle(Theme.textPrimary)
                     Text(subtitle)
                         .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                 }
                 Spacer(minLength: 0)
             }

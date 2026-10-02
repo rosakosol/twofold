@@ -36,7 +36,7 @@ struct LinkMemoryPickerView: View {
                     if unlinkedMemories.isEmpty {
                         Text("Every memory is already linked to a trip.")
                             .font(.subheadline)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                     } else {
                         ForEach(unlinkedMemories) { memory in
                             Button {
@@ -49,10 +49,10 @@ struct LinkMemoryPickerView: View {
                                     MemoryPhotoView(memory: memory, cornerRadius: 10)
                                         .frame(width: 44, height: 44)
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text(memory.title).font(.subheadline.weight(.medium)).foregroundStyle(Theme.ink).lineLimit(1)
+                                        Text(memory.title).font(.subheadline.weight(.medium)).foregroundStyle(Theme.textPrimary).lineLimit(1)
                                         Text(memory.date, format: .dateTime.day().month(.abbreviated).year())
                                             .font(.caption)
-                                            .foregroundStyle(Theme.subtleInk)
+                                            .foregroundStyle(Theme.textSecondary)
                                     }
                                     Spacer(minLength: 0)
                                 }

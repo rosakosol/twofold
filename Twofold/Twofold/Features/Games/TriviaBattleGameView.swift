@@ -184,10 +184,10 @@ struct TriviaBattleGameView: View {
     /// same reasoning as the old numbered-keycap emoji (answer text is free-form, so the marker
     /// has to be positional), just bolder.
     private static let optionStyles: [(color: Color, icon: String)] = [
-        (Theme.heartRed, "triangle.fill"),
-        (Theme.skyBlue, "diamond.fill"),
-        (.orange, "circle.fill"),
-        (Theme.leafGreen, "square.fill"),
+        (Theme.indigo, "triangle.fill"),
+        (Theme.accent, "diamond.fill"),
+        (Theme.success, "circle.fill"),
+        (Theme.coral, "square.fill"),
     ]
 
     private func roundView(round: GameSessionRound, question: TriviaQuestion) -> some View {
@@ -197,7 +197,7 @@ struct TriviaBattleGameView: View {
                     VStack(spacing: Theme.Spacing.xs) {
                         Text("Question \(round.roundNumber) of \(store.rounds.count)")
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                         if let resolvedTopic {
                             PillBadge(text: resolvedTopic.displayName, tint: resolvedTopic.color, isNeutral: true)
                         }
@@ -210,7 +210,7 @@ struct TriviaBattleGameView: View {
                         if let previousAnswer = store.myResponse(for: round, myID: myID)?.answerValue {
                             Text(previousAnswer.isEmpty ? "You skipped this one" : "You chose: \(previousAnswer)")
                                 .font(.caption.weight(.semibold))
-                                .foregroundStyle(Theme.leafGreenText)
+                                .foregroundStyle(Theme.success)
                         }
                     }
                     .frame(maxWidth: .infinity)

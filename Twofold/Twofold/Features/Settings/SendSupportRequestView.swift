@@ -51,7 +51,7 @@ struct SendSupportRequestView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.Spacing.md) {
                     VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                        Text("Category").font(.caption).foregroundStyle(Theme.subtleInk)
+                        Text("Category").font(.caption).foregroundStyle(Theme.textSecondary)
                         // A Menu wrapping the Picker, rather than `.pickerStyle(.menu)` directly:
                         // that style sizes its button to its own content, so the card stretched
                         // full width but only the words inside it were tappable. Driving the menu
@@ -67,11 +67,11 @@ struct SendSupportRequestView: View {
                         } label: {
                             HStack {
                                 Text(category?.rawValue ?? "Select a category")
-                                    .foregroundStyle(category == nil ? Theme.subtleInk : Theme.ink)
+                                    .foregroundStyle(category == nil ? Theme.textSecondary : Theme.textPrimary)
                                 Spacer(minLength: Theme.Spacing.sm)
                                 Image(systemName: "chevron.up.chevron.down")
                                     .font(.caption)
-                                    .foregroundStyle(Theme.subtleInk)
+                                    .foregroundStyle(Theme.textSecondary)
                             }
                             .padding()
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -91,7 +91,7 @@ struct SendSupportRequestView: View {
                             Text("Reporting \(reportContext.summary)")
                         }
                         .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .padding(Theme.Spacing.sm)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .themedCardBackground(cornerRadius: Theme.Radius.card)
@@ -103,14 +103,14 @@ struct SendSupportRequestView: View {
                             Text(gameContext.summary)
                         }
                         .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .padding(Theme.Spacing.sm)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .themedCardBackground(cornerRadius: Theme.Radius.card)
                     }
 
                     VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                        Text("What's going on?").font(.caption).foregroundStyle(Theme.subtleInk)
+                        Text("What's going on?").font(.caption).foregroundStyle(Theme.textSecondary)
                         TextField("Describe the issue", text: $message, axis: .vertical)
                             .lineLimit(8...16)
                             // Horizontal inset matches the category control above (and the fields
@@ -123,7 +123,7 @@ struct SendSupportRequestView: View {
                     }
 
                     if let errorMessage {
-                        Text(errorMessage).font(.caption).foregroundStyle(Theme.heartRedText)
+                        Text(errorMessage).font(.caption).foregroundStyle(Theme.error)
                     }
 
                     Button(action: send) {
@@ -133,9 +133,9 @@ struct SendSupportRequestView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onPrimaryButton)
                         .background(
-                            canSend ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.subtleInk.opacity(0.3)),
+                            canSend ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.textSecondary.opacity(0.3)),
                             in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
                         )
                     }

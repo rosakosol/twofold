@@ -44,17 +44,17 @@ struct SubscriptionRequiredView: View {
 
             Image(systemName: "lock.circle.fill")
                 .font(.system(size: 52))
-                .foregroundStyle(Theme.skyBlueText)
+                .foregroundStyle(Theme.accent)
 
             VStack(spacing: Theme.Spacing.sm) {
                 title
                     .font(.title3.weight(.bold))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                     .multilineTextAlignment(.center)
 
                 Text("Everything you've already saved stays exactly where it is. You can read it, export it and delete it at any time — a subscription is what lets you add to it.")
                     .font(.subheadline)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -69,11 +69,11 @@ struct SubscriptionRequiredView: View {
                         .padding()
                 }
                 .background(Theme.primaryButtonGradient, in: Capsule())
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onPrimaryButton)
 
                 Button("Not now") { dismiss() }
                     .font(.subheadline)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
             }
         }
         .padding(.horizontal, Theme.Spacing.lg)

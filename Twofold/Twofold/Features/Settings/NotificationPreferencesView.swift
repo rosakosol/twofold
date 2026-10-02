@@ -57,7 +57,7 @@ struct NotificationPreferencesView: View {
                         Toggle("Reminders to invite my partner", isOn: $partnerInviteReminder).font(.subheadline)
                         Text("A couple of nudges in your first few days if you haven't connected yet.")
                             .font(.caption2)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                     }
                 }
 
@@ -139,7 +139,7 @@ struct NotificationPreferencesView: View {
     private func groupHeader(_ title: String) -> some View {
         Text(title)
             .font(.subheadline.weight(.semibold))
-            .foregroundStyle(Theme.subtleInk)
+            .foregroundStyle(Theme.textSecondary)
     }
 
     /// Wraps a toggle and its optional caption in their own tight-spaced VStack, so
@@ -150,7 +150,7 @@ struct NotificationPreferencesView: View {
         VStack(alignment: .leading, spacing: 4) {
             Toggle(label, isOn: isOn).font(.subheadline)
             if let caption {
-                Text(caption).font(.caption2).foregroundStyle(Theme.subtleInk)
+                Text(caption).font(.caption2).foregroundStyle(Theme.textSecondary)
             }
         }
     }
@@ -167,7 +167,7 @@ struct NotificationPreferencesView: View {
                 Text("Notifications aren't turned on yet").font(.subheadline.weight(.semibold))
                 Text("None of the toggles below can do anything until you allow notifications for Twofold.")
                     .font(.caption2)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                 Button {
                     Task { await requestPermission() }
                 } label: {
@@ -178,7 +178,7 @@ struct NotificationPreferencesView: View {
                     }
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(Theme.skyBlue)
+                .tint(Theme.accent)
                 .disabled(isRequestingPermission)
             }
         case .denied:
@@ -186,13 +186,13 @@ struct NotificationPreferencesView: View {
                 Text("Notifications are off for Twofold").font(.subheadline.weight(.semibold))
                 Text("Enable them in iOS Settings to hear from \(appModel.partner.name).")
                     .font(.caption2)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                 Button("Open Settings") {
                     guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
                     UIApplication.shared.open(url)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(Theme.skyBlue)
+                .tint(Theme.accent)
             }
         case .authorized, .provisional, .ephemeral:
             EmptyView()

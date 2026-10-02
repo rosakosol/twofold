@@ -31,7 +31,7 @@ struct YourNameView: View {
                         if let errorMessage {
                             Text(errorMessage)
                                 .font(.caption)
-                                .foregroundStyle(Theme.heartRedText)
+                                .foregroundStyle(Theme.error)
                         }
                     }
                 }

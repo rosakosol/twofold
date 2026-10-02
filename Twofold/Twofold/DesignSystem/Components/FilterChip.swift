@@ -33,8 +33,8 @@ struct FilterChip: View {
         .lineLimit(1)
         .padding(.horizontal, Theme.Spacing.sm)
         .padding(.vertical, 6)
-        .foregroundStyle(Theme.ink)
-        .background(Theme.cardBackground, in: Capsule())
+        .foregroundStyle(Theme.textPrimary)
+        .background(Theme.surface, in: Capsule())
         // Takes only the width it needs, so a chip sharing a row with a segmented control leaves
         // the rest of that row to the control.
         .fixedSize()

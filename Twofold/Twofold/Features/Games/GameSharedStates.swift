@@ -18,7 +18,7 @@ struct SkipButton: View {
     var body: some View {
         Button("Skip", action: action)
             .font(.subheadline)
-            .foregroundStyle(Theme.subtleInk)
+            .foregroundStyle(Theme.textSecondary)
             .disabled(isDisabled)
     }
 }
@@ -51,7 +51,7 @@ struct GameRoundNavRow: View {
     private func navButton(_ title: String, isEnabled: Bool, action: @escaping () -> Void) -> some View {
         Button(title, action: action)
             .font(.subheadline)
-            .foregroundStyle(isEnabled ? Theme.subtleInk : Theme.subtleInk.opacity(0.35))
+            .foregroundStyle(isEnabled ? Theme.textSecondary : Theme.textSecondary.opacity(0.35))
             .disabled(!isEnabled || isDisabled)
     }
 }
@@ -59,10 +59,10 @@ struct GameRoundNavRow: View {
 struct GameAbandonedState: View {
     var body: some View {
         VStack(spacing: Theme.Spacing.sm) {
-            Image(systemName: "flag.slash.fill").font(.largeTitle).foregroundStyle(Theme.subtleInk)
+            Image(systemName: "flag.slash.fill").font(.largeTitle).foregroundStyle(Theme.textSecondary)
             Text("This game was left unfinished.")
                 .font(.subheadline)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -198,10 +198,10 @@ struct GameErrorState: View {
 
     var body: some View {
         VStack(spacing: Theme.Spacing.sm) {
-            Image(systemName: "exclamationmark.triangle.fill").font(.largeTitle).foregroundStyle(Theme.heartRedText)
+            Image(systemName: "exclamationmark.triangle.fill").font(.largeTitle).foregroundStyle(Theme.error)
             Text(message)
                 .font(.subheadline)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)
         }
         .padding(Theme.Spacing.xl)

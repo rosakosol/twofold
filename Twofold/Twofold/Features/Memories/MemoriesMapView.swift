@@ -182,10 +182,10 @@ struct MemoriesMapView: View {
             HStack(spacing: Theme.Spacing.sm) {
                 Image(systemName: "magnifyingglass")
                     .font(.subheadline)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                 Text("Search for a place")
                     .font(.subheadline)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, Theme.Spacing.md)
@@ -226,7 +226,7 @@ struct MemoriesMapView: View {
                 // Without this the map decodes a full 1600px upload per pin to fill a thumbnail.
                 MemoryPhotoView(memory: newest, cornerRadius: 6, thumbnailPixelSize: 192)
             } else {
-                RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Theme.cardBackground)
+                RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Theme.surface)
             }
         }
     }
@@ -337,15 +337,15 @@ struct MemoriesMapView: View {
             SectionCard(appliesDarkWash: false) {
                 HStack(spacing: Theme.Spacing.md) {
                     ZStack {
-                        Circle().fill(Theme.skyBlue.opacity(0.15))
-                        Image(systemName: "photo.badge.plus").foregroundStyle(Theme.skyBlueText)
+                        Circle().fill(Theme.accent.opacity(0.15))
+                        Image(systemName: "photo.badge.plus").foregroundStyle(Theme.accent)
                     }
                     .frame(width: 40, height: 40)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Add your first memory").font(.headline).foregroundStyle(Theme.ink)
+                        Text("Add your first memory").font(.headline).foregroundStyle(Theme.textPrimary)
                         Text("Tap to save a photo from a moment together.")
                             .font(.caption)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                     }
                     Spacer(minLength: 0)
                 }

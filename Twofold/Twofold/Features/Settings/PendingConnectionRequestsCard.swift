@@ -18,7 +18,7 @@ import SwiftUI
 //  runs 1.99 -> 3.52 in light and 2.60 -> 3.52 in dark. Only the foot of the gradient clears
 //  AA-large (3.0).
 //
-//  `Theme.skyBlueText` (#1F6F9E) measures 5.49:1 and would clear AA outright, but it is a much
+//  `Theme.accent` (#1F6F9E) measures 5.49:1 and would clear AA outright, but it is a much
 //  deeper blue than the brand's buttons, so using it here alone would make this one control look
 //  wrong. Deepening `primaryButtonGradient`'s stops would fix every white-on-blue button at once
 //  and is the change worth making deliberately, rather than one screen at a time.
@@ -33,7 +33,7 @@ struct PendingConnectionRequestsCard: View {
             SectionCard {
                 Text("Connection requests")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
 
                 ForEach(appModel.pendingConnectionRequests) { request in
                     requestRow(request)
@@ -42,7 +42,7 @@ struct PendingConnectionRequestsCard: View {
                 if let errorMessage {
                     Text(errorMessage)
                         .font(.caption)
-                        .foregroundStyle(Theme.heartRedText)
+                        .foregroundStyle(Theme.error)
                 }
             }
         }
@@ -58,7 +58,7 @@ struct PendingConnectionRequestsCard: View {
         return HStack(spacing: Theme.Spacing.sm) {
             AvatarView(person: person, size: 40)
             Text("\(request.requesterFirstName)")
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(Theme.textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
             Spacer(minLength: 0)
@@ -68,7 +68,7 @@ struct PendingConnectionRequestsCard: View {
             } else {
                 Button("Decline") { respond(request, accept: false) }
                     .buttonStyle(.bordered)
-                    .tint(Theme.subtleInk)
+                    .tint(Theme.textSecondary)
 
                 // The same gradient capsule the full-screen accept uses
                 // (`ConnectionRequestReviewView`), rather than `.borderedProminent` tinted with a
@@ -85,7 +85,7 @@ struct PendingConnectionRequestsCard: View {
                 Button { respond(request, accept: true) } label: {
                     Text("Accept")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onPrimaryButton)
                         .padding(.horizontal, Theme.Spacing.md)
                         .padding(.vertical, 8)
                         .background(Theme.primaryButtonGradient, in: Capsule())

@@ -29,7 +29,7 @@ struct AppearanceSettingsView: View {
 
                 Text("Controls whether Twofold uses Light or Dark appearance, or follows your device's system setting — on this device only.")
                     .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .padding(.horizontal, Theme.Spacing.sm)
             }
             .padding(Theme.Spacing.md)

@@ -75,9 +75,9 @@ struct DrawingPadCard: View {
     private var expandBadge: some View {
         Image(systemName: "arrow.up.left.and.arrow.down.right")
             .font(.footnote.weight(.semibold))
-            .foregroundStyle(Theme.subtleInk)
+            .foregroundStyle(Theme.textSecondary)
             .padding(Theme.Spacing.sm)
-            .background(Theme.subtleInk.opacity(0.1), in: Circle())
+            .background(Theme.textSecondary.opacity(0.1), in: Circle())
     }
 
     private func padPreview(title: String, url: URL?, isMine: Bool) -> some View {
@@ -101,7 +101,7 @@ struct DrawingPadCard: View {
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .strokeBorder(Theme.subtleInk.opacity(0.15))
+                        .strokeBorder(Theme.textSecondary.opacity(0.15))
                 )
             }
             // No `.disabled(!isMine)` here anymore — that was the actual cause of the partner's
@@ -113,7 +113,7 @@ struct DrawingPadCard: View {
 
             Text(title)
                 .font(.caption)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
         }
         .frame(maxWidth: .infinity)
     }
@@ -123,7 +123,7 @@ struct DrawingPadCard: View {
             Image(systemName: "pencil.and.scribble")
             Text("Tap to draw").font(.caption2)
         }
-        .foregroundStyle(Theme.subtleInk)
+        .foregroundStyle(Theme.textSecondary)
     }
 }
 

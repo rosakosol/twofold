@@ -68,10 +68,10 @@ struct MemoryPhotoView: View {
 
     private var gradientColors: [Color] {
         let palettes: [[Color]] = [
-            [Theme.skyBlue, Theme.leafGreen],
-            [Theme.heartRed, .orange],
-            [.purple, Theme.skyBlue],
-            [Theme.leafGreen, .yellow],
+            [Theme.accent, Theme.success],
+            [Theme.coral, Theme.accent],
+            [Theme.indigo, Theme.accent],
+            [Theme.success, Theme.accent],
         ]
         return palettes[memory.photoSeed % palettes.count]
     }

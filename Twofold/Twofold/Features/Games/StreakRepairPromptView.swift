@@ -33,19 +33,19 @@ struct StreakRepairPromptView: View {
                     .opacity(0.18)
                 Image(systemName: "flame.fill")
                     .font(.system(size: 36))
-                    .foregroundStyle(Theme.heartRedText)
+                    .foregroundStyle(Theme.coral)
             }
             .frame(width: 96, height: 96)
 
             VStack(spacing: Theme.Spacing.sm) {
                 Text(title)
                     .font(.title2.weight(.bold))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                     .multilineTextAlignment(.center)
 
                 Text(subtitle)
                     .font(.subheadline)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, Theme.Spacing.lg)
                     .fixedSize(horizontal: false, vertical: true)
@@ -60,20 +60,20 @@ struct StreakRepairPromptView: View {
                         .frame(maxWidth: .infinity)
                         .padding()
                         .background(Theme.primaryButtonGradient, in: Capsule())
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onPrimaryButton)
                 } else {
                     Button {
                         Task { await repairNow() }
                     } label: {
                         HStack(spacing: Theme.Spacing.xs) {
-                            if isWorking { ProgressView().controlSize(.small).tint(.white) }
+                            if isWorking { ProgressView().controlSize(.small).tint(Theme.onPrimaryButton) }
                             Text(primaryTitle)
                                 .font(.headline)
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
                         .background(Theme.primaryButtonGradient, in: Capsule())
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onPrimaryButton)
                     }
                     .disabled(isWorking)
 
@@ -82,14 +82,14 @@ struct StreakRepairPromptView: View {
                     // of persuasion.
                     Button("No thanks") { dismiss() }
                         .font(.subheadline)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .padding(.top, Theme.Spacing.xs)
                 }
 
                 if case .failed(let message) = store.phase {
                     Text(message)
                         .font(.caption)
-                        .foregroundStyle(Theme.heartRedText)
+                        .foregroundStyle(Theme.error)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
                 }

@@ -32,11 +32,11 @@ struct SupportView: View {
                 if isLoadingFAQ {
                     ProgressView().frame(maxWidth: .infinity).padding(Theme.Spacing.xl)
                 } else if let loadError {
-                    Text(loadError).font(.caption).foregroundStyle(Theme.subtleInk)
+                    Text(loadError).font(.caption).foregroundStyle(Theme.textSecondary)
                 } else {
                     ForEach(groupedFAQ, id: \.category) { group in
                         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-                            Text(group.category).font(.subheadline.weight(.bold)).foregroundStyle(Theme.subtleInk)
+                            Text(group.category).font(.subheadline.weight(.bold)).foregroundStyle(Theme.textSecondary)
                             SectionCard {
                                 ForEach(Array(group.entries.enumerated()), id: \.element.id) { index, entry in
                                     if index > 0 { Divider() }
@@ -48,7 +48,7 @@ struct SupportView: View {
                 }
 
                 VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-                    Text("Still need help?").font(.subheadline.weight(.bold)).foregroundStyle(Theme.subtleInk)
+                    Text("Still need help?").font(.subheadline.weight(.bold)).foregroundStyle(Theme.textSecondary)
                     SectionCard {
                         Button {
                             showingSupportForm = true
@@ -91,11 +91,11 @@ private struct FAQRow: View {
         } label: {
             VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                 HStack(alignment: .top) {
-                    Text(entry.question).font(.subheadline.weight(.medium)).foregroundStyle(Theme.ink)
+                    Text(entry.question).font(.subheadline.weight(.medium)).foregroundStyle(Theme.textPrimary)
                     Spacer(minLength: Theme.Spacing.sm)
                     Image(systemName: "chevron.down")
                         .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .rotationEffect(.degrees(isExpanded ? 180 : 0))
                 }
                 if isExpanded {
@@ -106,7 +106,7 @@ private struct FAQRow: View {
                     // stay visually secondary to it.
                     Text(entry.answer)
                         .font(.subheadline)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .padding(.top, Theme.Spacing.xs)
                 }
             }

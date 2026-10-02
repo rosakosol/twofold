@@ -37,21 +37,21 @@ struct WebSubscriptionManagedView: View {
                         .opacity(0.18)
                     Image(systemName: "globe")
                         .font(.system(size: 36))
-                        .foregroundStyle(Theme.skyBlueText)
+                        .foregroundStyle(Theme.accent)
                 }
                 .frame(width: 96, height: 96)
 
                 VStack(spacing: Theme.Spacing.sm) {
                     Text("You subscribed on the web")
                         .font(.title3.weight(.bold))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                         .multilineTextAlignment(.center)
                     // Says where, and says why it is not here. Without the second half this reads as
                     // an arbitrary redirect — the App Store has no record of this subscription, so
                     // there is nothing for iOS to show or change.
                     Text("This plan is billed through our website rather than the App Store, so it's managed there too. Sign in with the same account to change or cancel it.")
                         .font(.subheadline)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, Theme.Spacing.lg)
                 }
@@ -65,12 +65,12 @@ struct WebSubscriptionManagedView: View {
                             .frame(maxWidth: .infinity)
                             .padding()
                             .background(Theme.primaryButtonGradient, in: Capsule())
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Theme.onPrimaryButton)
                     }
 
                     Button("Not now", action: onDismiss)
                         .font(.subheadline)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                 }
                 .padding(.horizontal, Theme.Spacing.lg)
                 .padding(.bottom, Theme.Spacing.xl)

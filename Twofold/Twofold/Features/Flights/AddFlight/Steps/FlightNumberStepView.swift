@@ -20,7 +20,7 @@ struct FlightNumberStepView: View {
                     } label: {
                         Text(model.airlineEntry?.iata ?? "QF")
                             .font(.headline)
-                            .foregroundStyle(model.airlineEntry == nil ? Theme.subtleInk.opacity(0.5) : Theme.ink)
+                            .foregroundStyle(model.airlineEntry == nil ? Theme.textSecondary.opacity(0.5) : Theme.textPrimary)
                             .frame(minWidth: 56)
                             .padding()
                             .themedCardBackground(cornerRadius: Theme.Radius.card)
@@ -36,11 +36,11 @@ struct FlightNumberStepView: View {
 
                 HStack(alignment: .top, spacing: Theme.Spacing.sm) {
                     Image(systemName: "number")
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Just the number").font(.subheadline.weight(.semibold))
                         Text("Leave out the airline code — that's the box on the left")
-                            .font(.caption).foregroundStyle(Theme.subtleInk)
+                            .font(.caption).foregroundStyle(Theme.textSecondary)
                     }
                 }
 
@@ -53,15 +53,15 @@ struct FlightNumberStepView: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("\(airline.name) \(model.flightNumberDigits)")
                                     .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(Theme.ink)
+                                    .foregroundStyle(Theme.textPrimary)
                                 Text("Detected flight number")
                                     .font(.caption)
-                                    .foregroundStyle(Theme.subtleInk)
+                                    .foregroundStyle(Theme.textSecondary)
                             }
                             Spacer()
                             Image(systemName: "chevron.right")
                                 .font(.caption)
-                                .foregroundStyle(Theme.subtleInk)
+                                .foregroundStyle(Theme.textSecondary)
                         }
                         .padding()
                         .themedCardBackground(cornerRadius: Theme.Radius.card)

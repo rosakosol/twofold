@@ -95,7 +95,7 @@ struct AllDecksBrowseView: View {
         ScrollView {
             VStack(spacing: Theme.Spacing.md) {
                 HStack(spacing: Theme.Spacing.sm) {
-                    Image(systemName: "magnifyingglass").foregroundStyle(Theme.subtleInk).accessibilityHidden(true)
+                    Image(systemName: "magnifyingglass").foregroundStyle(Theme.textSecondary).accessibilityHidden(true)
                     TextField("Search games", text: $searchText)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
@@ -103,9 +103,9 @@ struct AllDecksBrowseView: View {
                 .padding(Theme.Spacing.sm)
                 .background {
                     ZStack {
-                        Theme.cardBackground
+                        Theme.surface
                         if colorScheme == .dark {
-                            Theme.cardGradientDark
+                            Theme.surfaceGradient
                         }
                     }
                     .clipShape(Capsule())
@@ -129,7 +129,7 @@ struct AllDecksBrowseView: View {
                 if filteredDecks.isEmpty {
                     Text("No games found.")
                         .font(.subheadline)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .padding(.top, Theme.Spacing.lg)
                 }
             }
@@ -164,7 +164,7 @@ struct AllDecksBrowseView: View {
                 .background(backgroundStyle(isSelected: isSelected), in: Capsule())
                 .overlay {
                     if colorScheme == .dark {
-                        Capsule().strokeBorder(isSelected ? TwofoldDark.Accent.blueChipLine : TwofoldDark.Line.strong, lineWidth: isSelected ? 1.5 : 1.25)
+                        Capsule().strokeBorder(isSelected ? Theme.accent : Theme.line, lineWidth: isSelected ? 1.5 : 1.25)
                     }
                 }
         }
@@ -173,16 +173,16 @@ struct AllDecksBrowseView: View {
 
     private func foregroundColor(isSelected: Bool) -> Color {
         if colorScheme == .dark {
-            return isSelected ? TwofoldDark.Accent.blueText : Theme.subtleInk
+            return isSelected ? Theme.accent : Theme.textSecondary
         }
-        return isSelected ? .white : Theme.ink
+        return isSelected ? Theme.onPrimaryButton : Theme.textPrimary
     }
 
     private func backgroundStyle(isSelected: Bool) -> AnyShapeStyle {
         if colorScheme == .dark {
-            return isSelected ? AnyShapeStyle(TwofoldDark.Accent.blueChip) : AnyShapeStyle(Theme.cardBackground)
+            return isSelected ? AnyShapeStyle(Theme.selectedTab) : AnyShapeStyle(Theme.surface)
         }
-        return isSelected ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.cardBackground)
+        return isSelected ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.surface)
     }
 }
 

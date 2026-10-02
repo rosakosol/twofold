@@ -63,9 +63,10 @@ extension FlightStatus {
     /// too) — this just tints existing Twofold semantic colors, never introduces new hues.
     var semanticColor: Color {
         switch self {
-        case .delayed, .cancelled, .diverted: Theme.heartRed
-        case .landed, .arrived: Theme.leafGreen
-        case .scheduled, .boarding, .departed, .inAir, .landingSoon: Theme.skyBlue
+        case .delayed: Theme.warning
+        case .cancelled, .diverted: Theme.error
+        case .landed, .arrived: Theme.success
+        case .scheduled, .boarding, .departed, .inAir, .landingSoon: Theme.accent
         }
     }
 }

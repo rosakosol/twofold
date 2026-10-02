@@ -26,13 +26,13 @@ struct FlightStatsCard: View {
                 VStack(spacing: Theme.Spacing.md) {
                     HStack(spacing: Theme.Spacing.sm) {
                         ZStack {
-                            Circle().fill(Theme.skyBlueText.opacity(0.15))
-                            Image(systemName: "airplane").font(.subheadline).foregroundStyle(Theme.skyBlueText)
+                            Circle().fill(Theme.accent.opacity(0.15))
+                            Image(systemName: "airplane").font(.subheadline).foregroundStyle(Theme.accent)
                         }
                         .frame(width: 32, height: 32)
                         Text("Flight Stats")
                             .font(.headline)
-                            .foregroundStyle(Theme.ink)
+                            .foregroundStyle(Theme.textPrimary)
                         Spacer(minLength: 0)
                     }
 
@@ -46,12 +46,12 @@ struct FlightStatsCard: View {
                     Divider()
 
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: Theme.Spacing.sm), GridItem(.flexible())], spacing: Theme.Spacing.sm) {
-                        milestoneTile(icon: "building.2.fill", label: "Airports", value: "\(stats.airports.count)", tint: Theme.skyBlueText)
-                        milestoneTile(icon: "airplane.circle.fill", label: "Airlines", value: "\(stats.airlines.count)", tint: Theme.skyBlueText)
-                        milestoneTile(icon: "globe.americas.fill", label: "Countries", value: "\(stats.countries.count)", tint: Theme.leafGreenText)
-                        milestoneTile(icon: "globe.desk.fill", label: "Long Haul", value: "\(stats.longHaulCount)", tint: .orange)
-                        milestoneTile(icon: "house.fill", label: "Domestic", value: "\(stats.domesticCount)", tint: .purple)
-                        milestoneTile(icon: "airplane.departure", label: "International", value: "\(stats.internationalCount)", tint: Theme.heartRedText)
+                        milestoneTile(icon: "building.2.fill", label: "Airports", value: "\(stats.airports.count)", tint: Theme.accent)
+                        milestoneTile(icon: "airplane.circle.fill", label: "Airlines", value: "\(stats.airlines.count)", tint: Theme.accent)
+                        milestoneTile(icon: "globe.americas.fill", label: "Countries", value: "\(stats.countries.count)", tint: Theme.success)
+                        milestoneTile(icon: "globe.desk.fill", label: "Long Haul", value: "\(stats.longHaulCount)", tint: Theme.indigo)
+                        milestoneTile(icon: "house.fill", label: "Domestic", value: "\(stats.domesticCount)", tint: Theme.violetFill)
+                        milestoneTile(icon: "airplane.departure", label: "International", value: "\(stats.internationalCount)", tint: Theme.coral)
                     }
 
                     if let onShowAllStats {
@@ -63,10 +63,10 @@ struct FlightStatsCard: View {
                                 Image(systemName: "chevron.right")
                                     .font(.caption.weight(.bold))
                             }
-                            .foregroundStyle(Theme.skyBlueText)
+                            .foregroundStyle(Theme.accent)
                             .padding(.horizontal, Theme.Spacing.md)
                             .padding(.vertical, 12)
-                            .background(Theme.skyBlueText.opacity(0.1), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .background(Theme.accent.opacity(0.1), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                         }
                         .buttonStyle(.plain)
                     }
@@ -84,12 +84,12 @@ struct FlightStatsCard: View {
         VStack(spacing: 2) {
             Text(label.uppercased())
                 .font(.caption2.weight(.semibold))
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
             Text(value)
                 .font(.system(size: 22, weight: .bold, design: .rounded))
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(Theme.textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
         }
@@ -113,12 +113,12 @@ struct FlightStatsCard: View {
                 // `RelationshipStatsCard.milestoneTile`'s identical fix).
                 Text(label)
                     .font(.caption2.weight(.semibold))
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
                 Text(value)
                     .font(.subheadline.weight(.bold))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }

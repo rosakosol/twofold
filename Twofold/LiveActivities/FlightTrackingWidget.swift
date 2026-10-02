@@ -293,7 +293,7 @@ struct FlightTrackingWidgetView: View {
     private var status: FlightStatus? { entry.status }
 
     private var emptyState: some View {
-        WidgetEmptyState(systemImage: "airplane.circle", message: "No upcoming flight", tint: LiveActivityPalette.skyBlue)
+        WidgetEmptyState(systemImage: "airplane.circle", message: "No upcoming flight", tint: LiveActivityPalette.accent)
     }
 }
 

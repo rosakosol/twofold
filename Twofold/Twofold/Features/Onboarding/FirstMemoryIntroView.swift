@@ -89,15 +89,15 @@ struct FirstMemoryIntroView: View {
                 HStack(spacing: Theme.Spacing.sm) {
                     Image(systemName: source.icon)
                         .font(.subheadline)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
 
                     VStack(alignment: .leading, spacing: 1) {
                         Text(source.name)
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(Theme.ink)
+                            .foregroundStyle(Theme.textPrimary)
                         Text(source.detail)
                             .font(.caption2)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                             .lineLimit(1)
                     }
 
@@ -105,7 +105,7 @@ struct FirstMemoryIntroView: View {
 
                     Image(systemName: "arrow.up.right")
                         .font(.caption2.weight(.semibold))
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                 }
             }
         }

@@ -31,9 +31,9 @@ struct FlightPremiumGateView: View {
                         .opacity(0.18)
                     Image(systemName: icon)
                         .font(.system(size: 36))
-                        .foregroundStyle(Theme.skyBlueText)
+                        .foregroundStyle(Theme.accent)
                     Circle()
-                        .strokeBorder(Theme.subtleInk.opacity(0.15), lineWidth: 1)
+                        .strokeBorder(Theme.textSecondary.opacity(0.15), lineWidth: 1)
                 }
                 .frame(width: 96, height: 96)
                 .overlay(alignment: .bottomTrailing) {
@@ -41,7 +41,7 @@ struct FlightPremiumGateView: View {
                         Circle().fill(Theme.primaryButtonGradient)
                         Image(systemName: "crown.fill")
                             .font(.caption)
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Theme.onPrimaryButton)
                     }
                     .frame(width: 30, height: 30)
                 }
@@ -49,11 +49,11 @@ struct FlightPremiumGateView: View {
                 VStack(spacing: Theme.Spacing.sm) {
                     Text(title)
                         .font(.title2.weight(.bold))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                         .multilineTextAlignment(.center)
                     Text(description)
                         .font(.subheadline)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, Theme.Spacing.lg)
                 }
@@ -69,7 +69,7 @@ struct FlightPremiumGateView: View {
                         .padding()
                 }
                 .background(Theme.primaryButtonGradient, in: Capsule())
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onPrimaryButton)
                 .padding(.horizontal, Theme.Spacing.lg)
                 .padding(.bottom, Theme.Spacing.xl)
             }

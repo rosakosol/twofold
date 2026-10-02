@@ -20,9 +20,11 @@ extension WordGuessMark {
     /// information, and a muted version of it would be harder to read at a glance than the letter.
     var tileColor: Color {
         switch self {
-        case .correct: Color(light: "5FA463", dark: "5C9E60")
-        case .present: Color(light: "C9AF3E", dark: "B79B33")
-        case .absent: Color(light: "8B939B", dark: "4A535C")
+        case .correct: Theme.successFill
+        // DESIGN: blue, not the usual yellow. Amber is reserved for delays, and blue against green
+        // is the colour-blind pairing this kind of game already offers.
+        case .present: Theme.accentFill
+        case .absent: Color.dynamic(light: 0x52606E, dark: 0x3A4453)
         }
     }
 
@@ -123,12 +125,12 @@ struct WordGuessBoardView: View {
                 tile(
                     letter: letters.indices.contains(column) ? letters[column] : " ",
                     fill: .clear,
-                    textColor: Theme.ink,
+                    textColor: Theme.textPrimary,
                     // Red only while the guess is being refused. A permanently coloured active row
                     // would read as a verdict on letters nobody has submitted yet.
-                    border: isDraftRejected ? Theme.heartRed
-                        : letters.indices.contains(column) ? Theme.ink.opacity(0.45)
-                        : Theme.subtleInk.opacity(0.3)
+                    border: isDraftRejected ? Theme.error
+                        : letters.indices.contains(column) ? Theme.textPrimary.opacity(0.45)
+                        : Theme.textSecondary.opacity(0.3)
                 )
             }
         }
@@ -146,7 +148,7 @@ struct WordGuessBoardView: View {
     private var emptyRow: some View {
         HStack(spacing: Theme.Spacing.xs) {
             ForEach(0..<WordGuessWords.length, id: \.self) { _ in
-                tile(letter: " ", fill: .clear, textColor: Theme.ink, border: Theme.subtleInk.opacity(0.3))
+                tile(letter: " ", fill: .clear, textColor: Theme.textPrimary, border: Theme.textSecondary.opacity(0.3))
             }
         }
         .accessibilityHidden(true)

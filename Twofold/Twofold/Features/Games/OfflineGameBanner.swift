@@ -16,12 +16,12 @@ struct OfflineGameBanner: View {
     var body: some View {
         HStack(spacing: Theme.Spacing.sm) {
             Image(systemName: isConnected ? "arrow.triangle.2.circlepath" : "wifi.slash")
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
             Text(isConnected
                 ? "Sending \(pendingCount) saved answer\(pendingCount == 1 ? "" : "s")…"
                 : "You're offline — your answers are saved and will send once you're back online.")
                 .font(.caption.weight(.medium))
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.leading)
             Spacer(minLength: 0)
         }

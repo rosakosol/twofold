@@ -175,7 +175,7 @@ struct DeepConversationsGameView: View {
                     VStack(spacing: Theme.Spacing.xs) {
                         Text("Topic \(round.roundNumber) of \(store.rounds.count)")
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                         if let resolvedTopic {
                             PillBadge(text: resolvedTopic.displayName, tint: resolvedTopic.color, isNeutral: true)
                         }
@@ -210,7 +210,7 @@ struct DeepConversationsGameView: View {
                     .padding()
             }
             .background(Theme.primaryButtonGradient, in: Capsule())
-            .foregroundStyle(.white)
+            .foregroundStyle(Theme.onPrimaryButton)
             // On the daily question, an empty "Next" tap would otherwise be a skip in
             // everything but name — require real text there, same intent as hiding SkipButton
             // below.

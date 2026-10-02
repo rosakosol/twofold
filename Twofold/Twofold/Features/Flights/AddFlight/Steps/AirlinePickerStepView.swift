@@ -39,10 +39,10 @@ struct AirlinePickerStepView: View {
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text(entry.name)
                                             .font(.subheadline.weight(.medium))
-                                            .foregroundStyle(Theme.ink)
+                                            .foregroundStyle(Theme.textPrimary)
                                         Text("\(entry.iata) · \(entry.icao ?? "—")")
                                             .font(.caption)
-                                            .foregroundStyle(Theme.subtleInk)
+                                            .foregroundStyle(Theme.textSecondary)
                                     }
                                     Spacer(minLength: 0)
                                 }

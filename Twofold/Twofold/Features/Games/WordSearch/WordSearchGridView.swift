@@ -82,10 +82,10 @@ struct WordSearchGridView: View {
 
     /// The live selection's fill, paired with the white it has to carry.
     ///
-    /// Not `Theme.skyBlue`: that token is a *light* blue in dark mode — correct for a tint on a
+    /// Not `Theme.accent`: that token is a *light* blue in dark mode — correct for a tint on a
     /// dark ground, wrong as a fill behind white letters, which came out barely legible. This stays
     /// dark enough for white in both themes, which is what a fill-plus-text pair has to be.
-    private static let selectionFill = Color(light: "3080C0", dark: "2F6FA8")
+    private static let selectionFill = Theme.accentFill
 
     /// The loop colours, cycled by find order.
     ///
@@ -95,17 +95,11 @@ struct WordSearchGridView: View {
     /// word is how a paper word search stays legible, and it is why these are drawn as outlines
     /// rather than fills in the first place — a filled cell can only belong to one word.
     ///
-    /// Chosen to stay apart from `selectionFill` (the live drag) and from each other at the width
-    /// a loop is drawn, and defined here rather than pulled from `Theme` for the same reason the
-    /// Word Guess tiles are: this is the game's own vocabulary, not the app's palette.
-    private static let loopColors: [Color] = [
-        Color(light: "2E7D32", dark: "6BBF70"),
-        Color(light: "AD5A1F", dark: "E09A5A"),
-        Color(light: "7B3FA0", dark: "BE8FDC"),
-        Color(light: "1F7A8C", dark: "6FC7D6"),
-        Color(light: "B03050", dark: "E58098"),
-        Color(light: "5C6BC0", dark: "97A4E8"),
-    ]
+    /// The four brand hues, in their text-safe tones so a loop clears 3:1 on the grid in both
+    /// appearances. DESIGN: four rather than the six this used to cycle, because the spec allows no
+    /// orange, purple or teal in games; a fifth word reuses the first colour, and crossing words are
+    /// still told apart by their neighbours' colours.
+    private static let loopColors: [Color] = [Theme.success, Theme.indigo, Theme.coral, Theme.accent]
 
     /// A stadium drawn around one found word, the way a pencil circles it.
     ///
@@ -142,7 +136,7 @@ struct WordSearchGridView: View {
             // Found letters keep the grid's own ink now. They used to go green, which was a second
             // way of saying what the loop already says — and on a letter two crossing words share,
             // one colour could only ever be right about one of them.
-            .foregroundStyle(isSelected ? .white : Theme.ink)
+            .foregroundStyle(isSelected ? .white : Theme.textPrimary)
             .frame(width: side, height: side)
             .background {
                 // Only the live drag fills a cell. A finger crossing words already found should

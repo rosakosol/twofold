@@ -191,8 +191,8 @@ struct DrawingPadWidgetView: View {
                     .padding(.top, 16)
             } else {
                 VStack(spacing: 2) {
-                    Image(systemName: "pencil.tip").font(.caption2).foregroundStyle(LiveActivityPalette.subtleInk)
-                    Text("Nothing yet").font(.caption2).foregroundStyle(LiveActivityPalette.subtleInk)
+                    Image(systemName: "pencil.tip").font(.caption2).foregroundStyle(LiveActivityPalette.textSecondary)
+                    Text("Nothing yet").font(.caption2).foregroundStyle(LiveActivityPalette.textSecondary)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding(.top, 16)
@@ -202,7 +202,7 @@ struct DrawingPadWidgetView: View {
                 WidgetAvatarView(person: person, name: name, size: 14, showsRing: false)
                 Text(name)
                     .font(.caption2.weight(.semibold))
-                    .foregroundStyle(LiveActivityPalette.subtleInk)
+                    .foregroundStyle(LiveActivityPalette.textSecondary)
                     .lineLimit(1)
             }
             .padding(5)
@@ -211,7 +211,7 @@ struct DrawingPadWidgetView: View {
     }
 
     private var emptyState: some View {
-        WidgetEmptyState(systemImage: "pencil.tip", message: "Nothing drawn yet", tint: LiveActivityPalette.skyBlue)
+        WidgetEmptyState(systemImage: "pencil.tip", message: "Nothing drawn yet", tint: LiveActivityPalette.accent)
     }
 }
 

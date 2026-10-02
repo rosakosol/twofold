@@ -123,11 +123,9 @@ struct DailyActivityCard: View {
                 }
                 .padding(Theme.Spacing.md)
                 .background(
-                    // `skyBlueText`, not `skyBlue`: this banner is white text on a full-bleed
-                    // fill, and white on the fill blue measures 2.60:1 in light mode and 1.70:1 in
-                    // dark — the indigo end was fine (5.65:1), so only the top of the gradient was
-                    // failing. The deepened token is exactly what Theme.swift keeps for this case.
-                    LinearGradient(colors: [Theme.skyBlueText, .indigo], startPoint: .topLeading, endPoint: .bottomTrailing),
+                    // Today's deep question wears the `dailyQuestion` gradient everywhere it
+                    // appears (spec section 2.3). White text clears 4.5:1 across all of it.
+                    Theme.dailyQuestion,
                     in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
                 )
                 .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
@@ -176,7 +174,7 @@ struct DailyActivityCard: View {
             Circle().fill(Theme.primaryButtonGradient)
             Image(systemName: "flame.fill")
                 .font(.title3)
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onPrimaryButton)
         }
         .frame(width: 44, height: 44)
     }
@@ -187,7 +185,7 @@ struct DailyActivityCard: View {
                 .font(.subheadline.weight(.bold))
             Text(streakSubline)
                 .font(.caption2)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
                 // Same reservation as the teaser: this line swings between "Answer today's
                 // question together" and "Keep it going" depending on whether a streak is running,
                 // and in this narrow column that's a two-line/one-line difference.
@@ -216,7 +214,7 @@ struct DailyActivityCard: View {
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 Text(countdownLabel(from: context.date))
                     .font(.caption2.weight(.medium))
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .monospacedDigit()
                     // A countdown that wraps ("Next in 05:1 / 4:22") is unreadable, and it has a
                     // known maximum width, so it keeps its natural one rather than being squeezed.
@@ -232,7 +230,7 @@ struct DailyActivityCard: View {
             if let best = appModel.longestDailyStreak, best > 0 {
                 Text("Best: \(best) day\(best == 1 ? "" : "s")")
                     .font(.caption2)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
             }
@@ -332,7 +330,7 @@ struct DailyActivityCard: View {
             .overlay(alignment: .bottomTrailing) {
                 if answered {
                     ZStack {
-                        Circle().fill(Theme.leafGreenFill)
+                        Circle().fill(Theme.successFill)
                         Image(systemName: "checkmark")
                             .font(.system(size: 8, weight: .bold))
                             .foregroundStyle(.white)

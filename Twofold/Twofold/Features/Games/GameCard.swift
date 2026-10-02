@@ -21,7 +21,7 @@ struct GameCard: View {
     /// badge tint, used here for just the icon glyph. The card surface itself stays neutral (see
     /// `themedCardBackground`) — a game *type* isn't itself a blue/green/red state, so per Aurora
     /// rule #2 it doesn't get a colored card wash, just this one colored accent on the icon.
-    private var accentColor: Color { gameType.iconGradient.first ?? Theme.skyBlue }
+    private var accentColor: Color { gameType.iconGradient.first ?? Theme.accent }
 
     var body: some View {
         VStack(spacing: Theme.Spacing.sm) {
@@ -30,7 +30,7 @@ struct GameCard: View {
                 .foregroundStyle(accentColor)
             Text(gameType.displayName)
                 .font(.headline)
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(Theme.textPrimary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
         }

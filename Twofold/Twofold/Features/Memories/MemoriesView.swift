@@ -56,7 +56,7 @@ struct MemoriesView: View {
             toggleButton(mode: .map, systemImage: "map")
         }
         .padding(4)
-        .background(Theme.cardBackground, in: Capsule())
+        .background(Theme.surface, in: Capsule())
         .shadow(color: .black.opacity(0.15), radius: 10, y: 4)
     }
 
@@ -67,8 +67,8 @@ struct MemoriesView: View {
             Image(systemName: systemImage)
                 .font(.headline)
                 .frame(width: 44, height: 44)
-                .foregroundStyle(mode == target ? .white : Theme.subtleInk)
-                .background(mode == target ? AnyShapeStyle(Theme.skyBlueFill) : AnyShapeStyle(.clear), in: Capsule())
+                .foregroundStyle(mode == target ? .white : Theme.textSecondary)
+                .background(mode == target ? AnyShapeStyle(Theme.accentFill) : AnyShapeStyle(.clear), in: Capsule())
                 // The 44x44 frame above sets the *layout* size, but without a content shape the
                 // hittable and accessibility region stayed the glyph's own bounds — measured at
                 // 16.7x12.3pt by the accessibility audit, roughly a seventh of the area this

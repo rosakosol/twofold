@@ -81,17 +81,17 @@ struct GameRecordCard: View {
                         HStack {
                             Text("Best")
                                 .font(.caption.weight(.semibold))
-                                .foregroundStyle(Theme.subtleInk)
+                                .foregroundStyle(Theme.textSecondary)
                             Spacer(minLength: Theme.Spacing.sm)
                             Text("You")
                                 .font(.caption2)
-                                .foregroundStyle(Theme.subtleInk)
+                                .foregroundStyle(Theme.textSecondary)
                             Text("/")
                                 .font(.caption2)
-                                .foregroundStyle(Theme.subtleInk.opacity(0.6))
+                                .foregroundStyle(Theme.textSecondary.opacity(0.6))
                             Text(partnerName)
                                 .font(.caption2)
-                                .foregroundStyle(Theme.subtleInk)
+                                .foregroundStyle(Theme.textSecondary)
                                 .lineLimit(1)
                         }
                         .accessibilityHidden(true)
@@ -111,13 +111,13 @@ struct GameRecordCard: View {
         return VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
             Text("Between you")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
 
             HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.sm) {
                 tally(score.mine, name: "You", isAhead: score.mine > score.theirs)
                 Text("–")
                     .font(.title3)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                 tally(score.theirs, name: partnerName, isAhead: score.theirs > score.mine)
 
                 if score.drawn > 0 {
@@ -127,7 +127,7 @@ struct GameRecordCard: View {
                     // none, and folding them in would hide that.
                     Text(score.drawn == 1 ? "1 draw" : "\(score.drawn) draws")
                         .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                 }
             }
 
@@ -136,7 +136,7 @@ struct GameRecordCard: View {
                 // them has finished anything yet.
                 Text("Nothing decided yet.")
                     .font(.caption2)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
             }
         }
         .accessibilityElement(children: .combine)
@@ -148,10 +148,10 @@ struct GameRecordCard: View {
             Text("\(count)")
                 .font(.title2.weight(.bold))
                 .monospacedDigit()
-                .foregroundStyle(isAhead ? Theme.leafGreenText : Theme.ink)
+                .foregroundStyle(isAhead ? Theme.success : Theme.textPrimary)
             Text(name)
                 .font(.caption2)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
                 .lineLimit(1)
         }
     }
@@ -160,19 +160,19 @@ struct GameRecordCard: View {
         HStack {
             Text(record.variant?.capitalized ?? "Best")
                 .font(.subheadline)
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(Theme.textPrimary)
             Spacer(minLength: Theme.Spacing.sm)
             Text(bestText(record.myBest))
                 .font(.subheadline.weight(.semibold))
                 .monospacedDigit()
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(Theme.textPrimary)
             Text("/")
                 .font(.caption)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
             Text(bestText(record.partnerBest))
                 .font(.subheadline)
                 .monospacedDigit()
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(record.variant?.capitalized ?? "Best"): yours \(bestText(record.myBest)), theirs \(bestText(record.partnerBest))")

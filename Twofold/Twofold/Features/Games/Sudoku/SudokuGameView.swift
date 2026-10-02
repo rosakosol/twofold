@@ -224,13 +224,13 @@ struct SudokuGameView: View {
                 .padding()
             }
             .background(Theme.primaryButtonGradient, in: Capsule())
-            .foregroundStyle(.white)
+            .foregroundStyle(Theme.onPrimaryButton)
             .disabled(isStartingRematch)
 
             if let rematchFailed {
                 Text(rematchFailed)
                     .font(.caption)
-                    .foregroundStyle(Theme.heartRedText)
+                    .foregroundStyle(Theme.error)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -374,10 +374,10 @@ struct SudokuGameView: View {
                 Text(difficulty.displayName.uppercased())
                     .font(.caption.weight(.bold))
                     .tracking(0.8)
-                    .foregroundStyle(Theme.skyBlueText)
+                    .foregroundStyle(Theme.accent)
                     .padding(.horizontal, Theme.Spacing.sm)
                     .padding(.vertical, Theme.Spacing.xs)
-                    .background(Theme.cardBackground, in: Capsule())
+                    .background(Theme.surface, in: Capsule())
             }
             // Shown until it is solved, not just for a moment on arrival: the surprise this
             // answers is a clock that starts at 4:12, and that is just as confusing ten seconds in
@@ -386,16 +386,16 @@ struct SudokuGameView: View {
                 Text("RESUMED")
                     .font(.caption2.weight(.bold))
                     .tracking(0.8)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .padding(.horizontal, Theme.Spacing.sm)
                     .padding(.vertical, Theme.Spacing.xs)
-                    .background(Theme.cardBackground, in: Capsule())
+                    .background(Theme.surface, in: Capsule())
                     .accessibilityLabel("Resumed from an earlier session")
             }
             Spacer()
             Label(PuzzleClock.text(play.elapsed), systemImage: "clock")
                 .font(.subheadline.weight(.medium))
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
                 // Without this the whole row twitches every second as the digits change width.
                 .monospacedDigit()
         }
@@ -447,13 +447,13 @@ struct SudokuGameView: View {
                 Image(systemName: icon).font(.title3)
                 Text(label).font(.caption2)
             }
-            .foregroundStyle(isActive ? Theme.skyBlueText : Theme.ink)
+            .foregroundStyle(isActive ? Theme.accent : Theme.textPrimary)
             // Flexible rather than fixed: five buttons share whatever the row has, so adding a
             // sixth later narrows them instead of overflowing.
             .frame(maxWidth: .infinity)
             .frame(height: 52)
             .background(
-                Theme.cardBackground,
+                Theme.surface,
                 in: RoundedRectangle(cornerRadius: Theme.Spacing.sm, style: .continuous)
             )
         }
@@ -475,11 +475,11 @@ struct SudokuGameView: View {
                 } label: {
                     Text(String(digit))
                         .font(.system(size: 24, weight: .medium, design: .rounded))
-                        .foregroundStyle(placed ? Theme.subtleInk : Theme.ink)
+                        .foregroundStyle(placed ? Theme.textSecondary : Theme.textPrimary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 52)
                         .background(
-                            Theme.cardBackground,
+                            Theme.surface,
                             in: RoundedRectangle(cornerRadius: Theme.Spacing.sm, style: .continuous)
                         )
                 }
@@ -503,7 +503,7 @@ struct SudokuGameView: View {
             solvedSummary(play: play)
 
             // Below the card rather than inside it: `GameReminderButton` is filled with
-            // `Theme.cardBackground` to read as raised against the page, which is the one colour
+            // `Theme.surface` to read as raised against the page, which is the one colour
             // it would vanish into within a `SectionCard`. Same placement the deck games use.
             if appModel.hasCouple {
                 GameReminderButton(isSending: isSendingReminder, action: remindPartner)
@@ -523,10 +523,10 @@ struct SudokuGameView: View {
             VStack(spacing: Theme.Spacing.sm) {
                 Image(systemName: "checkmark.seal.fill")
                     .font(.largeTitle)
-                    .foregroundStyle(Theme.leafGreenText)
+                    .foregroundStyle(Theme.success)
                 Text("Solved in \(PuzzleClock.text(play.elapsed))")
                     .font(.title3.weight(.bold))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                 // Nobody to wait for when there is nobody paired. `start_sudoku_session` gives an
                 // unpaired player a session of their own with a null couple, so this card is what
                 // they see every time they finish — and the version naming a partner was promising
@@ -537,7 +537,7 @@ struct SudokuGameView: View {
                         : "Your time is saved."
                 )
                     .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .multilineTextAlignment(.center)
                     // Both of this card's sentences carry a name or a difficulty, so both are long
                     // enough to wrap — and a card that is being compressed truncates whichever one

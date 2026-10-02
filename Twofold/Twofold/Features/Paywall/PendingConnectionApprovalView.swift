@@ -43,7 +43,7 @@ struct PendingConnectionApprovalView: View {
                         .multilineTextAlignment(.center)
                     Text("\(request.inviterFirstName) needs to accept your request before you're connected. We'll let you know the moment they do.")
                         .font(.body)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, Theme.Spacing.lg)
                 }
@@ -51,7 +51,7 @@ struct PendingConnectionApprovalView: View {
                 if let reminderMessage {
                     Text(reminderMessage)
                         .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, Theme.Spacing.lg)
                 }
@@ -74,8 +74,8 @@ struct PendingConnectionApprovalView: View {
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Theme.cardBackground, in: Capsule())
-                        .foregroundStyle(Theme.ink)
+                        .background(Theme.surface, in: Capsule())
+                        .foregroundStyle(Theme.textPrimary)
                     }
                     .disabled(isRefreshing)
 
@@ -96,7 +96,7 @@ struct PendingConnectionApprovalView: View {
                         .frame(maxWidth: .infinity)
                         .padding()
                         .background(Theme.primaryButtonGradient, in: Capsule())
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onPrimaryButton)
                     }
                     .disabled(isSendingReminder)
                 }

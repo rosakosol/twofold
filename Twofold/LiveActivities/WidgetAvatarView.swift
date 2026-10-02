@@ -28,7 +28,7 @@ struct WidgetAvatarView: View {
     }
 
     private var accentColor: Color {
-        person == .me ? LiveActivityPalette.skyBlue : LiveActivityPalette.heartRed
+        person == .me ? LiveActivityPalette.accent : LiveActivityPalette.coral
     }
 
     private var initials: String {

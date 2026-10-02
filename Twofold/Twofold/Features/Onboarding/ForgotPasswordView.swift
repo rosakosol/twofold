@@ -31,7 +31,7 @@ struct ForgotPasswordView: View {
                             .font(.system(.title, design: .rounded, weight: .bold))
                         Text("Enter your account email and we'll send you a link to reset it.")
                             .font(.body)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                             .multilineTextAlignment(.center)
                     }
                     .padding(.top, Theme.Spacing.lg)
@@ -47,21 +47,21 @@ struct ForgotPasswordView: View {
                         if let errorMessage {
                             Text(errorMessage)
                                 .font(.caption)
-                                .foregroundStyle(Theme.heartRedText)
+                                .foregroundStyle(Theme.error)
                         }
 
                         Button {
                             send()
                         } label: {
                             if isSubmitting {
-                                ProgressView().tint(.white).frame(maxWidth: .infinity)
+                                ProgressView().tint(Theme.onPrimaryButton).frame(maxWidth: .infinity)
                             } else {
                                 Text("Send Reset Link").font(.headline).frame(maxWidth: .infinity)
                             }
                         }
                         .padding()
-                        .background(canSubmit ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.subtleInk.opacity(0.3)), in: Capsule())
-                        .foregroundStyle(.white)
+                        .background(canSubmit ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.textSecondary.opacity(0.3)), in: Capsule())
+                        .foregroundStyle(Theme.onPrimaryButton)
                         .disabled(!canSubmit)
                     }
                     .padding(.horizontal, Theme.Spacing.lg)

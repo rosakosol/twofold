@@ -21,11 +21,11 @@ struct WordSearchComparisonView: View {
             VStack(spacing: Theme.Spacing.sm) {
                 Image(systemName: "checkmark.seal.fill")
                     .font(.largeTitle)
-                    .foregroundStyle(Theme.leafGreenText)
+                    .foregroundStyle(Theme.success)
 
                 Text("You both cleared it")
                     .font(.title3.weight(.bold))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
 
                 VStack(spacing: Theme.Spacing.xs) {
                     timeRow(
@@ -46,7 +46,7 @@ struct WordSearchComparisonView: View {
 
                 Text(comparison.verdict)
                     .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -62,7 +62,7 @@ struct WordSearchComparisonView: View {
                     // Weight as well as colour, so the quicker of the two is not carried by hue
                     // alone — and the verdict underneath says it in words regardless.
                     .font(.subheadline.weight(isFaster ? .semibold : .regular))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                     .lineLimit(1)
                     .truncationMode(.tail)
                 Spacer(minLength: Theme.Spacing.sm)
@@ -71,7 +71,7 @@ struct WordSearchComparisonView: View {
                     // Without this the two times sit on different grids and read as harder to
                     // compare than they are.
                     .monospacedDigit()
-                    .foregroundStyle(isFaster ? Theme.leafGreenText : Theme.ink)
+                    .foregroundStyle(isFaster ? Theme.success : Theme.textPrimary)
             }
             .accessibilityElement(children: .combine)
 
@@ -92,9 +92,9 @@ struct WordSearchComparisonView: View {
         let fraction = max(0.04, min(1, elapsed / longest))
         return GeometryReader { proxy in
             ZStack(alignment: .leading) {
-                Capsule().fill(Theme.subtleInk.opacity(0.15))
+                Capsule().fill(Theme.textSecondary.opacity(0.15))
                 Capsule()
-                    .fill(isFaster ? Theme.leafGreen : Theme.skyBlue)
+                    .fill(isFaster ? Theme.success : Theme.accent)
                     .frame(width: max(4, proxy.size.width * fraction))
             }
         }

@@ -40,7 +40,7 @@ struct AddPhotoView: View {
                                 ProgressView().tint(.white)
                             }
                         }
-                        Text("Your photo").font(.caption).foregroundStyle(Theme.subtleInk)
+                        Text("Your photo").font(.caption).foregroundStyle(Theme.textSecondary)
                     }
                     .frame(maxWidth: .infinity)
 
@@ -57,7 +57,7 @@ struct AddPhotoView: View {
                             }
                             Text("Your photo of \(inviterName)")
                                 .font(.caption)
-                                .foregroundStyle(Theme.subtleInk)
+                                .foregroundStyle(Theme.textSecondary)
                         }
                         .frame(maxWidth: .infinity)
                     }
@@ -65,7 +65,7 @@ struct AddPhotoView: View {
                     if let errorMessage {
                         Text(errorMessage)
                             .font(.caption)
-                            .foregroundStyle(Theme.heartRedText)
+                            .foregroundStyle(Theme.error)
                             .multilineTextAlignment(.center)
                     }
                 }

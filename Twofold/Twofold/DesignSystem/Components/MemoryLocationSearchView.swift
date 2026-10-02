@@ -50,7 +50,7 @@ struct MemoryLocationSearchView: View {
                         UserAnnotation()
                         if let droppedPin {
                             Marker("Selected location", coordinate: droppedPin)
-                                .tint(Theme.heartRed)
+                                .tint(Theme.coral)
                         }
                     }
                     .onTapGesture { screenPoint in
@@ -74,7 +74,7 @@ struct MemoryLocationSearchView: View {
                                 dismiss()
                             } label: {
                                 HStack {
-                                    Image(systemName: "location.fill").foregroundStyle(Theme.skyBlueText)
+                                    Image(systemName: "location.fill").foregroundStyle(Theme.accent)
                                     locationRow(title: "Current location", subtitle: "\(resolvedCurrentPlace.displayCity), \(resolvedCurrentPlace.country)")
                                 }
                             }
@@ -99,8 +99,8 @@ struct MemoryLocationSearchView: View {
                             useDroppedPin(droppedPin)
                         } label: {
                             HStack {
-                                Image(systemName: "mappin.circle.fill").foregroundStyle(Theme.heartRedText)
-                                Text("Use this spot on the map").foregroundStyle(Theme.ink)
+                                Image(systemName: "mappin.circle.fill").foregroundStyle(Theme.coral)
+                                Text("Use this spot on the map").foregroundStyle(Theme.textPrimary)
                             }
                         }
                     }
@@ -110,8 +110,8 @@ struct MemoryLocationSearchView: View {
                             useTypedAddress(completer.queryFragment)
                         } label: {
                             HStack {
-                                Image(systemName: "mappin.circle.fill").foregroundStyle(Theme.heartRedText)
-                                Text("Use “\(completer.queryFragment)”").foregroundStyle(Theme.ink)
+                                Image(systemName: "mappin.circle.fill").foregroundStyle(Theme.coral)
+                                Text("Use “\(completer.queryFragment)”").foregroundStyle(Theme.textPrimary)
                             }
                         }
                     }
@@ -149,7 +149,7 @@ struct MemoryLocationSearchView: View {
                     if let errorMessage {
                         Text(errorMessage)
                             .font(.caption)
-                            .foregroundStyle(Theme.heartRedText)
+                            .foregroundStyle(Theme.error)
                     }
                 }
                 .listStyle(.plain)
@@ -182,9 +182,9 @@ struct MemoryLocationSearchView: View {
 
     private func locationRow(title: String, subtitle: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(title).foregroundStyle(Theme.ink)
+            Text(title).foregroundStyle(Theme.textPrimary)
             if !subtitle.isEmpty {
-                Text(subtitle).font(.caption).foregroundStyle(Theme.subtleInk)
+                Text(subtitle).font(.caption).foregroundStyle(Theme.textSecondary)
             }
         }
     }

@@ -12,7 +12,7 @@ struct DrawingCanvasView: View {
     @Binding var elements: [DrawingElement]
     @Binding var redoStack: [DrawingElement]
     var tool: DrawingTool
-    var color: Color = Theme.ink
+    var color: Color = Theme.textPrimary
     var lineWidth: CGFloat = 5
     /// The previously-saved pad, drawn first so new strokes layer on top of it. `nil` once the
     /// user hits Clear, so a save after clearing doesn't resurrect the old drawing underneath.

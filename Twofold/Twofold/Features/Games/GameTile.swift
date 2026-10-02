@@ -25,18 +25,18 @@ struct GameTile: View {
     /// The game type's own accent, on the icon only. The tile surface stays neutral: a game type is
     /// not a blue/green/red *state*, so per Aurora rule #2 it gets one coloured accent rather than
     /// a coloured wash.
-    private var accentColor: Color { gameType.iconGradient.first ?? Theme.skyBlue }
+    private var accentColor: Color { gameType.iconGradient.first ?? Theme.accent }
 
     var body: some View {
         HStack(spacing: Theme.Spacing.sm) {
             Image(systemName: gameType.icon)
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(isLocked ? Theme.subtleInk : accentColor)
+                .foregroundStyle(isLocked ? Theme.textSecondary : accentColor)
                 .frame(width: 26)
 
             Text(gameType.displayName)
                 .font(.subheadline.weight(.medium))
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(Theme.textPrimary)
                 .lineLimit(2)
                 // The longest name is nearly three times the shortest, and a tile that truncated
                 // "Who's More Likely To" would be hiding the only part that says what it is.
@@ -49,7 +49,7 @@ struct GameTile: View {
             if isLocked {
                 Image(systemName: "lock.fill")
                     .font(.caption2)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
             }
         }
         .padding(.horizontal, Theme.Spacing.sm)

@@ -283,17 +283,17 @@ private struct FullStatsView: View {
         VStack(spacing: Theme.Spacing.xs) {
             Text("\(heroName) travelled")
                 .font(.headline)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
 
             // Flight-based (same figure as `distanceSection` below), not trip/reunion-based — a
             // tracked flight should count toward "how far you've travelled" whether or not it's
             // linked to a Trip at all (most aren't; see `FlightStats.init`'s own comment).
-            Text("\(Text(MeasurementPreference.convertedValue(km: stats.totalDistanceKm), format: .number.precision(.fractionLength(0))).font(.system(size: 44, weight: .bold, design: .rounded)).foregroundStyle(Theme.skyBlueText))\(Text(" \(MeasurementPreference.unitSuffix())").font(.title.weight(.bold)).foregroundStyle(Theme.leafGreenText))")
+            Text("\(Text(MeasurementPreference.convertedValue(km: stats.totalDistanceKm), format: .number.precision(.fractionLength(0))).font(.system(size: 44, weight: .bold, design: .rounded)).foregroundStyle(Theme.accent))\(Text(" \(MeasurementPreference.unitSuffix())").font(.title.weight(.bold)).foregroundStyle(Theme.success))")
 
             if scope == .all {
                 Text(appModel.couple.sharesHomeCity ? "together" : "for each other")
                     .font(.headline)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
             }
 
             // Without this the headline number silently changes meaning when a year is picked —
@@ -301,7 +301,7 @@ private struct FullStatsView: View {
             if case .year(let year) = period {
                 Text("in \(String(year))")
                     .font(.subheadline.weight(.medium))
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
             }
         }
         .frame(maxWidth: .infinity)
@@ -336,7 +336,7 @@ private struct FullStatsView: View {
         ) {
             Text("Average distance: \(MeasurementPreference.distanceLabel(km: stats.averageDistanceKm))")
                 .font(.caption)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
 
             VStack(spacing: Theme.Spacing.md) {
                 multipleRow(emoji: "🌍", value: stats.earthMultiple, precision: 1, label: "Around the Earth")
@@ -378,7 +378,7 @@ private struct FullStatsView: View {
                             }
                         }
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Theme.skyBlueText)
+                        .foregroundStyle(Theme.accent)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
@@ -391,13 +391,13 @@ private struct FullStatsView: View {
             AirlineLogoView(url: AirlineLogo.url(forIATACode: entry.name), size: 22)
             Text(entry.name)
                 .font(.subheadline)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
             Spacer()
             Text("×\(entry.count)")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(Theme.textPrimary)
                 .monospacedDigit()
         }
         .accessibilityElement(children: .combine)
@@ -456,10 +456,10 @@ private struct FullStatsView: View {
         VStack(spacing: 2) {
             Text("\(count)x")
                 .font(.system(size: 20, weight: .bold, design: .rounded))
-                .foregroundStyle(count > 0 ? Theme.ink : Theme.subtleInk.opacity(0.4))
+                .foregroundStyle(count > 0 ? Theme.textPrimary : Theme.textSecondary.opacity(0.4))
             Text(region.rawValue)
                 .font(.caption2.weight(.semibold))
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
                 .minimumScaleFactor(0.8)
@@ -492,7 +492,7 @@ private struct FullStatsView: View {
                 } label: {
                     Image(systemName: "square.and.arrow.up")
                         .font(.subheadline)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                 }
                 .accessibilityLabel("Share \(title)")
             }
@@ -513,11 +513,11 @@ private struct FullStatsView: View {
                 HStack {
                     Text(label)
                         .font(.subheadline)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                     Spacer()
                     Text("\(value.formatted(.number.precision(.fractionLength(precision))))x")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                         .monospacedDigit()
                 }
                 // Progress toward one full multiple (one lap of Earth, one Moon trip, …),
@@ -525,9 +525,9 @@ private struct FullStatsView: View {
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
                         Capsule()
-                            .fill(Theme.subtleInk.opacity(0.15))
+                            .fill(Theme.textSecondary.opacity(0.15))
                         Capsule()
-                            .fill(Theme.skyBlue)
+                            .fill(Theme.accent)
                             .frame(width: geo.size.width * min(max(value, 0), 1))
                     }
                 }
@@ -608,7 +608,7 @@ struct StatShareView: View {
     /// radius/width) so this reads as a smaller sibling of that same share image.
     private var cardView: some View {
         VStack(spacing: Theme.Spacing.sm) {
-            TwofoldBrandMark(color: Theme.ink, size: 24, textStyle: .title3)
+            TwofoldBrandMark(color: Theme.textPrimary, size: 24, textStyle: .title3)
 
             SectionCard {
                 StatCardHeader(icon: stat.icon, title: stat.title, value: stat.value, unit: stat.unit)

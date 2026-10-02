@@ -37,7 +37,7 @@ struct AboutUsView: View {
                         """
                     )
                     .font(.subheadline)
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                 }
             }
             .padding(Theme.Spacing.md)

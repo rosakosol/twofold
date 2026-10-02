@@ -28,18 +28,18 @@ struct CancelSubscriptionOfferView: View {
                         .opacity(0.18)
                     Image(systemName: "creditcard.trianglebadge.exclamationmark")
                         .font(.system(size: 36))
-                        .foregroundStyle(Theme.skyBlueText)
+                        .foregroundStyle(Theme.accent)
                 }
                 .frame(width: 96, height: 96)
 
                 VStack(spacing: Theme.Spacing.sm) {
                     Text("Keep your subscription?")
                         .font(.title3.weight(.bold))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                         .multilineTextAlignment(.center)
                     Text("You're still subscribed — it's just yours alone now. If you'd rather not keep paying for it, you can cancel anytime, but you'll need an active plan again to keep using Twofold once it ends.")
                         .font(.subheadline)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, Theme.Spacing.lg)
                 }
@@ -53,12 +53,12 @@ struct CancelSubscriptionOfferView: View {
                             .frame(maxWidth: .infinity)
                             .padding()
                             .background(Theme.primaryButtonGradient, in: Capsule())
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Theme.onPrimaryButton)
                     }
 
                     Button("Keep My Subscription", action: onNotNow)
                         .font(.subheadline)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                 }
                 .padding(.horizontal, Theme.Spacing.lg)
                 .padding(.bottom, Theme.Spacing.xl)

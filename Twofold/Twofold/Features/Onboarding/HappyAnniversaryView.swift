@@ -31,7 +31,7 @@ struct HappyAnniversaryView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(colors: [Theme.heartRed, Color(hex: "FF8FA3")], startPoint: .top, endPoint: .bottom)
+            Theme.coralGradient
                 .ignoresSafeArea()
 
             AnimatedHeartsView()
@@ -65,10 +65,11 @@ struct HappyAnniversaryView: View {
                         .frame(maxWidth: .infinity)
                         .padding()
                 }
-                // Same "white button inverts in dark mode" treatment as WelcomeView's "Get
-                // started" — a dark-filled, white-text pill instead of an always-white one.
-                .background(colorScheme == .dark ? Color(hex: "5A1B23") : .white, in: Capsule())
-                .foregroundStyle(colorScheme == .dark ? .white : Theme.heartRedText)
+                // The screen is the fixed coral gradient in both appearances (spec principle 4),
+                // so the button on it is fixed too: white, with the coral fill tone as text
+                // (4.7:1). The adaptive `coral` would lighten in dark mode and fail on white.
+                .background(.white, in: Capsule())
+                .foregroundStyle(Theme.coralFill)
             }
             .padding(Theme.Spacing.lg)
         }

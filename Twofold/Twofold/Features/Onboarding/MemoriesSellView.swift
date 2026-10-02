@@ -60,16 +60,16 @@ struct MemoriesSellView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(memory.title)
                         .font(.headline)
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                     if let place = memory.place {
                         Text(place.city)
                             .font(.subheadline)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                             .lineLimit(1)
                     }
                     Text(memory.date, format: .dateTime.day().month(.abbreviated).year())
                         .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                 }
                 Spacer(minLength: 0)
             }

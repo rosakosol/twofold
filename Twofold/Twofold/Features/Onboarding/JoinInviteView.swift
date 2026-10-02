@@ -32,7 +32,7 @@ struct JoinInviteView: View {
                     .animation(.easeInOut(duration: 0.2), value: onboarding.hasResolvedInviterName)
                 Text("Your private space for staying connected while you're apart.")
                     .font(.body)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .multilineTextAlignment(.center)
             }
             .padding(.horizontal, Theme.Spacing.lg)
@@ -48,7 +48,7 @@ struct JoinInviteView: View {
                     .frame(maxWidth: .infinity)
                     .padding()
                     .background(Theme.primaryButtonGradient, in: Capsule())
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onPrimaryButton)
             }
             .padding(.horizontal, Theme.Spacing.lg)
             .padding(.bottom, Theme.Spacing.xl)

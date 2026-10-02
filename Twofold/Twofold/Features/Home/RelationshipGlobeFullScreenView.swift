@@ -49,7 +49,7 @@ struct RelationshipGlobeFullScreenView: View {
         } label: {
             Image(systemName: "xmark")
                 .font(.headline)
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(Theme.textPrimary)
                 .padding(Theme.Spacing.sm)
                 .background(.regularMaterial, in: Circle())
         }
@@ -65,10 +65,10 @@ struct RelationshipGlobeFullScreenView: View {
         VStack(spacing: 2) {
             Text("DISTANCE BETWEEN YOU")
                 .font(.caption2.weight(.semibold))
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
             Text(MeasurementPreference.distanceLabel(km: distanceKm))
                 .font(.title2.weight(.bold))
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(Theme.textPrimary)
         }
         .padding(.horizontal, Theme.Spacing.lg)
         .padding(.vertical, Theme.Spacing.sm)

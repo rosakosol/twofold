@@ -42,10 +42,10 @@ struct WidgetsCatalogView: View {
                     VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                         Text("Long-press your Home Screen, tap +, then search “Twofold” to add any of these.")
                             .font(.caption)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                         Text("Small widgets also work on your Lock Screen — long-press the Lock Screen, tap Customize.")
                             .font(.caption)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                     }
                 }
 
@@ -54,12 +54,12 @@ struct WidgetsCatalogView: View {
                         HStack(spacing: Theme.Spacing.md) {
                             Image(systemName: entry.systemImage)
                                 .font(.title3)
-                                .foregroundStyle(Theme.ink)
+                                .foregroundStyle(Theme.textPrimary)
                                 .frame(width: 32)
 
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(entry.name).font(.subheadline.weight(.semibold))
-                                Text(entry.subtitle).font(.caption).foregroundStyle(Theme.subtleInk)
+                                Text(entry.subtitle).font(.caption).foregroundStyle(Theme.textSecondary)
                             }
 
                             Spacer()
@@ -83,11 +83,11 @@ struct WidgetsCatalogView: View {
     private func tierBadge(for requiredTier: String) -> some View {
         let isLocked = WidgetTier.isLocked(required: requiredTier, current: appModel.subscriptionTier)
         if isLocked {
-            PillBadge(text: "Locked", tint: Theme.subtleInk)
+            PillBadge(text: "Locked", tint: Theme.textSecondary)
         } else if requiredTier == WidgetTier.premium {
-            PillBadge(text: "Premium", tint: Theme.skyBlue)
+            PillBadge(text: "Premium", tint: Theme.accent)
         } else {
-            PillBadge(text: "Plus", tint: Theme.leafGreen)
+            PillBadge(text: "Plus", tint: Theme.success)
         }
     }
 }

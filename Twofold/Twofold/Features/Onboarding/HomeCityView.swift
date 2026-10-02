@@ -27,10 +27,10 @@ struct HomeCityView: View {
                         HStack {
                             if locationService.state == .requesting {
                                 ProgressView()
-                                Text("Finding your city…").foregroundStyle(Theme.subtleInk)
+                                Text("Finding your city…").foregroundStyle(Theme.textSecondary)
                             } else {
                                 Label("Use my current location", systemImage: "location.fill")
-                                    .foregroundStyle(Theme.skyBlueText)
+                                    .foregroundStyle(Theme.accent)
                             }
                             Spacer()
                         }
@@ -41,12 +41,12 @@ struct HomeCityView: View {
                     if let errorMessage {
                         Text(errorMessage)
                             .font(.caption)
-                            .foregroundStyle(Theme.heartRedText)
+                            .foregroundStyle(Theme.error)
                     }
                     if case .deniedOrRestricted = locationService.state {
                         Text("Location access is off — you can still search for your city above.")
                             .font(.caption2)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                     }
                 }
                 .onChange(of: locationService.state) { _, newState in

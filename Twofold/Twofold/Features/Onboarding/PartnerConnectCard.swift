@@ -44,7 +44,7 @@ struct PartnerConnectCard: View {
         SectionCard {
             Text("Connect with your partner")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
 
             Button {
                 Task {
@@ -65,13 +65,13 @@ struct PartnerConnectCard: View {
                         // hadn't noticed. Still tappable, in case they want to re-share/re-copy
                         // the same code.
                         Label("I've already invited my partner", systemImage: "checkmark.circle.fill")
-                            .foregroundStyle(Theme.ink)
+                            .foregroundStyle(Theme.textPrimary)
                     } else {
                         Label("Share my invite code", systemImage: "square.and.arrow.up")
-                            .foregroundStyle(Theme.ink)
+                            .foregroundStyle(Theme.textPrimary)
                     }
                     Spacer()
-                    Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
+                    Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.textSecondary)
                 }
                 .contentShape(Rectangle())
             }
@@ -83,9 +83,9 @@ struct PartnerConnectCard: View {
             } label: {
                 HStack {
                     Label("Enter their code", systemImage: "person.fill.checkmark")
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                     Spacer()
-                    Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
+                    Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.textSecondary)
                 }
                 .contentShape(Rectangle())
             }

@@ -24,7 +24,7 @@ struct WidgetEmptyState: View {
     var message: String
     /// A widget that already has its own colour identity keeps it here rather than every empty
     /// state looking identical — the Days Together one still reads as the Days Together widget.
-    var tint: Color = LiveActivityPalette.subtleInk
+    var tint: Color = LiveActivityPalette.textSecondary
 
     @Environment(\.widgetFamily) private var family
 

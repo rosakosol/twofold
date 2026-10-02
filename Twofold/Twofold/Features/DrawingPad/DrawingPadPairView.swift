@@ -108,7 +108,7 @@ struct DrawingPadPairView: View {
                     .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                            .strokeBorder(Theme.subtleInk.opacity(0.15))
+                            .strokeBorder(Theme.textSecondary.opacity(0.15))
                     )
                     .shadow(color: .black.opacity(0.1), radius: 8, y: 4)
             }
@@ -118,7 +118,7 @@ struct DrawingPadPairView: View {
 
             Text(name)
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(Theme.textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
         }
@@ -133,7 +133,7 @@ struct DrawingPadPairView: View {
                 .font(.caption)
                 .multilineTextAlignment(.center)
         }
-        .foregroundStyle(Theme.subtleInk)
+        .foregroundStyle(Theme.textSecondary)
     }
 }
 

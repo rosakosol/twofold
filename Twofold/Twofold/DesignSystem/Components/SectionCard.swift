@@ -36,19 +36,19 @@ struct SectionCard<Content: View>: View {
             content
         }
         .padding(Theme.Spacing.md)
-        // `Theme.cardBackground` is a flat system color with no elevation/shadow of its own —
+        // `Theme.surface` is a flat system color with no elevation/shadow of its own —
         // against dark mode's now-deep `Theme.backgroundGradient`, a stack of these otherwise
         // read as one undifferentiated slab of dark gray with no visible seams between cards. In
         // dark mode `Theme.cardGradientDark` (Aurora's neutral `Surface.card` tint) lifts the
         // card a shade brighter than the page instead; light mode keeps the plain fill.
         .background {
             ZStack {
-                Theme.cardBackground
+                Theme.surface
                 if colorScheme == .dark {
                     if isHeroInDark {
-                        TwofoldDark.Surface.hero
+                        Theme.surfaceGradient
                     } else if appliesDarkWash {
-                        Theme.cardGradientDark
+                        Theme.surfaceGradient
                     }
                 }
             }
@@ -60,15 +60,15 @@ struct SectionCard<Content: View>: View {
             RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
                 .strokeBorder(
                     colorScheme == .dark
-                        ? (isHeroInDark ? TwofoldDark.Line.hero : TwofoldDark.Line.hairline)
-                        : Theme.subtleInk.opacity(0.18),
+                        ? (isHeroInDark ? Theme.line : Theme.line)
+                        : Theme.textSecondary.opacity(0.18),
                     lineWidth: 1
                 )
         }
         .shadow(
-            color: colorScheme == .dark && isHeroInDark ? TwofoldDark.Shadow.heroColor : .clear,
-            radius: colorScheme == .dark && isHeroInDark ? TwofoldDark.Shadow.heroRadius : 0,
-            y: colorScheme == .dark && isHeroInDark ? TwofoldDark.Shadow.heroY : 0
+            color: colorScheme == .dark && isHeroInDark ? Theme.Shadow.color : .clear,
+            radius: colorScheme == .dark && isHeroInDark ? Theme.Shadow.radius : 0,
+            y: colorScheme == .dark && isHeroInDark ? Theme.Shadow.y : 0
         )
     }
 }

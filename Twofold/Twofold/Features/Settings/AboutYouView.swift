@@ -36,11 +36,11 @@ struct AboutYouView: View {
                 if let avatarError {
                     Text(avatarError)
                         .font(.caption)
-                        .foregroundStyle(Theme.heartRedText)
+                        .foregroundStyle(Theme.error)
                 }
 
                 SectionCard {
-                    Text("Your profile").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.subtleInk)
+                    Text("Your profile").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.textSecondary)
                     TextField("Name", text: $name)
                         .textContentType(.givenName)
                         .textInputAutocapitalization(.words)
@@ -53,9 +53,9 @@ struct AboutYouView: View {
                     // rather than waiting for the next natural foreground trigger.
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Current city").font(.caption).foregroundStyle(Theme.subtleInk)
+                            Text("Current city").font(.caption).foregroundStyle(Theme.textSecondary)
                             Text(appModel.currentUser.homeCity.map { "\($0.displayCity), \($0.country)" } ?? "Not detected yet")
-                                .foregroundStyle(Theme.ink)
+                                .foregroundStyle(Theme.textPrimary)
                         }
                         Spacer()
                     }
@@ -68,10 +68,10 @@ struct AboutYouView: View {
                         HStack {
                             if locationService.state == .requesting {
                                 ProgressView()
-                                Text("Checking…").foregroundStyle(Theme.subtleInk)
+                                Text("Checking…").foregroundStyle(Theme.textSecondary)
                             } else {
                                 Label("Refresh current city", systemImage: "location.fill")
-                                    .foregroundStyle(Theme.skyBlueText)
+                                    .foregroundStyle(Theme.accent)
                             }
                             Spacer()
                         }
@@ -83,11 +83,11 @@ struct AboutYouView: View {
                     case .deniedOrRestricted:
                         Text("Location access is off. Enable it in Location Permission settings to use this.")
                             .font(.caption2)
-                            .foregroundStyle(Theme.heartRedText)
+                            .foregroundStyle(Theme.error)
                     case .failed(let message):
                         Text(message)
                             .font(.caption2)
-                            .foregroundStyle(Theme.heartRedText)
+                            .foregroundStyle(Theme.error)
                     default:
                         EmptyView()
                     }

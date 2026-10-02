@@ -241,7 +241,7 @@ struct WhosMoreLikelyGameView: View {
 
                     Text("Swipe a side")
                         .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
 
                     GameRoundNavRow(
                         isDisabled: isSubmitting,

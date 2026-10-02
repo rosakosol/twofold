@@ -79,13 +79,13 @@ struct CreateAccountView: View {
                     if passwordsMismatch {
                         Text("Passwords don't match")
                             .font(.caption)
-                            .foregroundStyle(Theme.heartRedText)
+                            .foregroundStyle(Theme.error)
                     }
 
                     if let errorMessage {
                         Text(errorMessage)
                             .font(.caption)
-                            .foregroundStyle(Theme.heartRedText)
+                            .foregroundStyle(Theme.error)
                     }
 
                     if emailAlreadyExists {
@@ -94,14 +94,14 @@ struct CreateAccountView: View {
                         } label: {
                             Text("Sign In")
                                 .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(Theme.skyBlueText)
+                                .foregroundStyle(Theme.accent)
                         }
                     }
 
                     HStack {
-                        Rectangle().fill(Theme.subtleInk.opacity(0.2)).frame(height: 1)
-                        Text("or").font(.caption).foregroundStyle(Theme.subtleInk)
-                        Rectangle().fill(Theme.subtleInk.opacity(0.2)).frame(height: 1)
+                        Rectangle().fill(Theme.textSecondary.opacity(0.2)).frame(height: 1)
+                        Text("or").font(.caption).foregroundStyle(Theme.textSecondary)
+                        Rectangle().fill(Theme.textSecondary.opacity(0.2)).frame(height: 1)
                     }
                     .padding(.vertical, Theme.Spacing.xs)
 

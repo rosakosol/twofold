@@ -122,7 +122,7 @@ struct AddMemoryView: View {
                         if let errorMessage {
                             Text(errorMessage)
                                 .font(.caption)
-                                .foregroundStyle(Theme.heartRedText)
+                                .foregroundStyle(Theme.error)
                         }
                     }
                     .padding(Theme.Spacing.lg)
@@ -210,7 +210,7 @@ struct AddMemoryView: View {
         Map(position: $mapCameraPosition) {
             if let place {
                 Marker(place.displayCity, coordinate: place.coordinate)
-                    .tint(Theme.heartRed)
+                    .tint(Theme.coral)
             }
         }
         .onTapGesture { showingLocationSearch = true }
@@ -229,7 +229,7 @@ struct AddMemoryView: View {
             } label: {
                 Text(date, format: .dateTime.day().month(.abbreviated).year().hour().minute())
                     .font(.subheadline)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
             }
             .buttonStyle(.plain)
             if let place {
@@ -238,7 +238,7 @@ struct AddMemoryView: View {
                 } label: {
                     Text(place.city)
                         .font(.subheadline)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                 }
                 .buttonStyle(.plain)
             } else {
@@ -247,7 +247,7 @@ struct AddMemoryView: View {
                 } label: {
                     Text("Location required — tap to set")
                         .font(.subheadline.weight(.medium))
-                        .foregroundStyle(Theme.heartRedText)
+                        .foregroundStyle(Theme.error)
                 }
                 .buttonStyle(.plain)
             }
@@ -337,9 +337,9 @@ struct AddMemoryView: View {
                     .overlay(alignment: .topTrailing) {
                         if place == nil {
                             Circle()
-                                .fill(Theme.heartRed)
+                                .fill(Theme.error)
                                 .frame(width: 10, height: 10)
-                                .overlay(Circle().strokeBorder(Theme.cardBackground, lineWidth: 1.5))
+                                .overlay(Circle().strokeBorder(Theme.surface, lineWidth: 1.5))
                         }
                     }
             }
@@ -354,7 +354,7 @@ struct AddMemoryView: View {
             if !isDismissable {
                 Button("Skip") { dismiss() }
                     .font(.subheadline.weight(.medium))
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
             }
 
             Button(action: save) {
@@ -366,12 +366,12 @@ struct AddMemoryView: View {
                     }
                 }
                 .font(.headline)
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onPrimaryButton)
                 .padding(.horizontal, Theme.Spacing.lg)
                 .padding(.vertical, Theme.Spacing.sm)
             }
             .background(
-                canSave ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.subtleInk.opacity(0.3)),
+                canSave ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.textSecondary.opacity(0.3)),
                 in: Capsule()
             )
             .disabled(!canSave)
@@ -393,9 +393,9 @@ struct AddMemoryView: View {
     private func iconCircle(_ systemImage: String) -> some View {
         Image(systemName: systemImage)
             .font(.headline)
-            .foregroundStyle(Theme.ink)
+            .foregroundStyle(Theme.textPrimary)
             .frame(width: 40, height: 40)
-            .background(Theme.cardBackground, in: Circle())
+            .background(Theme.surface, in: Circle())
     }
 
     private func removeExistingPhoto(_ photo: MemoryPhoto) {

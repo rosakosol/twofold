@@ -82,7 +82,7 @@ struct TripCarouselCard: View {
                     Text(RelationshipMilestoneStats.tripDuration(trip))
                 }
                 .font(.caption)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
                 .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
             }
         }
@@ -100,7 +100,7 @@ struct TripCarouselCard: View {
         HStack(spacing: -8) {
             ForEach(travelers) { person in
                 AvatarView(person: person, size: 20)
-                    .overlay(Circle().stroke(Theme.cardBackground, lineWidth: 1.5))
+                    .overlay(Circle().stroke(Theme.surface, lineWidth: 1.5))
             }
         }
         .frame(width: leadingColumnWidth)
@@ -115,23 +115,23 @@ struct TripCarouselCard: View {
                     .font(.system(size: countdownFontSize, weight: .bold, design: .rounded))
                 Text(days == 0 ? "Today" : (days == 1 ? "day" : "days"))
                     .font(.caption2)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
             } else if trip.isActive {
                 Image(systemName: "airplane")
                     .font(.subheadline)
-                    .foregroundStyle(Theme.skyBlueText)
+                    .foregroundStyle(Theme.accent)
                     .accessibilityHidden(true)
                 Text("Now")
                     .font(.caption2)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
             } else {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.subheadline)
-                    .foregroundStyle(Theme.leafGreenText)
+                    .foregroundStyle(Theme.success)
                     .accessibilityHidden(true)
                 Text("Done")
                     .font(.caption2)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
             }
         }
         .frame(width: leadingColumnWidth)
@@ -155,7 +155,7 @@ struct FlightCarouselCard: View {
                     .font(.subheadline.weight(.semibold))
                     Text(flight.countdownSummary)
                         .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .lineLimit(1)
                 }
 
@@ -165,13 +165,13 @@ struct FlightCarouselCard: View {
             HStack {
                 Text([flight.airlineName, flight.displayNumber].compactMap { $0 }.joined(separator: " · "))
                     .font(.caption2)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .lineLimit(1)
                 Spacer()
                 // See FlightRowView's matching check — a pending (not-yet-trackable) flight's
                 // `status` still just reads "Scheduled", indistinguishable from a normal live one.
                 if flight.faFlightID == nil {
-                    PillBadge(text: "Not live yet", tint: Theme.subtleInk)
+                    PillBadge(text: "Not live yet", tint: Theme.textSecondary)
                 } else {
                     PillBadge(text: flight.status.displayLabel, tint: flight.status.semanticColor)
                 }
@@ -187,7 +187,7 @@ struct FlightCarouselCard: View {
 
 #Preview {
     ZStack {
-        Color.blue.ignoresSafeArea()
+        Theme.backgroundGradient.ignoresSafeArea()
         VStack {
             TripCarouselCard(trip: MockData.reunionTrip, travelers: [MockData.rosa, MockData.dara])
             FlightCarouselCard(flight: MockData.activeFlight)

@@ -61,7 +61,7 @@ struct AnimatedHeartsView: View {
 
 #Preview {
     ZStack {
-        Theme.heartRed.ignoresSafeArea()
+        Theme.coral.ignoresSafeArea()
         AnimatedHeartsView()
     }
 }

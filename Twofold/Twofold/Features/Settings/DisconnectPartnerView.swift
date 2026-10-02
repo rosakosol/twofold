@@ -114,7 +114,7 @@ struct DisconnectPartnerView: View {
                     .buttonStyle(.plain)
                     Text("Tell us if \(appModel.partner.name) has shared something abusive, or is using Twofold to harm you. We aim to respond within 48 hours, and we never tell them you got in touch.")
                         .font(.caption2)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
 
                     Divider().padding(.vertical, Theme.Spacing.xs)
@@ -133,7 +133,7 @@ struct DisconnectPartnerView: View {
                     .disabled(isBlocking)
                     Text("Disconnects you and stops them reaching you again. They aren't told. What you shared is archived as usual, and is deleted 90 days from now like any other archive.")
                         .font(.caption2)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
@@ -152,11 +152,11 @@ struct DisconnectPartnerView: View {
                     .disabled(isRemovingPartner)
                     Text("Archives everything you've shared, and lets you connect with someone new.")
                         .font(.caption2)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                     if let removePartnerError {
                         Text(removePartnerError)
                             .font(.caption)
-                            .foregroundStyle(Theme.heartRedText)
+                            .foregroundStyle(Theme.error)
                     }
                 }
             }

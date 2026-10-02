@@ -105,9 +105,9 @@ struct WordGuessKeyboardView: View {
                 .font(.system(size: glyphSize(forKeyWidth: width), weight: .semibold, design: .rounded))
                 .minimumScaleFactor(0.6)
                 .lineLimit(1)
-                .foregroundStyle(mark?.tileTextColor ?? Theme.ink)
+                .foregroundStyle(mark?.tileTextColor ?? Theme.textPrimary)
                 .frame(width: width, height: keyHeight)
-                .background(mark?.tileColor ?? Theme.cardBackground, in: RoundedRectangle(cornerRadius: radius))
+                .background(mark?.tileColor ?? Theme.surface, in: RoundedRectangle(cornerRadius: radius))
         }
         .buttonStyle(KeyPressStyle(cornerRadius: radius))
         .disabled(!isEnabled)
@@ -127,9 +127,9 @@ struct WordGuessKeyboardView: View {
         return Button(action: onBackspace) {
             Image(systemName: "delete.backward")
                 .font(.system(size: glyphSize(forKeyWidth: width) * 0.85, weight: .semibold))
-                .foregroundStyle(isEnabled ? Theme.ink : Theme.subtleInk)
+                .foregroundStyle(isEnabled ? Theme.textPrimary : Theme.textSecondary)
                 .frame(width: width, height: keyHeight)
-                .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: radius))
+                .background(Theme.surface, in: RoundedRectangle(cornerRadius: radius))
         }
         .buttonStyle(KeyPressStyle(cornerRadius: radius))
         .disabled(!isEnabled)

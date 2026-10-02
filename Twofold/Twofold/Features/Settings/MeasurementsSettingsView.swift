@@ -29,7 +29,7 @@ struct MeasurementsSettingsView: View {
 
                 Text("Controls how distances are shown across Twofold — on this device only.")
                     .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .padding(.horizontal, Theme.Spacing.sm)
             }
             .padding(Theme.Spacing.md)

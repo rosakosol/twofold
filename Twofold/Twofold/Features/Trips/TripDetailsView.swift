@@ -136,7 +136,7 @@ struct TripDetailsView: View {
                     HStack(spacing: -14) {
                         ForEach(travelers) { person in
                             AvatarView(person: person, size: 44)
-                                .overlay(Circle().stroke(Theme.cardBackground, lineWidth: 2))
+                                .overlay(Circle().stroke(Theme.surface, lineWidth: 2))
                         }
                     }
                 } else {
@@ -145,10 +145,10 @@ struct TripDetailsView: View {
                 HStack(spacing: Theme.Spacing.xs) {
                     Text(travelers.map(\.name).joined(separator: " & "))
                         .font(.subheadline)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.85)
-                    PillBadge(text: trip.category.displayName, tint: Theme.skyBlue)
+                    PillBadge(text: trip.category.displayName, tint: Theme.accent)
                 }
                 Spacer(minLength: 0)
             }
@@ -168,14 +168,14 @@ struct TripDetailsView: View {
 
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Start").font(.caption).foregroundStyle(Theme.subtleInk)
+                    Text("Start").font(.caption).foregroundStyle(Theme.textSecondary)
                     Text(trip.departureDate, format: .dateTime.day().month(.abbreviated).year())
                         .font(.subheadline.weight(.medium))
                 }
                 .accessibilityElement(children: .combine)
                 Spacer()
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text("End").font(.caption).foregroundStyle(Theme.subtleInk)
+                    Text("End").font(.caption).foregroundStyle(Theme.textSecondary)
                     Text(trip.arrivalDate, format: .dateTime.day().month(.abbreviated).year())
                         .font(.subheadline.weight(.medium))
                 }
@@ -183,7 +183,7 @@ struct TripDetailsView: View {
             }
 
             HStack {
-                Text("Distance").font(.caption).foregroundStyle(Theme.subtleInk)
+                Text("Distance").font(.caption).foregroundStyle(Theme.textSecondary)
                 Spacer()
                 Text(MeasurementPreference.distanceLabel(km: trip.effectiveDistanceKm)).font(.subheadline.weight(.medium))
             }
@@ -196,7 +196,7 @@ struct TripDetailsView: View {
         if let notes = trip.notes, !notes.isEmpty {
             SectionCard {
                 Text("Notes").font(.subheadline.weight(.semibold))
-                Text(notes).font(.subheadline).foregroundStyle(Theme.ink)
+                Text(notes).font(.subheadline).foregroundStyle(Theme.textPrimary)
             }
         }
     }
@@ -226,7 +226,7 @@ struct TripDetailsView: View {
             }
 
             if trip.flights.isEmpty {
-                Text("No flight linked yet.").font(.caption).foregroundStyle(Theme.subtleInk)
+                Text("No flight linked yet.").font(.caption).foregroundStyle(Theme.textSecondary)
             } else {
                 ForEach(trip.orderedFlights) { flight in
                     VStack(alignment: .leading, spacing: 4) {
@@ -262,7 +262,7 @@ struct TripDetailsView: View {
             }
 
             if linkedMemories.isEmpty {
-                Text("No memories linked yet.").font(.caption).foregroundStyle(Theme.subtleInk)
+                Text("No memories linked yet.").font(.caption).foregroundStyle(Theme.textSecondary)
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: Theme.Spacing.sm) {
@@ -276,7 +276,7 @@ struct TripDetailsView: View {
                                     Text(memory.title)
                                         .font(.caption2)
                                         .lineLimit(1)
-                                        .foregroundStyle(Theme.ink)
+                                        .foregroundStyle(Theme.textPrimary)
                                         .frame(width: 88, alignment: .leading)
                                 }
                             }

@@ -48,7 +48,7 @@ struct RelationshipGlobeView: View {
             // surface — the default `.straight` contour is a flat-projection line that doesn't
             // map correctly onto a rendered 3D globe.
             MapPolyline(coordinates: [partnerACity.coordinate, partnerBCity.coordinate], contourStyle: .geodesic)
-                .stroke(Theme.skyBlue.opacity(0.85), style: StrokeStyle(lineWidth: 2.5, lineCap: .round, dash: [1, 8]))
+                .stroke(Theme.accent.opacity(0.85), style: StrokeStyle(lineWidth: 2.5, lineCap: .round, dash: [1, 8]))
 
             Annotation(couple.partnerA.name, coordinate: partnerACity.coordinate) {
                 AvatarView(person: couple.partnerA, size: 36, showsRing: true)
@@ -63,7 +63,7 @@ struct RelationshipGlobeView: View {
                 // aren't the same line whenever the trip's endpoints differ from either partner's
                 // current city.
                 MapPolyline(coordinates: [activeTrip.origin.coordinate, activeTrip.destination.coordinate], contourStyle: .geodesic)
-                    .stroke(Theme.skyBlue, style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [1, 10]))
+                    .stroke(Theme.accent, style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [1, 10]))
 
                 if animatesPath {
                     ForEach(Array(pulsePoints(from: activeTrip.origin.coordinate, to: activeTrip.destination.coordinate).enumerated()), id: \.offset) { index, coordinate in
@@ -105,7 +105,7 @@ private struct PulsingRouteDot: View {
 
     var body: some View {
         Circle()
-            .fill(Theme.skyBlue)
+            .fill(Theme.accent)
             .frame(width: 8, height: 8)
             .scaleEffect(isPulsing ? 1.6 : 0.6)
             .opacity(isPulsing ? 0.9 : 0.25)

@@ -19,7 +19,7 @@ struct TopicsSection: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             Text("Topics")
                 .font(.title3.weight(.bold))
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(Theme.textPrimary)
 
             VStack(spacing: Theme.Spacing.sm) {
                 if appModel.gameDecks == nil {
@@ -60,7 +60,7 @@ struct TopicsSection: View {
             .frame(width: 36, height: 36)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(topic.displayName).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.ink)
+                Text(topic.displayName).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.textPrimary)
                 ProgressView(value: fraction)
                     .tint(topic.color)
             }
@@ -68,11 +68,11 @@ struct TopicsSection: View {
             if progress != nil {
                 Text("\(percent)%")
                     .font(.caption2.weight(.semibold))
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .monospacedDigit()
             }
 
-            Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
+            Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.textSecondary)
         }
         .padding(Theme.Spacing.sm)
         .themedCardBackground(cornerRadius: Theme.Radius.card)
@@ -91,13 +91,13 @@ struct TopicsSection: View {
             .frame(width: 36, height: 36)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(topic.displayName).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.ink)
+                Text(topic.displayName).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.textPrimary)
                 Capsule()
-                    .fill(Theme.subtleInk.opacity(0.15))
+                    .fill(Theme.textSecondary.opacity(0.15))
                     .frame(height: 4)
             }
 
-            Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk.opacity(0.3))
+            Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.textSecondary.opacity(0.3))
         }
         .padding(Theme.Spacing.sm)
         .themedCardBackground(cornerRadius: Theme.Radius.card)
@@ -148,7 +148,7 @@ struct TopicDetailView: View {
                     if appModel.decks(for: topic).isEmpty {
                         Text("No decks in this topic yet.")
                             .font(.subheadline)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                             .padding(.top, Theme.Spacing.lg)
                     }
                 }
@@ -172,7 +172,7 @@ struct TopicDetailView: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
                 Text(title)
                     .font(.subheadline.weight(.bold))
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 VStack(spacing: Theme.Spacing.sm) {

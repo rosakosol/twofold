@@ -170,14 +170,14 @@ struct HomeView: View {
                         // read as a profile, which is not where it goes.
                         Image(systemName: "gearshape.fill")
                             .font(.title2)
-                            .foregroundStyle(Theme.ink)
+                            .foregroundStyle(Theme.textPrimary)
                     }
                     .accessibilityLabel("Settings")
                 }
                 ToolbarItem(placement: .principal) {
                     HStack(spacing: Theme.Spacing.sm) {
                         AvatarView(person: appModel.currentUser, size: 30)
-                        Image(systemName: "heart.fill").foregroundStyle(Theme.heartRedText).font(.caption)
+                        Image(systemName: "heart.fill").foregroundStyle(Theme.coral).font(.caption)
                         AvatarView(person: appModel.partner, size: 30)
                     }
                     .accessibilityElement(children: .ignore)
@@ -304,11 +304,11 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
                 Label("Your subscription has ended", systemImage: "person.badge.minus")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
 
                 Text("\(partnerName) was covering your Twofold subscription, and your connection with them has ended. Nothing has been deleted — your trips, memories and photos are in Settings → Help → Archived Data, and you can export them from there.")
                     .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 // Named rather than left to be discovered. An archive is deleted ninety days after
@@ -316,7 +316,7 @@ struct HomeView: View {
                 // stopped is exactly the person who will not go looking for that date.
                 Text("An archive is kept for 90 days and then permanently deleted. The date is shown on it.")
                     .font(.caption2)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 // One action, and no dismiss. This is the state of the account rather than an
@@ -330,7 +330,7 @@ struct HomeView: View {
                         .padding(.vertical, Theme.Spacing.sm)
                 }
                 .background(Theme.primaryButtonGradient, in: Capsule())
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onPrimaryButton)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -347,11 +347,11 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
                 Label("No active subscription", systemImage: "lock.circle.fill")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
 
                 Text("Everything you've already saved is still here, and always will be — you can read it, export it and delete it at any time. What needs a subscription is adding to it: new trips, memories, flights and today's question.")
                     .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Button { showingPaywall = true } label: {
@@ -361,7 +361,7 @@ struct HomeView: View {
                         .padding(.vertical, Theme.Spacing.sm)
                 }
                 .background(Theme.primaryButtonGradient, in: Capsule())
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onPrimaryButton)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -392,7 +392,7 @@ struct HomeView: View {
                             appModel.dismissSetupChecklist()
                         } label: {
                             Image(systemName: "xmark.circle.fill")
-                                .foregroundStyle(Theme.subtleInk.opacity(0.5))
+                                .foregroundStyle(Theme.textSecondary.opacity(0.5))
                                 // The glyph alone is ~22pt, half Apple's 44pt minimum — a miss on this
                                 // one dismisses nothing and taps the card behind it instead. The frame
                                 // only grows the tap target; `contentShape` makes the whole of it
@@ -439,8 +439,8 @@ struct HomeView: View {
                 } label: {
                     HStack {
                         ZStack {
-                            Circle().fill(Theme.skyBlue.opacity(0.15))
-                            Image(systemName: "envelope.badge").foregroundStyle(Theme.skyBlueText)
+                            Circle().fill(Theme.accent.opacity(0.15))
+                            Image(systemName: "envelope.badge").foregroundStyle(Theme.accent)
                         }
                         .frame(width: 36, height: 36)
 
@@ -449,10 +449,10 @@ struct HomeView: View {
                                 .font(.headline)
                             Text("Shared from Mail — tap to add the flight")
                                 .font(.caption)
-                                .foregroundStyle(Theme.subtleInk)
+                                .foregroundStyle(Theme.textSecondary)
                         }
                         Spacer()
-                        Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
+                        Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.textSecondary)
                     }
                 }
                 .buttonStyle(.plain)
@@ -587,15 +587,15 @@ struct HomeView: View {
                         Image(systemName: name)
                     }
                 }
-                .foregroundStyle(Theme.skyBlueText)
+                .foregroundStyle(Theme.accent)
                 .frame(width: 24)
 
                 task.title
                     .font(.subheadline)
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                     .multilineTextAlignment(.leading)
                 Spacer()
-                Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
+                Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.textSecondary)
             }
             // A single line of `.subheadline` is around 20pt tall, so these rows were roughly half
             // the 44pt minimum — and the gap between two of them was dead space that looked
@@ -656,7 +656,7 @@ struct HomeView: View {
                         .font(.subheadline.weight(.semibold))
                     Image(systemName: "chevron.right").font(.caption)
                 }
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onPrimaryButton)
             }
             .padding(Theme.Spacing.lg)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -706,7 +706,7 @@ struct HomeView: View {
                         .font(.subheadline.weight(.semibold))
                     Image(systemName: "chevron.right").font(.caption)
                 }
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onPrimaryButton)
             }
             .padding(Theme.Spacing.lg)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -756,7 +756,7 @@ struct HomeView: View {
                         .font(.subheadline.weight(.semibold))
                     Image(systemName: "chevron.right").font(.caption)
                 }
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onPrimaryButton)
             }
             .padding(Theme.Spacing.lg)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -776,10 +776,10 @@ struct HomeView: View {
                             .font(.headline)
                         Text("Turn on location access to light up the map.")
                             .font(.caption)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                     }
                     Spacer()
-                    Image(systemName: "map").foregroundStyle(Theme.skyBlueText)
+                    Image(systemName: "map").foregroundStyle(Theme.accent)
                 }
             }
             .buttonStyle(.plain)
@@ -799,13 +799,13 @@ struct HomeView: View {
                         .font(.headline)
                     Text("\(appModel.partner.name) needs to turn on location access before the map can light up.")
                         .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer()
                 // Subdued rather than `skyBlue`: nothing here is tappable, and the accent colour
                 // is what tells the rest of this screen that something is.
-                Image(systemName: "map").foregroundStyle(Theme.subtleInk)
+                Image(systemName: "map").foregroundStyle(Theme.textSecondary)
             }
         }
     }
@@ -816,18 +816,18 @@ struct HomeView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("SAME CITY")
                         .font(.caption2.weight(.semibold))
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                     Text("You're both in \(city.displayCity)")
                         .font(.title3.weight(.bold))
                 }
                 Spacer()
                 Image(systemName: "heart.fill")
                     .font(.title2)
-                    .foregroundStyle(Theme.heartRedText)
+                    .foregroundStyle(Theme.coral)
             }
             Text("No distance to close right now")
                 .font(.caption)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
         }
     }
 
@@ -837,7 +837,7 @@ struct HomeView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("DISTANCE BETWEEN YOU")
                         .font(.caption2.weight(.semibold))
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                     Text(MeasurementPreference.distanceLabel(km: distanceKm))
                         .font(.title.weight(.bold))
                 }
@@ -847,7 +847,7 @@ struct HomeView: View {
                 } label: {
                     Image(systemName: "square.and.arrow.up.circle.fill")
                         .font(.largeTitle)
-                        .foregroundStyle(Theme.skyBlueText)
+                        .foregroundStyle(Theme.accent)
                 }
                 .accessibilityLabel("Share distance")
             }
@@ -858,7 +858,7 @@ struct HomeView: View {
             if Geo.percentOfEarthCircumference(distanceKm) >= 0.05 {
                 Text("That's \(Geo.percentOfEarthCircumference(distanceKm), format: .number.precision(.fractionLength(1)))% of the way around the earth 🌍")
                     .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
             }
 
             RelationshipGlobeView(couple: appModel.couple, partnerACity: myCity, partnerBCity: partnerCity, activeTrip: appModel.activeTrip)
@@ -880,7 +880,7 @@ struct HomeView: View {
                     } label: {
                         Image(systemName: "arrow.up.left.and.arrow.down.right")
                             .font(.footnote.weight(.semibold))
-                            .foregroundStyle(Theme.ink)
+                            .foregroundStyle(Theme.textPrimary)
                             .padding(Theme.Spacing.sm)
                             .background(.regularMaterial, in: Circle())
                             .padding(Theme.Spacing.sm)
@@ -935,7 +935,7 @@ struct HomeView: View {
                     HStack(spacing: 6) {
                         ForEach(flights) { flight in
                             Circle()
-                                .fill(flight.id == (flightCarouselPage ?? flights.first?.id) ? Theme.skyBlue : Theme.subtleInk.opacity(0.25))
+                                .fill(flight.id == (flightCarouselPage ?? flights.first?.id) ? Theme.accent : Theme.textSecondary.opacity(0.25))
                                 .frame(width: 6, height: 6)
                         }
                     }
@@ -954,7 +954,7 @@ struct HomeView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(flight.status.isActivelyTracked ? "TRACKING NOW" : "NEXT FLIGHT")
                         .font(.caption2.weight(.semibold))
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                     HStack(spacing: Theme.Spacing.xs) {
                         // 24pt, not 18 — at 18pt, .scaledToFill() cropping a wide tailfin logo
                         // into a near-square frame was cutting away most of the actual mark,
@@ -985,7 +985,7 @@ struct HomeView: View {
                 if let totalDurationSummary = flight.totalDurationSummary {
                     Text(totalDurationSummary)
                         .font(.subheadline.weight(.medium))
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .lineLimit(1)
                         .layoutPriority(1)
                 }
@@ -994,7 +994,7 @@ struct HomeView: View {
             HStack(alignment: .center) {
                 Text(flight.countdownSummary)
                     .font(.subheadline.weight(.medium))
-                    .foregroundStyle(Theme.skyBlueText)
+                    .foregroundStyle(Theme.accent)
                     .lineLimit(1)
 
                 Spacer(minLength: Theme.Spacing.sm)
@@ -1035,11 +1035,11 @@ struct HomeView: View {
     /// known yet rather than omitting the row, so the pair always lines up evenly.
     private func portTimeRow(icon: String, code: String, time: Date?, timeZone: TimeZone?) -> some View {
         HStack(spacing: 3) {
-            Image(systemName: icon).font(.caption2).foregroundStyle(Theme.subtleInk)
+            Image(systemName: icon).font(.caption2).foregroundStyle(Theme.textSecondary)
             Text(code).font(.caption.weight(.semibold)).lineLimit(1)
             Text(time.map { $0.formatted(Date.FormatStyle(timeZone: timeZone ?? .current).hour().minute()) } ?? "—")
                 .font(.caption)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
                 .lineLimit(1)
         }
     }
@@ -1096,14 +1096,14 @@ struct HomeView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(trip.isActive ? "Right now" : "Next reunion")
                         .font(.subheadline)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                     Text(trip.isActive ? "Together 💛" : (daysToGo == 0 ? "Today 💛" : "\(daysToGo) days to go"))
                         .font(.title3.weight(.bold))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                 }
                 Spacer()
                 Image(systemName: "heart.fill")
-                    .foregroundStyle(Theme.heartRedText)
+                    .foregroundStyle(Theme.coral)
             }
 
             Divider()
@@ -1114,7 +1114,7 @@ struct HomeView: View {
                     // it on day four of the visit makes the app look like it has not noticed.
                     Text(tripSubtitle(trip))
                         .font(.subheadline)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.9)
                     let route = trip.routeEndpoints
@@ -1130,12 +1130,12 @@ struct HomeView: View {
                     if let flight = trip.mostRelevantFlight {
                         Text("\(trip.departureDate, format: .dateTime.day().month(.abbreviated)) · \(flight.flightNumber)")
                             .font(.caption)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                     }
                 }
                 Spacer()
                 ZStack {
-                    Circle().fill(Theme.skyBlueFill)
+                    Circle().fill(Theme.accentFill)
                     Image(systemName: "airplane")
                         .foregroundStyle(.white)
                 }

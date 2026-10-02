@@ -47,7 +47,7 @@ struct GameTypeDecksView: View {
                 VStack(spacing: Theme.Spacing.xs) {
                     Text(gameType.tagline)
                         .font(.subheadline)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .multilineTextAlignment(.center)
                 }
                 .padding(.top, Theme.Spacing.sm)
@@ -58,7 +58,7 @@ struct GameTypeDecksView: View {
                 if allDecks.isEmpty {
                     Text("No decks yet.")
                         .font(.subheadline)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .padding(.top, Theme.Spacing.lg)
                 }
             }
@@ -77,7 +77,7 @@ struct GameTypeDecksView: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
                 Text(title)
                     .font(.subheadline.weight(.bold))
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 VStack(spacing: Theme.Spacing.sm) {

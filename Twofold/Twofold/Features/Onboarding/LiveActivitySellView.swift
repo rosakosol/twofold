@@ -177,7 +177,7 @@ struct LiveActivitySellView: View {
                     path.move(to: CGPoint(x: 0, y: midY))
                     path.addLine(to: CGPoint(x: progressX, y: midY))
                 }
-                .stroke(Theme.skyBlue, lineWidth: 2)
+                .stroke(Theme.accent, lineWidth: 2)
 
                 Path { path in
                     path.move(to: CGPoint(x: progressX, y: midY))
@@ -187,7 +187,7 @@ struct LiveActivitySellView: View {
 
                 Image(systemName: "airplane")
                     .font(.caption2.weight(.bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onPrimaryButton)
                     .padding(4)
                     .background(Theme.primaryButtonGradient, in: Circle())
                     .position(x: progressX, y: midY)

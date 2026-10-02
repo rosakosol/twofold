@@ -43,8 +43,8 @@ private struct LegalSentenceStyle: ViewModifier {
     func body(content: Content) -> some View {
         content
             .font(.footnote)
-            .foregroundStyle(Theme.subtleInk)
-            .tint(Theme.skyBlueText)
+            .foregroundStyle(Theme.textSecondary)
+            .tint(Theme.accent)
             .fixedSize(horizontal: false, vertical: true)
             // Catches the `legal://` links. Anything else is handed back to the system untouched,
             // so a real URL added to one of these sentences later still behaves like one.
@@ -102,7 +102,7 @@ struct LegalConsentCheckbox: View {
             } label: {
                 Image(systemName: isAccepted ? "checkmark.square.fill" : "square")
                     .font(.title3)
-                    .foregroundStyle(isAccepted ? Theme.skyBlueText : Theme.subtleInk)
+                    .foregroundStyle(isAccepted ? Theme.accent : Theme.textSecondary)
                     .contentTransition(.symbolEffect(.replace))
             }
             .buttonStyle(.plain)

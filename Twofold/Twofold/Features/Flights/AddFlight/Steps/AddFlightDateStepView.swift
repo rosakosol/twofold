@@ -35,10 +35,10 @@ struct AddFlightDateStepView: View {
                 if model.mode == .route {
                     HStack(spacing: Theme.Spacing.xs) {
                         if let departure = model.departureAirport {
-                            PillBadge(text: departure.preferredCode ?? departure.cityOrName, tint: Theme.skyBlue)
+                            PillBadge(text: departure.preferredCode ?? departure.cityOrName, tint: Theme.accent)
                         }
                         if let destination = model.destinationAirport {
-                            PillBadge(text: destination.preferredCode ?? destination.cityOrName, tint: Theme.skyBlue)
+                            PillBadge(text: destination.preferredCode ?? destination.cityOrName, tint: Theme.accent)
                         }
                     }
                 }
@@ -63,8 +63,8 @@ struct AddFlightDateStepView: View {
                         showingCalendar = true
                     } label: {
                         HStack {
-                            Image(systemName: "calendar").foregroundStyle(Theme.skyBlueText)
-                            Text("Pick from Calendar").foregroundStyle(Theme.ink)
+                            Image(systemName: "calendar").foregroundStyle(Theme.accent)
+                            Text("Pick from Calendar").foregroundStyle(Theme.textPrimary)
                             Spacer()
                         }
                         .padding()
@@ -109,19 +109,19 @@ struct AddFlightDateStepView: View {
             HStack(spacing: Theme.Spacing.sm) {
                 Image(systemName: "calendar.badge.checkmark")
                     .font(.title3)
-                    .foregroundStyle(Theme.leafGreenText)
+                    .foregroundStyle(Theme.success)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(date, format: .dateTime.weekday(.wide).day().month(.wide).year())
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                     Text("Tap to search this date")
                         .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                 }
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right")
                     .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
             }
             .padding()
             .themedCardBackground(cornerRadius: Theme.Radius.card)
@@ -142,12 +142,12 @@ struct AddFlightDateStepView: View {
         } label: {
             HStack {
                 Image(systemName: isSelected ? "checkmark.square.fill" : "square")
-                    .foregroundStyle(isSelected ? Theme.leafGreenText : Theme.subtleInk)
+                    .foregroundStyle(isSelected ? Theme.success : Theme.textSecondary)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.subheadline.weight(.medium)).foregroundStyle(Theme.ink)
+                    Text(title).font(.subheadline.weight(.medium)).foregroundStyle(Theme.textPrimary)
                     Text(date, format: .dateTime.weekday(.abbreviated).day().month(.abbreviated))
                         .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                 }
                 Spacer()
             }

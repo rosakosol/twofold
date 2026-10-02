@@ -10,7 +10,7 @@
 import SwiftUI
 
 struct TwofoldBrandMark: View {
-    var color: Color = Theme.ink
+    var color: Color = Theme.textPrimary
     var size: CGFloat = 32
     var textStyle: Font.TextStyle = .title2
 

@@ -4,7 +4,7 @@
 //
 //  Shared text-field/secure-field chrome for onboarding's account/name/code entry screens —
 //  previously each of the 9 screens with a text input inlined its own identical
-//  `.background(Theme.cardBackground, in: RoundedRectangle(...))` with no border at all. That
+//  `.background(Theme.surface, in: RoundedRectangle(...))` with no border at all. That
 //  was tolerable in light mode (the field's fill still read as distinct from the page), but
 //  against dark mode's now-deep `Theme.backgroundGradient`, an unbordered dark-gray field became
 //  nearly invisible. One shared modifier means the fix (and any future one) lands everywhere at
@@ -25,9 +25,9 @@ private struct OnboardingFieldBackground: ViewModifier {
             // hairline border to separate it. Light mode keeps the plain fill + border.
             .background {
                 ZStack {
-                    Theme.cardBackground
+                    Theme.surface
                     if colorScheme == .dark {
-                        Theme.cardGradientDark
+                        Theme.surfaceGradient
                     }
                 }
             }
@@ -35,7 +35,7 @@ private struct OnboardingFieldBackground: ViewModifier {
             .overlay {
                 if colorScheme != .dark {
                     RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                        .strokeBorder(Theme.subtleInk.opacity(0.25), lineWidth: 1.25)
+                        .strokeBorder(Theme.textSecondary.opacity(0.25), lineWidth: 1.25)
                 }
             }
     }

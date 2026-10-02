@@ -220,7 +220,7 @@ struct TimeWeatherWidgetView: View {
     }
 
     private var emptyState: some View {
-        WidgetEmptyState(systemImage: "person.2.fill", message: "Connect with your partner", tint: LiveActivityPalette.subtleInk)
+        WidgetEmptyState(systemImage: "person.2.fill", message: "Connect with your partner", tint: LiveActivityPalette.textSecondary)
     }
 }
 

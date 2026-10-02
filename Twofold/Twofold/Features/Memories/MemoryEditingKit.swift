@@ -173,7 +173,7 @@ struct MemoryPhotosSheet: View {
                 Divider()
 
                 selectedStrip
-                    .background(Theme.cardBackground)
+                    .background(Theme.surface)
             }
             .navigationTitle("Photos")
             .navigationBarTitleDisplayMode(.inline)
@@ -194,7 +194,7 @@ struct MemoryPhotosSheet: View {
             HStack(spacing: Theme.Spacing.xs) {
                 Text(photos.isEmpty ? "No photos yet" : "On this memory")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                 if isBusy {
                     ProgressView().controlSize(.small)
                 }
@@ -214,16 +214,16 @@ struct MemoryPhotosSheet: View {
                 Label {
                     Text(errorMessage)
                         .font(.footnote)
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                         .multilineTextAlignment(.leading)
                 } icon: {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(Theme.heartRedText)
+                        .foregroundStyle(Theme.error)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(Theme.Spacing.sm)
-                .background(Theme.heartRed.opacity(0.1), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .background(Theme.error.opacity(0.1), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .padding(.horizontal, Theme.Spacing.md)
                 .padding(.top, Theme.Spacing.xs)
                 .transition(.opacity)
@@ -305,7 +305,7 @@ struct MemoryPhotoThumbnail: View {
             if let resolvedImage {
                 Image(uiImage: resolvedImage).resizable().scaledToFill()
             } else {
-                Theme.cardBackground.task(id: cacheKey) { await load() }
+                Theme.surface.task(id: cacheKey) { await load() }
             }
         }
     }

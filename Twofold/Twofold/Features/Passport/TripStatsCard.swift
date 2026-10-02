@@ -26,13 +26,13 @@ struct TripStatsCard: View {
                 VStack(spacing: Theme.Spacing.md) {
                     HStack(spacing: Theme.Spacing.sm) {
                         ZStack {
-                            Circle().fill(Theme.skyBlueText.opacity(0.15))
-                            Image(systemName: "suitcase.fill").font(.subheadline).foregroundStyle(Theme.skyBlueText)
+                            Circle().fill(Theme.accent.opacity(0.15))
+                            Image(systemName: "suitcase.fill").font(.subheadline).foregroundStyle(Theme.accent)
                         }
                         .frame(width: 32, height: 32)
                         Text("Trip Stats")
                             .font(.headline)
-                            .foregroundStyle(Theme.ink)
+                            .foregroundStyle(Theme.textPrimary)
                         Spacer(minLength: 0)
                     }
 
@@ -51,25 +51,25 @@ struct TripStatsCard: View {
                             label: "Longest Trip",
                             value: stats.longestTrip.map { RelationshipMilestoneStats.tripDuration($0) } ?? "—",
                             detail: stats.longestTrip?.destination.displayCity,
-                            tint: Theme.leafGreenText
+                            tint: Theme.success
                         )
                         milestoneTile(
                             icon: "arrow.down.left",
                             label: "Shortest Trip",
                             value: stats.shortestTrip.map { RelationshipMilestoneStats.tripDuration($0) } ?? "—",
                             detail: stats.shortestTrip?.destination.displayCity,
-                            tint: Theme.leafGreenText
+                            tint: Theme.success
                         )
                         milestoneTile(
                             icon: "mappin.and.ellipse",
                             label: "Top Destination",
                             value: stats.topDestination?.name ?? "—",
                             detail: stats.topDestination.map { $0.count == 1 ? "1 trip" : "\($0.count) trips" },
-                            tint: Theme.skyBlueText
+                            tint: Theme.accent
                         )
-                        milestoneTile(icon: "heart.fill", label: "Reunion Trips", value: "\(stats.reunionCount)", tint: Theme.heartRedText)
-                        milestoneTile(icon: "calendar.badge.clock", label: "Upcoming", value: "\(stats.upcomingCount)", tint: .orange)
-                        milestoneTile(icon: "checkmark.circle.fill", label: "Completed", value: "\(stats.pastCount)", tint: .purple)
+                        milestoneTile(icon: "heart.fill", label: "Reunion Trips", value: "\(stats.reunionCount)", tint: Theme.coral)
+                        milestoneTile(icon: "calendar.badge.clock", label: "Upcoming", value: "\(stats.upcomingCount)", tint: Theme.indigo)
+                        milestoneTile(icon: "checkmark.circle.fill", label: "Completed", value: "\(stats.pastCount)", tint: Theme.violetFill)
                     }
 
                     // Identical to `FlightStatsCard`'s own drill-in row — same tinted pill, same
@@ -84,10 +84,10 @@ struct TripStatsCard: View {
                                 Image(systemName: "chevron.right")
                                     .font(.caption.weight(.bold))
                             }
-                            .foregroundStyle(Theme.skyBlueText)
+                            .foregroundStyle(Theme.accent)
                             .padding(.horizontal, Theme.Spacing.md)
                             .padding(.vertical, 12)
-                            .background(Theme.skyBlueText.opacity(0.1), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .background(Theme.accent.opacity(0.1), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                         }
                         .buttonStyle(.plain)
                     }
@@ -105,12 +105,12 @@ struct TripStatsCard: View {
         VStack(spacing: 2) {
             Text(label.uppercased())
                 .font(.caption2.weight(.semibold))
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
             Text(value)
                 .font(.system(size: 22, weight: .bold, design: .rounded))
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(Theme.textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
         }
@@ -135,12 +135,12 @@ struct TripStatsCard: View {
                 // consistently (see `RelationshipStatsCard.milestoneTile`'s identical fix).
                 Text(label)
                     .font(.caption2.weight(.semibold))
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
                 Text(value)
                     .font(.subheadline.weight(.bold))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
                 // Always reserve the detail line's height (even when there's no detail) so every
@@ -150,7 +150,7 @@ struct TripStatsCard: View {
                 // "Reunion Trips"), so the two don't line up.
                 Text(detail ?? " ")
                     .font(.caption2)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .lineLimit(1)
                     .opacity(detail == nil ? 0 : 1)
             }

@@ -81,7 +81,7 @@ struct AddTripDetailsView: View {
                     CityMenuPicker(label: "To", selection: $destination)
 
                     VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                        Text("When?").font(.caption).foregroundStyle(Theme.subtleInk)
+                        Text("When?").font(.caption).foregroundStyle(Theme.textSecondary)
                         DatePicker("Departing", selection: $departureDate, displayedComponents: [.date, .hourAndMinute])
                         DatePicker("Returning", selection: $returnDate, in: departureDate..., displayedComponents: [.date, .hourAndMinute])
                             // The `in: departureDate...` bound above only constrains what this
@@ -97,7 +97,7 @@ struct AddTripDetailsView: View {
                     .themedCardBackground(cornerRadius: Theme.Radius.card)
 
                     VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                        Text("Who's travelling?").font(.caption).foregroundStyle(Theme.subtleInk)
+                        Text("Who's travelling?").font(.caption).foregroundStyle(Theme.textSecondary)
                         Picker("Who's travelling?", selection: $traveler) {
                             Text("You").tag(TripTraveler.you)
                             // Disabled (not just warned-about) outside onboarding — same
@@ -115,7 +115,7 @@ struct AddTripDetailsView: View {
                     }
 
                     VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                        Text("What kind of trip is this?").font(.caption).foregroundStyle(Theme.subtleInk)
+                        Text("What kind of trip is this?").font(.caption).foregroundStyle(Theme.textSecondary)
                         Picker("Trip category", selection: $category) {
                             ForEach(TripCategory.allCases) { category in
                                 Text(category.displayName).tag(category)
@@ -171,11 +171,11 @@ struct AddTripDetailsView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(candidate.displayFlightNumber)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                 if let originCity = candidate.origin?.city, let destinationCity = candidate.destination?.city {
                     Text("\(originCity) to \(destinationCity)")
                         .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .lineLimit(1)
                 }
             }
@@ -184,7 +184,7 @@ struct AddTripDetailsView: View {
                 flightCandidates.removeAll { $0.id == candidate.id }
             } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Remove flight \(candidate.displayFlightNumber)")
@@ -199,21 +199,21 @@ struct AddTripDetailsView: View {
         } label: {
             HStack(spacing: Theme.Spacing.sm) {
                 Image(systemName: "airplane")
-                    .foregroundStyle(Theme.skyBlueText)
+                    .foregroundStyle(Theme.accent)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(addFlightLabel)
                         .font(.subheadline.weight(.medium))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                     if flightCandidates.isEmpty && !flightNumberHint.isEmpty {
                         Text("From your forwarded email — tap to find and confirm")
                             .font(.caption2)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                     }
                 }
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right")
                     .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
             }
             .padding()
             .themedCardBackground(cornerRadius: Theme.Radius.card)

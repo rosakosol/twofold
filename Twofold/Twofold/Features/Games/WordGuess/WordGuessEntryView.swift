@@ -29,7 +29,7 @@ struct WordGuessEntryView: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.md) {
                 Text("The same word on both your phones. Six guesses each, then compare.")
                     .font(.subheadline)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
 
                 GameRecordCard(
                     records: records.filter { $0.gameType == .wordGuess },
@@ -48,7 +48,7 @@ struct WordGuessEntryView: View {
                 if let errorMessage {
                     Text(errorMessage)
                         .font(.caption)
-                        .foregroundStyle(Theme.heartRedText)
+                        .foregroundStyle(Theme.error)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
@@ -93,7 +93,7 @@ struct WordGuessEntryView: View {
                 )
             Text(text)
                 .font(.subheadline)
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(Theme.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
@@ -112,7 +112,7 @@ struct WordGuessEntryView: View {
             .padding()
         }
         .background(Theme.primaryButtonGradient, in: Capsule())
-        .foregroundStyle(.white)
+        .foregroundStyle(Theme.onPrimaryButton)
         .disabled(isStarting)
     }
 
@@ -123,18 +123,18 @@ struct WordGuessEntryView: View {
             VStack(spacing: Theme.Spacing.sm) {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.largeTitle)
-                    .foregroundStyle(Theme.leafGreenText)
+                    .foregroundStyle(Theme.success)
                 Text("That's today's word done")
                     .font(.headline)
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                 Text("A new one arrives tomorrow. Premium has no daily limit.")
                     .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
                 Button("See Premium") { showingPaywall = true }
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Theme.skyBlueText)
+                    .foregroundStyle(Theme.accent)
             }
             .frame(maxWidth: .infinity)
         }
@@ -147,7 +147,7 @@ struct WordGuessEntryView: View {
         if !isPremium && !limitReached {
             Text("One word a day on Plus. Premium has no daily limit.")
                 .font(.caption2)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
                 .frame(maxWidth: .infinity)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)

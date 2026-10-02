@@ -53,7 +53,7 @@ struct DistanceFlatMapView: View {
             if let mapSnapshot {
                 content(mapSnapshot)
             } else {
-                Color(hex: "0E2A52")
+                Brand.nightSkyTop
                 ProgressView().tint(.white)
             }
         }
@@ -91,9 +91,9 @@ struct DistanceFlatMapView: View {
                 path.move(to: myPoint)
                 path.addLine(to: partnerPoint)
             }
-            .stroke(Theme.skyBlue, style: StrokeStyle(lineWidth: 3, lineCap: .round))
-            pin(myPoint, photo: selfPhoto, tint: Theme.skyBlue, city: myCity)
-            pin(partnerPoint, photo: partnerPhoto, tint: Theme.heartRed, city: partnerCity)
+            .stroke(Theme.accent, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+            pin(myPoint, photo: selfPhoto, tint: Theme.accent, city: myCity)
+            pin(partnerPoint, photo: partnerPhoto, tint: Theme.coral, city: partnerCity)
         }
     }
 

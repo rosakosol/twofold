@@ -40,7 +40,7 @@ struct RecommendedGamesSection: View {
             // re-attempts on the next appearance and this resolves itself once it can load.
             Text("Game packs need a connection — they'll load when you're back online.")
                 .font(.caption)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.vertical, Theme.Spacing.sm)
         } else if appModel.gameDecks == nil {
@@ -79,7 +79,7 @@ struct RecommendedGamesSection: View {
                 Button(action: onSeeAllGames) {
                     Text("See all games")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(Theme.skyBlueText)
+                        .foregroundStyle(Theme.accent)
                 }
             }
 

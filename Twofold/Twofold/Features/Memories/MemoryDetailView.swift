@@ -68,13 +68,13 @@ struct MemoryDetailView: View {
                                 Divider().padding(.vertical, Theme.Spacing.xs)
                                 Text(memory.note)
                                     .font(.body)
-                                    .foregroundStyle(Theme.ink)
+                                    .foregroundStyle(Theme.textPrimary)
                             }
 
                             if let errorMessage {
                                 Text(errorMessage)
                                     .font(.caption)
-                                    .foregroundStyle(Theme.heartRedText)
+                                    .foregroundStyle(Theme.error)
                             }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -227,10 +227,10 @@ struct MemoryDetailView: View {
         HStack(spacing: Theme.Spacing.xs) {
             Image(systemName: icon)
                 .font(font)
-                .foregroundStyle(muted ? Theme.heartRedText : Theme.subtleInk)
+                .foregroundStyle(muted ? Theme.error : Theme.textSecondary)
             Text(text)
                 .font(muted ? font.weight(.medium) : font)
-                .foregroundStyle(muted ? Theme.heartRedText : Theme.subtleInk)
+                .foregroundStyle(muted ? Theme.error : Theme.textSecondary)
         }
         .contentShape(Rectangle())
     }
@@ -255,7 +255,7 @@ struct MemoryDetailView: View {
                             if let image = phase.image {
                                 image.resizable().scaledToFill()
                             } else {
-                                Theme.cardBackground
+                                Theme.surface
                             }
                         }
                         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))

@@ -128,7 +128,7 @@ struct GameHistoryView: View {
         } else if reachedHistoryLimit {
             Text("Showing your \(Self.historyLimit) most recent games.")
                 .font(.caption)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
                 .frame(maxWidth: .infinity)
                 .padding(.top, Theme.Spacing.xs)
         }
@@ -138,12 +138,12 @@ struct GameHistoryView: View {
         VStack(spacing: Theme.Spacing.sm) {
             Image(systemName: "clock.arrow.circlepath")
                 .font(.largeTitle)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
             Text("No completed games yet")
                 .font(.headline)
             Text("Finish a game together and it'll show up here.")
                 .font(.caption)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)
         }
         .padding(Theme.Spacing.xl)
@@ -156,7 +156,7 @@ struct GameHistoryView: View {
         VStack(spacing: Theme.Spacing.sm) {
             Image(systemName: "line.3.horizontal.decrease.circle")
                 .font(.largeTitle)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
             Text("No games match these filters")
                 .font(.headline)
             Button("Clear filters") {
@@ -196,9 +196,9 @@ struct GameHistoryView: View {
                 .fixedSize(horizontal: true, vertical: false)
                 .padding(.horizontal, Theme.Spacing.md)
                 .padding(.vertical, Theme.Spacing.xs)
-                .foregroundStyle(isSelected ? .white : Theme.ink)
+                .foregroundStyle(isSelected ? Theme.onPrimaryButton : Theme.textPrimary)
                 .background(
-                    isSelected ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.cardBackground),
+                    isSelected ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.surface),
                     in: Capsule()
                 )
                 // Unselected pills had no edge of their own in dark mode — plain neutral
@@ -206,7 +206,7 @@ struct GameHistoryView: View {
                 // not a blue/green/red state, so no colored gradient here).
                 .overlay {
                     if !isSelected && colorScheme == .dark {
-                        Capsule().strokeBorder(TwofoldDark.Line.strong, lineWidth: 1.25)
+                        Capsule().strokeBorder(Theme.line, lineWidth: 1.25)
                     }
                 }
         }
@@ -220,7 +220,7 @@ struct GameHistoryView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     if session.isDaily {
-                        PillBadge(text: "Daily Deep Question", tint: Theme.heartRed)
+                        PillBadge(text: "Daily Deep Question", tint: Theme.coral)
                     } else if let topic {
                         PillBadge(text: topic.displayName, tint: topic.color, isNeutral: true)
                     }
@@ -241,20 +241,20 @@ struct GameHistoryView: View {
                         Text(completionDate(for: session), format: .dateTime.day().month(.abbreviated).year())
                     }
                     .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     // Trivia is the one game type with an actual right/wrong score — the match
                     // games show a match percentage instead (on the results screen itself, not
                     // here), and Deep Conversations has no score concept at all.
                     if let result = sudokuResults[session.id], result.mine != nil || result.partner != nil {
                         Text(sudokuTimesText(result))
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(Theme.skyBlueText)
+                            .foregroundStyle(Theme.accent)
                             .lineLimit(1)
                     }
                     if let score = scores[session.id] {
                         Text("\(appModel.currentUser.name) \(score.mine) · \(appModel.partner.name) \(score.partner)")
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(Theme.skyBlueText)
+                            .foregroundStyle(Theme.accent)
                             .lineLimit(1)
                             .minimumScaleFactor(0.85)
                     }
@@ -266,7 +266,7 @@ struct GameHistoryView: View {
                 if let emoji = deck?.emoji {
                     Text(emoji).font(.title2)
                 }
-                Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
+                Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.textSecondary)
             }
         }
     }

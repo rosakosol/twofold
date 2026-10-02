@@ -105,7 +105,7 @@ struct TripCountdownWidgetView: View {
         .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .background(
-            LinearGradient(colors: [Color(hex: "FF6B81"), Color(hex: "C93756")], startPoint: .topLeading, endPoint: .bottomTrailing)
+            Brand.coralGradient
         )
         .overlay(alignment: .bottomTrailing) {
             Image(systemName: "airplane.circle.fill")

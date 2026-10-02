@@ -35,14 +35,14 @@ struct OnboardingRevealView: View {
                 VStack(spacing: Theme.Spacing.md) {
                     Text("\(days)")
                         .font(.system(size: 72, weight: .bold, design: .rounded))
-                        .foregroundStyle(Theme.skyBlueText)
+                        .foregroundStyle(Theme.accent)
                     Text("days until you're together 💛")
                         .font(.title3.weight(.semibold))
                         .multilineTextAlignment(.center)
 
                     HStack(spacing: Theme.Spacing.lg) {
                         AvatarView(person: partnerPerson, size: 48, showsRing: true)
-                        Image(systemName: "airplane").foregroundStyle(Theme.skyBlueText)
+                        Image(systemName: "airplane").foregroundStyle(Theme.accent)
                         AvatarView(person: me, size: 48, showsRing: true)
                     }
                     .padding(.top, Theme.Spacing.sm)
@@ -53,7 +53,7 @@ struct OnboardingRevealView: View {
 
                     Text("We'll keep the countdown updated for both of you.")
                         .font(.subheadline)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, Theme.Spacing.lg)
                 }
@@ -66,7 +66,7 @@ struct OnboardingRevealView: View {
                     // pending invitee (whose request still needs the inviter's acceptance).
                     Text("We'll let you know the moment you're connected.")
                         .font(.body)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, Theme.Spacing.lg)
                 }
@@ -96,7 +96,7 @@ struct OnboardingRevealView: View {
                 .frame(maxWidth: .infinity)
                 .padding()
                 .background(Theme.primaryButtonGradient, in: Capsule())
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onPrimaryButton)
             }
             .disabled(isFinishing)
             .padding(.horizontal, Theme.Spacing.lg)

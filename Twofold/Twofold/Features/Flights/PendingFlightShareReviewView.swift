@@ -55,7 +55,7 @@ struct PendingFlightShareReviewView: View {
         VStack(spacing: Theme.Spacing.md) {
             Image(systemName: "envelope.badge.exclamationmark")
                 .font(.largeTitle)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
             Text(failureMessage ?? "Something went wrong reading this email")
                 .font(.headline)
                 .multilineTextAlignment(.center)

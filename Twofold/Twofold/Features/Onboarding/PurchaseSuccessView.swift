@@ -36,7 +36,7 @@ struct PurchaseSuccessView: View {
 
                     Text("We'll help you and your partner stay connected, wherever you are.")
                         .font(.subheadline)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity)
                 }

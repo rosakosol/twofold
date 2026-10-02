@@ -56,13 +56,13 @@ struct ArchivedDataView: View {
                                     if couple.isHidden {
                                         Image(systemName: "eye.slash")
                                             .font(.caption)
-                                            .foregroundStyle(Theme.subtleInk)
+                                            .foregroundStyle(Theme.textSecondary)
                                     }
                                 }
                                 if let dissolvedAt = couple.dissolvedAt {
                                     Text("Ended \(dissolvedAt.formatted(date: .abbreviated, time: .omitted))")
                                         .font(.caption)
-                                        .foregroundStyle(Theme.subtleInk)
+                                        .foregroundStyle(Theme.textSecondary)
                                 }
                                 // On the list, not just the detail screen. This is a deadline
                                 // nobody chose and nobody can stop, so it should not take a tap
@@ -70,7 +70,7 @@ struct ArchivedDataView: View {
                                 if let notice = couple.deletionNotice {
                                     Text(notice)
                                         .font(.caption2.weight(.semibold))
-                                        .foregroundStyle(couple.deletionIsImminent ? Theme.heartRedText : Theme.subtleInk)
+                                        .foregroundStyle(couple.deletionIsImminent ? Theme.error : Theme.textSecondary)
                                 }
                             }
                             .padding(.vertical, 2)
@@ -98,11 +98,11 @@ struct ArchivedDataView: View {
         VStack(spacing: Theme.Spacing.sm) {
             Image(systemName: "archivebox")
                 .font(.largeTitle)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
             Text("No archived data").font(.headline)
             Text("If you ever remove a partner, everything you shared with them will show up here.")
                 .font(.caption)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, Theme.Spacing.lg)
         }
@@ -160,12 +160,12 @@ struct ArchivedCoupleDetailView: View {
                     if let startedDatingOn = couple.startedDatingOn {
                         Text("Together since \(startedDatingOn.formatted(date: .abbreviated, time: .omitted))")
                             .font(.caption)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                     }
                     if let dissolvedAt = couple.dissolvedAt {
                         Text("Ended \(dissolvedAt.formatted(date: .abbreviated, time: .omitted))")
                             .font(.caption)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                     }
                 }
 
@@ -173,14 +173,14 @@ struct ArchivedCoupleDetailView: View {
                     SectionCard {
                         HStack(spacing: Theme.Spacing.sm) {
                             Image(systemName: "clock.badge.exclamationmark")
-                                .foregroundStyle(couple.deletionIsImminent ? Theme.heartRedText : Theme.skyBlueText)
+                                .foregroundStyle(couple.deletionIsImminent ? Theme.error : Theme.accent)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(couple.deletionNotice ?? "")
                                     .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(Theme.ink)
+                                    .foregroundStyle(Theme.textPrimary)
                                 Text("Archived history is kept for 90 days. On \(purgeDate.formatted(date: .abbreviated, time: .omitted)) everything here is permanently deleted for both of you.")
                                     .font(.caption)
-                                    .foregroundStyle(Theme.subtleInk)
+                                    .foregroundStyle(Theme.textSecondary)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                         }
@@ -192,7 +192,7 @@ struct ArchivedCoupleDetailView: View {
                     ProgressView().frame(maxWidth: .infinity).padding()
                 } else if let summary {
                     SectionCard {
-                        Text("Archived data").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.subtleInk)
+                        Text("Archived data").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.textSecondary)
                         summaryRow("Trips", summary.tripCount)
                         summaryRow("Memories", summary.memoryCount)
                         summaryRow("Flights", summary.flightCount)
@@ -201,7 +201,7 @@ struct ArchivedCoupleDetailView: View {
                 }
 
                 if let hideError {
-                    Text(hideError).font(.caption).foregroundStyle(Theme.heartRedText)
+                    Text(hideError).font(.caption).foregroundStyle(Theme.error)
                 }
 
                 // Offered first, and as the ordinary-weight action, because it is what most people
@@ -216,7 +216,7 @@ struct ArchivedCoupleDetailView: View {
                          ? "Hidden from your list. \(couple.partnerName) still has their copy, and so do you."
                          : "Takes it off your list without deleting anything. Only affects what you see.")
                         .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
@@ -250,12 +250,12 @@ struct ArchivedCoupleDetailView: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
                 Text("Export everything")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
 
                 if let exportResult {
                     Text(exportResult.summary)
                         .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
 
                     ShareLink(
@@ -268,7 +268,7 @@ struct ArchivedCoupleDetailView: View {
                 } else {
                     Text("Trips, memories and their photos, flights and games — as spreadsheets and image files. Yours to keep whatever happens to the archive.")
                         .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
 
                     // Shown and disabled rather than hidden for someone on Plus, the same way the
@@ -282,10 +282,10 @@ struct ArchivedCoupleDetailView: View {
                                  ? "A PDF of your story together. Premium only — the data above is free either way."
                                  : "A PDF of your story together, alongside the data.")
                                 .font(.caption2)
-                                .foregroundStyle(Theme.subtleInk)
+                                .foregroundStyle(Theme.textSecondary)
                         }
                     }
-                    .tint(Theme.skyBlue)
+                    .tint(Theme.accent)
                     .disabled(!canIncludeRecord)
 
                     if appModel.isPremiumLocked && (credits ?? 0) == 0 {
@@ -296,17 +296,17 @@ struct ArchivedCoupleDetailView: View {
                                     .font(.caption.weight(.semibold))
                             }
                         }
-                        .foregroundStyle(Theme.skyBlueText)
+                        .foregroundStyle(Theme.accent)
                         .disabled(isBuyingRecord)
 
                         Button("Or see Premium, for unlimited exports") { showingPaywall = true }
                             .font(.caption2.weight(.semibold))
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                             .disabled(isBuyingRecord)
                     }
 
                     if let purchaseError {
-                        Text(purchaseError).font(.caption).foregroundStyle(Theme.heartRedText)
+                        Text(purchaseError).font(.caption).foregroundStyle(Theme.error)
                     }
 
                     Button(action: runExport) {
@@ -320,7 +320,7 @@ struct ArchivedCoupleDetailView: View {
                 }
 
                 if let exportError {
-                    Text(exportError).font(.caption).foregroundStyle(Theme.heartRedText)
+                    Text(exportError).font(.caption).foregroundStyle(Theme.error)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -397,9 +397,9 @@ struct ArchivedCoupleDetailView: View {
 
     private func summaryRow(_ label: String, _ count: Int) -> some View {
         HStack {
-            Text(label).foregroundStyle(Theme.subtleInk)
+            Text(label).foregroundStyle(Theme.textSecondary)
             Spacer()
-            Text("\(count)").foregroundStyle(Theme.ink)
+            Text("\(count)").foregroundStyle(Theme.textPrimary)
         }
     }
 

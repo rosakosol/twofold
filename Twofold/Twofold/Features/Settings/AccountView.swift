@@ -82,17 +82,17 @@ struct AccountView: View {
         ScrollView {
             VStack(spacing: Theme.Spacing.md) {
                 SectionCard {
-                    Text("Email").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.subtleInk)
+                    Text("Email").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.textSecondary)
                     // Selectable, because the whole point of showing it is that somebody may need
                     // to write it down, paste it into a password manager, or read it to support.
                     Text(BackendService.currentUserEmail ?? "—")
                         .font(.body)
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     Text("This is the address you sign in with. It can't be changed here — contact us from Settings → Help if you need it moved.")
                         .font(.caption2)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                 }
 
                 birthdaySection
@@ -119,7 +119,7 @@ struct AccountView: View {
     /// `AppModel.updateBirthday`.
     private var birthdaySection: some View {
         SectionCard {
-            Text("Birthday").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.subtleInk)
+            Text("Birthday").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.textSecondary)
 
             if let birthdayDate {
                 DatePicker(
@@ -146,7 +146,7 @@ struct AccountView: View {
             // reasonably want to see before typing a date of birth into anything.
             Text("We only keep the day and month — never the year. \(appModel.partner.name) will see it so they don't miss it.")
                 .font(.caption2)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
         }
     }
 
@@ -154,7 +154,7 @@ struct AccountView: View {
     /// account is not offered one.
     private var passwordSection: some View {
         SectionCard {
-            Text("Change password").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.subtleInk)
+            Text("Change password").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.textSecondary)
 
             AuthField(
                 title: "New password",
@@ -175,17 +175,17 @@ struct AccountView: View {
             if passwordsMismatch {
                 Text("Passwords don't match.")
                     .font(.caption)
-                    .foregroundStyle(Theme.heartRedText)
+                    .foregroundStyle(Theme.error)
             }
             if let errorMessage {
                 Text(errorMessage)
                     .font(.caption)
-                    .foregroundStyle(Theme.heartRedText)
+                    .foregroundStyle(Theme.error)
             }
             if let successMessage {
                 Text(successMessage)
                     .font(.caption)
-                    .foregroundStyle(Theme.leafGreenText)
+                    .foregroundStyle(Theme.success)
             }
 
             Button(action: save) {
@@ -207,17 +207,17 @@ struct AccountView: View {
     /// — the sign-in screen offers all three buttons and does not say which one is theirs.
     private var providerSection: some View {
         SectionCard {
-            Text("How you sign in").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.subtleInk)
+            Text("How you sign in").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.textSecondary)
             if providerNames.isEmpty {
                 // Identities missing from the cached session. Not evidence of anything, so this
                 // claims nothing and points at the route that works either way.
                 Text("You can reset your password from the sign-in screen using \"Forgot password\".")
                     .font(.body)
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
             } else {
                 Text("You sign in with \(providerNames.formatted(.list(type: .or))), use the same button next time you sign in.")
                     .font(.body)
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
             }
         }
     }

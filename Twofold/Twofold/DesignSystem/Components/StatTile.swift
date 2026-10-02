@@ -9,7 +9,7 @@ struct StatTile: View {
     let icon: String
     let value: String
     let label: String
-    var tint: Color = Theme.skyBlue
+    var tint: Color = Theme.accent
 
     var body: some View {
         VStack(spacing: Theme.Spacing.sm) {
@@ -22,11 +22,11 @@ struct StatTile: View {
 
             Text(value)
                 .font(.title2.weight(.bold))
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(Theme.textPrimary)
 
             Text(label)
                 .font(.caption)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
         }
         .frame(maxWidth: .infinity)
     }
@@ -35,8 +35,8 @@ struct StatTile: View {
 #Preview {
     HStack {
         StatTile(icon: "airplane", value: "9", label: "Trips")
-        StatTile(icon: "globe", value: "4", label: "Countries", tint: Theme.leafGreen)
-        StatTile(icon: "heart.fill", value: "127", label: "Days together", tint: Theme.heartRed)
+        StatTile(icon: "globe", value: "4", label: "Countries", tint: Theme.success)
+        StatTile(icon: "heart.fill", value: "127", label: "Days together", tint: Theme.coral)
     }
     .padding()
 }

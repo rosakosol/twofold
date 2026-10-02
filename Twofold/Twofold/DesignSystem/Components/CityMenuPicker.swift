@@ -19,15 +19,15 @@ struct CityMenuPicker: View {
             showingSearch = true
         } label: {
             HStack {
-                Text(label).foregroundStyle(Theme.subtleInk)
+                Text(label).foregroundStyle(Theme.textSecondary)
                 Spacer()
                 Text(selection.map { $0.displayCity } ?? placeholder)
-                    .foregroundStyle(selection == nil ? Theme.subtleInk : Theme.ink)
+                    .foregroundStyle(selection == nil ? Theme.textSecondary : Theme.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
                 Image(systemName: "chevron.up.chevron.down")
                     .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
             }
             .padding()
             .onboardingFieldBackground()

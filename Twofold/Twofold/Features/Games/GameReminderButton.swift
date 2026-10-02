@@ -13,7 +13,7 @@
 //  already shared, already the more visible of the two, and already says what it does without
 //  needing the partner's name to make sense of it.
 //
-//  It is deliberately not card-coloured *on* a card. `Theme.cardBackground` is what makes it read
+//  It is deliberately not card-coloured *on* a card. `Theme.surface` is what makes it read
 //  as raised against the page, and is exactly what makes it disappear inside a `SectionCard`, which
 //  is filled with the same colour — so callers put it below their card, not inside one. That is
 //  also where `GameCompletionView` has always put it.
@@ -39,8 +39,8 @@ struct GameReminderButton: View {
             .font(.headline)
             .frame(maxWidth: .infinity)
             .padding()
-            .foregroundStyle(Theme.ink)
-            .background(Theme.cardBackground, in: Capsule())
+            .foregroundStyle(Theme.textPrimary)
+            .background(Theme.surface, in: Capsule())
         }
         .disabled(isSending)
     }

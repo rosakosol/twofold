@@ -13,8 +13,8 @@ struct DrawingPadEditorView: View {
     @State private var elements: [DrawingElement] = []
     @State private var redoStack: [DrawingElement] = []
     @State private var tool: DrawingTool = .pen
-    /// The palette's own black, not `Theme.ink` — see `penColorPalette` for why the pad can't use
-    /// appearance-adaptive colours. Starting on `Theme.ink` meant a dark-mode user's very first
+    /// The palette's own black, not `Theme.textPrimary` — see `penColorPalette` for why the pad can't use
+    /// appearance-adaptive colours. Starting on `Theme.textPrimary` meant a dark-mode user's very first
     /// stroke was near-white on a white canvas, i.e. invisible until they picked a colour.
     /// Referencing the palette entry rather than repeating the literal also keeps the menu's
     /// selected-checkmark (`penColor == swatch.color`) true on open.
@@ -33,7 +33,7 @@ struct DrawingPadEditorView: View {
     ///
     /// Literal hex values, deliberately not `Theme.*` tokens. The canvas is `.background(.white)`
     /// in both appearances (see `DrawingCanvasView`) and what gets saved is a PNG, so ink has to be
-    /// a fixed colour. The theme tokens are appearance-adaptive: "Black" was `Theme.ink`, which is
+    /// a fixed colour. The theme tokens are appearance-adaptive: "Black" was `Theme.textPrimary`, which is
     /// `#F3F7FA` in dark mode — near-white ink on a permanently white canvas, i.e. invisible. Red,
     /// blue and green were washing out the same way.
     private static let penColorPalette: [(name: String, color: Color)] = [
@@ -135,9 +135,9 @@ struct DrawingPadEditorView: View {
             } label: {
                 Image(systemName: shapesIcon)
                     .font(.title2)
-                    .foregroundStyle(isShapeTool ? Theme.skyBlueText : Theme.ink)
+                    .foregroundStyle(isShapeTool ? Theme.accent : Theme.textPrimary)
                     .frame(width: 44, height: 44)
-                    .background(Theme.cardBackground, in: Circle())
+                    .background(Theme.surface, in: Circle())
             }
             .accessibilityLabel("Shape")
             .accessibilityValue(isShapeTool ? tool.label : "Pen")
@@ -154,10 +154,10 @@ struct DrawingPadEditorView: View {
             } label: {
                 Circle()
                     .fill(penColor)
-                    .overlay(Circle().strokeBorder(Theme.subtleInk.opacity(0.3), lineWidth: 1))
+                    .overlay(Circle().strokeBorder(Theme.textSecondary.opacity(0.3), lineWidth: 1))
                     .frame(width: 28, height: 28)
                     .frame(width: 44, height: 44)
-                    .background(Theme.cardBackground, in: Circle())
+                    .background(Theme.surface, in: Circle())
             }
             // Without this the spectrum comes out upside down. A menu defaults to `.priority`
             // order, which puts the first declared item nearest the button — and this button is in
@@ -169,7 +169,7 @@ struct DrawingPadEditorView: View {
         }
         .padding(Theme.Spacing.md)
         .frame(maxWidth: .infinity)
-        .background(Theme.cardBackground)
+        .background(Theme.surface)
     }
 
     private var isShapeTool: Bool {
@@ -184,9 +184,9 @@ struct DrawingPadEditorView: View {
         Button(action: action) {
             Image(systemName: systemImage)
                 .font(.title2)
-                .foregroundStyle(isActive ? Theme.skyBlueText : (isDisabled ? Theme.subtleInk.opacity(0.3) : Theme.ink))
+                .foregroundStyle(isActive ? Theme.accent : (isDisabled ? Theme.textSecondary.opacity(0.3) : Theme.textPrimary))
                 .frame(width: 44, height: 44)
-                .background(Theme.cardBackground, in: Circle())
+                .background(Theme.surface, in: Circle())
         }
         .disabled(isDisabled)
         .accessibilityLabel(label)

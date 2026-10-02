@@ -62,7 +62,7 @@ struct AuthField: View {
                 } label: {
                     Image(systemName: isRevealed ? "eye.slash.fill" : "eye.fill")
                         .font(.system(size: 16))
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         // 44×44 in its own right — the icon is 16pt, and an icon-sized button in
                         // the corner of a password field is the exact thing people miss.
                         .frame(width: 44, height: 44)

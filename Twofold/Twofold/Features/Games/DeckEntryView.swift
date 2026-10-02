@@ -68,10 +68,10 @@ struct DeckEntryView: View {
         VStack(spacing: Theme.Spacing.md) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.largeTitle)
-                .foregroundStyle(Theme.heartRedText)
+                .foregroundStyle(Theme.error)
             Text(message)
                 .font(.subheadline)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)
             Button("Try again") {
                 Task { await determinePhase() }

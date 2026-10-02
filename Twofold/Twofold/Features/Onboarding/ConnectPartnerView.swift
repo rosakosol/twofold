@@ -22,7 +22,7 @@ struct ConnectPartnerView: View {
                     .multilineTextAlignment(.center)
                 Text("Connect with your partner to share trips, track flights and count down the days until you're together again.")
                     .font(.body)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .multilineTextAlignment(.center)
             }
             .padding(.horizontal, Theme.Spacing.lg)
@@ -48,7 +48,7 @@ struct ConnectPartnerView: View {
                         .frame(maxWidth: .infinity)
                         .padding()
                         .background(Theme.primaryButtonGradient, in: Capsule())
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onPrimaryButton)
                 }
                 .disabled(isCreatingCode)
 
@@ -59,21 +59,21 @@ struct ConnectPartnerView: View {
                         .font(.subheadline.weight(.medium))
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Theme.cardBackground, in: Capsule())
-                        .foregroundStyle(Theme.ink)
+                        .background(Theme.surface, in: Capsule())
+                        .foregroundStyle(Theme.textPrimary)
                 }
 
                 if let errorMessage {
                     Text(errorMessage)
                         .font(.caption)
-                        .foregroundStyle(Theme.heartRedText)
+                        .foregroundStyle(Theme.error)
                 }
 
                 Button("Skip for now") {
                     onboarding.path.append(.nextTrip)
                 }
                 .font(.caption)
-                .foregroundStyle(Theme.subtleInk.opacity(0.7))
+                .foregroundStyle(Theme.textSecondary.opacity(0.7))
                 .padding(.top, Theme.Spacing.xs)
             }
             .padding(.horizontal, Theme.Spacing.lg)

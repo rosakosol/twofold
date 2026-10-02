@@ -26,7 +26,7 @@ struct FlightRowView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(flight.countdownSummary)
                     .font(.subheadline)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                 HStack(spacing: Theme.Spacing.xs) {
                     Text(flight.origin.displayCode)
                     Image(systemName: "arrow.right")
@@ -36,7 +36,7 @@ struct FlightRowView: View {
 
                 Text("\([flight.airlineName, flight.displayNumber].compactMap { $0 }.joined(separator: " · "))\(flight.scheduledOut.map { " · \($0.formatted(.dateTime.day().month(.abbreviated)))" } ?? "")")
                     .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
             }
 
             Spacer()
@@ -46,7 +46,7 @@ struct FlightRowView: View {
             // live-tracked. Tracking starts automatically (refresh-due-flights' cron backfills a
             // real faFlightID once AeroAPI assigns one), so this is purely informational.
             if flight.faFlightID == nil {
-                PillBadge(text: "Not live yet", tint: Theme.subtleInk)
+                PillBadge(text: "Not live yet", tint: Theme.textSecondary)
             } else {
                 PillBadge(text: flight.status.displayLabel, tint: flight.status.semanticColor)
             }

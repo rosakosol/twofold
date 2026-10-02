@@ -86,8 +86,8 @@ struct SnapshotShareView: View {
                         Image(systemName: theme.icon)
                             .font(.title3)
                             .frame(width: 44, height: 44)
-                            .background(selectedTheme == theme ? Theme.skyBlueFill : Theme.cardBackground, in: Circle())
-                            .foregroundStyle(selectedTheme == theme ? .white : Theme.ink)
+                            .background(selectedTheme == theme ? Theme.accentFill : Theme.surface, in: Circle())
+                            .foregroundStyle(selectedTheme == theme ? .white : Theme.textPrimary)
                         Text(theme.rawValue).font(.caption2)
                     }
                 }

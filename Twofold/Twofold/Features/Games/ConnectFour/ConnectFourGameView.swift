@@ -141,7 +141,7 @@ struct ConnectFourGameView: View {
             if let rejection = store.rejection {
                 Text(rejection)
                     .font(.caption.weight(.medium))
-                    .foregroundStyle(Theme.heartRedText)
+                    .foregroundStyle(Theme.error)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, Theme.Spacing.lg)
                     .fixedSize(horizontal: false, vertical: true)
@@ -167,7 +167,7 @@ struct ConnectFourGameView: View {
                 AvatarView(person: store.isMyTurn ? appModel.currentUser : appModel.partner, size: 26)
                 Text(store.isMyTurn ? "Your move" : "\(appModel.partner.name)'s move")
                     .font(.headline)
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                 if store.isPlaying { ProgressView().controlSize(.small) }
             }
             .accessibilityElement(children: .combine)
@@ -179,16 +179,16 @@ struct ConnectFourGameView: View {
             VStack(spacing: Theme.Spacing.sm) {
                 Image(systemName: resultIcon)
                     .font(.largeTitle)
-                    .foregroundStyle(store.isDraw || store.closedWithoutResult ? Theme.subtleInk : Theme.leafGreenText)
+                    .foregroundStyle(store.isDraw || store.closedWithoutResult ? Theme.textSecondary : Theme.success)
 
                 Text(resultTitle)
                     .font(.title3.weight(.bold))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                     .multilineTextAlignment(.center)
 
                 Text(resultDetail)
                     .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -239,7 +239,7 @@ struct ConnectFourGameView: View {
     }
 
     /// Already sits on the page rather than inside a card, which is where `GameReminderButton`
-    /// needs to be — it is filled with `Theme.cardBackground` to read as raised.
+    /// needs to be — it is filled with `Theme.surface` to read as raised.
     private var nudgeButton: some View {
         GameReminderButton(isSending: isNudging) {
             isNudging = true

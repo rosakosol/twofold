@@ -148,7 +148,7 @@ struct SmartRotatingWidgetView: View {
         Group {
             switch entry.slide {
             case .anniversary(let days, let myName, let partnerName):
-                slideBody(value: "\(days)", label: "days together", colors: [Color(hex: "8A2E4C"), LiveActivityPalette.heartRed]) {
+                slideBody(value: "\(days)", label: "days together", colors: [Color(hex: 0xC72E4A), Color(hex: 0xA11E3C)]) {
                     avatarPair(myName: myName, partnerName: partnerName)
                 }
             case .flight(let status, let route, _, let travelerIsMe, let myName, let partnerName):
@@ -162,7 +162,7 @@ struct SmartRotatingWidgetView: View {
             case .memory(let title, _):
                 memorySlide(title: title)
             case .stat(let memoryCount, let tripCount):
-                slideBody(value: "\(memoryCount)", label: "memories · \(tripCount) trips", colors: [.purple, LiveActivityPalette.skyBlue]) {
+                slideBody(value: "\(memoryCount)", label: "memories · \(tripCount) trips", colors: [Brand.indigoFill, Brand.accentFill]) {
                     Image(systemName: "chart.bar.fill").font(.title3)
                 }
             case .none:
@@ -216,7 +216,7 @@ struct SmartRotatingWidgetView: View {
                     .resizable()
                     .scaledToFill()
             } else {
-                LinearGradient(colors: [LiveActivityPalette.skyBlue, LiveActivityPalette.leafGreen], startPoint: .topLeading, endPoint: .bottomTrailing)
+                LinearGradient(colors: [Brand.accentFill, Brand.successFill], startPoint: .topLeading, endPoint: .bottomTrailing)
             }
             LinearGradient(colors: [.clear, .black.opacity(0.75)], startPoint: .top, endPoint: .bottom)
             Text(title)
@@ -238,7 +238,7 @@ struct SmartRotatingWidgetView: View {
     }
 
     private var emptyState: some View {
-        WidgetEmptyState(systemImage: "arrow.triangle.2.circlepath", message: "Nothing to show yet", tint: LiveActivityPalette.skyBlue)
+        WidgetEmptyState(systemImage: "arrow.triangle.2.circlepath", message: "Nothing to show yet", tint: LiveActivityPalette.accent)
     }
 }
 

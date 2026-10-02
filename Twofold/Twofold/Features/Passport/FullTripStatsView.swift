@@ -150,15 +150,15 @@ struct FullTripStatsView: View {
             VStack(spacing: Theme.Spacing.xs) {
                 Text("\(stats.totalTrips)")
                     .font(.system(size: 44, weight: .bold, design: .rounded))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                     .monospacedDigit()
                 Text(stats.totalTrips == 1 ? "trip" : "trips")
                     .font(.subheadline)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                 if let top = stats.topDestination {
                     Text("Most visited: \(top.name)")
                         .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .padding(.top, Theme.Spacing.xs)
                 }
             }
@@ -263,7 +263,7 @@ struct FullTripStatsView: View {
                 } label: {
                     Image(systemName: "square.and.arrow.up")
                         .font(.subheadline)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                 }
                 .accessibilityLabel("Share \(title)")
             }

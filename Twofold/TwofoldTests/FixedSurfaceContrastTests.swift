@@ -6,7 +6,7 @@
 //
 //  The locked game card is the case. Its scrim is `.black.opacity(0.4)` and its lock chip is
 //  `Circle().fill(.white)` — both fixed, in both appearances, because the card underneath them can
-//  be anything. The lock glyph inside that chip used `Theme.ink`, which is `1C2A38` in light and
+//  be anything. The lock glyph inside that chip used `Theme.textPrimary`, which is `1C2A38` in light and
 //  `F3F7FA` in dark. So in dark mode it drew a near-white lock on a white circle: the glyph
 //  vanished and the badge read as an unexplained white dot in the corner, which is exactly how it
 //  was reported.
@@ -59,16 +59,16 @@ struct FixedSurfaceContrastTests {
         }
     }
 
-    /// The negative control, and the actual bug. `Theme.ink` is right for text on a themed card and
+    /// The negative control, and the actual bug. `Theme.textPrimary` is right for text on a themed card and
     /// wrong here, and this says so in numbers: against a white chip it is unreadable in dark mode.
     /// If someone ever swaps the glyph back to `ink`, the test above fails and this explains why.
-    @Test("Theme.ink is what must not be used there")
+    @Test("Theme.textPrimary is what must not be used there")
     func themeInkIsWrongForAPinnedSurface() {
         #expect(
-            resolved(Theme.ink, .light) != resolved(Theme.ink, .dark),
+            resolved(Theme.textPrimary, .light) != resolved(Theme.textPrimary, .dark),
             "ink is supposed to follow the scheme — if it stopped, this test is testing nothing"
         )
-        let darkRatio = contrast(resolved(Theme.ink, .dark), .white)
+        let darkRatio = contrast(resolved(Theme.textPrimary, .dark), .white)
         #expect(darkRatio < 4.5, "ink on white in dark mode measured \(darkRatio):1, so the original bug would not reproduce")
     }
 }

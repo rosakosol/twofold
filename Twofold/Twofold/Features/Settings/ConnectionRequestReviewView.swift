@@ -53,7 +53,7 @@ struct ConnectionRequestReviewView: View {
                         .multilineTextAlignment(.center)
                     Text("Accept to start sharing trips, flights, and memories together.")
                         .font(.subheadline)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, Theme.Spacing.lg)
                 }
@@ -61,7 +61,7 @@ struct ConnectionRequestReviewView: View {
                 if let errorMessage {
                     Text(errorMessage)
                         .font(.caption)
-                        .foregroundStyle(Theme.heartRedText)
+                        .foregroundStyle(Theme.error)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, Theme.Spacing.lg)
                 }
@@ -81,8 +81,8 @@ struct ConnectionRequestReviewView: View {
                                 .frame(maxWidth: .infinity)
                                 .padding()
                         }
-                        .background(Theme.cardBackground, in: Capsule())
-                        .foregroundStyle(Theme.ink)
+                        .background(Theme.surface, in: Capsule())
+                        .foregroundStyle(Theme.textPrimary)
 
                         Button {
                             if restorable != nil {
@@ -97,7 +97,7 @@ struct ConnectionRequestReviewView: View {
                                 .padding()
                         }
                         .background(Theme.primaryButtonGradient, in: Capsule())
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onPrimaryButton)
                     }
                     .padding(.horizontal, Theme.Spacing.lg)
                     .padding(.bottom, Theme.Spacing.xl)

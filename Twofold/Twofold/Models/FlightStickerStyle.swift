@@ -12,10 +12,10 @@ import SwiftUI
 ///
 /// Every color below is a fixed hex, never a `Theme.*`/`Color(light:dark:)` token — each case is
 /// an explicit, appearance-independent pick (like `DistanceShareTheme.dark`/`.pink`), not a
-/// system-light/dark pairing. `.light` used to lean on `Theme.ink`/`Theme.subtleInk` for its text,
+/// system-light/dark pairing. `.light` used to lean on `Theme.textPrimary`/`Theme.textSecondary` for its text,
 /// which resolve to their *dark*-appearance (near-white) values whenever the system itself is in
 /// dark mode — invisible white-on-white text on this style's fixed white card, regardless of it
-/// being the "Light" pick. Same reasoning ruled out `Theme.skyBlue`/`Theme.skyBlueText` here too.
+/// being the "Light" pick. Same reasoning ruled out `Theme.accent`/`Theme.accent` here too.
 enum FlightStickerStyle: String, CaseIterable, Identifiable {
     case light = "Light"
     case dark = "Dark"
@@ -45,7 +45,7 @@ enum FlightStickerStyle: String, CaseIterable, Identifiable {
     }
 
     /// The pass block's solid fill — needs to be dark/saturated enough to carry bold white
-    /// content reliably. The previous values (`Theme.skyBlue` light, `#8ACFF5` dark) were each
+    /// content reliably. The previous values (`Theme.accent` light, `#8ACFF5` dark) were each
     /// one shade too light for that: `#8ACFF5` in particular is the handoff's *text/icon* tone,
     /// not its fill tone, so white text on top of it read the same "difficult to see" way.  Using
     /// the actual deepened fill hues (`#2F82BE` light, `#4FA9E0` dark — Daylight's own "deepened
@@ -99,8 +99,8 @@ struct FlightStickerStylePicker: View {
                         Image(systemName: style.icon)
                             .font(.title3)
                             .frame(width: 44, height: 44)
-                            .background(selection == style ? Theme.skyBlueFill : Theme.cardBackground, in: Circle())
-                            .foregroundStyle(selection == style ? .white : Theme.ink)
+                            .background(selection == style ? Theme.accentFill : Theme.surface, in: Circle())
+                            .foregroundStyle(selection == style ? .white : Theme.textPrimary)
                         Text(style.rawValue).font(.caption2)
                     }
                 }

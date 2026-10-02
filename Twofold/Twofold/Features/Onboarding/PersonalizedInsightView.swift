@@ -95,17 +95,17 @@ struct PersonalizedInsightView: View {
                     .offset(y: stage >= 1 ? 0 : 12)
 
                 VStack(spacing: Theme.Spacing.xs) {
-                    Text("\(Text(displayedKm, format: .number.precision(.fractionLength(0))).font(.system(size: 42, weight: .bold, design: .rounded).monospacedDigit()).foregroundStyle(Theme.skyBlueText)) \(Text(MeasurementPreference.unitSuffix()).font(.title2.weight(.bold)).foregroundStyle(Theme.leafGreenText))")
+                    Text("\(Text(displayedKm, format: .number.precision(.fractionLength(0))).font(.system(size: 42, weight: .bold, design: .rounded).monospacedDigit()).foregroundStyle(Theme.accent)) \(Text(MeasurementPreference.unitSuffix()).font(.title2.weight(.bold)).foregroundStyle(Theme.success))")
                     Text("apart")
                         .font(.headline)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                 }
                 .frame(maxWidth: .infinity)
                 .opacity(stage >= 2 ? 1 : 0)
 
                 Text(DistanceSnapshotCard.comparison(for: distanceKm))
                     .font(.subheadline.weight(.medium))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                     .multilineTextAlignment(.center)
@@ -115,13 +115,13 @@ struct PersonalizedInsightView: View {
 
                 HStack(spacing: Theme.Spacing.lg) {
                     if let hoursApart {
-                        StatTile(icon: "clock", value: "\(hoursApart)h", label: "Time difference", tint: Theme.leafGreen)
+                        StatTile(icon: "clock", value: "\(hoursApart)h", label: "Time difference", tint: Theme.success)
                     }
                     StatTile(
                         icon: "globe",
                         value: "\(Geo.percentOfEarthCircumference(distanceKm).formatted(.number.precision(.fractionLength(0))))%",
                         label: "Around the Earth",
-                        tint: Theme.heartRed
+                        tint: Theme.coral
                     )
                 }
                 .opacity(stage >= 4 ? 1 : 0)
@@ -209,14 +209,14 @@ struct PersonalizedInsightView: View {
                     .padding()
             }
             .background(Theme.primaryButtonGradient, in: Capsule())
-            .foregroundStyle(.white)
+            .foregroundStyle(Theme.onPrimaryButton)
 
             Button {
                 showingShare = true
             } label: {
                 Label("Save this moment", systemImage: "square.and.arrow.up")
                     .font(.subheadline.weight(.medium))
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
             }
         }
         .padding(Theme.Spacing.lg)

@@ -40,7 +40,7 @@ struct ConnectFourBoardView: View {
                     columnView(column, slot: slot)
                 }
             }
-            .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: slot * 0.3))
+            .background(Theme.surface, in: RoundedRectangle(cornerRadius: slot * 0.3))
         }
         .aspectRatio(CGFloat(ConnectFourBoard.columns) / CGFloat(ConnectFourBoard.rows), contentMode: .fit)
     }
@@ -96,7 +96,7 @@ struct ConnectFourBoardView: View {
             .overlay {
                 if isWinning {
                     Circle()
-                        .strokeBorder(Theme.ink.opacity(0.55), lineWidth: 2)
+                        .strokeBorder(Theme.textPrimary.opacity(0.55), lineWidth: 2)
                         .padding(slot * 0.09)
                 }
             }
@@ -113,15 +113,15 @@ struct ConnectFourBoardView: View {
         case .second: Self.secondColor
         // The empty slot is a hole in the board, so it shows the screen behind rather than a
         // lighter disc — a pale filled circle reads as a third player's piece.
-        case nil: Theme.subtleInk.opacity(0.12)
+        case nil: Theme.textSecondary.opacity(0.12)
         }
     }
 
-    /// Red and yellow, because that is what this game is. Both are fixed rather than theme tokens:
-    /// they are the two players, and a colour that shifts between light and dark mode would make
-    /// "you are the red one" a statement that stops being true.
-    static let firstColor = Color(light: "D9534F", dark: "E2635F")
-    static let secondColor = Color(light: "E8B33C", dark: "E9BC55")
+    /// Coral and blue, the brand's two player-sized hues. Both are fixed fills rather than adaptive
+    /// tokens: they are the two players, and a colour that shifts between light and dark mode would
+    /// make "you are the coral one" a statement that stops being true.
+    static let firstColor = Theme.coralFill
+    static let secondColor = Theme.accentFill
 
     private func columnLabel(_ column: Int) -> String {
         let occupied = (0..<ConnectFourBoard.rows).compactMap { board[$0, column] }

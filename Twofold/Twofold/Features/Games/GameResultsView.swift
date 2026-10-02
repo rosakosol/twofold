@@ -100,7 +100,7 @@ struct GameResultsView: View {
                                 .padding()
                         }
                         .background(Theme.primaryButtonGradient, in: Capsule())
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onPrimaryButton)
                     }
                 }
                 // Asymmetric on purpose — a full `.lg` top inset here left a lot of dead space
@@ -213,7 +213,7 @@ struct GameResultsView: View {
             if let title {
                 Text(title)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .multilineTextAlignment(.center)
             }
             gameTypeHeader
@@ -233,14 +233,14 @@ struct GameResultsView: View {
         case .triviaBattle:
             let myScore = GameLogic.triviaScore(responses: store.responses, responderID: myID)
             VStack(spacing: Theme.Spacing.xs) {
-                Image(systemName: "trophy.fill").font(.system(size: 40)).foregroundStyle(Theme.leafGreenText)
+                Image(systemName: "trophy.fill").font(.system(size: 40)).foregroundStyle(Theme.success)
                 if isSolo {
                     Text("You got \(myScore)/\(store.rounds.count)!")
                         .font(.title3.weight(.bold))
                         .multilineTextAlignment(.center)
                     Text("Invite your partner to play and compare scores.")
                         .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                 } else {
                     let partnerScore = GameLogic.triviaScore(responses: store.responses, responderID: partnerID)
                     Text("You got \(myScore)/\(store.rounds.count), \(partnerName) got \(partnerScore)/\(store.rounds.count)")
@@ -251,12 +251,12 @@ struct GameResultsView: View {
         case .moreLikely, .thisOrThat:
             if isSolo {
                 VStack(spacing: Theme.Spacing.sm) {
-                    Image(systemName: "person.2.fill").font(.system(size: 40)).foregroundStyle(Theme.skyBlueText)
+                    Image(systemName: "person.2.fill").font(.system(size: 40)).foregroundStyle(Theme.accent)
                     Text("Your answers are saved")
                         .font(.title3.weight(.bold))
                     Text("Invite your partner to see how you match up.")
                         .font(.subheadline)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .multilineTextAlignment(.center)
                 }
             } else {
@@ -275,7 +275,7 @@ struct GameResultsView: View {
             }
         case .deepConversations:
             VStack(spacing: Theme.Spacing.xs) {
-                Image(systemName: "bubble.left.and.bubble.right.fill").font(.system(size: 40)).foregroundStyle(Theme.leafGreenText)
+                Image(systemName: "bubble.left.and.bubble.right.fill").font(.system(size: 40)).foregroundStyle(Theme.success)
                 Text(isSolo ? "You shared your thoughts" : "You both shared your thoughts")
                     .font(.title3.weight(.bold))
             }
@@ -294,13 +294,13 @@ struct GameResultsView: View {
                 .foregroundStyle(similarityTint(percent))
             Text("answer similarity")
                 .font(.caption)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
         }
         .frame(maxWidth: .infinity)
 
         return Group {
             if colorScheme == .dark {
-                content.twofoldHeroCard(padding: Theme.Spacing.lg)
+                content.heroCard(padding: Theme.Spacing.lg)
             } else {
                 content
             }
@@ -309,9 +309,9 @@ struct GameResultsView: View {
 
     private func similarityTint(_ percent: Int) -> Color {
         switch percent {
-        case 80...: Theme.leafGreen
-        case 50..<80: Theme.skyBlue
-        default: Theme.heartRed
+        case 80...: Theme.success
+        case 50..<80: Theme.accent
+        default: Theme.coral
         }
     }
 
@@ -390,9 +390,9 @@ struct GameResultsView: View {
                 responseBlock(name: partnerName, text: partner?.answerValue, placeholder: isSolo ? "Hasn't joined yet" : "Skipped this one")
             } else {
                 HStack {
-                    answerChip(name: "You", text: answerText(mine?.answerValue, for: round), tint: matched ? Theme.leafGreen : Theme.ink)
+                    answerChip(name: "You", text: answerText(mine?.answerValue, for: round), tint: matched ? Theme.success : Theme.textPrimary)
                     Spacer(minLength: Theme.Spacing.sm)
-                    answerChip(name: partnerName, text: answerText(partner?.answerValue, for: round, placeholder: isSolo ? "Hasn't joined yet" : "Skipped"), tint: matched ? Theme.leafGreen : Theme.ink)
+                    answerChip(name: partnerName, text: answerText(partner?.answerValue, for: round, placeholder: isSolo ? "Hasn't joined yet" : "Skipped"), tint: matched ? Theme.success : Theme.textPrimary)
                 }
 
                 if gameType == .triviaBattle, case let .trivia(question)? = store.content(for: round) {
@@ -406,10 +406,10 @@ struct GameResultsView: View {
                     if !matched {
                         Text("Correct answer: \(question.correctAnswer)")
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(Theme.leafGreenText)
+                            .foregroundStyle(Theme.success)
                     }
                     if let explanation = question.explanation, !explanation.isEmpty {
-                        Text(explanation).font(.caption).foregroundStyle(Theme.subtleInk)
+                        Text(explanation).font(.caption).foregroundStyle(Theme.textSecondary)
                     }
                 }
             }
@@ -418,9 +418,9 @@ struct GameResultsView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         // Same 10%-green fill `DeckCardRow` uses for its own "both completed" state — one
         // consistent "you're both done here" look across Games, not two subtly different greens.
-        // Flat `Theme.cardBackground` (no dark-mode wash) for a non-matching round, same as
+        // Flat `Theme.surface` (no dark-mode wash) for a non-matching round, same as
         // `DeckCardRow`'s own incomplete-card fill.
-        .background(matched ? Theme.leafGreen.opacity(0.1) : Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+        .background(matched ? Theme.success.opacity(0.1) : Theme.surface, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         .overlay {
             // The matched tint alone reads as barely different from an unmatched card against
             // the screen's own pale gradient — a visible edge gives it real separation instead of
@@ -431,8 +431,8 @@ struct GameResultsView: View {
             RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
                 .strokeBorder(
                     matched
-                        ? AnyShapeStyle(Theme.leafGreen.opacity(0.5))
-                        : (colorScheme == .dark ? AnyShapeStyle(TwofoldDark.Line.hairline) : AnyShapeStyle(Theme.subtleInk.opacity(0.25))),
+                        ? AnyShapeStyle(Theme.success.opacity(0.5))
+                        : (colorScheme == .dark ? AnyShapeStyle(Theme.line) : AnyShapeStyle(Theme.textSecondary.opacity(0.25))),
                     lineWidth: matched ? 1.5 : 1.25
                 )
         }
@@ -447,7 +447,7 @@ struct GameResultsView: View {
 
     private func answerChip(name: String, text: String, tint: Color) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(name).font(.caption2.weight(.semibold)).foregroundStyle(Theme.subtleInk)
+            Text(name).font(.caption2.weight(.semibold)).foregroundStyle(Theme.textSecondary)
             Text(text).font(.subheadline.weight(.medium)).foregroundStyle(tint)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -456,7 +456,7 @@ struct GameResultsView: View {
     private func correctnessBadge(label: String, isCorrect: Bool?) -> some View {
         Label(label, systemImage: isCorrect == true ? "checkmark.circle.fill" : "xmark.circle.fill")
             .font(.caption2.weight(.medium))
-            .foregroundStyle(isCorrect == true ? Theme.leafGreenText : Theme.heartRedText)
+            .foregroundStyle(isCorrect == true ? Theme.success : Theme.error)
             // `Label`'s default accessibility reading is just its text ("You"/partner's name) —
             // the icon alone doesn't carry "correct" vs "incorrect" to VoiceOver, so it's spelled
             // out explicitly here instead.
@@ -465,7 +465,7 @@ struct GameResultsView: View {
 
     private func responseBlock(name: String, text: String?, placeholder: String = "Skipped this one") -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(name).font(.caption.weight(.semibold)).foregroundStyle(Theme.subtleInk)
+            Text(name).font(.caption.weight(.semibold)).foregroundStyle(Theme.textSecondary)
             Text(text?.isEmpty == false ? text! : placeholder)
                 .font(.subheadline)
         }
@@ -484,7 +484,7 @@ struct GameResultsView: View {
                 summaryCard(title: "Invite your partner", emoji: "💌") {
                     Text("Once they join, you'll both be able to see how your answers compare.")
                         .font(.subheadline)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                 }
             } else {
                 let mismatched = GameLogic.mismatchedRounds(rounds: store.rounds, responses: store.responses, partnerAID: myID, partnerBID: partnerID)
@@ -495,7 +495,7 @@ struct GameResultsView: View {
                             ForEach(mismatched, id: \.id) { round in
                                 Text("•  \(questionText(for: round))")
                                     .font(.subheadline)
-                                    .foregroundStyle(Theme.ink)
+                                    .foregroundStyle(Theme.textPrimary)
                             }
                         }
                     }
@@ -510,7 +510,7 @@ struct GameResultsView: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             Text(emoji.map { "\(title) \($0)" } ?? title)
                 .font(.subheadline.weight(.bold))
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(Theme.textPrimary)
             content()
         }
         .padding(Theme.Spacing.md)
@@ -614,7 +614,7 @@ private struct MatchCheckmarkBadge: View {
 
     var body: some View {
         ZStack {
-            Circle().fill(Theme.leafGreenFill)
+            Circle().fill(Theme.successFill)
             Image(systemName: "checkmark")
                 .font(.caption.weight(.bold))
                 .foregroundStyle(.white)

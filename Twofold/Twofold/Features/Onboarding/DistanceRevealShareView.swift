@@ -109,7 +109,7 @@ struct DistanceRevealShareView: View {
                     .frame(maxWidth: .infinity)
                     .padding()
                     .background(Theme.primaryButtonGradient, in: Capsule())
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onPrimaryButton)
             }
         }
     }

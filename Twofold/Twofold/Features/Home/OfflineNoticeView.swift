@@ -62,23 +62,23 @@ struct OfflineNoticeView: View {
                     VStack(spacing: Theme.Spacing.md) {
                         ZStack {
                             Circle()
-                                .fill(Theme.skyBlue.opacity(0.18))
+                                .fill(Theme.accent.opacity(0.18))
                                 .frame(width: 116, height: 116)
                                 .blur(radius: 16)
                             Image(systemName: "wifi.slash")
                                 .font(.system(size: 40, weight: .medium))
-                                .foregroundStyle(Theme.skyBlueText)
+                                .foregroundStyle(Theme.accent)
                         }
 
                         Text("You're offline")
                             .font(.system(.title2, design: .rounded, weight: .bold))
-                            .foregroundStyle(Theme.ink)
+                            .foregroundStyle(Theme.textPrimary)
                             .multilineTextAlignment(.center)
                             .fixedSize(horizontal: false, vertical: true)
 
                         Text("Twofold still works. Anything you add is saved on this device and sent as soon as you're back online.")
                             .font(.subheadline)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                             .multilineTextAlignment(.center)
                             .fixedSize(horizontal: false, vertical: true)
                             .padding(.horizontal, Theme.Spacing.lg)
@@ -89,9 +89,9 @@ struct OfflineNoticeView: View {
                     section(
                         title: "You can still",
                         rows: available.map { (icon: "checkmark", text: $0) },
-                        tint: Theme.leafGreen
+                        tint: Theme.success
                     )
-                    section(title: "Not until you're back", rows: unavailable, tint: Theme.subtleInk)
+                    section(title: "Not until you're back", rows: unavailable, tint: Theme.textSecondary)
                 }
                 .padding(.top, Theme.Spacing.xl)
             }
@@ -104,7 +104,7 @@ struct OfflineNoticeView: View {
                     .frame(maxWidth: .infinity)
                     .padding()
                     .background(Theme.primaryButtonGradient, in: Capsule())
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onPrimaryButton)
             }
             .padding(.horizontal, Theme.Spacing.lg)
             .padding(.bottom, Theme.Spacing.xl)
@@ -118,7 +118,7 @@ struct OfflineNoticeView: View {
             Text(title.uppercased())
                 .font(.caption2.weight(.bold))
                 .tracking(0.5)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
 
             ForEach(rows, id: \.text) { row in
                 HStack(spacing: Theme.Spacing.sm) {
@@ -128,7 +128,7 @@ struct OfflineNoticeView: View {
                         .frame(width: 22)
                     Text(row.text)
                         .font(.subheadline)
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)
                 }

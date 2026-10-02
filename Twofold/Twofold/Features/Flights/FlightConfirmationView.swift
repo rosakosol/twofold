@@ -92,7 +92,7 @@ struct FlightConfirmationView: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(candidate.displayFlightNumber).font(.title2.weight(.bold))
                                 if let operatorName = candidate.operatorName {
-                                    Text(operatorName).font(.caption).foregroundStyle(Theme.subtleInk)
+                                    Text(operatorName).font(.caption).foregroundStyle(Theme.textSecondary)
                                 }
                             }
                         }
@@ -102,12 +102,12 @@ struct FlightConfirmationView: View {
                             Text(candidate.destination?.city ?? candidate.destination?.iata ?? "—")
                         }
                         .font(.subheadline)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .accessibilityElement(children: .combine)
                     }
 
                     VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                        Text("Who's travelling?").font(.caption).foregroundStyle(Theme.subtleInk)
+                        Text("Who's travelling?").font(.caption).foregroundStyle(Theme.textSecondary)
                         Picker("Who's travelling?", selection: $travelerChoice) {
                             Text(appModel.currentUser.name).tag(TravelerChoice.me)
                             // Disabled rather than just warned-about — `appModel.partner` is a
@@ -128,7 +128,7 @@ struct FlightConfirmationView: View {
 
                     if !linkableTrips.isEmpty {
                         VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                            Text("Link to a trip").font(.caption).foregroundStyle(Theme.subtleInk)
+                            Text("Link to a trip").font(.caption).foregroundStyle(Theme.textSecondary)
                             Picker("Link to a trip", selection: $linkedTripID) {
                                 Text("None").tag(Trip.ID?.none)
                                 ForEach(linkableTrips) { trip in
@@ -149,7 +149,7 @@ struct FlightConfirmationView: View {
                             ? "\(appModel.partner.name) will see the same live status and get their own notifications for this flight."
                             : "Only visible to you — \(appModel.partner.name) won't see this flight or get notified about it.")
                             .font(.caption)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
 
                         Divider()
 
@@ -157,7 +157,7 @@ struct FlightConfirmationView: View {
                             .font(.subheadline.weight(.medium))
                         Text("Get live status updates and alerts as this flight progresses — including once tracking kicks in, if it's not trackable yet.")
                             .font(.caption)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                     }
 
                     if !candidate.canTrack {
@@ -167,10 +167,10 @@ struct FlightConfirmationView: View {
                         // tracking automatically once a real instance is assigned — no separate
                         // "activate tracking" step for the caller to remember to come back for.
                         HStack(alignment: .top, spacing: Theme.Spacing.sm) {
-                            Image(systemName: "clock.badge.questionmark").foregroundStyle(Theme.subtleInk)
+                            Image(systemName: "clock.badge.questionmark").foregroundStyle(Theme.textSecondary)
                             Text("Not trackable live yet — it's on the airline's schedule, and we'll start tracking automatically once it is (usually a few days before departure).")
                                 .font(.caption)
-                                .foregroundStyle(Theme.subtleInk)
+                                .foregroundStyle(Theme.textSecondary)
                         }
                         .padding(Theme.Spacing.sm)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -183,22 +183,22 @@ struct FlightConfirmationView: View {
                     if let allowanceMessage {
                         Text(allowanceMessage)
                             .font(.caption)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
                     if let errorMessage {
-                        Text(errorMessage).font(.caption).foregroundStyle(Theme.heartRedText)
+                        Text(errorMessage).font(.caption).foregroundStyle(Theme.error)
                     }
 
                     Button(action: confirm) {
                         HStack {
-                            if isSaving { ProgressView().tint(.white) }
+                            if isSaving { ProgressView().tint(Theme.onPrimaryButton) }
                             Text(isSaving ? "Saving…" : (isOutOfAllowance ? "Save Without Tracking" : "Add Flight"))
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onPrimaryButton)
                         .background(Theme.primaryButtonGradient, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                     }
                     // Not disabled when out of allowance any more — the flight can still be

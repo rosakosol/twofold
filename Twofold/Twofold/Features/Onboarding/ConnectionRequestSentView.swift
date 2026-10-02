@@ -44,7 +44,7 @@ struct ConnectionRequestSentView: View {
                     .scaledToFill()
                     .frame(width: 72, height: 72)
                     .clipShape(Circle())
-                    .overlay(Circle().strokeBorder(Theme.skyBlue.opacity(0.6), lineWidth: 2))
+                    .overlay(Circle().strokeBorder(Theme.accent.opacity(0.6), lineWidth: 2))
                     .accessibilityLabel("Your photo")
             } else {
                 PulsingGlobeHeart(size: 72, showsGlow: false)
@@ -55,7 +55,7 @@ struct ConnectionRequestSentView: View {
                     .font(.system(.title, design: .rounded, weight: .bold))
                 Text("\(inviterName) needs to accept before you're connected — we'll let you know.")
                     .font(.body)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, Theme.Spacing.lg)
             }
@@ -68,7 +68,7 @@ struct ConnectionRequestSentView: View {
                     .frame(maxWidth: .infinity)
                     .padding()
                     .background(Theme.primaryButtonGradient, in: Capsule())
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onPrimaryButton)
             }
             .padding(.horizontal, Theme.Spacing.lg)
             .padding(.bottom, Theme.Spacing.xl)

@@ -93,17 +93,17 @@ struct FlightMapView: View {
             // surface, not the same card wash this file's other content uses, since this stands
             // in for the map/globe canvas itself, not a content card sitting on top of one.
             if colorScheme == .dark {
-                TwofoldDark.Surface.map
+                Theme.backgroundBottom
             } else {
-                Theme.cardBackground
+                Theme.surface
             }
             VStack(spacing: Theme.Spacing.sm) {
                 Image(systemName: "map")
                     .font(.title2)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                 Text("Map will appear once route data is available")
                     .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, Theme.Spacing.lg)
             }
@@ -694,8 +694,8 @@ struct MapKitRouteView: UIViewRepresentable {
         /// traveled part vivid and the rest faded back, rather than the two-color progress-
         /// gradient banding tried earlier (visually busy, and its per-segment color bands didn't
         /// line up with the real progress closely enough to read as meaningful).
-        private static let traveledColor = UIColor(red: 0.10, green: 0.48, blue: 1.0, alpha: 1.0)
-        private static let untraveledColor = UIColor(red: 0.10, green: 0.48, blue: 1.0, alpha: 0.35)
+        private static let traveledColor = UIColor(Brand.accentFill)
+        private static let untraveledColor = UIColor(Brand.accentFill.opacity(0.35))
 
         private func updateOverlays(_ route: Route, mapView: MKMapView) {
             mapView.removeOverlays(mapView.overlays)
@@ -912,11 +912,11 @@ struct MapKitRouteView: UIViewRepresentable {
 
         private static func endpointMarker(code: String, hasOverlappingMarker: Bool) -> some View {
             let size = endpointMarkerSize(hasOverlappingMarker: hasOverlappingMarker)
-            // Fixed dark color, not `Theme.ink` — this is a pin label floating on live map
+            // Fixed dark color, not `Theme.textPrimary` — this is a pin label floating on live map
             // imagery, which never adapts to the app's own theme, so the pin shouldn't either.
-            // `Theme.ink` now flips to near-white in dark mode, which made this white-on-white
+            // `Theme.textPrimary` now flips to near-white in dark mode, which made this white-on-white
             // against the pin's always-white pill (same bug as `WelcomeView`'s "Get started").
-            let pinInk = Color(hex: "1C2A38")
+            let pinInk = Theme.inkOnFixedLight
             return VStack(spacing: hasOverlappingMarker ? 20 : 6) {
                 Circle()
                     .fill(pinInk)
@@ -960,7 +960,7 @@ struct MapKitRouteView: UIViewRepresentable {
 
         private static func planeMarker(heading: Double?) -> some View {
             ZStack {
-                Circle().fill(Theme.skyBlueFill)
+                Circle().fill(Theme.accentFill)
                 Image(systemName: "airplane")
                     .font(.caption.weight(.bold))
                     .foregroundStyle(.white)

@@ -72,11 +72,11 @@ struct PartnerSetupView: View {
                     if let partnerAvatarError {
                         Text(partnerAvatarError)
                             .font(.caption)
-                            .foregroundStyle(Theme.heartRedText)
+                            .foregroundStyle(Theme.error)
                     }
 
                     SectionCard {
-                        Text("Partner's name").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.subtleInk)
+                        Text("Partner's name").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.textSecondary)
                         TextField("Partner's name", text: $partnerName)
                             .textContentType(.givenName)
                             .textInputAutocapitalization(.words)
@@ -87,20 +87,20 @@ struct PartnerSetupView: View {
                         // other's.
                         Text("Just for you - they won't see this name or photo.")
                             .font(.caption2)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                     }
 
                     if appModel.partnerConnected {
                         SectionCard {
                             HStack {
-                                Text("City").foregroundStyle(Theme.subtleInk)
+                                Text("City").foregroundStyle(Theme.textSecondary)
                                 Spacer()
-                                Text(appModel.partner.homeCity?.displayCity ?? "—").foregroundStyle(Theme.ink)
+                                Text(appModel.partner.homeCity?.displayCity ?? "—").foregroundStyle(Theme.textPrimary)
                             }
                         }
                     } else {
                         SectionCard {
-                            Text("Partner's city").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.subtleInk)
+                            Text("Partner's city").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.textSecondary)
                             CityMenuPicker(label: "Partner's city", selection: $partnerCity)
                         }
                     }
@@ -113,15 +113,15 @@ struct PartnerSetupView: View {
                     if appModel.partnerConnected {
                         SectionCard {
                             HStack {
-                                Text("Birthday").foregroundStyle(Theme.subtleInk)
+                                Text("Birthday").foregroundStyle(Theme.textSecondary)
                                 Spacer()
                                 Text(appModel.partner.birthday?.displayText ?? "Not set")
-                                    .foregroundStyle(appModel.partner.birthday == nil ? Theme.subtleInk : Theme.ink)
+                                    .foregroundStyle(appModel.partner.birthday == nil ? Theme.textSecondary : Theme.textPrimary)
                             }
                             if appModel.partner.birthday == nil {
                                 Text("Only \(appModel.partner.name) can add this, from their own Account screen.")
                                     .font(.caption2)
-                                    .foregroundStyle(Theme.subtleInk)
+                                    .foregroundStyle(Theme.textSecondary)
                             }
                         }
                     }
@@ -130,7 +130,7 @@ struct PartnerSetupView: View {
                     // belongs to the couple rather than to this person's private notes about them,
                     // and it used to disappear from this screen the moment they paired.
                     SectionCard {
-                        Text("Anniversary").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.subtleInk)
+                        Text("Anniversary").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.textSecondary)
                         DatePicker("Together since", selection: $anniversaryDate, in: ...latestSelectableDate, displayedComponents: .date)
                             .datePickerStyle(.compact)
                     }

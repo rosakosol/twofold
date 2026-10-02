@@ -24,7 +24,7 @@ struct AddFlightStepScaffold<Content: View>: View {
                         .font(.system(.title, design: .rounded, weight: .bold))
                     Text(subtitle)
                         .font(.subheadline)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                 }
 
                 content

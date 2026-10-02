@@ -48,7 +48,7 @@ struct GenderView: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             Text(title)
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
 
             HStack(spacing: Theme.Spacing.sm) {
                 ForEach(Gender.allCases) { gender in
@@ -67,7 +67,7 @@ struct GenderView: View {
                     .font(.system(size: 32))
                 Text(gender.title)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, Theme.Spacing.md)
@@ -76,9 +76,9 @@ struct GenderView: View {
             // onboarding cards. Selected keeps its accent border in both appearances.
             .background {
                 ZStack {
-                    Theme.cardBackground
+                    Theme.surface
                     if colorScheme == .dark {
-                        Theme.cardGradientDark
+                        Theme.surfaceGradient
                     }
                 }
             }
@@ -89,7 +89,7 @@ struct GenderView: View {
                         .strokeBorder(Theme.selectionGradient, lineWidth: 2)
                 } else if colorScheme != .dark {
                     RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                        .strokeBorder(Theme.subtleInk.opacity(0.25), lineWidth: 1.25)
+                        .strokeBorder(Theme.textSecondary.opacity(0.25), lineWidth: 1.25)
                 }
             }
         }

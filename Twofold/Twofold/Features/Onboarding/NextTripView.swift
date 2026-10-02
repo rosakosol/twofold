@@ -29,7 +29,7 @@ struct NextTripView: View {
                         .frame(maxWidth: .infinity)
                         .padding()
                         .background(Theme.primaryButtonGradient, in: Capsule())
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onPrimaryButton)
                 }
 
                 Button {
@@ -39,8 +39,8 @@ struct NextTripView: View {
                         .font(.subheadline.weight(.medium))
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Theme.cardBackground, in: Capsule())
-                        .foregroundStyle(Theme.ink)
+                        .background(Theme.surface, in: Capsule())
+                        .foregroundStyle(Theme.textPrimary)
                 }
             }
             .padding(.horizontal, Theme.Spacing.lg)

@@ -61,9 +61,9 @@ struct DrawingPadFullScreenView: View {
         VStack(spacing: Theme.Spacing.sm) {
             Image(systemName: "pencil.and.scribble")
                 .font(.largeTitle)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
             Text("Nothing drawn yet")
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
         }
     }
 }

@@ -181,20 +181,20 @@ struct PaywallView: View {
             VStack(spacing: Theme.Spacing.md) {
                 Image(systemName: "exclamationmark.triangle")
                     .font(.system(size: 40))
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                 Text("Couldn't load subscription options")
                     .font(.headline)
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                 Text(message)
                     .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, Theme.Spacing.xl)
                 Button("Try Again") {
                     Task { await store.loadOfferings() }
                 }
                 .font(.headline)
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onPrimaryButton)
                 .padding(.horizontal, Theme.Spacing.lg)
                 .padding(.vertical, Theme.Spacing.sm)
                 .background(Theme.primaryButtonGradient, in: Capsule())
@@ -222,7 +222,7 @@ struct PaywallView: View {
                             Image(systemName: "arrow.down")
                         }
                         .font(.caption2.weight(.semibold))
-                        .foregroundStyle(Theme.heartRedText)
+                        .foregroundStyle(Theme.coral)
                         .frame(maxWidth: .infinity, alignment: .trailing)
                         .padding(.trailing, Theme.Spacing.md)
 
@@ -242,10 +242,10 @@ struct PaywallView: View {
                         ForEach(selectedTier.features, id: \.self) { feature in
                             HStack(alignment: .top, spacing: Theme.Spacing.xs) {
                                 Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(Theme.leafGreenText)
+                                    .foregroundStyle(Theme.success)
                                     .accessibilityHidden(true)
                                 Text(feature)
-                                    .foregroundStyle(Theme.ink)
+                                    .foregroundStyle(Theme.textPrimary)
                                     // These lines are long enough to wrap now, and a wrapping
                                     // `Text` in a stack that is being compressed truncates instead
                                     // unless it insists on its own height.
@@ -317,15 +317,15 @@ struct PaywallView: View {
                 }
             }
             .disabled(isPurchasing || isRestoring)
-            Text("·").foregroundStyle(Theme.subtleInk)
+            Text("·").foregroundStyle(Theme.textSecondary)
             Link("Privacy Policy", destination: URL(string: "https://www.twofoldapp.com.au/privacy")!)
-            Text("·").foregroundStyle(Theme.subtleInk)
+            Text("·").foregroundStyle(Theme.textSecondary)
             Link("Terms of Use", destination: URL(string: "https://www.twofoldapp.com.au/terms")!)
         }
         .font(.caption2)
         .lineLimit(1)
         .minimumScaleFactor(0.8)
-        .foregroundStyle(Theme.subtleInk)
+        .foregroundStyle(Theme.textSecondary)
     }
 
     private func periodTitle(for period: BillingPeriod) -> String {
@@ -530,27 +530,27 @@ private struct PeriodCard: View {
                 HStack(spacing: Theme.Spacing.xs) {
                     Text(title)
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                     if let badge {
                         Text(badge)
                             .font(.caption2.weight(.bold))
                             .foregroundStyle(.white)
                             .padding(.horizontal, Theme.Spacing.sm)
                             .padding(.vertical, 2)
-                            .background(Theme.leafGreenFill, in: Capsule())
+                            .background(Theme.successFill, in: Capsule())
                     }
                     Spacer(minLength: 0)
                     Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                        .foregroundStyle(isSelected ? Theme.leafGreenText : Theme.subtleInk.opacity(0.3))
+                        .foregroundStyle(isSelected ? Theme.success : Theme.textSecondary.opacity(0.3))
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(priceCaption)
                         .font(.callout.weight(.medium))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                     if let perPersonCaption {
                         Text(perPersonCaption)
                             .font(.caption2)
-                            .foregroundStyle(Theme.subtleInk.opacity(0.8))
+                            .foregroundStyle(Theme.textSecondary.opacity(0.8))
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -563,9 +563,9 @@ private struct PeriodCard: View {
             // onboarding cards. Selected keeps its accent border in both appearances.
             .background {
                 ZStack {
-                    Theme.cardBackground
+                    Theme.surface
                     if colorScheme == .dark {
-                        Theme.cardGradientDark
+                        Theme.surfaceGradient
                     }
                 }
             }
@@ -573,10 +573,10 @@ private struct PeriodCard: View {
             .overlay {
                 if isSelected {
                     RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                        .strokeBorder(Theme.skyBlue, lineWidth: 2)
+                        .strokeBorder(Theme.accent, lineWidth: 2)
                 } else if colorScheme != .dark {
                     RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                        .strokeBorder(Theme.subtleInk.opacity(0.25), lineWidth: 1.25)
+                        .strokeBorder(Theme.textSecondary.opacity(0.25), lineWidth: 1.25)
                 }
             }
         }

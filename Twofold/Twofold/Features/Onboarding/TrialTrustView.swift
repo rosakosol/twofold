@@ -61,7 +61,7 @@ struct TrialTrustView: View {
                     // styling and cannot drift apart.
                     Text("We'll remind you before your free trial ends. Cancel any time before then and you won't be charged.")
                         .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .frame(maxWidth: .infinity, alignment: .center)
                 }
             },
@@ -75,15 +75,15 @@ struct TrialTrustView: View {
     private func timelineRow(label: String, title: String, subtitle: String, icon: String) -> some View {
         HStack(alignment: .top, spacing: Theme.Spacing.md) {
             ZStack {
-                Circle().fill(Theme.skyBlue.opacity(0.15))
-                Image(systemName: icon).foregroundStyle(Theme.skyBlueText)
+                Circle().fill(Theme.accent.opacity(0.15))
+                Image(systemName: icon).foregroundStyle(Theme.accent)
             }
             .frame(width: 36, height: 36)
             VStack(alignment: .leading, spacing: 2) {
-                Text(label).font(.caption2.weight(.bold)).foregroundStyle(Theme.subtleInk)
+                Text(label).font(.caption2.weight(.bold)).foregroundStyle(Theme.textSecondary)
                 Text(title).font(.subheadline.weight(.semibold))
                     .fixedSize(horizontal: false, vertical: true)
-                Text(subtitle).font(.caption).foregroundStyle(Theme.subtleInk)
+                Text(subtitle).font(.caption).foregroundStyle(Theme.textSecondary)
             }
             Spacer(minLength: 0)
         }

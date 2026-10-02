@@ -123,20 +123,20 @@ struct RelationshipTimelineView: View {
                 if (credits ?? 0) > 0 {
                     Label("You have an export to use", systemImage: "checkmark.seal.fill")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Theme.leafGreenText)
+                        .foregroundStyle(Theme.success)
 
                     Text("Use the share button above to save your record as a PDF or a Word document. It'll be used when the file is ready, not before.")
                         .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 } else {
                     Label("Keeping a copy", systemImage: "book.closed.fill")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
 
                     Text("Your record is yours to read whenever you like. Saving it as a PDF or a Word document — one file with every trip, memory and flight in it, to keep or to print — is a Premium feature, or you can buy this one export on its own.")
                         .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
 
                     Button { buyOneExport() } label: {
@@ -149,7 +149,7 @@ struct RelationshipTimelineView: View {
                         .padding(.vertical, Theme.Spacing.sm)
                     }
                     .background(Theme.primaryButtonGradient, in: Capsule())
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onPrimaryButton)
                     .disabled(isBuying)
 
                     Button { showingPaywall = true } label: {
@@ -157,7 +157,7 @@ struct RelationshipTimelineView: View {
                             .font(.caption.weight(.semibold))
                             .frame(maxWidth: .infinity)
                     }
-                    .foregroundStyle(Theme.skyBlueText)
+                    .foregroundStyle(Theme.accent)
                     .disabled(isBuying)
                 }
 
@@ -165,11 +165,11 @@ struct RelationshipTimelineView: View {
                 // should not have to go and find that out on another screen.
                 Text("Your trips, memories, flights and games can be exported as data at any time, on any plan — Settings → Help → Export your data.")
                     .font(.caption2)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 if let purchaseError {
-                    Text(purchaseError).font(.caption).foregroundStyle(Theme.heartRedText)
+                    Text(purchaseError).font(.caption).foregroundStyle(Theme.error)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -215,10 +215,10 @@ struct RelationshipTimelineView: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
             Text("\(items.count) \(items.count == 1 ? "moment" : "moments") together")
                 .font(.headline)
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(Theme.textPrimary)
             Text("Every trip, memory and flight you've shared, in the order it happened.")
                 .font(.caption)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
         }
     }
 
@@ -227,10 +227,10 @@ struct RelationshipTimelineView: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
                 Text("Your story starts here")
                     .font(.headline)
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                 Text("Add a trip, save a memory or track a flight, and it'll appear here in order.")
                     .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -240,9 +240,9 @@ struct RelationshipTimelineView: View {
     private var statusBar: some View {
         Text(exportError ?? exportStatus)
             .font(.caption)
-            .foregroundStyle(exportError == nil ? Theme.subtleInk : Theme.heartRedText)
+            .foregroundStyle(exportError == nil ? Theme.textSecondary : Theme.error)
             .padding(Theme.Spacing.sm)
-            .background(Theme.cardBackground, in: Capsule())
+            .background(Theme.surface, in: Capsule())
             .padding(.bottom, Theme.Spacing.md)
     }
 
@@ -307,26 +307,26 @@ private struct TimelineEntryView: View {
                 HStack(spacing: Theme.Spacing.xs) {
                     Image(systemName: icon)
                         .font(.caption)
-                        .foregroundStyle(Theme.skyBlueText)
+                        .foregroundStyle(Theme.accent)
                     Text(kind.uppercased())
                         .font(.caption2.weight(.bold))
                         .tracking(1)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                     Spacer()
                     Text(item.date, format: .dateTime.day().month(.abbreviated).year())
                         .font(.caption2)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                 }
 
                 Text(title)
                     .font(.headline)
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 if !subtitle.isEmpty {
                     Text(subtitle)
                         .font(.subheadline)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
@@ -408,7 +408,7 @@ private struct PhotoPager: View {
                 AsyncImage(url: photo.url) { image in
                     image.resizable().scaledToFill()
                 } placeholder: {
-                    Theme.cardBackground
+                    Theme.surface
                 }
                 .clipped()
                 .tag(index)
@@ -450,7 +450,7 @@ private struct ExportReadySheet: View {
                     .font(.headline)
                 Text(url.lastPathComponent)
                     .font(.subheadline)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
@@ -465,11 +465,11 @@ private struct ExportReadySheet: View {
                         .padding()
                 }
                 .background(Theme.primaryButtonGradient, in: Capsule())
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onPrimaryButton)
 
                 Button("Not Right Now") { dismiss() }
                     .font(.subheadline)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
             }
             .padding(.horizontal, Theme.Spacing.lg)
 

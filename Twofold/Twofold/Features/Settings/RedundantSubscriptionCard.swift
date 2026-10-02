@@ -38,16 +38,16 @@ struct RedundantSubscriptionCard: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
                 HStack(spacing: Theme.Spacing.sm) {
                     Image(systemName: "creditcard.trianglebadge.exclamationmark")
-                        .foregroundStyle(Theme.skyBlueText)
+                        .foregroundStyle(Theme.accent)
                     Text("You're both subscribed")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
 
                     if let onDismiss {
                         Spacer()
                         Button(action: onDismiss) {
                             Image(systemName: "xmark.circle.fill")
-                                .foregroundStyle(Theme.subtleInk.opacity(0.5))
+                                .foregroundStyle(Theme.textSecondary.opacity(0.5))
                                 // The glyph is ~22pt, half Apple's 44pt minimum. The frame only
                                 // grows the tap target; `contentShape` makes all of it hittable.
                                 .frame(width: 44, height: 44)
@@ -64,7 +64,7 @@ struct RedundantSubscriptionCard: View {
 
                 Text(message)
                     .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 // Only offered to the person who would be doing the cancelling. Someone whose

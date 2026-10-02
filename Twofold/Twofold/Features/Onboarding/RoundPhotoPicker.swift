@@ -59,7 +59,7 @@ struct RoundPhotoPicker: View {
                 if !hasImage {
                     Circle().strokeBorder(
                         LinearGradient(
-                            colors: [Theme.skyBlue, Theme.leafGreen],
+                            colors: [Theme.accent, Theme.success],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ),
@@ -70,7 +70,7 @@ struct RoundPhotoPicker: View {
             .overlay(alignment: .bottomTrailing) {
                 if !hasImage {
                     ZStack {
-                        Circle().fill(Theme.skyBlueFill)
+                        Circle().fill(Theme.accentFill)
                         Image(systemName: "plus")
                             .font(.system(size: size * 0.14, weight: .bold))
                             .foregroundStyle(.white)
@@ -111,7 +111,7 @@ struct RoundPhotoPicker: View {
         ZStack {
             Circle().fill(
                 LinearGradient(
-                    colors: [Theme.skyBlue.opacity(0.22), Theme.leafGreen.opacity(0.22)],
+                    colors: [Theme.accent.opacity(0.22), Theme.success.opacity(0.22)],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
@@ -120,7 +120,7 @@ struct RoundPhotoPicker: View {
                 .font(.system(size: size * 0.34))
                 .foregroundStyle(
                     LinearGradient(
-                        colors: [Theme.skyBlue, Theme.leafGreen],
+                        colors: [Theme.accent, Theme.success],
                         startPoint: .top,
                         endPoint: .bottom
                     )

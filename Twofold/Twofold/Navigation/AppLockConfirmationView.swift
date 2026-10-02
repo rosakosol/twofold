@@ -41,8 +41,8 @@ struct AppLockConfirmationView: View {
     /// it without scolding.
     private var accent: Color {
         switch change {
-        case .enabled: Theme.leafGreen
-        case .disabled: Theme.subtleInk
+        case .enabled: Theme.success
+        case .disabled: Theme.textSecondary
         }
     }
 
@@ -77,7 +77,7 @@ struct AppLockConfirmationView: View {
 
                 Text(title)
                     .font(.system(.title2, design: .rounded, weight: .bold))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                     .multilineTextAlignment(.center)
                     // The fix for the reported truncation. This is presented at a fixed detent
                     // height with flexible space above and below, and a `Text` squeezed by that
@@ -89,7 +89,7 @@ struct AppLockConfirmationView: View {
 
             Text(detail)
                 .font(.subheadline)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, Theme.Spacing.lg)
@@ -104,7 +104,7 @@ struct AppLockConfirmationView: View {
                     .frame(maxWidth: .infinity)
                     .padding()
                     .background(Theme.primaryButtonGradient, in: Capsule())
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onPrimaryButton)
             }
             .padding(.horizontal, Theme.Spacing.lg)
             .padding(.bottom, Theme.Spacing.xl)

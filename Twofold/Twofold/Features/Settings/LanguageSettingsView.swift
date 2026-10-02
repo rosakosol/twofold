@@ -17,20 +17,20 @@ struct LanguageSettingsView: View {
             VStack(spacing: Theme.Spacing.md) {
                 SectionCard {
                     HStack {
-                        Text("Current language").foregroundStyle(Theme.subtleInk)
+                        Text("Current language").foregroundStyle(Theme.textSecondary)
                         Spacer()
                         Text(Locale.current.localizedString(forIdentifier: Locale.current.identifier) ?? "English")
-                            .foregroundStyle(Theme.ink)
+                            .foregroundStyle(Theme.textPrimary)
                     }
                 }
 
                 SectionCard {
                     Text("More languages are coming soon.")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                     Text("Twofold is currently available in English only.")
                         .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
 
                     Button {
                         if let url = URL(string: UIApplication.openSettingsURLString) {

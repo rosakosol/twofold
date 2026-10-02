@@ -284,7 +284,7 @@ struct WordGuessGameView: View {
             }
         }
         .font(.caption.weight(.medium))
-        .foregroundStyle(Theme.heartRedText)
+        .foregroundStyle(Theme.error)
         .frame(height: Self.rejectionRowHeight)
         .accessibilityHidden(rejectionText == nil)
     }
@@ -334,7 +334,7 @@ struct WordGuessGameView: View {
         VStack(spacing: Theme.Spacing.sm) {
             waitingSummary(play: play)
 
-            // Outside the card: `GameReminderButton` is filled with `Theme.cardBackground` so it
+            // Outside the card: `GameReminderButton` is filled with `Theme.surface` so it
             // reads as raised against the page, which is the one colour it would disappear into
             // inside a `SectionCard`. Same placement the deck games use.
             if appModel.hasCouple {
@@ -352,13 +352,13 @@ struct WordGuessGameView: View {
                 HStack(spacing: Theme.Spacing.sm) {
                     Image(systemName: play.isSolved ? "checkmark.seal.fill" : "clock.badge.xmark")
                         .font(.title2)
-                        .foregroundStyle(play.isSolved ? Theme.leafGreenText : Theme.subtleInk)
+                        .foregroundStyle(play.isSolved ? Theme.success : Theme.textSecondary)
 
                     Text(play.isSolved
                          ? "Got it in \(WordGuessComparison.guessText(play.guesses.count))"
                          : "Out of guesses")
                         .font(.title3.weight(.bold))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                 }
                 .multilineTextAlignment(.center)
 
@@ -367,7 +367,7 @@ struct WordGuessGameView: View {
                 // partner anyway, which is a worse way to hear it.
                 Text("The word was \(play.answer.uppercased()).")
                     .font(.subheadline.weight(.medium))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
 
                 if appModel.hasCouple {
                     // Shorter than it was ("Your result is saved. You'll see how it compares
@@ -375,13 +375,13 @@ struct WordGuessGameView: View {
                     // and said twice over what the card already shows by existing.
                     Text("You'll see how it compares once \(appModel.partner.name) has played.")
                         .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
                 } else {
                     Text("A new word is waiting tomorrow.")
                         .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
                 }

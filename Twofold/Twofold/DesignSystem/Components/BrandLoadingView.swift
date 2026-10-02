@@ -23,7 +23,7 @@ struct BrandLoadingView: View {
 
             Text("twofold")
                 .font(.system(.title, design: .serif))
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(Theme.textPrimary)
                 .opacity(wordmarkVisible ? 1 : 0)
                 .offset(y: wordmarkVisible ? 0 : 6)
         }

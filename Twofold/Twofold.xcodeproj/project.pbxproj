@@ -110,6 +110,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Shared/AppleWeatherMark.swift,
+				Shared/BrandPalette.swift,
 				Shared/FlightStatus.swift,
 				Shared/JourneyActivityAttributes.swift,
 				Shared/MeasurementPreference.swift,

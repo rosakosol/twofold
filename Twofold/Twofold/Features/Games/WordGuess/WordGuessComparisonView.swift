@@ -28,7 +28,7 @@ struct WordGuessComparisonView: View {
 
                 Text(headerText)
                     .font(.title3.weight(.bold))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                     .multilineTextAlignment(.center)
 
                 VStack(spacing: Theme.Spacing.xs) {
@@ -45,7 +45,7 @@ struct WordGuessComparisonView: View {
 
                 Text(comparison.verdict)
                     .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -60,7 +60,7 @@ struct WordGuessComparisonView: View {
     }
 
     private var headerColor: Color {
-        comparison.mine.solved || comparison.theirs.solved ? Theme.leafGreen : Theme.subtleInk
+        comparison.mine.solved || comparison.theirs.solved ? Theme.success : Theme.textSecondary
     }
 
     private var headerText: String {
@@ -80,14 +80,14 @@ struct WordGuessComparisonView: View {
                         // Weight as well as colour, so "who did better" is not carried by hue
                         // alone — and the verdict underneath says it in words regardless.
                         .font(.subheadline.weight(isLeader ? .semibold : .regular))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                         .lineLimit(1)
                         .truncationMode(.tail)
                     // Time is recorded but never decides the outcome, so it sits here as a
                     // footnote rather than alongside the score as if it were being compared.
                     Text(PuzzleClock.text(summary.elapsed))
                         .font(.caption2)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .monospacedDigit()
                 }
                 Spacer(minLength: Theme.Spacing.sm)
@@ -95,7 +95,7 @@ struct WordGuessComparisonView: View {
                     .font(.title3.weight(.semibold))
                     .monospacedDigit()
                     .foregroundStyle(
-                        !summary.solved ? Theme.subtleInk : isLeader ? Theme.leafGreenText : Theme.ink
+                        !summary.solved ? Theme.textSecondary : isLeader ? Theme.success : Theme.textPrimary
                     )
             }
             .accessibilityElement(children: .combine)
@@ -123,10 +123,10 @@ struct WordGuessComparisonView: View {
     }
 
     private func pipColor(index: Int, summary: WordGuessSummary) -> Color {
-        guard index < summary.guessCount else { return Theme.subtleInk.opacity(0.15) }
+        guard index < summary.guessCount else { return Theme.textSecondary.opacity(0.15) }
         // A miss fills all six and none of them green — the board was used up without getting
         // there, which is exactly what the row should look like.
-        return summary.solved ? Theme.leafGreen : Theme.subtleInk.opacity(0.45)
+        return summary.solved ? Theme.success : Theme.textSecondary.opacity(0.45)
     }
 }
 

@@ -37,7 +37,7 @@ struct SudokuBoardView: View {
                 rules(side: side, cell: cell)
             }
             .frame(width: side, height: side)
-            .background(Theme.cardBackground)
+            .background(Theme.surface)
             .clipShape(RoundedRectangle(cornerRadius: Theme.Spacing.sm, style: .continuous))
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         }
@@ -57,7 +57,7 @@ struct SudokuBoardView: View {
             // statement about the cell, and it has to survive the cell being selected — which is
             // the first thing anyone does on being told one of their digits is wrong.
             if mistakes.contains(index) {
-                Theme.heartRed.opacity(0.22)
+                Theme.error.opacity(0.22)
             }
             if value != 0 {
                 Text(String(value))
@@ -78,24 +78,24 @@ struct SudokuBoardView: View {
     }
 
     private func colour(index: Int, isGiven: Bool) -> Color {
-        if conflicts.contains(index) || mistakes.contains(index) { return Theme.heartRedText }
+        if conflicts.contains(index) || mistakes.contains(index) { return Theme.error }
         // The puzzle's own numbers and the player's are deliberately different weights *and*
         // colours: knowing at a glance which cells are yours to change is most of playing.
-        return isGiven ? Theme.ink : Theme.skyBlueText
+        return isGiven ? Theme.textPrimary : Theme.accent
     }
 
     @ViewBuilder
     private func highlight(for index: Int) -> some View {
         if selected == index {
-            Theme.skyBlue.opacity(0.28)
+            Theme.accent.opacity(0.28)
         } else if let selected {
             let value = play[selected]
             if value != 0 && play[index] == value {
                 // Everywhere this digit already sits — the single most useful hint a board can
                 // give without solving anything for you.
-                Theme.skyBlue.opacity(0.18)
+                Theme.accent.opacity(0.18)
             } else if SudokuPlayState.peers(of: selected).contains(index) {
-                Theme.skyBlue.opacity(0.07)
+                Theme.accent.opacity(0.07)
             } else {
                 Color.clear
             }
@@ -115,7 +115,7 @@ struct SudokuBoardView: View {
                             let value = UInt8(row * 3 + column + 1)
                             Text(play.note(value, at: index) ? String(value) : " ")
                                 .font(.system(size: size * 0.22, design: .rounded))
-                                .foregroundStyle(Theme.subtleInk)
+                                .foregroundStyle(Theme.textSecondary)
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                         }
                     }
@@ -140,12 +140,12 @@ struct SudokuBoardView: View {
                 var vertical = Path()
                 vertical.move(to: CGPoint(x: position, y: 0))
                 vertical.addLine(to: CGPoint(x: position, y: side))
-                context.stroke(vertical, with: .color(Theme.ink.opacity(shade)), lineWidth: width)
+                context.stroke(vertical, with: .color(Theme.textPrimary.opacity(shade)), lineWidth: width)
 
                 var horizontal = Path()
                 horizontal.move(to: CGPoint(x: 0, y: position))
                 horizontal.addLine(to: CGPoint(x: side, y: position))
-                context.stroke(horizontal, with: .color(Theme.ink.opacity(shade)), lineWidth: width)
+                context.stroke(horizontal, with: .color(Theme.textPrimary.opacity(shade)), lineWidth: width)
             }
         }
         .frame(width: side, height: side)

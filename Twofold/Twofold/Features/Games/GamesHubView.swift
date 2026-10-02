@@ -122,8 +122,8 @@ struct GamesHubView: View {
                         .padding(.horizontal, Theme.Spacing.sm)
                         .padding(.vertical, Theme.Spacing.xs)
                         .frame(maxWidth: .infinity)
-                        .foregroundStyle(Theme.ink)
-                        .background(Theme.cardBackground, in: Capsule())
+                        .foregroundStyle(Theme.textPrimary)
+                        .background(Theme.surface, in: Capsule())
                         // A plain flat fill left these three pills with no edge of their own at
                         // all in dark mode, reading as one undifferentiated bar rather than three
                         // distinct filters. Neutral hairline (not a colored gradient — these pills
@@ -132,7 +132,7 @@ struct GamesHubView: View {
                         // already reads fine against its own pale background without a border.
                         .overlay {
                             if colorScheme == .dark {
-                                Capsule().strokeBorder(TwofoldDark.Line.strong, lineWidth: 1.25)
+                                Capsule().strokeBorder(Theme.line, lineWidth: 1.25)
                             }
                         }
                 }
@@ -149,7 +149,7 @@ struct GamesHubView: View {
                             .foregroundStyle(.white)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(Theme.heartRedFill, in: Capsule())
+                            .background(Theme.coralFill, in: Capsule())
                             .offset(x: 8, y: -8)
                     }
                 }
@@ -200,7 +200,7 @@ struct GamesHubView: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             Text(title)
                 .font(.title3.weight(.bold))
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(Theme.textPrimary)
 
             LazyVGrid(
                 columns: [GridItem(.flexible(), spacing: Theme.Spacing.sm),
@@ -270,7 +270,7 @@ struct GamesHubView: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             Text("Travel")
                 .font(.title3.weight(.bold))
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(Theme.textPrimary)
 
             if appModel.gameDecks == nil {
                 // `loadGameDecksIfNeeded()` (below) hasn't resolved yet — `travelDecks` reads as

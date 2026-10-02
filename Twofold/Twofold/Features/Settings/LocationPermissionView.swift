@@ -30,16 +30,16 @@ struct LocationPermissionView: View {
             VStack(spacing: Theme.Spacing.md) {
                 SectionCard {
                     HStack {
-                        Text("Status").foregroundStyle(Theme.subtleInk)
+                        Text("Status").foregroundStyle(Theme.textSecondary)
                         Spacer()
-                        Text(statusLabel).foregroundStyle(Theme.ink)
+                        Text(statusLabel).foregroundStyle(Theme.textPrimary)
                     }
                 }
 
                 SectionCard {
                     Text("Twofold can use your location to suggest your home city and timezone automatically, instead of searching for it by hand — see “About you”.")
                         .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
 
                     Button {
                         if let url = URL(string: UIApplication.openSettingsURLString) {

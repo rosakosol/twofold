@@ -42,7 +42,7 @@ struct ResetPasswordView: View {
                             .font(.system(.title, design: .rounded, weight: .bold))
                         Text("Choose a new password for your account.")
                             .font(.body)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                             .multilineTextAlignment(.center)
                     }
                     .padding(.top, Theme.Spacing.lg)
@@ -67,26 +67,26 @@ struct ResetPasswordView: View {
                         if passwordsMismatch {
                             Text("Passwords don't match.")
                                 .font(.caption)
-                                .foregroundStyle(Theme.heartRedText)
+                                .foregroundStyle(Theme.error)
                         }
                         if let errorMessage {
                             Text(errorMessage)
                                 .font(.caption)
-                                .foregroundStyle(Theme.heartRedText)
+                                .foregroundStyle(Theme.error)
                         }
 
                         Button {
                             save()
                         } label: {
                             if isSubmitting {
-                                ProgressView().tint(.white).frame(maxWidth: .infinity)
+                                ProgressView().tint(Theme.onPrimaryButton).frame(maxWidth: .infinity)
                             } else {
                                 Text("Save Password").font(.headline).frame(maxWidth: .infinity)
                             }
                         }
                         .padding()
-                        .background(canSubmit ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.subtleInk.opacity(0.3)), in: Capsule())
-                        .foregroundStyle(.white)
+                        .background(canSubmit ? AnyShapeStyle(Theme.primaryButtonGradient) : AnyShapeStyle(Theme.textSecondary.opacity(0.3)), in: Capsule())
+                        .foregroundStyle(Theme.onPrimaryButton)
                         .disabled(!canSubmit)
                     }
                     .padding(.horizontal, Theme.Spacing.lg)

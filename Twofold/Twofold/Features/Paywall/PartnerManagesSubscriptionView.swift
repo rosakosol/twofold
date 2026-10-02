@@ -28,18 +28,18 @@ struct PartnerManagesSubscriptionView: View {
                         .opacity(0.18)
                     Image(systemName: "person.crop.circle.badge.checkmark")
                         .font(.system(size: 36))
-                        .foregroundStyle(Theme.skyBlueText)
+                        .foregroundStyle(Theme.accent)
                 }
                 .frame(width: 96, height: 96)
 
                 VStack(spacing: Theme.Spacing.sm) {
                     Text("\(partnerName) is managing your couple subscription")
                         .font(.title3.weight(.bold))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                         .multilineTextAlignment(.center)
                     Text("Only they can cancel or change your plan, from their own Apple ID.")
                         .font(.subheadline)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, Theme.Spacing.lg)
                 }
@@ -52,7 +52,7 @@ struct PartnerManagesSubscriptionView: View {
                         .frame(maxWidth: .infinity)
                         .padding()
                         .background(Theme.primaryButtonGradient, in: Capsule())
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onPrimaryButton)
                 }
                 .padding(.horizontal, Theme.Spacing.lg)
                 .padding(.bottom, Theme.Spacing.xl)

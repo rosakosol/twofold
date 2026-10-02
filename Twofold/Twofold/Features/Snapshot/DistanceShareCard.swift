@@ -137,7 +137,7 @@ struct DistanceShareCard: View {
                     normalGlobeContent(mapSnapshot)
                 }
             } else {
-                Color(hex: "0E2A52")
+                Brand.nightSkyTop
                 ProgressView().tint(.white)
             }
         }

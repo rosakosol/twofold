@@ -103,13 +103,13 @@ struct AddFlightRouteStepView: View {
         return HStack(spacing: Theme.Spacing.sm) {
             Image(systemName: isDeparture ? "airplane.departure" : "airplane.arrival")
                 .font(.subheadline)
-                .foregroundStyle(airport == nil ? Theme.subtleInk : Theme.skyBlueText)
+                .foregroundStyle(airport == nil ? Theme.textSecondary : Theme.accent)
                 .frame(width: 28)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(isDeparture ? "FROM" : "TO")
                     .font(.caption2.weight(.bold))
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
 
                 TextField(
                     isDeparture ? "City or airport code" : "Where to?",
@@ -119,7 +119,7 @@ struct AddFlightRouteStepView: View {
                 .autocorrectionDisabled()
                 .submitLabel(isDeparture ? .next : .search)
                 .focused($focusedField, equals: role)
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(Theme.textPrimary)
                 .onSubmit { submit(from: role) }
             }
 
@@ -136,9 +136,9 @@ struct AddFlightRouteStepView: View {
         return Button(action: swapEnds) {
             Image(systemName: "arrow.up.arrow.down")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Theme.skyBlueText)
+                .foregroundStyle(Theme.accent)
                 .frame(width: 32, height: 32)
-                .background(Theme.skyBlue.opacity(0.15), in: Circle())
+                .background(Theme.accent.opacity(0.15), in: Circle())
         }
         .buttonStyle(.plain)
         .disabled(!hasEither)
@@ -164,7 +164,7 @@ struct AddFlightRouteStepView: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
                 Text(suggestionsHeader)
                     .font(.caption2.weight(.bold))
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
 
                 VStack(spacing: Theme.Spacing.sm) {
                     ForEach(results) { airport in
@@ -177,10 +177,10 @@ struct AddFlightRouteStepView: View {
             VStack(spacing: Theme.Spacing.xs) {
                 Text(hasTyped ? "No airports match that" : "Search for an airport")
                     .font(.subheadline.weight(.medium))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                 Text("Type a city, an airport name, or its three-letter code.")
                     .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .multilineTextAlignment(.center)
             }
             .frame(maxWidth: .infinity)
@@ -197,19 +197,19 @@ struct AddFlightRouteStepView: View {
             HStack(spacing: Theme.Spacing.sm) {
                 Text(airport.preferredCode ?? "—")
                     .font(.caption.weight(.bold))
-                    .foregroundStyle(Theme.skyBlueText)
+                    .foregroundStyle(Theme.accent)
                     .frame(width: 44)
                     .padding(.vertical, 6)
-                    .background(Theme.skyBlue.opacity(0.15), in: Capsule())
+                    .background(Theme.accent.opacity(0.15), in: Capsule())
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(airport.name)
                         .font(.subheadline.weight(.medium))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                         .lineLimit(1)
                     Text([airport.cityOrName, airport.country].compactMap { $0 }.joined(separator: ", "))
                         .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .lineLimit(1)
                 }
 
@@ -244,7 +244,7 @@ struct AddFlightRouteStepView: View {
             Text(continueLabel)
                 .frame(maxWidth: .infinity)
                 .padding()
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onPrimaryButton)
                 .background(Theme.primaryButtonGradient, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         }
         .disabled(!canContinue)

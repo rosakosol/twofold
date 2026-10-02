@@ -15,9 +15,10 @@ import SwiftUI
 extension PasswordStrength {
     var color: Color {
         switch self {
-        case .weak: Theme.heartRed
-        case .fair: .orange
-        case .strong: Theme.leafGreen
+        case .weak: Theme.error
+        // DESIGN: blue, not amber. Amber is reserved for delays, and "fair" is not a warning.
+        case .fair: Theme.accent
+        case .strong: Theme.success
         }
     }
 }
@@ -43,7 +44,7 @@ struct PasswordStrengthView: View {
                     HStack(spacing: 4) {
                         ForEach(0..<3, id: \.self) { index in
                             Capsule()
-                                .fill(index <= strength.rawValue ? strength.color : Theme.subtleInk.opacity(0.2))
+                                .fill(index <= strength.rawValue ? strength.color : Theme.textSecondary.opacity(0.2))
                                 .frame(height: 4)
                         }
                     }
@@ -55,7 +56,7 @@ struct PasswordStrengthView: View {
                 if let reason {
                     Text(reason)
                         .font(.caption2)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }

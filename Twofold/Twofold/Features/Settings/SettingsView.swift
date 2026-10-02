@@ -191,7 +191,7 @@ struct SettingsView: View {
 
                         HStack {
                             Label("Require \(appLock.methodName)", systemImage: "lock.fill")
-                                .foregroundStyle(Theme.ink)
+                                .foregroundStyle(Theme.textPrimary)
                             Spacer()
                             Toggle(
                                 "",
@@ -232,7 +232,7 @@ struct SettingsView: View {
                         if !appLock.isAvailableOnDevice {
                             Text("Set a passcode on this device to turn this on. Without one, iOS can't encrypt the photos and answers Twofold keeps on this phone either.")
                                 .font(.caption)
-                                .foregroundStyle(Theme.subtleInk)
+                                .foregroundStyle(Theme.textSecondary)
                         }
                     }
 

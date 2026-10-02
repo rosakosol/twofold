@@ -77,7 +77,7 @@ struct GameResultsShareView: View {
                         .frame(width: 28, height: 28)
                         .overlay {
                             Circle()
-                                .strokeBorder(Theme.ink, lineWidth: currentAccent == option ? 2.5 : 0)
+                                .strokeBorder(Theme.textPrimary, lineWidth: currentAccent == option ? 2.5 : 0)
                                 .padding(-3)
                         }
                 }
@@ -156,7 +156,7 @@ struct GameResultsShareView: View {
         HStack(spacing: 6) {
             ForEach(layouts.indices, id: \.self) { index in
                 Circle()
-                    .fill(index == page ? Theme.ink : Theme.subtleInk.opacity(0.3))
+                    .fill(index == page ? Theme.textPrimary : Theme.textSecondary.opacity(0.3))
                     .frame(width: 6, height: 6)
             }
         }
@@ -189,12 +189,12 @@ struct GameResultsShareView: View {
             HStack(alignment: .top, spacing: Theme.Spacing.sm) {
                 Text(round.question)
                     .font(.headline)
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                     .multilineTextAlignment(.leading)
                 Spacer(minLength: 0)
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
-                    .foregroundStyle(isSelected ? Theme.leafGreenText : Theme.subtleInk.opacity(0.3))
+                    .foregroundStyle(isSelected ? Theme.success : Theme.textSecondary.opacity(0.3))
             }
             answerLine(name: data.me.name, text: round.myAnswer)
             answerLine(name: data.partner.name, text: round.partnerAnswer)
@@ -202,12 +202,12 @@ struct GameResultsShareView: View {
         .padding(Theme.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            isSelected ? Theme.skyBlue.opacity(0.08) : Theme.cardBackground,
+            isSelected ? Theme.accent.opacity(0.08) : Theme.surface,
             in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
         )
         .overlay(
             RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
-                .stroke(isSelected ? Theme.skyBlue : Color.clear, lineWidth: 1.5)
+                .stroke(isSelected ? Theme.accent : Color.clear, lineWidth: 1.5)
         )
     }
 
@@ -215,10 +215,10 @@ struct GameResultsShareView: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(name.uppercased())
                 .font(.caption2.weight(.semibold))
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
             Text(text.isEmpty ? "Skipped this one" : text)
                 .font(.subheadline)
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(Theme.textPrimary)
         }
     }
 
@@ -275,7 +275,7 @@ struct GameResultsShareView: View {
             .frame(maxWidth: .infinity)
             .padding()
             .background(Theme.primaryButtonGradient, in: Capsule())
-            .foregroundStyle(.white)
+            .foregroundStyle(Theme.onPrimaryButton)
     }
 
     private var partnerAnswerWarning: String {

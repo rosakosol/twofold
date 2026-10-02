@@ -191,7 +191,7 @@ struct FlightCountdownWidgetView: View {
         .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .background(
-            LinearGradient(colors: [Color(hex: "0B3D91"), Color(hex: "1C7ED6")], startPoint: .topLeading, endPoint: .bottomTrailing)
+            Brand.flight
         )
         .overlay(alignment: .bottomTrailing) {
             Image(systemName: "globe.americas.fill")

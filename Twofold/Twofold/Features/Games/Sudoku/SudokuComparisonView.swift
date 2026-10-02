@@ -25,11 +25,11 @@ struct SudokuComparisonView: View {
             VStack(spacing: Theme.Spacing.sm) {
                 Image(systemName: "checkmark.seal.fill")
                     .font(.largeTitle)
-                    .foregroundStyle(Theme.leafGreenText)
+                    .foregroundStyle(Theme.success)
 
                 Text("You both solved it")
                     .font(.title3.weight(.bold))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
 
                 VStack(spacing: Theme.Spacing.xs) {
                     timeRow(
@@ -53,7 +53,7 @@ struct SudokuComparisonView: View {
                 VStack(spacing: 2) {
                     Text(comparison.verdict)
                         .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                         .multilineTextAlignment(.center)
                     // Said outright rather than left to be inferred from the two footnotes above.
                     // One of them solved it cold and the other asked: the times are comparable
@@ -62,7 +62,7 @@ struct SudokuComparisonView: View {
                     if comparison.isLopsided {
                         Text("Only one of you did it unaided, so it's not quite a fair race.")
                             .font(.caption2)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                             .multilineTextAlignment(.center)
                     }
                 }
@@ -87,7 +87,7 @@ struct SudokuComparisonView: View {
                         // is a second signal rather than the only one, and the verdict says it in
                         // words.
                         .font(.subheadline.weight(isFaster ? .semibold : .regular))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                         .lineLimit(1)
                         .truncationMode(.tail)
                     // Only when something was used. "No help" under both times on the ordinary
@@ -95,7 +95,7 @@ struct SudokuComparisonView: View {
                     if let used = aids?.aidsDescription {
                         Text(used)
                             .font(.caption2)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                             .lineLimit(1)
                     }
                 }
@@ -105,7 +105,7 @@ struct SudokuComparisonView: View {
                     // Without this the two times sit on different grids and read as harder to
                     // compare than they are.
                     .monospacedDigit()
-                    .foregroundStyle(isFaster ? Theme.leafGreenText : Theme.ink)
+                    .foregroundStyle(isFaster ? Theme.success : Theme.textPrimary)
             }
             .accessibilityElement(children: .combine)
 
@@ -130,9 +130,9 @@ struct SudokuComparisonView: View {
         let fraction = max(0.04, min(1, elapsed / longest))
         return GeometryReader { proxy in
             ZStack(alignment: .leading) {
-                Capsule().fill(Theme.subtleInk.opacity(0.15))
+                Capsule().fill(Theme.textSecondary.opacity(0.15))
                 Capsule()
-                    .fill(isFaster ? Theme.leafGreen : Theme.skyBlue)
+                    .fill(isFaster ? Theme.success : Theme.accent)
                     .frame(width: max(4, proxy.size.width * fraction))
             }
         }

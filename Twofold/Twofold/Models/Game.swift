@@ -42,52 +42,30 @@ enum GameTopic: String, CaseIterable, Hashable, Identifiable {
         }
     }
 
-    /// The topic's colour as a *fill* — icon circles, chip backgrounds, anything the eye reads as
-    /// a shape rather than as words. Use `textColor` for text.
+    /// The topic's colour. Every topic takes one of the four brand hues (spec section 2.5: no
+    /// teal, purple or orange anywhere in games), grouped by what the topic is about: coral for
+    /// the two of you, green for the world outside, blue and indigo for everything else. History
+    /// stays neutral. These are the text-safe tones, so the same colour works as an icon, a tint
+    /// and a word.
     var color: Color {
         switch self {
-        case .starters: .purple
-        case .getToKnowEachOther: Theme.skyBlue
-        case .relationship: Theme.heartRed
-        case .travel: Theme.leafGreen
-        case .foodAndCulture: .orange
-        case .family: .brown
-        case .moneyAndFinances: .teal
-        case .moralValues: .yellow
-        case .hobbiesAndLifestyle: .pink
-        case .history: .gray
-        case .edgyQuestions: .red
+        case .starters: Theme.indigo
+        case .getToKnowEachOther: Theme.accent
+        case .relationship: Theme.coral
+        case .travel: Theme.success
+        case .foodAndCulture: Theme.success
+        case .family: Theme.coral
+        case .moneyAndFinances: Theme.accent
+        case .moralValues: Theme.indigo
+        case .hobbiesAndLifestyle: Theme.success
+        case .history: Theme.textSecondary
+        case .edgyQuestions: Theme.coral
         }
     }
 
-    /// The same hue, deepened enough to be read as small text.
-    ///
-    /// `color` above can't do this job: as plain text on a card, every one of the eleven fails
-    /// WCAG AA in light mode — measured, from 3.70:1 (Starters) down to 1.35:1 (Moral Values'
-    /// yellow), which is illegible rather than merely marginal. That's fine for a fill, where the
-    /// colour is a shape and the text sits on top of it in white or ink; it isn't fine for words.
-    ///
-    /// This is Theme.swift's own rule applied per topic — "only the deepened tone is licensed for
-    /// text/icons/strokes" — and where a licensed tone already exists it's reused verbatim rather
-    /// than re-derived (`skyBlueText`, `heartRedText`, `leafGreenText`). Dark mode keeps the vivid
-    /// colour, which already clears 4.5:1 against the card there; only light mode changes.
-    ///
-    /// Light-mode ratios on the card: worst is 4.62:1, most sit near 4.7:1.
-    var textColor: Color {
-        switch self {
-        case .starters: Color(light: "A34CCE", dark: "BF5AF2")
-        case .getToKnowEachOther: Theme.skyBlueText
-        case .relationship: Theme.heartRedText
-        case .travel: Theme.leafGreenText
-        case .foodAndCulture: Color(light: "AB6400", dark: "FF9F0A")
-        case .family: Color(light: "8A7050", dark: "AC8E68")
-        case .moneyAndFinances: Color(light: "237F8F", dark: "40C8E0")
-        case .moralValues: Color(light: "8C7000", dark: "FFD60A")
-        case .hobbiesAndLifestyle: Color(light: "DE274A", dark: "FF375F")
-        case .history: Color(light: "747479", dark: "98989D")
-        case .edgyQuestions: Color(light: "DB3329", dark: "FF453A")
-        }
-    }
+    /// The colour for the topic's name as text. The same as `color`: each brand hue's adaptive
+    /// token already clears 4.5:1 on cards in both appearances.
+    var textColor: Color { color }
 }
 
 enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
@@ -214,14 +192,16 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
 
     var iconGradient: [Color] {
         switch self {
-        case .triviaBattle: [Theme.skyBlue, Theme.leafGreen]
-        case .moreLikely: [Theme.heartRed, .orange]
-        case .thisOrThat: [.purple, Theme.skyBlue]
-        case .deepConversations: [Theme.leafGreen, Theme.skyBlue]
-        case .sudoku: [.indigo, Theme.skyBlue]
-        case .wordGuess: [Theme.leafGreen, .yellow]
-        case .wordSearch: [.orange, Theme.heartRed]
-        case .connectFour: [Theme.heartRed, .yellow]
+        // Section 2.5's game colours for the four conversation games, as fixed fills so white
+        // icons stay legible in both appearances. Puzzles take one brand hue each.
+        case .triviaBattle: [Color(hex: 0x1F8636), Color(hex: 0x16702A)]
+        case .moreLikely: [Color(hex: 0xD23A52), Color(hex: 0xB8274A)]
+        case .thisOrThat: [Color(hex: 0x1A6FD6), Color(hex: 0x0B5FB0)]
+        case .deepConversations: [Color(hex: 0x3A56D9), Color(hex: 0x2B3FB0)]
+        case .sudoku: [Theme.indigoFill, Theme.accentFill]
+        case .wordGuess: [Theme.successFill, Theme.accentFill]
+        case .wordSearch: [Theme.accentFill, Theme.indigoFill]
+        case .connectFour: [Theme.coralFill, Theme.accentFill]
         }
     }
 

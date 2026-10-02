@@ -53,12 +53,12 @@ struct SpeechBubbleShape: Shape {
         Text("Hey! What time works?")
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
-            .background(SpeechBubbleShape(tailOnRight: false).fill(Color(.systemGray5)))
+            .background(SpeechBubbleShape(tailOnRight: false).fill(Theme.raised))
         Text("Anytime after 6 🎉")
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
             .foregroundStyle(.white)
-            .background(SpeechBubbleShape(tailOnRight: true).fill(.blue))
+            .background(SpeechBubbleShape(tailOnRight: true).fill(Theme.accentFill))
     }
     .padding()
 }

@@ -36,7 +36,7 @@ struct PartnerConnectedView: View {
                 .opacity(avatarsAppeared ? 1 : 0)
 
                 ZStack {
-                    Circle().fill(Theme.heartRedFill)
+                    Circle().fill(Theme.coralFill)
                     Image(systemName: "heart.fill").foregroundStyle(.white).font(.title3)
                 }
                 .frame(width: 36, height: 36)
@@ -51,10 +51,10 @@ struct PartnerConnectedView: View {
             VStack(spacing: Theme.Spacing.xs) {
                 Text("You're connected!")
                     .font(.system(.largeTitle, design: .rounded, weight: .bold))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                 Text("\(appModel.currentUser.name) & \(appModel.partner.name) are now sharing Twofold together.")
                     .font(.subheadline)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, Theme.Spacing.xl)
             }
@@ -70,7 +70,7 @@ struct PartnerConnectedView: View {
                     .frame(maxWidth: .infinity)
                     .padding()
                     .background(Theme.primaryButtonGradient, in: Capsule())
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onPrimaryButton)
             }
             .padding(.horizontal, Theme.Spacing.lg)
             .padding(.bottom, Theme.Spacing.xl)

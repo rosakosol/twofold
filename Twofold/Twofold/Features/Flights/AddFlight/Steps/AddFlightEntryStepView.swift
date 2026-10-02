@@ -95,15 +95,15 @@ struct AddFlightEntryStepView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(detectedAirline.map { "\($0.name) \(digitsInQuery)" } ?? "Flight number \(digitsInQuery)")
                             .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(Theme.ink)
+                            .foregroundStyle(Theme.textPrimary)
                         Text(detectedAirline != nil ? "Detected flight number" : "Tap to choose an airline")
                             .font(.caption)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                     }
                     Spacer(minLength: 0)
                     Image(systemName: "chevron.right")
                         .font(.caption)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                 }
                 .padding()
                 .themedCardBackground(cornerRadius: Theme.Radius.card)
@@ -120,7 +120,7 @@ struct AddFlightEntryStepView: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
                 Text("SUGGESTIONS")
                     .font(.caption2.weight(.bold))
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
 
                 VStack(spacing: Theme.Spacing.sm) {
                     ForEach(airportResults) { airport in
@@ -130,14 +130,14 @@ struct AddFlightEntryStepView: View {
                             HStack(spacing: Theme.Spacing.sm) {
                                 Image(systemName: "airplane.circle.fill")
                                     .font(.title3)
-                                    .foregroundStyle(Theme.skyBlueText)
+                                    .foregroundStyle(Theme.accent)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(airport.name)
                                         .font(.subheadline.weight(.medium))
-                                        .foregroundStyle(Theme.ink)
+                                        .foregroundStyle(Theme.textPrimary)
                                     Text("\(airport.iata) · \(airport.icao ?? "—") · \(airport.cityOrName)")
                                         .font(.caption)
-                                        .foregroundStyle(Theme.subtleInk)
+                                        .foregroundStyle(Theme.textSecondary)
                                 }
                                 Spacer(minLength: 0)
                             }
@@ -200,17 +200,17 @@ struct AddFlightEntryStepView: View {
         Button(action: action) {
             HStack {
                 ZStack {
-                    Circle().fill(Theme.skyBlue.opacity(0.15))
-                    Image(systemName: icon).foregroundStyle(Theme.skyBlueText)
+                    Circle().fill(Theme.accent.opacity(0.15))
+                    Image(systemName: icon).foregroundStyle(Theme.accent)
                 }
                 .frame(width: 36, height: 36)
                 Text(title)
                     .font(.subheadline.weight(.medium))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                 Spacer()
                 Image(systemName: "chevron.right")
                     .font(.caption)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
             }
             .padding()
             .themedCardBackground(cornerRadius: Theme.Radius.card)

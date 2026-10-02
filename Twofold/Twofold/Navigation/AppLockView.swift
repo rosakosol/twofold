@@ -24,22 +24,22 @@ struct AppLockView: View {
                 VStack(spacing: Theme.Spacing.md) {
                     ZStack {
                         Circle()
-                            .fill(Theme.skyBlue.opacity(0.18))
+                            .fill(Theme.accent.opacity(0.18))
                             .frame(width: 116, height: 116)
                             .blur(radius: 16)
                         Image(systemName: "lock.fill")
                             .font(.system(size: 40, weight: .medium))
-                            .foregroundStyle(Theme.skyBlueText)
+                            .foregroundStyle(Theme.accent)
                     }
 
                     Text("twofold")
                         .font(.system(.title, design: .serif))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                 }
 
                 Text("Unlock to continue")
                     .font(.subheadline)
-                    .foregroundStyle(Theme.subtleInk)
+                    .foregroundStyle(Theme.textSecondary)
 
                 Spacer()
 
@@ -54,7 +54,7 @@ struct AppLockView: View {
                     .frame(maxWidth: .infinity)
                     .padding()
                     .background(Theme.primaryButtonGradient, in: Capsule())
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onPrimaryButton)
                 }
                 .disabled(isAuthenticating)
                 .padding(.horizontal, Theme.Spacing.lg)

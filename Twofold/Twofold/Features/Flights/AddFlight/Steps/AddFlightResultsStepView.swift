@@ -87,13 +87,13 @@ struct AddFlightResultsStepView: View {
         HStack(spacing: Theme.Spacing.xs) {
             if model.mode == .route {
                 if let departure = model.departureAirport {
-                    PillBadge(text: departure.preferredCode ?? departure.cityOrName, tint: Theme.skyBlue)
+                    PillBadge(text: departure.preferredCode ?? departure.cityOrName, tint: Theme.accent)
                 }
                 if let destination = model.destinationAirport {
-                    PillBadge(text: destination.preferredCode ?? destination.cityOrName, tint: Theme.skyBlue)
+                    PillBadge(text: destination.preferredCode ?? destination.cityOrName, tint: Theme.accent)
                 }
             }
-            PillBadge(text: model.date.formatted(.dateTime.day().month(.abbreviated)), tint: Theme.subtleInk)
+            PillBadge(text: model.date.formatted(.dateTime.day().month(.abbreviated)), tint: Theme.textSecondary)
         }
     }
 
@@ -106,7 +106,7 @@ struct AddFlightResultsStepView: View {
                     .font(.caption.weight(.medium))
             }
             .buttonStyle(.plain)
-            .foregroundStyle(Theme.subtleInk)
+            .foregroundStyle(Theme.textSecondary)
 
             Spacer()
 
@@ -119,7 +119,7 @@ struct AddFlightResultsStepView: View {
                 Label(airlineFilter ?? "All Airlines", systemImage: "chevron.down")
                     .font(.caption.weight(.medium))
             }
-            .foregroundStyle(Theme.subtleInk)
+            .foregroundStyle(Theme.textSecondary)
         }
     }
 
@@ -127,11 +127,11 @@ struct AddFlightResultsStepView: View {
 
     private var emptyState: some View {
         VStack(spacing: Theme.Spacing.sm) {
-            Image(systemName: "airplane.circle").font(.title).foregroundStyle(Theme.subtleInk)
+            Image(systemName: "airplane.circle").font(.title).foregroundStyle(Theme.textSecondary)
             Text("No flights found").font(.subheadline.weight(.medium))
             Text("Try a different date or double-check the flight number.")
                 .font(.caption)
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
@@ -140,8 +140,8 @@ struct AddFlightResultsStepView: View {
 
     private func errorState(_ message: String) -> some View {
         VStack(spacing: Theme.Spacing.sm) {
-            Image(systemName: "exclamationmark.triangle").font(.title2).foregroundStyle(Theme.heartRedText)
-            Text(message).font(.subheadline).foregroundStyle(Theme.subtleInk).multilineTextAlignment(.center)
+            Image(systemName: "exclamationmark.triangle").font(.title2).foregroundStyle(Theme.error)
+            Text(message).font(.subheadline).foregroundStyle(Theme.textSecondary).multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
         .padding(Theme.Spacing.lg)
@@ -165,10 +165,10 @@ struct AddFlightResultsStepView: View {
                         AirlineLogoView(url: candidate.logoURL, size: 22)
                         Text(candidate.displayFlightNumber).font(.headline)
                         if candidate.isCodeshare == true {
-                            PillBadge(text: "Codeshare", tint: Theme.subtleInk)
+                            PillBadge(text: "Codeshare", tint: Theme.textSecondary)
                         }
                         if !candidate.canTrack {
-                            PillBadge(text: "Not live yet", tint: Theme.subtleInk)
+                            PillBadge(text: "Not live yet", tint: Theme.textSecondary)
                         }
                         Spacer(minLength: 0)
                     }
@@ -181,7 +181,7 @@ struct AddFlightResultsStepView: View {
                         Text(candidate.operatorName.map { "Operated by \($0) as \(operatingNumber)" }
                             ?? "Operated as \(operatingNumber)")
                             .font(.caption)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                     }
 
                     // The chip above names the date that was *searched*, not the date of each
@@ -194,13 +194,13 @@ struct AddFlightResultsStepView: View {
                     if let departureDay = candidate.departureDayLabel(searchedDate: model.date) {
                         Text(departureDay)
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(Theme.heartRedText)
+                            .foregroundStyle(Theme.error)
                     }
 
                     if let originCity = candidate.origin?.city, let destinationCity = candidate.destination?.city {
                         Text("\(originCity) to \(destinationCity)")
                             .font(.caption)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                     }
 
                     HStack(spacing: Theme.Spacing.xs) {
@@ -247,8 +247,8 @@ struct AddFlightResultsStepView: View {
         .font(.caption.weight(.semibold))
         .padding(.horizontal, Theme.Spacing.sm)
         .padding(.vertical, 4)
-        .background(Theme.leafGreen.opacity(0.15), in: Capsule())
-        .foregroundStyle(Theme.leafGreenText)
+        .background(Theme.success.opacity(0.15), in: Capsule())
+        .foregroundStyle(Theme.success)
     }
 
     /// Every branch of `progressSummary` renders through this one shape, including the plain
@@ -257,7 +257,7 @@ struct AddFlightResultsStepView: View {
     @ViewBuilder
     private func statusColumn(_ candidate: AeroFlightCandidate) -> some View {
         if let summary = candidate.progressSummary() {
-            let tint = summary.isPast ? Theme.subtleInk : Theme.skyBlue
+            let tint = summary.isPast ? Theme.textSecondary : Theme.accent
             VStack(spacing: 2) {
                 if let symbol = summary.symbol {
                     Image(systemName: symbol).font(.caption).foregroundStyle(tint)
@@ -271,11 +271,11 @@ struct AddFlightResultsStepView: View {
                     .minimumScaleFactor(0.7)
                     // A bare countdown carries no symbol and isn't a status word — it stays in
                     // page ink, the way it always read, rather than borrowing a status colour.
-                    .foregroundStyle(summary.symbol == nil ? Theme.ink : tint)
+                    .foregroundStyle(summary.symbol == nil ? Theme.textPrimary : tint)
                 if let detail = summary.detail {
                     Text(detail)
                         .font(.caption2)
-                        .foregroundStyle(Theme.subtleInk)
+                        .foregroundStyle(Theme.textSecondary)
                 }
             }
             .multilineTextAlignment(.center)

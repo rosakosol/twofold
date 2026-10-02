@@ -19,7 +19,7 @@ struct StatsShareButton: View {
         Button(action: action) {
             Image(systemName: "square.and.arrow.up")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Theme.subtleInk)
+                .foregroundStyle(Theme.textSecondary)
                 // `square.and.arrow.up` is not centred inside its own layout box. Measured at
                 // 15pt semibold: an 18×22 box with the ink spanning y 3…20, so three points of
                 // air above the arrow and one below the tray. Centring the *box* therefore hangs
@@ -42,5 +42,5 @@ struct StatsShareButton: View {
         StatsShareButton(label: "Share flight stats") {}
     }
     .padding()
-    .background(Theme.cardBackground)
+    .background(Theme.surface)
 }

@@ -28,7 +28,7 @@ struct PulsingGlobeHeart: View {
         ZStack {
             if showsGlow {
                 Circle()
-                    .fill(Theme.skyBlue.opacity(0.25))
+                    .fill(Theme.accent.opacity(0.25))
                     .frame(width: size * 1.5, height: size * 1.5)
                     .blur(radius: size * 0.2)
                     .scaleEffect(isPulsing ? 1.08 : 0.92)

@@ -107,10 +107,10 @@ struct DeckCardRow: View {
                     // All/Your turn/Answered/New lists (the one place that mixes all four types,
                     // and so the one place you most need to tell them apart) not showing it at all.
                     // The topic now sits up by the emoji instead of competing for this slot.
-                    PillBadge(text: deck.gameType.shortLabel, tint: deck.gameType.iconGradient.first ?? Theme.skyBlue, isNeutral: true)
+                    PillBadge(text: deck.gameType.shortLabel, tint: deck.gameType.iconGradient.first ?? Theme.accent, isNeutral: true)
                     Text(deck.title)
                         .font(.subheadline.weight(.bold))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                         .multilineTextAlignment(.leading)
                         // Capped and given a stable intrinsic height so every card in the same
                         // row/list ends up the same total height regardless of title length —
@@ -121,11 +121,11 @@ struct DeckCardRow: View {
                     if bothCompleted {
                         Label(completedLabel, systemImage: "checkmark.seal.fill")
                             .font(.caption2.weight(.semibold))
-                            .foregroundStyle(Theme.leafGreenText)
+                            .foregroundStyle(Theme.success)
                     } else {
                         Text("\(deck.questionCount) question\(deck.questionCount == 1 ? "" : "s")")
                             .font(.caption2)
-                            .foregroundStyle(Theme.subtleInk)
+                            .foregroundStyle(Theme.textSecondary)
                     }
                 }
                 // The title takes the width it needs before the topic label beside it gets any.
@@ -141,8 +141,8 @@ struct DeckCardRow: View {
 
                 if isLocked {
                     ZStack {
-                        Circle().fill(Theme.subtleInk.opacity(0.12))
-                        Image(systemName: "lock.fill").font(.caption).foregroundStyle(Theme.subtleInk)
+                        Circle().fill(Theme.textSecondary.opacity(0.12))
+                        Image(systemName: "lock.fill").font(.caption).foregroundStyle(Theme.textSecondary)
                     }
                     .frame(width: 30, height: 30)
                 } else if showsTopic || showsEmoji {
@@ -183,13 +183,13 @@ struct DeckCardRow: View {
 
                 Spacer(minLength: 0)
                 if !isLocked && !needsPartnerGate {
-                    Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.subtleInk)
+                    Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.textSecondary)
                 }
             }
         }
         .padding(Theme.Spacing.sm)
         .frame(height: cardHeight, alignment: .top)
-        .background(bothCompleted ? Theme.leafGreen.opacity(0.1) : Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+        .background(bothCompleted ? Theme.success.opacity(0.1) : Theme.surface, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         .overlay {
             // A completed deck's pale green fill barely reads as different from the page
             // background on its own — a green edge (instead of the generic neutral one) gives
@@ -201,8 +201,8 @@ struct DeckCardRow: View {
             RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
                 .strokeBorder(
                     bothCompleted
-                        ? AnyShapeStyle(Theme.leafGreen.opacity(0.5))
-                        : (colorScheme == .dark ? AnyShapeStyle(TwofoldDark.Line.hairline) : AnyShapeStyle(Theme.subtleInk.opacity(0.12))),
+                        ? AnyShapeStyle(Theme.success.opacity(0.5))
+                        : (colorScheme == .dark ? AnyShapeStyle(Theme.line) : AnyShapeStyle(Theme.textSecondary.opacity(0.12))),
                     lineWidth: bothCompleted ? 1.5 : 1.25
                 )
         }
@@ -223,11 +223,11 @@ struct DeckCardRow: View {
             AvatarView(person: person, size: 32, showsRing: true)
             if completed {
                 ZStack {
-                    Circle().fill(Theme.leafGreenFill)
+                    Circle().fill(Theme.successFill)
                     Image(systemName: "checkmark").font(.system(size: 8, weight: .bold)).foregroundStyle(.white)
                 }
                 .frame(width: 16, height: 16)
-                .overlay(Circle().strokeBorder(Theme.cardBackground, lineWidth: 2))
+                .overlay(Circle().strokeBorder(Theme.surface, lineWidth: 2))
             }
         }
         // The tick is the whole point of this pair of avatars — who has finished their side — and
