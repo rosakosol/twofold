@@ -21,16 +21,19 @@ extension WordGuessMark {
     var tileColor: Color {
         switch self {
         case .correct: Theme.successFill
-        // DESIGN: blue, not the usual yellow. Amber is reserved for delays, and blue against green
-        // is the colour-blind pairing this kind of game already offers.
-        case .present: Theme.accentFill
+        case .present: Theme.yellowFill
         case .absent: Color.dynamic(light: 0x52606E, dark: 0x3A4453)
         }
     }
 
-    /// White on all three, in both themes. The fills above are chosen dark enough to carry it,
-    /// which is what keeps one letter style rather than three.
-    var tileTextColor: Color { .white }
+    /// White on green and grey; dark ink on yellow, where white would be about 2:1. Fixed in
+    /// both appearances, like the fills under it.
+    var tileTextColor: Color {
+        switch self {
+        case .present: Theme.inkOnFixedLight
+        case .correct, .absent: .white
+        }
+    }
 
     /// What a screen reader says for this tile. The colours are the entire game state, so a board
     /// that reads out only its letters tells a VoiceOver user nothing about how they are doing.

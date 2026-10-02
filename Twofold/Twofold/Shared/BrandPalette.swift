@@ -89,6 +89,11 @@ enum Brand {
     // trivia tile 1, stat tiles), and text in it needs a readable tone. These are the spec's own
     // trivia-shape values for indigo (section 2.6): #3A56D9 is 6.4:1 on white, #9AACFF 8.4:1 on #141A23.
     static let indigo = Color.dynamic(light: 0x3A56D9, dark: 0x9AACFF)
+    // DESIGN: not in the spec. Yellow is kept for two places where it is the convention people
+    // already read: a Word Guess letter that is in the word, and a "fair" password. Distinct from
+    // the amber `warning`, which stays reserved for delays. This is the text-safe tone: 5.1:1 on
+    // white, 11:1 on #141A23. Bright yellow text on white would be about 2:1.
+    static let yellow = Color.dynamic(light: 0x8A6A00, dark: 0xF2C94C)
 
     // MARK: Fills under white content (same in both appearances)
 
@@ -100,6 +105,9 @@ enum Brand {
     static let errorFill = Color(hex: 0xC23A48)
     static let indigoFill = Color(hex: 0x3A56D9)
     static let violetFill = Color(hex: 0x6B4FE3)
+    /// Yellow as a shape, not as text. White on it is about 2:1, so put `inkOnFixedLight` on it
+    /// (9:1) instead.
+    static let yellowFill = Color(hex: 0xE8B33C)
     /// Text that must stay dark whatever the appearance, on a surface that is itself fixed-light.
     static let inkOnFixedLight = Color(hex: 0x0E1A26)
 

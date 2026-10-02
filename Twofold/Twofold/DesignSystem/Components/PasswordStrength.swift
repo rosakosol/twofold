@@ -13,12 +13,21 @@
 import SwiftUI
 
 extension PasswordStrength {
+    /// The label's colour: text-safe in both appearances.
     var color: Color {
         switch self {
         case .weak: Theme.error
-        // DESIGN: blue, not amber. Amber is reserved for delays, and "fair" is not a warning.
-        case .fair: Theme.accent
+        case .fair: Theme.yellow
         case .strong: Theme.success
+        }
+    }
+
+    /// The bar's colour. Only "fair" differs from `color`: the bar can take the brighter yellow,
+    /// because the word beside it carries the meaning and the segment count backs it up.
+    var barColor: Color {
+        switch self {
+        case .fair: Theme.yellowFill
+        case .weak, .strong: color
         }
     }
 }
@@ -44,7 +53,7 @@ struct PasswordStrengthView: View {
                     HStack(spacing: 4) {
                         ForEach(0..<3, id: \.self) { index in
                             Capsule()
-                                .fill(index <= strength.rawValue ? strength.color : Theme.textSecondary.opacity(0.2))
+                                .fill(index <= strength.rawValue ? strength.barColor : Theme.textSecondary.opacity(0.2))
                                 .frame(height: 4)
                         }
                     }

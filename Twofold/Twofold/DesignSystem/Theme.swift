@@ -45,6 +45,7 @@ enum Theme {
     static let warning = Brand.warning
     static let warningBackground = Brand.warningBackground
     static let indigo = Brand.indigo
+    static let yellow = Brand.yellow
     static let accentBackground = Brand.accentBackground
 
     // MARK: Fills (white content on top, same in both appearances)
@@ -55,6 +56,8 @@ enum Theme {
     static let errorFill = Brand.errorFill
     static let indigoFill = Brand.indigoFill
     static let violetFill = Brand.violetFill
+    /// Carries dark ink (`inkOnFixedLight`), not white.
+    static let yellowFill = Brand.yellowFill
 
     // MARK: Surfaces
 
