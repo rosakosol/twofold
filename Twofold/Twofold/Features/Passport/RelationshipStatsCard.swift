@@ -29,8 +29,7 @@ struct RelationshipStatsCard: View {
     /// The two headline sizes were fixed points, so they were the only text on the Stats tab that
     /// ignored the reader's text setting outright — the numbers this card exists to show stayed
     /// small while every label around them grew.
-    @ScaledMetric(relativeTo: .title) private var timeTogetherFontSize: CGFloat = 26
-    @ScaledMetric(relativeTo: .title3) private var heroValueFontSize: CGFloat = 22
+    @ScaledMetric(relativeTo: .title) private var timeTogetherFontSize: CGFloat = 34
 
     /// Two columns of milestone tiles at normal sizes. At accessibility sizes each tile gets barely
     /// half the card's width, and since every line inside is capped to one line with a shrink
@@ -55,130 +54,66 @@ struct RelationshipStatsCard: View {
     private var capsLinesToFitGrid: Bool { !dynamicTypeSize.isAccessibilitySize }
 
     var body: some View {
-        SectionCard {
-            ZStack(alignment: .topTrailing) {
-                VStack(spacing: Theme.Spacing.md) {
-                    coupleHeader
+        VStack(spacing: Theme.Spacing.md) {
+            // The relationship's summary on `heroBlue` (section 6, Stats): the two of you, how
+            // long, and the three numbers.
+            StatsHeroCard(gradient: Theme.heroBlue, shareLabel: "Share relationship stats", onShare: onShare) {
+                AvatarPair(me: couple.partnerA, partner: couple.partnerB, size: 44, isOnColour: true)
 
-                    Text(stats.timeTogetherLabel)
-                        .font(.system(size: timeTogetherFontSize, weight: .bold, design: .rounded))
-                        .foregroundStyle(Theme.textPrimary)
-                        .multilineTextAlignment(.center)
-                        .frame(maxWidth: .infinity)
-
-                    heroStatLayout {
-                        heroStat(label: "Days Together", value: "\(stats.daysTogether)")
-                        if showTripsStat {
-                            heroStat(label: "Trips", value: "\(stats.tripCount)")
-                        }
-                        if showMemoriesStat {
-                            heroStat(label: "Memories", value: "\(stats.memoryCount)")
-                        }
-                    }
+                Text(stats.timeTogetherLabel)
+                    .font(.system(size: timeTogetherFontSize, weight: .bold))
+                    .tracking(-0.6)
+                    .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
 
-                    Divider()
-
-                    LazyVGrid(columns: milestoneColumns, spacing: Theme.Spacing.sm) {
-                        if showReunionsStat {
-                            StatTile(icon: "heart.fill", label: "Total Reunions", value: "\(stats.reunionCount)", chip: .coral)
-                        }
-                        StatTile(icon: "airplane", label: "Furthest Apart", value: MeasurementPreference.distanceLabel(km: stats.longestDistanceKm), chip: .blue)
-                        StatTile(
-                            icon: "arrow.up.right",
-                            label: "Longest Trip",
-                            value: stats.longestTrip.map { RelationshipMilestoneStats.tripDuration($0) } ?? "—",
-                            detail: stats.longestTrip?.destination.displayCity,
-                            chip: .green
-                        )
-                        StatTile(
-                            icon: "arrow.down.left",
-                            label: "Shortest Trip",
-                            value: stats.shortestTrip.map { RelationshipMilestoneStats.tripDuration($0) } ?? "—",
-                            detail: stats.shortestTrip?.destination.displayCity,
-                            chip: .indigo
-                        )
-                        StatTile(
-                            icon: "hourglass",
-                            label: "Longest Gap",
-                            value: stats.longestSeparationDays.map { "\($0) days" } ?? "—",
-                            chip: .violet
-                        )
-                        StatTile(
-                            icon: "calendar.badge.clock",
-                            label: "Next Reunion",
-                            value: stats.nextReunionDaysToGo.map { $0 == 0 ? "Today!" : "\($0) days" } ?? "Plan one",
-                            detail: stats.nextReunion?.destination.displayCity,
-                            chip: .coral
-                        )
+                heroStatLayout {
+                    StatsHeroNumber(label: "Days together", value: "\(stats.daysTogether)", capsLines: capsLinesToFitGrid)
+                    if showTripsStat {
+                        StatsHeroNumber(label: "Trips", value: "\(stats.tripCount)", capsLines: capsLinesToFitGrid)
+                    }
+                    if showMemoriesStat {
+                        StatsHeroNumber(label: "Memories", value: "\(stats.memoryCount)", capsLines: capsLinesToFitGrid)
                     }
                 }
+                .frame(maxWidth: .infinity)
+            }
 
-                if let onShare {
-                    StatsShareButton(label: "Share relationship stats", action: onShare)
+            // Six tiles, coloured as the spec gives them: reunions coral, furthest apart blue,
+            // longest trip green, shortest trip indigo, longest gap violet, next reunion coral.
+            LazyVGrid(columns: milestoneColumns, spacing: Theme.Spacing.sm) {
+                if showReunionsStat {
+                    StatTile(icon: "heart.fill", label: "Total reunions", value: "\(stats.reunionCount)", chip: .coral)
                 }
+                StatTile(icon: "airplane", label: "Furthest apart", value: MeasurementPreference.distanceLabel(km: stats.longestDistanceKm), chip: .blue)
+                StatTile(
+                    icon: "arrow.up.right",
+                    label: "Longest trip",
+                    value: stats.longestTrip.map { RelationshipMilestoneStats.tripDuration($0) } ?? "—",
+                    detail: stats.longestTrip?.destination.displayCity,
+                    chip: .green
+                )
+                StatTile(
+                    icon: "arrow.down.left",
+                    label: "Shortest trip",
+                    value: stats.shortestTrip.map { RelationshipMilestoneStats.tripDuration($0) } ?? "—",
+                    detail: stats.shortestTrip?.destination.displayCity,
+                    chip: .indigo
+                )
+                StatTile(
+                    icon: "hourglass",
+                    label: "Longest gap",
+                    value: stats.longestSeparationDays.map { "\($0) days" } ?? "—",
+                    chip: .violet
+                )
+                StatTile(
+                    icon: "calendar.badge.clock",
+                    label: "Next reunion",
+                    value: stats.nextReunionDaysToGo.map { $0 == 0 ? "Today" : "\($0) days" } ?? "Plan one",
+                    detail: stats.nextReunion?.destination.displayCity,
+                    chip: .coral
+                )
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
-
-    /// Both avatars joined by a line with a heart at its center — the same "two people, one
-    /// connection" visual language as `PassportView`'s flight path, but a plain heart-red line
-    /// rather than a dashed route with a plane, since this card is about the relationship
-    /// itself, not a specific journey between two airports. Fixed-width (not flexible/stretched
-    /// edge to edge) and the whole group centered via the `Spacer()`s on either side — a
-    /// full-width line reached all the way to the card's top-trailing corner, where it visually
-    /// collided with the inline share button there.
-    private var coupleHeader: some View {
-        HStack(spacing: Theme.Spacing.sm) {
-            Spacer(minLength: 0)
-
-            AvatarView(person: couple.partnerA, size: 44, showsRing: true)
-
-            Rectangle()
-                .fill(Theme.coral.opacity(0.4))
-                .frame(width: 56, height: 2)
-                .overlay {
-                    Image(systemName: "heart.fill")
-                        .font(.subheadline)
-                        .foregroundStyle(Theme.coral)
-                        .padding(6)
-                        .background(Theme.surface, in: Circle())
-                }
-                .accessibilityHidden(true)
-
-            AvatarView(person: couple.partnerB, size: 44, showsRing: true)
-
-            Spacer(minLength: 0)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, Theme.Spacing.lg)
-    }
-
-    private func heroStat(label: String, value: String) -> some View {
-        VStack(spacing: 2) {
-            Text(label.uppercased())
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(Theme.textSecondary)
-                .lineLimit(capsLinesToFitGrid ? 1 : nil)
-                .minimumScaleFactor(capsLinesToFitGrid ? 0.8 : 1)
-            Text(value)
-                .font(.system(size: heroValueFontSize, weight: .bold, design: .rounded))
-                .foregroundStyle(Theme.textPrimary)
-                .lineLimit(capsLinesToFitGrid ? 1 : nil)
-                .minimumScaleFactor(capsLinesToFitGrid ? 0.6 : 1)
-        }
-        .frame(maxWidth: .infinity)
-        .accessibilityElement(children: .combine)
-    }
-
-}
-
-#Preview {
-    RelationshipStatsCard(
-        couple: MockData.couple,
-        stats: RelationshipMilestoneStats(couple: MockData.couple, trips: MockData.trips, memories: MockData.memories)
-    )
-    .padding()
-    .background(Theme.backgroundGradient)
 }
