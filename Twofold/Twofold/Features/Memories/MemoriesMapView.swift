@@ -118,6 +118,14 @@ struct MemoriesMapView: View {
             }
             .sensoryFeedback(.impact(weight: .light), trigger: shownCityIDs)
 
+            // The map fades into the screen background at the top (section 6, Memories), so the
+            // title and search field sit on calm ground rather than straight on the map.
+            LinearGradient(colors: [Brand.backgroundTop, Brand.backgroundTop.opacity(0)], startPoint: .top, endPoint: .bottom)
+                .frame(height: 140)
+                .ignoresSafeArea(edges: .top)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+
             VStack(spacing: Theme.Spacing.sm) {
                 searchButton
                 if pins.isEmpty {
@@ -162,6 +170,7 @@ struct MemoriesMapView: View {
             )
             .presentationDetents([Self.peekDetent, Self.expandedDetent], selection: $sheetDetent)
             .presentationDragIndicator(.visible)
+            .presentationCornerRadius(Theme.Radius.sheet)
             .presentationBackgroundInteraction(.enabled(upThrough: Self.peekDetent))
         }
         .sheet(item: $addMemoryPlace) { place in
@@ -189,9 +198,16 @@ struct MemoriesMapView: View {
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, Theme.Spacing.md)
-            .padding(.vertical, Theme.Spacing.sm)
-            .themedCardBackground(cornerRadius: Theme.Radius.pill)
-            .shadow(color: .black.opacity(0.12), radius: 6, y: 3)
+            .frame(minHeight: 44)
+            // A capsule on the sheet material (section 6, Memories): blur, the sheet tint, an edge.
+            .background {
+                ZStack {
+                    Capsule().fill(.regularMaterial)
+                    Capsule().fill(Theme.sheet)
+                }
+            }
+            .overlay { Capsule().strokeBorder(Theme.line, lineWidth: 1) }
+            .shadow(color: Theme.Shadow.color, radius: 8, y: 4)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Search for a place on the map")

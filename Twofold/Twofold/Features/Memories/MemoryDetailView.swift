@@ -66,8 +66,10 @@ struct MemoryDetailView: View {
 
                             if !memory.note.isEmpty {
                                 Divider().padding(.vertical, Theme.Spacing.xs)
+                                // New York, 19pt (section 3): a note reads as something written by
+                                // hand, not as interface copy.
                                 Text(memory.note)
-                                    .font(.body)
+                                    .font(.system(size: 19, design: .serif))
                                     .foregroundStyle(Theme.textPrimary)
                             }
 
@@ -162,7 +164,8 @@ struct MemoryDetailView: View {
     /// you meant — and the first tap looks like it did nothing.
     private func titleField(for memory: Memory) -> some View {
         TextField("Title", text: $draftTitle)
-            .font(.title2.weight(.bold))
+            .font(.system(size: 28, weight: .bold))
+            .foregroundStyle(Theme.textPrimary)
             .focused($titleFocused)
             .submitLabel(.done)
             .onAppear { draftTitle = memory.title }
@@ -197,8 +200,9 @@ struct MemoryDetailView: View {
             editableRow(
                 text: memory.place?.city ?? "Add a location",
                 font: .subheadline,
-                icon: "mappin.and.ellipse",
-                muted: memory.place == nil
+                icon: memory.place == nil ? "mappin.and.ellipse" : "mappin.circle.fill",
+                muted: memory.place == nil,
+                iconColor: Theme.coral
             )
         }
         .buttonStyle(.plain)
@@ -223,11 +227,11 @@ struct MemoryDetailView: View {
 
     /// A small leading glyph is what marks these as tappable. Without it they read as the plain
     /// captions they used to be, and nobody thinks to touch them.
-    private func editableRow(text: String, font: Font, icon: String, muted: Bool) -> some View {
+    private func editableRow(text: String, font: Font, icon: String, muted: Bool, iconColor: Color = Theme.textSecondary) -> some View {
         HStack(spacing: Theme.Spacing.xs) {
             Image(systemName: icon)
                 .font(font)
-                .foregroundStyle(muted ? Theme.error : Theme.textSecondary)
+                .foregroundStyle(muted ? Theme.error : iconColor)
             Text(text)
                 .font(muted ? font.weight(.medium) : font)
                 .foregroundStyle(muted ? Theme.error : Theme.textSecondary)
@@ -258,20 +262,25 @@ struct MemoryDetailView: View {
                                 Theme.surface
                             }
                         }
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
                         .tag(index)
                     }
                 }
                 .tabViewStyle(.page)
                 .frame(height: 320)
             } else {
-                MemoryPhotoView(memory: memory, cornerRadius: 12)
+                MemoryPhotoView(memory: memory, cornerRadius: 4)
                     .frame(height: 320)
             }
         }
-        .padding(Theme.Spacing.sm)
-        .background(.white, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .shadow(color: .black.opacity(0.15), radius: 12, y: 6)
+        // A polaroid (section 6, Memories): a white frame 10pt at the sides and 40pt at the
+        // bottom, tilted two degrees, with the floating shadow. White in both appearances, since
+        // it is a photograph's own border.
+        .padding(.horizontal, 10)
+        .padding(.top, 10)
+        .padding(.bottom, 40)
+        .background(.white, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .shadow(color: Theme.Shadow.color, radius: Theme.Shadow.radius, y: Theme.Shadow.y)
         .rotationEffect(.degrees(-2))
         // While an upload is going. This used to live inside the edit button, which no longer
         // exists, and the picker dismisses before the photo appears — so with nothing here at all,

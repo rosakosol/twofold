@@ -34,15 +34,23 @@ struct MemoriesView: View {
             .navigationTitle("Memories")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
+                    // The gradient "+" (section 6, Memories), without the system's glass capsule
+                    // around it, which would put a circle inside a circle.
                     Button {
                         showingAddMemory = true
                     } label: {
                         Image(systemName: "plus")
+                            .font(.system(size: 17, weight: .bold))
+                            .foregroundStyle(Theme.onPrimaryButton)
+                            .frame(width: 40, height: 40)
+                            .background(Theme.primaryButtonGradient, in: Circle())
                     }
+                    .buttonStyle(.plain)
                     // A bare glyph button leaves VoiceOver to guess from the symbol name; the
                     // other tab roots (see `GamesHubView`'s toolbar) all name theirs explicitly.
                     .accessibilityLabel("Add memory")
                 }
+                .sharedBackgroundVisibility(.hidden)
             }
             .addContentSheet(isPresented: $showingAddMemory, canAdd: appModel.canAddContent, feature: .memories) {
                 AddMemoryView()
@@ -56,8 +64,14 @@ struct MemoriesView: View {
             toggleButton(mode: .map, systemImage: "map")
         }
         .padding(4)
-        .background(Theme.surface, in: Capsule())
-        .shadow(color: .black.opacity(0.15), radius: 10, y: 4)
+        .background {
+            ZStack {
+                Capsule().fill(.regularMaterial)
+                Capsule().fill(Theme.sheet)
+            }
+        }
+        .overlay { Capsule().strokeBorder(Theme.line, lineWidth: 1) }
+        .shadow(color: Theme.Shadow.color, radius: 10, y: 4)
     }
 
     private func toggleButton(mode target: MemoriesViewMode, systemImage: String) -> some View {
@@ -67,7 +81,7 @@ struct MemoriesView: View {
             Image(systemName: systemImage)
                 .font(.headline)
                 .frame(width: 44, height: 44)
-                .foregroundStyle(mode == target ? .white : Theme.textSecondary)
+                .foregroundStyle(mode == target ? Theme.onFill : Theme.textSecondary)
                 .background(mode == target ? AnyShapeStyle(Theme.accentFill) : AnyShapeStyle(.clear), in: Capsule())
                 // The 44x44 frame above sets the *layout* size, but without a content shape the
                 // hittable and accessibility region stayed the glyph's own bounds — measured at

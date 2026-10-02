@@ -103,6 +103,11 @@ struct MemoriesListView: View {
             content
                 .navigationTitle(initialLocationFilter.city)
                 .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .principal) {
+                        placeHeader(initialLocationFilter)
+                    }
+                }
         } else {
             content
         }
@@ -335,6 +340,28 @@ struct MemoriesListView: View {
         }
     }
 
+    /// The selected place, heading its sheet (section 6, Memories): a coral pin, the place, and
+    /// how many memories are there.
+    private func placeHeader(_ place: Place) -> some View {
+        HStack(spacing: Theme.Spacing.sm) {
+            Image(systemName: "mappin.circle.fill")
+                .font(.title2)
+                .foregroundStyle(Theme.coral)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(place.displayCity)
+                    .font(.headline)
+                    .foregroundStyle(Theme.textPrimary)
+                    .lineLimit(1)
+                Text("\(place.country), \(filteredMemories.count) \(filteredMemories.count == 1 ? "memory" : "memories")")
+                    .font(.caption)
+                    .foregroundStyle(Theme.textSecondary)
+                    .lineLimit(1)
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+
     private func memoryRow(_ memory: Memory) -> some View {
         SectionCard {
             // `.center`, not `.top` — a memory with no `place` shows two lines of text instead of
@@ -343,7 +370,7 @@ struct MemoriesListView: View {
             // excludes the note/description (title, location, date only) so every row's height
             // stays consistent regardless of how long a memory's note is.
             HStack(alignment: .center, spacing: Theme.Spacing.md) {
-                MemoryPhotoView(memory: memory, cornerRadius: 14)
+                MemoryPhotoView(memory: memory, cornerRadius: Theme.Radius.image - 4)
                     .frame(width: 72, height: 72)
 
                 VStack(alignment: .leading, spacing: 4) {
