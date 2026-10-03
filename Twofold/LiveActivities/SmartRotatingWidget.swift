@@ -2,29 +2,30 @@
 //  SmartRotatingWidget.swift
 //  LiveActivities
 //
-//  Premium tier — cycles through the couple's other widgets' content in one slot. This is standard
-//  WidgetKit practice: a single Timeline of time-spaced entries, each carrying a different slide's
-//  content pulled straight from the existing WidgetSnapshot — not an animation, and no extra
-//  reloadTimelines() calls beyond the one normal refresh.
+//  Premium. One slot that shows whichever of the couple's things matters most right now
+//  (docs/TWOFOLD_DESIGN.md, section 7), ranked by what is newest rather than cycled on a clock:
 //
-//  Advancing through entries that have already been handed over is free: it costs nothing against
-//  WidgetKit's daily refresh budget, because nothing is being reloaded. What costs budget is
-//  `getTimeline` being called again, which `.atEnd` does when the last entry's date passes. So the
-//  rotation interval and the reload rate have to be decoupled — see `slides(from:)`.
+//    1. a flight that is in the air, or departs or lands within the day
+//    2. today's question, while you have not answered it
+//    3. a new drawing from your partner, in the last day
+//    4. a memory from the last week
+//    5. otherwise, how long you have been together
+//
+//  The ranking is re-run hourly and at a flight's own departure and arrival, the moments when the
+//  answer changes. That is about two dozen reloads a day, inside WidgetKit's budget.
 //
 
 import SwiftUI
 import WidgetKit
 
 enum RotatingSlide {
-    case anniversary(days: Int, myName: String, partnerName: String)
-    case flight(status: FlightStatus, route: String, flightID: UUID?, travelerIsMe: Bool?, myName: String, partnerName: String)
-    /// No image data. The photo is read from `WidgetImageCache` at render time instead of riding
-    /// in the entry: the timeline now holds dozens of entries, and embedding the bytes would put a
-    /// copy in every memory entry, inflating the archive WidgetKit has to hand across. An oversized
-    /// archive is what left widgets rendering as grey placeholders (see `WidgetImageDecoding`).
-    case memory(title: String, memoryID: UUID?)
-    case stat(memoryCount: Int, tripCount: Int)
+    case flight(WidgetSnapshot.FlightInfo, partnerName: String)
+    case question(String)
+    case drawing(partnerName: String)
+    /// No image bytes in the entry: the photo is read from `WidgetImageCache` at render time, so a
+    /// timeline of several entries does not carry several copies of it.
+    case memory(title: String, memoryID: UUID)
+    case together(days: Int)
 }
 
 struct SmartRotatingEntry: TimelineEntry {
@@ -35,84 +36,60 @@ struct SmartRotatingEntry: TimelineEntry {
 
 struct SmartRotatingProvider: TimelineProvider {
     func placeholder(in context: Context) -> SmartRotatingEntry {
-        SmartRotatingEntry(date: .now, subscriptionTier: WidgetTier.premium, slide: .anniversary(days: 412, myName: "You", partnerName: "Partner"))
+        SmartRotatingEntry(date: .now, subscriptionTier: WidgetTier.premium, slide: .together(days: 412))
     }
 
     func getSnapshot(in context: Context, completion: @escaping (SmartRotatingEntry) -> Void) {
-        completion(slides(from: WidgetSnapshot.read()).first ?? placeholder(in: context))
+        let snapshot = WidgetSnapshot.read()
+        completion(SmartRotatingEntry(date: .now, subscriptionTier: snapshot?.subscriptionTier, slide: Self.mostRelevant(from: snapshot, at: .now)))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<SmartRotatingEntry>) -> Void) {
-        let entries = slides(from: WidgetSnapshot.read())
-        // .atEnd re-invokes getTimeline once the cycle finishes, naturally re-reading whatever
-        // the main app has written to the snapshot by then — same pattern as
-        // FlightCountdownProvider's tiered-run timeline.
-        completion(Timeline(entries: entries, policy: .atEnd))
+        let snapshot = WidgetSnapshot.read()
+        Task {
+            // Fetched here as well as by the Drawing Pad widget, so "a new drawing" works for
+            // someone who has only this widget on their Home Screen.
+            if let data = await DrawingPadProvider.fetchPad(at: snapshot?.partnerSignedDrawingPadURL) {
+                WidgetImageCache.writeDrawingPadImage(data)
+            }
+
+            let now = Date.now
+            var moments: [Date] = [now]
+            if let flight = snapshot?.nextFlight {
+                for moment in [flight.bestDeparture, flight.bestArrival].compactMap({ $0 }) where moment > now && moment < now.addingTimeInterval(3600) {
+                    moments.append(moment)
+                }
+            }
+            let entries = moments.sorted().map {
+                SmartRotatingEntry(date: $0, subscriptionTier: snapshot?.subscriptionTier, slide: Self.mostRelevant(from: snapshot, at: $0))
+            }
+            completion(Timeline(entries: entries, policy: .after(now.addingTimeInterval(3600))))
+        }
     }
 
-    /// How long each slide is on screen.
-    private static let rotationInterval: TimeInterval = 10 * 60
+    static func mostRelevant(from snapshot: WidgetSnapshot?, at date: Date) -> RotatingSlide? {
+        guard let snapshot else { return nil }
+        let day: TimeInterval = 86_400
 
-    /// How far ahead the timeline reaches, which is what actually decides the reload rate.
-    ///
-    /// These two are deliberately independent. One entry per slide at the rotation interval would
-    /// mean a four-slide cycle ends after twenty minutes, `.atEnd` fires, and `getTimeline` runs
-    /// ~72 times a day — past WidgetKit's daily budget of roughly 40-70 refreshes per device across
-    /// all widgets, at which point iOS throttles it and the widget stops updating at all. The cycle
-    /// is repeated instead, so the rotation is quick and the reloads are rare: about six a day.
-    private static let timelineSpan: TimeInterval = 4 * 60 * 60
-
-    /// One entry per slide per turn of the cycle, skipping slides with nothing to show (e.g. no
-    /// upcoming flight) rather than displaying an empty one.
-    private func slides(from snapshot: WidgetSnapshot?) -> [SmartRotatingEntry] {
-        let subscriptionTier = snapshot?.subscriptionTier
-        let myName = snapshot?.myName ?? "You"
-        let partnerName = snapshot?.partnerName ?? "Partner"
-
-        // Built as closures over a moment rather than as fixed values, because the timeline now
-        // spans hours: the flight slide has to say where the flight is at the entry's own time, not
-        // where it was when the timeline was built. Same reasoning as FlightTrackingWidget.
-        var builders: [(Date) -> RotatingSlide] = []
-
-        if let anniversaryDate = snapshot?.anniversaryDate {
-            builders.append { at in
-                let days = max(0, TimeMath.daysSince(anniversaryDate, now: at))
-                return .anniversary(days: days, myName: myName, partnerName: partnerName)
-            }
+        if let flight = snapshot.nextFlight {
+            let inAir = (flight.bestDeparture ?? .distantFuture) <= date && (flight.bestArrival ?? .distantPast) >= date
+            let soon = [flight.bestDeparture, flight.bestArrival].compactMap { $0 }.contains { abs($0.timeIntervalSince(date)) < day && $0 >= date }
+            if inAir || soon { return .flight(flight, partnerName: snapshot.partnerName) }
         }
-        if let flight = snapshot?.nextFlight {
-            builders.append { at in
-                .flight(
-                    status: flight.status.projected(departure: flight.bestDeparture, arrival: flight.bestArrival, now: at),
-                    route: "\(flight.originCity) → \(flight.destinationCity)",
-                    flightID: flight.id,
-                    travelerIsMe: flight.travelerIsMe,
-                    myName: myName,
-                    partnerName: partnerName
-                )
-            }
+        if let question = snapshot.dailyQuestion, !question.myAnswered {
+            return .question(question.question)
         }
-        if let memory = snapshot?.latestMemory {
-            builders.append { _ in .memory(title: memory.title, memoryID: memory.id) }
+        if let changed = WidgetImageCache.partnerDrawingChangedAt(), date.timeIntervalSince(changed) < day,
+           WidgetImageCache.readDrawingPadImage() != nil {
+            return .drawing(partnerName: snapshot.partnerName)
         }
-        if let stats = snapshot?.relationshipStats {
-            builders.append { _ in .stat(memoryCount: stats.memoryCount, tripCount: stats.tripCount) }
+        if let memory = snapshot.latestMemory, date.timeIntervalSince(memory.date) < 7 * day {
+            return .memory(title: memory.title, memoryID: memory.id)
         }
-
-        guard !builders.isEmpty else {
-            return [SmartRotatingEntry(date: .now, subscriptionTier: subscriptionTier, slide: nil)]
+        if let anniversaryDate = snapshot.anniversaryDate {
+            return .together(days: max(0, TimeMath.daysSince(anniversaryDate, now: date)))
         }
-
-        let start = Date.now
-        let count = max(builders.count, Int(Self.timelineSpan / Self.rotationInterval))
-        return (0..<count).map { step in
-            let at = start.addingTimeInterval(Double(step) * Self.rotationInterval)
-            return SmartRotatingEntry(
-                date: at,
-                subscriptionTier: subscriptionTier,
-                slide: builders[step % builders.count](at)
-            )
-        }
+        return nil
     }
 }
 
@@ -121,124 +98,142 @@ struct SmartRotatingWidgetView: View {
 
     private var isLocked: Bool { WidgetTier.isLocked(required: WidgetTier.premium, current: entry.subscriptionTier) }
 
-    /// Locked → paywall regardless of slide. Unlocked → wherever *this* slide's content actually
-    /// lives, so tapping mid-rotation doesn't just dump you on Home every time.
+    /// Locked opens the paywall; otherwise wherever the slide's own content lives.
     private var deepLinkURL: URL? {
         if isLocked { return URL(string: "twofold://paywall") }
         switch entry.slide {
-        // Each slide opens what it's showing, matching the standalone widget it mirrors: the
-        // anniversary count is the relationship card on Stats (same as Days Together), the
-        // memories/trips tally is the Stats tab itself.
-        case .anniversary:
-            return URL(string: "twofold://passport/relationship")
-        case .stat:
-            return URL(string: "twofold://passport")
-        case .none:
-            return URL(string: "twofold://home")
-        case .flight(_, _, let flightID, _, _, _):
-            if let flightID { return URL(string: "twofold://flight/\(flightID.uuidString)") }
-            return URL(string: "twofold://passport")
-        case .memory(_, let memoryID):
-            if let memoryID { return URL(string: "twofold://memory/\(memoryID.uuidString)") }
-            return URL(string: "twofold://memories")
+        case .flight(let flight, _): return URL(string: "twofold://flight/\(flight.id.uuidString)")
+        case .question: return URL(string: "twofold://home")
+        case .drawing: return URL(string: "twofold://partner-drawing-pad")
+        case .memory(_, let memoryID): return URL(string: "twofold://memory/\(memoryID.uuidString)")
+        case .together: return URL(string: "twofold://passport/relationship")
+        case .none: return URL(string: "twofold://home")
         }
     }
 
     var body: some View {
         Group {
             switch entry.slide {
-            case .anniversary(let days, let myName, let partnerName):
-                slideBody(value: "\(days)", label: "days together", colors: [Color(hex: 0xC72E4A), Color(hex: 0xA11E3C)]) {
-                    avatarPair(myName: myName, partnerName: partnerName)
-                }
-            case .flight(let status, let route, _, let travelerIsMe, let myName, let partnerName):
-                slideBody(value: status.displayLabel, label: route, colors: [LiveActivityPalette.color(for: status), LiveActivityPalette.color(for: status).opacity(0.6)]) {
-                    if let travelerIsMe {
-                        WidgetAvatarView(person: travelerIsMe ? .me : .partner, name: travelerIsMe ? myName : partnerName, size: 22)
-                    } else {
-                        Image(systemName: status.icon).font(.title3)
-                    }
-                }
-            case .memory(let title, _):
-                memorySlide(title: title)
-            case .stat(let memoryCount, let tripCount):
-                slideBody(value: "\(memoryCount)", label: "memories · \(tripCount) trips", colors: [Brand.indigoFill, Brand.accentFill]) {
-                    Image(systemName: "chart.bar.fill").font(.title3)
-                }
-            case .none:
-                emptyState
+            case .flight(let flight, let partnerName): flightSlide(flight, partnerName: partnerName)
+            case .question(let question): questionSlide(question)
+            case .drawing(let partnerName): drawingSlide(partnerName: partnerName)
+            case .memory(let title, _): memorySlide(title: title)
+            case .together(let days): togetherSlide(days: days)
+            case .none: WidgetEmptyState(systemImage: "sparkles", message: "Nothing new yet")
             }
         }
-        .widgetBranded()
         .widgetLock(requiredTier: WidgetTier.premium, currentTier: entry.subscriptionTier)
         .widgetURL(deepLinkURL)
     }
 
-    private func avatarPair(myName: String, partnerName: String) -> some View {
-        ZStack(alignment: .leading) {
-            WidgetAvatarView(person: .partner, name: partnerName, size: 22)
-                .offset(x: 15)
-            WidgetAvatarView(person: .me, name: myName, size: 22)
+    private func flightSlide(_ flight: WidgetSnapshot.FlightInfo, partnerName: String) -> some View {
+        let departed = (flight.bestDeparture ?? .distantFuture) <= entry.date
+        let target = departed ? flight.bestArrival : flight.bestDeparture
+        return slide(label: departed ? "Lands in" : "Departs in", caption: "\(flight.originCode) → \(flight.destinationCode)") {
+            if let target, target > entry.date {
+                Text(target, style: .relative)
+            } else {
+                Text(flight.status.displayLabel)
+            }
+        } accessory: {
+            if flight.travelerIsMe == true {
+                Image(systemName: "airplane").font(.title3)
+            } else {
+                WidgetAvatarView(person: .partner, name: partnerName, size: 26)
+            }
         }
-        .frame(width: 37, height: 22, alignment: .leading)
+        .widgetSurface(Brand.flight)
     }
 
-    private func slideBody<Accessory: View>(value: String, label: String, colors: [Color], @ViewBuilder topAccessory: () -> Accessory) -> some View {
+    private func questionSlide(_ question: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            topAccessory()
-            Spacer()
-            Text(value)
-                .font(.system(size: 26, weight: .bold, design: .rounded))
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-            Text(label)
-                .font(.caption)
-                .opacity(0.85)
-                .lineLimit(1)
+            Text("Today's question")
+                .font(.system(size: 12, weight: .semibold))
+                .opacity(0.92)
+            Spacer(minLength: 0)
+            Text(question)
+                .font(.system(size: 15, weight: .bold))
+                .lineLimit(4)
                 .minimumScaleFactor(0.8)
+                .widgetAccentable()
+            Text("Answer together")
+                .font(.system(size: 11, weight: .semibold))
+                .opacity(0.92)
         }
         .foregroundStyle(.white)
-        .padding()
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .background(LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing))
+        .widgetSurface(Brand.dailyQuestion)
     }
 
-    /// Reads the photo here rather than taking it from the entry — see `RotatingSlide.memory`.
-    private func memorySlide(title: String) -> some View {
-        let imageData = WidgetImageCache.readLatestMemoryImage()
-        return memorySlideBody(title: title, imageData: imageData)
-    }
-
-    private func memorySlideBody(title: String, imageData: Data?) -> some View {
-        ZStack(alignment: .bottomLeading) {
-            if let uiImage = WidgetImageDecoding.downsampled(imageData, pointSize: 360) {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                LinearGradient(colors: [Brand.accentFill, Brand.successFill], startPoint: .topLeading, endPoint: .bottomTrailing)
+    private func drawingSlide(partnerName: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Group {
+                if let uiImage = WidgetImageDecoding.downsampled(WidgetImageCache.readDrawingPadImage(), pointSize: 200) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .widgetAccentedRenderingMode(.fullColor)
+                        .scaledToFit()
+                        .blendMode(.multiply)
+                }
             }
-            LinearGradient(colors: [.clear, .black.opacity(0.75)], startPoint: .top, endPoint: .bottom)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            Text("New from \(partnerName)")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Brand.paperInkSecondary)
+        }
+        .widgetSurface { Brand.paper }
+    }
+
+    private func memorySlide(title: String) -> some View {
+        VStack(alignment: .leading) {
+            Spacer(minLength: 0)
             Text(title)
-                .font(.subheadline.weight(.bold))
+                .font(.system(size: 15, weight: .bold))
                 .foregroundStyle(.white)
                 .lineLimit(2)
-                // The same inset every other slide gets from `slideBody`'s `.padding()` — the
-                // title sat hard against the left and bottom edges. The extra trailing room keeps
-                // a long title clear of the brand mark's corner.
-                .padding()
-                .padding(.trailing, 22)
         }
-        // `scaledToFill` doesn't clip, so without this the image overflows the ZStack and the
-        // ZStack reports the oversized bounds — which `widgetBranded`'s `.topTrailing` overlay then
-        // anchors to, pushing the Twofold mark past the widget's edge and cropping it. Every other
-        // slide draws a gradient that fills exactly, which is why only this one lost its mark.
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .clipped()
+        .widgetSurface {
+            MemoryPhotoBackground(imageData: WidgetImageCache.readLatestMemoryImage())
+        }
     }
 
-    private var emptyState: some View {
-        WidgetEmptyState(systemImage: "arrow.triangle.2.circlepath", message: "Nothing to show yet", tint: LiveActivityPalette.accent)
+    private func togetherSlide(days: Int) -> some View {
+        slide(label: "Together", caption: "days together") {
+            Text("\(days)")
+        } accessory: {
+            HStack(spacing: -8) {
+                WidgetAvatarView(person: .me, name: "", size: 24)
+                WidgetAvatarView(person: .partner, name: "", size: 24)
+            }
+        }
+        .widgetSurface(Brand.relationshipSummary)
+    }
+
+    private func slide<Value: View, Accessory: View>(
+        label: String,
+        caption: String,
+        @ViewBuilder value: () -> Value,
+        @ViewBuilder accessory: () -> Accessory
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                accessory()
+                Spacer(minLength: 0)
+            }
+            Spacer(minLength: 0)
+            Text(label)
+                .font(.system(size: 12, weight: .semibold))
+                .opacity(0.92)
+            value()
+                .font(.system(size: 26, weight: .bold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .widgetAccentable()
+            Text(caption)
+                .font(.system(size: 12, weight: .semibold))
+                .opacity(0.92)
+                .lineLimit(1)
+        }
+        .foregroundStyle(.white)
     }
 }
 
@@ -248,10 +243,9 @@ struct SmartRotatingWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: SmartRotatingProvider()) { entry in
             SmartRotatingWidgetView(entry: entry)
-                .containerBackground(for: .widget) { Color.clear }
         }
         .configurationDisplayName("Smart Rotating")
-        .description("Cycles through your other widgets automatically every 10 minutes.")
+        .description("Whatever matters most right now: a flight, today's question, a new drawing.")
         .supportedFamilies([.systemSmall, .systemMedium])
         .contentMarginsDisabled()
     }
@@ -260,6 +254,6 @@ struct SmartRotatingWidget: Widget {
 #Preview(as: .systemSmall) {
     SmartRotatingWidget()
 } timeline: {
-    SmartRotatingEntry(date: .now, subscriptionTier: WidgetTier.premium, slide: .anniversary(days: 412, myName: "Rosa", partnerName: "Dara"))
-    SmartRotatingEntry(date: .now.addingTimeInterval(1200), subscriptionTier: WidgetTier.premium, slide: .stat(memoryCount: 18, tripCount: 6))
+    SmartRotatingEntry(date: .now, subscriptionTier: WidgetTier.premium, slide: .together(days: 412))
+    SmartRotatingEntry(date: .now, subscriptionTier: WidgetTier.premium, slide: .question("What's a small thing I do that you love?"))
 }

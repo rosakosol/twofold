@@ -35,7 +35,9 @@ struct JourneyLiveActivityWidget: Widget {
                     JourneyExpandedFooterView(context: context)
                 }
             } compactLeading: {
-                FlightIconWithProgressArc(icon: status?.icon ?? "airplane", status: status, progress: context.state.progress, size: 20)
+                // Your partner's photo (section 7): the person this journey is about, whichever of
+                // you is in the air.
+                WidgetAvatarView(person: .partner, name: context.attributes.viewerIsTraveler ? context.attributes.partnerName : context.attributes.travelerName, size: 22, showsRing: false)
             } compactTrailing: {
                 journeyTimeRemainingText(context.state)
                     .font(.caption2.monospacedDigit())
@@ -45,7 +47,7 @@ struct JourneyLiveActivityWidget: Widget {
                 FlightIconWithProgressArc(icon: "airplane", status: status, progress: context.state.progress, size: 22)
             }
             .widgetURL(URL(string: "twofold://flight/\(context.attributes.flightID.uuidString)"))
-            .keylineTint(LiveActivityPalette.color(for: status))
+            .keylineTint(LiveActivityPalette.liveActivityAccent)
         }
     }
 }
@@ -62,7 +64,7 @@ private struct FlightIconWithProgressArc: View {
     let size: CGFloat
 
     var body: some View {
-        let tint = LiveActivityPalette.color(for: status)
+        let tint = LiveActivityPalette.liveActivityAccent
         ZStack {
             if status == .inAir {
                 // A stroke draws centered on its shape's edge, so it bleeds ~1pt past this

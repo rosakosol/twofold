@@ -22,5 +22,8 @@ struct LiveActivitiesBundle: WidgetBundle {
         SmartRotatingWidget()
         DistanceWidget()
         DistanceCompactWidget()
+        RelationshipSummaryWidget()
+        DailyQuestionWidget()
+        MemoriesWidget()
     }
 }

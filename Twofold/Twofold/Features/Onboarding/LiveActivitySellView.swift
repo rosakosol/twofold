@@ -81,8 +81,7 @@ struct LiveActivitySellView: View {
     }
 
     /// Line-for-line copy of `JourneyLockScreenView`'s real body — same spacing (12/18/8/2/10),
-    /// same font sizes/weights, same `WidgetBrandMark` (plain 16×16 image, no badge — an earlier
-    /// version of this mock wrapped it in a rounded-rect badge that the real one never had), same
+    /// same font sizes/weights, no app logo (the real one has none, since iOS names the app), same
     /// static (non-pulsing) progress-rail badge, so what someone sees here really is what they'll
     /// see on their Lock Screen once they track a real flight. The "Updated Xm ago" text the real
     /// widget shows is left out here — during onboarding there's no real update to report yet,
@@ -106,14 +105,6 @@ struct LiveActivitySellView: View {
                         .foregroundStyle(.white.opacity(0.6))
                 }
                 Spacer()
-                // Plain 16×16 image at 0.9 opacity, no badge/background — matches
-                // `LiveActivities/WidgetBrandMark.swift` exactly (that target can't be imported
-                // from the main app, so this is a literal copy of its three modifiers).
-                Image("GlobeHeart")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 16, height: 16)
-                    .opacity(0.9)
             }
 
             VStack(alignment: .center, spacing: 2) {
@@ -177,7 +168,7 @@ struct LiveActivitySellView: View {
                     path.move(to: CGPoint(x: 0, y: midY))
                     path.addLine(to: CGPoint(x: progressX, y: midY))
                 }
-                .stroke(Theme.accent, lineWidth: 2)
+                .stroke(Color(hex: 0x6AA5F5), lineWidth: 2)
 
                 Path { path in
                     path.move(to: CGPoint(x: progressX, y: midY))
@@ -187,9 +178,9 @@ struct LiveActivitySellView: View {
 
                 Image(systemName: "airplane")
                     .font(.caption2.weight(.bold))
-                    .foregroundStyle(Theme.onPrimaryButton)
+                    .foregroundStyle(Color(hex: 0x0B0F16))
                     .padding(4)
-                    .background(Theme.primaryButtonGradient, in: Circle())
+                    .background(Color(hex: 0x6AA5F5), in: Circle())
                     .position(x: progressX, y: midY)
             }
         }

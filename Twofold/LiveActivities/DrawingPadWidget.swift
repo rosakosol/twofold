@@ -2,20 +2,39 @@
 //  DrawingPadWidget.swift
 //  LiveActivities
 //
-//  Split tier: Small (the partner's pad) is Plus, Medium (both pads side by side) is Premium —
-//  see `requiredTier`. The one widget allowed its own network call: drawing-pads is a private
-//  Supabase Storage bucket, but the main app pre-signs both URLs into WidgetSnapshot (see its
-//  doc comment) each time it refreshes, so this still fetches live over the network — just
-//  against a signed URL instead of a permanent public one. Still caches the last-good fetch
-//  (WidgetImageCache) so a stale/offline network (or an expired signed URL, if the main app
-//  hasn't run in a couple of days) shows something rather than a blank widget. Small stays
-//  partner-only; Medium shows both drawing pads side by side (same idea the old large-only
-//  DoodleSideBySideWidget had, just fit into Medium's shorter frame instead of adding a separate
-//  widget/size).
+//  The drawing pad on paper (docs/TWOFOLD_DESIGN.md, section 7): white paper in light mode, warm
+//  #E9E4DA in dark, with the drawing multiplied onto it and ink in #1C2733 / #5B6776. Small shows one
+//  drawing, the partner's by default or your own, chosen in Edit Widget; medium shows both side by
+//  side. Small is Plus and medium Premium.
+//
+//  The one widget allowed its own network call: the pads live in a private bucket, so the app
+//  writes signed URLs into the snapshot and this fetches them, keeping the last good image for when
+//  the network or the signature fails.
 //
 
+import AppIntents
 import SwiftUI
 import WidgetKit
+
+/// Whose drawing the small widget shows. The names are fixed text, as an App Intent's options must
+/// be, so the widget's own caption is what names the partner.
+enum DrawingPadSide: String, AppEnum {
+    case partner, mine
+
+    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Drawing"
+    static var caseDisplayRepresentations: [DrawingPadSide: DisplayRepresentation] = [
+        .partner: "Their drawing",
+        .mine: "My drawing",
+    ]
+}
+
+struct DrawingPadSideIntent: WidgetConfigurationIntent {
+    static var title: LocalizedStringResource = "Choose Drawing"
+    static var description = IntentDescription("Pick whose drawing the small widget shows.")
+
+    @Parameter(title: "Show", default: .partner)
+    var side: DrawingPadSide
+}
 
 struct DrawingPadEntry: TimelineEntry {
     let date: Date
@@ -24,49 +43,43 @@ struct DrawingPadEntry: TimelineEntry {
     let myImageData: Data?
     let myName: String
     let partnerName: String
+    var side: DrawingPadSide = .partner
 }
 
-struct DrawingPadProvider: TimelineProvider {
+struct DrawingPadProvider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> DrawingPadEntry {
-        DrawingPadEntry(date: .now, subscriptionTier: WidgetTier.premium, imageData: nil, myImageData: nil, myName: "You", partnerName: "Partner")
+        DrawingPadEntry(date: .now, subscriptionTier: WidgetTier.premium, imageData: nil, myImageData: nil, myName: "You", partnerName: "Partner", side: .partner)
     }
 
-    func getSnapshot(in context: Context, completion: @escaping (DrawingPadEntry) -> Void) {
-        completion(cachedEntry())
+    func snapshot(for configuration: DrawingPadSideIntent, in context: Context) async -> DrawingPadEntry {
+        cachedEntry(side: configuration.side)
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<DrawingPadEntry>) -> Void) {
+    func timeline(for configuration: DrawingPadSideIntent, in context: Context) async -> Timeline<DrawingPadEntry> {
         let snapshot = WidgetSnapshot.read()
         let nextRefresh = Calendar.current.date(byAdding: .minute, value: 30, to: .now) ?? .now.addingTimeInterval(1800)
 
         guard snapshot?.coupleID != nil, snapshot?.myID != nil, snapshot?.partnerID != nil else {
-            completion(Timeline(entries: [cachedEntry()], policy: .after(nextRefresh)))
-            return
+            return Timeline(entries: [cachedEntry(side: configuration.side)], policy: .after(nextRefresh))
         }
 
-        Task {
-            // Both pads at once, not one after the other. WidgetKit gives a timeline provider a
-            // short window to call `completion`, and this used to spend it on two serial fetches
-            // against `URLSession.shared`, whose default request timeout is 60 seconds each. Small
-            // only needs the partner's pad, so it made one request and usually came back in time;
-            // Medium makes two back to back and had twice the chance of running out of budget
-            // before completing — and a provider that never completes leaves WidgetKit with
-            // nothing to draw. That is the medium pad failing to load while the small one worked.
-            async let partner = Self.fetchPad(at: snapshot?.partnerSignedDrawingPadURL)
-            async let mine = Self.fetchPad(at: snapshot?.mySignedDrawingPadURL)
-            let (partnerFetched, myFetched) = await (partner, mine)
+        // Both pads at once, not one after the other: a provider gets a short window to answer,
+        // and two serial fetches were what left the medium pad blank while the small one loaded.
+        async let partner = Self.fetchPad(at: snapshot?.partnerSignedDrawingPadURL)
+        async let mine = Self.fetchPad(at: snapshot?.mySignedDrawingPadURL)
+        let (partnerFetched, myFetched) = await (partner, mine)
 
-            if let partnerFetched { WidgetImageCache.writeDrawingPadImage(partnerFetched) }
-            if let myFetched { WidgetImageCache.writeMyDrawingImage(myFetched) }
+        if let partnerFetched { WidgetImageCache.writeDrawingPadImage(partnerFetched) }
+        if let myFetched { WidgetImageCache.writeMyDrawingImage(myFetched) }
 
-            let entry = DrawingPadEntry(
-                date: .now, subscriptionTier: snapshot?.subscriptionTier,
-                imageData: partnerFetched ?? WidgetImageCache.readDrawingPadImage(),
-                myImageData: myFetched ?? WidgetImageCache.readMyDrawingImage(),
-                myName: snapshot?.myName ?? "You", partnerName: snapshot?.partnerName ?? "Partner"
-            )
-            completion(Timeline(entries: [entry], policy: .after(nextRefresh)))
-        }
+        let entry = DrawingPadEntry(
+            date: .now, subscriptionTier: snapshot?.subscriptionTier,
+            imageData: partnerFetched ?? WidgetImageCache.readDrawingPadImage(),
+            myImageData: myFetched ?? WidgetImageCache.readMyDrawingImage(),
+            myName: snapshot?.myName ?? "You", partnerName: snapshot?.partnerName ?? "Partner",
+            side: configuration.side
+        )
+        return Timeline(entries: [entry], policy: .after(nextRefresh))
     }
 
     /// Bounded, so the awaits above are guaranteed to return and `completion` is guaranteed to be
@@ -88,18 +101,19 @@ struct DrawingPadProvider: TimelineProvider {
     /// Nil for anything that isn't a decodable image — a missing URL, a timeout, or the XML error
     /// document Storage returns for an expired signature, which would otherwise be cached and
     /// rendered as a broken pad.
-    private static func fetchPad(at url: URL?) async -> Data? {
+    static func fetchPad(at url: URL?) async -> Data? {
         guard let url else { return nil }
         guard let data = try? await padSession.data(from: url).0, UIImage(data: data) != nil else { return nil }
         return data
     }
 
-    private func cachedEntry() -> DrawingPadEntry {
+    private func cachedEntry(side: DrawingPadSide) -> DrawingPadEntry {
         let snapshot = WidgetSnapshot.read()
         return DrawingPadEntry(
             date: .now, subscriptionTier: snapshot?.subscriptionTier,
             imageData: WidgetImageCache.readDrawingPadImage(), myImageData: WidgetImageCache.readMyDrawingImage(),
-            myName: snapshot?.myName ?? "You", partnerName: snapshot?.partnerName ?? "Partner"
+            myName: snapshot?.myName ?? "You", partnerName: snapshot?.partnerName ?? "Partner",
+            side: side
         )
     }
 }
@@ -115,58 +129,42 @@ struct DrawingPadWidgetView: View {
 
     private var isLocked: Bool { WidgetTier.isLocked(required: requiredTier, current: entry.subscriptionTier) }
 
+    private var showsMine: Bool { entry.side == .mine }
+
     var body: some View {
         Group {
             switch family {
-            case .systemMedium: sideBySideBody
-            default: singleBody
+            case .systemMedium: sideBySide
+            default: single
             }
         }
-        .widgetBranded()
+        .widgetSurface { Brand.paper }
         .widgetLock(requiredTier: requiredTier, currentTier: entry.subscriptionTier)
-        // Small only: it shows the partner's drawing, so it opens the partner's drawing — tapping
-        // it to be handed your own blank canvas is the same mismatch the "<partner> saved a new
-        // drawing" push had. Medium doesn't set this at all; each of its halves carries its own
-        // `Link` (see `sideBySideBody`), and a `widgetURL` here would swallow taps that land
-        // between them and send both sides to one place.
+        // Small only: medium's two halves each carry their own `Link`, and a `widgetURL` here would
+        // swallow taps between them and send both to one place.
         .widgetURL(family == .systemMedium
             ? nil
-            : URL(string: isLocked ? "twofold://paywall" : "twofold://partner-drawing-pad"))
+            : URL(string: isLocked ? "twofold://paywall" : (showsMine ? "twofold://drawing-pad" : "twofold://partner-drawing-pad")))
     }
 
-    // MARK: - Small: partner's drawing only
-
-    @ViewBuilder
-    private var singleBody: some View {
-        if let uiImage = WidgetImageDecoding.downsampled(entry.imageData, pointSize: 200) {
-            Image(uiImage: uiImage)
-                .resizable()
-                .scaledToFit()
-                .padding(8)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color.white)
-        } else {
-            emptyState
-        }
+    private var single: some View {
+        pane(
+            name: showsMine ? "My drawing" : "\(entry.partnerName)'s drawing",
+            imageData: showsMine ? entry.myImageData : entry.imageData,
+            pointSize: 200
+        )
     }
 
-    // MARK: - Medium: both drawings side by side
-
-    /// Each half is its own `Link`, not one `widgetURL` across the whole widget.
-    ///
-    /// `widgetURL` can only name a single destination for the entire widget, so tapping either pad
-    /// went to the same place — and whichever place that was, half the taps were wrong. `Link`
-    /// works inside `systemMedium`, so each side can open the pad it's actually showing: your own
-    /// goes to the editor, your partner's to their pad.
-    ///
-    /// Locked, both halves fall back to the paywall — there's nothing behind either one to reach.
-    private var sideBySideBody: some View {
-        HStack(spacing: 2) {
+    /// Each half is its own `Link`: yours opens the editor, theirs opens their pad. Locked, both
+    /// go to the paywall.
+    private var sideBySide: some View {
+        HStack(spacing: 12) {
             linked(to: isLocked ? "twofold://paywall" : "twofold://drawing-pad") {
-                pane(name: entry.myName, imageData: entry.myImageData, person: .me)
+                pane(name: entry.myName, imageData: entry.myImageData, pointSize: 160)
             }
+            Rectangle().fill(Brand.paperInkSecondary.opacity(0.25)).frame(width: 1)
             linked(to: isLocked ? "twofold://paywall" : "twofold://partner-drawing-pad") {
-                pane(name: entry.partnerName, imageData: entry.imageData, person: .partner)
+                pane(name: entry.partnerName, imageData: entry.imageData, pointSize: 160)
             }
         }
     }
@@ -180,64 +178,47 @@ struct DrawingPadWidgetView: View {
         }
     }
 
-    private func pane(name: String, imageData: Data?, person: WidgetPerson) -> some View {
-        ZStack(alignment: .top) {
-            Color.white
-            if let uiImage = WidgetImageDecoding.downsampled(imageData, pointSize: 160) {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .scaledToFit()
-                    .padding(6)
-                    .padding(.top, 16)
-            } else {
-                VStack(spacing: 2) {
-                    Image(systemName: "pencil.tip").font(.caption2).foregroundStyle(LiveActivityPalette.textSecondary)
-                    Text("Nothing yet").font(.caption2).foregroundStyle(LiveActivityPalette.textSecondary)
+    private func pane(name: String, imageData: Data?, pointSize: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(name)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Brand.paperInkSecondary)
+                .lineLimit(1)
+            Group {
+                if let uiImage = WidgetImageDecoding.downsampled(imageData, pointSize: pointSize) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .widgetAccentedRenderingMode(.fullColor)
+                        .scaledToFit()
+                        .blendMode(.multiply)
+                } else {
+                    VStack(spacing: 4) {
+                        Image(systemName: "pencil.tip").font(.title3)
+                        Text("Nothing drawn yet").font(.caption2.weight(.semibold))
+                    }
+                    .foregroundStyle(Brand.paperInkSecondary)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding(.top, 16)
             }
-
-            HStack(spacing: 3) {
-                WidgetAvatarView(person: person, name: name, size: 14, showsRing: false)
-                Text(name)
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(LiveActivityPalette.textSecondary)
-                    .lineLimit(1)
-            }
-            .padding(5)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var emptyState: some View {
-        WidgetEmptyState(systemImage: "pencil.tip", message: "Nothing drawn yet", tint: LiveActivityPalette.accent)
     }
 }
 
 struct DrawingPadWidget: Widget {
-    // Deliberately still "DoodlePadWidget" — WidgetKit persists a home-screen widget instance
-    // by its `kind`, so changing this string would orphan every widget a user has already
-    // placed (it'd stop resolving to this configuration entirely). Only the Swift type name and
-    // the user-facing display strings below changed, not this identifier.
+    // Deliberately still "DoodlePadWidget": WidgetKit keys a placed widget by its `kind`, so
+    // changing it would orphan every one already on a Home Screen.
     let kind = "DoodlePadWidget"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: DrawingPadProvider()) { entry in
+        AppIntentConfiguration(kind: kind, intent: DrawingPadSideIntent.self, provider: DrawingPadProvider()) { entry in
             DrawingPadWidgetView(entry: entry)
-                .containerBackground(for: .widget) { Color.white }
         }
         .configurationDisplayName("Drawing Pad")
-        .description("Your partner's drawing at Small. Both of yours side by side at Medium size.")
+        .description("Their drawing, or yours, at Small. Both side by side at Medium.")
         .supportedFamilies([.systemSmall, .systemMedium])
         .contentMarginsDisabled()
     }
-}
-
-#Preview(as: .systemSmall) {
-    DrawingPadWidget()
-} timeline: {
-    DrawingPadEntry(date: .now, subscriptionTier: WidgetTier.premium, imageData: nil, myImageData: nil, myName: "Rosa", partnerName: "Dara")
 }
 
 #Preview(as: .systemMedium) {

@@ -50,9 +50,9 @@ struct DaysTogetherWidgetView: View {
     var body: some View {
         Group {
             switch family {
-            case .accessoryRectangular: accessoryRectangular
-            case .accessoryCircular: accessoryCircular
-            case .accessoryInline: accessoryInline
+            case .accessoryRectangular: accessoryRectangular.accessoryContainer()
+            case .accessoryCircular: accessoryCircular.accessoryContainer()
+            case .accessoryInline: accessoryInline.accessoryContainer()
             default: homeScreenBody
             }
         }
@@ -64,36 +64,26 @@ struct DaysTogetherWidgetView: View {
     @ViewBuilder
     private var homeScreenBody: some View {
         if let days = entry.days {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 2) {
                 avatarPair
-                Spacer()
+                Spacer(minLength: 0)
                 Text("\(days)")
-                    .font(.system(size: 36, weight: .bold, design: .rounded))
+                    .font(.system(size: 36, weight: .bold))
+                    .tracking(-0.9)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .widgetAccentable()
                 Text("days together")
-                    .font(.caption)
-                    .opacity(0.85)
+                    .font(.system(size: 12, weight: .semibold))
+                    .opacity(0.92)
             }
             .foregroundStyle(.white)
-            .padding()
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-            .background(
-                Brand.relationshipSummary
-            )
-            .overlay(alignment: .bottomTrailing) {
-                Image(systemName: "heart.fill")
-                    .font(.system(size: 60))
-                    .opacity(0.18)
-                    .foregroundStyle(.white)
-                    .offset(x: 14, y: 10)
-            }
-            .widgetBranded()
+            .widgetSurface(Brand.relationshipSummary)
         } else {
             emptyState
         }
     }
 
-    /// The couple, together — mirrors DeckCardRow's overlap trick (ZStack + explicit offset, not
-    /// HStack negative spacing) so "me" draws in front regardless of position.
     private var avatarPair: some View {
         ZStack(alignment: .leading) {
             WidgetAvatarView(person: .partner, name: entry.partnerName, size: 26)
@@ -159,7 +149,7 @@ struct DaysTogetherWidgetView: View {
     }
 
     private var emptyState: some View {
-        WidgetEmptyState(systemImage: "heart.fill", message: "Set your anniversary date", tint: LiveActivityPalette.coral)
+        WidgetEmptyState(systemImage: "heart.fill", message: "Set your anniversary date", gradient: Brand.relationshipSummary)
     }
 }
 
@@ -169,7 +159,6 @@ struct DaysTogetherWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: DaysTogetherProvider()) { entry in
             DaysTogetherWidgetView(entry: entry)
-                .containerBackground(for: .widget) { Color.clear }
         }
         .configurationDisplayName("Days Together")
         .description("How long you and your partner have been together.")

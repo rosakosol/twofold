@@ -13,6 +13,9 @@ enum LiveActivityPalette {
     static let success = Brand.success
     static let coral = Brand.coral
     static let textSecondary = Brand.textSecondary
+    /// The Live Activity's one accent (docs/TWOFOLD_DESIGN.md, section 7), on its dark Lock Screen
+    /// and Dynamic Island surfaces in both appearances.
+    static let liveActivityAccent = Color(hex: 0x6AA5F5)
 
     /// Status is never colour alone: every caller pairs this with the status word and icon.
     static func color(for status: FlightStatus?) -> Color {

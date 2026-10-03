@@ -11,7 +11,7 @@ struct JourneyExpandedProgressView: View {
     let context: ActivityViewContext<JourneyActivityAttributes>
 
     private var status: FlightStatus? { FlightStatus(rawValue: context.state.status) }
-    private var tint: Color { LiveActivityPalette.color(for: status) }
+    private var tint: Color { LiveActivityPalette.liveActivityAccent }
 
     /// Real departure/arrival `Date`s to anchor a `ProgressView(timerInterval:)` to, when both
     /// ends of the *current* leg are known — departure while not yet airborne, or arrival while

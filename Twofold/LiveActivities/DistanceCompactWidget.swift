@@ -67,6 +67,8 @@ struct DistanceCompactWidgetView: View {
         // actually filling it edge to edge.
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .widgetURL(URL(string: "twofold://home"))
+        // Lock Screen only: no background of its own, and the system tints it.
+        .accessoryContainer()
     }
 }
 
@@ -76,7 +78,6 @@ struct DistanceCompactWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: DistanceProvider()) { entry in
             DistanceCompactWidgetView(entry: entry)
-                .containerBackground(for: .widget) { Color.clear }
         }
         .configurationDisplayName("Distance Apart (Compact)")
         .description("Distance and both cities together in one compact Lock Screen widget.")

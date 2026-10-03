@@ -30,6 +30,8 @@ struct FlightTrackingEntry: TimelineEntry {
     let travelerIsMe: Bool?
     let myName: String
     let partnerName: String
+    var originGate: String? = nil
+    var originTerminal: String? = nil
 }
 
 struct FlightTrackingProvider: TimelineProvider {
@@ -102,7 +104,9 @@ struct FlightTrackingProvider: TimelineProvider {
             progress: Self.progress(for: flight, at: date),
             travelerIsMe: flight?.travelerIsMe,
             myName: snapshot?.myName ?? "You",
-            partnerName: snapshot?.partnerName ?? "Partner"
+            partnerName: snapshot?.partnerName ?? "Partner",
+            originGate: flight?.originGate,
+            originTerminal: flight?.originTerminal
         )
     }
 
@@ -119,39 +123,28 @@ struct FlightTrackingProvider: TimelineProvider {
 
 struct FlightTrackingWidgetView: View {
     let entry: FlightTrackingEntry
+    @Environment(\.widgetFamily) private var family
 
     private var isLocked: Bool { WidgetTier.isLocked(required: WidgetTier.plus, current: entry.subscriptionTier) }
 
-    private var delayLabel: String? {
-        guard let delaySeconds = entry.delaySeconds, delaySeconds > 300 else { return nil }
-        let minutes = delaySeconds / 60
-        return minutes >= 60 ? "+\(minutes / 60)h \(minutes % 60)m" : "+\(minutes)m"
-    }
+    /// Whose flight it is decides the layout (section 7): the partner's leads with their photo, your
+    /// own with the airline's logo. Nobody set reads as the partner's, the common case.
+    private var isMine: Bool { entry.travelerIsMe == true }
 
-    /// True once the *departure* has actually happened — same "which leg's estimate is
-    /// relevant right now" logic WidgetSnapshotWriter uses to pick delaySeconds' source leg.
     private var isDeparted: Bool { (entry.bestDeparture ?? .distantFuture) <= entry.date }
+    private var target: Date? { isDeparted ? entry.bestArrival : entry.bestDeparture }
 
-    /// "Departs 3:45 PM" pre-departure, "Arrives 9:20 PM" once airborne (or landed) — whichever
-    /// leg's estimate is still actionable, in the device's local time (no per-airport timezone
-    /// data reaches this widget, same as every other time shown here).
-    private var etaLabel: String? {
-        let target = isDeparted ? entry.bestArrival : entry.bestDeparture
-        guard let target else { return nil }
-        let time = target.formatted(date: .omitted, time: .shortened)
-        return isDeparted ? "Arrives \(time)" : "Departs \(time)"
+    /// Today, not yet gone: when the gate matters more than the countdown.
+    private var isTravelDay: Bool {
+        guard let departure = entry.bestDeparture, !isDeparted else { return false }
+        return Calendar.current.isDate(departure, inSameDayAs: entry.date)
     }
 
-    private var routeLabel: String? {
-        guard let originCity = entry.originCity, let destinationCity = entry.destinationCity else { return nil }
-        guard let originCode = entry.originCode, let destinationCode = entry.destinationCode else {
-            return "\(originCity) → \(destinationCity)"
-        }
-        return "\(originCode) \(originCity) → \(destinationCode) \(destinationCity)"
+    private var delayMinutes: Int? {
+        guard let delaySeconds = entry.delaySeconds, delaySeconds > 300 else { return nil }
+        return delaySeconds / 60
     }
 
-    /// Locked → paywall. Unlocked → this exact flight's tracking screen when there is one,
-    /// otherwise Passport.
     private var deepLinkURL: URL? {
         if isLocked { return URL(string: "twofold://paywall") }
         if let flightID = entry.flightID { return URL(string: "twofold://flight/\(flightID.uuidString)") }
@@ -159,141 +152,185 @@ struct FlightTrackingWidgetView: View {
     }
 
     var body: some View {
-        homeScreenBody
-            .widgetURL(deepLinkURL)
+        Group {
+            if let status = entry.status {
+                content(status: status)
+                    .foregroundStyle(.white)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(accessibilitySummary(status: status))
+                    .widgetSurface(Brand.flight)
+            } else {
+                WidgetEmptyState(systemImage: "airplane", message: "No upcoming flight", gradient: Brand.flight)
+            }
+        }
+        .widgetLock(requiredTier: WidgetTier.plus, currentTier: entry.subscriptionTier)
+        .widgetURL(deepLinkURL)
     }
 
-    // MARK: - Small / Medium
-
-    @ViewBuilder
-    private var homeScreenBody: some View {
-        if let status = entry.status {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 4) {
-                    airlineLogo(size: 16)
-                    Text(entry.flightNumber ?? status.displayLabel)
-                        .font(.caption2.weight(.bold))
-                        .lineLimit(1)
-                    Spacer()
-                    if let delayLabel {
-                        Text(delayLabel)
-                            .font(.caption2.weight(.bold))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(.white.opacity(0.25), in: Capsule())
-                    }
-                }
-                .padding(.trailing, 20)
-
-                Spacer(minLength: 0)
-
+    private func content(status: FlightStatus) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            header
+            Spacer(minLength: 0)
+            if status == .cancelled || status == .diverted {
                 Text(status.displayLabel)
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-
-                progressRail(markerSize: 26)
-                    .padding(.vertical, 2)
-
-                if let routeLabel {
-                    Text(routeLabel)
-                        .font(.caption2)
-                        .opacity(0.85)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                }
-
-                if let etaLabel {
-                    Text(etaLabel)
-                        .font(.caption2.weight(.semibold))
-                        .opacity(0.95)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                }
+                    .font(.system(size: 26, weight: .bold))
+                    .widgetAccentable()
+            } else if isMine && isTravelDay {
+                travelDayDetails
+            } else {
+                countdown(status: status)
+                progressRail(markerSize: 24)
             }
-            .foregroundStyle(.white)
-            .padding()
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-            .background(
-                LinearGradient(colors: [LiveActivityPalette.color(for: status), LiveActivityPalette.color(for: status).opacity(0.6)], startPoint: .topLeading, endPoint: .bottomTrailing)
-            )
-            .widgetBranded()
-            .widgetLock(requiredTier: WidgetTier.plus, currentTier: entry.subscriptionTier)
-        } else {
-            emptyState
-                .widgetLock(requiredTier: WidgetTier.plus, currentTier: entry.subscriptionTier)
+            Text(routeLine(status: status))
+                .font(.system(size: 12, weight: .semibold))
+                .opacity(0.92)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
         }
     }
 
-    // MARK: - Shared pieces
+    /// Photo or logo, the flight number, and a delay pill when there is one.
+    private var header: some View {
+        HStack(spacing: 6) {
+            if isMine {
+                airlineLogo(size: 22)
+            } else {
+                WidgetAvatarView(person: .partner, name: entry.partnerName, size: 26)
+            }
+            Text(entry.flightNumber ?? "")
+                .font(.system(size: 13, weight: .bold))
+                .lineLimit(1)
+            Spacer(minLength: 0)
+            if let delayMinutes {
+                // "Delayed 6 min" (section 7): the warning colours on a white pill, icon and word,
+                // never colour alone. Fixed values, since the flight gradient is the same in both
+                // appearances.
+                Label("Delayed \(delayMinutes) min", systemImage: "clock")
+                    .labelStyle(.titleAndIcon)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(Color(hex: 0x9A5A0B))
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(.white, in: Capsule())
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+        }
+    }
+
+    /// "Departs in" or "Lands in", then the time left, counting down live.
+    @ViewBuilder
+    private func countdown(status: FlightStatus) -> some View {
+        Text(isDeparted ? "Lands in" : "Departs in")
+            .font(.system(size: 12, weight: .semibold))
+            .opacity(0.92)
+        if let target, target > entry.date {
+            Text(target, style: .relative)
+                .font(.system(size: family == .systemMedium ? 30 : 24, weight: .bold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .widgetAccentable()
+        } else {
+            Text(status.displayLabel)
+                .font(.system(size: 24, weight: .bold))
+                .widgetAccentable()
+        }
+    }
+
+    /// Your own flight on the day: where to go and when (section 7). There is no boarding time in
+    /// the flight data, so the terminal stands in its place rather than an invented one.
+    private var travelDayDetails: some View {
+        HStack(alignment: .top, spacing: 12) {
+            detail("Gate", entry.originGate ?? "—")
+            detail("Terminal", entry.originTerminal ?? "—")
+            detail("Departs", entry.bestDeparture.map { $0.formatted(date: .omitted, time: .shortened) } ?? "—")
+        }
+    }
+
+    private func detail(_ label: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(label)
+                .font(.system(size: 11, weight: .semibold))
+                .opacity(0.92)
+            Text(value)
+                .font(.system(size: 20, weight: .bold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .widgetAccentable()
+        }
+    }
+
+    /// One sentence for VoiceOver (section 9): "Flight UA506, 86% complete, lands in 1 hour 7
+    /// minutes".
+    private func accessibilitySummary(status: FlightStatus) -> String {
+        var parts = ["Flight \(entry.flightNumber ?? "")"]
+        if isDeparted, status != .cancelled, status != .diverted {
+            parts.append("\(Int((entry.progress * 100).rounded()))% complete")
+        }
+        if let target, target > entry.date {
+            let formatter = DateComponentsFormatter()
+            formatter.allowedUnits = target.timeIntervalSince(entry.date) >= 86_400 ? [.day, .hour] : [.hour, .minute]
+            formatter.unitsStyle = .full
+            if let remaining = formatter.string(from: entry.date, to: target) {
+                parts.append("\(isDeparted ? "lands" : "departs") in \(remaining)")
+            }
+        } else {
+            parts.append(status.displayLabel)
+        }
+        if let delayMinutes { parts.append("delayed \(delayMinutes) minutes") }
+        return parts.joined(separator: ", ")
+    }
+
+    private func routeLine(status: FlightStatus) -> String {
+        let route = [entry.originCode, entry.destinationCode].compactMap { $0 }.joined(separator: " → ")
+        guard family == .systemMedium else { return route }
+        return "\(status.displayLabel) · \(route)"
+    }
 
     @ViewBuilder
     private func airlineLogo(size: CGFloat) -> some View {
         if let uiImage = WidgetImageDecoding.downsampled(WidgetImageCache.readAirlineLogoImage(), pointSize: size) {
             Image(uiImage: uiImage)
                 .resizable()
+                .widgetAccentedRenderingMode(.fullColor)
                 .scaledToFit()
                 .frame(width: size, height: size)
-                .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+        } else {
+            Image(systemName: "airplane").font(.system(size: size * 0.7, weight: .bold))
         }
     }
 
-    /// Solid line up to the current progress, dashed the rest of the way — same visual language
-    /// as JourneyLockScreenView.progressRail — but the marker riding it is the traveler's real
-    /// avatar (WidgetAvatarView) when one's set, falling back to a plain plane glyph otherwise.
+    /// The journey as a line, the traveller's photo (or the plane, for your own flight) as the
+    /// marker riding it.
     private func progressRail(markerSize: CGFloat) -> some View {
         GeometryReader { geo in
-            // The marker is positioned by its *centre*, so at 0% that centre sat on x = 0 and half
-            // the avatar hung off the rail — which is every scheduled flight, i.e. most of them.
-            // Same at 100%, off the other end. Keeping the centre a half-width inside either end
-            // means the marker is always whole; the rail itself still runs the full width, so the
-            // progress it draws is unchanged.
             let inset = markerSize / 2
             let travel = max(0, geo.size.width - markerSize)
             let progressX = inset + travel * min(1, max(0, entry.progress))
             let midY = geo.size.height / 2
-
             ZStack {
-                Path { path in
-                    path.move(to: CGPoint(x: 0, y: midY))
-                    path.addLine(to: CGPoint(x: progressX, y: midY))
-                }
-                .stroke(.white, lineWidth: 2)
-
-                Path { path in
-                    path.move(to: CGPoint(x: progressX, y: midY))
-                    path.addLine(to: CGPoint(x: geo.size.width, y: midY))
-                }
-                .stroke(.white.opacity(0.35), style: StrokeStyle(lineWidth: 2, dash: [3, 4]))
-
+                Capsule().fill(.white.opacity(0.3)).frame(height: 4)
+                    .position(x: geo.size.width / 2, y: midY)
+                Capsule().fill(.white).frame(width: progressX, height: 4)
+                    .position(x: progressX / 2, y: midY)
                 Group {
-                    if let travelerIsMe = entry.travelerIsMe {
-                        WidgetAvatarView(
-                            person: travelerIsMe ? .me : .partner,
-                            name: travelerIsMe ? entry.myName : entry.partnerName,
-                            size: markerSize
-                        )
+                    if isMine {
+                        Image(systemName: "airplane")
+                            .font(.system(size: markerSize * 0.45, weight: .bold))
+                            .foregroundStyle(Color(hex: 0x1A6FD6))
+                            .frame(width: markerSize, height: markerSize)
+                            .background(.white, in: Circle())
                     } else {
-                        ZStack {
-                            Circle().fill(.white.opacity(0.9))
-                            Image(systemName: "airplane")
-                                .font(.system(size: markerSize * 0.45, weight: .bold))
-                                .foregroundStyle(LiveActivityPalette.color(for: status))
-                        }
-                        .frame(width: markerSize, height: markerSize)
+                        WidgetAvatarView(person: .partner, name: entry.partnerName, size: markerSize)
                     }
                 }
                 .position(x: progressX, y: midY)
             }
         }
-        .frame(height: 32)
+        .frame(height: markerSize + 4)
         .frame(maxWidth: .infinity)
-    }
-
-    private var status: FlightStatus? { entry.status }
-
-    private var emptyState: some View {
-        WidgetEmptyState(systemImage: "airplane.circle", message: "No upcoming flight", tint: LiveActivityPalette.accent)
+        .accessibilityHidden(true)
     }
 }
 
@@ -303,10 +340,9 @@ struct FlightTrackingWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: FlightTrackingProvider()) { entry in
             FlightTrackingWidgetView(entry: entry)
-                .containerBackground(for: .widget) { Color.clear }
         }
         .configurationDisplayName("Flight Tracking")
-        .description("Live status and route for your upcoming flight.")
+        .description("Your next flight, or theirs: how long until it departs or lands, and where it is.")
         .supportedFamilies([.systemSmall, .systemMedium])
         .contentMarginsDisabled()
     }

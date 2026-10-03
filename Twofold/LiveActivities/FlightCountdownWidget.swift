@@ -148,9 +148,9 @@ struct FlightCountdownWidgetView: View {
     var body: some View {
         Group {
             switch family {
-            case .accessoryCircular: accessoryCircular
-            case .accessoryRectangular: accessoryRectangular
-            case .accessoryInline: accessoryInline
+            case .accessoryCircular: accessoryCircular.accessoryContainer()
+            case .accessoryRectangular: accessoryRectangular.accessoryContainer()
+            case .accessoryInline: accessoryInline.accessoryContainer()
             default: homeScreenBody
             }
         }
@@ -158,49 +158,32 @@ struct FlightCountdownWidgetView: View {
     }
 
     private var homeScreenBody: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 4) {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 6) {
                 if let travelerIsMe = entry.travelerIsMe {
-                    WidgetAvatarView(person: travelerIsMe ? .me : .partner, name: travelerIsMe ? entry.myName : entry.partnerName, size: 22)
+                    WidgetAvatarView(person: travelerIsMe ? .me : .partner, name: travelerIsMe ? entry.myName : entry.partnerName, size: 26)
                 } else {
                     Image(systemName: "airplane.departure").font(.title3)
                 }
-                if let uiImage = WidgetImageDecoding.downsampled(WidgetImageCache.readAirlineLogoImage(), pointSize: 44) {
-                    Image(uiImage: uiImage)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 16, height: 16)
-                        .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
-                }
                 if let flightNumber = entry.flightNumber {
-                    Text(flightNumber).font(.caption2.weight(.bold))
+                    Text(flightNumber).font(.system(size: 13, weight: .bold))
                 }
             }
-            Spacer()
-            Text(entry.targetDate != nil ? remainingLabel : "✈️")
-                .font(.system(size: 30, weight: .bold, design: .rounded))
+            Spacer(minLength: 0)
+            Text(entry.targetDate != nil ? remainingLabel : "No flight")
+                .font(.system(size: 30, weight: .bold))
+                .tracking(-0.7)
                 .lineLimit(1)
-                .minimumScaleFactor(0.7)
+                .minimumScaleFactor(0.6)
+                .widgetAccentable()
             Text(caption)
-                .font(.caption)
-                .opacity(0.85)
+                .font(.system(size: 12, weight: .semibold))
+                .opacity(0.92)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
         }
         .foregroundStyle(.white)
-        .padding()
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .background(
-            Brand.flight
-        )
-        .overlay(alignment: .bottomTrailing) {
-            Image(systemName: "globe.americas.fill")
-                .font(.system(size: 60))
-                .opacity(0.18)
-                .foregroundStyle(.white)
-                .offset(x: 16, y: 16)
-        }
-        .widgetBranded()
+        .widgetSurface(Brand.flight)
         .widgetLock(requiredTier: WidgetTier.plus, currentTier: entry.subscriptionTier)
     }
 
@@ -266,7 +249,6 @@ struct FlightCountdownWidget: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(kind: kind, intent: SelectFlightIntent.self, provider: FlightCountdownProvider()) { entry in
             FlightCountdownWidgetView(entry: entry)
-                .containerBackground(for: .widget) { Color.clear }
         }
         .configurationDisplayName("Flight Countdown")
         .description("Time until a chosen flight departs or arrives.")

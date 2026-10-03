@@ -57,58 +57,35 @@ struct PartnersTimeWidgetView: View {
     @ViewBuilder
     private var homeScreenBody: some View {
         if let timeZone = entry.timeZone {
-            let hour = TimeMath.hourFraction(in: timeZone, at: entry.date)
-            let daylight = TimeMath.daylightFactor(hour: hour)
-            let isDaytime = hour >= 6 && hour < 18
-
-            VStack(alignment: .leading, spacing: 4) {
-                ZStack(alignment: .bottomTrailing) {
-                    WidgetAvatarView(person: .partner, name: entry.partnerName, size: 28)
-                    ZStack {
-                        Circle().fill(.white)
-                        Image(systemName: isDaytime ? "sun.max.fill" : "moon.stars.fill")
-                            .font(.system(size: 8))
-                            .foregroundStyle(TimeMath.DayNight.nightBottom.interpolated(to: TimeMath.DayNight.dayBottom, amount: daylight))
-                    }
-                    .frame(width: 14, height: 14)
+            let isDay = PartnerSky.isDay(in: timeZone, at: entry.date, daylight: nil, readingAge: nil)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(alignment: .top) {
+                    WidgetAvatarView(person: .partner, name: entry.partnerName, size: 30)
+                    Spacer(minLength: 0)
+                    SkyEmoji(isDay: isDay, size: 26)
                 }
-                Spacer()
+                Spacer(minLength: 0)
                 Text(TimeMath.timeString(in: timeZone, at: entry.date))
-                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .font(.system(size: 32, weight: .bold))
+                    .tracking(-0.8)
+                    .foregroundStyle(PartnerSky.primary(isDay: isDay))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .widgetAccentable()
                 Text(entry.partnerCity ?? entry.partnerName)
-                    .font(.caption)
-                    .opacity(0.85)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(PartnerSky.secondary(isDay: isDay))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
             }
-            .foregroundStyle(.white)
-            .padding()
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-            .background(
-                LinearGradient(
-                    colors: [
-                        TimeMath.DayNight.nightTop.interpolated(to: TimeMath.DayNight.dayTop, amount: daylight),
-                        TimeMath.DayNight.nightBottom.interpolated(to: TimeMath.DayNight.dayBottom, amount: daylight),
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-            .overlay(alignment: .bottomTrailing) {
-                Image(systemName: isDaytime ? "sun.max.fill" : "moon.stars.fill")
-                    .font(.system(size: 60))
-                    .opacity(0.16)
-                    .foregroundStyle(.white)
-                    .offset(x: 14, y: 10)
-            }
-            .widgetBranded()
+            .widgetSurface { PartnerSkyBackground(isDay: isDay) }
         } else {
             emptyState
         }
     }
 
     private var emptyState: some View {
-        WidgetEmptyState(systemImage: "person.2.fill", message: "Connect with your partner", tint: LiveActivityPalette.textSecondary)
+        WidgetEmptyState(systemImage: "person.2.fill", message: "Connect with your partner")
     }
 }
 
@@ -118,7 +95,6 @@ struct PartnersTimeWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: PartnersTimeProvider()) { entry in
             PartnersTimeWidgetView(entry: entry)
-                .containerBackground(for: .widget) { Color.clear }
         }
         .configurationDisplayName("Partner's Time")
         .description("See your partner's local time at a glance.")

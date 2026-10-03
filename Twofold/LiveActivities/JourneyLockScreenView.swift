@@ -16,7 +16,7 @@ struct JourneyLockScreenView: View {
     let context: ActivityViewContext<JourneyActivityAttributes>
 
     private var status: FlightStatus? { FlightStatus(rawValue: context.state.status) }
-    private var tint: Color { LiveActivityPalette.color(for: status) }
+    private var tint: Color { LiveActivityPalette.liveActivityAccent }
 
     var body: some View {
         VStack(spacing: 12) {
@@ -34,7 +34,6 @@ struct JourneyLockScreenView: View {
                     }
                 }
                 Spacer()
-                brandMark
             }
 
             VStack(alignment: .center, spacing: 2) {
@@ -91,10 +90,6 @@ struct JourneyLockScreenView: View {
     /// presentation itself, and the asset was an 833×751px PNG in the 1x slot — the system
     /// refused to draw it regardless of the layout frame. The imageset now ships properly
     /// downscaled 1x/2x/3x renditions (32pt nominal), which renders fine.
-    private var brandMark: some View {
-        WidgetBrandMark()
-    }
-
     /// Cached by the main app (`WidgetSnapshotWriter`) into the App Group container whenever
     /// `activeOrUpcomingFlight` changes — this extension has no network access of its own, same
     /// reasoning as `FlightTrackingWidget`'s identical helper. Renders nothing (not a fallback
@@ -150,9 +145,11 @@ struct JourneyLockScreenView: View {
                 }
                 .stroke(.white.opacity(0.25), style: StrokeStyle(lineWidth: 2, dash: [3, 4]))
 
+                // Navy on the light accent: white on #6AA5F5 is about 2.4:1, under the 3:1 an icon
+                // needs; #0B0F16 is 7.6:1.
                 Image(systemName: "airplane")
                     .font(.caption2.weight(.bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color(hex: 0x0B0F16))
                     .padding(4)
                     .background(tint, in: Circle())
                     .position(x: progressX, y: midY)

@@ -24,6 +24,8 @@ struct TripCountdownEntry: TimelineEntry {
     /// Which trip this is counting down to, so tapping opens it. Nil for a snapshot written before
     /// `ReunionInfo` carried an id, and for the placeholder.
     let tripID: UUID?
+    var isReunionTrip: Bool = true
+    var untilPhrase: String? = nil
 }
 
 struct TripCountdownProvider: AppIntentTimelineProvider {
@@ -58,76 +60,77 @@ struct TripCountdownProvider: AppIntentTimelineProvider {
             return TripCountdownEntry(date: .now, daysToGo: nil, destinationCity: nil, tripID: nil)
         }
         let days = TimeMath.daysUntil(reunion.departureDate)
-        return TripCountdownEntry(date: .now, daysToGo: max(0, days), destinationCity: reunion.destinationCity, tripID: reunion.id)
+        return TripCountdownEntry(
+            date: .now, daysToGo: max(0, days), destinationCity: reunion.destinationCity, tripID: reunion.id,
+            isReunionTrip: reunion.isReunionTrip, untilPhrase: reunion.untilPhrase
+        )
     }
 }
 
 struct TripCountdownWidgetView: View {
     let entry: TripCountdownEntry
-
     @Environment(\.widgetFamily) private var family
 
+    /// "until Alex lands in Melbourne" (section 7), falling back to the city alone for a snapshot
+    /// written before the app knew who was travelling.
     private var caption: String {
         guard entry.daysToGo != nil else { return "No trip planned yet" }
-        return entry.destinationCity.map { "until you're in \($0)" } ?? "until your reunion"
+        return entry.untilPhrase ?? entry.destinationCity.map { "until you're in \($0)" } ?? "until you're together"
+    }
+
+    private var countLabel: String {
+        guard let days = entry.daysToGo else { return "" }
+        if days == 0 { return "Today" }
+        return days == 1 ? "1 day" : "\(days) days"
     }
 
     var body: some View {
         Group {
             switch family {
-            case .accessoryCircular: accessoryCircular
-            case .accessoryRectangular: accessoryRectangular
-            case .accessoryInline: accessoryInline
+            case .accessoryCircular: accessoryCircular.accessoryContainer()
+            case .accessoryRectangular: accessoryRectangular.accessoryContainer()
+            case .accessoryInline: accessoryInline.accessoryContainer()
             default: homeScreenBody
             }
         }
-        // The trip it's counting down to, when the snapshot knows which one. Falls back to Home
-        // for a snapshot written before `ReunionInfo` carried an id.
         .widgetURL(entry.tripID.map { URL(string: "twofold://trip/\($0.uuidString)") } ?? URL(string: "twofold://home"))
     }
 
+    /// Coral, white text (section 7): "Next reunion", "22 days", "until Alex lands in Melbourne".
+    @ViewBuilder
     private var homeScreenBody: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Label("Trip Countdown", systemImage: "heart.fill")
-                .font(.caption2.weight(.bold))
-            Spacer()
-            Text(entry.daysToGo.map { $0 == 0 ? "🎉" : "\($0)" } ?? "✈️")
-                .font(.system(size: 34, weight: .bold, design: .rounded))
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-            Text(caption)
-                .font(.caption)
-                .opacity(0.85)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
+        if entry.daysToGo != nil {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(entry.isReunionTrip ? "Next reunion" : "Next trip")
+                    .font(.system(size: 13, weight: .semibold))
+                    .opacity(0.92)
+                Spacer(minLength: 0)
+                Text(countLabel)
+                    .font(.system(size: 34, weight: .bold))
+                    .tracking(-0.8)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .widgetAccentable()
+                Text(caption)
+                    .font(.system(size: 12, weight: .semibold))
+                    .opacity(0.92)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
+            }
+            .foregroundStyle(.white)
+            .widgetSurface(Brand.coralGradient)
+        } else {
+            WidgetEmptyState(systemImage: "heart.fill", message: "No trip planned yet", gradient: Brand.coralGradient)
         }
-        .foregroundStyle(.white)
-        .padding()
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .background(
-            Brand.coralGradient
-        )
-        .overlay(alignment: .bottomTrailing) {
-            Image(systemName: "airplane.circle.fill")
-                .font(.system(size: 60))
-                .opacity(0.18)
-                .foregroundStyle(.white)
-                .offset(x: 16, y: 16)
-        }
-        .widgetBranded()
     }
 
     private var accessoryRectangular: some View {
         Group {
-            if let daysToGo = entry.daysToGo {
+            if entry.daysToGo != nil {
                 VStack(alignment: .leading, spacing: 1) {
-                    // Explicit icon + text (not a single `Label`) so the heart can be sized up on its
-                    // own — matches `DistanceWidget`'s bigger, more prominent icon treatment instead
-                    // of the smaller glyph a `Label`'s default icon sizing gave this row.
-                    HStack(spacing: 4) {
-                        Image(systemName: "heart.fill").font(.system(size: 15, weight: .semibold))
-                        Text(daysToGo == 0 ? "Today" : "\(daysToGo) days").font(.headline)
-                    }
+                    Label(countLabel, systemImage: "heart.fill")
+                        .font(.headline)
+                        .widgetAccentable()
                     Text(caption)
                         .font(.caption)
                         .lineLimit(1)
@@ -137,39 +140,34 @@ struct TripCountdownWidgetView: View {
                 Label("No trip planned yet", systemImage: "heart.fill")
             }
         }
-        // Neither branch expanded to fill the widget's own slot on its own — see
-        // `DaysTogetherWidget.accessoryRectangular`'s identical fix.
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .accessoryContainer()
     }
 
-    /// The Lock Screen's single text-line slot — same "Today"/celebratory-glyph treatment as
-    /// the other accessory families.
-    @ViewBuilder
     private var accessoryInline: some View {
-        if let daysToGo = entry.daysToGo {
-            if daysToGo == 0 {
-                Label("Trip day is today! 🎉", systemImage: "heart.fill")
+        Group {
+            if let daysToGo = entry.daysToGo {
+                if daysToGo == 0 {
+                    Label("Trip day is today", systemImage: "heart.fill")
+                } else {
+                    Label(entry.destinationCity.map { "\(daysToGo)d until \($0)" } ?? "\(daysToGo) days until your trip", systemImage: "heart.fill")
+                }
             } else {
-                Label(entry.destinationCity.map { "\(daysToGo)d until \($0)" } ?? "\(daysToGo) days until your trip", systemImage: "heart.fill")
+                Label("No trip planned yet", systemImage: "heart.fill")
             }
-        } else {
-            Label("No trip planned yet", systemImage: "heart.fill")
         }
+        .accessoryContainer()
     }
 
-    /// Small Lock Screen slot — condensed to the number + a one-word label, same treatment as
-    /// DaysTogetherWidget's own `accessoryCircular`. `daysToGo == 0` gets a small celebratory
-    /// glyph instead of "0 / days", since "today" doesn't read as a countdown anymore.
-    @ViewBuilder
     private var accessoryCircular: some View {
         ZStack {
             AccessoryWidgetBackground()
             if let daysToGo = entry.daysToGo {
                 if daysToGo == 0 {
-                    Text("🎉").font(.title2)
+                    Image(systemName: "heart.fill").font(.title3).widgetAccentable()
                 } else {
                     VStack(spacing: 0) {
-                        Text("\(daysToGo)").font(.system(.title3, design: .rounded).bold())
+                        Text("\(daysToGo)").font(.title3.bold()).widgetAccentable()
                         Text("to go").font(.caption2)
                     }
                 }
@@ -177,6 +175,7 @@ struct TripCountdownWidgetView: View {
                 Image(systemName: "heart.fill")
             }
         }
+        .accessoryContainer()
     }
 }
 
@@ -187,7 +186,6 @@ struct TripCountdownWidget: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(kind: kind, intent: SelectTripIntent.self, provider: TripCountdownProvider()) { entry in
             TripCountdownWidgetView(entry: entry)
-                .containerBackground(for: .widget) { Color.clear }
         }
         .configurationDisplayName("Trip Countdown")
         .description("Countdown to your chosen trip together.")

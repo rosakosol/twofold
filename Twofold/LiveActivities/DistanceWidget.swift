@@ -101,6 +101,8 @@ struct DistanceWidgetView: View {
             }
         }
         .widgetURL(URL(string: "twofold://home"))
+        // Lock Screen only: no background of its own, and the system tints it.
+        .accessoryContainer()
     }
 
     private var accessoryRectangular: some View {
@@ -137,7 +139,6 @@ struct DistanceWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: DistanceProvider()) { entry in
             DistanceWidgetView(entry: entry)
-                .containerBackground(for: .widget) { Color.clear }
         }
         .configurationDisplayName("Distance Apart")
         .description("How far apart you and your partner are right now, on your Lock Screen.")
