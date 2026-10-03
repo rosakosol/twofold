@@ -63,3 +63,4 @@ deno.lock
 
 site/AGENTS.md
 site/CLAUDE.md
+docs/TWOFOLD_DESIGN.md
