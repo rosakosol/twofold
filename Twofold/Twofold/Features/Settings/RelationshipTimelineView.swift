@@ -61,14 +61,14 @@ struct RelationshipTimelineView: View {
                     header
                     if appModel.isPremiumLocked { exportPurchaseCard }
                     ForEach(items) { item in
-                        TimelineEntryView(item: item)
+                        TimelineEntryView(item: item, isLast: item.id == items.last?.id)
                     }
                 }
             }
             .padding(Theme.Spacing.md)
         }
         .background(ScreenBackground())
-        .navigationTitle("Our Story")
+        .navigationTitle("Our story")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if !items.isEmpty {
@@ -130,7 +130,7 @@ struct RelationshipTimelineView: View {
                         .foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 } else {
-                    Label("Keeping a copy", systemImage: "book.closed.fill")
+                    Label("Keep a copy", systemImage: "book.closed.fill")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Theme.textPrimary)
 
@@ -148,13 +148,10 @@ struct RelationshipTimelineView: View {
                     .buttonStyle(.twofoldPrimary)
                     .disabled(isBuying)
 
-                    Button { showingPaywall = true } label: {
-                        Text("Or see Premium, for unlimited exports")
-                            .font(.caption.weight(.semibold))
-                            .frame(maxWidth: .infinity)
-                    }
-                    .foregroundStyle(Theme.accent)
-                    .disabled(isBuying)
+                    // Premium is the other way to keep a copy, with unlimited exports.
+                    Button("See Premium") { showingPaywall = true }
+                        .buttonStyle(.twofoldSecondary)
+                        .disabled(isBuying)
                 }
 
                 // Says what is already free, because someone deciding on a purchase from here
@@ -210,7 +207,7 @@ struct RelationshipTimelineView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
             Text("\(items.count) \(items.count == 1 ? "moment" : "moments") together")
-                .font(.headline)
+                .font(.title3.weight(.bold))
                 .foregroundStyle(Theme.textPrimary)
             Text("Every trip, memory and flight you've shared, in the order it happened.")
                 .font(.caption)
@@ -296,17 +293,40 @@ struct RelationshipTimelineView: View {
 /// `RelationshipRecord.timeline` for why they are not separate entries.
 private struct TimelineEntryView: View {
     let item: ExportTimelineItem
+    /// The last entry's line stops at its dot rather than running on into nothing.
+    var isLast = false
 
     var body: some View {
+        // A vertical timeline (section 6, Our story): an accent dot with a ring beside each entry,
+        // joined by a `line`.
+        HStack(alignment: .top, spacing: Theme.Spacing.sm) {
+            VStack(spacing: 0) {
+                Circle()
+                    .fill(Theme.accent)
+                    .frame(width: 12, height: 12)
+                    .padding(4)
+                    .overlay { Circle().strokeBorder(Theme.accent.opacity(0.3), lineWidth: 4) }
+                    .padding(.top, Theme.Spacing.md + 2)
+                Rectangle()
+                    .fill(isLast ? Color.clear : Theme.line)
+                    .frame(width: 2)
+                    .frame(maxHeight: .infinity)
+            }
+            .accessibilityHidden(true)
+
+            card
+        }
+    }
+
+    private var card: some View {
         SectionCard {
             VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
                 HStack(spacing: Theme.Spacing.xs) {
                     Image(systemName: icon)
                         .font(.caption)
                         .foregroundStyle(Theme.accent)
-                    Text(kind.uppercased())
-                        .font(.caption2.weight(.bold))
-                        .tracking(1)
+                    Text(kind)
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Theme.textSecondary)
                     Spacer()
                     Text(item.date, format: .dateTime.day().month(.abbreviated).year())

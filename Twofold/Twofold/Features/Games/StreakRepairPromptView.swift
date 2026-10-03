@@ -27,19 +27,35 @@ struct StreakRepairPromptView: View {
         VStack(spacing: Theme.Spacing.lg) {
             Spacer()
 
+            // A 140pt coral circle with the flame and the streak it was (section 6), inside two faint
+            // coral rings.
             ZStack {
+                Circle().strokeBorder(Theme.coral.opacity(0.12), lineWidth: 1.5).frame(width: 220, height: 220)
+                Circle().strokeBorder(Theme.coral.opacity(0.22), lineWidth: 1.5).frame(width: 180, height: 180)
                 Circle()
-                    .fill(Theme.primaryButtonGradient)
-                    .opacity(0.18)
+                    .fill(Theme.coralGradient)
+                    .overlay { BrandHighlight() }
+                    .clipShape(Circle())
+                    .frame(width: 140, height: 140)
+                    .shadow(color: Theme.Shadow.color, radius: 16, y: 10)
                 Image(systemName: "flame.fill")
-                    .font(.system(size: 36))
-                    .foregroundStyle(Theme.coral)
+                    .font(.system(size: 60))
+                    .foregroundStyle(Theme.onFill)
+                Text("\(streak)")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(Theme.coralFill)
+                    .padding(.horizontal, 12)
+                    .frame(minWidth: 40, minHeight: 32)
+                    .background(.white, in: Capsule())
+                    .shadow(color: Theme.Shadow.color, radius: 4, y: 2)
+                    .offset(x: 50, y: 50)
             }
-            .frame(width: 96, height: 96)
+            .frame(width: 220, height: 220)
+            .accessibilityHidden(true)
 
             VStack(spacing: Theme.Spacing.sm) {
                 Text(title)
-                    .font(.title2.weight(.bold))
+                    .font(.system(size: 28, weight: .bold))
                     .foregroundStyle(Theme.textPrimary)
                     .multilineTextAlignment(.center)
 
@@ -62,20 +78,21 @@ struct StreakRepairPromptView: View {
                         Task { await repairNow() }
                     } label: {
                         HStack(spacing: Theme.Spacing.xs) {
-                            if isWorking { ProgressView().controlSize(.small).tint(Theme.onPrimaryButton) }
+                            if isWorking { ProgressView().controlSize(.small) }
                             Text(primaryTitle)
-                                .font(.headline)
                         }
                     }
-                    .buttonStyle(.twofoldPrimary)
+                    // Coral: streak repair is one of the two places the spec gives the coral button.
+                    .buttonStyle(.twofoldCoral)
                     .disabled(isWorking)
 
                     // Plain, and as easy to reach as the other one. This is a popup someone did not
                     // ask for; making the way out quieter than the way in would be the wrong kind
                     // of persuasion.
                     Button("No thanks") { dismiss() }
-                        .font(.subheadline)
+                        .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Theme.textSecondary)
+                        .frame(minHeight: 44)
                         .padding(.top, Theme.Spacing.xs)
                 }
 
@@ -131,7 +148,9 @@ struct StreakRepairPromptView: View {
         // back" next to a price elsewhere, would be asking somebody to pay for something their plan
         // already covers — which is worse than never offering it.
         if hasFreeze { return "Use this month's repair" }
-        return store.displayPrice.map { "Bring it back — \($0)" } ?? "Bring it back"
+        // The store's own localised price, never a hard-coded one: "$0.99" is wrong in most of the
+        // world.
+        return store.displayPrice.map { "Bring it back for \($0)" } ?? "Bring it back"
     }
 
     /// Three routes, in order of what it would be wrong to skip.

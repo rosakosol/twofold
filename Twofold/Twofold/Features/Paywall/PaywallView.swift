@@ -205,7 +205,7 @@ struct PaywallView: View {
     private var loadedContent: some View {
         OnboardingScaffold(
             title: "Stay close, no matter the distance",
-            titleFont: .system(.title, design: .rounded, weight: .bold),
+            titleFont: .system(size: 28, weight: .bold),
             subtitle: "One subscription covers you and your partner",
             subtitleFont: .footnote,
             titleTopPadding: Theme.Spacing.sm,
@@ -317,6 +317,9 @@ struct PaywallView: View {
         .lineLimit(1)
         .minimumScaleFactor(0.8)
         .foregroundStyle(Theme.textSecondary)
+        // `Link` takes the tint, not the foreground style: without this the two links would be
+        // accent blue beside a grey Restore button.
+        .tint(Theme.textSecondary)
     }
 
     private func periodTitle(for period: BillingPeriod) -> String {
@@ -350,7 +353,7 @@ struct PaywallView: View {
     private var trialCaption: String? {
         guard let priced = selectedPricedPackage else { return nil }
         let periodLabel = selectedPeriod == .monthly ? "month" : "year"
-        return "14 days free, then \(priced.package.storeProduct.localizedPriceString)/\(periodLabel)"
+        return "14 days free, then \(priced.package.storeProduct.localizedPriceString) a \(periodLabel)"
     }
 
     /// "Save X%" badge for the yearly card, comparing its effective monthly cost against the
@@ -379,6 +382,7 @@ struct PaywallView: View {
                 } label: {
                     Image(systemName: "xmark")
                 }
+                .accessibilityLabel("Close")
             }
         } else {
             // A way out that is not signing out.
@@ -522,26 +526,33 @@ private struct PeriodCard: View {
                     Text(title)
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Theme.textPrimary)
+                    // "Save 50%" as a success pill (section 6, paywall).
                     if let badge {
                         Text(badge)
-                            .font(.caption2.weight(.bold))
-                            .foregroundStyle(.white)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Theme.success)
                             .padding(.horizontal, Theme.Spacing.sm)
-                            .padding(.vertical, 2)
-                            .background(Theme.successFill, in: Capsule())
+                            .padding(.vertical, 3)
+                            .background(Theme.successBackground, in: Capsule())
                     }
                     Spacer(minLength: 0)
+                    // Selected is a filled accent check beside the 2pt accent border: blue is the
+                    // colour of a selected state.
                     Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                        .foregroundStyle(isSelected ? Theme.success : Theme.textSecondary.opacity(0.3))
+                        .font(.title3)
+                        .foregroundStyle(isSelected ? Theme.accent : Theme.controlLine)
+                        .accessibilityHidden(true)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(priceCaption)
                         .font(.callout.weight(.medium))
                         .foregroundStyle(Theme.textPrimary)
                     if let perPersonCaption {
+                        // `textSecondary` and never lighter (section 6): it is the number people
+                        // compare plans by.
                         Text(perPersonCaption)
-                            .font(.caption2)
-                            .foregroundStyle(Theme.textSecondary.opacity(0.8))
+                            .font(.caption)
+                            .foregroundStyle(Theme.textSecondary)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

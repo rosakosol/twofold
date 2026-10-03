@@ -25,35 +25,40 @@ struct PartnerConnectedView: View {
             Spacer()
 
             ZStack {
-                HStack(spacing: -28) {
-                    AvatarView(person: appModel.currentUser, size: 128, showsRing: true)
+                HStack(spacing: -34) {
+                    AvatarView(person: appModel.currentUser, size: 150, showsRing: true)
                         .rotationEffect(.degrees(-6))
                         .offset(x: avatarsAppeared ? 0 : -100, y: avatarsAppeared ? 0 : -20)
-                    AvatarView(person: appModel.partner, size: 128, showsRing: true)
+                    AvatarView(person: appModel.partner, size: 150, showsRing: true)
                         .rotationEffect(.degrees(6))
                         .offset(x: avatarsAppeared ? 0 : 100, y: avatarsAppeared ? 0 : -20)
                 }
                 .opacity(avatarsAppeared ? 1 : 0)
 
+                // The coral gradient heart badge where the two photos meet (section 6).
                 ZStack {
-                    Circle().fill(Theme.coralFill)
-                    Image(systemName: "heart.fill").foregroundStyle(.white).font(.title3)
+                    Circle().fill(Theme.coralGradient)
+                    Image(systemName: "heart.fill").foregroundStyle(Theme.onFill).font(.title2)
                 }
-                .frame(width: 36, height: 36)
-                .shadow(color: .black.opacity(0.15), radius: 4, y: 2)
+                .frame(width: 48, height: 48)
+                .overlay { Circle().strokeBorder(.white, lineWidth: 3) }
+                .shadow(color: Theme.Shadow.color, radius: 8, y: 4)
                 .scaleEffect(avatarsAppeared ? 1 : 0)
-                .offset(y: 44)
+                .offset(y: 58)
+                .accessibilityHidden(true)
 
                 ConfettiBurstView(trigger: didCelebrate)
             }
-            .frame(height: 180)
+            .frame(height: 210)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(appModel.currentUser.name) and \(appModel.partner.name)")
 
             VStack(spacing: Theme.Spacing.xs) {
-                Text("You're connected!")
-                    .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                Text("You're connected")
+                    .font(.system(size: 30, weight: .bold))
                     .foregroundStyle(Theme.textPrimary)
-                Text("\(appModel.currentUser.name) & \(appModel.partner.name) are now sharing Twofold together.")
-                    .font(.subheadline)
+                Text("\(appModel.currentUser.name) and \(appModel.partner.name) are now sharing Twofold together.")
+                    .font(.body)
                     .foregroundStyle(Theme.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, Theme.Spacing.xl)
