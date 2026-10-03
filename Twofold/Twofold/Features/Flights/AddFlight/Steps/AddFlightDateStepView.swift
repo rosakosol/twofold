@@ -157,13 +157,26 @@ struct AddFlightDateStepView: View {
         .buttonStyle(.plain)
     }
 
-    /// NSDataDetector reads these in the device's own locale and resolves a bare day/month to the
-    /// next time it comes around, which is what someone typing a departure date means: on 6
-    /// September, "30/9" is this month's 30th and "10/5" is next May.
+    /// NSDataDetector reads these in the device's own locale. Someone typing a departure date
+    /// means the next time it comes around: on 6 September "10/5" is next May, and on 3 October
+    /// "30/9" is next September. The detector does not do the second one: given a day and month
+    /// that has just passed, it returns this year's, so that date is moved forward a year here.
+    ///
+    /// Only when the text names a day and month without a year. A year that was typed is kept,
+    /// and words like "Friday" or "today" are left as the detector reads them.
     static func date(from text: String) -> Date? {
         guard !text.trimmingCharacters(in: .whitespaces).isEmpty else { return nil }
         guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.date.rawValue) else { return nil }
         let range = NSRange(text.startIndex..., in: text)
-        return detector.firstMatch(in: text, range: range)?.date
+        guard let match = detector.firstMatch(in: text, range: range), let date = match.date else { return nil }
+
+        let calendar = Calendar.current
+        guard date < calendar.startOfDay(for: .now) else { return date }
+        let matched = (text as NSString).substring(with: match.range).lowercased()
+        let monthNames = (calendar.monthSymbols + calendar.shortMonthSymbols).map { $0.lowercased() }
+        let namesDayAndMonth = matched.contains(where: \.isNumber) || monthNames.contains { matched.contains($0) }
+        let namesYear = matched.range(of: #"\d{4}|\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2}|'\d{2}"#, options: .regularExpression) != nil
+        guard namesDayAndMonth, !namesYear else { return date }
+        return calendar.date(byAdding: .year, value: 1, to: date) ?? date
     }
 }

@@ -52,6 +52,26 @@ struct AddFlightSuggestionTests {
     /// Half-typed text must not be offered as a date. The field parses on every keystroke, and "3"
     /// on the way to "30/9" resolving to something would put a wrong date in front of someone
     /// mid-word.
+    /// The case that broke: a day and month that passed yesterday came back as this year's, so a
+    /// search for it found nothing. Built from yesterday's real date, since the detector reads
+    /// "now" from the clock rather than taking it as an argument.
+    @Test("a day and month that has just passed resolves to next year")
+    func justPassedDatesRollToNextYear() throws {
+        let calendar = Calendar.current
+        let yesterday = try #require(calendar.date(byAdding: .day, value: -1, to: .now))
+        let text = "\(calendar.component(.day, from: yesterday)) \(calendar.monthSymbols[calendar.component(.month, from: yesterday) - 1])"
+        let parsed = try #require(AddFlightDateStepView.date(from: text))
+        #expect(calendar.component(.year, from: parsed) == calendar.component(.year, from: yesterday) + 1)
+        #expect(calendar.isDate(parsed, equalTo: yesterday, toGranularity: .day) == false)
+    }
+
+    /// A year that was typed is the year meant, even if it has passed.
+    @Test("a typed year is kept")
+    func typedYearIsKept() throws {
+        let parsed = try #require(AddFlightDateStepView.date(from: "30 September 2025"))
+        #expect(Calendar.current.component(.year, from: parsed) == 2025)
+    }
+
     @Test("incomplete text parses to nothing")
     func partialInputIsNotADate() {
         #expect(AddFlightDateStepView.date(from: "") == nil)
