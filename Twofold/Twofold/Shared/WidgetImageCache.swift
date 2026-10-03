@@ -86,7 +86,20 @@ enum WidgetImageCache {
 
     static func writeDrawingPadImage(_ data: Data) {
         guard let url = drawingPadImageURL else { return }
+        // Notes when the partner's drawing actually changed, which is how Smart Rotating knows
+        // there is a new one worth showing. Only a real change counts: a re-fetch of the same
+        // bytes is not news, and nor is the very first fetch, which has nothing to compare with.
+        if let previous = try? Data(contentsOf: url), previous != data {
+            UserDefaults(suiteName: suiteName)?.set(Date.now, forKey: partnerDrawingChangedKey)
+        }
         Self.write(data, to: url)
+    }
+
+    private static let partnerDrawingChangedKey = "widget.partnerDrawingChangedAt"
+
+    /// When the partner's drawing last changed, as seen by a widget fetch. Nil until one has.
+    static func partnerDrawingChangedAt() -> Date? {
+        UserDefaults(suiteName: suiteName)?.object(forKey: partnerDrawingChangedKey) as? Date
     }
 
     static func readDrawingPadImage() -> Data? {

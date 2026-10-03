@@ -1563,6 +1563,9 @@ final class AppModel {
             await refreshDailyStreak()
         }
         recordGameStateForOffline()
+        // The Daily question widget reads this state; the snapshot is otherwise only rewritten on
+        // launch and on other changes, so an answer would not reach the Home Screen until then.
+        Task { await WidgetSnapshotWriter.refresh(appModel: self) }
     }
 
     /// Only asked when there is plainly something to ask about: a streak reading zero. The

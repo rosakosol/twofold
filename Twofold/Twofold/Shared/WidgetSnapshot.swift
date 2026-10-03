@@ -48,6 +48,10 @@ nonisolated struct WidgetSnapshot: Codable {
         /// nil = no traveler set on this flight. true = the current user is travelling; false =
         /// the partner is. Drives which cached avatar (if either) shows next to the countdown.
         var travelerIsMe: Bool?
+        /// The departure gate and terminal, for the "My flight" layout on travel day. Optional so
+        /// an older snapshot still decodes.
+        var originGate: String?
+        var originTerminal: String?
     }
 
     struct MemoryInfo: Codable {
@@ -56,11 +60,27 @@ nonisolated struct WidgetSnapshot: Codable {
         var id: UUID
         var title: String
         var date: Date
+        /// Where it happened, for the Memories widget's caption. Optional so an older snapshot
+        /// still decodes.
+        var city: String?
     }
 
     struct WeatherInfo: Codable {
         var symbolName: String
         var temperatureC: Double
+        /// Whether the sun is up there, from WeatherKit. Optional: older snapshots and failed
+        /// reads fall back to the hour.
+        var isDaylight: Bool?
+    }
+
+    /// Today's deep question, for the Daily question widget.
+    struct DailyQuestionInfo: Codable {
+        var question: String
+        var myAnswered: Bool
+        var partnerAnswered: Bool
+        /// The partner's answer. Only ever present once you have both answered: the database
+        /// hides it until then, so before that there is nothing here to show or to leak.
+        var partnerAnswer: String?
     }
 
     /// Days together is deliberately not stored here — every widget that needs it already
@@ -70,6 +90,9 @@ nonisolated struct WidgetSnapshot: Codable {
     struct RelationshipStats: Codable {
         var memoryCount: Int
         var tripCount: Int
+        /// Trips taken to see each other, for the Relationship summary widget. Optional so an
+        /// older snapshot still decodes.
+        var reunionCount: Int?
     }
 
     /// The soonest upcoming trip (`AppModel.upcomingTrips.first`, same source as Home's
@@ -87,6 +110,10 @@ nonisolated struct WidgetSnapshot: Codable {
         var departureDate: Date
         var destinationCity: String
         var isReunionTrip: Bool
+        /// "until Alex lands in Melbourne", "until you land in Melbourne", or "until you're
+        /// together in Melbourne", built app-side from who is travelling. Optional so an older
+        /// snapshot still decodes.
+        var untilPhrase: String?
     }
 
     /// Kept for DrawingPadWidget's Medium side-by-side layout, which needs to know whose pad is
@@ -129,6 +156,7 @@ nonisolated struct WidgetSnapshot: Codable {
     var latestMemory: MemoryInfo?
     var partnerWeather: WeatherInfo?
     var relationshipStats: RelationshipStats?
+    var dailyQuestion: DailyQuestionInfo?
     /// Needed by DrawingPadWidget to identify which pads belong to this couple, alongside
     /// `mySignedDrawingPadURL`/`partnerSignedDrawingPadURL` below.
     var coupleID: UUID?

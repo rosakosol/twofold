@@ -76,7 +76,8 @@ enum WidgetSnapshotWriter {
                 id: trip.id,
                 departureDate: trip.departureDate,
                 destinationCity: trip.destination.displayCity,
-                isReunionTrip: trip.category == .reunion
+                isReunionTrip: trip.category == .reunion,
+                untilPhrase: Self.untilPhrase(for: trip, appModel: appModel)
             )
         }
         let reunionInfo = upcomingTrips.first
@@ -85,12 +86,23 @@ enum WidgetSnapshotWriter {
         let trackedFlights = appModel.activeOrUpcomingFlights.map { Self.flightInfo(for: $0, currentUserID: appModel.currentUser.id) }
 
         let latestMemory = appModel.memories.max(by: { $0.date < $1.date })
-        let memoryInfo = latestMemory.map { WidgetSnapshot.MemoryInfo(id: $0.id, title: $0.title, date: $0.date) }
+        let memoryInfo = latestMemory.map { WidgetSnapshot.MemoryInfo(id: $0.id, title: $0.title, date: $0.date, city: $0.place?.displayCity) }
 
         let relationshipStats = WidgetSnapshot.RelationshipStats(
             memoryCount: appModel.memories.count,
-            tripCount: appModel.trips.count
+            tripCount: appModel.trips.count,
+            reunionCount: appModel.trips.filter { $0.category == .reunion }.count
         )
+
+        // Without the partner's answer; that is a network read, added below once both have answered.
+        let dailyQuestion = appModel.todaysDailyQuestionText.map {
+            WidgetSnapshot.DailyQuestionInfo(
+                question: $0,
+                myAnswered: appModel.todaysMyAnswered,
+                partnerAnswered: appModel.todaysPartnerAnswered,
+                partnerAnswer: nil
+            )
+        }
 
         // Carried over rather than dropped: these three are the only network-derived fields, and
         // the first write happens before the network work that produces them. Blanking them here
@@ -101,7 +113,8 @@ enum WidgetSnapshotWriter {
         func snapshot(
             weather: WidgetSnapshot.WeatherInfo?,
             mySignedDrawingPadURL: URL?,
-            partnerSignedDrawingPadURL: URL?
+            partnerSignedDrawingPadURL: URL?,
+            dailyQuestion: WidgetSnapshot.DailyQuestionInfo?
         ) -> WidgetSnapshot {
             WidgetSnapshot(
                 myID: appModel.currentUser.id,
@@ -121,6 +134,7 @@ enum WidgetSnapshotWriter {
                 latestMemory: memoryInfo,
                 partnerWeather: weather,
                 relationshipStats: relationshipStats,
+                dailyQuestion: dailyQuestion,
                 coupleID: appModel.couple.id,
                 partnerID: appModel.partner.id,
                 mySignedDrawingPadURL: mySignedDrawingPadURL,
@@ -133,7 +147,14 @@ enum WidgetSnapshotWriter {
             snapshot(
                 weather: previous?.partnerWeather,
                 mySignedDrawingPadURL: previous?.mySignedDrawingPadURL,
-                partnerSignedDrawingPadURL: previous?.partnerSignedDrawingPadURL
+                partnerSignedDrawingPadURL: previous?.partnerSignedDrawingPadURL,
+                // The previous partner answer survives the first write only if it is still today's
+                // question; a new day's question must not show yesterday's answer.
+                dailyQuestion: dailyQuestion.map { info in
+                    var info = info
+                    if previous?.dailyQuestion?.question == info.question { info.partnerAnswer = previous?.dailyQuestion?.partnerAnswer }
+                    return info
+                }
             )
         )
         WidgetCenter.shared.reloadAllTimelines()
@@ -184,20 +205,40 @@ enum WidgetSnapshotWriter {
             if cityUnchanged, stillFresh, let cached = previous?.partnerWeather {
                 weatherInfo = cached
             } else if let reading = await TwofoldWeatherService.currentWeather(for: partnerCity) {
-                weatherInfo = WidgetSnapshot.WeatherInfo(symbolName: reading.symbolName, temperatureC: reading.temperatureC)
+                weatherInfo = WidgetSnapshot.WeatherInfo(symbolName: reading.symbolName, temperatureC: reading.temperatureC, isDaylight: reading.isDaylight)
             } else {
                 weatherInfo = previous?.partnerWeather
             }
+        }
+
+        // The partner's answer, only once you have both answered (and so only once the database
+        // will return it at all).
+        var dailyQuestionWithAnswer = dailyQuestion
+        if let sessionID = appModel.todaysDailySessionID, appModel.todaysMyAnswered, appModel.todaysPartnerAnswered {
+            dailyQuestionWithAnswer?.partnerAnswer = try? await BackendService.fetchPartnerDailyAnswer(
+                sessionID: sessionID, partnerID: appModel.partner.id
+            )
         }
 
         WidgetSnapshot.write(
             snapshot(
                 weather: weatherInfo,
                 mySignedDrawingPadURL: mySignedDrawingPadURL,
-                partnerSignedDrawingPadURL: partnerSignedDrawingPadURL
+                partnerSignedDrawingPadURL: partnerSignedDrawingPadURL,
+                dailyQuestion: dailyQuestionWithAnswer
             )
         )
         WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    /// Who is arriving where, for the Trip countdown widget: the one person travelling by name, or
+    /// "you're together" when it is both of you or nobody is set.
+    private static func untilPhrase(for trip: Trip, appModel: AppModel) -> String {
+        let city = trip.destination.displayCity
+        let travellers = Set(trip.travelerIDs)
+        if travellers == [appModel.partner.id] { return "until \(appModel.partner.name) lands in \(city)" }
+        if travellers == [appModel.currentUser.id] { return "until you land in \(city)" }
+        return "until you're together in \(city)"
     }
 
     private static func flightInfo(for flight: Flight, currentUserID: UUID) -> WidgetSnapshot.FlightInfo {
@@ -214,7 +255,9 @@ enum WidgetSnapshotWriter {
             delaySeconds: hasDeparted ? flight.arrivalDelaySeconds : flight.departureDelaySeconds,
             flightNumber: flight.displayNumber,
             progress: flight.progress,
-            travelerIsMe: flight.travelerIDs.isEmpty ? nil : flight.travelerIDs.contains(currentUserID)
+            travelerIsMe: flight.travelerIDs.isEmpty ? nil : flight.travelerIDs.contains(currentUserID),
+            originGate: flight.gateOrigin,
+            originTerminal: flight.terminalOrigin
         )
     }
 }

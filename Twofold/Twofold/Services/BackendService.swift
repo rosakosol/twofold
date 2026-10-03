@@ -4190,6 +4190,22 @@ enum BackendService {
         return (row.sessionId, row.question, row.myAnswered, row.partnerAnswered)
     }
 
+    /// The partner's answer to today's question, for the Daily question widget. Nil until you have
+    /// both answered: RLS keeps a session's responses hidden until it is complete, so this cannot
+    /// return an answer early even if asked.
+    static func fetchPartnerDailyAnswer(sessionID: UUID, partnerID: UUID) async throws -> String? {
+        let rows: [GameResponseRow] = try await supabase
+            .from("game_responses")
+            .select()
+            .eq("session_id", value: sessionID.uuidString)
+            .eq("responder_id", value: partnerID.uuidString)
+            .limit(1)
+            .execute()
+            .value
+        let answer = rows.first?.toModel().answerValue
+        return answer?.isEmpty == false ? answer : nil
+    }
+
     private struct DailyStreakRow: Decodable {
         var currentStreak: Int
         var longestStreak: Int
