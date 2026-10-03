@@ -160,7 +160,7 @@ struct DaysTogetherWidget: Widget {
         StaticConfiguration(kind: kind, provider: DaysTogetherProvider()) { entry in
             DaysTogetherWidgetView(entry: entry)
         }
-        .configurationDisplayName("Days Together")
+        .configurationDisplayName("Days together")
         .description("How long you and your partner have been together.")
         .supportedFamilies([.systemSmall, .accessoryRectangular, .accessoryCircular, .accessoryInline])
         .contentMarginsDisabled()

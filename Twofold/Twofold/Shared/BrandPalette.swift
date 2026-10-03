@@ -73,27 +73,36 @@ enum Brand {
 
     // MARK: 2.2 Accents (adapt to appearance; text-safe)
 
-    /// Links, active tab, selected states. 5.4:1 on white / 7.6:1 on the dark background.
-    static let accent = Color.dynamic(light: 0x1767D0, dark: 0x6AA5F5)
+    // DESIGN: the spec measures the light-mode accents on white, but they are also used as text
+    // directly on the screen background, which is darker: the wash plus the indigo glow measures
+    // #CCDFF5 where a screen's first line of content sits. The spec's accent, error, warning,
+    // yellow and indigo fall to 3.9–4.4:1 there, so each light value below is the spec's hue taken
+    // 3–13% toward black, the least that clears 4.6:1 on that worst case (6.3:1 on white). Dark
+    // values, coral and every fill are as specified. Coral stays because it is only ever an icon
+    // (3:1, which it clears) or text on a card.
+
+    /// Links, active tab, selected states. Spec #1767D0. 6.3:1 on white / 7.6:1 on the dark background.
+    static let accent = Color.dynamic(light: 0x155DBB, dark: 0x6AA5F5)
     /// Matches, correct, "Landed". 6.2:1 / 10.6:1.
     static let success = Color.dynamic(light: 0x16702A, dark: 0x6FD686)
     static let successBackground = Color.dynamic(light: 0xE2F4E4, dark: 0x13301B)
     /// Hearts and love moments. Never errors. 4.7:1 / 8.9:1.
     static let coral = Color.dynamic(light: 0xD23A52, dark: 0xFF8FA3)
-    /// Errors only. Never love moments. 5.3:1 / 9.5:1.
-    static let error = Color.dynamic(light: 0xC23A48, dark: 0xFF9B8F)
-    /// Delays only. 4.8:1 / 7.8:1 on `warningBackground`.
-    static let warning = Color.dynamic(light: 0x9A5A0B, dark: 0xF2B366)
+    /// Errors only. Never love moments. Spec #C23A48. 6.3:1 / 9.5:1.
+    static let error = Color.dynamic(light: 0xAD3440, dark: 0xFF9B8F)
+    /// Delays only. Spec #9A5A0B. 5.6:1 / 7.8:1 on `warningBackground`.
+    static let warning = Color.dynamic(light: 0x8C520A, dark: 0xF2B366)
     static let warningBackground = Color.dynamic(light: 0xFBEFD9, dark: 0x33281A)
     // DESIGN: not a named token in section 2.2. Indigo is the fourth brand hue (deep conversation,
     // trivia tile 1, stat tiles), and text in it needs a readable tone. These are the spec's own
-    // trivia-shape values for indigo (section 2.6): #3A56D9 is 6.4:1 on white, #9AACFF 8.4:1 on #141A23.
-    static let indigo = Color.dynamic(light: 0x3A56D9, dark: 0x9AACFF)
+    // trivia-shape values for indigo (section 2.6), the light one a touch deeper for the reason
+    // above: #3853D2 is 6.3:1 on white, #9AACFF 8.4:1 on #141A23.
+    static let indigo = Color.dynamic(light: 0x3853D2, dark: 0x9AACFF)
     // DESIGN: not in the spec. Yellow is kept for two places where it is the convention people
     // already read: a Word Guess letter that is in the word, and a "fair" password. Distinct from
-    // the amber `warning`, which stays reserved for delays. This is the text-safe tone: 5.1:1 on
+    // the amber `warning`, which stays reserved for delays. This is the text-safe tone: 6.3:1 on
     // white, 11:1 on #141A23. Bright yellow text on white would be about 2:1.
-    static let yellow = Color.dynamic(light: 0x8A6A00, dark: 0xF2C94C)
+    static let yellow = Color.dynamic(light: 0x785C00, dark: 0xF2C94C)
 
     // MARK: Fills under white content (same in both appearances)
 

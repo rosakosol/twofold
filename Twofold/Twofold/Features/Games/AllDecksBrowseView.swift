@@ -136,7 +136,7 @@ struct AllDecksBrowseView: View {
             .padding(Theme.Spacing.lg)
         }
         .background(ScreenBackground())
-        .navigationTitle("All Games")
+        .navigationTitle("All games")
         .navigationBarTitleDisplayMode(.inline)
         .task { await appModel.loadGameDecksIfNeeded() }
         .postHogScreenView("Games: All Decks")

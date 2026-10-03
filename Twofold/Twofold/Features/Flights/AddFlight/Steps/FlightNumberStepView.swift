@@ -20,7 +20,7 @@ struct FlightNumberStepView: View {
                     } label: {
                         Text(model.airlineEntry?.iata ?? "QF")
                             .font(.headline)
-                            .foregroundStyle(model.airlineEntry == nil ? Theme.textSecondary.opacity(0.5) : Theme.textPrimary)
+                            .foregroundStyle(model.airlineEntry == nil ? Theme.textSecondary : Theme.textPrimary)
                             .frame(minWidth: 56)
                             .padding()
                             .themedCardBackground(cornerRadius: Theme.Radius.card)

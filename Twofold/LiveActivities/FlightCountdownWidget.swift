@@ -250,7 +250,7 @@ struct FlightCountdownWidget: Widget {
         AppIntentConfiguration(kind: kind, intent: SelectFlightIntent.self, provider: FlightCountdownProvider()) { entry in
             FlightCountdownWidgetView(entry: entry)
         }
-        .configurationDisplayName("Flight Countdown")
+        .configurationDisplayName("Flight countdown")
         .description("Time until a chosen flight departs or arrives.")
         .supportedFamilies([.systemSmall, .accessoryRectangular, .accessoryCircular, .accessoryInline])
         .contentMarginsDisabled()

@@ -62,6 +62,9 @@ struct TrialTrustView: View {
                     Text("We'll remind you before your free trial ends. Cancel any time before then and you won't be charged.")
                         .font(.caption)
                         .foregroundStyle(Theme.textSecondary)
+                        .multilineTextAlignment(.center)
+                        // The centred scaffold otherwise offers it one line and it truncates.
+                        .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .center)
                 }
             },

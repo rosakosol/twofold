@@ -474,7 +474,7 @@ private struct ExportReadySheet: View {
             .padding(.horizontal, Theme.Spacing.lg)
 
             VStack(spacing: Theme.Spacing.sm) {
-                ShareLink(item: url, preview: SharePreview("Our Story", image: Image(systemName: "book.closed"))) {
+                ShareLink(item: url, preview: SharePreview("Our story", image: Image(systemName: "book.closed"))) {
                     Text("Save or share")
                 }
                 .buttonStyle(.twofoldPrimary)

@@ -218,7 +218,7 @@ struct PaywallView: View {
                             Image(systemName: "arrow.down")
                         }
                         .font(.caption2.weight(.semibold))
-                        .foregroundStyle(Theme.coral)
+                        .foregroundStyle(Theme.accent)
                         .frame(maxWidth: .infinity, alignment: .trailing)
                         .padding(.trailing, Theme.Spacing.md)
 
@@ -294,32 +294,52 @@ struct PaywallView: View {
     }
 
     private var legalFooter: some View {
-        HStack(spacing: Theme.Spacing.sm) {
-            Button {
-                Task { await performRestore() }
-            } label: {
-                if isRestoring {
-                    // Otherwise this button just goes unresponsive with no visible change while
-                    // tapped — easy to mistake for broken and tap again, unlike the primary CTA
-                    // right above it which already shows its own spinner via `primaryLoading`.
-                    ProgressView().scaleEffect(0.7)
-                } else {
-                    Text("Restore purchases")
-                }
+        // One line while it fits; at the largest text sizes the three links stack instead, since
+        // on one line they each truncated to a word fragment.
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: Theme.Spacing.sm) {
+                restoreButton
+                Text("·").foregroundStyle(Theme.textSecondary)
+                privacyLink
+                Text("·").foregroundStyle(Theme.textSecondary)
+                termsLink
             }
-            .disabled(isPurchasing || isRestoring)
-            Text("·").foregroundStyle(Theme.textSecondary)
-            Link("Privacy Policy", destination: URL(string: "https://www.twofoldapp.com.au/privacy")!)
-            Text("·").foregroundStyle(Theme.textSecondary)
-            Link("Terms of Use", destination: URL(string: "https://www.twofoldapp.com.au/terms")!)
+            .lineLimit(1)
+            VStack(spacing: Theme.Spacing.sm) {
+                restoreButton
+                privacyLink
+                termsLink
+            }
         }
         .font(.caption2)
-        .lineLimit(1)
-        .minimumScaleFactor(0.8)
         .foregroundStyle(Theme.textSecondary)
         // `Link` takes the tint, not the foreground style: without this the two links would be
         // accent blue beside a grey Restore button.
         .tint(Theme.textSecondary)
+    }
+
+    private var restoreButton: some View {
+        Button {
+            Task { await performRestore() }
+        } label: {
+            if isRestoring {
+                // Otherwise this button just goes unresponsive with no visible change while
+                // tapped — easy to mistake for broken and tap again, unlike the primary CTA
+                // right above it which already shows its own spinner via `primaryLoading`.
+                ProgressView().scaleEffect(0.7)
+            } else {
+                Text("Restore purchases")
+            }
+        }
+        .disabled(isPurchasing || isRestoring)
+    }
+
+    private var privacyLink: some View {
+        Link("Privacy Policy", destination: URL(string: "https://www.twofoldapp.com.au/privacy")!)
+    }
+
+    private var termsLink: some View {
+        Link("Terms of Use", destination: URL(string: "https://www.twofoldapp.com.au/terms")!)
     }
 
     private func periodTitle(for period: BillingPeriod) -> String {

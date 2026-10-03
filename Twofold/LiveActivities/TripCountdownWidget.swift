@@ -187,7 +187,7 @@ struct TripCountdownWidget: Widget {
         AppIntentConfiguration(kind: kind, intent: SelectTripIntent.self, provider: TripCountdownProvider()) { entry in
             TripCountdownWidgetView(entry: entry)
         }
-        .configurationDisplayName("Trip Countdown")
+        .configurationDisplayName("Trip countdown")
         .description("Countdown to your chosen trip together.")
         .supportedFamilies([.systemSmall, .accessoryRectangular, .accessoryCircular, .accessoryInline])
         .contentMarginsDisabled()

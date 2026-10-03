@@ -31,7 +31,7 @@ struct TripStatsShareView: View {
                     .padding(.bottom, Theme.Spacing.md)
             }
             .background(ScreenBackground())
-            .navigationTitle("Trip Stats")
+            .navigationTitle("Trip stats")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -41,7 +41,7 @@ struct TripStatsShareView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     ShareLink(
                         item: renderCardImage(),
-                        preview: SharePreview("My Trip Stats", image: renderCardImage())
+                        preview: SharePreview("My trip stats", image: renderCardImage())
                     ) {
                         Image(systemName: "square.and.arrow.up")
                     }

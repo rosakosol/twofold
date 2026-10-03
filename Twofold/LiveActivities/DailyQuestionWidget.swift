@@ -110,7 +110,7 @@ struct DailyQuestionWidget: Widget {
         StaticConfiguration(kind: kind, provider: DailyQuestionProvider()) { entry in
             DailyQuestionWidgetView(entry: entry)
         }
-        .configurationDisplayName("Daily Question")
+        .configurationDisplayName("Daily question")
         .description("Today's question, and your partner's answer once you've both answered.")
         .supportedFamilies([.systemSmall, .systemMedium])
         .contentMarginsDisabled()

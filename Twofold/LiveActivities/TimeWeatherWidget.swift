@@ -160,7 +160,7 @@ struct TimeWeatherWidget: Widget {
         StaticConfiguration(kind: kind, provider: TimeWeatherProvider()) { entry in
             TimeWeatherWidgetView(entry: entry)
         }
-        .configurationDisplayName("Time & Weather")
+        .configurationDisplayName("Time & weather")
         .description("Your partner's time and weather. Side by side at Medium size.")
         .supportedFamilies([.systemSmall, .systemMedium])
         .contentMarginsDisabled()

@@ -12,22 +12,13 @@ struct ConnectPartnerView: View {
 
     var body: some View {
         VStack(spacing: Theme.Spacing.xl) {
-            Spacer()
-
-            VStack(spacing: Theme.Spacing.md) {
-                Text("💛")
-                    .font(.system(size: 48))
-                Text("Twofold is better together")
-                    .font(.system(.title, weight: .bold))
-                    .multilineTextAlignment(.center)
-                Text("Connect with your partner to share trips, track flights and count down the days until you're together again.")
-                    .font(.body)
-                    .foregroundStyle(Theme.textSecondary)
-                    .multilineTextAlignment(.center)
+            // Centred in the space above the buttons while it fits, and scrollable once it
+            // doesn't: at the largest text sizes the title and the sentence under it are taller
+            // than that space, and without the scroll view both were cut to one line.
+            ViewThatFits(in: .vertical) {
+                pitch.frame(maxHeight: .infinity)
+                ScrollView { pitch.padding(.vertical, Theme.Spacing.lg) }
             }
-            .padding(.horizontal, Theme.Spacing.lg)
-
-            Spacer()
 
             VStack(spacing: Theme.Spacing.md) {
                 Button {
@@ -64,9 +55,10 @@ struct ConnectPartnerView: View {
                 Button("Skip for now") {
                     onboarding.path.append(.nextTrip)
                 }
-                .font(.caption)
-                .foregroundStyle(Theme.textSecondary.opacity(0.7))
-                .padding(.top, Theme.Spacing.xs)
+                .font(.subheadline)
+                // Full `textSecondary`, not faded: at 70% it fell under 4.5:1 on the background.
+                .foregroundStyle(Theme.textSecondary)
+                .frame(minHeight: 44)
             }
             .padding(.horizontal, Theme.Spacing.lg)
             .padding(.bottom, Theme.Spacing.xl)
@@ -74,6 +66,23 @@ struct ConnectPartnerView: View {
         .background(ScreenBackground())
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(false)
+    }
+
+    private var pitch: some View {
+        VStack(spacing: Theme.Spacing.md) {
+            Text("💛")
+                .font(.system(size: 48))
+            Text("Twofold is better together")
+                .font(.system(.title, weight: .bold))
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            Text("Connect with your partner to share trips, track flights and count down the days until you're together again.")
+                .font(.body)
+                .foregroundStyle(Theme.textSecondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, Theme.Spacing.lg)
     }
 }
 

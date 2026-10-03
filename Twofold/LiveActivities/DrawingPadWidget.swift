@@ -214,7 +214,7 @@ struct DrawingPadWidget: Widget {
         AppIntentConfiguration(kind: kind, intent: DrawingPadSideIntent.self, provider: DrawingPadProvider()) { entry in
             DrawingPadWidgetView(entry: entry)
         }
-        .configurationDisplayName("Drawing Pad")
+        .configurationDisplayName("Drawing pad")
         .description("Their drawing, or yours, at Small. Both side by side at Medium.")
         .supportedFamilies([.systemSmall, .systemMedium])
         .contentMarginsDisabled()

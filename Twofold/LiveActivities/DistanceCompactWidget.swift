@@ -79,7 +79,7 @@ struct DistanceCompactWidget: Widget {
         StaticConfiguration(kind: kind, provider: DistanceProvider()) { entry in
             DistanceCompactWidgetView(entry: entry)
         }
-        .configurationDisplayName("Distance Apart (Compact)")
+        .configurationDisplayName("Distance apart (compact)")
         .description("Distance and both cities together in one compact Lock Screen widget.")
         .supportedFamilies([.accessoryRectangular])
         .contentMarginsDisabled()

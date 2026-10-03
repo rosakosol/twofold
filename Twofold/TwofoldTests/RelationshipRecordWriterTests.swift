@@ -30,7 +30,7 @@ struct RelationshipRecordWriterTests {
         }
         let attachment = NSTextAttachment()
         attachment.image = image
-        let doc = NSMutableAttributedString(string: "Our Story\n")
+        let doc = NSMutableAttributedString(string: "Our story\n")
         doc.append(NSAttributedString(attachment: attachment))
 
         let data = try #require(try? doc.data(
@@ -92,7 +92,7 @@ struct RelationshipRecordWriterTests {
             documentAttributes: nil
         ))
         let plain = restored.string
-        #expect(plain.contains("Our Story"))
+        #expect(plain.contains("Our story"))
         #expect(plain.contains("Rosa & Dara"))
         #expect(plain.contains("Dinner in Singapore"))
         #expect(plain.contains("The one with the chilli crab."))

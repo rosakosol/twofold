@@ -242,7 +242,7 @@ private struct CoverPageView: View {
                 }
 
                 VStack(spacing: Theme.Spacing.sm) {
-                    Text("Our Story")
+                    Text("Our story")
                         .font(.system(size: 44, weight: .bold, design: .serif))
                         .foregroundStyle(Theme.textPrimary)
                     Text("\(selfName) & \(partnerName)")

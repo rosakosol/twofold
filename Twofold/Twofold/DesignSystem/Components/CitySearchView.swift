@@ -45,7 +45,7 @@ struct CitySearchView: View {
             List {
                 if completer.queryFragment.isEmpty {
                     if !homeCitySuggestions.isEmpty {
-                        Section("Your Cities") {
+                        Section("Your cities") {
                             ForEach(homeCitySuggestions, id: \.place.id) { suggestion in
                                 Button {
                                     onSelect(suggestion.place)

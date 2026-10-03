@@ -47,7 +47,7 @@ struct RedundantSubscriptionCard: View {
                         Spacer()
                         Button(action: onDismiss) {
                             Image(systemName: "xmark.circle.fill")
-                                .foregroundStyle(Theme.textSecondary.opacity(0.5))
+                                .foregroundStyle(Theme.controlLine)
                                 // The glyph is ~22pt, half Apple's 44pt minimum. The frame only
                                 // grows the tap target; `contentShape` makes all of it hittable.
                                 .frame(width: 44, height: 44)

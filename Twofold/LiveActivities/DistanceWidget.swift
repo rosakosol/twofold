@@ -140,7 +140,7 @@ struct DistanceWidget: Widget {
         StaticConfiguration(kind: kind, provider: DistanceProvider()) { entry in
             DistanceWidgetView(entry: entry)
         }
-        .configurationDisplayName("Distance Apart")
+        .configurationDisplayName("Distance apart")
         .description("How far apart you and your partner are right now, on your Lock Screen.")
         .supportedFamilies([.accessoryRectangular, .accessoryInline])
         .contentMarginsDisabled()

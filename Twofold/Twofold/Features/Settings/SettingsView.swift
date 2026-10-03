@@ -144,7 +144,7 @@ struct SettingsView: View {
                                 RelationshipTimelineView()
                             } label: {
                                 SettingsRow(
-                                    title: "Your Relationship Record",
+                                    title: "Your relationship record",
                                     systemImage: "book.closed.fill"
                                 )
                             }

@@ -170,7 +170,7 @@ struct GameResultsShareView: View {
                 Spacer(minLength: 0)
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
-                    .foregroundStyle(isSelected ? Theme.success : Theme.textSecondary.opacity(0.3))
+                    .foregroundStyle(isSelected ? Theme.success : Theme.controlLine)
             }
             answerLine(name: data.me.name, text: round.myAnswer)
             answerLine(name: data.partner.name, text: round.partnerAnswer)

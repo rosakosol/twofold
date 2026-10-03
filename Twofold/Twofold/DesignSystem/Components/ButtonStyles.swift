@@ -10,10 +10,18 @@
 //    CircularNavButton                the 44pt round icon button over maps and sheets
 //
 //  The styles own the label's font, colour, height and background, so a call site passes plain
-//  text (or text and a spinner) and nothing else.
+//  text (or text and a spinner) and nothing else. The font is a text style (`.headline` is 17pt
+//  semibold at the default size), so labels grow with Dynamic Type and wrap rather than truncate.
 //
 
 import SwiftUI
+
+/// A capsule at the button's standard height (54pt, or 44pt compact): a rounded rectangle whose
+/// radius is half that height. Where Dynamic Type wraps a label onto more lines the button grows
+/// and keeps straight sides, where a true `Capsule` would turn into an oval that cuts into the text.
+private func buttonShape(isCompact: Bool = false) -> RoundedRectangle {
+    RoundedRectangle(cornerRadius: isCompact ? 22 : 27, style: .continuous)
+}
 
 /// 54pt capsule on `primaryButtonGradient`, 17pt semibold. The label is white in light mode and
 /// `#0B0F16` in dark mode, where the gradient is a light blue (6.8:1).
@@ -25,22 +33,26 @@ struct TwofoldPrimaryButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: isCompact ? 15 : 17, weight: .semibold))
+            .font(isCompact ? .subheadline.weight(.semibold) : .headline)
+            .multilineTextAlignment(.center)
+            .padding(.vertical, 10)
             .tint(isEnabled ? Theme.onPrimaryButton : Theme.textSecondary)
             .foregroundStyle(isEnabled ? Theme.onPrimaryButton : Theme.textSecondary)
             .frame(maxWidth: isCompact ? nil : .infinity, minHeight: isCompact ? 44 : 54)
             .padding(.horizontal, isCompact ? 20 : Theme.Spacing.md)
             .background {
                 if isEnabled {
-                    Capsule().fill(Theme.primaryButtonGradient)
+                    buttonShape(isCompact: isCompact).fill(Theme.primaryButtonGradient)
                 } else {
                     // A disabled button keeps its shape but gives up the colour, with its label in
                     // `textSecondary` on `segmentTrack` (above 4.5:1 in both appearances) rather
                     // than white on a faded blue, which no one can read.
-                    Capsule().fill(Theme.segmentTrack)
+                    buttonShape(isCompact: isCompact).fill(Theme.segmentTrack)
                 }
             }
-            .contentShape(Capsule())
+            .contentShape(buttonShape(isCompact: isCompact))
+            // Never shorter than its label: squeezed for height, a wrapped label spills out of the capsule.
+            .fixedSize(horizontal: false, vertical: true)
             .opacity(configuration.isPressed ? 0.85 : 1)
     }
 }
@@ -51,12 +63,16 @@ struct TwofoldSecondaryButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 17, weight: .semibold))
+            .font(.headline)
+            .multilineTextAlignment(.center)
+            .padding(.vertical, 10)
             .foregroundStyle(isEnabled ? Theme.textPrimary : Theme.textSecondary)
             .frame(maxWidth: .infinity, minHeight: 54)
             .padding(.horizontal, Theme.Spacing.md)
-            .overlay { Capsule().strokeBorder(Theme.controlLine, lineWidth: 1) }
-            .contentShape(Capsule())
+            .overlay { buttonShape().strokeBorder(Theme.controlLine, lineWidth: 1) }
+            .contentShape(buttonShape())
+            // Never shorter than its label: squeezed for height, a wrapped label spills out of the capsule.
+            .fixedSize(horizontal: false, vertical: true)
             .opacity(configuration.isPressed ? 0.7 : 1)
     }
 }
@@ -66,13 +82,17 @@ struct TwofoldSecondaryButtonStyle: ButtonStyle {
 struct TwofoldCoralButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 17, weight: .semibold))
+            .font(.headline)
+            .multilineTextAlignment(.center)
+            .padding(.vertical, 10)
             .tint(Theme.onFill)
             .foregroundStyle(Theme.onFill)
             .frame(maxWidth: .infinity, minHeight: 54)
             .padding(.horizontal, Theme.Spacing.md)
-            .background(Theme.coralGradient, in: Capsule())
-            .contentShape(Capsule())
+            .background(Theme.coralGradient, in: buttonShape())
+            .contentShape(buttonShape())
+            // Never shorter than its label: squeezed for height, a wrapped label spills out of the capsule.
+            .fixedSize(horizontal: false, vertical: true)
             .opacity(configuration.isPressed ? 0.85 : 1)
     }
 }
@@ -86,19 +106,23 @@ struct TwofoldGameButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 17, weight: .semibold))
+            .font(.headline)
+            .multilineTextAlignment(.center)
+            .padding(.vertical, 10)
             .tint(isEnabled ? Theme.onFill : Theme.textSecondary)
             .foregroundStyle(isEnabled ? Theme.onFill : Theme.textSecondary)
             .frame(maxWidth: .infinity, minHeight: 54)
             .padding(.horizontal, Theme.Spacing.md)
             .background {
                 if isEnabled {
-                    Capsule().fill(gameType.gradient)
+                    buttonShape().fill(gameType.gradient)
                 } else {
-                    Capsule().fill(Theme.segmentTrack)
+                    buttonShape().fill(Theme.segmentTrack)
                 }
             }
-            .contentShape(Capsule())
+            .contentShape(buttonShape())
+            // Never shorter than its label: squeezed for height, a wrapped label spills out of the capsule.
+            .fixedSize(horizontal: false, vertical: true)
             .opacity(configuration.isPressed ? 0.85 : 1)
     }
 }

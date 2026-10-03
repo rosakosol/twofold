@@ -380,7 +380,7 @@ struct HomeView: View {
                             appModel.dismissSetupChecklist()
                         } label: {
                             Image(systemName: "xmark.circle.fill")
-                                .foregroundStyle(Theme.textSecondary.opacity(0.5))
+                                .foregroundStyle(Theme.controlLine)
                                 // The glyph alone is ~22pt, half Apple's 44pt minimum — a miss on this
                                 // one dismisses nothing and taps the card behind it instead. The frame
                                 // only grows the tap target; `contentShape` makes the whole of it

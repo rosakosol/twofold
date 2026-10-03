@@ -195,7 +195,7 @@ struct FlightConfirmationView: View {
                     Button(action: confirm) {
                         HStack {
                             if isSaving { ProgressView().tint(Theme.onPrimaryButton) }
-                            Text(isSaving ? "Saving…" : (isOutOfAllowance ? "Save Without Tracking" : "Add flight"))
+                            Text(isSaving ? "Saving…" : (isOutOfAllowance ? "Save without tracking" : "Add flight"))
                         }
                         .frame(maxWidth: .infinity)
                         .padding()

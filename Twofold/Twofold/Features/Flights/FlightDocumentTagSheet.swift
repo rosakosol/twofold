@@ -105,7 +105,7 @@ struct FlightDocumentTagSheet: View {
                     .foregroundStyle(Theme.textPrimary)
                 Spacer(minLength: 0)
                 Image(systemName: docType == type ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(docType == type ? Theme.accent : Theme.textSecondary.opacity(0.4))
+                    .foregroundStyle(docType == type ? Theme.accent : Theme.controlLine)
             }
             .padding(Theme.Spacing.sm)
             .frame(maxWidth: .infinity)

@@ -37,7 +37,7 @@ enum RelationshipRecordWriter {
         var rtf = #"{\rtf1\ansi\ansicpg1252\deff0{\fonttbl{\f0\fswiss Helvetica;}}"#
         rtf += #"\f0\fs24"#
 
-        rtf += paragraph(escape("Our Story"), bold: true, sizeHalfPoints: 56)
+        rtf += paragraph(escape("Our story"), bold: true, sizeHalfPoints: 56)
         rtf += paragraph(escape("\(selfName) & \(partnerName)"), sizeHalfPoints: 28)
         rtf += #"\par"#
 

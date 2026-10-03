@@ -86,7 +86,7 @@ struct FullTripStatsView: View {
             .padding(Theme.Spacing.md)
         }
         .background(ScreenBackground())
-        .navigationTitle("Trip Stats")
+        .navigationTitle("Trip stats")
         .navigationBarTitleDisplayMode(.inline)
         .postHogScreenView("Passport: Full Trip Stats")
         .sheet(item: $sharingStat) { StatShareView(stat: $0) }

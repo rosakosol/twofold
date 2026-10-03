@@ -31,7 +31,7 @@ struct PassportShareView: View {
                     .padding(.bottom, Theme.Spacing.md)
             }
             .background(ScreenBackground())
-            .navigationTitle("Flight Stats")
+            .navigationTitle("Flight stats")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -41,7 +41,7 @@ struct PassportShareView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     ShareLink(
                         item: renderCardImage(),
-                        preview: SharePreview("My Flight Stats", image: renderCardImage())
+                        preview: SharePreview("My flight stats", image: renderCardImage())
                     ) {
                         Image(systemName: "square.and.arrow.up")
                     }

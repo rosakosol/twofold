@@ -341,7 +341,7 @@ struct FlightTrackingWidget: Widget {
         StaticConfiguration(kind: kind, provider: FlightTrackingProvider()) { entry in
             FlightTrackingWidgetView(entry: entry)
         }
-        .configurationDisplayName("Flight Tracking")
+        .configurationDisplayName("Flight tracking")
         .description("Your next flight, or theirs: how long until it departs or lands, and where it is.")
         .supportedFamilies([.systemSmall, .systemMedium])
         .contentMarginsDisabled()

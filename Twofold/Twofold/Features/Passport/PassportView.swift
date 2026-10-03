@@ -240,7 +240,7 @@ private struct FullStatsView: View {
             .padding(Theme.Spacing.md)
         }
         .background(ScreenBackground())
-        .navigationTitle("Flight Stats")
+        .navigationTitle("Flight stats")
         .navigationBarTitleDisplayMode(.inline)
         .postHogScreenView("Passport: Full Stats")
         .sheet(item: $sharingStat) { stat in
@@ -450,7 +450,7 @@ private struct FullStatsView: View {
         VStack(spacing: 2) {
             Text("\(count)x")
                 .font(.system(size: 20, weight: .bold))
-                .foregroundStyle(count > 0 ? Theme.textPrimary : Theme.textSecondary.opacity(0.4))
+                .foregroundStyle(count > 0 ? Theme.textPrimary : Theme.textSecondary)
             Text(region.rawValue)
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(Theme.textSecondary)

@@ -168,7 +168,7 @@ struct FlightTrackingView: View {
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    Section("Edit Travellers") {
+                    Section("Edit travellers") {
                         Button {
                             toggleTraveler(appModel.currentUser.id)
                         } label: {
@@ -710,7 +710,7 @@ struct FlightTrackingView: View {
             Spacer()
             Text(value)
                 .font(.subheadline.weight(isUnavailable ? .regular : .medium))
-                .foregroundStyle(isUnavailable ? Theme.textSecondary.opacity(0.6) : tint)
+                .foregroundStyle(isUnavailable ? Theme.textSecondary : tint)
         }
     }
 
@@ -934,9 +934,9 @@ struct FlightTrackingView: View {
                         label: "Punctual"
                     )
                     Spacer()
-                    delayHeadlineStat(value: "\(Int(delayStats.averageLateMinutes.rounded()))m", label: "Average Delay")
+                    delayHeadlineStat(value: "\(Int(delayStats.averageLateMinutes.rounded()))m", label: "Average delay")
                     Spacer()
-                    delayHeadlineStat(value: "\(delayStats.observedCount)", label: "Observed Flights")
+                    delayHeadlineStat(value: "\(delayStats.observedCount)", label: "Observed flights")
                 }
 
                 VStack(spacing: Theme.Spacing.xs) {

@@ -97,7 +97,7 @@ struct TopicsSection: View {
                     .frame(height: 4)
             }
 
-            Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.textSecondary.opacity(0.3))
+            Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.controlLine)
         }
         .padding(Theme.Spacing.sm)
         .themedCardBackground(cornerRadius: Theme.Radius.card)

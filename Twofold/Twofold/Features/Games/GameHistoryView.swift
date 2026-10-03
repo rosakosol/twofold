@@ -220,7 +220,7 @@ struct GameHistoryView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     if session.isDaily {
-                        PillBadge(text: "Daily Deep Question", tint: Theme.coral)
+                        PillBadge(text: "Daily deep question", tint: Theme.coral)
                     } else if let topic {
                         PillBadge(text: topic.displayName, tint: topic.color, isNeutral: true)
                     }

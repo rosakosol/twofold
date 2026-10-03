@@ -115,7 +115,7 @@ struct RelationshipSummaryWidget: Widget {
         StaticConfiguration(kind: kind, provider: RelationshipSummaryProvider()) { entry in
             RelationshipSummaryWidgetView(entry: entry)
         }
-        .configurationDisplayName("Relationship Summary")
+        .configurationDisplayName("Relationship summary")
         .description("Days together, reunions, trips and your next hello.")
         .supportedFamilies([.systemMedium])
         .contentMarginsDisabled()

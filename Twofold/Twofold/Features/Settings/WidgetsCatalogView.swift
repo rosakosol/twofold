@@ -25,14 +25,14 @@ struct WidgetsCatalogView: View {
     @Environment(AppModel.self) private var appModel
 
     private let entries: [WidgetCatalogEntry] = [
-        WidgetCatalogEntry(name: "Trip Countdown", subtitle: "Time until your next trip together — Home or Lock Screen", systemImage: "heart.fill", tier: nil),
-        WidgetCatalogEntry(name: "Flight Countdown", subtitle: "Time until a flight you pick departs or arrives", systemImage: "airplane.departure", tier: WidgetTier.plus),
-        WidgetCatalogEntry(name: "Flight Status", subtitle: "Live status, route, and estimated time, for your next flight", systemImage: "airplane.circle.fill", tier: WidgetTier.plus),
+        WidgetCatalogEntry(name: "Trip countdown", subtitle: "Time until your next trip together — Home or Lock Screen", systemImage: "heart.fill", tier: nil),
+        WidgetCatalogEntry(name: "Flight countdown", subtitle: "Time until a flight you pick departs or arrives", systemImage: "airplane.departure", tier: WidgetTier.plus),
+        WidgetCatalogEntry(name: "Flight status", subtitle: "Live status, route, and estimated time, for your next flight", systemImage: "airplane.circle.fill", tier: WidgetTier.plus),
         WidgetCatalogEntry(name: "Anniversary", subtitle: "Your running days-together total", systemImage: "heart.fill", tier: WidgetTier.plus),
-        WidgetCatalogEntry(name: "Partner's Time", subtitle: "Their local time, at a glance", systemImage: "clock.fill", tier: WidgetTier.plus),
-        WidgetCatalogEntry(name: "Time & Weather", subtitle: "Their time and forecast, side by side", systemImage: "cloud.sun.fill", tier: WidgetTier.plus),
-        WidgetCatalogEntry(name: "Drawing Pad", subtitle: "Whatever's currently drawn, with a nudge button", systemImage: "pencil.tip", tier: WidgetTier.plus),
-        WidgetCatalogEntry(name: "Smart Rotating", subtitle: "Cycles through your other widgets automatically every 10 minutes", systemImage: "arrow.triangle.2.circlepath", tier: WidgetTier.premium),
+        WidgetCatalogEntry(name: "Partner's time", subtitle: "Their local time, at a glance", systemImage: "clock.fill", tier: WidgetTier.plus),
+        WidgetCatalogEntry(name: "Time & weather", subtitle: "Their time and forecast, side by side", systemImage: "cloud.sun.fill", tier: WidgetTier.plus),
+        WidgetCatalogEntry(name: "Drawing pad", subtitle: "Whatever's currently drawn, with a nudge button", systemImage: "pencil.tip", tier: WidgetTier.plus),
+        WidgetCatalogEntry(name: "Smart rotating", subtitle: "Cycles through your other widgets automatically every 10 minutes", systemImage: "arrow.triangle.2.circlepath", tier: WidgetTier.premium),
     ]
 
     var body: some View {

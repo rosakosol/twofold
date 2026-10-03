@@ -96,7 +96,7 @@ struct PartnersTimeWidget: Widget {
         StaticConfiguration(kind: kind, provider: PartnersTimeProvider()) { entry in
             PartnersTimeWidgetView(entry: entry)
         }
-        .configurationDisplayName("Partner's Time")
+        .configurationDisplayName("Partner's time")
         .description("See your partner's local time at a glance.")
         .supportedFamilies([.systemSmall])
         .contentMarginsDisabled()

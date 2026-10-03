@@ -244,7 +244,7 @@ struct SmartRotatingWidget: Widget {
         StaticConfiguration(kind: kind, provider: SmartRotatingProvider()) { entry in
             SmartRotatingWidgetView(entry: entry)
         }
-        .configurationDisplayName("Smart Rotating")
+        .configurationDisplayName("Smart rotating")
         .description("Whatever matters most right now: a flight, today's question, a new drawing.")
         .supportedFamilies([.systemSmall, .systemMedium])
         .contentMarginsDisabled()

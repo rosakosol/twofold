@@ -30,7 +30,7 @@ struct RelationshipStatsShareView: View {
                     .padding(.bottom, Theme.Spacing.md)
             }
             .background(ScreenBackground())
-            .navigationTitle("Relationship Stats")
+            .navigationTitle("Relationship stats")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {

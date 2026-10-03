@@ -319,7 +319,7 @@ struct MemoriesListView: View {
     private func selectionIndicator(isSelected: Bool) -> some View {
         Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
             .font(.title3)
-            .foregroundStyle(isSelected ? Theme.accent : Theme.textSecondary.opacity(0.35))
+            .foregroundStyle(isSelected ? Theme.accent : Theme.controlLine)
     }
 
     private func toggleSelection(_ memory: Memory) {
