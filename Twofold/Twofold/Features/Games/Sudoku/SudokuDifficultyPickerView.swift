@@ -71,9 +71,8 @@ struct SudokuDifficultyPickerView: View {
     private func headToHead(_ stats: SudokuStats) -> some View {
         SectionCard {
             VStack(spacing: Theme.Spacing.sm) {
-                Text("HEAD TO HEAD")
-                    .font(.caption2.weight(.bold))
-                    .tracking(1)
+                Text("Head to head")
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Theme.textSecondary)
 
                 HStack(spacing: Theme.Spacing.lg) {
@@ -99,12 +98,11 @@ struct SudokuDifficultyPickerView: View {
     private func tally(_ value: String, label: String, isLeading: Bool) -> some View {
         VStack(spacing: 2) {
             Text(value)
-                .font(.system(size: 30, weight: .bold, design: .rounded))
+                .font(.system(size: 30, weight: .bold))
                 .monospacedDigit()
                 .foregroundStyle(isLeading ? Theme.success : Theme.textPrimary)
-            Text(label.uppercased())
-                .font(.caption2.weight(.semibold))
-                .tracking(0.5)
+            Text(label)
+                .font(.caption.weight(.semibold))
                 .foregroundStyle(Theme.textSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)

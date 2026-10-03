@@ -146,7 +146,7 @@ struct PaywallView: View {
         // was dismissable, dismissed. Anywhere else — a forced paywall, or an already-subscribed
         // device — tapping it produced nothing visible, which reads as a dead button. Reviewers
         // test this control specifically.
-        .alert("Restore Purchases", isPresented: isShowingRestoreNotice) {
+        .alert("Restore purchases", isPresented: isShowingRestoreNotice) {
             Button("OK", role: .cancel) {
                 if isDismissable { dismiss() }
             }
@@ -190,7 +190,7 @@ struct PaywallView: View {
                     .foregroundStyle(Theme.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, Theme.Spacing.xl)
-                Button("Try Again") {
+                Button("Try again") {
                     Task { await store.loadOfferings() }
                 }
                 .buttonStyle(.twofoldPrimary)
@@ -288,8 +288,8 @@ struct PaywallView: View {
     /// These two states pre-empt the normal "buy it" copy so the CTA never reads as an offer to
     /// purchase a plan the user (or their partner) already holds.
     private var primaryButtonTitle: String {
-        if isAlreadySubscribedToSelectedTier { return "Current Plan" }
-        if isSubscribedToADifferentTier { return "Manage Subscription" }
+        if isAlreadySubscribedToSelectedTier { return "Current plan" }
+        if isSubscribedToADifferentTier { return "Manage subscription" }
         return selectedPricedPackage == nil ? "Not available" : "Start my 14-day free trial"
     }
 
@@ -304,7 +304,7 @@ struct PaywallView: View {
                     // right above it which already shows its own spinner via `primaryLoading`.
                     ProgressView().scaleEffect(0.7)
                 } else {
-                    Text("Restore Purchases")
+                    Text("Restore purchases")
                 }
             }
             .disabled(isPurchasing || isRestoring)
@@ -406,7 +406,7 @@ struct PaywallView: View {
                 .accessibilityLabel("Settings")
             }
             ToolbarItem(placement: .topBarLeading) {
-                Button("Sign Out", role: .destructive) {
+                Button("Sign out", role: .destructive) {
                     showingSignOutConfirm = true
                 }
                 .disabled(isSigningOut)
@@ -418,7 +418,7 @@ struct PaywallView: View {
                 // gives it a real anchor to point from, and changes nothing about the plain
                 // bottom-sheet behavior this already had on iPhone.
                 .confirmationDialog("Sign out of Twofold?", isPresented: $showingSignOutConfirm, titleVisibility: .visible) {
-                    Button("Sign Out", role: .destructive) {
+                    Button("Sign out", role: .destructive) {
                         Task {
                             isSigningOut = true
                             await appModel.signOut()

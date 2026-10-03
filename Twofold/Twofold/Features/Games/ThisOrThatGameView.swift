@@ -167,8 +167,8 @@ struct ThisOrThatGameView: View {
                 VStack(spacing: Theme.Spacing.md) {
                     SwipeChoiceCard(
                         gameType: .thisOrThat,
-                        leftLabel: "🅰️ THIS",
-                        rightLabel: "🅱️ THAT",
+                        leftLabel: "This",
+                        rightLabel: "That",
                         isDisabled: isSubmitting,
                         content: {
                             VStack(spacing: Theme.Spacing.md) {

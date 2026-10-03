@@ -62,7 +62,7 @@ struct TrackedTripQuery: EntityQuery {
 }
 
 struct SelectTripIntent: WidgetConfigurationIntent {
-    static var title: LocalizedStringResource = "Choose Trip"
+    static var title: LocalizedStringResource = "Choose trip"
     static var description = IntentDescription("Pick which trip this widget counts down to. Leave unset to always show the soonest one.")
 
     // No explicit `query:` argument — resolved automatically via `TrackedTripEntity.defaultQuery`.

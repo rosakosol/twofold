@@ -49,7 +49,7 @@ struct ConnectionRequestReviewView: View {
 
                 VStack(spacing: Theme.Spacing.sm) {
                     Text("\(request.requesterFirstName) wants to connect")
-                        .font(.system(.title2, design: .rounded, weight: .bold))
+                        .font(.system(.title2, weight: .bold))
                         .multilineTextAlignment(.center)
                     Text("Accept to start sharing trips, flights, and memories together.")
                         .font(.subheadline)
@@ -104,7 +104,7 @@ struct ConnectionRequestReviewView: View {
                 // answering the request, and giving it equal weight would suggest it is.
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
-                        Button("Report Abuse", systemImage: "exclamationmark.shield", role: .destructive) {
+                        Button("Report abuse", systemImage: "exclamationmark.shield", role: .destructive) {
                             showingReport = true
                         }
                         Button("Block \(request.requesterFirstName)", systemImage: "hand.raised", role: .destructive) {
@@ -162,9 +162,9 @@ struct ConnectionRequestReviewView: View {
         guard let restorable else { return "" }
         let what = restorable.summary
         guard let ended = restorable.dissolvedAt else {
-            return "From before, you still have \(what) together. Bring it back, or start fresh and leave it in Archived Data."
+            return "From before, you still have \(what) together. Bring it back, or start fresh and leave it in Archived data."
         }
-        return "From before \(ended.formatted(date: .abbreviated, time: .omitted)), you still have \(what) together. Bring it back, or start fresh and leave it in Archived Data."
+        return "From before \(ended.formatted(date: .abbreviated, time: .omitted)), you still have \(what) together. Bring it back, or start fresh and leave it in Archived data."
     }
 
     /// Declining and blocking are different answers, so this does not also decline: the request is

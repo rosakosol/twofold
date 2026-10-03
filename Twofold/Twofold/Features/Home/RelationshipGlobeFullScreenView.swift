@@ -63,8 +63,8 @@ struct RelationshipGlobeFullScreenView: View {
     /// thing to do. Sits at the bottom so it never covers the pins, which are framed centrally.
     private var distanceCaption: some View {
         VStack(spacing: 2) {
-            Text("DISTANCE BETWEEN YOU")
-                .font(.caption2.weight(.semibold))
+            Text("Distance between you")
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Theme.textSecondary)
             Text(MeasurementPreference.distanceLabel(km: distanceKm))
                 .font(.title2.weight(.bold))

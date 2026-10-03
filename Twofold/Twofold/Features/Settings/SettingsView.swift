@@ -278,7 +278,7 @@ struct SettingsView: View {
                                 if isSigningOut {
                                     ProgressView().frame(maxWidth: .infinity)
                                 } else {
-                                    Text("Sign Out").frame(maxWidth: .infinity)
+                                    Text("Sign out").frame(maxWidth: .infinity)
                                 }
                             }
                         }
@@ -292,7 +292,7 @@ struct SettingsView: View {
                         // from, and changes nothing about the plain bottom-sheet behavior this
                         // already had on iPhone.
                         .confirmationDialog("Sign out of Twofold?", isPresented: $showingSignOutConfirm, titleVisibility: .visible) {
-                            Button("Sign Out", role: .destructive) {
+                            Button("Sign out", role: .destructive) {
                                 Task {
                                     isSigningOut = true
                                     await appModel.signOut()

@@ -34,7 +34,7 @@ struct OnboardingRevealView: View {
             if let trip = onboarding.draftedTrip, let days = daysUntilTogether {
                 VStack(spacing: Theme.Spacing.md) {
                     Text("\(days)")
-                        .font(.system(size: 72, weight: .bold, design: .rounded))
+                        .font(.system(size: 72, weight: .bold))
                         .foregroundStyle(Theme.accent)
                     Text("days until you're together 💛")
                         .font(.title3.weight(.semibold))
@@ -60,7 +60,7 @@ struct OnboardingRevealView: View {
             } else {
                 VStack(spacing: Theme.Spacing.md) {
                     Text("You're all set 💛")
-                        .font(.system(.title, design: .rounded, weight: .bold))
+                        .font(.system(.title, weight: .bold))
                     // Deliberately doesn't claim a connection already exists — reachable by both
                     // the sharer (who's only sent an invite, not yet redeemed by anyone) and a
                     // pending invitee (whose request still needs the inviter's acceptance).

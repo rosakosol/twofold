@@ -11,9 +11,9 @@ struct TrialTrustView: View {
     @State private var iconPulsing = false
 
     private let timeline: [(label: String, title: String, subtitle: String, icon: String)] = [
-        ("TODAY", "Unlock all Twofold features", "Track flights, follow journeys and stay connected.", "lock.open.fill"),
-        ("DAY 12", "We'll send you a reminder that your trial is ending soon", "No surprises.", "bell.fill"),
-        ("DAY 14", "Your membership begins", "Cancel anytime before.", "checkmark.seal.fill"),
+        ("Today", "Unlock all Twofold features", "Track flights, follow journeys and stay connected.", "lock.open.fill"),
+        ("Day 12", "We'll send you a reminder that your trial is ending soon", "No surprises.", "bell.fill"),
+        ("Day 14", "Your membership begins", "Cancel anytime before.", "checkmark.seal.fill"),
     ]
 
     var body: some View {

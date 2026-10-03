@@ -85,7 +85,7 @@ struct PersonalizedInsightView: View {
                 // before the map/count-up animate in, the same way every other onboarding screen's
                 // title is already on screen before its own staged content plays.
                 Text("The distance is real...")
-                    .font(.system(.title, design: .rounded, weight: .bold))
+                    .font(.system(.title, weight: .bold))
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
 
@@ -95,7 +95,7 @@ struct PersonalizedInsightView: View {
                     .offset(y: stage >= 1 ? 0 : 12)
 
                 VStack(spacing: Theme.Spacing.xs) {
-                    Text("\(Text(displayedKm, format: .number.precision(.fractionLength(0))).font(.system(size: 42, weight: .bold, design: .rounded).monospacedDigit()).foregroundStyle(Theme.accent)) \(Text(MeasurementPreference.unitSuffix()).font(.title2.weight(.bold)).foregroundStyle(Theme.success))")
+                    Text("\(Text(displayedKm, format: .number.precision(.fractionLength(0))).font(.system(size: 42, weight: .bold).monospacedDigit()).foregroundStyle(Theme.accent)) \(Text(MeasurementPreference.unitSuffix()).font(.title2.weight(.bold)).foregroundStyle(Theme.success))")
                     Text("apart")
                         .font(.headline)
                         .foregroundStyle(Theme.textSecondary)

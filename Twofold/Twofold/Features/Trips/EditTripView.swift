@@ -73,7 +73,7 @@ struct EditTripView: View {
                     .lineLimit(3...8)
             }
         }
-        .navigationTitle("Edit Trip")
+        .navigationTitle("Edit trip")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {

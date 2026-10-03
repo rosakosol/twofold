@@ -56,7 +56,7 @@ struct TrackedFlightQuery: EntityQuery {
 }
 
 struct SelectFlightIntent: WidgetConfigurationIntent {
-    static var title: LocalizedStringResource = "Choose Flight"
+    static var title: LocalizedStringResource = "Choose flight"
     static var description = IntentDescription("Pick which flight this widget counts down to. Leave unset to always show the soonest one.")
 
     // No explicit `query:` argument — resolved automatically via `TrackedFlightEntity.defaultQuery`.

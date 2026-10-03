@@ -310,7 +310,7 @@ private struct StoryPageChrome<Content: View>: View {
             .padding(.bottom, Theme.Spacing.sm)
 
             Text(title)
-                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .font(.system(size: 28, weight: .bold))
                 .foregroundStyle(Theme.textPrimary)
                 .padding(.bottom, Theme.Spacing.lg)
 
@@ -345,8 +345,8 @@ private struct TripPageView: View {
         StoryPageChrome(
             kindLabel: {
                 switch trip.category {
-                case .reunion: "Reunion Trip"
-                case .together: "Trip Together"
+                case .reunion: "Reunion trip"
+                case .together: "Trip together"
                 case .solo: "Trip"
                 }
             }(),

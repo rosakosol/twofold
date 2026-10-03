@@ -34,7 +34,7 @@ struct HappyBirthdayView: View {
     private var isOwnBirthday: Bool { partnerName == nil }
 
     private var title: String {
-        isOwnBirthday ? "Happy birthday!" : "It's \(partnerName ?? "their")'s birthday!"
+        isOwnBirthday ? "Happy birthday" : "It's \(partnerName ?? "their")'s birthday"
     }
 
     private var subtitle: String {
@@ -61,7 +61,7 @@ struct HappyBirthdayView: View {
 
                     VStack(spacing: Theme.Spacing.sm) {
                         Text(title)
-                            .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                            .font(.system(.largeTitle, weight: .bold))
                             .multilineTextAlignment(.center)
                         Text(subtitle)
                             .font(.body)

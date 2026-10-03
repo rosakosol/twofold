@@ -128,7 +128,7 @@ struct DaysTogetherWidgetView: View {
             AccessoryWidgetBackground()
             if let days = entry.days {
                 VStack(spacing: 0) {
-                    Text("\(days)").font(.system(.title3, design: .rounded).bold())
+                    Text("\(days)").font(.system(.title3).bold())
                     Text("days").font(.caption2)
                 }
             } else {

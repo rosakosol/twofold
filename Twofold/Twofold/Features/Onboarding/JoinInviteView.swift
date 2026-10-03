@@ -21,7 +21,7 @@ struct JoinInviteView: View {
 
             VStack(spacing: Theme.Spacing.md) {
                 Text("\(inviterName) invited you\nto Twofold")
-                    .font(.system(.title, design: .rounded, weight: .bold))
+                    .font(.system(.title, weight: .bold))
                     .multilineTextAlignment(.center)
                     // The name arrives from a network lookup kicked off by `resetForNewInvite`,
                     // so this headline used to render "Your partner invited you" and then rewrite

@@ -39,7 +39,7 @@ struct PendingConnectionApprovalView: View {
 
                 VStack(spacing: Theme.Spacing.sm) {
                     Text("Waiting on \(request.inviterFirstName)")
-                        .font(.system(.title, design: .rounded, weight: .bold))
+                        .font(.system(.title, weight: .bold))
                         .multilineTextAlignment(.center)
                     Text("\(request.inviterFirstName) needs to accept your request before you're connected. We'll let you know the moment they do.")
                         .font(.body)

@@ -81,7 +81,7 @@ struct AboutYouView: View {
 
                     switch locationService.state {
                     case .deniedOrRestricted:
-                        Text("Location access is off. Enable it in Location Permission settings to use this.")
+                        Text("Location access is off. Enable it in Location permission settings to use this.")
                             .font(.caption2)
                             .foregroundStyle(Theme.error)
                     case .failed(let message):
@@ -101,7 +101,7 @@ struct AboutYouView: View {
             }
         }
         .background(ScreenBackground())
-        .navigationTitle("About You")
+        .navigationTitle("About you")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {

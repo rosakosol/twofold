@@ -179,7 +179,7 @@ struct GameHistoryView: View {
                 ForEach(GameType.allCases) { type in
                     filterPill(isSelected: selectedGameType == type, label: type.displayName) { selectedGameType = type }
                 }
-                filterPill(isSelected: dailyOnly, label: "Daily Question") { dailyOnly.toggle() }
+                filterPill(isSelected: dailyOnly, label: "Daily question") { dailyOnly.toggle() }
             }
         }
     }

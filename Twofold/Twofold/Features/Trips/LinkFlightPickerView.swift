@@ -56,7 +56,7 @@ struct LinkFlightPickerView: View {
             .listStyle(.plain)
             .background(ScreenBackground())
             .scrollContentBackground(.hidden)
-            .navigationTitle("Link a Flight")
+            .navigationTitle("Link a flight")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {

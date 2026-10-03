@@ -42,7 +42,7 @@ struct SnapshotThemeCard: View {
                     .foregroundStyle(theme.primaryTextColor)
 
                 Text(MeasurementPreference.distanceLabel(km: stats.totalDistanceKm))
-                    .font(.system(size: 52, weight: .bold, design: .rounded))
+                    .font(.system(size: 52, weight: .bold))
                     .foregroundStyle(theme.accentTextColor)
 
                 Text(couple.sharesHomeCity ? "together ♡" : "for each other ♡")

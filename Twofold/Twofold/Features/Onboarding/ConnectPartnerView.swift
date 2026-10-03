@@ -18,7 +18,7 @@ struct ConnectPartnerView: View {
                 Text("💛")
                     .font(.system(size: 48))
                 Text("Twofold is better together")
-                    .font(.system(.title, design: .rounded, weight: .bold))
+                    .font(.system(.title, weight: .bold))
                     .multilineTextAlignment(.center)
                 Text("Connect with your partner to share trips, track flights and count down the days until you're together again.")
                     .font(.body)

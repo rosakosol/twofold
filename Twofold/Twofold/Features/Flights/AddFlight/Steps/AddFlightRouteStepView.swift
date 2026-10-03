@@ -107,8 +107,8 @@ struct AddFlightRouteStepView: View {
                 .frame(width: 28)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(isDeparture ? "FROM" : "TO")
-                    .font(.caption2.weight(.bold))
+                Text(isDeparture ? "From" : "To")
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Theme.textSecondary)
 
                 TextField(
@@ -152,8 +152,8 @@ struct AddFlightRouteStepView: View {
     /// destination is where you'd plausibly fly *from the departure already chosen*, not a
     /// generic set of airports, and calling both "suggestions" hid that.
     private var suggestionsHeader: String {
-        guard activeQuery.trimmingCharacters(in: .whitespaces).isEmpty else { return "SUGGESTIONS" }
-        return focusedField == .destination && model.departureAirport != nil ? "COMMON DESTINATIONS" : "NEARBY"
+        guard activeQuery.trimmingCharacters(in: .whitespaces).isEmpty else { return "Suggestions" }
+        return focusedField == .destination && model.departureAirport != nil ? "Common destinations" : "Nearby"
     }
 
     @ViewBuilder

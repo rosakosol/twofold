@@ -111,7 +111,7 @@ struct LiveActivitySellView: View {
                 // Consistent with the progress rail below (0.55 elapsed of the 16h 50m total —
                 // see its doc comment): 45% of 16h 50m remaining ≈ 7h 35m.
                 Text("7h 35m left")
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .font(.system(size: 24, weight: .bold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
@@ -140,7 +140,7 @@ struct LiveActivitySellView: View {
     private func airportColumn(code: String, time: String, alignment: HorizontalAlignment) -> some View {
         VStack(alignment: alignment, spacing: 2) {
             Text(code)
-                .font(.system(size: airportCodeFontSize, weight: .bold, design: .rounded))
+                .font(.system(size: airportCodeFontSize, weight: .bold))
                 .foregroundStyle(.white)
                 .lineLimit(1)
             Text(time)

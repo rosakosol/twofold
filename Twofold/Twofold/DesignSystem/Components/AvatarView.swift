@@ -109,10 +109,8 @@ struct AvatarView: View {
     }
 
     /// How far the accent is blended toward black for the placeholder fill. White initials on the
-    /// raw accent measured 2.60:1 against `skyBlue` and 3.40:1 against `heartRed` in light mode,
-    /// and 1.70:1 / 2.01:1 in dark mode — well under WCAG AA's 4.5:1, on the small avatars (size
-    /// 30–32, so ~12pt initials) that appear on every tab. This is Theme.swift's own stated rule
-    /// applied here: "only the deepened tone is licensed" wherever white content sits on a fill.
+    /// raw accent fell well under WCAG AA's 4.5:1 on the small avatars (size 30–32, so ~12pt
+    /// initials) that appear on every tab, so white content only ever sits on a deepened tone.
     ///
     /// Deepening decisively rather than a little is deliberate. Blending ~20% lands every accent in
     /// the mid-luminance valley where *neither* white nor dark ink clears 4.5:1 (measured: the
@@ -121,10 +119,9 @@ struct AvatarView: View {
     ///
     /// These numbers are calibrated against rendered pixels, not arithmetic: `mix(in: .device)`
     /// interpolates in linear light, so it darkens noticeably harder than the same fraction would
-    /// in sRGB components. Sampling the real screenshot puts the two live accents at 7.4:1
-    /// (heartRed) and 6.0:1 (skyBlue) — comfortably past AA's 4.5:1 with the accent still clearly
-    /// itself, where the arithmetic-derived 0.45 came out closer to 10:1 and read as near-black.
-    /// Sampled fills: `#8F3942` (7.42:1) and `#31698B` (5.96:1), against 3.40:1 and 2.60:1 before.
+    /// in sRGB components. Sampling the real screenshot put the accents of the time at 7.4:1 and
+    /// 6.0:1 — comfortably past AA's 4.5:1 with the accent still clearly itself, where the
+    /// arithmetic-derived 0.45 came out closer to 10:1 and read as near-black.
     private static let fillDeepening = 0.30
     private static let fillDeepeningEnd = 0.45
 
@@ -142,7 +139,7 @@ struct AvatarView: View {
                     )
                 )
             Text(person.initials)
-                .font(.system(size: size * 0.38, weight: .semibold, design: .rounded))
+                .font(.system(size: size * 0.38, weight: .semibold))
                 .foregroundStyle(.white)
                 // Explicitly hidden as well as covered by the container's
                 // `.accessibilityElement(children: .ignore)` below. That modifier alone wasn't

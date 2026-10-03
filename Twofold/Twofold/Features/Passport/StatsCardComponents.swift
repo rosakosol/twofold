@@ -28,7 +28,7 @@ struct StatCardHeader: View {
                     .font(.headline)
                     .foregroundStyle(Theme.textPrimary)
             }
-            Text("\(Text(value).font(.system(size: 34, weight: .bold, design: .rounded)).foregroundStyle(Theme.accent))\(Text(unit.map { " \($0)" } ?? "").font(.title3.weight(.semibold)).foregroundStyle(Theme.textSecondary))")
+            Text("\(Text(value).font(.system(size: 34, weight: .bold)).foregroundStyle(Theme.accent))\(Text(unit.map { " \($0)" } ?? "").font(.title3.weight(.semibold)).foregroundStyle(Theme.textSecondary))")
         }
     }
 }

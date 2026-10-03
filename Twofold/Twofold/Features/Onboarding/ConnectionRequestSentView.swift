@@ -52,7 +52,7 @@ struct ConnectionRequestSentView: View {
 
             VStack(spacing: Theme.Spacing.sm) {
                 Text("Request sent")
-                    .font(.system(.title, design: .rounded, weight: .bold))
+                    .font(.system(.title, weight: .bold))
                 Text("\(inviterName) needs to accept before you're connected — we'll let you know.")
                     .font(.body)
                     .foregroundStyle(Theme.textSecondary)

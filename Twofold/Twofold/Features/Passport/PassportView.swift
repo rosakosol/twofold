@@ -219,7 +219,7 @@ private struct FullStatsView: View {
                 timeSection
                 rankedSection(
                     icon: "building.2.fill",
-                    title: "Top Visited Airports",
+                    title: "Top visited airports",
                     total: stats.airports.count,
                     // "different", not "total". These have always been counts of distinct things —
                     // `ranked` groups by name — but captioning a 3 as "total airports" reads as
@@ -230,7 +230,7 @@ private struct FullStatsView: View {
                 airlinesSection
                 rankedSection(
                     icon: "arrow.triangle.swap",
-                    title: "Top Routes",
+                    title: "Top routes",
                     total: stats.routes.count,
                     unit: "routes",
                     ranked: stats.routes
@@ -282,7 +282,7 @@ private struct FullStatsView: View {
             // Flight-based (same figure as `distanceSection` below), not trip/reunion-based — a
             // tracked flight should count toward "how far you've travelled" whether or not it's
             // linked to a Trip at all (most aren't; see `FlightStats.init`'s own comment).
-            Text("\(Text(MeasurementPreference.convertedValue(km: stats.totalDistanceKm), format: .number.precision(.fractionLength(0))).font(.system(size: 44, weight: .bold, design: .rounded)).foregroundStyle(Theme.accent))\(Text(" \(MeasurementPreference.unitSuffix())").font(.title.weight(.bold)).foregroundStyle(Theme.success))")
+            Text("\(Text(MeasurementPreference.convertedValue(km: stats.totalDistanceKm), format: .number.precision(.fractionLength(0))).font(.system(size: 44, weight: .bold)).foregroundStyle(Theme.accent))\(Text(" \(MeasurementPreference.unitSuffix())").font(.title.weight(.bold)).foregroundStyle(Theme.success))")
 
             if scope == .all {
                 Text(appModel.couple.sharesHomeCity ? "together" : "for each other")
@@ -324,7 +324,7 @@ private struct FullStatsView: View {
     private var distanceSection: some View {
         shareableCard(
             icon: "ruler.fill",
-            title: "Flight Distance",
+            title: "Flight distance",
             value: Int(MeasurementPreference.convertedValue(km: stats.totalDistanceKm).rounded()).formatted(),
             unit: MeasurementPreference.unitSuffix()
         ) {
@@ -341,7 +341,7 @@ private struct FullStatsView: View {
     }
 
     private var timeSection: some View {
-        shareableCard(icon: "clock.fill", title: "Flight Time", value: FlightStats.duration(stats.totalFlightTime), unit: nil) {
+        shareableCard(icon: "clock.fill", title: "Flight time", value: FlightStats.duration(stats.totalFlightTime), unit: nil) {
             VStack(spacing: Theme.Spacing.sm) {
                 breakdownRow(label: "Avg. flight time", value: FlightStats.duration(stats.averageFlightTime))
                 breakdownRow(
@@ -358,9 +358,9 @@ private struct FullStatsView: View {
     /// number prefix) — same `AirlineLogoView`/`AirlineLogo.url(forIATACode:)` pairing
     /// `FlightTrackingView`'s header uses, just keyed off the ranked code instead of a live flight.
     private var airlinesSection: some View {
-        shareableCard(icon: "airplane.circle.fill", title: "Top Airlines", value: "\(stats.airlines.count)", unit: "airlines") {
+        shareableCard(icon: "airplane.circle.fill", title: "Top airlines", value: "\(stats.airlines.count)", unit: "airlines") {
             if !stats.airlines.isEmpty {
-                let isExpanded = expandedRankings.contains("Top Airlines")
+                let isExpanded = expandedRankings.contains("Top airlines")
                 VStack(spacing: Theme.Spacing.sm) {
                     ForEach(stats.airlines.prefix(isExpanded ? stats.airlines.count : 3)) { entry in
                         airlineRow(entry)
@@ -368,7 +368,7 @@ private struct FullStatsView: View {
                     if stats.airlines.count > 3 {
                         Button(isExpanded ? "Show less" : "Show all \(stats.airlines.count)") {
                             withAnimation {
-                                if isExpanded { expandedRankings.remove("Top Airlines") } else { expandedRankings.insert("Top Airlines") }
+                                if isExpanded { expandedRankings.remove("Top airlines") } else { expandedRankings.insert("Top airlines") }
                             }
                         }
                         .font(.subheadline.weight(.semibold))
@@ -431,9 +431,9 @@ private struct FullStatsView: View {
     /// Shows 5 before collapsing rather than the other cards' 3, plus a fixed 3x3 region grid
     /// underneath — countries are the one breakdown worth seeing more of at a glance.
     private var countriesSection: some View {
-        shareableCard(icon: "globe.americas.fill", title: "Countries & Territories", value: "\(stats.countries.count)", unit: "countries") {
+        shareableCard(icon: "globe.americas.fill", title: "Countries & territories", value: "\(stats.countries.count)", unit: "countries") {
             if !stats.countries.isEmpty {
-                rankedRows(title: "Countries & Territories", ranked: stats.countries, collapsedLimit: 5)
+                rankedRows(title: "Countries & territories", ranked: stats.countries, collapsedLimit: 5)
 
                 Divider()
 
@@ -449,7 +449,7 @@ private struct FullStatsView: View {
     private func regionTile(region: CountryRegion, count: Int) -> some View {
         VStack(spacing: 2) {
             Text("\(count)x")
-                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .font(.system(size: 20, weight: .bold))
                 .foregroundStyle(count > 0 ? Theme.textPrimary : Theme.textSecondary.opacity(0.4))
             Text(region.rawValue)
                 .font(.caption2.weight(.semibold))

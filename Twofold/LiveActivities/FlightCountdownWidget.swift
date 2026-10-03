@@ -221,7 +221,7 @@ struct FlightCountdownWidgetView: View {
             AccessoryWidgetBackground()
             if entry.targetDate != nil {
                 VStack(spacing: 0) {
-                    Text(compactRemainingLabel).font(.system(.title3, design: .rounded).bold())
+                    Text(compactRemainingLabel).font(.system(.title3).bold())
                     Text("to go").font(.caption2)
                 }
             } else {

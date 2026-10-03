@@ -64,7 +64,7 @@ struct AddFlightDateStepView: View {
                     } label: {
                         HStack {
                             Image(systemName: "calendar").foregroundStyle(Theme.accent)
-                            Text("Pick from Calendar").foregroundStyle(Theme.textPrimary)
+                            Text("Pick from calendar").foregroundStyle(Theme.textPrimary)
                             Spacer()
                         }
                         .padding()

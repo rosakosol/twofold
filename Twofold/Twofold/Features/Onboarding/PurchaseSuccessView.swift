@@ -19,7 +19,7 @@ struct PurchaseSuccessView: View {
 
     var body: some View {
         OnboardingScaffold(
-            title: "You're all set!",
+            title: "You're all set",
             subtitle: "Your 14-day free trial has started.",
             content: {
                 VStack(spacing: Theme.Spacing.lg) {

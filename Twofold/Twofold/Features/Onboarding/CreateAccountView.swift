@@ -92,7 +92,7 @@ struct CreateAccountView: View {
                         Button {
                             showingSignIn = true
                         } label: {
-                            Text("Sign In")
+                            Text("Sign in")
                                 .font(.subheadline.weight(.semibold))
                                 .foregroundStyle(Theme.accent)
                         }

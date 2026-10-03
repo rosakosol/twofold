@@ -48,11 +48,11 @@ struct CancelSubscriptionOfferView: View {
 
                 VStack(spacing: Theme.Spacing.sm) {
                     Button(action: onManage) {
-                        Text("Manage Subscription")
+                        Text("Manage subscription")
                     }
                     .buttonStyle(.twofoldPrimary)
 
-                    Button("Keep My Subscription", action: onNotNow)
+                    Button("Keep my subscription", action: onNotNow)
                         .font(.subheadline)
                         .foregroundStyle(Theme.textSecondary)
                 }

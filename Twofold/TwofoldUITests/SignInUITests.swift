@@ -56,7 +56,7 @@ final class SignInUITests: XCTestCase {
         passwordField.tap()
         passwordField.typeText(password)
 
-        app.buttons["Sign In"].tap()
+        app.buttons["Sign in"].tap()
 
         // Generous: this is a real backend round trip followed by the full couple-state fetch.
         XCTAssertTrue(

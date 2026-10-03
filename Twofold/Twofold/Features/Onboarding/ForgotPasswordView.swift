@@ -28,7 +28,7 @@ struct ForgotPasswordView: View {
                 VStack(spacing: Theme.Spacing.lg) {
                     VStack(spacing: Theme.Spacing.sm) {
                         Text("Forgot your password?")
-                            .font(.system(.title, design: .rounded, weight: .bold))
+                            .font(.system(.title, weight: .bold))
                         Text("Enter your account email and we'll send you a link to reset it.")
                             .font(.body)
                             .foregroundStyle(Theme.textSecondary)
@@ -56,7 +56,7 @@ struct ForgotPasswordView: View {
                             if isSubmitting {
                                 ProgressView()
                             } else {
-                                Text("Send Reset Link")
+                                Text("Send reset link")
                             }
                         }
                         .buttonStyle(.twofoldPrimary)

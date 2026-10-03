@@ -167,8 +167,8 @@ struct WhosMoreLikelyGameView: View {
                 VStack(spacing: Theme.Spacing.md) {
                     SwipeChoiceCard(
                         gameType: .moreLikely,
-                        leftLabel: "🙋 \(appModel.currentUser.name.uppercased())",
-                        rightLabel: "👉 \(appModel.partner.name.uppercased())",
+                        leftLabel: appModel.currentUser.name,
+                        rightLabel: appModel.partner.name,
                         isDisabled: isSubmitting,
                         content: {
                             VStack(spacing: Theme.Spacing.lg) {

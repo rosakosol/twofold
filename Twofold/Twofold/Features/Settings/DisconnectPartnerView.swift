@@ -109,7 +109,7 @@ struct DisconnectPartnerView: View {
                     Button {
                         showingReport = true
                     } label: {
-                        SettingsRow(title: "Report Abuse", systemImage: "exclamationmark.shield")
+                        SettingsRow(title: "Report abuse", systemImage: "exclamationmark.shield")
                     }
                     .buttonStyle(.plain)
                     Text("Tell us if \(appModel.partner.name) has shared something abusive, or is using Twofold to harm you. We aim to respond within 48 hours, and we never tell them you got in touch.")
@@ -163,7 +163,7 @@ struct DisconnectPartnerView: View {
             .padding(Theme.Spacing.md)
         }
         .background(ScreenBackground())
-        .navigationTitle("Disconnect Partner")
+        .navigationTitle("Disconnect partner")
         .navigationBarTitleDisplayMode(.inline)
         .confirmationDialog(
             "Block \(appModel.partner.name)?",
@@ -202,7 +202,7 @@ struct DisconnectPartnerView: View {
             )
         }
         .alert("Remove \(appModel.partner.name)?", isPresented: $showingRemovePartnerConfirm) {
-            Button("Remove Partner", role: .destructive) {
+            Button("Remove partner", role: .destructive) {
                 Task {
                     isRemovingPartner = true
                     removePartnerError = nil
@@ -251,7 +251,7 @@ struct DisconnectPartnerView: View {
     }
 
     private var disconnectWarningMessage: String {
-        let base = "This will archive all your shared trips, memories, flights, game sessions, stats, and drawings with \(appModel.partner.name) — they'll only be visible afterward in Settings → Help → Archived Data. You'll be able to connect with someone new right away."
+        let base = "This will archive all your shared trips, memories, flights, game sessions, stats, and drawings with \(appModel.partner.name) — they'll only be visible afterward in Settings → Help → Archived data. You'll be able to connect with someone new right away."
         if wouldLosePaidAccess {
             return base + "\n\n\(appModel.partner.name) is the one paying for your Twofold subscription — disconnecting will leave you without one, since you won't be covered by their purchase anymore. You can subscribe yourself to keep everything."
         }

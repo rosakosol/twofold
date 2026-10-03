@@ -45,7 +45,7 @@ struct GameCompletionView: View {
                     Text("🎉").font(.system(size: 56))
 
                     VStack(spacing: Theme.Spacing.sm) {
-                        Text("You're finished!")
+                        Text("You're finished")
                             .font(.title2.weight(.bold))
                         Text("Now it's \(partnerName)'s turn. We've sent them an invitation. Results unlock once you've both completed the game.")
                             .font(.subheadline)
@@ -73,7 +73,7 @@ struct GameCompletionView: View {
                 GameReminderButton(isSending: isSendingReminder, action: onSendReminder)
 
                 Button(action: onPlayAnother) {
-                    Text("Play Another Game")
+                    Text("Play another game")
                 }
                 .buttonStyle(.twofoldPrimary)
 
@@ -81,7 +81,7 @@ struct GameCompletionView: View {
                     Button(action: onEditAnswers) {
                         HStack(spacing: 4) {
                             Image(systemName: "pencil")
-                            Text("Edit My Answers")
+                            Text("Edit my answers")
                         }
                         .font(.subheadline.weight(.medium))
                     }
@@ -111,7 +111,7 @@ struct GameCompletionView: View {
                 showingReminderSentConfirmation = true
             }
         }
-        .alert("Reminder Sent", isPresented: $showingReminderSentConfirmation) {
+        .alert("Reminder sent", isPresented: $showingReminderSentConfirmation) {
             Button("OK", role: .cancel) {}
         } message: {
             Text("Notification sent to \(partnerName).")

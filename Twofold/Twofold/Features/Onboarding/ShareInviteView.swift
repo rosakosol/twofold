@@ -43,7 +43,7 @@ struct ShareInviteView: View {
                     .font(.headline)
                     .foregroundStyle(Theme.textSecondary)
                 Text(code)
-                    .font(.system(size: 40, weight: .bold, design: .rounded))
+                    .font(.system(size: 40, weight: .bold))
                     .foregroundStyle(Theme.accent)
                 Text("Share this with your partner so they can join you on Twofold.")
                     .font(.subheadline)
@@ -71,7 +71,7 @@ struct ShareInviteView: View {
                     UIPasteboard.general.string = shareURL.absoluteString
                     didCopy = true
                 } label: {
-                    Label(didCopy ? "Copied!" : "Copy link", systemImage: didCopy ? "checkmark" : "doc.on.doc")
+                    Label(didCopy ? "Copied" : "Copy link", systemImage: didCopy ? "checkmark" : "doc.on.doc")
                 }
                 .buttonStyle(.twofoldSecondary)
 

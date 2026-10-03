@@ -3,12 +3,10 @@
 //  Twofold
 //
 //  Color source for exportable "share cards" (Game Results, Distance, Stats) — the images users
-//  send to Instagram/Messages. Per the dark-mode/Daylight design handoff, these carry their own
-//  canvas/accent palette rather than the app's own `Theme.*` tokens, because the card is a leaf
-//  image that has to look right on its own (in Photos, in a Messages thread) instead of adapting
-//  to in-app chrome. Values below are transcribed exactly from that handoff's `ShareCard.dc.html`
-//  card-palette table — dark "Aurora" canvas + light "Daylight" pastel canvas, three accents
-//  (sky/leaf/heart) each.
+//  send to Instagram/Messages. These carry their own canvas/accent palette rather than the app's
+//  own `Theme.*` tokens, because the card is a leaf image that has to look right on its own (in
+//  Photos, in a Messages thread) instead of adapting to in-app chrome: a dark canvas and a light
+//  pastel one, with three accents (sky/leaf/heart) each.
 //
 
 import SwiftUI

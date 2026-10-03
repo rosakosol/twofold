@@ -16,7 +16,7 @@ struct OnboardingScaffold<Content: View>: View {
     var titleAccessoryImageName: String?
     /// Overrides just the title's font — defaults to the large rounded-bold title every existing
     /// onboarding screen already renders it at.
-    var titleFont: Font = .system(.title, design: .rounded, weight: .bold)
+    var titleFont: Font = .system(.title, weight: .bold)
     /// A small mark shown *inline* after the title, at roughly the text's own height — for a
     /// logo that reads as part of the sentence rather than a graphic sitting above it. Distinct
     /// from `titleAccessoryImageName`, which stacks above and is sized independently.

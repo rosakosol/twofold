@@ -116,7 +116,7 @@ struct FlightShareView: View {
     private var ctaArea: some View {
         if page == 0 {
             ShareLink(item: shareText) {
-                Text("Share Text")
+                Text("Share text")
             }
             .buttonStyle(.twofoldPrimary)
         } else {

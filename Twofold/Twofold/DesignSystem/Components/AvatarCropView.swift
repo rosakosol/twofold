@@ -63,7 +63,7 @@ struct AvatarCropView: View {
                     Button("Cancel", action: onCancel)
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Use Photo") { onComplete(renderCrop()) }
+                    Button("Use photo") { onComplete(renderCrop()) }
                         .fontWeight(.semibold)
                 }
             }

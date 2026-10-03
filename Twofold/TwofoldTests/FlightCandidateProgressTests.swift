@@ -44,7 +44,7 @@ struct FlightCandidateProgressTests {
     func landedTodayReportsHowLongAgo() throws {
         let flight = candidate(status: "arrived", departsIn: -8 * 3600, arrivesIn: -3 * 3600 - 12 * 60, now: now)
         let summary = try #require(flight.progressSummary(now: now))
-        #expect(summary.label == "LANDED")
+        #expect(summary.label == "Landed")
         #expect(summary.detail == "3h 12m ago")
         #expect(summary.isPast)
     }
@@ -55,7 +55,7 @@ struct FlightCandidateProgressTests {
     func statuslessPastFlightReadsAsLanded() throws {
         let flight = candidate(departsIn: -8 * 3600, arrivesIn: -3 * 3600, now: now)
         let summary = try #require(flight.progressSummary(now: now))
-        #expect(summary.label == "LANDED")
+        #expect(summary.label == "Landed")
         #expect(summary.detail == "3h 0m ago")
     }
 
@@ -65,14 +65,14 @@ struct FlightCandidateProgressTests {
     func statuslessInProgressFlightReadsAsDeparted() throws {
         let flight = candidate(departsIn: -2 * 3600, arrivesIn: 3 * 3600, now: now)
         let summary = try #require(flight.progressSummary(now: now))
-        #expect(summary.label == "DEPARTED")
+        #expect(summary.label == "Departed")
     }
 
     @Test("landed is never blank even with no arrival time to measure from")
     func landedWithoutArrivalTimeStillSaysLanded() throws {
         let flight = candidate(status: "landed", departsIn: -6 * 3600, now: now)
         let summary = try #require(flight.progressSummary(now: now))
-        #expect(summary.label == "LANDED")
+        #expect(summary.label == "Landed")
         #expect(summary.detail == nil)
     }
 
@@ -91,7 +91,7 @@ struct FlightCandidateProgressTests {
     func inAirReportsTimeRemaining() throws {
         let flight = candidate(status: "in_air", departsIn: -2 * 3600, arrivesIn: 4 * 3600 + 30 * 60, now: now)
         let summary = try #require(flight.progressSummary(now: now))
-        #expect(summary.label == "IN AIR")
+        #expect(summary.label == "In air")
         #expect(summary.detail == "lands in 4h 30m")
         #expect(!summary.isPast)
     }
@@ -101,18 +101,18 @@ struct FlightCandidateProgressTests {
     @Test("a cancelled flight is named cancelled, whichever field says so")
     func cancelledIsReported() throws {
         let byStatus = try #require(candidate(status: "cancelled", departsIn: 3 * 3600, now: now).progressSummary(now: now))
-        #expect(byStatus.label == "CANCELLED")
+        #expect(byStatus.label == "Cancelled")
 
         // AeroAPI sets the boolean without always moving the status across.
         let byFlag = try #require(candidate(status: "scheduled", departsIn: 3 * 3600, cancelled: true, now: now).progressSummary(now: now))
-        #expect(byFlag.label == "CANCELLED")
+        #expect(byFlag.label == "Cancelled")
         #expect(byFlag.isPast)
     }
 
     @Test("a diverted flight is named diverted")
     func divertedIsReported() throws {
         let summary = try #require(candidate(status: "scheduled", departsIn: -3 * 3600, diverted: true, now: now).progressSummary(now: now))
-        #expect(summary.label == "DIVERTED")
+        #expect(summary.label == "Diverted")
     }
 
     // MARK: - The one case that legitimately has nothing to say

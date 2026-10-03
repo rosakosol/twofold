@@ -71,7 +71,7 @@ struct OfflineNoticeView: View {
                         }
 
                         Text("You're offline")
-                            .font(.system(.title2, design: .rounded, weight: .bold))
+                            .font(.system(.title2, weight: .bold))
                             .foregroundStyle(Theme.textPrimary)
                             .multilineTextAlignment(.center)
                             .fixedSize(horizontal: false, vertical: true)
@@ -111,9 +111,8 @@ struct OfflineNoticeView: View {
 
     private func section(title: String, rows: [(icon: String, text: String)], tint: Color) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-            Text(title.uppercased())
-                .font(.caption2.weight(.bold))
-                .tracking(0.5)
+            Text(title)
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Theme.textSecondary)
 
             ForEach(rows, id: \.text) { row in

@@ -114,10 +114,10 @@ struct AeroFlightCandidate: Identifiable, Decodable, Hashable {
         let parsed = status.flatMap(FlightStatus.init(rawValue:))
 
         if cancelled == true || parsed == .cancelled {
-            return ProgressSummary(label: "CANCELLED", detail: nil, symbol: "xmark.circle.fill", isPast: true)
+            return ProgressSummary(label: "Cancelled", detail: nil, symbol: "xmark.circle.fill", isPast: true)
         }
         if diverted == true || parsed == .diverted {
-            return ProgressSummary(label: "DIVERTED", detail: nil, symbol: "arrow.triangle.branch", isPast: true)
+            return ProgressSummary(label: "Diverted", detail: nil, symbol: "arrow.triangle.branch", isPast: true)
         }
 
         switch parsed {
@@ -125,11 +125,11 @@ struct AeroFlightCandidate: Identifiable, Decodable, Hashable {
             return landedSummary(now: now)
         case .inAir, .landingSoon:
             let detail = scheduledIn.flatMap { $0 > now ? "lands in \(TimeMath.compactDuration($0.timeIntervalSince(now)))" : nil }
-            return ProgressSummary(label: "IN AIR", detail: detail, symbol: "airplane", isPast: false)
+            return ProgressSummary(label: "In air", detail: detail, symbol: "airplane", isPast: false)
         case .boarding:
-            return ProgressSummary(label: "BOARDING", detail: countdownDetail(now: now), symbol: "figure.walk.arrival", isPast: false)
+            return ProgressSummary(label: "Boarding", detail: countdownDetail(now: now), symbol: "figure.walk.arrival", isPast: false)
         case .departed:
-            return ProgressSummary(label: "DEPARTED", detail: nil, symbol: "airplane.departure", isPast: false)
+            return ProgressSummary(label: "Departed", detail: nil, symbol: "airplane.departure", isPast: false)
         case .scheduled, .delayed, .cancelled, .diverted, .none:
             break
         }
@@ -146,14 +146,14 @@ struct AeroFlightCandidate: Identifiable, Decodable, Hashable {
             )
         }
         if let scheduledIn, scheduledIn <= now { return landedSummary(now: now) }
-        return ProgressSummary(label: "DEPARTED", detail: nil, symbol: "airplane.departure", isPast: true)
+        return ProgressSummary(label: "Departed", detail: nil, symbol: "airplane.departure", isPast: true)
     }
 
     private func landedSummary(now: Date) -> ProgressSummary {
         // Scheduled arrival, since a candidate carries no actual-on timestamp — close enough to
         // say "about three hours ago", which is all this line is claiming.
         let detail = scheduledIn.map { "\(TimeMath.compactDuration(now.timeIntervalSince($0))) ago" }
-        return ProgressSummary(label: "LANDED", detail: detail, symbol: "airplane.arrival", isPast: true)
+        return ProgressSummary(label: "Landed", detail: detail, symbol: "airplane.arrival", isPast: true)
     }
 
     private func countdownDetail(now: Date) -> String? {

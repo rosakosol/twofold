@@ -20,7 +20,7 @@ struct PartnerInviteNudgeView: View {
             VStack(spacing: Theme.Spacing.lg) {
                 VStack(spacing: Theme.Spacing.sm) {
                     Text("💌").font(.system(size: 48))
-                    Text("Nice work!")
+                    Text("Nice work")
                         .font(.title2.weight(.bold))
                     Text("Twofold is even better shared. Invite your partner to see everything together.")
                         .font(.subheadline)

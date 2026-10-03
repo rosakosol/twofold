@@ -53,8 +53,11 @@ struct FlightTrackingTests {
         }
     }
 
-    @Test func delayedCancelledDivertedAreNotSemanticallyGreen() {
-        for status: FlightStatus in [.delayed, .cancelled, .diverted] {
+    /// A delay is a warning, not an error: the flight is still going. Only a flight that will not
+    /// arrive where it was meant to is in the error colour.
+    @Test func delayedIsAWarningAndCancelledDivertedAreErrors() {
+        #expect(FlightStatus.delayed.semanticColor == Theme.warning)
+        for status: FlightStatus in [.cancelled, .diverted] {
             #expect(status.semanticColor == Theme.error)
         }
     }

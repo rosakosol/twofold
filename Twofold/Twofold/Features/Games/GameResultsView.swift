@@ -93,7 +93,7 @@ struct GameResultsView: View {
                         summarySection
 
                         Button(action: onPlayAnother) {
-                            Text("Play Another Game")
+                            Text("Play another game")
                         }
                         .buttonStyle(.twofoldPrimary)
                     }
@@ -141,7 +141,7 @@ struct GameResultsView: View {
                     Button {
                         store.beginEditingAnswers()
                     } label: {
-                        Label("Edit My Answers", systemImage: "pencil")
+                        Label("Edit my answers", systemImage: "pencil")
                     }
                     // Only deck-originated sessions know what to restart — every session is
                     // deck-originated now, but older rows from before the shared-pool flow was
@@ -151,7 +151,7 @@ struct GameResultsView: View {
                         Button(role: .destructive) {
                             Task { await resetDeck(deckID: deckID) }
                         } label: {
-                            Label("Reset Game", systemImage: "arrow.counterclockwise")
+                            Label("Reset game", systemImage: "arrow.counterclockwise")
                         }
                     }
                     Divider()

@@ -291,7 +291,7 @@ struct SudokuGameView: View {
     /// Non-nil exactly when there is a comparison on screen — both solved, so both times exist.
     ///
     /// The difficulty goes in `title` because that is the whole of what the card says about which
-    /// puzzle this was: there is no deck name to use, and "HARD SUDOKU" tells a stranger seeing the
+    /// puzzle this was: there is no deck name to use, and "Hard sudoku" tells a stranger seeing the
     /// image more than the grid's own identity ever could.
     private var shareData: GameResultShareData? {
         guard let play = store.play, play.isComplete,
@@ -367,9 +367,8 @@ struct SudokuGameView: View {
     private func statusBar(play: SudokuPlayState) -> some View {
         HStack {
             if let difficulty = store.difficulty {
-                Text(difficulty.displayName.uppercased())
+                Text(difficulty.displayName)
                     .font(.caption.weight(.bold))
-                    .tracking(0.8)
                     .foregroundStyle(Theme.accent)
                     .padding(.horizontal, Theme.Spacing.sm)
                     .padding(.vertical, Theme.Spacing.xs)
@@ -379,9 +378,8 @@ struct SudokuGameView: View {
             // answers is a clock that starts at 4:12, and that is just as confusing ten seconds in
             // as it is on the first frame.
             if resumed, !play.isComplete {
-                Text("RESUMED")
-                    .font(.caption2.weight(.bold))
-                    .tracking(0.8)
+                Text("Resumed")
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(Theme.textSecondary)
                     .padding(.horizontal, Theme.Spacing.sm)
                     .padding(.vertical, Theme.Spacing.xs)
@@ -470,7 +468,7 @@ struct SudokuGameView: View {
                     store.enter(value)
                 } label: {
                     Text(String(digit))
-                        .font(.system(size: 24, weight: .medium, design: .rounded))
+                        .font(.system(size: 24, weight: .medium))
                         .foregroundStyle(placed ? Theme.textSecondary : Theme.textPrimary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 52)
@@ -507,7 +505,7 @@ struct SudokuGameView: View {
         }
         // On the stack rather than the card, so the button below it is inset to match.
         .padding(.horizontal, Theme.Spacing.md)
-        .alert("Reminder Sent", isPresented: $showingReminderSent) {
+        .alert("Reminder sent", isPresented: $showingReminderSent) {
             Button("OK", role: .cancel) {}
         } message: {
             Text("\(appModel.partner.name) has been told their puzzle is waiting.")

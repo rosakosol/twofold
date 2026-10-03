@@ -24,7 +24,24 @@ enum GameTopic: String, CaseIterable, Hashable, Identifiable {
     case edgyQuestions = "Edgy Questions"
 
     var id: String { rawValue }
-    var displayName: String { rawValue }
+
+    /// Sentence case for display. `rawValue` stays as the database writes it, since that is what
+    /// content rows are matched on.
+    var displayName: String {
+        switch self {
+        case .starters: "Starters"
+        case .getToKnowEachOther: "Get to know each other"
+        case .relationship: "Relationship"
+        case .travel: "Travel"
+        case .foodAndCulture: "Food & culture"
+        case .family: "Family"
+        case .moneyAndFinances: "Money & finances"
+        case .moralValues: "Moral values"
+        case .hobbiesAndLifestyle: "Hobbies & lifestyle"
+        case .history: "History"
+        case .edgyQuestions: "Edgy questions"
+        }
+    }
 
     var icon: String {
         switch self {
@@ -89,29 +106,29 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .triviaBattle: "Trivia Battle"
-        case .moreLikely: "Who's More Likely To"
-        case .thisOrThat: "This or That"
-        case .deepConversations: "Deep Conversation"
+        case .triviaBattle: "Trivia battle"
+        case .moreLikely: "Who's more likely to"
+        case .thisOrThat: "This or that"
+        case .deepConversations: "Deep conversation"
         case .sudoku: "Sudoku"
-        case .wordGuess: "Word Guess"
-        case .wordSearch: "Word Search"
+        case .wordGuess: "Word guess"
+        case .wordSearch: "Word search"
         case .connectFour: "Connect 4"
         }
     }
 
-    /// Compact uppercase label for deck badges (e.g. topic detail cards) — `displayName` reads
+    /// Compact label for deck badges (e.g. topic detail cards) — `displayName` reads
     /// naturally as a game-type title, but is too long for a small pill.
     var shortLabel: String {
         switch self {
-        case .triviaBattle: "TRIVIA"
-        case .moreLikely: "MORE LIKELY"
-        case .thisOrThat: "THIS OR THAT"
-        case .deepConversations: "DEEP CONVERSATION"
-        case .sudoku: "SUDOKU"
-        case .wordGuess: "WORD GUESS"
-        case .wordSearch: "WORD SEARCH"
-        case .connectFour: "CONNECT 4"
+        case .triviaBattle: "Trivia"
+        case .moreLikely: "More likely"
+        case .thisOrThat: "This or that"
+        case .deepConversations: "Deep conversation"
+        case .sudoku: "Sudoku"
+        case .wordGuess: "Word guess"
+        case .wordSearch: "Word search"
+        case .connectFour: "Connect 4"
         }
     }
 

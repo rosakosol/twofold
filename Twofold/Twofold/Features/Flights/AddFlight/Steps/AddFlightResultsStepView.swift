@@ -111,12 +111,12 @@ struct AddFlightResultsStepView: View {
             Spacer()
 
             Menu {
-                Button("All Airlines") { airlineFilter = nil }
+                Button("All airlines") { airlineFilter = nil }
                 ForEach(availableAirlines, id: \.self) { airline in
                     Button(airline) { airlineFilter = airline }
                 }
             } label: {
-                Label(airlineFilter ?? "All Airlines", systemImage: "chevron.down")
+                Label(airlineFilter ?? "All airlines", systemImage: "chevron.down")
                     .font(.caption.weight(.medium))
             }
             .foregroundStyle(Theme.textSecondary)
@@ -155,8 +155,8 @@ struct AddFlightResultsStepView: View {
         } label: {
             HStack(alignment: .top, spacing: Theme.Spacing.sm) {
                 statusColumn(candidate)
-                    // 56pt wrapped every status word longer than "IN AIR" — CANCELLED, BOARDING,
-                    // DEPARTED and DIVERTED all broke across two lines, which pushed the card's
+                    // 56pt wrapped every status word longer than "In air": Cancelled, Boarding,
+                    // Departed and Diverted all broke across two lines, which pushed the card's
                     // whole right-hand column down. Wide enough for the longest of them on one row.
                     .frame(width: 72)
 

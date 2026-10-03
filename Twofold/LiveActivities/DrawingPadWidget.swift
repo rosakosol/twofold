@@ -29,7 +29,7 @@ enum DrawingPadSide: String, AppEnum {
 }
 
 struct DrawingPadSideIntent: WidgetConfigurationIntent {
-    static var title: LocalizedStringResource = "Choose Drawing"
+    static var title: LocalizedStringResource = "Choose drawing"
     static var description = IntentDescription("Pick whose drawing the small widget shows.")
 
     @Parameter(title: "Show", default: .partner)

@@ -81,7 +81,7 @@ struct GameResultsShareCard: View {
         if let matchPercent = data.matchPercent {
             VStack(spacing: 2) {
                 Text("\(matchPercent)%")
-                    .font(.system(size: 64, weight: .bold, design: .rounded))
+                    .font(.system(size: 64, weight: .bold))
                     .foregroundStyle(palette.foreground)
                 Text("answer similarity")
                     .font(.subheadline)
@@ -128,7 +128,7 @@ struct GameResultsShareCard: View {
     private func scoreColumn(value: String, label: String, palette: ShareCardPalette) -> some View {
         VStack(spacing: 2) {
             Text(value)
-                .font(.system(size: 48, weight: .bold, design: .rounded))
+                .font(.system(size: 48, weight: .bold))
                 .foregroundStyle(palette.foreground)
             Text(label.uppercased())
                 .font(.caption2.weight(.semibold))
@@ -153,7 +153,7 @@ struct GameResultsShareCard: View {
     ) -> some View {
         VStack(spacing: 2) {
             Text(PuzzleClock.text(elapsed))
-                .font(.system(size: 40, weight: .bold, design: .rounded))
+                .font(.system(size: 40, weight: .bold))
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)

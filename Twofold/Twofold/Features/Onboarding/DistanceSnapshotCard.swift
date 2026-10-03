@@ -69,7 +69,7 @@ struct DistanceSnapshotCard: View {
                 // The eyebrow above already says what this number is, so it no longer carries
                 // "apart" — same as the in-app card.
                 Text(MeasurementPreference.distanceLabel(km: distanceKm))
-                    .font(.system(size: 48, weight: .bold, design: .rounded))
+                    .font(.system(size: 48, weight: .bold))
                     .foregroundStyle(palette.foreground)
 
                 Text(comparison)

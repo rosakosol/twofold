@@ -61,7 +61,7 @@ struct SudokuBoardView: View {
             }
             if value != 0 {
                 Text(String(value))
-                    .font(.system(size: size * 0.55, weight: isGiven ? .semibold : .regular, design: .rounded))
+                    .font(.system(size: size * 0.55, weight: isGiven ? .semibold : .regular))
                     .foregroundStyle(colour(index: index, isGiven: isGiven))
                     // Digits vary in width; a sudoku reads as a grid only if they all sit on the
                     // same centre.
@@ -114,7 +114,7 @@ struct SudokuBoardView: View {
                         ForEach(0..<3, id: \.self) { column in
                             let value = UInt8(row * 3 + column + 1)
                             Text(play.note(value, at: index) ? String(value) : " ")
-                                .font(.system(size: size * 0.22, design: .rounded))
+                                .font(.system(size: size * 0.22))
                                 .foregroundStyle(Theme.textSecondary)
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                         }

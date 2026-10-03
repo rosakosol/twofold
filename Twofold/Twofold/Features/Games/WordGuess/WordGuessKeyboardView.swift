@@ -102,7 +102,7 @@ struct WordGuessKeyboardView: View {
             onLetter(letter)
         } label: {
             Text(String(letter).uppercased())
-                .font(.system(size: glyphSize(forKeyWidth: width), weight: .semibold, design: .rounded))
+                .font(.system(size: glyphSize(forKeyWidth: width), weight: .semibold))
                 .minimumScaleFactor(0.6)
                 .lineLimit(1)
                 .foregroundStyle(mark?.tileTextColor ?? Theme.textPrimary)

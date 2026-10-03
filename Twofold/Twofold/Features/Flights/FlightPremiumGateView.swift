@@ -87,7 +87,7 @@ struct FlightPremiumGateView: View {
 #Preview {
     FlightPremiumGateView(
         icon: "chart.bar.fill",
-        title: "Delay Analysis",
+        title: "Delay analysis",
         description: "This flight's 60-day on-time performance is part of Twofold Premium. Upgrade to see punctuality stats for every tracked flight."
     )
 }

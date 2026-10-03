@@ -53,7 +53,7 @@ struct SupportView: View {
                         Button {
                             showingSupportForm = true
                         } label: {
-                            SettingsRow(title: "Contact Support", systemImage: "envelope.fill", showsChevron: false)
+                            SettingsRow(title: "Contact support", systemImage: "envelope.fill", showsChevron: false)
                         }
                         .buttonStyle(.plain)
                     }
@@ -102,7 +102,7 @@ private struct FAQRow: View {
                     // On top of the VStack's `xs` spacing — the answer reads as part of the
                     // question without it, and the extra gap is what separates the two.
                     // `.subheadline` rather than `.caption`: this is body copy people actually
-                    // read, so it matches the question's size and leans on `subtleInk` alone to
+                    // read, so it matches the question's size and leans on `textSecondary` alone to
                     // stay visually secondary to it.
                     Text(entry.answer)
                         .font(.subheadline)

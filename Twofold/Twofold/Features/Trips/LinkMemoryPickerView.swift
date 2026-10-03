@@ -65,7 +65,7 @@ struct LinkMemoryPickerView: View {
             .listStyle(.plain)
             .background(ScreenBackground())
             .scrollContentBackground(.hidden)
-            .navigationTitle("Link a Memory")
+            .navigationTitle("Link a memory")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {

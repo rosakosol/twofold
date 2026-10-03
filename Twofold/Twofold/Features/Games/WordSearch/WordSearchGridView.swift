@@ -132,7 +132,7 @@ struct WordSearchGridView: View {
 
     private func letter(at index: Int, isFound: Bool, isSelected: Bool, side: CGFloat) -> some View {
         Text(String(play.puzzle[index]))
-            .font(.system(size: side * 0.42, weight: isFound ? .semibold : .medium, design: .rounded))
+            .font(.system(size: side * 0.42, weight: isFound ? .semibold : .medium))
             // Found letters keep the grid's own ink now. They used to go green, which was a second
             // way of saying what the loop already says — and on a letter two crossing words share,
             // one colour could only ever be right about one of them.

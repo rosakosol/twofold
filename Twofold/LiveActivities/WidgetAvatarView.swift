@@ -59,7 +59,7 @@ struct WidgetAvatarView: View {
         ZStack {
             Circle().fill(LinearGradient(colors: [accentColor, accentColor.opacity(0.6)], startPoint: .topLeading, endPoint: .bottomTrailing))
             Text(initials)
-                .font(.system(size: size * 0.38, weight: .semibold, design: .rounded))
+                .font(.system(size: size * 0.38, weight: .semibold))
                 .foregroundStyle(.white)
         }
     }

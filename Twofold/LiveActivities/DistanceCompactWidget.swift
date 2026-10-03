@@ -50,7 +50,7 @@ struct DistanceCompactWidgetView: View {
                     HStack(spacing: 4) {
                         heartPair
                         if entry.isSameCity {
-                            Text("We're together!").font(.headline)
+                            Text("We're together").font(.headline)
                         } else if let distanceLabel = entry.distanceLabel {
                             Text(distanceLabel).font(.headline)
                         }

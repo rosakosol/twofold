@@ -55,7 +55,7 @@ struct HelpView: View {
                     NavigationLink {
                         ArchivedDataView()
                     } label: {
-                        SettingsRow(title: "Archived Data", systemImage: "archivebox")
+                        SettingsRow(title: "Archived data", systemImage: "archivebox")
                     }
                     .buttonStyle(.plain)
 
@@ -80,7 +80,7 @@ struct HelpView: View {
                     NavigationLink {
                         DeleteAccountView()
                     } label: {
-                        SettingsRow(title: "Delete Account", systemImage: "trash.fill", isDestructive: true)
+                        SettingsRow(title: "Delete account", systemImage: "trash.fill", isDestructive: true)
                     }
                     .buttonStyle(.plain)
                 }

@@ -75,7 +75,7 @@ struct BoardingPassShareCard: View {
             airlineMark
             Spacer(minLength: Theme.Spacing.sm)
             Text("\(flight.displayNumber) · \(flight.origin.displayName) → \(flight.destination.displayName)")
-                .font(.system(size: 16, weight: .bold, design: .rounded))
+                .font(.system(size: 16, weight: .bold))
                 .foregroundStyle(style.primaryTextColor)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
@@ -102,11 +102,11 @@ struct BoardingPassShareCard: View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(flight.origin.displayCode)
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .font(.system(size: 28, weight: .bold))
                 Image(systemName: "arrow.right")
                     .font(.system(size: 12, weight: .bold))
                 Text(flight.destination.displayCode)
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .font(.system(size: 28, weight: .bold))
             }
             .foregroundStyle(style.onAccentColor)
             .padding(.horizontal, Theme.Spacing.md)

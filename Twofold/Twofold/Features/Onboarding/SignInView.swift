@@ -53,7 +53,7 @@ struct SignInView: View {
                 VStack(spacing: Theme.Spacing.lg) {
                     VStack(spacing: Theme.Spacing.sm) {
                         Text("Welcome back")
-                            .font(.system(.title, design: .rounded, weight: .bold))
+                            .font(.system(.title, weight: .bold))
                         Text("Sign in to pick up right where you left off.")
                             .font(.body)
                             .foregroundStyle(Theme.textSecondary)
@@ -97,7 +97,7 @@ struct SignInView: View {
                             if isPasswordInFlight {
                                 ProgressView()
                             } else {
-                                Text("Sign In")
+                                Text("Sign in")
                             }
                         }
                         .buttonStyle(.twofoldPrimary)

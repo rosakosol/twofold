@@ -73,7 +73,7 @@ struct GameResultsShareView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 if hasTopicPicker {
-                    TwofoldSegmentedControl(selection: $activeTab, options: [(Tab.result, "Share Result"), (Tab.questions, "Questions & Answers")], accessibilityLabel: "View")
+                    TwofoldSegmentedControl(selection: $activeTab, options: [(Tab.result, "Share result"), (Tab.questions, "Questions & answers")], accessibilityLabel: "View")
                     .padding(.horizontal, Theme.Spacing.lg)
                     .padding(.top, Theme.Spacing.sm)
                 }
@@ -86,7 +86,7 @@ struct GameResultsShareView: View {
                 }
             }
             .background(ScreenBackground())
-            .navigationTitle("Share Result")
+            .navigationTitle("Share result")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -189,8 +189,8 @@ struct GameResultsShareView: View {
 
     private func answerLine(name: String, text: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(name.uppercased())
-                .font(.caption2.weight(.semibold))
+            Text(name)
+                .font(.caption.weight(.semibold))
                 .foregroundStyle(Theme.textSecondary)
             Text(text.isEmpty ? "Skipped this one" : text)
                 .font(.subheadline)
@@ -286,10 +286,10 @@ struct GameResultsShareView: View {
     }
 }
 
-#Preview("Daily Question") {
+#Preview("Daily question") {
     let data = GameResultShareData(
         gameType: .deepConversations,
-        title: "Daily Question",
+        title: "Daily question",
         isDaily: true,
         me: MockData.dara,
         partner: MockData.rosa,

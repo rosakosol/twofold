@@ -39,7 +39,7 @@ struct ResetPasswordView: View {
                 VStack(spacing: Theme.Spacing.lg) {
                     VStack(spacing: Theme.Spacing.sm) {
                         Text("Set a new password")
-                            .font(.system(.title, design: .rounded, weight: .bold))
+                            .font(.system(.title, weight: .bold))
                         Text("Choose a new password for your account.")
                             .font(.body)
                             .foregroundStyle(Theme.textSecondary)
@@ -81,7 +81,7 @@ struct ResetPasswordView: View {
                             if isSubmitting {
                                 ProgressView()
                             } else {
-                                Text("Save Password")
+                                Text("Save password")
                             }
                         }
                         .buttonStyle(.twofoldPrimary)

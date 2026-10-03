@@ -51,7 +51,7 @@ struct LockScreenPhoneMock<Content: View>: View {
                             .padding(.top, 32)
 
                         Text(Self.clockFormatter.string(from: now))
-                            .font(.system(size: 86, weight: .medium, design: .rounded))
+                            .font(.system(size: 86, weight: .medium))
                             .monospacedDigit()
                             .foregroundStyle(.white)
                             .padding(.top, 50)

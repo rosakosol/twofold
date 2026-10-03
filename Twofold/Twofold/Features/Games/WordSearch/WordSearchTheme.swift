@@ -36,8 +36,8 @@ enum WordSearchTheme: String, CaseIterable, Codable, Hashable {
         switch self {
         case .travel: "Travel"
         case .love: "Love"
-        case .food: "Food & Drink"
-        case .nature: "The Outdoors"
+        case .food: "Food & drink"
+        case .nature: "The outdoors"
         case .cities: "Cities"
         case .music: "Music"
         }

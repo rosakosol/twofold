@@ -117,8 +117,8 @@ struct FlightTrackingView: View {
             // Fixed/sticky — deliberately outside the ScrollView below, so it never scrolls with
             // the rest of the screen. Route, airline, status, and countdown are the things worth
             // always having on screen regardless of how far down you've scrolled. In dark mode
-            // this is the screen's one Aurora "hero" object (rule #3, one gradient per screen) —
-            // everything below it (journeyCard, departureCard, ...) stays flat `SectionCard`.
+            // this is the screen's one hero card (one gradient per screen) — everything below it
+            // (journeyCard, departureCard, ...) stays a flat `SectionCard`.
             Group {
                 if colorScheme == .dark {
                     header.heroCard(padding: Theme.Spacing.md)
@@ -229,9 +229,9 @@ struct FlightTrackingView: View {
 
         var title: String {
             switch self {
-            case .delayAnalysis: "Delay Analysis"
-            case .goodToKnow: "Good to Know"
-            case .flightInfo: "Flight Information"
+            case .delayAnalysis: "Delay analysis"
+            case .goodToKnow: "Good to know"
+            case .flightInfo: "Flight information"
             }
         }
 
@@ -1063,9 +1063,9 @@ struct FlightTrackingView: View {
     /// "Documents" card whose only label for everything else was the generic "Travel documents".
     private var addDocumentButton: some View {
         Menu {
-            Button("Photo Library", systemImage: "photo") { showingPhotosPicker = true }
-            Button("Take Photo", systemImage: "camera") { showingCamera = true }
-            Button("Choose File", systemImage: "folder") { showingFileImporter = true }
+            Button("Photo library", systemImage: "photo") { showingPhotosPicker = true }
+            Button("Take photo", systemImage: "camera") { showingCamera = true }
+            Button("Choose file", systemImage: "folder") { showingFileImporter = true }
         } label: {
             ZStack {
                 Circle().fill(Theme.accent.opacity(0.15))
@@ -1083,9 +1083,8 @@ struct FlightTrackingView: View {
 
     private func documentGroup(label: String, documents: [FlightDocument]) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-            Text(label.uppercased())
-                .font(.caption2.weight(.bold))
-                .tracking(0.5)
+            Text(label)
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Theme.textSecondary)
 
             ForEach(documents) { document in
@@ -1107,7 +1106,7 @@ struct FlightTrackingView: View {
 
             // The filename, not the tag — the tag is the group heading directly above, so a row
             // repeating it says nothing at all (three rows reading "Boarding pass" under a
-            // heading reading "BOARDING PASS"). Camera captures have no filename to show, so
+            // heading reading "Boarding pass"). Camera captures have no filename to show, so
             // those fall back to when they were added, which at least tells them apart.
             Text(document.originalFilename ?? "Added \(document.createdAt.formatted(date: .abbreviated, time: .shortened))")
                 .font(.caption)

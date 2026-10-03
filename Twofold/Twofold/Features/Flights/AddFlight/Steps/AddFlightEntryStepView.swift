@@ -57,13 +57,13 @@ struct AddFlightEntryStepView: View {
                 }
 
                 VStack(spacing: Theme.Spacing.sm) {
-                    modeRow(icon: "number", title: "Find by Flight Number") {
+                    modeRow(icon: "number", title: "Find by flight number") {
                         model.mode = .flightNumber
                         model.flightNumberDigits = digitsInQuery
                         model.airlineEntry = detectedAirline
                         model.path.append(.flightNumber)
                     }
-                    modeRow(icon: "arrow.triangle.swap", title: "Find by Route") {
+                    modeRow(icon: "arrow.triangle.swap", title: "Find by route") {
                         model.mode = .route
                         model.path.append(.route)
                     }
@@ -118,8 +118,8 @@ struct AddFlightEntryStepView: View {
             ProgressView().frame(maxWidth: .infinity).padding(Theme.Spacing.md)
         } else if !airportResults.isEmpty {
             VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-                Text("SUGGESTIONS")
-                    .font(.caption2.weight(.bold))
+                Text("Suggestions")
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Theme.textSecondary)
 
                 VStack(spacing: Theme.Spacing.sm) {

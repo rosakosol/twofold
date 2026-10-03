@@ -14,7 +14,7 @@ struct NextTripView: View {
 
             VStack(spacing: Theme.Spacing.sm) {
                 Text("When will you be\ntogether next?")
-                    .font(.system(.title, design: .rounded, weight: .bold))
+                    .font(.system(.title, weight: .bold))
                     .multilineTextAlignment(.center)
             }
 

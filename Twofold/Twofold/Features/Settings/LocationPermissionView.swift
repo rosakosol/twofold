@@ -54,7 +54,7 @@ struct LocationPermissionView: View {
             .padding(Theme.Spacing.md)
         }
         .background(ScreenBackground())
-        .navigationTitle("Location Permission")
+        .navigationTitle("Location permission")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             status = CLLocationManager().authorizationStatus

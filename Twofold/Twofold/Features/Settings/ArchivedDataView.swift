@@ -88,7 +88,7 @@ struct ArchivedDataView: View {
             }
         }
         .background(ScreenBackground())
-        .navigationTitle("Archived Data")
+        .navigationTitle("Archived data")
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
         .postHogScreenView("Settings: Archived Data")

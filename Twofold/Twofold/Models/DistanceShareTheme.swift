@@ -20,8 +20,8 @@ enum DistanceShareTheme: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Colors drawn straight from the dark-mode/Daylight handoff's `ShareCard` canvas table
-    /// (`sky` accent, dark "Aurora" canvas / light "Daylight" pastel canvas). All three are fixed:
+    /// Colors drawn from `ShareCardPalette`'s canvases (the `sky` accent on the dark canvas and
+    /// the light pastel one). All three are fixed:
     /// `.classic` is the light canvas, `.dark` the dark one and `.pink` the light-heart one, so
     /// picking a theme looks the same regardless of the system's own setting.
     ///

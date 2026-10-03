@@ -99,7 +99,7 @@ struct WordSearchGameView: View {
         } message: {
             Text(abandonFailed ?? "")
         }
-        .alert("Reminder Sent", isPresented: $showingReminderSent) {
+        .alert("Reminder sent", isPresented: $showingReminderSent) {
             Button("OK", role: .cancel) {}
         } message: {
             Text("\(appModel.partner.name) has been told their grid is waiting.")
@@ -166,9 +166,8 @@ struct WordSearchGameView: View {
     private func statusBar(play: WordSearchPlayState) -> some View {
         HStack {
             if let theme = store.theme {
-                Text(theme.displayName.uppercased())
+                Text(theme.displayName)
                     .font(.caption.weight(.bold))
-                    .tracking(0.8)
                     .foregroundStyle(Theme.accent)
                     .padding(.horizontal, Theme.Spacing.sm)
                     .padding(.vertical, Theme.Spacing.xs)

@@ -100,7 +100,7 @@ struct DistanceShareCard: View {
                     .foregroundStyle(theme.secondaryTextColor)
 
                 Text(MeasurementPreference.distanceLabel(km: distanceKm))
-                    .font(.system(size: 48, weight: .bold, design: .rounded))
+                    .font(.system(size: 48, weight: .bold))
                     .foregroundStyle(theme.primaryTextColor)
 
                 Text("\(comparison.percent, format: .number.precision(.fractionLength(comparison.percent < 1 ? 2 : 1)))% \(comparison.phrase) \(comparison.emoji)")

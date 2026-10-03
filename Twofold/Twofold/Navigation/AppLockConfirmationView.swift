@@ -37,7 +37,7 @@ struct AppLockConfirmationView: View {
     }
 
     /// Green for the protection going on. Deliberately not red for it going off — turning it off
-    /// is a thing the user just chose to do, not a failure or a warning at them; `subtleInk` states
+    /// is a thing the user just chose to do, not a failure or a warning at them; `textSecondary` states
     /// it without scolding.
     private var accent: Color {
         switch change {
@@ -76,7 +76,7 @@ struct AppLockConfirmationView: View {
                 }
 
                 Text(title)
-                    .font(.system(.title2, design: .rounded, weight: .bold))
+                    .font(.system(.title2, weight: .bold))
                     .foregroundStyle(Theme.textPrimary)
                     .multilineTextAlignment(.center)
                     // The fix for the reported truncation. This is presented at a fixed detent

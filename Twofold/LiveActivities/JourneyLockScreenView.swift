@@ -38,7 +38,7 @@ struct JourneyLockScreenView: View {
 
             VStack(alignment: .center, spacing: 2) {
                 journeyTimeRemainingText(context.state)
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .font(.system(size: 24, weight: .bold))
                     .foregroundStyle(.white.opacity(context.isStale ? 0.5 : 1))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
@@ -112,7 +112,7 @@ struct JourneyLockScreenView: View {
     private func airportColumn(code: String, city: String?, time: Date?, alignment: HorizontalAlignment) -> some View {
         VStack(alignment: alignment, spacing: 2) {
             Text(code)
-                .font(.system(size: 22, weight: .bold, design: .rounded))
+                .font(.system(size: 22, weight: .bold))
                 .foregroundStyle(.white)
             Group {
                 if let time {

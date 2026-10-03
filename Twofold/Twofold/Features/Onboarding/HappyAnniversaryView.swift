@@ -45,8 +45,8 @@ struct HappyAnniversaryView: View {
                     .opacity(contentVisible ? 1 : 0)
 
                 VStack(spacing: Theme.Spacing.sm) {
-                    Text("Happy Anniversary! 🎉")
-                        .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                    Text("Happy anniversary 🎉")
+                        .font(.system(.largeTitle, weight: .bold))
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.center)
                     Text(subtitle)

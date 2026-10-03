@@ -80,7 +80,7 @@ struct ReportProblemMenuItem: View {
         Button {
             showingReportSheet = true
         } label: {
-            Label("Report a Problem", systemImage: "exclamationmark.bubble")
+            Label("Report a problem", systemImage: "exclamationmark.bubble")
         }
     }
 }

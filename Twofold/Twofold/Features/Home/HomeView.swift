@@ -306,7 +306,7 @@ struct HomeView: View {
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Theme.textPrimary)
 
-                Text("\(partnerName) was covering your Twofold subscription, and your connection with them has ended. Nothing has been deleted — your trips, memories and photos are in Settings → Help → Archived Data, and you can export them from there.")
+                Text("\(partnerName) was covering your Twofold subscription, and your connection with them has ended. Nothing has been deleted — your trips, memories and photos are in Settings → Help → Archived data, and you can export them from there.")
                     .font(.caption)
                     .foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -791,7 +791,7 @@ struct HomeView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer()
-                // Subdued rather than `skyBlue`: nothing here is tappable, and the accent colour
+                // Subdued rather than `accent`: nothing here is tappable, and the accent colour
                 // is what tells the rest of this screen that something is.
                 Image(systemName: "map").foregroundStyle(Theme.textSecondary)
             }

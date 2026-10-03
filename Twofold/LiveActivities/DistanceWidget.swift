@@ -77,7 +77,7 @@ struct DistanceWidgetView: View {
     @ViewBuilder
     private var distanceOrTogetherText: some View {
         if entry.isSameCity, entry.myCity != nil {
-            Text("We're together!")
+            Text("We're together")
         } else if let distanceLabel = entry.distanceLabel {
             Text(distanceLabel)
         } else {
@@ -126,7 +126,7 @@ struct DistanceWidgetView: View {
         if entry.myCity == nil || entry.partnerCity == nil {
             Label("Add your home cities", systemImage: "arrow.left.and.right")
         } else if entry.isSameCity {
-            Label("We're together!", systemImage: "heart.fill")
+            Label("We're together", systemImage: "heart.fill")
         } else if let distanceLabel = entry.distanceLabel {
             Label("\(distanceLabel) apart", systemImage: "arrow.left.and.right")
         }

@@ -112,8 +112,8 @@ struct DeleteAccountView: View {
                             explainerRow(icon: "calendar.badge.clock", text: "What you shared with \(appModel.partner.name) stays with them, then is permanently deleted for both of you after 90 days. Nobody can change that date.")
                         } else if archivedCoupleCount > 0 {
                             explainerRow(icon: "archivebox", text: archivedCoupleCount == 1
-                                ? "Your archived history stays with the person you shared it with, and is deleted on the date already shown in Archived Data."
-                                : "Your archived histories stay with the people you shared them with, and are deleted on the dates already shown in Archived Data.")
+                                ? "Your archived history stays with the person you shared it with, and is deleted on the date already shown in Archived data."
+                                : "Your archived histories stay with the people you shared them with, and are deleted on the dates already shown in Archived data.")
                         }
 
                         // The one thing somebody with no partner and no archive has, and the only
@@ -145,7 +145,7 @@ struct DeleteAccountView: View {
                         if isDeleting {
                             ProgressView().tint(.white)
                         } else {
-                            Text("Delete My Account")
+                            Text("Delete my account")
                         }
                     }
                     .frame(maxWidth: .infinity)
@@ -158,10 +158,10 @@ struct DeleteAccountView: View {
             .padding(Theme.Spacing.md)
         }
         .background(ScreenBackground())
-        .navigationTitle("Delete Account")
+        .navigationTitle("Delete account")
         .navigationBarTitleDisplayMode(.inline)
         .alert("Delete your account permanently?", isPresented: $showingConfirm) {
-            Button("Delete My Account", role: .destructive) {
+            Button("Delete my account", role: .destructive) {
                 Task { await deleteAccount() }
             }
             Button("Cancel", role: .cancel) {}

@@ -54,7 +54,7 @@ struct TripDetailsView: View {
                 ContentUnavailableView("Trip no longer available", systemImage: "airplane.departure")
             }
         }
-        .navigationTitle("Trip Details")
+        .navigationTitle("Trip details")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if trip != nil {
@@ -63,12 +63,12 @@ struct TripDetailsView: View {
                         Button {
                             showingEditSheet = true
                         } label: {
-                            Label("Edit Trip", systemImage: "pencil")
+                            Label("Edit trip", systemImage: "pencil")
                         }
                         Button(role: .destructive) {
                             showingDeleteConfirm = true
                         } label: {
-                            Label("Delete Trip", systemImage: "trash")
+                            Label("Delete trip", systemImage: "trash")
                         }
                     } label: {
                         Image(systemName: "ellipsis.circle")

@@ -138,7 +138,7 @@ struct SendSupportRequestView: View {
                 .padding(Theme.Spacing.md)
             }
             .background(ScreenBackground())
-            .navigationTitle("Contact Support")
+            .navigationTitle("Contact support")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {

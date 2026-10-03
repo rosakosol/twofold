@@ -152,7 +152,7 @@ struct FullTripStatsView: View {
         SectionCard {
             VStack(spacing: Theme.Spacing.xs) {
                 Text("\(stats.totalTrips)")
-                    .font(.system(size: 44, weight: .bold, design: .rounded))
+                    .font(.system(size: 44, weight: .bold))
                     .foregroundStyle(Theme.textPrimary)
                     .monospacedDigit()
                 Text(stats.totalTrips == 1 ? "trip" : "trips")
@@ -201,7 +201,7 @@ struct FullTripStatsView: View {
     }
 
     private var durationSection: some View {
-        statCard(icon: "calendar", title: "Trip Days", value: "\(stats.totalDays)", unit: "days away") {
+        statCard(icon: "calendar", title: "Trip days", value: "\(stats.totalDays)", unit: "days away") {
             VStack(spacing: Theme.Spacing.sm) {
                 StatBreakdownRow(label: "Average trip", value: "\(stats.averageDays) days")
                 StatBreakdownRow(
@@ -219,12 +219,12 @@ struct FullTripStatsView: View {
     private var destinationsSection: some View {
         statCard(
             icon: "mappin.and.ellipse",
-            title: "Top Destinations",
+            title: "Top destinations",
             value: "\(stats.destinations.count)",
             unit: "places"
         ) {
             StatRankedRows(
-                title: "Top Destinations",
+                title: "Top destinations",
                 ranked: stats.destinations.map { .init(name: $0.name, count: $0.count) },
                 expanded: $expandedRankings
             )
@@ -234,12 +234,12 @@ struct FullTripStatsView: View {
     private var countriesSection: some View {
         statCard(
             icon: "globe.americas.fill",
-            title: "Countries & Territories",
+            title: "Countries & territories",
             value: "\(stats.countries.count)",
             unit: "countries"
         ) {
             StatRankedRows(
-                title: "Countries & Territories",
+                title: "Countries & territories",
                 ranked: stats.countries.map { .init(name: $0.name, count: $0.count) },
                 expanded: $expandedRankings,
                 collapsedLimit: 5

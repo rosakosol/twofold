@@ -33,7 +33,7 @@ struct GameReminderButton: View {
                 if isSending {
                     ProgressView()
                 } else {
-                    Text("Send Reminder")
+                    Text("Send reminder")
                 }
             }
         }

@@ -20,8 +20,8 @@ struct AddFlightStepScaffold<Content: View>: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
                 VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-                    Text("Add Flight")
-                        .font(.system(.title, design: .rounded, weight: .bold))
+                    Text("Add flight")
+                        .font(.system(.title, weight: .bold))
                     Text(subtitle)
                         .font(.subheadline)
                         .foregroundStyle(Theme.textSecondary)
