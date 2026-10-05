@@ -141,20 +141,11 @@ enum Brand {
     static let heroBlue = gradient(0x3A56D9, 0x1A6FD6)
     /// Trip stats. White text 4.6:1+.
     static let heroBlueGreen = gradient(0x1A6FD6, 0x1F8636)
-    /// Partner time at night. White text 10:1+.
+    /// The night sky behind onboarding's globe and the empty widget state. White text 10:1+. (The
+    /// partner's time card and widgets draw their own skies; see WeatherSky.)
     static let nightSky = gradient(0x1C2744, 0x2E3D6E)
     static let nightSkyTop = Color(hex: 0x1C2744)
     static let nightSkyBottom = Color(hex: 0x2E3D6E)
-    static let nightSkyGlow = Color(hex: 0x6AA5F5, alpha: 0.28)
-    /// Partner time by day. Dark text, not white.
-    static let daySky = gradient(0x5FA8F0, 0x8FD0F5)
-    static let daySkyTop = Color(hex: 0x5FA8F0)
-    static let daySkyBottom = Color(hex: 0x8FD0F5)
-    static let daySkyGlow = Color(hex: 0xFFE096, alpha: 0.45)
-    /// Primary text on `daySky`. 7:1.
-    static let daySkyText = Color(hex: 0x0E1A26)
-    /// Secondary text on `daySky`. 4.7:1.
-    static let daySkySecondaryText = Color(hex: 0x1E3A55)
     /// Today's deep question, everywhere it appears. 4.5:1 at the green end, 6.7:1 at violet.
     static let dailyQuestion = LinearGradient(
         stops: [
@@ -221,7 +212,7 @@ enum Brand {
 /// game card (spec section 2.3). Sized to whatever it overlays, so it reaches 55% of the card's
 /// longer side before fading out.
 struct BrandHighlight: View {
-    /// 0.22 normally. Keep it at or under 0.28 over `daySky`'s text, per the spec.
+    /// 0.22 normally, and no more than 0.28 over text, per the spec.
     var opacity: Double = 0.22
 
     var body: some View {

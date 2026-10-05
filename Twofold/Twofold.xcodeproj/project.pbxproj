@@ -117,6 +117,7 @@
 				Shared/TimeMath.swift,
 				Shared/TrackedFlightEntity.swift,
 				Shared/TrackedTripEntity.swift,
+				Shared/WeatherSky.swift,
 				Shared/WidgetImageCache.swift,
 				Shared/WidgetSnapshot.swift,
 				Shared/WidgetTier.swift,

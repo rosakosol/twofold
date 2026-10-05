@@ -2,9 +2,8 @@
 //  PartnersTimeWidget.swift
 //  LiveActivities
 //
-//  Basic tier (free) — reuses the day/night gradient + sun/moon watermark design from
-//  Features/Onboarding/WidgetSellView.swift's timezoneWidget mockup, now rendering real data
-//  read from the shared WidgetSnapshot rather than onboarding-collected values held in memory.
+//  Basic tier (free): the partner's local time on the Weather-style sky for the hour of day
+//  (Shared/WeatherSky.swift), read from the shared WidgetSnapshot.
 //
 
 import SwiftUI
@@ -57,28 +56,29 @@ struct PartnersTimeWidgetView: View {
     @ViewBuilder
     private var homeScreenBody: some View {
         if let timeZone = entry.timeZone {
-            let isDay = PartnerSky.isDay(in: timeZone, at: entry.date, daylight: nil, readingAge: nil)
-            VStack(alignment: .leading, spacing: 2) {
+            let isDay = WeatherSky.isDay(in: timeZone, at: entry.date, daylight: nil)
+            VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .top) {
                     WidgetAvatarView(person: .partner, name: entry.partnerName, size: 30)
                     Spacer(minLength: 0)
-                    SkyEmoji(isDay: isDay, size: 26)
+                    WeatherSymbol(name: WeatherSky.clearSymbol(isDay: isDay), size: 20)
                 }
                 Spacer(minLength: 0)
                 Text(TimeMath.timeString(in: timeZone, at: entry.date))
-                    .font(.system(size: 32, weight: .bold))
-                    .tracking(-0.8)
-                    .foregroundStyle(PartnerSky.primary(isDay: isDay))
+                    .font(.system(size: 34, weight: .light))
+                    .tracking(-0.5)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+                    .minimumScaleFactor(0.6)
                     .widgetAccentable()
                 Text(entry.partnerCity ?? entry.partnerName)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(PartnerSky.secondary(isDay: isDay))
+                    .font(.system(size: 13, weight: .semibold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
             }
-            .widgetSurface { PartnerSkyBackground(isDay: isDay) }
+            // The clear sky for the hour: this widget shows the time, not the weather, which is
+            // Time & weather's job.
+            .foregroundStyle(.white)
+            .widgetSurface(WeatherSky.clear.gradient(isDay: isDay), highlight: false)
         } else {
             emptyState
         }

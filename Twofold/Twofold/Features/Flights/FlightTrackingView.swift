@@ -810,9 +810,8 @@ struct FlightTrackingView: View {
         return "cloud.fill"
     }
 
-    /// Reuses the same day/night gradient idiom as the Home screen's `TimeZoneCard` (see
-    /// `TimeMath.hourFraction`/`daylightFactor` + `Theme.DayNight`) rather than inventing a
-    /// third visual language for "what time is it there."
+    /// Day or night at each end by the hour (`TimeMath.hourFraction`), the same rule the Home
+    /// screen's `TimeZoneCard` falls back to when it has no weather reading.
     @ViewBuilder
     private var timeDifferenceSection: some View {
         if let originTZ = flight.origin.timeZone, let destTZ = flight.destination.timeZone {

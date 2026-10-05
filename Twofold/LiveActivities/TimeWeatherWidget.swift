@@ -72,7 +72,7 @@ struct TimeWeatherWidgetView: View {
     var body: some View {
         Group {
             if let timeZone = entry.timeZone {
-                let isDay = PartnerSky.isDay(in: timeZone, at: entry.date, daylight: entry.isDaylight, readingAge: entry.readingAge)
+                let isDay = WeatherSky.isDay(in: timeZone, at: entry.date, daylight: entry.isDaylight, readingAge: entry.readingAge)
                 Group {
                     if family == .systemMedium {
                         medium(timeZone: timeZone, isDay: isDay)
@@ -80,7 +80,9 @@ struct TimeWeatherWidgetView: View {
                         small(timeZone: timeZone, isDay: isDay)
                     }
                 }
-                .widgetSurface { PartnerSkyBackground(isDay: isDay) }
+                // White throughout, as in Weather: every sky clears 4.5:1 under it.
+                .foregroundStyle(.white)
+                .widgetSurface(WeatherSky(symbolName: entry.weatherSymbolName).gradient(isDay: isDay), highlight: false)
             } else {
                 WidgetEmptyState(systemImage: "person.2.fill", message: "Connect with your partner")
             }
@@ -89,65 +91,85 @@ struct TimeWeatherWidgetView: View {
         .widgetURL(deepLinkURL)
     }
 
-    /// Time over weather: the emoji at 36pt, the temperature beside the Apple Weather mark.
+    private func condition(isDay: Bool) -> String? {
+        entry.weatherSymbolName.flatMap { WeatherSky.conditionName(symbolName: $0, isDay: isDay) }
+    }
+
+    /// Weather's small widget, with the time where it puts the temperature: the city, the time in
+    /// large light numerals, then the symbol, the conditions and the temperature.
     private func small(timeZone: TimeZone, isDay: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(alignment: .top) {
-                Text(entry.partnerCity ?? "")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(PartnerSky.secondary(isDay: isDay))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                Spacer(minLength: 0)
-                SkyEmoji(isDay: isDay, size: 36)
-            }
-            Spacer(minLength: 0)
-            Text(TimeMath.timeString(in: timeZone, at: entry.date))
-                .font(.system(size: 30, weight: .bold))
-                .tracking(-0.7)
-                .foregroundStyle(PartnerSky.primary(isDay: isDay))
+        VStack(alignment: .leading, spacing: 0) {
+            Text(entry.partnerCity ?? "")
+                .font(.system(size: 15, weight: .semibold))
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
-                .widgetAccentable()
-            weatherLine(isDay: isDay)
+            time(timeZone, size: 34, shrinks: true)
+            Spacer(minLength: 0)
+            if let symbol = entry.weatherSymbolName {
+                WeatherSymbol(name: symbol, size: 16)
+                    .padding(.bottom, 2)
+            }
+            if let condition = condition(isDay: isDay) {
+                Text(condition)
+                    .font(.system(size: 13, weight: .semibold))
+                    .lineLimit(1)
+            }
+            weatherLine
         }
     }
 
-    /// Time on one side, the weather on the other, the emoji at 50pt.
+    /// The small widget's column on the left, and the temperature large on the right.
     private func medium(timeZone: TimeZone, isDay: Bool) -> some View {
-        HStack(alignment: .center, spacing: 16) {
-            VStack(alignment: .leading, spacing: 2) {
+        HStack(alignment: .top, spacing: 16) {
+            VStack(alignment: .leading, spacing: 0) {
                 Text(entry.partnerCity ?? "")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(PartnerSky.secondary(isDay: isDay))
+                    .font(.system(size: 15, weight: .semibold))
                     .lineLimit(1)
+                time(timeZone, size: 38, shrinks: false)
                 Spacer(minLength: 0)
-                Text(TimeMath.timeString(in: timeZone, at: entry.date))
-                    .font(.system(size: 38, weight: .bold))
-                    .tracking(-0.9)
-                    .foregroundStyle(PartnerSky.primary(isDay: isDay))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                    .widgetAccentable()
-                weatherLine(isDay: isDay)
+                if let condition = condition(isDay: isDay) {
+                    Text(condition)
+                        .font(.system(size: 13, weight: .semibold))
+                        .lineLimit(1)
+                }
+                Text(appleWeatherMark)
+                    .font(.system(size: 11, weight: .semibold))
             }
+            // First claim on the width, so the time is not shrunk to make room for the temperature.
+            .layoutPriority(1)
             Spacer(minLength: 0)
-            SkyEmoji(isDay: isDay, size: 50)
+            VStack(alignment: .trailing, spacing: 4) {
+                WeatherSymbol(name: entry.weatherSymbolName ?? WeatherSky.clearSymbol(isDay: isDay), size: 30)
+                if let temperatureLabel = entry.temperatureLabel {
+                    Text(temperatureLabel)
+                        .font(.system(size: 38, weight: .light))
+                        .lineLimit(1)
+                }
+            }
         }
+    }
+
+    /// `shrinks` only where the time can run out of width (Small). Beside the Medium widget's
+    /// multicolour symbol, allowing it let the time shrink even with room to spare.
+    private func time(_ timeZone: TimeZone, size: CGFloat, shrinks: Bool) -> some View {
+        Text(TimeMath.timeString(in: timeZone, at: entry.date))
+            .font(.system(size: size, weight: .light))
+            .tracking(-0.5)
+            .lineLimit(1)
+            .minimumScaleFactor(shrinks ? 0.6 : 1)
+            .widgetAccentable()
     }
 
     /// The temperature and the Apple Weather mark, which WeatherKit requires wherever its data is
     /// shown. The link to Apple's legal page lives in the app, since a widget cannot host one.
-    private func weatherLine(isDay: Bool) -> some View {
+    private var weatherLine: some View {
         HStack(spacing: 4) {
             if let temperatureLabel = entry.temperatureLabel {
                 Text(temperatureLabel)
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(PartnerSky.primary(isDay: isDay))
+                    .font(.system(size: 13, weight: .semibold))
             }
             Text(appleWeatherMark)
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(PartnerSky.secondary(isDay: isDay))
         }
         .lineLimit(1)
     }

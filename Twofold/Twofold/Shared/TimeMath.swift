@@ -127,12 +127,4 @@ enum TimeMath {
         calendarDaysBetween(date, now, calendar: calendar)
     }
 
-    /// The partner-time sky, for widgets, which cannot see Theme.DayNight. Both read the same
-    /// `Brand` values, so they cannot drift.
-    enum DayNight {
-        static let nightTop = Brand.nightSkyTop
-        static let nightBottom = Brand.nightSkyBottom
-        static let dayTop = Brand.daySkyTop
-        static let dayBottom = Brand.daySkyBottom
-    }
 }

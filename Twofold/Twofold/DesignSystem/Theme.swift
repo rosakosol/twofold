@@ -104,14 +104,6 @@ enum Theme {
         startPoint: .topLeading, endPoint: .bottomTrailing
     )
 
-    /// Partner time card: night sky after their sunset, day sky before it.
-    enum DayNight {
-        static let nightTop = Brand.nightSkyTop
-        static let nightBottom = Brand.nightSkyBottom
-        static let dayTop = Brand.daySkyTop
-        static let dayBottom = Brand.daySkyBottom
-    }
-
     // MARK: Shadow (floating elements only: tab bar, game cards, share cards)
 
     enum Shadow {
