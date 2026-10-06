@@ -1,8 +1,21 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "../styles/tokens.css";
 
-@custom-variant dark (&:is(.dark *));
+/* Dark follows the system unless <html data-theme> says otherwise, the same rule tokens.css uses
+   for its own values (docs/TWOFOLD_WEBSITE.md, section 2). Nothing ever set the `.dark` class this
+   used to key on, so the shadcn components' dark styles had never applied. */
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]) *) {
+      @slot;
+    }
+  }
+  &:where([data-theme="dark"] *) {
+    @slot;
+  }
+}
 
 @theme inline {
   --color-background: var(--background);
@@ -21,17 +34,33 @@
      Marketing is untouched: it never uses this utility, and marketing.css sets its own
      h1/h2 font-family directly. */
   --font-heading: var(--font-body);
-  /* Marketing site's exact ink scale, exposed as real Tailwind utilities
-     (text-subtle-ink, bg-subtle-ink, etc.) rather than only via arbitrary var() values. */
-  --color-ink: var(--ink);
-  --color-subtle-ink: var(--subtle-ink);
-  --color-faint-ink: var(--faint-ink);
-  /* Same soft-shadow scale as site/styles.css — overriding Tailwind's default shadow-sm/
-     md/lg means every existing shadow-* usage across shadcn components (cards, popovers,
-     sheets) picks this up automatically, not just newly-added ones. */
-  --shadow-sm: 0 2px 8px rgba(28, 42, 56, 0.06);
-  --shadow-md: 0 10px 30px rgba(28, 42, 56, 0.08);
-  --shadow-lg: 0 24px 60px rgba(28, 42, 56, 0.14);
+  /* The design tokens as Tailwind utilities (text-ink, bg-surface, border-line, text-coral...), so
+     a component reaches for a token rather than a hex value. --ink and --subtle-ink are the names
+     the existing components already use; they now mean --text and --text-secondary. */
+  --color-ink: var(--text);
+  --color-subtle-ink: var(--text-secondary);
+  --color-faint-ink: var(--text-secondary);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-emphasis: var(--surface-emphasis);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-control-line: var(--control-line);
+  --color-accent-tint: var(--accent-tint);
+  --color-success: var(--success);
+  --color-success-bg: var(--success-bg);
+  --color-coral: var(--coral);
+  --color-warning: var(--warning);
+  --color-warning-bg: var(--warning-bg);
+  --color-error: var(--error);
+  --color-error-bg: var(--error-bg);
+  --color-indigo: var(--indigo);
+  --color-indigo-tint: var(--indigo-tint);
+  /* Shadows only on floating things (section 2.4). The small step is a hairline lift for menus and
+     popovers; the large one is the spec's float. */
+  --shadow-sm: 0 1px 3px rgba(14, 26, 38, 0.08);
+  --shadow-md: 0 8px 24px rgba(14, 26, 38, 0.1);
+  --shadow-lg: var(--shadow-float);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -71,107 +100,53 @@
 }
 
 :root {
-  /* Retinted to match the marketing site's real palette (site/styles.css) — sky-blue
-     accent, ink text, softer/rounder radius — everything else (secondary/muted/chart)
-     stays the stock neutral scale, only the tokens that actually read as "brand" moved. */
-  /* Flat, soft-neutral canvas for the feedback board — the marketing site keeps its own
-     blue-to-green wash (marketing.css's own `body` rule overrides this one there), but
-     the board reads better dense and quiet, like Notion/Linear, with white cards sitting
-     on a faint grey page instead of colored panels sitting on a gradient. */
-  --background: oklch(0.985 0 0);
-  --foreground: #1c2a38; /* --ink */
-  --card: oklch(1 0 0);
-  --card-foreground: #1c2a38;
-  --popover: oklch(1 0 0);
-  --popover-foreground: #1c2a38;
-  --primary: #4fa9e0; /* --sky-blue */
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: #1c2a38;
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: #5b6b7a; /* --subtle-ink */
-  --accent: #e4f4e6;
-  --accent-foreground: #1c2a38;
-  --destructive: #e85c6b; /* --heart-red */
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: #4fa9e0;
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  /* shadcn's variables, pointed at the design tokens (src/styles/tokens.css). The tokens carry
+     their own dark values, so there is no separate dark block here: every one of these follows
+     the mode by itself. */
+  --background: var(--surface);
+  --foreground: var(--text);
+  --card: var(--surface);
+  --card-foreground: var(--text);
+  --popover: var(--surface);
+  --popover-foreground: var(--text);
+  --primary: var(--accent);
+  --primary-foreground: var(--on-accent);
+  --secondary: var(--surface-raised);
+  --secondary-foreground: var(--text);
+  --muted: var(--surface-raised);
+  --muted-foreground: var(--text-secondary);
+  /* shadcn's "accent" is the hover and selected fill, not the brand accent. */
+  --accent: var(--accent-tint);
+  --accent-foreground: var(--text);
+  --destructive: var(--error);
+  --border: var(--line);
+  --input: var(--control-line);
+  --ring: var(--accent);
+  --chart-1: var(--accent);
+  --chart-2: var(--success);
+  --chart-3: var(--coral);
+  --chart-4: var(--warning);
+  --chart-5: var(--indigo);
 
-  /* Usage dashboard (/admin/usage). One hue per meaning, not a categorical set: the meter shows
-     exactly one state at a time and the daily columns are a single series, so no palette is being
-     cycled here. Steps were run through the dataviz validator against this surface rather than
-     picked by eye — light mode passes with a sub-3:1 contrast WARN, whose required relief (visible
-     value labels, and the same data present as a table) the page provides. */
-  --usage-accent: #4fa9e0;
-  --usage-accent-track: #d8ecf9;
-  --usage-warning: #e8a33d;
-  --usage-danger: #e85c6b;
+  /* Usage dashboard (/admin/usage): one hue per meaning, as before, now from the tokens. */
+  --usage-accent: var(--accent);
+  --usage-accent-track: var(--accent-tint);
+  --usage-warning: var(--warning);
+  --usage-danger: var(--error);
   --radius: 1.25rem;
-  --ink: #1c2a38;
-  --subtle-ink: #5b6b7a;
-  --faint-ink: #8695a3;
-  --border-soft: rgba(28, 42, 56, 0.09);
-  --button-top: #6ec1f0;
-  --button-bottom: #3d8fc9;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: #1c2a38;
-  --sidebar-primary: #4fa9e0;
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: #1c2a38;
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: #4fa9e0;
-}
-
-.dark {
-  --ink: oklch(0.985 0 0);
-  --subtle-ink: oklch(0.708 0 0);
-  --faint-ink: oklch(0.556 0 0);
-  --border-soft: oklch(1 0 0 / 10%);
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: #6ec1f0; /* --sky-blue-light — brighter variant reads better on a dark ground */
-  --primary-foreground: oklch(0.145 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-
-  /* Re-stepped for the dark surface, not flipped. The light steps sit at L 0.70–0.82, outside the
-     dark band of 0.48–0.67, and the validator fails them there; these are inside it and clear 3:1
-     against the dark ground. */
-  --usage-accent: #2f93d1;
-  --usage-accent-track: #23394a;
-  --usage-warning: #b98a34;
-  --usage-danger: #d2515f;
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: #6ec1f0;
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: #6ec1f0;
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  /* Older names some components still use. */
+  --ink: var(--text);
+  --subtle-ink: var(--text-secondary);
+  --faint-ink: var(--text-secondary);
+  --border-soft: var(--line);
+  --sidebar: var(--surface);
+  --sidebar-foreground: var(--text);
+  --sidebar-primary: var(--accent);
+  --sidebar-primary-foreground: var(--on-accent);
+  --sidebar-accent: var(--accent-tint);
+  --sidebar-accent-foreground: var(--text);
+  --sidebar-border: var(--line);
+  --sidebar-ring: var(--accent);
 }
 
 @layer base {
@@ -186,7 +161,9 @@
        the browser's default serif font for the entire board (marketing pages happened to
        be unaffected only because marketing.css sets its own literal `body { font-family }`
        that wins regardless). */
-    @apply text-foreground bg-background font-sans;
+    /* The page background is the token's wash (tokens.css), not bg-background, which is the
+       card surface. */
+    @apply text-foreground font-sans;
   }
 
   /* Tailwind v4's preflight leaves buttons on the browser default (`cursor: default`),

@@ -1,0 +1,221 @@
+/* ============================================================
+   Twofold design tokens (docs/TWOFOLD_WEBSITE.md, section 2).
+
+   The one place a colour, radius, shadow or type size is defined. Every page and component reads
+   these: the marketing pages through marketing.css, the feedback board, account and console through
+   the shadcn variables in globals.css, which are mapped onto them.
+
+   Light on :root. Dark follows the system (`prefers-color-scheme`) unless the page says otherwise
+   with data-theme on <html>: data-theme="light" keeps light on a dark system, data-theme="dark"
+   forces dark. The dark values appear twice below for that reason; keep the two blocks identical.
+   ============================================================ */
+
+:root {
+  color-scheme: light;
+
+  /* 2.1 Colour */
+  --bg-top: #dceef8;
+  --bg-bottom: #e3f2ea;
+  --bg: linear-gradient(180deg, var(--bg-top) 0%, var(--bg-bottom) 100%);
+  --surface: #ffffff;
+  --surface-raised: #eef5f9;
+  --surface-emphasis: #f2f8fc;
+  --line: #d9e4eb;
+  --line-strong: #cfdce4;
+  --control-line: #7c8b99;
+  --text: #0e1a26;
+  --text-secondary: #52606e;
+  --accent: #1767d0;
+  --accent-tint: #e1eef8;
+  --on-accent: #ffffff;
+  --success: #16702a;
+  --success-bg: #e2f4e4;
+  --coral: #d23a52;
+  --warning: #9a5a0b;
+  --warning-bg: #fbefd9;
+  --error: #c23a48;
+  --error-bg: #fbe9ea;
+  --indigo: #4b47c9;
+  --indigo-tint: #eeeffd;
+
+  /* 2.2 Gradients. The primary button is the one that changes with the mode. */
+  --btn-from: #1a6fd6;
+  --btn-to: #1f49b8;
+  --btn-primary: linear-gradient(135deg, var(--btn-from), var(--btn-to));
+  --on-btn-primary: #ffffff;
+  --grad-coral: linear-gradient(150deg, #d23a52, #b8274a);
+  --grad-deep: linear-gradient(150deg, #3a56d9, #2b3fb0);
+  --grad-this: linear-gradient(150deg, #1a6fd6, #0b5fb0);
+  --grad-trivia: linear-gradient(150deg, #1f8636, #16702a);
+  --grad-likely: linear-gradient(150deg, #d23a52, #b8274a);
+  --grad-daily: linear-gradient(120deg, #00875f 0%, #1a6fd6 52%, #5b3fd6 100%);
+  --grad-night: linear-gradient(160deg, #1c2744, #2e3d6e);
+  --highlight: radial-gradient(120% 80% at 100% 0%, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 55%);
+  /* The page glow behind hero sections: indigo top-left, green top-right. */
+  --glow-indigo: rgba(58, 86, 217, 0.16);
+  --glow-green: rgba(0, 135, 95, 0.12);
+  --page-glow:
+    radial-gradient(70% 60% at 0% 0%, var(--glow-indigo), transparent 70%),
+    radial-gradient(70% 60% at 100% 8%, var(--glow-green), transparent 70%);
+
+  /* 2.3 Type. System faces, as in the app: SF on Apple devices, the platform's own elsewhere. */
+  --font-body: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Helvetica, sans-serif;
+  --font-display: "New York", ui-serif, Georgia, serif;
+  /* Desktop and mobile sizes from the spec, scaled between 390px and 1440px. */
+  --text-display: clamp(2.75rem, 1.6rem + 4.75vw, 5rem);
+  --text-h2: clamp(2.125rem, 1.45rem + 2.8vw, 3.25rem);
+  --text-h3: clamp(1.375rem, 1.15rem + 0.9vw, 1.75rem);
+  --text-lead: clamp(1.0625rem, 0.99rem + 0.3vw, 1.25rem);
+  --text-body: 1.0625rem;
+  --text-small: 0.9375rem;
+  --text-caption: 0.8125rem;
+  --tracking-display: -0.04em;
+  --tracking-h2: -0.035em;
+
+  /* 2.4 Shape, space, motion */
+  --radius-pill: 999px;
+  --radius-card: 28px;
+  --radius-well: 24px;
+  --radius-tile: 18px;
+  --radius-icon: 8px;
+  --page-pad: 80px;
+  --section-space: 128px;
+  --content-max: 1280px;
+  --shadow-float: 0 20px 40px rgba(14, 26, 38, 0.14);
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Retired names, aliased so pages not yet rebuilt follow the new palette rather than breaking.
+   Each step of the redesign moves its pages onto the tokens above; delete this block once nothing
+   uses these names. The old sky blue and #8695A3 grey are gone (section 2.1). */
+:root {
+  --ink: var(--text);
+  --subtle-ink: var(--text-secondary);
+  --faint-ink: var(--text-secondary);
+  --sky-blue: var(--accent);
+  --sky-blue-light: var(--accent);
+  --sky-blue-deep: var(--accent);
+  --leaf-green: var(--success);
+  --leaf-green-deep: var(--success);
+  --heart-red: var(--coral);
+  --heart-red-deep: var(--coral);
+  --card-bg: var(--surface);
+  --card-bg-alt: var(--surface-raised);
+  --border-soft: var(--line);
+  --border-softer: var(--line);
+  --button-top: var(--btn-from);
+  --button-bottom: var(--btn-to);
+}
+
+@media (max-width: 760px) {
+  :root {
+    --radius-card: 24px;
+    --page-pad: 20px;
+    --section-space: 72px;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg-top: #0b0f16;
+    --bg-bottom: #0b0f16;
+    --bg: #0b0f16;
+    --surface: #141a23;
+    --surface-raised: #1b222d;
+    --surface-emphasis: #172131;
+    --line: #1f2732;
+    --line-strong: #1e2530;
+    --control-line: #5e6876;
+    --text: #f3f5f8;
+    --text-secondary: #a6afbc;
+    --accent: #6aa5f5;
+    --accent-tint: #1f2c3b;
+    --on-accent: #0b0f16;
+    --success: #6fd686;
+    --success-bg: #13301b;
+    --coral: #ff8fa3;
+    --warning: #f2b366;
+    --warning-bg: #33281a;
+    --error: #ff9b8f;
+    --error-bg: #3a1e22;
+    --indigo: #b7b4ff;
+    --indigo-tint: #262a4a;
+    --btn-from: #7db3f8;
+    --btn-to: #5b9cf2;
+    --on-btn-primary: #0b0f16;
+    --glow-indigo: rgba(58, 86, 217, 0.3);
+    --glow-green: rgba(0, 135, 95, 0.2);
+    --shadow-float: 0 20px 40px rgba(0, 0, 0, 0.35);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg-top: #0b0f16;
+  --bg-bottom: #0b0f16;
+  --bg: #0b0f16;
+  --surface: #141a23;
+  --surface-raised: #1b222d;
+  --surface-emphasis: #172131;
+  --line: #1f2732;
+  --line-strong: #1e2530;
+  --control-line: #5e6876;
+  --text: #f3f5f8;
+  --text-secondary: #a6afbc;
+  --accent: #6aa5f5;
+  --accent-tint: #1f2c3b;
+  --on-accent: #0b0f16;
+  --success: #6fd686;
+  --success-bg: #13301b;
+  --coral: #ff8fa3;
+  --warning: #f2b366;
+  --warning-bg: #33281a;
+  --error: #ff9b8f;
+  --error-bg: #3a1e22;
+  --indigo: #b7b4ff;
+  --indigo-tint: #262a4a;
+  --btn-from: #7db3f8;
+  --btn-to: #5b9cf2;
+  --on-btn-primary: #0b0f16;
+  --glow-indigo: rgba(58, 86, 217, 0.3);
+  --glow-green: rgba(0, 135, 95, 0.2);
+  --shadow-float: 0 20px 40px rgba(0, 0, 0, 0.35);
+}
+
+/* ============================================================
+   Global styles every page shares
+   ============================================================ */
+
+html {
+  background: var(--bg-bottom);
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: var(--text-body);
+  line-height: 1.55;
+  color: var(--text);
+  background: var(--bg);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* One focus ring for everything that can take focus (section 2.4). */
+:where(a, button, input, select, textarea, summary, [tabindex], [role="button"], [role="tab"], [role="switch"], [role="radio"]):focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* Sentence case only, so nothing here sets text-transform. Motion is the exception the spec
+   allows to be turned off entirely. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

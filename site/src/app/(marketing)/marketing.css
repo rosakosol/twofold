@@ -8,73 +8,31 @@
    ============================================================ */
 
 :root {
-  /* Brand palette + radius/shadow scale — src/app/globals.css only defines --ink/
-     --subtle-ink/--faint-ink/--button-top/--button-bottom for the (board) route
-     group's Tailwind theme; the marketing route group has always sourced its full
-     token set from here (mirrors Twofold/Twofold/DesignSystem/Theme.swift, same as
-     site/design.md). Restored after being dropped in an earlier pass that wrongly
-     assumed these lived in globals.css. */
-  --sky-blue: #4fa9e0;
-  --sky-blue-light: #6ec1f0;
-  --sky-blue-deep: #3d8fc9;
-  --leaf-green: #6fbf8b;
-  --leaf-green-deep: #4f9e6c;
-  --heart-red: #e85c6b;
-  --heart-red-deep: #d1465a;
-  --ink: #1c2a38;
-  --subtle-ink: #5b6b7a;
-  --faint-ink: #8695a3;
-
-  --bg-top: #d9eef9;
-  --bg-bottom: #e4f4e6;
-  --card-bg: #ffffff;
-  --card-bg-alt: #f4faff;
-  --border-soft: rgba(28, 42, 56, 0.09);
-  --border-softer: rgba(28, 42, 56, 0.06);
-
-  --button-top: #6ec1f0;
-  --button-bottom: #3d8fc9;
-
-  --shadow-sm: 0 2px 8px rgba(28, 42, 56, 0.06);
-  --shadow-md: 0 10px 30px rgba(28, 42, 56, 0.08);
-  --shadow-lg: 0 24px 60px rgba(28, 42, 56, 0.14);
+  /* Colours, radii, type and shadows come from src/styles/tokens.css (docs/TWOFOLD_WEBSITE.md,
+     section 2). Only this route group's own layout measures live here. */
+  --shadow-sm: 0 1px 3px rgba(14, 26, 38, 0.08);
+  --shadow-md: 0 8px 24px rgba(14, 26, 38, 0.1);
+  --shadow-lg: var(--shadow-float);
 
   --radius-sm: 12px;
-  --radius-card: 20px;
-  --radius-lg: 28px;
-  --radius-pill: 999px;
+  --radius-lg: var(--radius-card);
 
-  --maxw: 1120px;
+  --maxw: var(--content-max);
   --maxw-narrow: 760px;
   --nav-h: 72px;
-  /* Reference's own easing curve — distinct from src/app/globals.css's board-only
-     --ease, deliberately, since the two route groups have always had independently
-     tunable motion (see (board)/layout.tsx comments). */
-  --ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 html {
   scroll-behavior: smooth;
 }
 
-body {
-  /* --font-body/--font-display are set as CSS vars on <body> by next/font/google in
-     the root layout.tsx (self-hosted Inter/Newsreader) — apply them here since the
-     (board) route group intentionally uses a different, denser Tailwind type system
-     and can't have this set globally in globals.css. */
-  font-family: var(--font-body);
-  color: var(--ink);
-}
-
+/* Headings are the body face, bold and tightly tracked (section 2.3). The serif is for the
+   wordmark and pull-quotes only. */
 h1,
-h2 {
-  font-family: var(--font-display);
-  color: var(--ink);
-}
+h2,
 h3 {
   font-family: var(--font-body);
-  color: var(--ink);
-  font-weight: 700;
+  color: var(--text);
 }
 
 /* Fixed, layered background wash — scoped to .marketing-shell (the (marketing) route
@@ -86,25 +44,16 @@ h3 {
   position: relative;
   isolation: isolate;
 }
+/* The page glow behind the top of every page (section 2.2): indigo top-left, green top-right,
+   over the token background that body already paints. */
 .marketing-shell::before {
   content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -2;
-  background:
-    radial-gradient(120% 80% at 85% -10%, rgba(111, 191, 139, 0.16), transparent 60%),
-    radial-gradient(120% 90% at 5% 0%, rgba(79, 169, 224, 0.2), transparent 55%),
-    linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
-}
-.marketing-shell::after {
-  content: "";
-  position: fixed;
-  inset: 0;
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: min(1100px, 140vh);
   z-index: -1;
   pointer-events: none;
-  opacity: 0.4;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
-  mix-blend-mode: overlay;
+  background: var(--page-glow);
 }
 
 .wrap {
@@ -129,7 +78,6 @@ h3 {
    ============================================================ */
 
 h1, h2, h3 {
-  letter-spacing: -0.01em;
   text-wrap: balance;
 }
 /* The clamp floors are what phones actually get: below ~630px the vw term is smaller than
@@ -140,20 +88,25 @@ h1, h2, h3 {
    rows, pricing and the FAQ, where a heading's job is to be found rather than to land. The vw
    terms come down with the caps so the growth between phone and desktop stays even. */
 h1 {
-  font-size: clamp(1.9rem, 4.6vw, 3.4rem);
-  line-height: 1.07;
+  font-size: var(--text-display);
+  line-height: 1;
+  letter-spacing: var(--tracking-display);
   margin: 0;
-  font-weight: 500;
+  font-weight: 700;
 }
 h2 {
-  font-size: clamp(1.45rem, 3.2vw, 2.45rem);
-  line-height: 1.14;
+  font-size: var(--text-h2);
+  line-height: 1.06;
+  letter-spacing: var(--tracking-h2);
   margin: 0;
-  font-weight: 500;
+  font-weight: 700;
 }
 h3 {
-  font-size: 1.06rem;
+  font-size: var(--text-h3);
+  line-height: 1.2;
+  letter-spacing: -0.015em;
   margin: 0;
+  font-weight: 600;
 }
 p {
   line-height: 1.6;
@@ -166,26 +119,23 @@ a {
   color: inherit;
 }
 a:hover {
-  color: var(--sky-blue);
+  color: var(--accent);
 }
 
 .eyebrow {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.72rem;
+  font-size: var(--text-caption);
   font-weight: 600;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--subtle-ink);
+  color: var(--text-secondary);
 }
 .eyebrow::before {
   content: "";
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--heart-red);
-  box-shadow: 0 0 0 4px rgba(232, 92, 107, 0.14);
+  background: var(--coral);
   flex: none;
 }
 /* The eyebrow icon markup (an inline <svg class="icon">) ported from the app's icon
@@ -197,9 +147,9 @@ a:hover {
 
 .lead,
 .lede {
-  font-size: 1.12rem;
-  color: var(--subtle-ink);
-  line-height: 1.6;
+  font-size: var(--text-lead);
+  color: var(--text-secondary);
+  line-height: 1.55;
 }
 .muted {
   color: var(--faint-ink);

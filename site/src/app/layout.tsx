@@ -1,20 +1,9 @@
 import type { Metadata } from "next";
-import { Inter, Newsreader } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/app/providers";
 
-// Same two families the marketing site uses (site/styles.css's --font-body/--font-display)
-// — loaded once here since both the marketing route group and the (board) group
-// (feedback/admin/auth) share them, just applied via different stylesheets.
-const bodyFont = Inter({
-  variable: "--font-body",
-  subsets: ["latin"],
-});
-
-const displayFont = Newsreader({
-  variable: "--font-display",
-  subsets: ["latin"],
-});
+// No web fonts: the site uses the system faces the app does, SF and New York on Apple devices
+// (--font-body and --font-display in src/styles/tokens.css, docs/TWOFOLD_WEBSITE.md section 2.3).
 
 export const metadata: Metadata = {
   title: {
@@ -34,7 +23,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="no-js" suppressHydrationWarning>
-      <body className={`${bodyFont.variable} ${displayFont.variable} antialiased min-h-screen flex flex-col`}>
+      <body className="antialiased min-h-screen flex flex-col">
         <Providers>{children}</Providers>
       </body>
     </html>
