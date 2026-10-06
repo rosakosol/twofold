@@ -31,7 +31,3 @@ export type PhoneScreen = keyof typeof PHONE_SCREENS;
 export function phoneScreenSrc(screen: PhoneScreen, mode: "light" | "dark") {
   return `/assets/phone-screen/${screen}-${mode}.webp`;
 }
-
-/** Height of the older framed PNGs (public/assets/phone-screen/*.png), still used by the pages not
- *  yet moved onto PhoneMockup. Goes with those files. */
-export const LEGACY_PHONE_SHOT_HEIGHT = 2061;

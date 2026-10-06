@@ -268,3 +268,157 @@
   font-size: var(--text-caption);
   color: color-mix(in srgb, var(--on-dark) 78%, transparent);
 }
+
+/* Who's more likely to: the game's card on its coral gradient. */
+.pv-likely {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 300px;
+  padding: 22px;
+  border-radius: 26px;
+  background: var(--highlight), var(--grad-likely);
+  color: var(--on-dark);
+  box-shadow: var(--shadow-float);
+}
+.pv-likely-question {
+  font-family: var(--font-display);
+  font-size: 1.375rem;
+  line-height: 1.25;
+}
+.pv-likely-choices {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.pv-likely-choice {
+  display: inline-flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 6px 10px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--on-dark) 18%, transparent);
+  font-size: var(--text-small);
+  font-weight: 600;
+}
+.pv-likely-choice .pv-avatar {
+  border: 1.5px solid var(--on-dark);
+}
+
+/* The flight widget, small. */
+.pv-flight {
+  width: 170px;
+  aspect-ratio: 1;
+  padding: 18px;
+  justify-content: space-between;
+  background: var(--highlight), var(--grad-this);
+}
+.pv-flight .pv-widget-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.pv-flight .pv-widget-label svg {
+  width: 15px;
+  height: 15px;
+  rotate: 45deg;
+}
+.pv-flight-route {
+  margin-top: auto;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* The Lock Screen, drawn inside a phone frame at the screenshots' proportions. */
+.pv-lock {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  aspect-ratio: 1206 / 2622;
+  padding: 18cqw 5cqw 0;
+  border-radius: 13.5cqw;
+  background: radial-gradient(90% 60% at 80% 10%, color-mix(in srgb, var(--live-accent) 35%, transparent), transparent 70%), var(--grad-night);
+  color: var(--on-dark);
+  overflow: hidden;
+}
+.pv-lock-date {
+  font-size: 5cqw;
+  font-weight: 600;
+}
+.pv-lock-time {
+  font-size: 26cqw;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+.pv-lock-widgets {
+  display: flex;
+  gap: 3cqw;
+  margin: 5cqw 0;
+}
+.pv-lock-widget {
+  display: flex;
+  flex-direction: column;
+  min-width: 34cqw;
+  padding: 3cqw 4cqw;
+  border-radius: 6cqw;
+  background: color-mix(in srgb, var(--on-dark) 16%, transparent);
+  font-size: 3.6cqw;
+}
+.pv-lock-widget strong {
+  font-size: 5cqw;
+}
+.pv-lock .pv-lock-live {
+  margin-top: auto;
+  margin-bottom: 8cqw;
+  padding: 4cqw;
+  border-radius: 7cqw;
+  font-size: 3.6cqw;
+  box-shadow: none;
+}
+.pv-lock .pv-lock-live * {
+  font-size: inherit;
+}
+.pv-lock .pv-lock-live .pv-live-eta strong {
+  font-size: 4.6cqw;
+}
+.pv-lock .pv-lock-live .pv-avatar {
+  width: 7cqw;
+  height: 7cqw;
+}
+
+/* The printed Relationship Record. */
+.pv-keepsake {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  width: 220px;
+  aspect-ratio: 210 / 297;
+  padding: 28px 24px;
+  border-radius: 6px 14px 14px 6px;
+  background: var(--keepsake-paper);
+  color: var(--keepsake-ink);
+  box-shadow: var(--shadow-float), inset 6px 0 0 color-mix(in srgb, var(--keepsake-ink) 8%, transparent);
+}
+.pv-keepsake img {
+  margin-bottom: auto;
+}
+.pv-keepsake-title {
+  font-family: var(--font-display);
+  font-size: 1.625rem;
+  line-height: 1.15;
+}
+.pv-keepsake-names {
+  font-size: var(--text-small);
+  font-weight: 600;
+}
+.pv-keepsake-meta {
+  font-size: var(--text-caption);
+  opacity: 0.8;
+}

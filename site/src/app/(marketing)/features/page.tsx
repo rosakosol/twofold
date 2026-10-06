@@ -1,258 +1,209 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import Image from "next/image";
-import { Reveal } from "@/components/marketing/Reveal";
-import { getFeatures } from "@/lib/marketing/sanity";
-import { resolveFeatures, type ResolvedFeature } from "@/lib/marketing/featuresFallback";
-import { LEGACY_PHONE_SHOT_HEIGHT as SHOT_HEIGHT } from "@/lib/marketing/phoneScreens";
+import type { ReactNode } from "react";
+import { BookHeart, Check, Gamepad2, Images, LayoutGrid, Plane, Route } from "lucide-react";
+import "./features.css";
+import { AppStoreButton } from "@/components/site/AppStoreButton";
+import { GlowHalo, type HaloTint } from "@/components/site/GlowHalo";
+import { PhoneMockup } from "@/components/site/PhoneMockup";
+import { StatusPill } from "@/components/site/StatusPill";
+import {
+  CountdownWidget,
+  FlightLiveActivity,
+  FlightWidget,
+  KeepsakeCover,
+  LockScreen,
+  WhosMoreLikelyCard,
+} from "@/components/site/ProductVisuals";
 
 export const metadata: Metadata = {
   title: "Features",
   description:
-    "Everything Twofold gives long-distance couples: memories tied to real places, every trip on one shared timeline, live flight tracking, couple games, widgets, and an exportable record of your relationship.",
+    "Everything Twofold gives long-distance couples: memories where they happened, every trip on one shared timeline, live flight tracking, couple games, widgets, and your Relationship Record.",
 };
 
-// Real app screenshots, keyed by feature slug. A slug listed here renders the screenshot on its
-// own (see `.feature-shot`); anything not listed falls back to the hand-built CSS mockup below,
-// which is why the two can coexist while the rest of the screenshots are captured.
-//
-// `src` must match the file on disk exactly, case included: these resolve on a case-insensitive
-// dev filesystem but 404 on Vercel's Linux builders, so a wrong case looks fine locally and
-// ships a blank space.
-const FEATURE_SHOTS: Record<string, { src: string; alt: string; width: number }> = {
-  "live-flight-tracking": {
-    src: "/assets/phone-screen/Flight-Tracking.png",
-    alt: "Live flight tracking in Twofold, showing a partner's flight status and arrival time",
-    width: 1019,
-  },
-  memories: {
-    src: "/assets/phone-screen/Memory-Detail.png",
-    alt: "A saved memory in Twofold, with a photo and note attached to the place it happened",
-    width: 1019,
-  },
-  trips: {
-    src: "/assets/phone-screen/Trips.png",
-    alt: "The Trips screen in Twofold, listing upcoming and past journeys",
-    width: 1019,
-  },
-  "couple-games": {
-    src: "/assets/phone-screen/Game-Screen.png",
-    alt: "Twofold's couple games, showing the available question decks",
-    width: 1019,
-  },
-  "widgets-live-activities": {
-    src: "/assets/phone-screen/Live-Activities.png",
-    alt: "A Twofold Live Activity on the iPhone Lock Screen, tracking a partner's flight",
-    width: 1133,
-  },
+// The features page (docs/TWOFOLD_WEBSITE.md, section 5). Its copy is the spec's, word for word.
+
+type Feature = {
+  id: string;
+  label: string;
+  icon: typeof Images;
+  tint: HaloTint;
+  heading: string;
+  body: string;
+  ticks: [string, string, string];
+  visual: ReactNode;
 };
 
-// Hand-built illustration per feature, keyed by slug. Features themselves are editable in
-// Studio (add/remove/rename/reorder), but the artwork is bespoke JSX - so a feature added
-// there, or one whose slug was changed, renders the generic card at the bottom until
-// someone adds a matching `case` here.
-function FeatureArt({ feature }: { feature: ResolvedFeature }) {
-  switch (feature.slug) {
-    // `relationship-globe` had a hand-built globe mock here. That feature was replaced by
-    // `trips`, which has a real screenshot in FEATURE_SHOTS and so never reaches this switch.
-    case "live-flight-tracking":
-      return (
-        <div className="mock-card">
-          <div className="mock-card-row">
-            <strong style={{ fontFamily: "var(--font-display)", fontSize: 20 }}>MEL</strong>
-            <span className="mock-dash" />
-            <svg className="icon" style={{ width: 18, height: 18, color: "var(--sky-blue-deep)" }}>
-              <use href="/assets/icons.svg#icon-plane" />
-            </svg>
-            <span className="mock-dash" />
-            <strong style={{ fontFamily: "var(--font-display)", fontSize: 20 }}>SIN</strong>
-          </div>
-          <div className="mock-card-row" style={{ marginTop: 16 }}>
-            <span className="icon-dot" style={{ background: "var(--leaf-green)" }}>
-              <svg className="icon">
-                <use href="/assets/icons.svg#icon-check" />
-              </svg>
-            </span>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 14 }}>Landing in 2h 14m</div>
-              <div style={{ fontSize: 12, color: "var(--subtle-ink)" }}>Dara · SQ 212 · On time</div>
-            </div>
-          </div>
-        </div>
-      );
-    case "memories":
-      return (
-        <div className="mock-card">
-          <div className="mock-card-row">
-            <span className="icon-dot" style={{ background: "var(--heart-red)" }}>
-              <svg className="icon">
-                <use href="/assets/icons.svg#icon-pin" />
-              </svg>
-            </span>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 14 }}>Gardens by the Bay</div>
-              <div style={{ fontSize: 12, color: "var(--subtle-ink)" }}>Singapore · 3 memories</div>
-            </div>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginTop: 14 }}>
-            <div style={{ aspectRatio: "1", borderRadius: 10, background: "linear-gradient(135deg,var(--sky-blue-light),var(--sky-blue-deep))" }} />
-            <div style={{ aspectRatio: "1", borderRadius: 10, background: "linear-gradient(135deg,#f6b6bd,var(--heart-red-deep))" }} />
-            <div style={{ aspectRatio: "1", borderRadius: 10, background: "linear-gradient(135deg,#a8e0bc,var(--leaf-green-deep))" }} />
-          </div>
-        </div>
-      );
-    case "couple-games":
-      return (
-        <div className="mock-card">
-          <div style={{ fontSize: 13, color: "var(--subtle-ink)", marginBottom: 10 }}>This or That</div>
-          <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>Morning person or night owl?</div>
-          <div style={{ display: "flex", gap: 10 }}>
-            <div style={{ flex: 1, textAlign: "center", padding: 10, borderRadius: 12, background: "var(--card-bg-alt)", fontSize: 13, fontWeight: 600 }}>
-              🌅 Morning
-            </div>
-            <div style={{ flex: 1, textAlign: "center", padding: 10, borderRadius: 12, background: "var(--card-bg-alt)", fontSize: 13, fontWeight: 600 }}>
-              🌙 Night
-            </div>
-          </div>
-        </div>
-      );
-    case "widgets-live-activities":
-      return (
-        <div className="phone-mock">
-          <div className="phone-mock-notch" />
-          <div className="phone-mock-screen" style={{ flexDirection: "column", gap: 14, padding: 20 }}>
-            <div className="mock-card" style={{ maxWidth: 180, textAlign: "center" }}>
-              <div style={{ fontSize: 12, color: "var(--subtle-ink)", marginBottom: 4 }}>Next reunion in</div>
-              <div style={{ fontFamily: "var(--font-display)", fontSize: 32 }}>12 days</div>
-            </div>
-            <div className="mock-card" style={{ maxWidth: 180 }}>
-              <div className="mock-line" style={{ width: "70%", marginBottom: 8 }} />
-              <div className="mock-line" style={{ width: "40%" }} />
-            </div>
-          </div>
-        </div>
-      );
-    // No screenshot for this one: the export is a document, not a screen, so the mock below
-    // sells it better than a capture of the Settings row that produces it would.
-    case "relationship-record":
-      return (
-        <div className="mock-card" style={{ maxWidth: 220 }}>
-          <div className="mock-card-row">
-            <span className="icon-dot" style={{ background: "var(--sky-blue)" }}>
-              <svg className="icon">
-                <use href="/assets/icons.svg#icon-file-download" />
-              </svg>
-            </span>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 14 }}>Our Relationship Record</div>
-              <div style={{ fontSize: 12, color: "var(--subtle-ink)" }}>48 pages · PDF</div>
-            </div>
-          </div>
-          <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
-            <div className="mock-line" style={{ width: "90%" }} />
-            <div className="mock-line" style={{ width: "70%" }} />
-            <div className="mock-line" style={{ width: "80%" }} />
-          </div>
-        </div>
-      );
-    default:
-      return (
-        <div className="mock-card" style={{ maxWidth: 220 }}>
-          <div className="mock-card-row">
-            <span className="icon-dot" style={{ background: "var(--sky-blue)" }}>
-              <svg className="icon">
-                <use href={`/assets/icons.svg#${feature.icon}`} />
-              </svg>
-            </span>
-            <div style={{ fontWeight: 700, fontSize: 14 }}>{feature.title}</div>
-          </div>
-          <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
-            <div className="mock-line" style={{ width: "90%" }} />
-            <div className="mock-line" style={{ width: "70%" }} />
-            <div className="mock-line" style={{ width: "80%" }} />
-          </div>
-        </div>
-      );
-  }
-}
+const PHONE = "(max-width: 760px) 56vw, 260px";
 
-export default async function FeaturesPage() {
-  const features = resolveFeatures(await getFeatures());
+const FEATURES: Feature[] = [
+  {
+    id: "memories",
+    label: "Memories",
+    icon: Images,
+    tint: "coral",
+    heading: "Keep every moment where it happened",
+    body: "Save photos and notes to the exact places they happened. Over time your globe fills with pins: a map of everywhere your story has taken you.",
+    ticks: ["Attach photos and notes to any place", "Revisit a memory by zooming into your globe", "Private to the two of you, never public"],
+    visual: (
+      <div className="features-pair">
+        <PhoneMockup screen="memory-detail" sizes={PHONE} />
+        <PhoneMockup screen="memories-map" sizes={PHONE} />
+      </div>
+    ),
+  },
+  {
+    id: "trips",
+    label: "Trips",
+    icon: Route,
+    tint: "green",
+    heading: "Every journey, on one shared timeline",
+    body: "Add a trip in seconds and your partner sees it straight away: where you're going, when you land, and how long until you're in the same place. Work trips and holidays sit on the same timeline as your reunions.",
+    ticks: ["Upcoming and past journeys in one shared list", "Business trips, holidays and reunion visits alike", "Every trip draws a new line across your globe"],
+    visual: (
+      <div className="features-pair">
+        <PhoneMockup screen="travel-trips" sizes={PHONE} />
+        <PhoneMockup screen="travel-flights" sizes={PHONE} />
+      </div>
+    ),
+  },
+  {
+    id: "flights",
+    label: "Live flight tracking",
+    icon: Plane,
+    tint: "blue",
+    heading: "Know the moment they land",
+    body: "Follow each other's flights in real time. Twofold tells you when they take off, and sends a notification the second they touch down.",
+    ticks: ["Real-time status, gate and delay updates", "A notification the moment they're on the ground", "A Live Activity on your Lock Screen for the whole flight"],
+    visual: (
+      <div className="features-with-overlay">
+        <PhoneMockup screen="home" sizes={PHONE} />
+        <FlightLiveActivity className="features-overlay is-bottom" />
+      </div>
+    ),
+  },
+  {
+    id: "games",
+    label: "Couple games",
+    icon: Gamepad2,
+    tint: "indigo",
+    heading: "Stay curious about each other",
+    body: "Bite-sized questions and games made for two, from quick this-or-that rounds to the questions you'd never think to ask over text.",
+    ticks: ["500+ questions and games, 2000+ on Premium", "Play async: answer whenever you each have a moment", "New topics and decks added regularly"],
+    visual: (
+      <div className="features-with-overlay">
+        <PhoneMockup screen="games" sizes={PHONE} />
+        <WhosMoreLikelyCard className="features-overlay is-side" />
+      </div>
+    ),
+  },
+  {
+    id: "widgets",
+    label: "Widgets and Live Activities",
+    icon: LayoutGrid,
+    tint: "blue",
+    heading: "Keep them on your Home Screen",
+    body: "A countdown to your next reunion, today's distance apart, or their flight while they're in the air, right on your Home Screen and Lock Screen.",
+    ticks: ["Countdown, distance and flight-status widgets", "Live Activities for flights in progress", "More widget styles on Premium"],
+    visual: (
+      <div className="features-with-overlay">
+        <figure className="phone-mockup">
+          <div className="phone-bezel">
+            <LockScreen />
+          </div>
+        </figure>
+        <div className="features-overlay is-stack">
+          <CountdownWidget />
+          <FlightWidget />
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: "record",
+    label: "Relationship Record",
+    icon: BookHeart,
+    tint: "paper",
+    heading: "Your story, kept in one place",
+    body: "Export your whole relationship as a beautifully formatted document: every trip you've taken, every memory you've saved, every flight you've flown to be together. One keepsake to print, save or share.",
+    ticks: ["Every trip, memory and flight on one timeline", "Formatted and ready to print or present", "Included with Twofold Premium"],
+    visual: (
+      <div className="features-with-overlay">
+        <PhoneMockup screen="our-story" sizes={PHONE} />
+        <KeepsakeCover className="features-overlay is-side" />
+      </div>
+    ),
+  },
+];
 
+export default function FeaturesPage() {
   return (
     <>
-      <header className="page-head">
-        <Reveal className="wrap">
-          <span className="eyebrow">
-            <svg className="icon">
-              <use href="/assets/icons.svg#icon-sparkle" />
-            </svg>
+      <section className="features-hero" aria-labelledby="features-title">
+        <div className="page-wrap">
+          <StatusPill tone="surface" icon={<LayoutGrid />}>
             Features
-          </span>
-          <h1>Everything your distance deserves</h1>
-          <p className="lead">Twofold isn&apos;t just a flight tracker - it&apos;s a shared home for your relationship, wherever in the world you both are.</p>
-        </Reveal>
-      </header>
-
-      <section style={{ paddingTop: 30 }}>
-        <div className="wrap">
-          {features.map((feature, index) => {
-            return (
-              <Reveal key={feature.slug} className={`feature-row${index % 2 === 1 ? " flip" : ""}`}>
-                <div className="fr-text">
-                  <div className={`icon-badge ${feature.tone}`}>
-                    <svg className="icon">
-                      <use href={`/assets/icons.svg#${feature.icon}`} />
-                    </svg>
-                  </div>
-                  <h2>{feature.title}</h2>
-                  <p className="desc">{feature.detailDescription}</p>
-                  <ul className="check-list">
-                    {feature.bullets.map((bullet) => (
-                      <li key={bullet}>
-                        <svg className="icon">
-                          <use href="/assets/icons.svg#icon-check" />
-                        </svg>
-                        <span>{bullet}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                {FEATURE_SHOTS[feature.slug] ? (
-                  <div className="feature-shot">
-                    <Image
-                      src={FEATURE_SHOTS[feature.slug].src}
-                      alt={FEATURE_SHOTS[feature.slug].alt}
-                      width={FEATURE_SHOTS[feature.slug].width}
-                      height={SHOT_HEIGHT}
-                      className="app-shot"
-                      sizes="(max-width: 820px) 80vw, 380px"
-                    />
-                  </div>
-                ) : (
-                  <div className="media-frame">
-                    <FeatureArt feature={feature} />
-                  </div>
-                )}
-              </Reveal>
-            );
-          })}
+          </StatusPill>
+          <h1 id="features-title">Everything your distance deserves</h1>
+          <p className="lead">
+            Twofold isn&rsquo;t just a flight tracker. It&rsquo;s a shared home for your relationship, wherever in the world you both
+            are.
+          </p>
+          <nav className="features-chips" aria-label="Features on this page">
+            {FEATURES.map(({ id, label, icon: Icon, tint }) => (
+              <a key={id} href={`#${id}`} className={`features-chip tint-${tint}`}>
+                <Icon aria-hidden />
+                {label}
+              </a>
+            ))}
+          </nav>
         </div>
       </section>
 
-      <section className="cta-band" style={{ paddingTop: 0 }}>
-        <Reveal className="wrap">
-          <div className="card">
-            <h2>Start closing the distance</h2>
-            <p>Either partner&apos;s subscription unlocks everything for you both.</p>
-            <Link className="btn btn-primary btn-lg" href="/pricing">
-              See pricing
-              <svg className="icon">
-                <use href="/assets/icons.svg#icon-arrow-right" />
-              </svg>
-            </Link>
+      {FEATURES.map(({ id, label, icon: Icon, tint, heading, body, ticks, visual }, index) => (
+        <section key={id} id={id} className={`features-row${index % 2 ? " is-flipped" : ""}`} aria-labelledby={`${id}-title`}>
+          <div className="page-wrap features-row-grid">
+            <div className="features-copy">
+              <p className={`features-label tint-${tint}`}>
+                <span className="features-label-icon" aria-hidden>
+                  <Icon />
+                </span>
+                {label}
+              </p>
+              <h2 id={`${id}-title`}>{heading}</h2>
+              <p className="features-body">{body}</p>
+              <ul className="features-ticks">
+                {ticks.map((tick) => (
+                  <li key={tick}>
+                    <Check aria-hidden />
+                    {tick}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <GlowHalo tint={tint} className="features-visual">
+              {visual}
+            </GlowHalo>
           </div>
-        </Reveal>
+        </section>
+      ))}
+
+      <section className="features-closing-section" aria-labelledby="closing-title">
+        <div className="page-wrap">
+          <div className="features-closing">
+            {/* eslint-disable-next-line @next/next/no-img-element -- fixed-size brand mark */}
+            <img src="/assets/globe-heart.png" alt="" width={56} height={56} />
+            <h2 id="closing-title">Start closing the distance</h2>
+            <p>Either partner&rsquo;s subscription unlocks everything for you both.</p>
+            <div className="features-closing-actions">
+              <AppStoreButton />
+              <Link className="btn btn-secondary" href="/pricing">
+                See pricing
+              </Link>
+            </div>
+          </div>
+        </div>
       </section>
     </>
   );

@@ -13,8 +13,8 @@ export interface ResolvedPlanComparison {
   rows: ComparisonRow[];
 }
 
-// Cold-start copy for the `planComparison` singleton, in the same spirit as
-// FEATURES_FALLBACK: what /pricing shows before anything is published in Studio.
+// Cold-start copy for the `planComparison` singleton: what /pricing shows before anything is
+// published in Studio.
 //
 // The numbers here are the ones already quoted in PLANS (config.ts) and on the plan
 // documents, so the table can't contradict the cards above it on a fresh dataset. Once the

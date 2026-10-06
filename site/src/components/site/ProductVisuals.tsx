@@ -127,3 +127,70 @@ export function AppNotification({ title, body, className }: { title: string; bod
     </Visual>
   );
 }
+
+/** A "Who's more likely to" card from the game: the question on the coral gradient, and the two
+ *  of them to pick between. */
+export function WhosMoreLikelyCard({ className }: { className?: string }) {
+  return (
+    <Visual label="A Who's more likely to card: who's more likely to plan a surprise trip, Alex or Sam?" className={["pv-likely", className].filter(Boolean).join(" ")}>
+      <span className="pv-widget-label">Who&rsquo;s more likely to</span>
+      <span className="pv-likely-question">plan a surprise trip without telling the other?</span>
+      <span className="pv-likely-choices">
+        <span className="pv-likely-choice">
+          <span className="pv-avatar pv-avatar-alex">A</span>Alex
+        </span>
+        <span className="pv-likely-choice">
+          <span className="pv-avatar pv-avatar-sam">S</span>Sam
+        </span>
+      </span>
+    </Visual>
+  );
+}
+
+/** The flight widget, small: Alex's flight on the flight gradient. */
+export function FlightWidget({ className }: { className?: string }) {
+  return (
+    <Visual label="Flight widget: Alex's flight QR904 from Doha to Melbourne, landing at 9:38 pm" className={["pv-widget pv-flight", className].filter(Boolean).join(" ")}>
+      <span className="pv-widget-label">
+        <Plane aria-hidden /> QR904
+      </span>
+      <span className="pv-flight-route">DOH &rarr; MEL</span>
+      <span className="pv-widget-sub">Alex lands at 9:38 pm</span>
+    </Visual>
+  );
+}
+
+/** The Lock Screen, drawn: the time, the flight's Live Activity and two widgets. Goes inside the
+ *  phone frame in place of a screenshot, since the Lock Screen cannot be captured from the app. */
+export function LockScreen() {
+  return (
+    <div role="img" aria-label="Lock Screen with a Live Activity tracking Alex's flight, and the trip countdown and distance widgets" className="pv-lock">
+      <span className="pv-lock-date">Tuesday 6 October</span>
+      <span className="pv-lock-time">9:41</span>
+      <span className="pv-lock-widgets">
+        <span className="pv-lock-widget">
+          <strong>22 days</strong>
+          <span>to Alex</span>
+        </span>
+        <span className="pv-lock-widget">
+          <strong>15,966 km</strong>
+          <span>apart</span>
+        </span>
+      </span>
+      <FlightLiveActivity className="pv-lock-live" />
+    </div>
+  );
+}
+
+/** The printed Relationship Record's cover. */
+export function KeepsakeCover({ className }: { className?: string }) {
+  return (
+    <Visual label="The printed Relationship Record: Our Relationship Record, Alex and Sam, 48 pages, PDF" className={["pv-keepsake", className].filter(Boolean).join(" ")}>
+      {/* eslint-disable-next-line @next/next/no-img-element -- fixed-size brand mark */}
+      <img src="/assets/globe-heart.png" alt="" width={40} height={40} />
+      <span className="pv-keepsake-title">Our Relationship Record</span>
+      <span className="pv-keepsake-names">Alex and Sam</span>
+      <span className="pv-keepsake-meta">48 pages, PDF</span>
+    </Visual>
+  );
+}

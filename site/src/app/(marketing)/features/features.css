@@ -1,0 +1,234 @@
+/* ============================================================
+   The features page (docs/TWOFOLD_WEBSITE.md, section 5): the hero with anchor chips, six
+   alternating sections with a glow halo behind each visual, and the closing card.
+   ============================================================ */
+
+/* Each feature's tint, for its label circle and chip. */
+.tint-coral { --tint: var(--tint-coral); }
+.tint-green { --tint: var(--tint-green); }
+.tint-blue { --tint: var(--tint-blue); }
+.tint-indigo { --tint: var(--tint-indigo); }
+.tint-paper { --tint: var(--warning); }
+
+.features-hero {
+  padding: 56px 0 24px;
+  text-align: center;
+}
+.features-hero .page-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+}
+.features-hero h1 {
+  max-width: 14ch;
+}
+.features-hero .lead {
+  max-width: 640px;
+}
+.features-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+.features-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--text);
+  font-size: var(--text-small);
+  font-weight: 600;
+  text-decoration: none;
+}
+.features-chip:hover {
+  color: var(--text);
+  background: var(--surface-raised);
+}
+.features-chip svg {
+  width: 17px;
+  height: 17px;
+  color: var(--tint);
+}
+
+.features-row {
+  padding: calc(var(--section-space) / 2) 0;
+  scroll-margin-top: 80px;
+}
+.features-row-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 520px) minmax(0, 1fr);
+  gap: 64px;
+  align-items: center;
+}
+.features-row.is-flipped .features-row-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 520px);
+}
+.features-row.is-flipped .features-copy {
+  order: 2;
+}
+.features-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.features-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--text-small);
+  font-weight: 600;
+  color: var(--text);
+}
+.features-label-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--tint) 16%, transparent);
+  color: var(--tint);
+}
+.features-label-icon svg {
+  width: 18px;
+  height: 18px;
+}
+.features-body {
+  font-size: var(--text-lead);
+  color: var(--text-secondary);
+}
+.features-ticks {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.features-ticks li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.features-ticks svg {
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  color: var(--success);
+  flex: none;
+}
+
+/* ---------- Visuals ---------- */
+
+.features-visual {
+  min-height: 560px;
+  padding: 40px 0;
+}
+/* Two phones, the second a little lower, overlapping the first. */
+.features-pair {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+.features-pair .phone-mockup {
+  width: min(250px, 46%);
+}
+.features-pair .phone-mockup + .phone-mockup {
+  margin: 56px 0 0 -40px;
+}
+/* One phone with a widget or card over its edge. */
+.features-with-overlay {
+  position: relative;
+  width: min(280px, 72%);
+}
+.features-overlay {
+  position: absolute;
+  z-index: 1;
+}
+.features-overlay.is-bottom {
+  left: 50%;
+  bottom: 12%;
+  width: 118%;
+  translate: -50% 0;
+}
+.features-overlay.is-side {
+  right: -46%;
+  bottom: 14%;
+}
+.features-overlay.is-stack {
+  right: -52%;
+  top: 22%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+/* The widgets at their real small size, so their text sits as it does on a Home Screen. */
+.features-overlay.is-stack > * {
+  width: 170px;
+}
+
+/* ---------- Closing ---------- */
+
+.features-closing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 56px 32px;
+  border-radius: var(--radius-card);
+  background: var(--surface-emphasis);
+  border: 1px solid var(--line);
+  text-align: center;
+}
+.features-closing p {
+  color: var(--text-secondary);
+  font-size: var(--text-lead);
+}
+.features-closing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+@media (max-width: 960px) {
+  .features-row-grid,
+  .features-row.is-flipped .features-row-grid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .features-row.is-flipped .features-copy {
+    order: 0;
+  }
+  .features-visual {
+    min-height: 0;
+  }
+}
+@media (max-width: 560px) {
+  .features-with-overlay {
+    width: 62%;
+    margin-right: 22%;
+  }
+  .features-overlay.is-side,
+  .features-overlay.is-stack {
+    right: -40%;
+  }
+  .features-overlay.is-side {
+    width: 200px;
+  }
+  /* Scaled as a whole on a phone, rather than squeezed, so nothing inside wraps. */
+  .features-overlay.is-stack {
+    top: auto;
+    bottom: -4%;
+    gap: 10px;
+    transform: scale(0.74);
+    transform-origin: left bottom;
+  }
+}

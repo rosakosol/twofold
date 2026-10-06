@@ -36,31 +36,9 @@ export async function getHero(): Promise<HeroDoc | null> {
   );
 }
 
-export interface FeatureDoc {
-  slug?: string;
-  title?: string;
-  teaserDescription?: string;
-  detailDescription?: string;
-  bullets?: string[];
-  icon?: string;
-  tone?: string;
-}
-
-// Features are a free-form list, not fixed slots — editors add, remove, rename, and
-// reorder them in Studio, so this returns the whole `feature` collection in `order`
-// rather than looking up a known set of IDs. An empty result (nothing published yet)
-// means the caller falls back to FEATURES_FALLBACK wholesale; see featuresFallback.ts.
-export async function getFeatures(): Promise<FeatureDoc[]> {
-  return (
-    (await sanityClient.fetch(
-      `*[_type == "feature" && defined(slug.current)] | order(coalesce(order, 9999) asc, title asc){
-        "slug": slug.current, title, teaserDescription, detailDescription, bullets, icon, tone
-      }`,
-      {},
-      { next: { revalidate: SANITY_REVALIDATE_SECONDS } }
-    )) ?? []
-  );
-}
+// Features used to be fetched from here (getFeatures/FeatureDoc), with featuresFallback.ts behind
+// them. The features page and the home page now carry the website spec's copy
+// (docs/TWOFOLD_WEBSITE.md), so nothing reads the Studio's `feature` documents any more.
 
 // FAQ used to be fetched from here (getFaqItems/FaqItemDoc) — retired along with Sanity's
 // `faqItem` document type. See src/lib/marketing/faq.ts (Supabase-backed) instead.

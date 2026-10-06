@@ -55,6 +55,9 @@
   --paper: #fbf8f2;
   --paper-ink: #1c2733;
   --paper-ink-secondary: #5b6776;
+  /* The printed Relationship Record (section 5). */
+  --keepsake-paper: #faf7f2;
+  --keepsake-ink: #2a2118;
   /* The phone mockup's frame (section 3): the same in both modes, as a real phone is. */
   --bezel: #000000;
   --bezel-edge: #333c49;
