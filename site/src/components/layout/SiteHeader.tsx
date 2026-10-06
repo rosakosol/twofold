@@ -3,27 +3,33 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { SlidersHorizontal } from "lucide-react";
+import { Menu, SlidersHorizontal, X } from "lucide-react";
 import { UserMenu } from "@/components/layout/UserMenu";
 import { SignedInNavItems } from "@/components/layout/SignedInNavItems";
 import { useAdminRoles } from "@/lib/auth/useAdminRoles";
 
-// Same link set as MarketingHeader's NAV_LINKS, so the whole site is reachable from any
-// page's navbar, matching marketing's navbar 1:1.
+/** The header's destinations (docs/TWOFOLD_WEBSITE.md, section 3). The wordmark is the way home. */
 const NAV_LINKS = [
-  { href: "/", label: "Home" },
   { href: "/features", label: "Features" },
   { href: "/pricing", label: "Pricing" },
   { href: "/faq", label: "FAQ" },
   { href: "/feedback", label: "Feedback" },
 ];
 
-/** Board/admin/auth equivalent of MarketingHeader — same `.site-nav` markup
- * and CSS (src/styles/site-nav.css) so the two navbars are pixel-identical, just with
- * UserMenu (sign-in/avatar) in place of the marketing "Get the App" CTA. */
+function isCurrent(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+/**
+ * The website's one header, for the marketing pages and the feedback board, account and sign-in
+ * pages alike. The console has its own (ConsoleHeader), on purpose.
+ *
+ * 72px: the wordmark, the nav pills, then on the right Download (signed out) or the account chip
+ * (signed in). On a phone the pills fold into a menu behind a 44px button.
+ */
 export function SiteHeader() {
   const pathname = usePathname();
-  // Any role at all gets the door, matching is_console_admin on the server.
+  // Any role at all gets the door to the console, matching is_console_admin on the server.
   const roles = useAdminRoles();
   const isAdmin = roles.content || roles.support || roles.billing;
   const [isScrolled, setIsScrolled] = useState(false);
@@ -38,9 +44,8 @@ export function SiteHeader() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Close the mobile menu on navigation. Done during render rather than in an effect: React
-  // restarts the render with the new state before committing, so the menu never paints open
-  // on the destination route the way an effect's extra commit would allow.
+  // Close the menu on navigation. Done during render rather than in an effect, so the menu never
+  // paints open on the destination page.
   const [menuPathname, setMenuPathname] = useState(pathname);
   if (menuPathname !== pathname) {
     setMenuPathname(pathname);
@@ -50,31 +55,32 @@ export function SiteHeader() {
   return (
     <header className={`site-nav${isScrolled ? " is-scrolled" : ""}${isOpen ? " is-open" : ""}`}>
       <div className="site-nav-inner">
-        <Link className="site-nav-brand" href="/">
-          {/* eslint-disable-next-line @next/next/no-img-element -- fixed-size brand mark, matches MarketingHeader's */}
+        <Link className="site-nav-brand" href="/" aria-label="Twofold home">
+          {/* eslint-disable-next-line @next/next/no-img-element -- fixed-size brand mark */}
           <img src="/assets/globe-heart.png" alt="" width={28} height={28} />
-          <span>twofold</span>
+          <span aria-hidden>twofold</span>
         </Link>
-        <nav>
-          <ul className="site-nav-links">
-            {NAV_LINKS.map((link) => (
-              <li key={link.href}>
-                <Link href={link.href} className={pathname === link.href ? "is-active" : undefined}>
-                  {link.label}
-                </Link>
-              </li>
-            ))}
-            {/* Collapsed-menu only — the avatar dropdown is the desktop route. */}
+        <nav aria-label="Main">
+          <ul className="site-nav-links" id="site-nav-links">
+            {NAV_LINKS.map((link) => {
+              const current = isCurrent(pathname, link.href);
+              return (
+                <li key={link.href}>
+                  <Link href={link.href} aria-current={current ? "page" : undefined}>
+                    {link.label}
+                  </Link>
+                </li>
+              );
+            })}
+            {/* Account, Bookmarks or Sign in: only in the folded menu, see SignedInNavItems. */}
             <SignedInNavItems />
           </ul>
         </nav>
         <div className="site-nav-actions">
-          {/* The console is a separate shell, not a row of extra links in this bar — see
-              ConsoleHeader. One button crosses between them, and only for someone who has
-              somewhere to cross to, so a normal visitor's navbar is unchanged by any of this. */}
+          {/* The console is its own shell; this is the one door into it, only for an admin. */}
           {isAdmin && (
             <Link href="/admin" className="site-nav-switch">
-              <SlidersHorizontal className="h-3.5 w-3.5" />
+              <SlidersHorizontal aria-hidden />
               <span>Console</span>
             </Link>
           )}
@@ -82,16 +88,12 @@ export function SiteHeader() {
           <button
             type="button"
             className="site-nav-toggle"
-            aria-label="Toggle menu"
+            aria-label={isOpen ? "Close menu" : "Open menu"}
             aria-expanded={isOpen}
+            aria-controls="site-nav-links"
             onClick={() => setIsOpen((v) => !v)}
           >
-            <svg className="icon icon-menu">
-              <use href="/assets/icons.svg#icon-menu" />
-            </svg>
-            <svg className="icon icon-x">
-              <use href="/assets/icons.svg#icon-x" />
-            </svg>
+            {isOpen ? <X aria-hidden /> : <Menu aria-hidden />}
           </button>
         </div>
       </div>

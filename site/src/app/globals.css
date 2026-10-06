@@ -2,6 +2,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "../styles/tokens.css";
+@import "../styles/components.css";
 
 /* Dark follows the system unless <html data-theme> says otherwise, the same rule tokens.css uses
    for its own values (docs/TWOFOLD_WEBSITE.md, section 2). Nothing ever set the `.dark` class this

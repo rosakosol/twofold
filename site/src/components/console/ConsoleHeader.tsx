@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Menu, X } from "lucide-react";
 import { UserMenu } from "@/components/layout/UserMenu";
 import { SignedInNavItems } from "@/components/layout/SignedInNavItems";
 import { useAdminRoles } from "@/lib/auth/useAdminRoles";
@@ -114,16 +114,11 @@ export function ConsoleHeader() {
           <button
             type="button"
             className="site-nav-toggle"
-            aria-label="Toggle menu"
+            aria-label={isOpen ? "Close menu" : "Open menu"}
             aria-expanded={isOpen}
             onClick={() => setIsOpen((v) => !v)}
           >
-            <svg className="icon icon-menu">
-              <use href="/assets/icons.svg#icon-menu" />
-            </svg>
-            <svg className="icon icon-x">
-              <use href="/assets/icons.svg#icon-x" />
-            </svg>
+            {isOpen ? <X aria-hidden /> : <Menu aria-hidden />}
           </button>
         </div>
       </div>

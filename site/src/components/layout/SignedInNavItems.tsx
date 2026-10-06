@@ -4,8 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useUser } from "@/lib/auth/useUser";
 
-/** The destinations that only exist for a signed-in visitor, and only by name in the collapsed
- *  menu — the same two the avatar's dropdown lists, in the same order. */
+/** The destinations that only exist for a signed-in visitor, by name in the folded menu: the
+ *  same two the account chip's menu lists, in the same order. */
 const LINKS = [
   { href: "/account", label: "Account" },
   { href: "/feedback/bookmarks", label: "Bookmarks" },
@@ -31,15 +31,26 @@ const LINKS = [
  */
 export function SignedInNavItems() {
   const pathname = usePathname();
-  const { user } = useUser();
+  const { user, isLoading } = useUser();
 
-  if (!user) return null;
+  // Signed out, the header shows Sign in beside Download, but not on a phone, where only
+  // Download fits. The folded menu carries it there instead.
+  if (isLoading) return null;
+  if (!user) {
+    return (
+      <li className="site-nav-signed-in">
+        <Link href="/auth/sign-in" aria-current={pathname === "/auth/sign-in" ? "page" : undefined}>
+          Sign in
+        </Link>
+      </li>
+    );
+  }
 
   return (
     <>
       {LINKS.map((link) => (
         <li key={link.href} className="site-nav-signed-in">
-          <Link href={link.href} className={pathname === link.href ? "is-active" : undefined}>
+          <Link href={link.href} aria-current={pathname === link.href ? "page" : undefined}>
             {link.label}
           </Link>
         </li>

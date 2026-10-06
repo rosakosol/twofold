@@ -1,0 +1,455 @@
+/* ============================================================
+   Shared components (docs/TWOFOLD_WEBSITE.md, section 3).
+
+   Loaded on every page (globals.css), so the marketing pages, the feedback board, the account
+   pages and the console draw the same button, pill, field and accordion. Every value comes from
+   src/styles/tokens.css. Every control is a pill, as in the app.
+
+   The React side of the ones with behaviour or meaning lives in src/components/site/.
+   ============================================================ */
+
+/* ---------- Buttons ----------
+   .btn-primary   the main action: the primary gradient, 52px (56px with .btn-lg)
+   .btn-secondary the alternative beside it: transparent with a --control-line outline (3:1+)
+   .btn-link      a text link styled as an action
+   .btn-ghost is the old name for .btn-secondary, kept until every page has moved over. */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 0 26px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-body);
+  font-size: var(--text-body);
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform 0.2s var(--ease), filter 0.2s var(--ease), background-color 0.2s var(--ease);
+}
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: default;
+  transform: none;
+}
+.btn .icon,
+.btn svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+.btn-sm {
+  min-height: 44px;
+  padding: 0 18px;
+  font-size: var(--text-small);
+}
+.btn-lg {
+  min-height: 56px;
+  padding: 0 30px;
+}
+
+.btn-primary,
+.appstore-badge {
+  color: var(--on-btn-primary);
+  background: var(--btn-primary);
+}
+.btn-primary:hover,
+.appstore-badge:hover {
+  color: var(--on-btn-primary);
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+}
+.btn-primary:active,
+.appstore-badge:active {
+  transform: none;
+}
+
+.btn-secondary,
+.btn-ghost {
+  color: var(--text);
+  background: transparent;
+  border-color: var(--control-line);
+}
+.btn-secondary:hover,
+.btn-ghost:hover {
+  color: var(--text);
+  background: var(--surface-raised);
+}
+
+/* For a button on a coloured gradient card, where an outline would read against the colour
+   rather than the page. */
+.btn-white {
+  color: var(--text);
+  background: var(--surface);
+}
+.btn-white:hover {
+  color: var(--text);
+  filter: brightness(0.97);
+}
+
+.btn-link {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 1.5px;
+}
+.btn-link:hover {
+  color: var(--accent);
+  text-decoration-thickness: 2px;
+}
+
+/* The App Store button: the primary button with the Apple glyph and "Download on the App Store"
+   on one line. The older two-line badge markup (<small>Download on the</small><strong>App Store
+   </strong>) is laid out on one line here too, until each page moves to <AppStoreButton>. */
+.appstore-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 0 26px 0 22px;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-body);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: transform 0.2s var(--ease), filter 0.2s var(--ease);
+}
+.appstore-badge .icon,
+.appstore-badge svg {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+.appstore-badge .badge-text {
+  display: inline-flex;
+  flex-direction: row;
+  gap: 0.28em;
+  line-height: 1.2;
+}
+.appstore-badge .badge-text small,
+.appstore-badge .badge-text strong {
+  font-size: inherit;
+  font-weight: inherit;
+  opacity: 1;
+}
+
+/* ---------- Pills ----------
+   An icon or dot plus a word, never colour alone (section 10). */
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  font-size: var(--text-caption);
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.pill svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+.pill-dot::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+/* A hero or section label: a quiet pill on the surface. */
+.pill-surface {
+  color: var(--text);
+  background: var(--surface);
+  border-color: var(--line);
+}
+.pill-neutral {
+  color: var(--text-secondary);
+  border-color: var(--control-line);
+}
+.pill-accent {
+  color: var(--accent);
+  background: var(--accent-tint);
+}
+.pill-success {
+  color: var(--success);
+  background: var(--success-bg);
+}
+.pill-warning {
+  color: var(--warning);
+  background: var(--warning-bg);
+}
+.pill-error {
+  color: var(--error);
+  background: var(--error-bg);
+}
+.pill-indigo {
+  color: var(--indigo);
+  background: var(--indigo-tint);
+}
+.pill-coral-icon svg {
+  color: var(--coral);
+}
+
+/* ---------- Inputs ----------
+   A visible label (or a visually hidden one for search), a 50px pill with a --control-line
+   outline, and an error message linked by aria-describedby. */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.field-label {
+  font-size: var(--text-small);
+  font-weight: 600;
+  color: var(--text);
+}
+.input {
+  width: 100%;
+  min-height: 50px;
+  padding: 0 20px;
+  border: 1px solid var(--control-line);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-body);
+}
+.input::placeholder {
+  color: var(--text-secondary);
+  opacity: 1;
+}
+textarea.input {
+  min-height: 132px;
+  padding: 14px 20px;
+  border-radius: 22px;
+  resize: vertical;
+}
+select.input {
+  appearance: none;
+  padding-right: 44px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%237c8b99' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 20px center;
+}
+.input[aria-invalid="true"] {
+  border: 1.5px solid var(--error);
+}
+.field-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: var(--text-small);
+  color: var(--error);
+}
+.field-error svg {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  flex: none;
+}
+.field-hint {
+  font-size: var(--text-small);
+  color: var(--text-secondary);
+}
+/* iOS Safari zooms on focus into any field under 16px and never zooms back. */
+@media (max-width: 640px) {
+  .input {
+    font-size: 16px;
+  }
+}
+
+/* ---------- Segmented control ----------
+   A pill track on --surface-raised; the selected segment is a --text fill with inverted text. */
+
+.segmented {
+  display: inline-flex;
+  gap: 2px;
+  padding: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+}
+.segmented-option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--text-small);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.2s var(--ease), color 0.2s var(--ease);
+}
+.segmented-option:hover {
+  color: var(--text);
+}
+.segmented-option[aria-checked="true"],
+.segmented-option[aria-selected="true"],
+.segmented-option[aria-pressed="true"] {
+  background: var(--text);
+  color: var(--text-inverse);
+}
+
+/* ---------- Accordion ----------
+   Native <details>/<summary>, a 56px summary, and +/- in a 32px circle. */
+
+.accordion {
+  border-top: 1px solid var(--line);
+}
+.accordion-item {
+  border-bottom: 1px solid var(--line);
+}
+.accordion-item > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 56px;
+  padding: 14px 0;
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--text);
+  list-style: none;
+  cursor: pointer;
+}
+.accordion-item > summary::-webkit-details-marker {
+  display: none;
+}
+.accordion-sign {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--surface-raised);
+  flex: none;
+}
+.accordion-sign::before,
+.accordion-sign::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 12px;
+  height: 2px;
+  margin: -1px 0 0 -6px;
+  border-radius: 1px;
+  background: var(--text);
+  transition: transform 0.2s var(--ease);
+}
+.accordion-sign::after {
+  transform: rotate(90deg);
+}
+.accordion-item[open] .accordion-sign::after {
+  transform: rotate(0deg);
+}
+.accordion-body {
+  padding: 0 48px 22px 0;
+  color: var(--text-secondary);
+  font-size: var(--text-body);
+  line-height: 1.6;
+}
+.accordion-body p + p {
+  margin-top: 0.8em;
+}
+.accordion-body strong {
+  color: var(--text);
+  font-weight: 600;
+}
+.accordion-body a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ---------- Phone mockup ----------
+   A black bezel about 3.5% of the phone's width, corners about 17% of it, a 1px edge, and the
+   screen inside with the matching inner radius. Container units make every one of those a
+   proportion of the phone however wide it is drawn. */
+
+.phone-mockup {
+  container-type: inline-size;
+  position: relative;
+  width: 100%;
+  margin: 0;
+}
+.phone-bezel {
+  padding: 3.5cqw;
+  border-radius: 17cqw;
+  background: var(--bezel);
+  border: 1px solid var(--bezel-edge);
+  box-shadow: var(--shadow-float);
+}
+.phone-screen {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 13.5cqw;
+}
+
+/* ---------- Glow halo ----------
+   Behind a feature visual: a radial glow of the feature's tint, and a dashed ring. No card. Set
+   the tint with --halo on the element (or a .halo-* class). */
+
+.glow-halo {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  place-items: center;
+}
+.glow-halo::before,
+.glow-halo::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  top: 50%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  translate: -50% -50%;
+  pointer-events: none;
+}
+.glow-halo::before {
+  width: 115%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--halo, var(--accent)) 30%, transparent), transparent);
+}
+.glow-halo::after {
+  width: 82%;
+  border: 1.5px dashed var(--halo, var(--accent));
+  opacity: 0.45;
+}
+.halo-coral { --halo: var(--tint-coral); }
+.halo-green { --halo: var(--tint-green); }
+.halo-blue { --halo: var(--tint-blue); }
+.halo-indigo { --halo: var(--tint-indigo); }
+.halo-paper { --halo: var(--tint-paper); }
+
+/* ---------- Layout helpers every page shares ---------- */
+
+.page-wrap {
+  width: 100%;
+  max-width: calc(var(--content-max) + 2 * var(--page-pad));
+  margin: 0 auto;
+  padding: 0 var(--page-pad);
+}

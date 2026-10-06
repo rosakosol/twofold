@@ -25,6 +25,8 @@
   --control-line: #7c8b99;
   --text: #0e1a26;
   --text-secondary: #52606e;
+  /* Text on a --text fill: the selected segment of a segmented control. */
+  --text-inverse: #ffffff;
   --accent: #1767d0;
   --accent-tint: #e1eef8;
   --on-accent: #ffffff;
@@ -37,6 +39,15 @@
   --error-bg: #fbe9ea;
   --indigo: #4b47c9;
   --indigo-tint: #eeeffd;
+  /* Glow halo tints behind feature visuals (section 5), the same in both modes. */
+  --tint-coral: #d23a52;
+  --tint-green: #1f8636;
+  --tint-blue: #1a6fd6;
+  --tint-indigo: #3a56d9;
+  --tint-paper: #e9e2d6;
+  /* The phone mockup's frame (section 3): the same in both modes, as a real phone is. */
+  --bezel: #000000;
+  --bezel-edge: #333c49;
 
   /* 2.2 Gradients. The primary button is the one that changes with the mode. */
   --btn-from: #1a6fd6;
@@ -129,6 +140,7 @@
     --control-line: #5e6876;
     --text: #f3f5f8;
     --text-secondary: #a6afbc;
+    --text-inverse: #0b0f16;
     --accent: #6aa5f5;
     --accent-tint: #1f2c3b;
     --on-accent: #0b0f16;
@@ -163,6 +175,7 @@
   --control-line: #5e6876;
   --text: #f3f5f8;
   --text-secondary: #a6afbc;
+  --text-inverse: #0b0f16;
   --accent: #6aa5f5;
   --accent-tint: #1f2c3b;
   --on-accent: #0b0f16;

@@ -2,8 +2,6 @@
 
 import Link from "next/link";
 import { Bookmark, LogOut, Settings, User as UserIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,6 +12,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUser } from "@/lib/auth/useUser";
 import { signOutAndGoHome } from "@/lib/auth/signOutAndGoHome";
+import { APP_STORE_URL } from "@/lib/marketing/config";
 
 // There used to be an `avatarUrl()` here building
 // `${supabaseUrl}/storage/v1/object/public/avatars/${userId}/avatar.jpg`. It never worked: the
@@ -29,16 +28,21 @@ import { signOutAndGoHome } from "@/lib/auth/signOutAndGoHome";
 export function UserMenu() {
   const { user, isLoading } = useUser();
 
-  if (isLoading) return <Skeleton className="h-9 w-9 rounded-full" />;
+  if (isLoading) return <Skeleton className="h-11 w-11 rounded-full" />;
 
   if (!user) {
-    // Styled as the same pill CTA as the marketing navbar's "Get the App" button
-    // (`.site-nav-cta`, from src/styles/site-nav.css) rather than the shadcn Button,
-    // so the two navbars' right-side action matches exactly, not just approximately.
+    // Download is the header's action (docs/TWOFOLD_WEBSITE.md, section 3). Sign in stays beside
+    // it as a quiet link, because it is the only way into the account page and the console; on a
+    // phone it moves into the menu (SignedInNavItems).
     return (
-      <Link href="/auth/sign-in" className="site-nav-cta">
-        Sign in
-      </Link>
+      <>
+        <Link href="/auth/sign-in" className="site-nav-signin">
+          Sign in
+        </Link>
+        <a href={APP_STORE_URL} data-appstore-link className="btn btn-primary btn-sm">
+          Download
+        </a>
+      </>
     );
   }
 
@@ -51,17 +55,17 @@ export function UserMenu() {
 
   return (
     <>
-      <span className="site-nav-email" title={email}>
-        {email}
-      </span>
       <DropdownMenu>
+        {/* The account chip: your email and your initials in one pill, opening the account menu.
+            On a phone the email is hidden and the chip is the initials alone. */}
         <DropdownMenuTrigger
           render={
-            <Button variant="ghost" size="icon" className="rounded-full" aria-label={email}>
-              <Avatar className="h-8 w-8">
-                <AvatarFallback>{initials}</AvatarFallback>
-              </Avatar>
-            </Button>
+            <button type="button" className="account-chip" aria-label={`Account menu, ${email}`}>
+              <span className="account-chip-email">{email}</span>
+              <span className="account-chip-avatar" aria-hidden>
+                {initials}
+              </span>
+            </button>
           }
         />
         <DropdownMenuContent align="end" className="w-56">

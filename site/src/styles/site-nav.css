@@ -1,55 +1,55 @@
-/* Shared top navbar — same markup/classes used by the marketing site's MarketingHeader
-   and the feedback board's SiteHeader, so the two read as one product. Styling matches
-   site/design_handoff_twofold_site's .nav exactly (sticky, glassy, pill nav-links);
-   the hamburger/mobile-menu mechanics below aren't in that reference (its mobile nav
-   just hides the links) but are kept by explicit choice, so mobile visitors can still
-   reach every page. */
+/* ============================================================
+   The site header (docs/TWOFOLD_WEBSITE.md, section 3), used by SiteHeader on every public and
+   signed-in page, and by ConsoleHeader with the `.is-console` modifier.
+
+   72px. Wordmark (globe-heart + "twofold" in the serif), nav pills with the current page on
+   --surface-raised, and the action on the right. Below 860px the pills fold into a menu.
+   ============================================================ */
 
 .site-nav {
   position: sticky;
   top: 0;
-  /* Below the UI kit's overlay layer (dropdowns/popovers/dialogs/sheets all sit at
-     z-50 and portal to <body>, so they'd render *behind* the navbar at any higher
-     value — which is exactly what the avatar menu did at z-100). Still well above
-     page content, which tops out at z-index 2 (marketing.css). */
+  /* Under the dropdown and dialog portals (z-50), above page content. */
   z-index: 40;
   height: 72px;
   display: flex;
   align-items: center;
-  background: rgba(238, 247, 250, 0.72);
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
   backdrop-filter: saturate(1.4) blur(18px);
   -webkit-backdrop-filter: saturate(1.4) blur(18px);
   border-bottom: 1px solid transparent;
-  transition: border-color 0.3s cubic-bezier(0.22, 1, 0.36, 1), background 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: border-color 0.3s var(--ease), background-color 0.3s var(--ease);
 }
-
 .site-nav.is-scrolled {
-  border-bottom-color: rgba(28, 42, 56, 0.09);
-  background: rgba(238, 247, 250, 0.85);
+  border-bottom-color: var(--line-strong);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
 }
 
 .site-nav-inner {
   width: 100%;
+  max-width: calc(var(--content-max) + 2 * var(--page-pad));
+  margin: 0 auto;
+  padding: 0 var(--page-pad);
   display: flex;
   align-items: center;
-  gap: 28px;
-  max-width: 1120px;
-  margin: 0 auto;
-  padding: 0 28px;
+  gap: 24px;
 }
 
 .site-nav-brand {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-height: 44px;
   font-family: var(--font-display);
-  font-size: 1.35rem;
+  font-size: 1.5rem;
   font-weight: 600;
-  color: #1c2a38;
+  color: var(--text);
   text-decoration: none;
   flex-shrink: 0;
 }
-
+.site-nav-brand:hover {
+  color: var(--text);
+}
 .site-nav-brand img {
   width: 30px;
   height: 30px;
@@ -59,126 +59,112 @@
 .site-nav-links {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   list-style: none;
-  margin: 0 0 0 12px;
+  margin: 0 0 0 8px;
   padding: 0;
 }
-
 .site-nav-links a {
-  display: inline-block;
-  color: #5b6b7a;
-  font-size: 0.92rem;
-  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: var(--radius-pill);
+  color: var(--text-secondary);
+  font-size: var(--text-small);
+  font-weight: 600;
   text-decoration: none;
-  padding: 7px 12px;
-  border-radius: 999px;
-  transition: background 0.2s cubic-bezier(0.22, 1, 0.36, 1), color 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: background-color 0.2s var(--ease), color 0.2s var(--ease);
 }
-
 .site-nav-links a:hover {
-  background: rgba(255, 255, 255, 0.6);
-  color: #1c2a38;
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface-raised) 70%, transparent);
 }
-
+.site-nav-links a[aria-current="page"],
 .site-nav-links a.is-active {
-  color: #1c2a38;
-  background: rgba(255, 255, 255, 0.85);
-  box-shadow: 0 2px 8px rgba(28, 42, 56, 0.06);
-}
-
-.site-nav-divider {
-  width: 1px;
-  height: 22px;
-  background: rgba(28, 42, 56, 0.09);
-  flex-shrink: 0;
+  color: var(--text);
+  background: var(--surface-raised);
 }
 
 .site-nav-actions {
   margin-left: auto;
   display: flex;
   align-items: center;
+  gap: 12px;
+}
+
+.site-nav-signin {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 6px;
+  color: var(--text);
+  font-size: var(--text-small);
+  font-weight: 600;
+  text-decoration: none;
+}
+.site-nav-signin:hover {
+  color: var(--accent);
+}
+
+/* The account chip: email plus an initials avatar, as one pill. */
+.account-chip {
+  display: inline-flex;
+  align-items: center;
   gap: 10px;
+  min-height: 44px;
+  max-width: 300px;
+  padding: 4px 4px 4px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-small);
+  font-weight: 600;
+  cursor: pointer;
 }
-
-/* The signed-in rows in the collapsed menu (Account, Bookmarks) — the mirror image of
-   `.site-nav-email` below, which disappears at the same breakpoint these appear at.
-   
-   On a wide screen the avatar and the email beside it say whose account this is, and the menu
-   behind the avatar is where both pages live. Collapsed, the email is gone and the avatar is a
-   small circle of initials with nothing naming what it opens, so neither page had a visible door
-   at all. They get named rows like every other destination.
-   
-   A media query rather than marketing.css's `.hide-on-desktop`: that class is device detection
-   (html.is-desktop, set by DeviceClassSetter) and it is not loaded in the (board) group at all,
-   so it would do nothing in this navbar. This has to key off the same 860px that collapses the
-   menu, in both route groups. */
-.site-nav-signed-in {
-  display: none;
+.account-chip:hover {
+  background: var(--surface-raised);
 }
-
-/* Signed-in email shown beside the avatar. Hidden below the desktop breakpoint, where
-   the navbar has no room for it and the address is already in the avatar menu. */
-.site-nav-email {
-  max-width: 220px;
+.account-chip-email {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #5b6b7a;
-  font-size: 0.85rem;
-  font-weight: 500;
 }
-
-.site-nav-cta {
-  display: inline-flex;
-  align-items: center;
-  font-size: 0.88rem;
-  font-weight: 600;
-  color: #fff;
-  text-decoration: none;
-  padding: 9px 18px;
-  border: none;
-  border-radius: 999px;
-  background: linear-gradient(180deg, #6ec1f0, #3d8fc9);
-  box-shadow: 0 8px 20px rgba(61, 143, 201, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.35);
-  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s cubic-bezier(0.22, 1, 0.36, 1);
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.site-nav-cta:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 14px 30px rgba(61, 143, 201, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.4);
-  color: #fff;
+.account-chip-avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--accent-tint);
+  color: var(--accent);
+  font-size: var(--text-caption);
+  font-weight: 700;
+  flex: none;
 }
 
 .site-nav-toggle {
   display: none;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  border: 1px solid rgba(28, 42, 56, 0.09);
-  background: rgba(255, 255, 255, 0.7);
-  color: #1c2a38;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
   cursor: pointer;
 }
-
 .site-nav-toggle svg {
   width: 20px;
   height: 20px;
 }
 
-.site-nav-toggle .icon-x {
+/* Rows that only appear in the folded menu: Account and Bookmarks, or Sign in. */
+.site-nav-signed-in {
   display: none;
-}
-
-.site-nav.is-open .icon-menu {
-  display: none;
-}
-.site-nav.is-open .icon-x {
-  display: inline-block;
 }
 
 @media (max-width: 860px) {
@@ -187,45 +173,36 @@
     top: 100%;
     left: 0;
     right: 0;
+    display: none;
     flex-direction: column;
     align-items: stretch;
-    gap: 0;
-    background: rgba(238, 247, 250, 0.97);
-    backdrop-filter: blur(18px) saturate(1.4);
-    border-bottom: 1px solid rgba(28, 42, 56, 0.09);
-    padding: 8px 28px 20px;
-    display: none;
+    gap: 2px;
     margin: 0;
+    padding: 8px var(--page-pad) 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line-strong);
+    box-shadow: var(--shadow-float);
   }
-
   .site-nav-links a {
-    padding: 12px 4px;
-    border-radius: 0;
-    border-bottom: 1px solid rgba(28, 42, 56, 0.06);
-    font-size: 0.95rem;
+    min-height: 48px;
+    padding: 0 16px;
+    font-size: var(--text-body);
   }
-
-  .site-nav-links a.is-active {
-    background: none;
-    box-shadow: none;
-  }
-
-  .site-nav-links .site-nav-divider {
-    display: none;
-  }
-
   .site-nav.is-open .site-nav-links {
     display: flex;
   }
-
   .site-nav-toggle {
     display: inline-flex;
   }
-
-  .site-nav-email {
+  .site-nav-signin,
+  .account-chip-email {
     display: none;
   }
-
+  .account-chip {
+    padding: 4px;
+    border-color: transparent;
+    background: transparent;
+  }
   .site-nav-signed-in {
     display: block;
   }
@@ -235,50 +212,50 @@
    Crossing between the website and the console
    --------------------------------------------------------------------------- */
 
-/* Quieter than `.site-nav-cta`, deliberately. The CTA is the thing a visitor is meant to press;
-   this is a door between two contexts that only an admin can see, and dressing it the same way
-   would put an internal tool in the loudest slot on a marketing page. */
+/* Quieter than the Download button on purpose: an admin-only door should not sit in the loudest
+   slot on a public page. */
 .site-nav-switch {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.82rem;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--control-line);
+  border-radius: var(--radius-pill);
+  color: var(--text-secondary);
+  font-size: var(--text-caption);
   font-weight: 600;
   text-decoration: none;
-  padding: 7px 14px;
-  border-radius: 999px;
   white-space: nowrap;
-  color: var(--muted-foreground, #5c6b7a);
-  border: 1px solid var(--border, rgba(16, 32, 48, 0.14));
-  background: var(--background, rgba(255, 255, 255, 0.6));
-  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
 }
-
+.site-nav-switch svg {
+  width: 14px;
+  height: 14px;
+}
 .site-nav-switch:hover {
-  color: var(--foreground, #16222e);
-  border-color: var(--border, rgba(16, 32, 48, 0.28));
-  background: var(--accent, rgba(16, 32, 48, 0.05));
+  color: var(--text);
+  background: var(--surface-raised);
 }
 
-/* The console must not be mistakeable for the public site at a glance — that confusion is the
-   whole reason the two shells were split. A tinted bar and a tag beside the wordmark answer
-   "where am I" before anything is clicked. */
+/* The console must not be mistakeable for the public site at a glance. */
 .site-nav.is-console {
-  background: var(--card, #f6f8fa);
-  border-bottom: 1px solid var(--border, rgba(16, 32, 48, 0.12));
+  background: var(--surface);
+  border-bottom: 1px solid var(--line-strong);
 }
-
 .site-nav-brand-tag {
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--muted-foreground, #5c6b7a);
-  vertical-align: 2px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-tint);
+  color: var(--accent);
+  font-family: var(--font-body);
+  font-size: var(--text-caption);
+  font-weight: 600;
 }
 
 @media (max-width: 860px) {
-  /* The label is the part that wraps; the icon still says which way it goes. */
   .site-nav-switch span {
     display: none;
   }

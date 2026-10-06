@@ -198,127 +198,21 @@ section {
   }
 }
 
-/* ============================================================
-   Buttons
-   ============================================================ */
-
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  font-family: var(--font-body);
-  font-weight: 600;
-  font-size: 0.95rem;
-  border: none;
-  cursor: pointer;
-  border-radius: var(--radius-pill);
-  padding: 12px 24px;
-  transition: transform 0.2s var(--ease), box-shadow 0.25s var(--ease), background 0.2s var(--ease);
-  white-space: nowrap;
-  text-decoration: none;
-}
-.btn:disabled {
-  opacity: 0.55;
-  cursor: default;
-  transform: none;
-}
-.btn .icon {
-  width: 18px;
-  height: 18px;
-}
-.btn-primary {
-  color: #fff;
-  background: linear-gradient(180deg, var(--button-top), var(--button-bottom));
-  box-shadow: 0 8px 20px rgba(61, 143, 201, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.35);
-}
-.btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 14px 30px rgba(61, 143, 201, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.4);
-  color: #fff;
-}
-.btn-primary:active {
-  transform: translateY(0);
-}
-.btn-ghost {
-  color: var(--ink);
-  background: rgba(255, 255, 255, 0.7);
-  box-shadow: inset 0 0 0 1px var(--border-soft);
-}
-.btn-ghost:hover {
-  background: #fff;
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md), inset 0 0 0 1px var(--border-soft);
-  color: var(--ink);
-}
-/* Solid white — for a button sitting on top of a saturated color background (e.g.
-   .quiz-teaser-card below), where .btn-ghost's translucent white would pick up a tint
-   from what's behind it instead of reading as a clean, high-contrast pill. */
-.btn-white {
-  color: var(--heart-red-deep);
-  background: #fff;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.14);
-}
-.btn-white:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.18);
-  color: var(--heart-red-deep);
-}
-.btn-sm {
-  padding: 9px 18px;
-  font-size: 0.88rem;
-}
-.btn-lg {
-  padding: 15px 30px;
-  font-size: 1rem;
-}
-
-.appstore-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 11px;
-  background: var(--ink);
-  color: #fff;
-  border-radius: var(--radius-pill);
-  padding: 10px 22px 10px 20px;
-  text-decoration: none;
-  transition: transform 0.2s var(--ease), box-shadow 0.25s var(--ease);
-}
-.appstore-badge:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-  color: #fff;
-}
-.appstore-badge .icon {
-  width: 22px;
-  height: 22px;
-}
-.badge-text {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.15;
-  text-align: left;
-}
-.badge-text small {
-  font-size: 0.62rem;
-  opacity: 0.8;
-}
-.badge-text strong {
-  font-size: 1rem;
-  font-weight: 600;
-}
+/* Buttons, the App Store button, pills, fields, the accordion and the phone mockup are shared
+   components now: src/styles/components.css. */
 
 .text-link {
   font-weight: 600;
-  color: var(--ink);
-  border-bottom: 2px solid var(--heart-red);
-  padding-bottom: 2px;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 1.5px;
   display: inline-flex;
   align-items: center;
   gap: 7px;
 }
 .text-link:hover {
-  color: var(--ink);
+  color: var(--accent);
 }
 .text-link .icon {
   width: 16px;
@@ -1242,79 +1136,9 @@ section {
   margin: 0 0 18px;
   padding-left: 4px;
 }
-.acc-list{
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.acc-item{
-  background: var(--card-bg);
-  border: 1px solid var(--border-softer);
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-sm);
-  overflow: hidden;
-  transition: box-shadow 0.25s var(--ease);
-}
-.acc-item.open {
-  box-shadow: var(--shadow-md);
-}
-.acc-q {
-  width: 100%;
-  text-align: left;
-  background: none;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 20px 24px;
-  font-family: var(--font-body);
-  font-weight: 600;
-  font-size: 1rem;
-  color: var(--ink);
-}
-.acc-q .icon,
-.acc-q svg {
-  width: 18px;
-  height: 18px;
-  flex: none;
-  color: var(--faint-ink);
-  transition: transform 0.3s var(--ease);
-}
-.acc-item.open .acc-q .icon,
-.acc-item.open .acc-q svg {
-  transform: rotate(180deg);
-}
-/* Animates on grid-template-rows rather than max-height. The old fixed 320px cap silently
-   clipped any answer taller than that — and FAQ answers are editor-written through the
-   Studio FAQ tool, so nobody would have found out until a long one shipped. 0fr → 1fr
-   transitions to the content's real height, whatever it turns out to be. */
-/* The open height is measured and set inline by FaqAccordionItem — see that component for
-   why it isn't a fixed cap here. This only owns the collapsed state and the transition.
-   `visibility` keeps the answer out of the accessibility tree while closed, held until the
-   collapse finishes so the text doesn't vanish the instant you press the question. */
-.acc-a {
-  max-height: 0;
-  overflow: hidden;
-  visibility: hidden;
-  transition: max-height 0.35s var(--ease), visibility 0s linear 0.35s;
-}
-.acc-item.open .acc-a {
-  /* Pre-hydration only: the FAQ page renders its first item open, and without a height here
-     that answer would paint collapsed for a frame before the inline style lands. Generous
-     rather than exact because it's a stopgap — the measured inline value overrides it as soon
-     as the component mounts, so this never limits a real answer. */
-  max-height: 100vh;
-  visibility: visible;
-  transition: max-height 0.35s var(--ease), visibility 0s;
-}
-.acc-a p {
-  margin: 0;
-  padding: 0 24px 22px;
-  font-size: 0.96rem;
-  line-height: 1.6;
-  color: var(--subtle-ink);
+/* The accordion itself is a shared component (src/styles/components.css). */
+.acc-list {
+  border-top: 1px solid var(--line);
 }
 
 /* ============================================================
@@ -1539,94 +1363,7 @@ section {
   padding-block: 8px;
 }
 
-/* ============================================================
-   Footer — src/components/layout/SiteFooter.tsx (shared with the board group)
-   ============================================================ */
-
-.footer {
-  border-top: 1px solid var(--border-soft);
-  margin-top: 40px;
-  padding: 64px 0 40px;
-}
-.footer .wrap {
-  display: grid;
-  grid-template-columns: 1.6fr 1fr 1fr 1fr;
-  gap: 40px;
-}
-.footer .brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-family: var(--font-display);
-  font-size: 1.15rem;
-  font-weight: 600;
-  color: var(--ink);
-  margin-bottom: 14px;
-}
-.footer .brand img {
-  width: 24px;
-  height: 24px;
-  object-fit: contain;
-}
-.footer p {
-  font-size: 0.9rem;
-  max-width: 260px;
-  margin: 0;
-  color: var(--subtle-ink);
-}
-.foot-col h4 {
-  font-size: 0.72rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--faint-ink);
-  margin: 0 0 16px;
-  font-weight: 600;
-}
-.foot-col a {
-  display: block;
-  color: var(--subtle-ink);
-  font-size: 0.92rem;
-  padding: 5px 0;
-}
-.foot-col a:hover {
-  color: var(--sky-blue-deep);
-}
-/* The shared SiteFooter renders the App Store badge inside .foot-col, whose generic
-   `a` rule above (display:block / color / padding) out-specifies .appstore-badge and
-   would flatten the badge into a plain text link. Qualify with .foot-col so the
-   badge's own layout wins; the rest of the badge look comes from .appstore-badge.
-   Mirrors the (board) group's site-footer.css. */
-.foot-col a.appstore-badge {
-  display: inline-flex;
-  color: #fff;
-  padding: 10px 22px 10px 20px;
-  margin-top: 10px;
-}
-.foot-col a.appstore-badge:hover {
-  color: #fff;
-}
-.foot-base {
-  border-top: 1px solid var(--border-softer);
-  margin-top: 48px;
-  padding-top: 24px;
-}
-.foot-base .wrap {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.foot-base span {
-  font-size: 0.85rem;
-  color: var(--faint-ink);
-}
-
-@media (max-width: 900px) {
-  .footer .wrap { grid-template-columns: 1fr 1fr; }
-}
-@media (max-width: 640px) {
-  .footer .wrap { grid-template-columns: 1fr; }
-  .foot-base .wrap { flex-direction: column; gap: 12px; text-align: center; }
-}
+/* The footer's styles are src/styles/site-footer.css, shared with every page. */
 
 /* ============================================================
    Reveal-on-scroll — see src/hooks/useReveal.ts / components/marketing/Reveal.tsx
