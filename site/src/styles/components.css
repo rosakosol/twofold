@@ -177,6 +177,12 @@
   background: var(--surface);
   border-color: var(--line);
 }
+/* On a card that is itself --surface: the raised fill keeps the pill visible. */
+.pill-raised {
+  color: var(--text);
+  background: var(--surface-raised);
+  border-color: transparent;
+}
 .pill-neutral {
   color: var(--text-secondary);
   border-color: var(--control-line);
@@ -452,4 +458,93 @@ select.input {
   max-width: calc(var(--content-max) + 2 * var(--page-pad));
   margin: 0 auto;
   padding: 0 var(--page-pad);
+}
+
+/* ---------- Plan card ----------
+   The home page's pricing summary and the pricing page (src/components/site/PlanCard.tsx). */
+
+.plan-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  max-width: 1040px;
+  margin: 0 auto;
+}
+@media (max-width: 760px) {
+  .plan-cards {
+    grid-template-columns: 1fr;
+  }
+}
+.plan-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 36px 32px 32px;
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.plan-card.is-featured {
+  background: var(--surface-emphasis);
+  border: 1.5px solid var(--accent);
+}
+.plan-card-badge {
+  position: absolute;
+  top: -14px;
+  left: 32px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: var(--text-caption);
+  font-weight: 600;
+}
+.plan-card h3 {
+  font-size: var(--text-h3);
+}
+.plan-card-tagline {
+  color: var(--text-secondary);
+}
+.plan-card-price {
+  margin-top: 16px;
+  font-size: var(--text-body);
+  color: var(--text-secondary);
+}
+.plan-card-price strong {
+  font-size: 2.5rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--text);
+  margin-right: 6px;
+}
+.plan-card-each {
+  margin-bottom: 18px;
+  font-size: var(--text-small);
+  color: var(--text-secondary);
+}
+.plan-card-features {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 24px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-small);
+  color: var(--text);
+}
+.plan-card-features li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.plan-card-features svg {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  color: var(--success);
+  flex: none;
 }

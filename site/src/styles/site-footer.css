@@ -4,7 +4,7 @@
    ============================================================ */
 
 .site-footer {
-  margin-top: var(--section-space);
+  margin-top: calc(var(--section-space) / 2);
   border-top: 1px solid var(--line-strong);
   padding: 64px 0 40px;
 }

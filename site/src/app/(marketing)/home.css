@@ -1,0 +1,500 @@
+/* ============================================================
+   The home page (docs/TWOFOLD_WEBSITE.md, section 4). Shared pieces (buttons, pills, the phone,
+   the plan cards, the product visuals) are in src/styles/; this is only the page's own layout.
+   ============================================================ */
+
+.home-section,
+.home-distance {
+  padding: calc(var(--section-space) / 2) 0;
+}
+.home-section-head {
+  max-width: 760px;
+  margin: 0 auto 56px;
+  text-align: center;
+}
+.home-section-head .lead {
+  margin-top: 18px;
+}
+
+/* ---------- 1. Hero ---------- */
+
+.home-hero {
+  padding: 56px 0 calc(var(--section-space) / 2);
+}
+.home-hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: 56px;
+  align-items: center;
+}
+.home-hero-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 24px;
+}
+.home-hero-copy h1 {
+  max-width: 12ch;
+}
+.home-hero-copy .lead {
+  max-width: 540px;
+}
+.home-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+}
+.home-hero-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-small);
+  color: var(--text-secondary);
+}
+.home-hero-note svg {
+  width: 16px;
+  height: 16px;
+  color: var(--success);
+}
+
+.home-hero-art {
+  position: relative;
+  justify-self: center;
+  width: 100%;
+  max-width: 600px;
+  padding: 32px 0 48px;
+}
+.home-hero-photo {
+  position: relative;
+  margin: 0;
+  border-radius: 32px;
+  overflow: hidden;
+  box-shadow: var(--shadow-float);
+}
+.home-hero-photo img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+/* The scrim that keeps the caption readable on any photo. */
+.home-hero-photo::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 40%;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.62), transparent);
+}
+.home-hero-photo figcaption {
+  position: absolute;
+  left: 24px;
+  bottom: 22px;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  color: var(--on-dark);
+  font-size: var(--text-small);
+}
+.home-hero-photo figcaption strong {
+  font-size: var(--text-body);
+}
+.home-hero-art.is-phone {
+  max-width: 520px;
+}
+.home-hero-phone {
+  width: min(320px, 64%);
+  margin: 0 auto;
+}
+.home-hero-notification {
+  position: absolute;
+  top: -8px;
+  right: -24px;
+  width: min(340px, 78%);
+}
+.home-hero-countdown {
+  position: absolute;
+  left: -12px;
+  bottom: 0;
+}
+
+/* ---------- 2. Distance ---------- */
+
+.home-distance {
+  text-align: center;
+}
+.home-arc {
+  position: relative;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.home-arc-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.home-arc-track,
+.home-arc-progress {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.home-arc-track {
+  stroke: var(--control-line);
+  stroke-dasharray: 0.006 0.012;
+}
+.home-arc-progress {
+  stroke: var(--accent);
+  stroke-dasharray: 0.62 1;
+  animation: home-arc-draw 1.6s var(--ease) both;
+}
+@keyframes home-arc-draw {
+  from {
+    stroke-dasharray: 0 1;
+  }
+}
+.home-arc-plane-bg {
+  fill: var(--accent);
+}
+.home-arc-plane {
+  fill: var(--on-accent);
+}
+.home-arc-end {
+  position: absolute;
+  bottom: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-small);
+  font-weight: 600;
+  color: var(--text);
+}
+.home-arc-end.is-start {
+  left: 0;
+}
+.home-arc-end.is-end {
+  right: 0;
+}
+.home-arc-end .pv-avatar {
+  width: 40px;
+  height: 40px;
+  font-size: var(--text-small);
+}
+.home-arc-chip {
+  position: absolute;
+  left: 50%;
+  top: 6%;
+  translate: -50% 0;
+}
+.home-distance-number {
+  margin-top: 28px;
+  font-size: clamp(3.25rem, 1rem + 9vw, 8rem);
+  line-height: 1;
+  letter-spacing: -0.05em;
+}
+.home-distance-line {
+  max-width: 560px;
+  margin: 20px auto 0;
+  font-size: var(--text-lead);
+  color: var(--text-secondary);
+}
+
+/* ---------- 3. Your day ---------- */
+
+.home-day-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+.home-day-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 32px;
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+.home-day-times {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.home-day-card p {
+  color: var(--text-secondary);
+}
+.home-day-visual {
+  display: grid;
+  place-items: center;
+  gap: 14px;
+  margin-top: auto;
+  padding: 28px 20px;
+  border-radius: var(--radius-well);
+  background: var(--surface-raised);
+  min-height: 260px;
+}
+.home-day-visual.is-stack {
+  align-content: center;
+}
+/* The Live Activity sits on the Lock Screen: a night sky behind it. */
+.home-day-visual.is-dark {
+  background: var(--grad-night);
+}
+.home-day-visual.is-map {
+  padding: 0;
+  overflow: hidden;
+}
+
+.home-map {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 340px;
+}
+.home-map > picture img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* The capture is the whole Memories screen; this frames the part of the map with the pins. */
+  object-position: 50% 36%;
+}
+.home-quote {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin: 0;
+  padding: 14px;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  box-shadow: var(--shadow-float);
+}
+.home-quote img {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  object-fit: cover;
+  flex: none;
+}
+.home-quote > div {
+  min-width: 0;
+}
+.home-quote blockquote {
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-size: 1.0625rem;
+  line-height: 1.35;
+  color: var(--text);
+}
+.home-quote figcaption {
+  display: flex;
+  flex-direction: column;
+  font-size: var(--text-caption);
+  color: var(--text-secondary);
+}
+.home-quote figcaption strong {
+  color: var(--text);
+}
+
+/* ---------- 4. How it works ---------- */
+
+.home-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 40px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: none;
+}
+.home-steps li {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+.home-steps .phone-mockup {
+  width: min(260px, 100%);
+  margin: 0 auto 20px;
+}
+.home-step-number {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--accent-tint);
+  color: var(--accent);
+  font-weight: 700;
+}
+.home-steps p {
+  color: var(--text-secondary);
+}
+
+/* ---------- 5. Trust ---------- */
+
+.home-trust-section {
+  padding: 24px 0;
+}
+.home-trust {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  margin: 0;
+  padding: 28px 32px;
+  list-style: none;
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.home-trust li {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.home-trust li > span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--text-small);
+  color: var(--text-secondary);
+}
+.home-trust strong {
+  font-size: var(--text-body);
+  color: var(--text);
+}
+.home-trust-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--accent-tint);
+  color: var(--accent);
+  flex: none;
+}
+.home-trust-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* ---------- 6. Pricing ---------- */
+
+.home-compare {
+  margin-top: 32px;
+  text-align: center;
+}
+
+/* ---------- 7. Quiz and waitlist ---------- */
+
+.home-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+.home-pair-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 40px;
+  border-radius: var(--radius-card);
+  background: var(--surface-emphasis);
+  border: 1px solid var(--line);
+}
+.home-pair-card h2 {
+  font-size: var(--text-h3);
+  letter-spacing: -0.02em;
+}
+.home-pair-card > p {
+  color: var(--text-secondary);
+}
+.home-pair-card .waitlist-form {
+  width: 100%;
+}
+.waitlist-row {
+  display: flex;
+  gap: 10px;
+}
+.waitlist-row .input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---------- Narrow screens ---------- */
+
+@media (max-width: 900px) {
+  .home-hero-grid {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+  .home-hero-copy h1 {
+    max-width: none;
+  }
+  .home-day-grid,
+  .home-pair {
+    grid-template-columns: 1fr;
+  }
+  .home-steps {
+    grid-template-columns: 1fr;
+    gap: 56px;
+  }
+  .home-trust {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 560px) {
+  .home-hero-actions {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+  /* On a phone the notification sits above the phone, overlapping only its top edge, and the
+     countdown tucks into the bottom-left corner at a size its text fits. */
+  .home-hero-art {
+    display: flex;
+    flex-direction: column;
+    padding: 0 0 24px;
+  }
+  .home-hero-notification {
+    order: -1;
+    position: relative;
+    top: auto;
+    right: auto;
+    z-index: 1;
+    width: 100%;
+    max-width: none;
+    margin: 0 0 -28px;
+  }
+  .home-hero-countdown {
+    width: 136px;
+    left: 0;
+    bottom: 0;
+    padding: 14px;
+  }
+  .home-hero-countdown .pv-countdown-days {
+    font-size: 1.75rem;
+  }
+  .home-arc-end span:not(.pv-avatar) {
+    display: none;
+  }
+  .home-arc-chip {
+    top: -6%;
+  }
+  .home-day-card,
+  .home-pair-card {
+    padding: 24px;
+  }
+  .waitlist-row {
+    flex-direction: column;
+  }
+}

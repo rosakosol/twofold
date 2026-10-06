@@ -42,31 +42,38 @@ export function WaitlistForm() {
     }
   }
 
+  const errorId = "waitlist-status";
   return (
     <form className="waitlist-form" noValidate onSubmit={handleSubmit}>
-      <div className="field-row">
-        <label className="sr-only" htmlFor="waitlist-email">
+      <div className="field">
+        <label className="field-label" htmlFor="waitlist-email">
           Email address
         </label>
-        <input
-          id="waitlist-email"
-          name="email"
-          type="email"
-          inputMode="email"
-          autoComplete="email"
-          placeholder="yourname@email.com"
-          required
-        />
-        <input className="hp-field" type="text" name="company" tabIndex={-1} autoComplete="off" aria-hidden="true" />
-        <button type="submit" className="btn btn-primary" disabled={status === "sending"}>
-          {status === "sending" ? "Joining…" : "Join waitlist"}
-        </button>
+        <div className="waitlist-row">
+          <input
+            id="waitlist-email"
+            className="input"
+            name="email"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            placeholder="yourname@email.com"
+            required
+            aria-invalid={status === "error" ? true : undefined}
+            aria-describedby={message ? errorId : undefined}
+          />
+          <button type="submit" className="btn btn-primary" disabled={status === "sending"}>
+            {status === "sending" ? "Joining…" : "Join waitlist"}
+          </button>
+        </div>
       </div>
+      {/* A honeypot: hidden from people and assistive technology, filled in by bots. */}
+      <input className="hp-field" type="text" name="company" tabIndex={-1} autoComplete="off" aria-hidden="true" />
       <p
-        className="form-status"
+        id={errorId}
+        className={status === "error" ? "field-error" : "field-hint"}
         role="status"
         aria-live="polite"
-        data-state={status === "success" ? "success" : status === "error" ? "error" : undefined}
       >
         {message}
       </p>

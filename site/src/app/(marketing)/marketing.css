@@ -188,8 +188,7 @@ section {
      doesn't zoom back out — leaving the layout scrolled sideways for the rest of the visit.
      Every field on the site sits at 0.95rem (15.2px), just under the threshold, so they're
      bumped to exactly 16px on phone-width screens. Desktop keeps the smaller size. */
-  .waitlist-form input,
-  .field-row input,
+  
   .auth-form input,
   .support-field input,
   .support-field textarea,
@@ -236,8 +235,7 @@ section {
   transition: transform 0.3s var(--ease), box-shadow 0.3s var(--ease);
 }
 
-.icon-badge,
-.feature-icon {
+.icon-badge {
   width: 44px;
   height: 44px;
   border-radius: 13px;
@@ -249,9 +247,7 @@ section {
   flex: none;
 }
 .icon-badge .icon,
-.icon-badge svg,
-.feature-icon .icon,
-.feature-icon svg {
+.icon-badge svg {
   width: 22px;
   height: 22px;
 }
@@ -324,8 +320,7 @@ section {
 .hero {
   padding: 70px 0 40px;
 }
-.hero .wrap,
-.hero-inner {
+.hero .wrap {
   display: grid;
   grid-template-columns: 1.05fr 0.95fr;
   gap: 40px;
@@ -339,33 +334,6 @@ section {
   max-width: 480px;
   margin-bottom: 30px;
 }
-.cta-row{
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-.hero-note {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 22px;
-  font-size: 0.88rem;
-  color: var(--faint-ink);
-}
-.hero-note .icon,
-.hero-note svg {
-  width: 16px;
-  height: 16px;
-  color: var(--leaf-green-deep);
-}
-
-.hero-art{
-  position: relative;
-  display: grid;
-  place-items: center;
-  min-height: 420px;
-}
 
 /* App-UI screenshot in the hero (replaced the floating globe-heart). .art-shot styles
    BOTH the placeholder <div> and a real <img> swapped in later, so the size/rounding/
@@ -376,12 +344,6 @@ section {
 /* No float animation. A phone drifting up and down behind the headline pulled the eye away
    from the copy it is meant to support, and it was the page's LCP element moving while
    everything around it held still. The @keyframes stay for .globe-img/.art-globe. */
-.art-shot {
-  position: relative;
-  width: min(340px, 78%);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
-}
 
 /* Real app screenshots from public/assets/phone-screen/. These PNGs already include an iPhone
    frame on a transparent background, so they must not take the rounded-rectangle treatment the
@@ -398,9 +360,7 @@ section {
   filter: drop-shadow(0 26px 46px rgba(28, 42, 56, 0.26));
 }
 /* In the hero it also inherits .art-shot's float animation and width clamp. */
-.art-shot.app-shot {
-  width: min(300px, 72%);
-}
+
 /* On a feature row the screenshot stands on its own rather than sitting in a .media-frame well:
    the wells are 4/3, and a phone is roughly 0.54, so it would letterbox with more empty panel
    than content. Capped by height so a very tall row doesn't push the copy out of view. */
@@ -421,30 +381,16 @@ section {
 /* Fixed height, not min-height: the card below is pulled up by an exact fraction of it, so
    the box has to be a known size for "bottom third" to mean anything. The phone is bottom-
    aligned within it, so it's the bottom of the device that ends up behind the card. */
-.step-shot {
-  display: flex;
-  justify-content: center;
-  align-items: flex-end;
-  height: var(--step-shot-h);
-}
-.step-shot .app-shot {
-  width: auto;
-  max-width: 100%;
-  max-height: var(--step-shot-h);
-}
+
 @media (max-width: 820px) {
   .feature-shot .app-shot { max-height: 420px; }
 }
 
 @media (max-width: 860px) {
-  .hero .wrap,
-.hero-inner{
+  .hero .wrap {
     grid-template-columns: 1fr;
   }
-  .hero-art{
-    min-height: 340px;
-    margin-top: 10px;
-  }
+  
 }
 
 /* ============================================================
@@ -465,8 +411,7 @@ section {
   /* No gap: the card deliberately overlaps the shot above it instead of clearing it. */
   gap: 0;
 }
-.step,
-.step-card {
+.step {
   position: relative;
 }
 
@@ -474,39 +419,11 @@ section {
    with a literal "card" class the way the reference's .step.card / .card.feature-card
    markup does) — give them the base card look directly so that pairing is never load-
    bearing. */
-.step-card {
-  background: var(--card-bg);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
-  border: 1px solid var(--border-softer);
-  padding: 28px;
-  transition: transform 0.3s var(--ease), box-shadow 0.3s var(--ease);
-  /* Pulled up over the screenshot so its bottom third sits behind this card. z-index
-     because .app-shot's drop-shadow gives the image its own stacking context — without it
-     the phone's shadow bleeds over the card edge. .step-card is already position:relative
-     (see above), which is what makes z-index apply at all. */
-  margin-top: calc(var(--step-shot-h) / -3);
-  z-index: 1;
-}
-.step-num{
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: linear-gradient(160deg, var(--sky-blue-light), var(--sky-blue-deep));
-  color: #fff;
-  font-weight: 600;
-  font-size: 0.9rem;
-  display: grid;
-  place-items: center;
-  margin-bottom: 16px;
-  box-shadow: var(--shadow-sm);
-}
-.step h3,
-.step-card h3 {
+
+.step h3 {
   margin-bottom: 8px;
 }
-.step p,
-.step-card p {
+.step p {
   font-size: 0.94rem;
   margin: 0;
   color: var(--subtle-ink);
@@ -539,20 +456,13 @@ section {
     scroll-snap-align: start;
     flex: 0 0 min(76%, 320px);
   }
-  .step-card {
-    padding: 22px;
-  }
+  
 }
 
 /* ============================================================
    Features grid (teaser) + arrow link
    ============================================================ */
 
-.feature-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 18px;
-}
 .feature-card {
   padding: 24px;
 }
@@ -580,21 +490,16 @@ section {
    enough column width for the teaser sentence to be legible (roughly nine characters a
    line), so each card falls back to icon + title, like an app grid. */
 @media (max-width: 860px) {
-  .feature-grid { gap: 12px; }
+  
   .feature-card { padding: 18px 14px; }
 }
 @media (max-width: 560px) {
-  .feature-grid { gap: 8px; }
+  
   .feature-card {
     padding: 14px 9px;
     text-align: center;
   }
-  .feature-card .feature-icon {
-    width: 36px;
-    height: 36px;
-    border-radius: 11px;
-    margin: 0 auto 10px;
-  }
+  
   .feature-card h3 {
     font-size: 0.76rem;
     line-height: 1.25;
@@ -1141,28 +1046,6 @@ section {
   border-top: 1px solid var(--line);
 }
 
-/* ============================================================
-   Waitlist (Android)
-   ============================================================ */
-
-.waitlist-wrap {
-  max-width: 620px;
-  margin: 0 auto;
-  text-align: center;
-}
-.waitlist-card {
-  padding: 44px;
-  text-align: center;
-}
-.waitlist-card h2 {
-  margin: 14px 0 12px;
-}
-.waitlist-card p {
-  max-width: 440px;
-  margin: 0 auto 26px;
-  color: var(--subtle-ink);
-}
-
 /* Quiz start card (home page, in place of the old pricing preview) — deliberately a
    saturated gradient card (unlike .cta-band elsewhere, which is a plain white card on
    purpose) so it visually breaks from the rest of the page and reads as "a different
@@ -1205,15 +1088,6 @@ section {
   }
 }
 
-.waitlist-form,
-.field-row {
-  display: flex;
-  gap: 10px;
-  max-width: 440px;
-  margin: 0 auto;
-  flex-wrap: wrap;
-  justify-content: center;
-}
 /* The sign-in/signup form on /pricing. It wants .field-row's input treatment but not its layout:
    that is a flex row with wrap, which is right for one field beside a button and wrong for five
    stacked ones. Sharing the declarations below rather than copying them, so the two cannot drift. */
@@ -1223,8 +1097,6 @@ section {
   gap: 10px;
 }
 
-.waitlist-form input,
-.field-row input,
 .auth-form input[type="text"],
 .auth-form input[type="email"],
 .auth-form input[type="password"] {
@@ -1250,8 +1122,7 @@ section {
   flex: 0 0 auto;
   width: 100%;
 }
-.waitlist-form input:focus,
-.field-row input:focus,
+
 .auth-form input:focus {
   border-color: var(--sky-blue);
   box-shadow: 0 0 0 4px rgba(79, 169, 224, 0.14);

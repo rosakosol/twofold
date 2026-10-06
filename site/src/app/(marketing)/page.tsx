@@ -1,233 +1,322 @@
+import fs from "node:fs";
+import path from "node:path";
+import Image, { getImageProps } from "next/image";
 import Link from "next/link";
-import Image from "next/image";
-import { Reveal } from "@/components/marketing/Reveal";
-import { FeatureTeaserGrid } from "@/components/marketing/FeatureTeaserGrid";
-import { PricingTeaser } from "@/components/marketing/PricingTeaser";
-import { ScrollLink } from "@/components/marketing/ScrollLink";
+import { Download, Heart, Lock, Moon, Plane, PlaneLanding, Sun, Users } from "lucide-react";
+import "./home.css";
+import { AppStoreButton } from "@/components/site/AppStoreButton";
+import { PhoneMockup } from "@/components/site/PhoneMockup";
+import { PlanCard } from "@/components/site/PlanCard";
+import { StatusPill } from "@/components/site/StatusPill";
+import {
+  AppNotification,
+  CountdownWidget,
+  DailyQuestionWidget,
+  DrawingPadWidget,
+  FlightLiveActivity,
+  StreakRow,
+} from "@/components/site/ProductVisuals";
 import { WaitlistForm } from "@/components/marketing/WaitlistForm";
-import { RelationshipQuiz } from "@/components/marketing/RelationshipQuiz";
-import { isQuizPlayable } from "@/lib/marketing/quiz";
-import { getHero, getFeatures, getQuizQuestions, getQuizResults, getResolvedPlans } from "@/lib/marketing/sanity";
-import { resolveFeatures } from "@/lib/marketing/featuresFallback";
-import { APP_STORE_URL } from "@/lib/marketing/config";
-import { LEGACY_PHONE_SHOT_HEIGHT as SHOT_HEIGHT } from "@/lib/marketing/phoneScreens";
+import { getResolvedPlans } from "@/lib/marketing/sanity";
+import { PHONE_SHOT_HEIGHT, PHONE_SHOT_WIDTH, phoneScreenSrc } from "@/lib/marketing/phoneScreens";
+
+// The home page (docs/TWOFOLD_WEBSITE.md, section 4). Its copy is the spec's, word for word.
+
+/** The hero's couple photo, 600x720 or larger. Until it is in public/, the hero shows the app's
+ *  Home screen in a phone instead, with the same notification and widget around it. */
+const HERO_PHOTO = "/assets/home/hero-couple.jpg";
+const hasHeroPhoto = fs.existsSync(path.join(process.cwd(), "public", HERO_PHOTO));
+
+type TimePill = { icon: "sun" | "moon" | "plane" | "landing"; label: string };
+
+const TIME_ICONS = { sun: Sun, moon: Moon, plane: Plane, landing: PlaneLanding };
+
+function TimePills({ pills }: { pills: TimePill[] }) {
+  return (
+    <div className="home-day-times">
+      {pills.map((pill) => {
+        const Icon = TIME_ICONS[pill.icon];
+        return (
+          <StatusPill key={pill.label} tone="surface" icon={<Icon />} className="pill-raised">
+            {pill.label}
+          </StatusPill>
+        );
+      })}
+    </div>
+  );
+}
+
+/** The memories map of Rome: the app's own Memories screen, cropped to the map, light or dark. */
+function RomeMap() {
+  const common = {
+    alt: "The Memories map of Rome, with photo pins where their memories happened",
+    width: PHONE_SHOT_WIDTH,
+    height: PHONE_SHOT_HEIGHT,
+    sizes: "(max-width: 900px) 90vw, 560px",
+  };
+  const {
+    props: { srcSet: dark },
+  } = getImageProps({ ...common, src: phoneScreenSrc("memories-map", "dark") });
+  const { props: light } = getImageProps({ ...common, src: phoneScreenSrc("memories-map", "light") });
+  return (
+    <div className="home-map">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcSet={dark} sizes={common.sizes} />
+        <img {...light} alt={common.alt} loading="lazy" />
+      </picture>
+      <figure className="home-quote">
+        {/* eslint-disable-next-line @next/next/no-img-element -- small fixed thumbnail */}
+        <img src="/assets/home/first-date.webp" alt="" width={56} height={56} />
+        <div>
+          <blockquote>&ldquo;You were wearing a red sundress and I couldn&rsquo;t stop looking at you.&rdquo;</blockquote>
+          <figcaption>
+            <strong>Our first date</strong>
+            <span>Trattoria Pizzeria Luzzi, Rome</span>
+          </figcaption>
+        </div>
+      </figure>
+    </div>
+  );
+}
 
 export default async function HomePage() {
-  const [hero, featureDocs, quizQuestions, quizResults, plans] = await Promise.all([
-    getHero(),
-    getFeatures(),
-    getQuizQuestions(),
-    getQuizResults(),
-    getResolvedPlans(),
-  ]);
-  const features = resolveFeatures(featureDocs);
-
-  const headline = hero?.headline || "See how far you've gone\nfor each other.";
-  const eyebrow = hero?.eyebrow || "Built for long-distance couples";
-  const subtext =
-    hero?.subtext ||
-    "Twofold turns your long-distance relationship into a living map - track flights in real time, watch the distance between you close, and relive every trip you've taken just to be together.";
-  const heroNote = hero?.heroNote || "Private by default - only your partner ever sees your journeys.";
+  const plans = await getResolvedPlans();
 
   return (
     <>
-      <section className="hero">
-        <div className="wrap hero-inner">
-          <div className="hero-copy">
-            <p className="eyebrow">
-              <svg className="icon">
-                <use href="/assets/icons.svg#icon-heart" />
-              </svg>
-              <span>{eyebrow}</span>
+      {/* 1. Hero */}
+      <section className="home-hero" aria-labelledby="home-title">
+        <div className="page-wrap home-hero-grid">
+          <div className="home-hero-copy">
+            <StatusPill tone="surface" icon={<Heart />} className="pill-coral-icon">
+              Made for couples doing long distance
+            </StatusPill>
+            <h1 id="home-title">Stay close, no matter the distance.</h1>
+            <p className="lead">
+              You&rsquo;re in one city, they&rsquo;re in another. Twofold keeps you in each other&rsquo;s day: what time it is over
+              there, which flight they&rsquo;re on, and how many sleeps until the next hello.
             </p>
-            <h1>
-              {headline.split("\n").map((line, i, arr) => (
-                <span key={i}>
-                  {line}
-                  {i < arr.length - 1 && <br />}
-                </span>
-              ))}
-            </h1>
-            <p className="lede">{subtext}</p>
-            <div className="cta-row">
-              <a className="appstore-badge hide-on-desktop" data-appstore-link href={APP_STORE_URL} aria-label="Download Twofold on the App Store">
-                <svg className="icon">
-                  <use href="/assets/icons.svg#icon-apple" />
-                </svg>
-                <span className="badge-text">
-                  <small>Download on the</small>
-                  <strong>App&nbsp;Store</strong>
-                </span>
-              </a>
-              <a className="appstore-badge hide-on-mobile" data-appstore-link href={APP_STORE_URL} aria-label="Download Twofold on the App Store">
-                <svg className="icon">
-                  <use href="/assets/icons.svg#icon-apple" />
-                </svg>
-                <span className="badge-text">
-                  <small>Download on the</small>
-                  <strong>App&nbsp;Store</strong>
-                </span>
-              </a>
-              <ScrollLink className="btn btn-primary btn-lg hide-on-mobile" targetId="quiz">
-                Get started
-                <svg className="icon">
-                  <use href="/assets/icons.svg#icon-arrow-right" />
-                </svg>
-              </ScrollLink>
-              <Link className="text-link hide-on-desktop" href="/pricing">
-                See pricing
+            <div className="home-hero-actions">
+              <AppStoreButton size="lg" />
+              <Link className="btn btn-secondary btn-lg" href="/quiz">
+                Find your plan
               </Link>
             </div>
-            <p className="hero-note">
-              <svg className="icon">
-                <use href="/assets/icons.svg#icon-shield" />
-              </svg>
-              <span>{heroNote}</span>
+            <p className="home-hero-note">
+              <Lock aria-hidden />
+              Encrypted, and only visible to your partner
             </p>
           </div>
-          <div className="hero-art" aria-hidden>
-            {/* Priority: this is the hero's largest element and the page's LCP candidate, so it
-                must not lazy-load. .app-shot drops the rounded-rectangle shadow the placeholder
-                used - see marketing.css. */}
-            <Image
-              src="/assets/phone-screen/Lock-Widgets.png"
-              alt="Twofold's Lock Screen widgets on an iPhone, showing the distance to a partner and a countdown to the next reunion"
-              width={1019}
-              height={SHOT_HEIGHT}
-              className="art-shot app-shot"
-              priority
-              sizes="(max-width: 860px) 72vw, 300px"
+
+          <div className={`home-hero-art${hasHeroPhoto ? "" : " is-phone"}`}>
+            {hasHeroPhoto ? (
+              <figure className="home-hero-photo">
+                <Image
+                  src={HERO_PHOTO}
+                  alt="Alex and Sam together in Lisbon at sunset"
+                  width={600}
+                  height={720}
+                  sizes="(max-width: 900px) 90vw, 600px"
+                  preload
+                />
+                <figcaption>
+                  <strong>Alex and Sam</strong>
+                  <span>Lisbon, after 62 days apart</span>
+                </figcaption>
+              </figure>
+            ) : (
+              <PhoneMockup screen="home" eager sizes="(max-width: 900px) 64vw, 340px" className="home-hero-phone" />
+            )}
+            <AppNotification
+              className="home-hero-notification"
+              title="Alex answered today's question"
+              body="Your turn. Keep your 47-day streak going."
             />
+            <CountdownWidget className="home-hero-countdown" />
           </div>
         </div>
       </section>
 
-      <section aria-labelledby="how-heading">
-        <div className="wrap">
-          <Reveal className="section-head">
-            <p className="eyebrow">
-              <svg className="icon">
-                <use href="/assets/icons.svg#icon-sparkle" />
-              </svg>
-              How it works
-            </p>
-            <h2 id="how-heading">From &ldquo;miles apart&rdquo; to one shared map</h2>
-            <p>No spreadsheets, no guessing when they&apos;ll land. Twofold does the tracking so you can just look forward to seeing each other.</p>
-          </Reveal>
-          {/* Becomes a horizontally scrolling carousel below 860px (see marketing.css) -
-              tabindex makes that scroll region reachable by keyboard, which a plain div
-              with overflow-x wouldn't be. */}
-          <div className="steps" tabIndex={0} role="group" aria-label="How Twofold works, in three steps">
-            <div className="step">
-              <div className="step-shot">
-                <Image
-                  src="/assets/phone-screen/Partner-Connected.png"
-                  alt="Twofold confirming two partners are connected, after one accepts the other's invite"
-                  width={1019}
-                  height={SHOT_HEIGHT}
-                  className="app-shot"
-                  sizes="(max-width: 860px) 60vw, 220px"
-                />
+      {/* 2. Distance */}
+      <section className="home-distance" aria-labelledby="distance-title">
+        <div className="page-wrap">
+          <div className="home-arc">
+            <svg viewBox="0 0 1200 300" aria-hidden className="home-arc-svg">
+              <path className="home-arc-track" d="M60 250 Q600 -30 1140 250" pathLength={1} />
+              <path className="home-arc-progress" d="M60 250 Q600 -30 1140 250" pathLength={1} />
+              {/* The plane at 62% of the way, turned along the curve. */}
+              <g transform="translate(729.6 118.1) rotate(7)">
+                <circle r="22" className="home-arc-plane-bg" />
+                <path className="home-arc-plane" d="M-12 0 L-4 -2 L2 -11 L6 -11 L3 -2 L10 -2 L13 -6 L15 -6 L14 0 L15 6 L13 6 L10 2 L3 2 L6 11 L2 11 L-4 2 Z" />
+              </g>
+            </svg>
+            <span className="home-arc-end is-start">
+              <span className="pv-avatar pv-avatar-alex" aria-hidden>A</span>
+              <span>Alex, Rome</span>
+            </span>
+            <span className="home-arc-end is-end">
+              <span>Sam, Melbourne</span>
+              <span className="pv-avatar pv-avatar-sam" aria-hidden>S</span>
+            </span>
+            <StatusPill tone="accent" icon={<Plane />} className="home-arc-chip">
+              Alex is in the air
+            </StatusPill>
+          </div>
+          <h2 id="distance-title" className="home-distance-number">
+            15,966 km
+          </h2>
+          <p className="home-distance-line">
+            Between Alex and Sam tonight. Twofold keeps count, and the number shrinks every time one of them boards.
+          </p>
+        </div>
+      </section>
+
+      {/* 3. Your day, across two time zones */}
+      <section className="home-section" aria-labelledby="day-title">
+        <div className="page-wrap">
+          <header className="home-section-head">
+            <h2 id="day-title">Your day, across two time zones</h2>
+            <p className="lead">However many hours sit between you, this is how Twofold fills them.</p>
+          </header>
+          <div className="home-day-grid">
+            <article className="home-day-card">
+              <TimePills pills={[{ icon: "sun", label: "7:24 am, your time" }, { icon: "moon", label: "11:24 pm, theirs" }]} />
+              <h3>Wake up to your partner&rsquo;s drawing</h3>
+              <p>They leave a note on the shared drawing pad before bed. It&rsquo;s on your Home Screen before your alarm goes off.</p>
+              <div className="home-day-visual">
+                <DrawingPadWidget />
               </div>
-              <Reveal className="step-card">
-                <span className="step-num">1</span>
-                <h3>Connect with your partner</h3>
-                <p>Pair your accounts once with an invite link. Everything you share from then on belongs to both of you.</p>
-              </Reveal>
-            </div>
-            <div className="step">
-              <div className="step-shot">
-                <Image
-                  src="/assets/phone-screen/Trips.png"
-                  alt="The Trips screen in Twofold, listing upcoming and past journeys"
-                  width={1019}
-                  height={SHOT_HEIGHT}
-                  className="app-shot"
-                  sizes="(max-width: 860px) 60vw, 220px"
-                />
+            </article>
+            <article className="home-day-card">
+              <TimePills pills={[{ icon: "moon", label: "8:00 pm, yours" }, { icon: "sun", label: "12:00 pm, theirs" }]} />
+              <h3>Answer one question, together</h3>
+              <p>A deep question every day keeps you talking about more than how the day went, and keeps your streak alive.</p>
+              <div className="home-day-visual is-stack">
+                <DailyQuestionWidget />
+                <StreakRow />
               </div>
-              <Reveal className="step-card">
-                <span className="step-num">2</span>
-                <h3>Share your trips &amp; flights</h3>
-                <p>Add a flight or a trip in seconds. Twofold tracks status automatically and tells your partner when you land.</p>
-              </Reveal>
-            </div>
-            <div className="step">
-              <div className="step-shot">
-                <Image
-                  src="/assets/phone-screen/Globe.png"
-                  alt="Twofold's 3D relationship globe, with lines tracing the journeys a couple has taken to each other"
-                  width={1019}
-                  height={SHOT_HEIGHT}
-                  className="app-shot"
-                  sizes="(max-width: 860px) 60vw, 220px"
-                />
+            </article>
+            <article className="home-day-card">
+              <TimePills pills={[{ icon: "moon", label: "11:40 pm, theirs" }, { icon: "plane", label: "Departure day" }]} />
+              <h3>Watch them cross the world</h3>
+              <p>Every gate change and delay, live on your Lock Screen, right up until it says they&rsquo;ve landed.</p>
+              <div className="home-day-visual is-dark">
+                <FlightLiveActivity />
               </div>
-              <Reveal className="step-card">
-                <span className="step-num">3</span>
-                <h3>Watch your globe grow</h3>
-                <p>Every journey to see each other draws a new line across your shared globe - a living record of your relationship.</p>
-              </Reveal>
-            </div>
+            </article>
+            <article className="home-day-card">
+              <TimePills pills={[{ icon: "landing", label: "Arrivals" }]} />
+              <h3>Save it right where it happened</h3>
+              <p>Photos and notes pinned to the map, so the story of the two of you has places in it.</p>
+              <div className="home-day-visual is-map">
+                <RomeMap />
+              </div>
+            </article>
           </div>
         </div>
       </section>
 
-      <section aria-labelledby="features-heading">
-        <div className="wrap">
-          <Reveal className="section-head">
-            <p className="eyebrow">
-              <svg className="icon">
-                <use href="/assets/icons.svg#icon-heart" />
-              </svg>
-              Everything your distance deserves
+      {/* 4. How it works */}
+      <section className="home-section" aria-labelledby="how-title">
+        <div className="page-wrap">
+          <header className="home-section-head">
+            <h2 id="how-title">From miles apart to one shared map</h2>
+            <p className="lead">
+              No spreadsheets, no guessing when they&rsquo;ll land. Pair once, add your plans, and Twofold keeps you both up to date.
             </p>
-            <h2 id="features-heading">Built around the two of you</h2>
-          </Reveal>
-          <FeatureTeaserGrid features={features} />
+          </header>
+          <ol className="home-steps">
+            <li>
+              <PhoneMockup screen="connected" sizes="(max-width: 760px) 62vw, 260px" />
+              <span className="home-step-number" aria-hidden>1</span>
+              <h3>Connect with your partner</h3>
+              <p>Send one invite link. Everything you add from then on belongs to both of you.</p>
+            </li>
+            <li>
+              <PhoneMockup screen="travel-flights" sizes="(max-width: 760px) 62vw, 260px" />
+              <span className="home-step-number" aria-hidden>2</span>
+              <h3>Add your trips and flights</h3>
+              <p>Add a flight in seconds. Twofold tracks its status and tells your partner the moment you land.</p>
+            </li>
+            <li>
+              <PhoneMockup screen="travel-trips" sizes="(max-width: 760px) 62vw, 260px" />
+              <span className="home-step-number" aria-hidden>3</span>
+              <h3>Watch your globe grow</h3>
+              <p>Every trip to see each other draws a new line across your shared globe.</p>
+            </li>
+          </ol>
         </div>
       </section>
 
-      <PricingTeaser plans={plans} />
+      {/* 5. Trust strip */}
+      <section className="home-trust-section" aria-label="Privacy and billing">
+        <div className="page-wrap">
+          <ul className="home-trust">
+            <li>
+              <span className="home-trust-icon" aria-hidden>
+                <Lock />
+              </span>
+              <span>
+                <strong>Private by default</strong>
+                <span>Your data is encrypted and only visible to your partner.</span>
+              </span>
+            </li>
+            <li>
+              <span className="home-trust-icon" aria-hidden>
+                <Download />
+              </span>
+              <span>
+                <strong>Yours to export</strong>
+                <span>Download your data as CSV whenever you like.</span>
+              </span>
+            </li>
+            <li>
+              <span className="home-trust-icon" aria-hidden>
+                <Users />
+              </span>
+              <span>
+                <strong>One bill for two</strong>
+                <span>Either partner subscribes and you both get everything.</span>
+              </span>
+            </li>
+          </ul>
+        </div>
+      </section>
 
-      {isQuizPlayable(quizQuestions) ? (
-        <RelationshipQuiz questions={quizQuestions} results={quizResults} />
-      ) : (
-        // Same #quiz anchor id even when there's no playable quiz yet, so the hero's
-        // "Get started" button (which scrolls to #quiz) always lands somewhere useful
-        // instead of silently going nowhere.
-        <section id="quiz" aria-labelledby="quiz-teaser-heading">
-          <div className="wrap quiz-teaser-wrap">
-            <Reveal className="card quiz-teaser-card">
-              <p className="eyebrow" style={{ justifyContent: "center" }}>
-                <svg className="icon">
-                  <use href="/assets/icons.svg#icon-sparkle" />
-                </svg>
-                Find your fit
-              </p>
-              <h2 id="quiz-teaser-heading">Not sure which plan is right for you?</h2>
-              <p>Our quick quiz is almost ready - for now, take a look at what each plan includes.</p>
-              <Link href="/pricing" className="btn btn-white btn-lg">
-                See pricing
-              </Link>
-            </Reveal>
+      {/* 6. Pricing summary */}
+      <section className="home-section" aria-labelledby="pricing-title">
+        <div className="page-wrap">
+          <header className="home-section-head">
+            <h2 id="pricing-title">One subscription, both of you</h2>
+            <p className="lead">Start with a two-week free trial. Billed monthly, cancel any time.</p>
+          </header>
+          <div className="plan-cards">
+            <PlanCard plan={plans.plus} />
+            <PlanCard plan={plans.premium} />
           </div>
-        </section>
-      )}
+          <p className="home-compare">
+            <Link className="btn-link" href="/pricing#compare">
+              Compare plans in full
+            </Link>
+          </p>
+        </div>
+      </section>
 
-      <section id="waitlist" aria-labelledby="waitlist-heading">
-        <div className="wrap waitlist-wrap">
-          <Reveal className="card waitlist-card">
-            <p className="eyebrow" style={{ justifyContent: "center" }}>
-              <svg className="icon">
-                <use href="/assets/icons.svg#icon-bell" />
-              </svg>
-              Coming soon
-            </p>
-            <h2 id="waitlist-heading">Twofold for Android is coming</h2>
-            <p>We&apos;re building the Android version next. Leave your email and we&apos;ll let you know the moment it&apos;s ready - no spam, just one message when it ships.</p>
+      {/* 7. Quiz and Android waitlist */}
+      <section className="home-section" aria-label="Find your plan, or join the Android waitlist">
+        <div className="page-wrap home-pair">
+          <article id="quiz" className="home-pair-card" aria-labelledby="quiz-title">
+            <h2 id="quiz-title">Which plan fits your relationship?</h2>
+            <p>Answer five quick questions about how you two do long distance and we&rsquo;ll point you to the right plan.</p>
+            <Link className="btn btn-primary" href="/quiz">
+              Take the quiz
+            </Link>
+          </article>
+          <article id="waitlist" className="home-pair-card" aria-labelledby="waitlist-title">
+            <h2 id="waitlist-title">Twofold for Android is next</h2>
+            <p>Leave your email and we&rsquo;ll send one message when it ships.</p>
             <WaitlistForm />
-          </Reveal>
+          </article>
         </div>
       </section>
     </>

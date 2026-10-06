@@ -3,6 +3,7 @@
 @import "shadcn/tailwind.css";
 @import "../styles/tokens.css";
 @import "../styles/components.css";
+@import "../styles/visuals.css";
 
 /* Dark follows the system unless <html data-theme> says otherwise, the same rule tokens.css uses
    for its own values (docs/TWOFOLD_WEBSITE.md, section 2). Nothing ever set the `.dark` class this
@@ -79,8 +80,12 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
+  /* shadcn's "accent" is its hover and selected fill. It reads the token --accent-tint directly
+     rather than through a variable called --accent: that name is the design token for the brand
+     accent (tokens.css), and redefining it here turned every accent-coloured thing on the site,
+     the focus ring included, into the pale tint. */
+  --color-accent-foreground: var(--text);
+  --color-accent: var(--accent-tint);
   --color-muted-foreground: var(--muted-foreground);
   --color-muted: var(--muted);
   --color-secondary-foreground: var(--secondary-foreground);
@@ -116,9 +121,6 @@
   --secondary-foreground: var(--text);
   --muted: var(--surface-raised);
   --muted-foreground: var(--text-secondary);
-  /* shadcn's "accent" is the hover and selected fill, not the brand accent. */
-  --accent: var(--accent-tint);
-  --accent-foreground: var(--text);
   --destructive: var(--error);
   --border: var(--line);
   --input: var(--control-line);
