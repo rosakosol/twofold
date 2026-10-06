@@ -48,6 +48,12 @@ struct MemoriesMapView: View {
     /// permission prompt just to open the map. Falls back to fitting all memory pins only when
     /// no home city is set yet.
     private var initialRegion: MKCoordinateRegion {
+        #if DEBUG
+        // -demoMode: Rome, where the sample couple's photo pins are.
+        if DemoMode.isOn {
+            return MKCoordinateRegion(center: DemoData.rome.coordinate, latitudinalMeters: 7_000, longitudinalMeters: 7_000)
+        }
+        #endif
         if let homeCity = appModel.currentUser.homeCity {
             return MKCoordinateRegion(center: homeCity.coordinate, latitudinalMeters: 40_000, longitudinalMeters: 40_000)
         }

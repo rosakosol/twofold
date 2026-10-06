@@ -340,6 +340,7 @@ final class AppModel {
     /// it), and there is no version of "we could not record that you were here" worth interrupting
     /// somebody to say.
     func touchLastActive() async {
+        if DemoMode.isOn { return }  // -demoMode: the sample couple, nothing fetched
         let key = "dormancy.lastTouchedOn"
         let today = ISO8601DateFormatter.dormancyDay.string(from: .now)
         guard UserDefaults.standard.string(forKey: key) != today else { return }
@@ -445,6 +446,13 @@ final class AppModel {
     /// with a partner yet (see `loadSignedInState`).
     func restoreSession() async {
         defer { isLoadingSession = false }
+
+        #if DEBUG
+        if DemoMode.isOn {
+            applyDemoState()
+            return
+        }
+        #endif
 
         // Cache first, always — not only when we already believe we're offline.
         //
@@ -1314,6 +1322,7 @@ final class AppModel {
     /// comment) — safe to call any time, including while already connected (just returns
     /// empty), so call sites don't need to guard on `partnerConnected` themselves.
     func refreshPendingConnectionRequests() async {
+        if DemoMode.isOn { return }  // -demoMode: the sample couple, nothing fetched
         pendingConnectionRequests = (try? await BackendService.fetchPendingConnectionRequests()) ?? []
     }
 
@@ -1328,6 +1337,7 @@ final class AppModel {
     /// this guard, Home's pending-invite card would wrongly show for someone who's actually
     /// already connected.
     func refreshPendingOutgoingConnectionRequest() async {
+        if DemoMode.isOn { return }  // -demoMode: the sample couple, nothing fetched
         guard !partnerConnected else {
             pendingOutgoingConnectionRequest = nil
             hasResolvedOutgoingConnectionRequest = true
@@ -1447,6 +1457,7 @@ final class AppModel {
     /// true used to mean a device could keep showing "connected" indefinitely after the couple
     /// was actually dissolved, until a full sign-out/sign-in or cold relaunch.
     func refreshCoupleStateIfNeeded() async {
+        if DemoMode.isOn { return }  // -demoMode: the sample couple, nothing fetched
         guard hasCouple else { return }
         switch await CoupleStateOutcome.fetch() {
         case let .paired(state):
@@ -1473,6 +1484,7 @@ final class AppModel {
     /// string twice, which is what used to require the separate manual cache-busting step here
     /// (re-fired from `DrawingPadCard.onAppear` on top of whatever `saveMyDrawing` just set).
     func loadDrawingPads() async {
+        if DemoMode.isOn { return }  // -demoMode: the sample couple, nothing fetched
         guard let backendCoupleID else { return }
         myDrawingURL = try? await BackendService.drawingPadSignedURL(coupleID: backendCoupleID, personID: currentUser.id)
         partnerDrawingURL = try? await BackendService.drawingPadSignedURL(coupleID: backendCoupleID, personID: partner.id)
@@ -1514,6 +1526,7 @@ final class AppModel {
     /// Fetches (or creates, server-side) today's Daily Activity session and refreshes the
     /// streak — called when the Games hub appears, not at launch, since it's Games-specific.
     func startOrResumeDailyQuestion() async {
+        if DemoMode.isOn { return }  // -demoMode: the sample couple, nothing fetched
         dailyQuestionError = nil
         isLoadingDailyQuestion = true
         defer { isLoadingDailyQuestion = false }
@@ -1572,6 +1585,7 @@ final class AppModel {
     /// repairable window needs the couple's own local dates to evaluate, so it is a round trip, and
     /// a couple mid-streak has no use for the answer.
     func refreshStreakRepairState() async {
+        if DemoMode.isOn { return }  // -demoMode: the sample couple, nothing fetched
         guard NetworkMonitor.shared.isConnected, partnerConnected, dailyStreak == 0 else {
             streakRepair = nil
             return
@@ -1580,6 +1594,7 @@ final class AppModel {
     }
 
     func refreshDailyStreak() async {
+        if DemoMode.isOn { return }  // -demoMode: the sample couple, nothing fetched
         // `refreshAll()` runs this alongside five other fetches on every foreground and every
         // pull-to-refresh; offline it can only wait out a timeout, holding that whole group open.
         guard NetworkMonitor.shared.isConnected else { return }
@@ -1650,6 +1665,7 @@ final class AppModel {
     /// and reusing them here would make the gesture do nothing precisely when someone reaches for
     /// it because the screen looks stale.
     func refreshAll() async {
+        if DemoMode.isOn { return }  // -demoMode: the sample couple, nothing fetched
         #if DEBUG
         refreshAllCount += 1
         #endif
@@ -1687,7 +1703,8 @@ final class AppModel {
         // Straight to the on-device catalogue when there's nothing to ask. Both fetches below take
         // a full URLSession timeout to fail offline, and the hub shows a spinner until they do —
         // a minute of waiting to be handed decks that were on the device the whole time.
-        guard NetworkMonitor.shared.isConnected else {
+        // -demoMode takes the on-device catalogue too: there is no account to ask.
+        guard NetworkMonitor.shared.isConnected, !DemoMode.isOn else {
             gameDecks = nonEmpty(GameContentStore.decks())
             gameDecksUnavailable = gameDecks?.isEmpty ?? true
             // Every topic bar on the hub is counted from this. Left nil it reads as zero decks
@@ -2341,6 +2358,7 @@ final class AppModel {
     /// writes the row server-side, so there's nothing to merge locally) and by
     /// `FlightDetailView` after an on-demand refresh.
     func refreshFlights() async {
+        if DemoMode.isOn { return }  // -demoMode: the sample couple, nothing fetched
         guard let backendCoupleID else { return }
         if let fresh = try? await BackendService.fetchFlights(coupleID: backendCoupleID) {
             flights = fresh
@@ -2385,6 +2403,7 @@ final class AppModel {
     /// missing. Silent and best-effort: a flight whose airport genuinely isn't in the table keeps
     /// falling back, as it did before.
     func resolveMissingAirportTimezones() async {
+        if DemoMode.isOn { return }  // -demoMode: the sample couple, nothing fetched
         var needed = Set<String>()
         for flight in flights {
             if flight.origin.timezone == nil, let code = flight.origin.iata, !code.isEmpty { needed.insert(code) }
@@ -2420,6 +2439,7 @@ final class AppModel {
     /// couple-state reload (effectively just app relaunch), since `memories` was otherwise only
     /// ever bulk-populated once at adopt time and mutated locally by this device's own edits.
     func refreshMemories() async {
+        if DemoMode.isOn { return }  // -demoMode: the sample couple, nothing fetched
         guard let backendCoupleID else { return }
         if let fresh = try? await BackendService.fetchMemories(coupleID: backendCoupleID) {
             memories = fresh
@@ -2433,6 +2453,7 @@ final class AppModel {
     /// alongside this everywhere it matters — re-links authoritatively from the fetched flight
     /// rows regardless of call order.
     func refreshTrips() async {
+        if DemoMode.isOn { return }  // -demoMode: the sample couple, nothing fetched
         guard let backendCoupleID else { return }
         if var fresh = try? await BackendService.fetchTrips(coupleID: backendCoupleID) {
             for index in fresh.indices {
@@ -2694,11 +2715,13 @@ final class AppModel {
     private var lastRegisteredPushTokenHex: String?
 
     func registerPushToken(_ tokenData: Data) async {
+        if DemoMode.isOn { return }  // -demoMode: the sample couple, nothing fetched
         pendingPushTokenData = tokenData
         await retryPendingPushTokenRegistrationIfNeeded()
     }
 
     func retryPendingPushTokenRegistrationIfNeeded() async {
+        if DemoMode.isOn { return }  // -demoMode: the sample couple, nothing fetched
         guard let tokenData = pendingPushTokenData else { return }
         let token = tokenData.map { String(format: "%02x", $0) }.joined()
         #if DEBUG
@@ -2865,6 +2888,7 @@ final class AppModel {
     /// would rewrite the backend row (and spuriously invalidate `HomeView`'s per-city-id weather
     /// cache) on every single foreground for no reason.
     func updateCurrentCityIfChanged(_ place: Place) async {
+        if DemoMode.isOn { return }  // -demoMode: the sample couple, nothing fetched
         guard place.city != couple.partnerA.homeCity?.city || place.country != couple.partnerA.homeCity?.country else { return }
         await setHomeCity(for: currentUser.id, city: place)
     }
@@ -2881,3 +2905,38 @@ final class AppModel {
         )
     }
 }
+
+#if DEBUG
+extension AppModel {
+    /// The sample couple from Mock/DemoData.swift, adopted the way a real couple would be, with no
+    /// backend behind it (`-demoMode`, see App/DemoMode.swift). In this file because several of
+    /// the fields it sets are `private(set)`.
+    func applyDemoState() {
+        couple = DemoData.couple
+        trips = DemoData.trips
+        flights = DemoData.flights
+        memories = DemoData.memories()
+        hasCouple = true
+        needsOnboarding = false
+        partnerConnected = true
+        partnerConnectedCelebrationShown = DemoMode.argument("demoScreen") != "connected"
+        setupChecklistDismissed = true
+        isSubscriptionActive = true
+        viewerHoldsSubscription = true
+        subscriptionTier = "premium"
+        hasResolvedSubscription = true
+        hasResolvedOutgoingConnectionRequest = true
+        hasLoadedCoupleState = true
+        dailyStreak = DemoData.streak
+        longestDailyStreak = DemoData.streak
+        dailyStreakResetsAt = Calendar.current.date(byAdding: .hour, value: 14, to: .now)
+        todaysDailySessionID = UUID()
+        todaysDailyQuestionText = DemoData.dailyQuestion
+        todaysMyAnswered = true
+        todaysPartnerAnswered = true
+        gameDecks = nonEmpty(GameContentStore.decks())
+        gameDecksUnavailable = gameDecks?.isEmpty ?? true
+        deckProgress = [:]
+    }
+}
+#endif

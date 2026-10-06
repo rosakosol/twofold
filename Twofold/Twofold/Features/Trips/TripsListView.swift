@@ -20,7 +20,8 @@ import SwiftUI
 
 struct TripsListView: View {
     @Environment(AppModel.self) private var appModel
-    @State private var tab: TripsTab = .trips
+    // Trips unless -demoMode asks for Flights (App/DemoMode.swift), for a screenshot of that segment.
+    @State private var tab: TripsTab = DemoMode.argument("demoTravelSegment") == "flights" ? .flights : .trips
     @State private var showingAddTrip = false
     @State private var showingAddFlight = false
     /// Tapping the solo-state empty hints below opens this rather than the add-trip/add-flight

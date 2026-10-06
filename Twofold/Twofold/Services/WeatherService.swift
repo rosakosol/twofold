@@ -55,6 +55,9 @@ enum TwofoldWeatherService {
     /// Returns nil on any failure (capability not enabled, network error, etc.) rather than
     /// throwing — weather is a nice-to-have on the time card, never worth surfacing an error for.
     static func currentWeather(for place: Place) async -> CurrentWeatherReading? {
+        #if DEBUG
+        if DemoMode.isOn { return DemoData.weather(for: place) }
+        #endif
         let location = CLLocation(latitude: place.latitude, longitude: place.longitude)
         do {
             let weather = try await service.weather(for: location, including: .current)

@@ -10,7 +10,7 @@ import { isQuizPlayable } from "@/lib/marketing/quiz";
 import { getHero, getFeatures, getQuizQuestions, getQuizResults, getResolvedPlans } from "@/lib/marketing/sanity";
 import { resolveFeatures } from "@/lib/marketing/featuresFallback";
 import { APP_STORE_URL } from "@/lib/marketing/config";
-import { PHONE_SHOT_HEIGHT as SHOT_HEIGHT } from "@/lib/marketing/phoneScreens";
+import { LEGACY_PHONE_SHOT_HEIGHT as SHOT_HEIGHT } from "@/lib/marketing/phoneScreens";
 
 export default async function HomePage() {
   const [hero, featureDocs, quizQuestions, quizResults, plans] = await Promise.all([

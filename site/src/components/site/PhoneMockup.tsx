@@ -1,32 +1,45 @@
-import Image from "next/image";
+import { getImageProps } from "next/image";
+import { PHONE_SCREENS, PHONE_SHOT_HEIGHT, PHONE_SHOT_WIDTH, phoneScreenSrc, type PhoneScreen } from "@/lib/marketing/phoneScreens";
 
 /**
- * An app screenshot in a phone frame (docs/TWOFOLD_WEBSITE.md, section 3). The frame is drawn here,
- * so the screenshots in public/assets/phone-screen/ are the bare screen at its own size. Width and
- * height are the screenshot's pixel size, which next/image needs for the aspect ratio.
+ * An app screen in a phone frame (docs/TWOFOLD_WEBSITE.md, section 3). The screen is the light or
+ * dark capture to match the visitor's appearance, chosen by the browser through <picture>, so it
+ * costs no script and never flashes the wrong one.
  */
 export function PhoneMockup({
-  src,
-  alt,
-  width,
-  height,
+  screen,
+  alt = PHONE_SCREENS[screen],
   sizes = "(max-width: 760px) 70vw, 340px",
-  priority = false,
+  eager = false,
   className,
 }: {
-  src: string;
-  /** What the screen shows, not "app screenshot" (section 10). */
-  alt: string;
-  width: number;
-  height: number;
+  screen: PhoneScreen;
+  /** Defaults to the screen's description in phoneScreens.ts. */
+  alt?: string;
   sizes?: string;
-  priority?: boolean;
+  /** For a phone above the fold: loaded straight away and at high priority. */
+  eager?: boolean;
   className?: string;
 }) {
+  const common = { alt, width: PHONE_SHOT_WIDTH, height: PHONE_SHOT_HEIGHT, sizes };
+  const {
+    props: { srcSet: darkSrcSet },
+  } = getImageProps({ ...common, src: phoneScreenSrc(screen, "dark") });
+  const { props: light } = getImageProps({ ...common, src: phoneScreenSrc(screen, "light") });
+
   return (
     <figure className={["phone-mockup", className].filter(Boolean).join(" ")}>
       <div className="phone-bezel">
-        <Image className="phone-screen" src={src} alt={alt} width={width} height={height} sizes={sizes} priority={priority} />
+        <picture>
+          <source media="(prefers-color-scheme: dark)" srcSet={darkSrcSet} sizes={sizes} />
+          <img
+            {...light}
+            alt={alt}
+            className="phone-screen"
+            loading={eager ? "eager" : "lazy"}
+            fetchPriority={eager ? "high" : undefined}
+          />
+        </picture>
       </div>
     </figure>
   );

@@ -150,6 +150,7 @@ struct RootView: View {
             seedStreakRepairScreenshotIfRequested()
             seedRecordExportScreenshotIfRequested()
             seedPaywallScreenshotIfRequested()
+            seedDemoScreenIfRequested()
             #endif
             // Before `checkSubscription`, not after: this is what decides whether the person is
             // exempt from the paywall at all, so resolving it first keeps the loading state above
@@ -669,6 +670,27 @@ struct RootView: View {
         showingRecordExportScreenshot = true
     }
 
+    /// `-demoTab` and `-demoScreen` (App/DemoMode.swift): which tab the sample couple's app opens
+    /// on, and which record, if any, opens over it. The connected celebration needs nothing here:
+    /// `applyDemoState` leaves it unshown, and the code below this task's seeds shows it.
+    private func seedDemoScreenIfRequested() {
+        guard DemoMode.isOn else { return }
+        switch DemoMode.argument("demoTab") {
+        case "travel": selectedTab = .trips
+        case "memories": selectedTab = .memories
+        case "games": selectedTab = .games
+        case "stats": selectedTab = .passport
+        default: selectedTab = .home
+        }
+        switch DemoMode.argument("demoScreen") {
+        case "flight": recordDeepLink = .flight(DemoData.dohaToMelbourne.id)
+        case "memory": recordDeepLink = .memory(DemoData.firstDateID)
+        case "trip": recordDeepLink = .trip(DemoData.reunionTripID)
+        case "ourStory": showingRecordExportScreenshot = true
+        default: break
+        }
+    }
+
     private func seedStreakRepairScreenshotIfRequested() {
         let arguments = ProcessInfo.processInfo.arguments
         guard let flag = arguments.firstIndex(of: "-streakRepairScreenshot"),
@@ -859,6 +881,8 @@ struct RootView: View {
         // that never resolves.
         defer { hasCheckedSubscription = true }
         guard appModel.hasCouple else { return }
+        // -demoMode is Premium by fiat; there is no account here to check.
+        if DemoMode.isOn { return }
 
         // After the guard, deliberately, and this is the opposite requirement to the one above.
         //

@@ -4,7 +4,7 @@ import Image from "next/image";
 import { Reveal } from "@/components/marketing/Reveal";
 import { getFeatures } from "@/lib/marketing/sanity";
 import { resolveFeatures, type ResolvedFeature } from "@/lib/marketing/featuresFallback";
-import { PHONE_SHOT_HEIGHT as SHOT_HEIGHT } from "@/lib/marketing/phoneScreens";
+import { LEGACY_PHONE_SHOT_HEIGHT as SHOT_HEIGHT } from "@/lib/marketing/phoneScreens";
 
 export const metadata: Metadata = {
   title: "Features",
