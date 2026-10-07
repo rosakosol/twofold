@@ -30,7 +30,8 @@
   min-height: 44px;
   font-family: var(--font-display);
   font-size: 1.5rem;
-  font-weight: 600;
+  /* Regular, like the header's wordmark and the app's. */
+  font-weight: 400;
   color: var(--text);
   text-decoration: none;
 }
