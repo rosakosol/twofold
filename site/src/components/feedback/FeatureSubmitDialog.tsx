@@ -144,8 +144,8 @@ export function FeatureSubmitDialog() {
       <DialogTrigger
         render={
           <button type="button" className="btn btn-primary new-req">
-            <Plus className="h-4 w-4" />
-            New request
+            <Plus className="h-4 w-4" aria-hidden />
+            Request a feature
           </button>
         }
       />

@@ -3,7 +3,8 @@
 import "./feedback.css";
 import { Suspense, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { TriangleAlert } from "lucide-react";
+import { MessagesSquare, TriangleAlert } from "lucide-react";
+import { StatusPill } from "@/components/site/StatusPill";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -24,7 +25,7 @@ const ALL = "__all__";
 const ROADMAP_BUCKETS: { key: string; label: string; statuses: FeatureStatus[] }[] = [
   { key: "requested", label: "Requested", statuses: ["requested", "considering"] },
   { key: "planned", label: "Planned", statuses: ["planned"] },
-  { key: "in_progress", label: "In Progress", statuses: ["in_progress"] },
+  { key: "in_progress", label: "In progress", statuses: ["in_progress"] },
   { key: "shipped", label: "Shipped", statuses: ["released"] },
 ];
 
@@ -69,31 +70,37 @@ function Board() {
   return (
     <div className="fb-page">
       <header className="fb-head">
-        <div className="fb-head-inner">
-          <div>
-            <h1 className="board-page-title">Feedback</h1>
-            <p>Vote on ideas, or tell us what would make Twofold better.</p>
-          </div>
-          <FeatureSubmitDialog />
-        </div>
+        <StatusPill tone="surface" icon={<MessagesSquare />}>
+          Feedback
+        </StatusPill>
+        <h1>Help shape what Twofold becomes</h1>
+        <p className="lead">Vote on ideas, or tell us what would make Twofold better.</p>
+        <FeatureSubmitDialog />
       </header>
 
       <div className="fb-controls">
         <SearchBar value={search} onChange={(v) => updateParam("q", v || undefined)} />
-        <Select value={category ?? ALL} onValueChange={(v) => v && updateParam("category", v === ALL ? undefined : v)}>
-          <SelectTrigger size="sm" className="fb-select">
-            <SelectValue placeholder="Category" labels={{ [ALL]: "All categories", ...CATEGORY_LABELS }} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>All categories</SelectItem>
-            {CATEGORY_VALUES.map((value) => (
-              <SelectItem key={value} value={value}>
-                {CATEGORY_LABELS[value]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="fb-category">
+          <span id="fb-category-label" className="field-label">
+            Category
+          </span>
+          <Select value={category ?? ALL} onValueChange={(v) => v && updateParam("category", v === ALL ? undefined : v)}>
+            <SelectTrigger className="fb-select" aria-labelledby="fb-category-label">
+              <SelectValue placeholder="Category" labels={{ [ALL]: "All categories", ...CATEGORY_LABELS }} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>All categories</SelectItem>
+              {CATEGORY_VALUES.map((value) => (
+                <SelectItem key={value} value={value}>
+                  {CATEGORY_LABELS[value]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
+
+      <h2 className="sr-only">Requests</h2>
 
       {isError ? (
         <EmptyState
@@ -120,7 +127,8 @@ function Board() {
         <h2>Roadmap</h2>
         <p>The fuller picture, stage by stage.</p>
       </div>
-      <div className="roadmap">
+      {/* Four columns on a desktop; on a phone they scroll sideways, so the region takes focus. */}
+      <div className="roadmap" tabIndex={0} role="group" aria-label="Roadmap stages">
         {isError ? null : isLoading || !filtered
           ? ROADMAP_BUCKETS.map((bucket) => (
               <div key={bucket.key} className="flex min-w-0 flex-col gap-2">

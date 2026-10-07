@@ -17,8 +17,9 @@ export const STATUS_LABELS: Record<FeatureStatus, string> = {
   requested: "Requested",
   considering: "Considering",
   planned: "Planned",
-  in_progress: "In Progress",
-  released: "Released",
+  in_progress: "In progress",
+  // The enum value stays `released`; what people read is "Shipped", the same word the roadmap uses.
+  released: "Shipped",
   closed: "Closed",
 };
 

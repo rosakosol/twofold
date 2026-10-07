@@ -11,7 +11,7 @@ interface SearchBarProps {
   placeholder?: string;
 }
 
-export function SearchBar({ value, onChange, placeholder = "Search feedback…" }: SearchBarProps) {
+export function SearchBar({ value, onChange, placeholder = "Search requests" }: SearchBarProps) {
   const [draft, setDraft] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -46,13 +46,19 @@ export function SearchBar({ value, onChange, placeholder = "Search feedback…" 
 
   return (
     <div className="relative">
-      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      {/* Visually hidden: the field says what it is (docs/TWOFOLD_WEBSITE.md, section 3). */}
+      <label className="sr-only" htmlFor="fb-search">
+        Search requests
+      </label>
+      <Search aria-hidden className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
       <Input
+        id="fb-search"
+        type="search"
         ref={inputRef}
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         placeholder={placeholder}
-        className="rounded-full pl-9"
+        className="rounded-full pl-11"
       />
     </div>
   );

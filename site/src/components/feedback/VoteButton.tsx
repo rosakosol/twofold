@@ -9,9 +9,13 @@ import { useMyVoteIds, useVote } from "@/lib/queries/useVote";
 interface VoteButtonProps {
   featureId: string;
   upvoteCount: number;
+  /** The request's title, so the button can say what it votes for. */
+  title?: string;
 }
 
-export function VoteButton({ featureId, upvoteCount }: VoteButtonProps) {
+/** The 60x68 vote button (docs/TWOFOLD_WEBSITE.md, section 8): an up arrow and the count, filled
+ *  with the accent once you've voted, and announced as a toggle with what it votes for. */
+export function VoteButton({ featureId, upvoteCount, title }: VoteButtonProps) {
   const { user, isLoading } = useUser();
   const pathname = usePathname();
   const { data: voteIds } = useMyVoteIds(user?.id);
@@ -19,8 +23,9 @@ export function VoteButton({ featureId, upvoteCount }: VoteButtonProps) {
 
   const hasVoted = voteIds?.has(featureId) ?? false;
 
+  const votes = `${upvoteCount} ${upvoteCount === 1 ? "vote" : "votes"}`;
   const arrow = (
-    <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4}>
+    <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} aria-hidden>
       <path d="M6 15l6-6 6 6" />
     </svg>
   );
@@ -41,10 +46,12 @@ export function VoteButton({ featureId, upvoteCount }: VoteButtonProps) {
         href={`/auth/sign-in?next=${encodeURIComponent(pathname)}`}
         className="vote"
         title="Sign in to vote"
-        aria-label={`Sign in to vote. ${upvoteCount} ${upvoteCount === 1 ? "vote" : "votes"} so far.`}
+        aria-label={`Sign in to vote${title ? ` for ${title}` : ""}. ${votes} so far.`}
       >
         {arrow}
-        <span className="count">{upvoteCount}</span>
+        <span className="count" aria-hidden>
+          {upvoteCount}
+        </span>
       </Link>
     );
   }
@@ -66,10 +73,13 @@ export function VoteButton({ featureId, upvoteCount }: VoteButtonProps) {
       onClick={handleClick}
       disabled={vote.isPending || !user}
       aria-pressed={hasVoted}
+      aria-label={`Vote${title ? ` for ${title}` : ""}, ${votes}`}
       className={cn("vote", hasVoted && "voted")}
     >
       {arrow}
-      <span className="count">{upvoteCount}</span>
+      <span className="count" aria-hidden>
+        {upvoteCount}
+      </span>
     </button>
   );
 }
