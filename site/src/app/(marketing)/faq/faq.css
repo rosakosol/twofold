@@ -1,0 +1,177 @@
+/* ============================================================
+   The FAQ page (docs/TWOFOLD_WEBSITE.md, section 7): the hero and search, a sticky topic list
+   beside the accordions on a desktop (scrolling chips on a phone), and the closing card.
+   ============================================================ */
+
+.faq-hero {
+  padding: 56px 0 8px;
+  text-align: center;
+}
+.faq-hero .page-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+.faq-hero .lead {
+  max-width: 620px;
+}
+
+.faq-main {
+  padding: 24px 0 calc(var(--section-space) / 2);
+}
+.faq-search {
+  position: relative;
+  max-width: 640px;
+  margin: 0 auto;
+}
+.faq-search svg {
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  width: 20px;
+  height: 20px;
+  translate: 0 -50%;
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+.faq-search .input {
+  min-height: 56px;
+  padding-left: 52px;
+}
+.faq-search-status {
+  min-height: 1.5em;
+  margin: 12px 0 28px;
+  text-align: center;
+  font-size: var(--text-small);
+  color: var(--text-secondary);
+}
+
+.faq-layout {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 56px;
+  align-items: start;
+}
+.faq-topics {
+  position: sticky;
+  top: 96px;
+}
+.faq-topics ul {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.faq-topics a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: var(--radius-pill);
+  color: var(--text-secondary);
+  font-size: var(--text-small);
+  font-weight: 600;
+  text-decoration: none;
+}
+.faq-topics a:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface-raised) 70%, transparent);
+}
+.faq-topics a[aria-current="true"] {
+  color: var(--text);
+  background: var(--surface-raised);
+}
+.faq-topic-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 26px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+
+.faq-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
+}
+.faq-group {
+  /* marketing.css still pads every <section> for the pages not yet rebuilt. */
+  padding: 0;
+  scroll-margin-top: 96px;
+}
+.faq-group h2 {
+  margin-bottom: 12px;
+  font-size: var(--text-h3);
+  letter-spacing: -0.02em;
+}
+
+.faq-closing-section {
+  padding: calc(var(--section-space) / 2) 0 0;
+}
+.faq-closing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 48px 32px;
+  border-radius: var(--radius-card);
+  background: var(--surface-emphasis);
+  border: 1px solid var(--line);
+  text-align: center;
+}
+.faq-closing h2 {
+  font-size: var(--text-h3);
+  letter-spacing: -0.02em;
+}
+.faq-closing p {
+  max-width: 520px;
+  color: var(--text-secondary);
+}
+.faq-closing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+@media (max-width: 900px) {
+  .faq-layout {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  /* The topics become a row of chips that scrolls sideways, held under the header. */
+  .faq-topics {
+    top: 72px;
+    z-index: 2;
+    margin: 0 calc(-1 * var(--page-pad));
+    padding: 10px var(--page-pad);
+    background: color-mix(in srgb, var(--surface) 86%, transparent);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    overflow-x: auto;
+  }
+  .faq-topics ul {
+    flex-direction: row;
+    gap: 8px;
+  }
+  .faq-topics a {
+    white-space: nowrap;
+    background: var(--surface);
+    border: 1px solid var(--line);
+  }
+  .faq-group {
+    scroll-margin-top: 150px;
+  }
+}

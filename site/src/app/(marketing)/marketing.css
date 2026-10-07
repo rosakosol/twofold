@@ -614,25 +614,7 @@ section {
    FAQ accordion
    ============================================================ */
 
-.faq-wrap {
-  max-width: var(--maxw-narrow);
-  margin: 0 auto;
-}
-.faq-group {
-  margin-top: 44px;
-}
-.faq-group:first-child {
-  margin-top: 0;
-}
-.faq-group > h2 {
-  font-size: 1.5rem;
-  margin: 0 0 18px;
-  padding-left: 4px;
-}
 /* The accordion itself is a shared component (src/styles/components.css). */
-.acc-list {
-  border-top: 1px solid var(--line);
-}
 
 /* Quiz start card (home page, in place of the old pricing preview) — deliberately a
    saturated gradient card (unlike .cta-band elsewhere, which is a plain white card on

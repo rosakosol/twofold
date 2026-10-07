@@ -36,11 +36,35 @@ function inline(text: string, keyBase: string): ReactNode[] {
   return nodes;
 }
 
+/** A long answer with no line breaks of its own, cut into paragraphs of a few sentences. Only
+ *  ever between sentences, so not a word changes; short answers stay one paragraph. */
+function paragraphsOf(text: string): string[] {
+  const written = text.split(/\n\s*\n|\n/).map((p) => p.trim()).filter(Boolean);
+  if (written.length > 1 || text.length <= 320) return written;
+  const sentences = text.split(/(?<=[.!?])\s+(?=[A-Z])/);
+  const out: string[] = [];
+  let current = "";
+  for (const sentence of sentences) {
+    if (current && current.length + sentence.length > 300) {
+      out.push(current);
+      current = sentence;
+    } else {
+      current = current ? `${current} ${sentence}` : sentence;
+    }
+  }
+  if (current) out.push(current);
+  return out;
+}
+
 export function formatFaqAnswer(answer: string): ReactNode {
-  const paragraphs = answer
-    .replace(/ - /g, " – ")
-    .split(/\n\s*\n|\n/)
-    .map((p) => p.trim())
-    .filter(Boolean);
-  return paragraphs.map((paragraph, i) => <p key={i}>{inline(paragraph, String(i))}</p>);
+  return paragraphsOf(answer.replace(/ - /g, " – ")).map((paragraph, i) => (
+    <p key={i}>{inline(paragraph, String(i))}</p>
+  ));
+}
+
+/** A category from faq_entries as the spec names the groups: sentence case, "and" for "&". The
+ *  column itself is shared with the app and stays as it is. */
+export function faqGroupLabel(category: string): string {
+  const label = category.replace(/\s*&\s*/g, " and ");
+  return label.charAt(0).toUpperCase() + label.slice(1).toLowerCase();
 }
