@@ -4,6 +4,12 @@ import { createClient } from "@/lib/supabase/server";
 import { UsageMeter } from "@/components/console/usage/UsageMeter";
 import { UsageTrend, type UsageDay } from "@/components/console/usage/UsageTrend";
 import { UsageEndpointTable, type UsageEndpoint } from "@/components/console/usage/UsageEndpointTable";
+import { ConsolePageHead } from "@/components/console/ConsoleUI";
+import { TriangleAlert } from "lucide-react";
+
+/** Calls per distinct flight above which an endpoint is called out: one flight polled this many
+ *  times is worth a fetch-once-apply-to-many change. */
+const RATIO_WORTH_A_LOOK = 10;
 
 export const metadata: Metadata = { title: "API usage" };
 
@@ -42,15 +48,30 @@ export default async function UsagePage() {
   const endpoints = (endpointResult.data ?? []) as UsageEndpoint[];
   const days = (seriesResult.data ?? []) as UsageDay[];
 
+  const hot = endpoints
+    .map((e) => ({ endpoint: e.endpoint, ratio: e.distinct_upstream > 0 ? e.calls / e.distinct_upstream : 0 }))
+    .filter((e) => e.ratio > RATIO_WORTH_A_LOOK)
+    .sort((a, b) => b.ratio - a.ratio);
+
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="font-heading text-xl font-semibold tracking-tight">API usage</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          AeroAPI · this month, and the last 30 days
-        </p>
-      </header>
+      <ConsolePageHead title="API usage" description="AeroAPI, this month and the last 30 days." />
 
+      {hot.length > 0 && (
+        <div className="usage-insight" role="note">
+          <TriangleAlert aria-hidden />
+          <p>
+            <strong>
+              <code>{hot[0].endpoint}</code> is called {hot[0].ratio.toFixed(1)}× per flight.
+            </strong>{" "}
+            The same flight is being fetched once per couple tracking it. Fetching it once and applying the result to
+            everyone would cut these calls
+            {hot.length > 1 ? `, and ${hot.length - 1} other endpoint${hot.length === 2 ? " is" : "s are"} above ${RATIO_WORTH_A_LOOK}× too` : ""}.
+          </p>
+        </div>
+      )}
+
+      <div className="usage-grid">
       <UsageMeter
         utilisationPercent={numberOrNull(summary?.list_utilisation_percent)}
         minimumUsd={numberOrNull(summary?.monthly_minimum_usd)}
@@ -59,6 +80,7 @@ export default async function UsagePage() {
       />
 
       <UsageTrend days={days} />
+      </div>
 
       <UsageEndpointTable rows={endpoints} />
     </div>

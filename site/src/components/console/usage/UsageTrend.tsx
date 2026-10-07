@@ -102,5 +102,5 @@ export function UsageTrend({ days }: { days: UsageDay[] }) {
 function shortDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return date.toLocaleDateString("en-AU", { month: "short", day: "numeric" });
 }

@@ -483,3 +483,37 @@
   color: var(--text);
   font-variant-numeric: tabular-nums;
 }
+
+/* ---------- API usage ---------- */
+
+.usage-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 16px;
+  align-items: stretch;
+}
+@media (max-width: 960px) {
+  .usage-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.usage-insight {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px 18px;
+  border-radius: var(--radius-tile);
+  background: var(--warning-bg);
+  border: 1px solid color-mix(in srgb, var(--warning) 30%, transparent);
+  color: var(--text);
+}
+.usage-insight svg {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  color: var(--warning);
+  flex: none;
+}
+.usage-insight code {
+  font-size: 0.95em;
+}

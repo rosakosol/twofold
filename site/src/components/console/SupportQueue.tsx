@@ -407,7 +407,6 @@ function Conversation({
   const [note, setNote] = useState(latest.thread_handler_note ?? "");
   const [busy, setBusy] = useState<"open" | "closed" | null>(null);
   const isOpen = latest.thread_status === "open";
-  const urgent = thread.some((m) => m.category === "Report Abuse");
 
   async function setStatus(status: "open" | "closed") {
     if (status === latest.thread_status) return;

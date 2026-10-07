@@ -1,5 +1,4 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 
 export interface UsageEndpoint {
   endpoint: string;
@@ -54,6 +53,9 @@ export function UsageEndpointTable({ rows }: { rows: UsageEndpoint[] }) {
                   <th className="pb-2 px-3 text-right font-medium">Billable</th>
                   <th className="pb-2 px-3 text-right font-medium">Errors</th>
                   <th className="pb-2 px-3 text-right font-medium">Cost</th>
+                  <th className="pb-2 px-3 font-medium">
+                    <span className="sr-only">Share of cost</span>
+                  </th>
                   <th className="pb-2 pl-3 text-right font-medium">Calls / flight</th>
                 </tr>
               </thead>
@@ -77,18 +79,30 @@ export function UsageEndpointTable({ rows }: { rows: UsageEndpoint[] }) {
                         {row.list_cost_usd === null ? (
                           // Never "$0.00". An unknown price is not a free call, and a zero here is
                           // the one reading that would stop anyone investigating it.
-                          <Badge variant="outline" className="font-normal">
-                            no rate
-                          </Badge>
+                          <span className="pill pill-neutral">No rate</span>
                         ) : (
                           `$${row.list_cost_usd.toFixed(2)}`
+                        )}
+                      </td>
+                      <td className="py-2 px-3">
+                        {row.list_cost_usd !== null && total > 0 && (
+                          <span
+                            className="share-bar block"
+                            role="img"
+                            aria-label={`${Math.round((row.list_cost_usd / total) * 100)}% of the cost`}
+                          >
+                            <span style={{ width: `${(row.list_cost_usd / total) * 100}%`, background: "var(--usage-accent)" }} />
+                          </span>
                         )}
                       </td>
                       <td className="py-2 pl-3 text-right">
                         {ratio === null ? (
                           <span className="text-muted-foreground">—</span>
                         ) : (
-                          <span className={ratio >= 1.5 ? "font-medium" : "text-muted-foreground"}>
+                          <span
+                            className={ratio > 10 ? "font-semibold" : ratio >= 1.5 ? "font-medium" : "text-muted-foreground"}
+                            style={ratio > 10 ? { color: "var(--warning)" } : undefined}
+                          >
                             {ratio.toFixed(1)}×
                           </span>
                         )}
