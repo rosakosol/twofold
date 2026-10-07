@@ -330,3 +330,156 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------- Games ---------- */
+
+.game-chip {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  flex: none;
+  vertical-align: -2px;
+}
+
+/* The games tabs as the shared segmented control, scrolling sideways if they do not fit. */
+.console-tabs[data-slot="tabs-list"] {
+  height: auto;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 4px;
+  gap: 2px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+}
+.console-tabs [data-slot="tabs-trigger"] {
+  min-height: 38px;
+  padding: 0 16px;
+  border-radius: var(--radius-pill);
+  color: var(--text-secondary);
+  font-size: var(--text-small);
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: none;
+}
+.console-tabs [data-slot="tabs-trigger"][aria-selected="true"] {
+  background: var(--text);
+  color: var(--text-inverse);
+}
+
+/* A Plus-against-Premium split bar. */
+.split-bar {
+  display: flex;
+  height: 12px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+}
+.split-bar > span:first-child {
+  background: var(--accent);
+}
+.split-bar > span:last-child {
+  background: var(--indigo);
+}
+.split-legend {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+  font-size: var(--text-caption);
+  color: var(--text-secondary);
+}
+.split-legend b {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.split-key {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+  vertical-align: 1px;
+}
+
+.share-bar {
+  width: 100%;
+  min-width: 120px;
+  height: 8px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+}
+.share-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.games-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+@media (max-width: 760px) {
+  .games-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* The deck detail header, in the game's gradient. */
+.deck-header {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 28px 30px;
+  border-radius: var(--radius-card);
+  color: var(--on-dark);
+  overflow: hidden;
+}
+.deck-header::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--highlight);
+  pointer-events: none;
+}
+.deck-header > * {
+  position: relative;
+}
+.deck-header-topic {
+  font-size: var(--text-caption);
+  font-weight: 600;
+  opacity: 0.9;
+}
+.deck-header h1 {
+  margin-top: 4px;
+  font-size: 2.125rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+.deck-header-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+.deck-header .pill {
+  color: var(--on-dark);
+  background: color-mix(in srgb, var(--on-dark) 18%, transparent);
+}
+.deck-header .btn-white {
+  min-height: 44px;
+}
+.console-stat-value {
+  margin-top: 4px;
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}

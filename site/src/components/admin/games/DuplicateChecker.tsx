@@ -3,7 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, EyeOff, Pencil, RotateCcw } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { StatusPill } from "@/components/site/StatusPill";
+import { StatTiles } from "@/components/console/ConsoleUI";
+import { GameChip } from "@/components/admin/games/GameChip";
+
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useGameContentList, useGameDecks } from "@/lib/queries/useGameContent";
@@ -17,6 +20,21 @@ import {
 import { ContentForm } from "@/components/admin/games/ContentForm";
 import { CONTENT_TYPES, deckIdOf, type ContentRow, type ContentTypeConfig } from "@/lib/games/contentTypes";
 import { findContentIssues, findSimilarPairs, type SimilarPair } from "@/lib/games/similarity";
+
+/** Pairs shown before "Show N more pairs". */
+const PAIRS_SHOWN = 5;
+
+/** How alike a pair is: 75% and up in the error colour, 67% and up amber, the rest neutral. */
+function SimilarityPill({ score, dismissed = false }: { score: number; dismissed?: boolean }) {
+  const pct = Math.round(score * 100);
+  const tone = dismissed ? "neutral" : score >= 0.75 ? "error" : score >= 0.67 ? "warning" : "neutral";
+  return (
+    <StatusPill tone={tone}>
+      {score === 1 ? "Exact duplicate" : `${pct}% similar`}
+      {dismissed ? ", dismissed" : ""}
+    </StatusPill>
+  );
+}
 
 interface DeckRef {
   label: string;
@@ -51,14 +69,14 @@ function EntryCard({
   onEdit: () => void;
 }) {
   return (
-    <div className="flex items-start justify-between gap-2 rounded-md bg-muted/30 p-2">
+    <div className="flex items-start justify-between gap-2 rounded-xl bg-[var(--surface-raised)] p-3">
       <div>
         <p className={`text-sm ${row.active ? "" : "text-muted-foreground line-through"}`}>
           {contentType.primaryText(row)}
         </p>
         <DeckLink deck={deck} />
       </div>
-      <Button variant="ghost" size="icon-sm" className="shrink-0 text-muted-foreground" aria-label="Edit" onClick={onEdit}>
+      <Button variant="ghost" size="icon-sm" className="shrink-0 text-muted-foreground" aria-label={`Edit "${contentType.primaryText(row)}"`} onClick={onEdit}>
         <Pencil className="h-4 w-4" />
       </Button>
     </div>
@@ -76,6 +94,7 @@ function GameTypeChecker({ contentType }: { contentType: ContentTypeConfig }) {
   const [editingRow, setEditingRow] = useState<ContentRow | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [showDismissed, setShowDismissed] = useState(false);
+  const [showAllPairs, setShowAllPairs] = useState(false);
 
   if (isLoading || dismissalsLoading) return <Skeleton className="h-24 w-full rounded-lg" />;
 
@@ -107,26 +126,29 @@ function GameTypeChecker({ contentType }: { contentType: ContentTypeConfig }) {
 
   if (activePairs.length === 0 && issues.length === 0 && dismissedPairs.length === 0) {
     return (
-      <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-        No similarity or content issues found — {allRows.length} entries checked.
+      <p className="console-empty is-success text-sm">
+        No similarity or content issues found. {allRows.length} entries checked.
       </p>
     );
   }
 
   return (
     <div className="flex flex-col gap-5">
+      <StatTiles
+        items={[
+          { label: "Entries checked", value: allRows.length },
+          { label: "Similar pairs", value: activePairs.length },
+          { label: "Content issues", value: issues.length },
+        ]}
+      />
+
       {activePairs.length > 0 && (
         <div>
-          <p className="mb-2 text-xs font-medium text-muted-foreground">
-            {activePairs.length} similar/duplicate pair{activePairs.length === 1 ? "" : "s"}
-          </p>
           <div className="flex flex-col gap-2">
-            {activePairs.map(({ a, b, score }) => (
-              <div key={`${a.id}-${b.id}`} className="rounded-lg border p-3">
+            {(showAllPairs ? activePairs : activePairs.slice(0, PAIRS_SHOWN)).map(({ a, b, score }) => (
+              <div key={`${a.id}-${b.id}`} className="console-card p-3">
                 <div className="mb-2 flex items-center justify-between">
-                  <Badge variant={score === 1 ? "default" : "secondary"}>
-                    {score === 1 ? "Exact duplicate" : `${Math.round(score * 100)}% similar`}
-                  </Badge>
+                  <SimilarityPill score={score} />
                   <Button
                     variant="ghost"
                     size="sm"
@@ -134,7 +156,7 @@ function GameTypeChecker({ contentType }: { contentType: ContentTypeConfig }) {
                     disabled={dismiss.isPending}
                     onClick={() => dismiss.mutate({ idA: a.id, idB: b.id })}
                   >
-                    <EyeOff className="h-3.5 w-3.5" /> Not a duplicate
+                    <EyeOff className="h-3.5 w-3.5" aria-hidden /> Not a duplicate
                   </Button>
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2">
@@ -144,6 +166,11 @@ function GameTypeChecker({ contentType }: { contentType: ContentTypeConfig }) {
               </div>
             ))}
           </div>
+          {activePairs.length > PAIRS_SHOWN && (
+            <Button variant="outline" size="sm" className="mt-3" onClick={() => setShowAllPairs((v) => !v)}>
+              {showAllPairs ? "Show fewer pairs" : `Show ${activePairs.length - PAIRS_SHOWN} more pairs`}
+            </Button>
+          )}
         </div>
       )}
 
@@ -160,11 +187,9 @@ function GameTypeChecker({ contentType }: { contentType: ContentTypeConfig }) {
           {showDismissed && (
             <div className="mt-2 flex flex-col gap-2">
               {dismissedPairs.map(({ pair: { a, b, score }, dismissal }) => (
-                <div key={dismissal.id} className="rounded-lg border border-dashed p-3 opacity-75">
+                <div key={dismissal.id} className="rounded-2xl border border-dashed border-[var(--line-strong)] p-3 opacity-75">
                   <div className="mb-2 flex items-center justify-between">
-                    <Badge variant="outline">
-                      {score === 1 ? "Exact duplicate" : `${Math.round(score * 100)}% similar`} — dismissed
-                    </Badge>
+                    <SimilarityPill score={score} dismissed />
                     <Button
                       variant="ghost"
                       size="sm"
@@ -193,21 +218,21 @@ function GameTypeChecker({ contentType }: { contentType: ContentTypeConfig }) {
           </p>
           <div className="flex flex-col gap-2">
             {issues.map(({ row, reason }, i) => (
-              <div key={`${row.id}-${i}`} className="flex items-start justify-between gap-2 rounded-lg border p-3">
+              <div key={`${row.id}-${i}`} className="console-card flex items-start justify-between gap-2 p-3">
                 <div>
                   <p className={`text-sm ${row.active ? "" : "text-muted-foreground line-through"}`}>
                     {contentType.primaryText(row)}
                   </p>
                   <DeckLink deck={deckFor(row)} />
-                  <p className="mt-1 flex items-center gap-1 text-xs text-amber-600 dark:text-amber-500">
-                    <AlertTriangle className="h-3 w-3 shrink-0" /> {reason}
+                  <p className="mt-1 flex items-center gap-1 text-xs text-[var(--warning)]">
+                    <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden /> {reason}
                   </p>
                 </div>
                 <Button
                   variant="ghost"
                   size="icon-sm"
                   className="shrink-0 text-muted-foreground"
-                  aria-label="Edit"
+                  aria-label={`Edit "${contentType.primaryText(row)}"`}
                   onClick={() => edit(row)}
                 >
                   <Pencil className="h-4 w-4" />
@@ -233,13 +258,16 @@ export function DuplicateChecker() {
   return (
     <div className="flex flex-col gap-8">
       <p className="text-sm text-muted-foreground">
-        Scans each game type for near-duplicate wording and structural problems — trivia answers
-        missing from their options, identical this-or-that choices, blank or placeholder text.
-        Comparisons only run within a game type, not across them.
+        Scans each game type for near-duplicate wording and structural problems: trivia answers missing
+        from their options, identical this-or-that choices, blank or placeholder text. Comparisons only
+        run within a game type, not across them.
       </p>
       {CONTENT_TYPES.map((c) => (
         <div key={c.key}>
-          <h2 className="mb-3 text-sm font-semibold text-muted-foreground">{c.label}</h2>
+          <h2 className="mb-3 flex items-center gap-2 text-base font-semibold">
+            <GameChip gameType={c.gameType} />
+            {c.label}
+          </h2>
           <GameTypeChecker contentType={c} />
         </div>
       ))}

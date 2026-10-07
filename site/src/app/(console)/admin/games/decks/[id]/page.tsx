@@ -4,8 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, Pencil } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { StatusPill } from "@/components/site/StatusPill";
+import { gameGradient } from "@/components/admin/games/GameChip";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useGameDeck } from "@/lib/queries/useGameContent";
 import { DeckForm } from "@/components/admin/games/DeckForm";
@@ -23,29 +23,32 @@ export default function DeckDetailPage() {
         href="/admin/games"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
-        <ArrowLeft className="h-4 w-4" /> Back to Games
+        <ArrowLeft className="h-4 w-4" aria-hidden /> Back to games
       </Link>
 
       {isLoading || !deck ? (
         <Skeleton className="mt-4 h-24 w-full rounded-lg" />
       ) : (
         <>
-          <div className="mt-4 flex items-start justify-between">
+          {/* The deck in its game's gradient (docs/TWOFOLD_WEBSITE.md, section 9.2). */}
+          <header className="deck-header mt-4" style={{ background: gameGradient(deck.game_type) }}>
             <div>
-              <h1 className="font-heading text-xl font-semibold tracking-tight">
+              <p className="deck-header-topic">{deck.topic}</p>
+              <h1>
                 {deck.emoji} {deck.title}
               </h1>
-              <p className="mt-1 text-sm text-muted-foreground">{deck.topic}</p>
-              <div className="mt-2 flex items-center gap-2">
-                <Badge variant={deck.tier === "premium" ? "default" : "secondary"}>{deck.tier}</Badge>
-                {!deck.active && <Badge variant="secondary">Inactive</Badge>}
-                <span className="text-xs text-muted-foreground">{deck.question_count} questions</span>
+              <div className="deck-header-pills">
+                <span className="pill">{deck.tier === "premium" ? "Premium" : "Plus"}</span>
+                <span className="pill">{deck.question_count} questions</span>
+                <StatusPill tone="surface" className="pill">
+                  {deck.active ? "Active" : "Inactive"}
+                </StatusPill>
               </div>
             </div>
-            <Button variant="outline" size="sm" onClick={() => setFormOpen(true)}>
-              <Pencil className="h-4 w-4" /> Edit deck
-            </Button>
-          </div>
+            <button type="button" className="btn btn-white btn-sm" onClick={() => setFormOpen(true)}>
+              <Pencil className="h-4 w-4" aria-hidden /> Edit deck
+            </button>
+          </header>
 
           <div className="mt-8">
             <ContentTable contentType={contentTypeForGameType(deck.game_type)} deckFilter={deck.id} />

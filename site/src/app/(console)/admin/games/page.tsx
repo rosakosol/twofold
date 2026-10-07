@@ -6,6 +6,7 @@ import { OverallGameStats } from "@/components/admin/games/OverallGameStats";
 import { DuplicateChecker } from "@/components/admin/games/DuplicateChecker";
 import { CONTENT_TYPES, DECK_CONTENT_TYPES, type TieredContentTypeKey } from "@/lib/games/contentTypes";
 import { ContentTable } from "@/components/admin/games/ContentTable";
+import { ConsolePageHead } from "@/components/console/ConsoleUI";
 
 const OVERALL_TAB = "overall";
 const DUPLICATES_TAB = "duplicates";
@@ -13,17 +14,15 @@ const DUPLICATES_TAB = "duplicates";
 export default function AdminGamesPage() {
   return (
     <div>
-      <div>
-        <h1 className="font-heading text-xl font-semibold tracking-tight">Games</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Overall covers every game type at once — pick a game type&apos;s own tab to manage its Decks or Entries.
-        </p>
-      </div>
+      <ConsolePageHead
+        title="Games"
+        description="Every game type at once under Overall. Pick a game type to manage its decks and entries."
+      />
 
-      <Tabs defaultValue={OVERALL_TAB} className="mt-6">
-        <TabsList>
+      <Tabs defaultValue={OVERALL_TAB}>
+        <TabsList className="console-tabs">
           <TabsTrigger value={OVERALL_TAB}>Overall</TabsTrigger>
-          <TabsTrigger value={DUPLICATES_TAB}>Similarity Check</TabsTrigger>
+          <TabsTrigger value={DUPLICATES_TAB}>Similarity check</TabsTrigger>
           {CONTENT_TYPES.map((c) => (
             <TabsTrigger key={c.key} value={c.key}>
               {c.label}

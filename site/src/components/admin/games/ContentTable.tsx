@@ -4,7 +4,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Pencil, Trash2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { StatusPill } from "@/components/site/StatusPill";
+import { ConsoleEmpty } from "@/components/console/ConsoleUI";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -42,8 +43,8 @@ function DeleteButton({ contentType, row }: { contentType: ContentTypeConfig; ro
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger
         render={
-          <Button variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-destructive">
-            <Trash2 className="h-4 w-4" />
+          <Button variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-destructive" aria-label="Delete this entry">
+            <Trash2 className="h-4 w-4" aria-hidden />
           </Button>
         }
       />
@@ -73,6 +74,7 @@ function ActiveToggle({ contentType, row }: { contentType: ContentTypeConfig; ro
   const update = useUpdateContent(contentType.key);
   return (
     <Switch
+      aria-label="Active"
       checked={row.active}
       disabled={update.isPending}
       onCheckedChange={(checked) =>
@@ -100,6 +102,10 @@ export function ContentTable({
 
   const rows = deckFilter ? (allRows ?? []).filter((r) => deckIdOf(r) === deckFilter) : allRows;
   const deckTitleById = new Map((decks ?? []).map((d) => [d.id, `${d.emoji} ${d.title}`]));
+  // In a deck's own view, category and tier come from the deck, so a row only says so when it
+  // differs (docs/TWOFOLD_WEBSITE.md, section 9.2).
+  const parentDeck = deckFilter ? (decks ?? []).find((d) => d.id === deckFilter) : undefined;
+  const inDeck = Boolean(deckFilter);
 
   if (isLoading) return <Skeleton className="h-64 w-full rounded-lg" />;
 
@@ -114,60 +120,81 @@ export function ContentTable({
             setFormOpen(true);
           }}
         >
-          <Plus className="h-4 w-4" /> New
+          <Plus className="h-4 w-4" aria-hidden /> New entry
         </Button>
       </div>
 
       {!rows || rows.length === 0 ? (
-        <p className="py-12 text-center text-sm text-muted-foreground">No entries yet.</p>
+        <ConsoleEmpty title="No entries yet" />
       ) : (
-        <div className="overflow-x-auto rounded-lg border">
-          <table className="w-full text-sm">
-            <thead className="border-b bg-muted/50 text-left text-xs text-muted-foreground">
+        <div className="console-table-wrap">
+          <table className="console-table">
+            <thead>
               <tr>
-                <th className="px-3 py-2 font-medium">{contentType.label}</th>
-                <th className="px-3 py-2 font-medium">Category</th>
-                <th className="px-3 py-2 font-medium">Tier</th>
-                {!deckFilter && <th className="px-3 py-2 font-medium">Deck</th>}
-                <th className="px-3 py-2 font-medium">Active</th>
-                <th className="px-3 py-2 font-medium">Actions</th>
+                {inDeck && <th scope="col">#</th>}
+                <th scope="col">{inDeck ? "Question" : contentType.label}</th>
+                {!inDeck && <th scope="col">Category</th>}
+                {!inDeck && <th scope="col">Tier</th>}
+                {!inDeck && <th scope="col">Deck</th>}
+                <th scope="col">Active</th>
+                <th scope="col">
+                  <span className="sr-only">Actions</span>
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y">
-              {rows.map((row) => (
+            <tbody>
+              {rows.map((row, index) => {
+                const tier = tierOf(row);
+                const otherCategory = parentDeck && row.category && row.category !== parentDeck.topic;
+                const otherTier = parentDeck && tier && tier !== parentDeck.tier;
+                return (
                 <tr key={row.id} className={row.active ? undefined : "opacity-50"}>
-                  <td className="max-w-96 truncate px-3 py-2">{contentType.primaryText(row)}</td>
-                  <td className="px-3 py-2">{row.category}</td>
-                  <td className="px-3 py-2">
-                    <Badge variant={tierOf(row) === "premium" ? "default" : "secondary"}>{tierOf(row)}</Badge>
+                  {inDeck && <td className="num muted">{index + 1}</td>}
+                  <td className="max-w-[36rem]">
+                    <span className="block truncate">{contentType.primaryText(row)}</span>
+                    {(otherCategory || otherTier) && (
+                      <span className="mt-1 flex flex-wrap gap-1">
+                        {otherCategory && <span className="pill pill-warning">Category: {row.category}</span>}
+                        {otherTier && <span className="pill pill-warning">Tier: {tier === "premium" ? "Premium" : "Plus"}</span>}
+                      </span>
+                    )}
                   </td>
-                  {!deckFilter && (
-                    <td className="px-3 py-2 whitespace-nowrap">
-                      {deckIdOf(row) ? (deckTitleById.get(deckIdOf(row)!) ?? "—") : "—"}
+                  {!inDeck && <td className="muted">{row.category}</td>}
+                  {!inDeck && (
+                    <td>
+                      {tier ? (
+                        <StatusPill tone={tier === "premium" ? "indigo" : "accent"}>{tier === "premium" ? "Premium" : "Plus"}</StatusPill>
+                      ) : null}
                     </td>
                   )}
-                  <td className="px-3 py-2">
+                  {!inDeck && (
+                    <td className="whitespace-nowrap">
+                      {deckIdOf(row) ? (deckTitleById.get(deckIdOf(row)!) ?? "None") : "None"}
+                    </td>
+                  )}
+                  <td>
                     <ActiveToggle contentType={contentType} row={row} />
                   </td>
-                  <td className="px-3 py-2">
-                    <div className="flex items-center gap-1">
+                  <td>
+                    <div className="flex items-center justify-end gap-1">
                       <Button
                         variant="ghost"
                         size="icon-sm"
                         className="text-muted-foreground"
-                        aria-label="Edit"
+                        aria-label={`Edit "${contentType.primaryText(row)}"`}
                         onClick={() => {
                           setEditingRow(row);
                           setFormOpen(true);
                         }}
                       >
-                        <Pencil className="h-4 w-4" />
+                        <Pencil className="h-4 w-4" aria-hidden />
                       </Button>
                       <DeleteButton contentType={contentType} row={row} />
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

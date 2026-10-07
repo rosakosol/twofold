@@ -5,7 +5,10 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { Pencil, Trash2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { StatusPill } from "@/components/site/StatusPill";
+import { ConsoleEmpty } from "@/components/console/ConsoleUI";
+import { GameChip } from "@/components/admin/games/GameChip";
+import { useEmojiRenders } from "@/lib/games/emojiRenders";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -49,8 +52,8 @@ function DeleteButton({ deck }: { deck: GameDeck }) {
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger
         render={
-          <Button variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-destructive">
-            <Trash2 className="h-4 w-4" />
+          <Button variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-destructive" aria-label={`Delete ${deck.title}`}>
+            <Trash2 className="h-4 w-4" aria-hidden />
           </Button>
         }
       />
@@ -83,12 +86,27 @@ function ActiveToggle({ deck }: { deck: GameDeck }) {
   const update = useUpdateDeck();
   return (
     <Switch
+      aria-label={`${deck.title} is active`}
       checked={deck.active}
       disabled={update.isPending}
       onCheckedChange={(checked) =>
         update.mutate({ id: deck.id, patch: { active: checked } }, { onError: () => toast.error("Couldn't update.") })
       }
     />
+  );
+}
+
+/** The deck's emoji and title, and a flag when this device draws the emoji as an empty box. */
+function DeckName({ deck }: { deck: GameDeck }) {
+  const renders = useEmojiRenders(deck.emoji);
+  return (
+    <span className="inline-flex flex-wrap items-center gap-2">
+      <GameChip gameType={deck.game_type} />
+      <Link href={`/admin/games/decks/${deck.id}`} className="console-row-link">
+        {deck.emoji} {deck.title}
+      </Link>
+      {renders === false && <StatusPill tone="warning">Icon not showing</StatusPill>}
+    </span>
   );
 }
 
@@ -110,59 +128,60 @@ export function DeckTable({ gameType }: { gameType?: GameType }) {
             setFormOpen(true);
           }}
         >
-          <Plus className="h-4 w-4" /> New
+          <Plus className="h-4 w-4" aria-hidden /> New deck
         </Button>
       </div>
 
       {!decks || decks.length === 0 ? (
-        <p className="py-12 text-center text-sm text-muted-foreground">No decks yet.</p>
+        <ConsoleEmpty title="No decks yet" />
       ) : (
-        <div className="overflow-x-auto rounded-lg border">
-          <table className="w-full text-sm">
-            <thead className="border-b bg-muted/50 text-left text-xs text-muted-foreground">
+        <div className="console-table-wrap">
+          <table className="console-table">
+            <thead>
               <tr>
-                <th className="px-3 py-2 font-medium">Deck</th>
-                {!gameType && <th className="px-3 py-2 font-medium">Game type</th>}
-                <th className="px-3 py-2 font-medium">Tier</th>
-                <th className="px-3 py-2 font-medium">Questions</th>
-                <th className="px-3 py-2 font-medium">Sort</th>
-                <th className="px-3 py-2 font-medium">Active</th>
-                <th className="px-3 py-2 font-medium">Actions</th>
+                <th scope="col">Order</th>
+                <th scope="col">Deck</th>
+                <th scope="col">Category</th>
+                {!gameType && <th scope="col">Game type</th>}
+                <th scope="col">Tier</th>
+                <th scope="col">Questions</th>
+                <th scope="col">Active</th>
+                <th scope="col">
+                  <span className="sr-only">Actions</span>
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody>
               {decks.map((deck) => (
                 <tr key={deck.id} className={deck.active ? undefined : "opacity-50"}>
-                  <td className="px-3 py-2">
-                    <Link href={`/admin/games/decks/${deck.id}`} className="font-medium hover:underline">
-                      {deck.emoji} {deck.title}
-                    </Link>
-                    <span className="ml-1 text-xs text-muted-foreground">({deck.topic})</span>
+                  <td className="num muted">{deck.sort_order}</td>
+                  <td>
+                    <DeckName deck={deck} />
                   </td>
-                  {!gameType && (
-                    <td className="px-3 py-2">{LABEL_BY_GAME_TYPE.get(deck.game_type) ?? deck.game_type}</td>
-                  )}
-                  <td className="px-3 py-2">
-                    <Badge variant={deck.tier === "premium" ? "default" : "secondary"}>{deck.tier}</Badge>
+                  <td className="muted">{deck.topic}</td>
+                  {!gameType && <td>{LABEL_BY_GAME_TYPE.get(deck.game_type) ?? deck.game_type}</td>}
+                  <td>
+                    <StatusPill tone={deck.tier === "premium" ? "indigo" : "accent"}>
+                      {deck.tier === "premium" ? "Premium" : "Plus"}
+                    </StatusPill>
                   </td>
-                  <td className="px-3 py-2 tabular-nums">{deck.question_count}</td>
-                  <td className="px-3 py-2 tabular-nums">{deck.sort_order}</td>
-                  <td className="px-3 py-2">
+                  <td className="num">{deck.question_count}</td>
+                  <td>
                     <ActiveToggle deck={deck} />
                   </td>
-                  <td className="px-3 py-2">
-                    <div className="flex items-center gap-1">
+                  <td>
+                    <div className="flex items-center justify-end gap-1">
                       <Button
                         variant="ghost"
                         size="icon-sm"
                         className="text-muted-foreground"
-                        aria-label="Edit"
+                        aria-label={`Edit ${deck.title}`}
                         onClick={() => {
                           setEditingDeck(deck);
                           setFormOpen(true);
                         }}
                       >
-                        <Pencil className="h-4 w-4" />
+                        <Pencil className="h-4 w-4" aria-hidden />
                       </Button>
                       <DeleteButton deck={deck} />
                     </div>

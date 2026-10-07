@@ -1,7 +1,8 @@
 "use client";
 
 import { useGameDecks, useGameContentTiers } from "@/lib/queries/useGameContent";
-import { StatCard } from "@/components/admin/games/GameTypeStats";
+import { StatTiles } from "@/components/console/ConsoleUI";
+import { GameChip, gameGradient } from "@/components/admin/games/GameChip";
 import { DECK_CONTENT_TYPES, type TieredContentTypeKey } from "@/lib/games/contentTypes";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -35,47 +36,88 @@ export function OverallGameStats() {
   const plusQuestions = allRows.filter((r) => r.tier === "plus").length;
   const premiumQuestions = allRows.filter((r) => r.tier === "premium").length;
 
-  return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h2 className="mb-3 text-sm font-semibold text-muted-foreground">Overall</h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-2">
-          <StatCard label="Total decks" value={String(totalDecks)} />
-          <StatCard label="Total questions" value={String(totalQuestions)} />
+  const split = (label: string, plus: number, premium: number) => {
+    const total = plus + premium;
+    const plusPct = total ? (plus / total) * 100 : 0;
+    return (
+      <div className="console-card console-card-pad">
+        <h3 className="text-sm font-semibold">{label}</h3>
+        <div
+          className="split-bar mt-3"
+          role="img"
+          aria-label={`${label}: ${plus} Plus, ${premium} Premium`}
+        >
+          <span style={{ width: `${plusPct}%` }} />
+          <span style={{ width: `${total ? 100 - plusPct : 0}%` }} />
+        </div>
+        <div className="split-legend">
+          <span>
+            <span className="split-key" style={{ background: "var(--accent)" }} />
+            Plus <b>{plus}</b>
+          </span>
+          <span>
+            <span className="split-key" style={{ background: "var(--indigo)" }} />
+            Premium <b>{premium}</b>
+          </span>
         </div>
       </div>
+    );
+  };
+
+  return (
+    <div className="flex flex-col gap-6">
+      <StatTiles
+        items={[
+          { label: "Total decks", value: totalDecks },
+          { label: "Total questions", value: totalQuestions },
+        ]}
+      />
 
       <div>
         <h2 className="mb-3 text-sm font-semibold text-muted-foreground">By tier</h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatCard label="Plus decks" value={String(plusDecks)} />
-          <StatCard label="Premium decks" value={String(premiumDecks)} />
-          <StatCard label="Plus questions" value={String(plusQuestions)} />
-          <StatCard label="Premium questions" value={String(premiumQuestions)} />
+        <div className="games-grid">
+          {split("Decks", plusDecks, premiumDecks)}
+          {split("Questions", plusQuestions, premiumQuestions)}
         </div>
       </div>
 
       <div>
         <h2 className="mb-3 text-sm font-semibold text-muted-foreground">By game type</h2>
-        <div className="overflow-x-auto rounded-lg border">
-          <table className="w-full text-sm">
-            <thead className="border-b bg-muted/50 text-left text-xs text-muted-foreground">
+        <div className="console-table-wrap">
+          <table className="console-table">
+            <thead>
               <tr>
-                <th className="px-3 py-2 font-medium">Game type</th>
-                <th className="px-3 py-2 font-medium">Decks</th>
-                <th className="px-3 py-2 font-medium">Questions</th>
+                <th scope="col">Game type</th>
+                <th scope="col">Decks</th>
+                <th scope="col">Questions</th>
+                <th scope="col">Share of questions</th>
               </tr>
             </thead>
-            <tbody className="divide-y">
-              {DECK_CONTENT_TYPES.map((c) => (
-                <tr key={c.key}>
-                  <td className="px-3 py-2 font-medium">{c.label}</td>
-                  <td className="px-3 py-2 tabular-nums">
-                    {decks?.filter((d) => d.game_type === c.gameType).length ?? 0}
-                  </td>
-                  <td className="px-3 py-2 tabular-nums">{byKey[c.key as TieredContentTypeKey].data?.length ?? 0}</td>
-                </tr>
-              ))}
+            <tbody>
+              {DECK_CONTENT_TYPES.map((c) => {
+                const questions = byKey[c.key as TieredContentTypeKey].data?.length ?? 0;
+                const share = totalQuestions ? Math.round((questions / totalQuestions) * 100) : 0;
+                return (
+                  <tr key={c.key}>
+                    <td>
+                      <span className="inline-flex items-center gap-2 font-semibold">
+                        <GameChip gameType={c.gameType} />
+                        {c.label}
+                      </span>
+                    </td>
+                    <td className="num">{decks?.filter((d) => d.game_type === c.gameType).length ?? 0}</td>
+                    <td className="num">{questions}</td>
+                    <td>
+                      <span className="flex items-center gap-3">
+                        <span className="share-bar" role="img" aria-label={`${share}% of all questions`}>
+                          <span style={{ width: `${share}%`, background: gameGradient(c.gameType) }} />
+                        </span>
+                        <span className="num muted w-10 text-right">{share}%</span>
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

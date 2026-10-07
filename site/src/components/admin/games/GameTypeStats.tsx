@@ -8,9 +8,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border bg-muted/30 px-4 py-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-1 text-xl font-semibold tabular-nums">{value}</p>
+    <div className="console-stat">
+      <p className="text-xs font-semibold text-muted-foreground">{label}</p>
+      <p className="console-stat-value">{value}</p>
     </div>
   );
 }
@@ -37,10 +37,10 @@ function NavCard({
   return (
     <Link
       href={href}
-      className="flex items-center gap-4 rounded-lg border bg-card p-4 transition-colors hover:bg-muted/50"
+      className="console-card flex items-center gap-4 p-4 transition-colors hover:bg-[var(--surface-raised)]"
     >
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-        <Icon className="h-5 w-5" />
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-tint text-[var(--accent)]">
+        <Icon className="h-5 w-5" aria-hidden />
       </div>
       <div className="flex-1">
         <p className="font-semibold">{title}</p>
@@ -48,7 +48,7 @@ function NavCard({
           {count} {countLabel}
         </p>
       </div>
-      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+      <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden />
     </Link>
   );
 }
