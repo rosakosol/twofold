@@ -5,14 +5,52 @@ import Link from "next/link";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Loader2, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ConsoleEmpty, ConsolePageHead } from "@/components/console/ConsoleUI";
+import { SegmentedControl } from "@/components/site/SegmentedControl";
+import { StatusPill } from "@/components/site/StatusPill";
 import { createClient } from "@/lib/supabase/client";
 import type { AccountSearchResult } from "@/lib/console/accountDetail";
 
 const PAGE_SIZE = 20;
+/** How many accounts a filtered view loads to filter in the browser. admin_list_accounts pages but
+ *  does not filter, so a filter reads this many and filters them here. */
+const FILTER_LIMIT = 1000;
+
+const FILTERS = [
+  { value: "all", label: "All" },
+  { value: "active", label: "Active" },
+  { value: "deleted", label: "Deleted" },
+  { value: "paired", label: "Paired" },
+  { value: "subscribed", label: "Subscribed" },
+] as const;
+type Filter = (typeof FILTERS)[number]["value"];
+
+function matches(row: AccountSearchResult, filter: Filter) {
+  switch (filter) {
+    case "active":
+      return !row.deleted_at;
+    case "deleted":
+      return Boolean(row.deleted_at);
+    case "paired":
+      return !row.deleted_at && row.has_partner;
+    case "subscribed":
+      return !row.deleted_at && row.subscription_active;
+    default:
+      return true;
+  }
+}
+
+/** "a1b2c3…9f0e": enough of a deleted account's id to find it again, not the whole thing. */
+function shortId(id: string) {
+  const plain = id.replace(/-/g, "");
+  return `${plain.slice(0, 6)}…${plain.slice(-4)}`;
+}
+
+function joined(iso: string) {
+  return new Date(iso).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric", timeZone: "Australia/Melbourne" });
+}
 
 interface ListRow extends AccountSearchResult {
   total_count: number;
@@ -32,8 +70,10 @@ interface ListRow extends AccountSearchResult {
 export default function UsersPage() {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
+  const [filter, setFilter] = useState<Filter>("all");
   const trimmed = query.trim();
   const searching = trimmed.length >= 3;
+  const filtering = !searching && filter !== "all";
 
   const list = useQuery({
     queryKey: ["admin", "accounts", page],
@@ -46,11 +86,20 @@ export default function UsersPage() {
       if (error) throw error;
       return (data ?? []) as ListRow[];
     },
-    enabled: !searching,
-    // Without this the table empties to a spinner on every page change and the layout jumps. The
-    // previous page stays put until the next one lands, which is what paging through a list is
-    // supposed to feel like.
+    enabled: !searching && !filtering,
+    // The previous page stays put until the next one lands, rather than emptying to a spinner.
     placeholderData: keepPreviousData,
+  });
+
+  const everyone = useQuery({
+    queryKey: ["admin", "accounts", "all"],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("admin_list_accounts", { p_limit: FILTER_LIMIT, p_offset: 0 });
+      if (error) throw error;
+      return (data ?? []) as ListRow[];
+    },
+    enabled: filtering,
   });
 
   const search = useQuery({
@@ -64,115 +113,147 @@ export default function UsersPage() {
     enabled: searching,
   });
 
-  const rows: AccountSearchResult[] = searching ? (search.data ?? []) : (list.data ?? []);
-  const total = list.data?.[0]?.total_count ?? 0;
-  const isFetching = searching ? search.isFetching : list.isFetching;
-  const error = searching ? search.error : list.error;
+  const filtered = filtering ? (everyone.data ?? []).filter((row) => matches(row, filter)) : [];
+  const rows: AccountSearchResult[] = searching
+    ? (search.data ?? [])
+    : filtering
+      ? filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+      : (list.data ?? []);
+  const total = filtering ? filtered.length : (list.data?.[0]?.total_count ?? 0);
+  const isFetching = searching ? search.isFetching : filtering ? everyone.isFetching : list.isFetching;
+  const error = searching ? search.error : filtering ? everyone.error : list.error;
   const lastPage = Math.max(0, Math.ceil(total / PAGE_SIZE) - 1);
+  const capped = filtering && (everyone.data?.[0]?.total_count ?? 0) > FILTER_LIMIT;
 
   return (
-    <div className="space-y-6">
-      <header>
-        <h1 className="font-heading text-xl font-semibold tracking-tight">Users</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {searching
-            ? "Searching by email address, profile id, or invite code."
-            : total > 0
-              ? `${total.toLocaleString()} account${total === 1 ? "" : "s"}, newest first.`
-              : "Everyone who has signed up, newest first."}
-        </p>
-      </header>
+    <div>
+      <ConsolePageHead
+        title="Users"
+        description={
+          searching
+            ? "Searching by email address, profile id or invite code."
+            : "Everyone who has signed up, newest first. Opening an account is recorded in the audit log."
+        }
+      />
 
-      <div className="relative max-w-md">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          className="pl-9"
-          placeholder="Search email, profile id, or invite code"
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            setPage(0);
-          }}
-          autoComplete="off"
-          spellCheck={false}
-        />
-        {isFetching && (
-          <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+      <div className="console-filters">
+        <div className="console-search relative">
+          <label className="sr-only" htmlFor="user-search">
+            Search email, profile id or invite code
+          </label>
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+          <Input
+            id="user-search"
+            type="search"
+            className="pl-11"
+            placeholder="Search email, profile id or invite code"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setPage(0);
+            }}
+            autoComplete="off"
+            spellCheck={false}
+          />
+          {isFetching && (
+            <Loader2 className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" aria-hidden />
+          )}
+        </div>
+        {!searching && (
+          <SegmentedControl
+            label="Show"
+            options={FILTERS}
+            value={filter}
+            onChange={(value) => {
+              setFilter(value);
+              setPage(0);
+            }}
+          />
         )}
       </div>
 
-      {error && (
-        <p className="text-sm text-destructive">
-          That didn&apos;t load. You may not hold the support role.
+      {error && <p className="field-error">That didn&apos;t load. You may not hold the support role.</p>}
+
+      {capped && (
+        <p className="field-hint">
+          This filter covers the newest {FILTER_LIMIT.toLocaleString()} accounts. Search for anyone older.
         </p>
       )}
 
       {!error && rows.length === 0 && !isFetching && (
-        <p className="text-sm text-muted-foreground">
-          {searching
-            ? "No account matches that. Email is matched exactly — check for a typo, or ask which address they signed up with."
-            : "No accounts yet."}
-        </p>
+        <ConsoleEmpty title={searching ? "No account matches that" : filtering ? "No accounts in this view" : "No accounts yet"}>
+          {searching ? "Email is matched exactly. Check for a typo, or ask which address they signed up with." : undefined}
+        </ConsoleEmpty>
       )}
 
-      {rows.length === 0 && isFetching && <Skeleton className="h-64 w-full rounded-lg" />}
+      {rows.length === 0 && isFetching && <Skeleton className="h-64 w-full rounded-2xl" />}
 
       {rows.length > 0 && (
-        <Card>
-          <CardContent className="p-0">
-            <ul className="divide-y">
+        <div className="console-table-wrap">
+          <table className="console-table">
+            <thead>
+              <tr>
+                <th scope="col">Account</th>
+                <th scope="col">Name</th>
+                <th scope="col">Joined</th>
+                <th scope="col">Status</th>
+                <th scope="col">Partner</th>
+                <th scope="col">Plan</th>
+              </tr>
+            </thead>
+            <tbody>
               {rows.map((row) => (
-                <li key={row.profile_id}>
-                  <Link
-                    href={`/admin/users/${row.profile_id}`}
-                    className="flex items-center justify-between gap-4 px-4 py-3 transition-colors hover:bg-accent"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{row.email ?? "no email"}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {row.first_name || "no name"} · joined{" "}
-                        {new Date(row.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      {row.deleted_at && <Badge variant="destructive">Deleted</Badge>}
-                      {row.has_partner && <Badge variant="outline">Paired</Badge>}
-                      {row.subscription_active && (
-                        <Badge variant="secondary">{row.subscription_tier ?? "active"}</Badge>
+                <tr key={row.profile_id}>
+                  <td>
+                    <Link href={`/admin/users/${row.profile_id}`} className="console-row-link">
+                      {row.deleted_at ? (
+                        <>
+                          Deleted account <span className="console-mono muted">{shortId(row.profile_id)}</span>
+                        </>
+                      ) : (
+                        (row.email ?? "No email")
                       )}
-                    </div>
-                  </Link>
-                </li>
+                    </Link>
+                  </td>
+                  <td className={row.first_name ? undefined : "muted"}>{row.first_name || "None"}</td>
+                  <td className="num muted">{joined(row.created_at)}</td>
+                  <td>
+                    {row.deleted_at ? (
+                      <StatusPill tone="error">Deleted</StatusPill>
+                    ) : (
+                      <StatusPill tone="success">Active</StatusPill>
+                    )}
+                  </td>
+                  <td className="muted">{row.has_partner ? "Connected" : "None"}</td>
+                  <td>
+                    {row.subscription_active ? (
+                      <StatusPill tone={row.subscription_tier === "premium" ? "indigo" : "accent"}>
+                        {row.subscription_tier === "premium" ? "Premium" : row.subscription_tier === "plus" ? "Plus" : "Active"}
+                      </StatusPill>
+                    ) : (
+                      <span className="muted">None</span>
+                    )}
+                  </td>
+                </tr>
               ))}
-            </ul>
-          </CardContent>
-        </Card>
+            </tbody>
+          </table>
+        </div>
       )}
 
       {!searching && total > PAGE_SIZE && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground tabular-nums">
-            {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} of{" "}
-            {total.toLocaleString()}
+        <div className="console-pager">
+          <p className="num">
+            Showing {page * PAGE_SIZE + 1} to {Math.min((page + 1) * PAGE_SIZE, total)} of {total.toLocaleString()}
           </p>
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page === 0 || isFetching}
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
-            >
-              <ChevronLeft className="h-4 w-4" />
+            <Button variant="outline" size="sm" disabled={page === 0 || isFetching} onClick={() => setPage((p) => Math.max(0, p - 1))}>
+              <ChevronLeft className="h-4 w-4" aria-hidden />
               Newer
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page >= lastPage || isFetching}
-              onClick={() => setPage((p) => p + 1)}
-            >
+            <Button variant="outline" size="sm" disabled={page >= lastPage || isFetching} onClick={() => setPage((p) => p + 1)}>
               Older
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className="h-4 w-4" aria-hidden />
             </Button>
           </div>
         </div>
