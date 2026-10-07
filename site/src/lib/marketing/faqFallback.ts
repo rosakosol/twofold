@@ -47,7 +47,7 @@ export const FAQ_FALLBACK: FaqFallbackItem[] = [
     order: 20,
     question: "What platforms is Twofold available on?",
     answer:
-      "Twofold is available now on iOS. We're building the Android version next - join the waitlist and we'll email you the moment it's ready.",
+      "Twofold is available now on iOS. We're building the Android version next - join the waitlist at twofoldapp.com.au and we'll email you the moment it's ready. That is the only email the waitlist sends, and you can leave it from that email at any time.",
   },
   {
     category: "getting-started",
@@ -75,7 +75,7 @@ export const FAQ_FALLBACK: FaqFallbackItem[] = [
     order: 60,
     question: "How do I cancel or manage my subscription?",
     answer:
-      "If you subscribed in the app, manage or cancel it from your device's Settings → Apple ID → Subscriptions. If you subscribed on the web, sign in at twofoldapp.com.au/account and cancel it there, or email support@twofoldapp.com.au and we'll sort it out. To change plan, update your card or download an invoice, use the billing portal linked from your receipt emails. If you are still in your free trial, cancelling means you will not be charged. Otherwise you keep access until the end of the period you've already paid for.",
+      "If you subscribed in the app, Apple manages it: cancel it, or move between Plus and Premium, from the subscription screen in the app or your device's Settings → Apple Account → Subscriptions. If you subscribed on the web, sign in at twofoldapp.com.au/account - you can cancel there, and Change plan opens your billing page, where you can move between Plus and Premium, update your card and download invoices. Moving up to Premium starts straight away; moving down to Plus takes effect at your next renewal. Can't sign in? Email support@twofoldapp.com.au and we'll sort it out. If you are still in your free trial, cancelling means you will not be charged. Otherwise you keep access until the end of the period you've already paid for.",
   },
   {
     category: "subscriptions",
@@ -167,6 +167,13 @@ export const FAQ_FALLBACK: FaqFallbackItem[] = [
     question: "Where are our photos and data stored?",
     answer:
       "Your account, trips, memories, flights and games are stored with Supabase, and your photos, profile pictures, drawing pads and travel documents are stored with Cloudflare. Both hold the data on our behalf and neither uses it for anything else. Nothing is public: photo storage is private, and when the app shows you a photo it asks our server for a one-off link that works only for you and expires within the hour, so a link cannot be shared, guessed or kept. Flight tracking uses AeroAPI, weather uses Apple WeatherKit, notifications go through Apple, and payments are handled by Apple or by Stripe via RevenueCat - Twofold never sees your card details. You can export everything at any time from Settings → Help → Export your data, on any plan.",
+  },
+  {
+    category: "privacy",
+    order: 112,
+    question: "How do I choose which emails I get?",
+    answer:
+      "Every email from us that isn't about your account has an unsubscribe link at the bottom. You can also choose under Email preferences at twofoldapp.com.au/account: product news (off unless you turn it on), feedback updates when you post on the feedback board, and the Android waitlist. Emails about your account, security, billing and support conversations always reach you, because they are not marketing - a password reset you had unsubscribed from would lock you out.",
   },
   {
     category: "privacy",
