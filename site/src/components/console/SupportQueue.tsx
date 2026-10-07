@@ -8,6 +8,8 @@ import {
   ChevronLeft,
   Download,
   Inbox,
+  StickyNote,
+  TriangleAlert,
   Loader2,
   Paperclip,
   Search,
@@ -15,7 +17,6 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -57,6 +58,29 @@ export interface SupportRequest {
 type Thread = SupportRequest[];
 
 const FILTERS = ["open", "closed", "all"] as const;
+
+/** "Report Abuse" as "Report abuse": the category values stay as stored, pills are sentence case. */
+function sentence(value: string): string {
+  const lower = value.toLowerCase();
+  return lower.charAt(0).toUpperCase() + lower.slice(1);
+}
+
+/** The category pill, in the error colour for an abuse report: those carry a 48-hour promise. */
+function CategoryPill({ category }: { category: string }) {
+  const urgent = category === "Report Abuse";
+  return (
+    <span className={cn("pill", urgent ? "pill-error" : "pill-raised")}>
+      {urgent && <TriangleAlert aria-hidden />}
+      {sentence(category)}
+    </span>
+  );
+}
+
+/** The channel, unless it only repeats the category ("Email" and "email" were both shown). */
+function ChannelPill({ category, source }: { category: string; source: string }) {
+  if (!source || source.toLowerCase() === category.toLowerCase()) return null;
+  return <span className="pill pill-neutral">{sentence(source)}</span>;
+}
 
 /**
  * The support inbox: a list of conversations beside the one being read.
@@ -175,7 +199,7 @@ export function SupportQueue({
   const openCount = threads.filter((t) => t[0].thread_status === "open").length;
 
   return (
-    <div className="flex h-[calc(100dvh-7.5rem)] min-h-[32rem] overflow-hidden rounded-xl border bg-card">
+    <div className="support-inbox console-card">
       {/* ------------------------------------------------------------------ list */}
       <aside
         className={cn(
@@ -185,10 +209,8 @@ export function SupportQueue({
       >
         <div className="space-y-3 border-b p-3">
           <div className="flex items-baseline justify-between gap-2 px-1">
-            <h1 className="font-heading text-base font-semibold tracking-tight">Support</h1>
-            <span className="text-xs text-muted-foreground">
-              {openCount} open
-            </span>
+            <h1 className="support-inbox-title">Inbox</h1>
+            <span className="pill pill-accent">{openCount} open</span>
           </div>
 
           <div className="relative">
@@ -198,26 +220,23 @@ export function SupportQueue({
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search conversations"
               aria-label="Search conversations"
-              className="h-8 pl-8 text-sm"
+              className="h-10 pl-8 text-sm"
             />
           </div>
 
-          <div className="flex rounded-md bg-muted p-0.5">
+          <nav className="segmented support-filter" aria-label="Show conversations">
             {FILTERS.map((f) => (
               <Link
                 key={f}
                 href={`/admin/support?status=${f}`}
-                className={cn(
-                  "flex-1 rounded-[5px] px-2 py-1 text-center text-xs font-medium capitalize transition-colors",
-                  activeFilter === f
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
+                className="segmented-option"
+                aria-current={activeFilter === f ? "page" : undefined}
+                aria-pressed={activeFilter === f}
               >
-                {f}
+                {sentence(f)}
               </Link>
             ))}
-          </div>
+          </nav>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
@@ -352,19 +371,14 @@ function ThreadRow({
           </span>
 
           <span className="mt-1.5 flex flex-wrap items-center gap-1">
-            <Badge variant={urgent ? "destructive" : "secondary"} className="px-1.5 py-0 text-[10px]">
-              {latest.category}
-            </Badge>
+            <CategoryPill category={latest.category} />
+            <ChannelPill category={latest.category} source={latest.source} />
             {thread.length > 1 && (
-              <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
+              <span className="pill pill-neutral" aria-label={`${thread.length} messages`}>
                 {thread.length}
-              </Badge>
+              </span>
             )}
-            {!isOpen && (
-              <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
-                Closed
-              </Badge>
-            )}
+            {!isOpen && <span className="pill pill-neutral">Closed</span>}
           </span>
         </span>
       </button>
@@ -431,17 +445,13 @@ function Conversation({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="truncate text-sm font-semibold">{latest.subject || "(no subject)"}</h2>
-            <Badge variant={urgent ? "destructive" : "secondary"} className="text-[10px]">
-              {latest.category}
-            </Badge>
-            <Badge variant="outline" className="text-[10px]">
-              {latest.source}
-            </Badge>
+            <CategoryPill category={latest.category} />
+            <ChannelPill category={latest.category} source={latest.source} />
           </div>
           <p className="mt-0.5 truncate text-xs text-muted-foreground">
-            {latest.name ? `${latest.name} · ` : ""}
+            {latest.name ? `${latest.name}, ` : ""}
             {latest.email ?? "no address"}
-            {latest.matched_profile_id ? (
+            {latest.matched_profile_id && (
               <>
                 {" · "}
                 <Link
@@ -451,24 +461,23 @@ function Conversation({
                   Open account
                 </Link>
               </>
-            ) : (
-              // Worth saying rather than leaving blank: it usually means they wrote in from an
-              // address they never signed up with, which is itself the answer to "why can't they
-              // sign in".
-              " · no matching account"
             )}
           </p>
+          {/* Worth saying rather than leaving blank: it usually means they wrote in from an address
+              they never signed up with, which is itself the answer to "why can't they sign in". */}
+          {!latest.matched_profile_id && latest.email && (
+            <p className="support-unmatched">
+              <TriangleAlert aria-hidden />
+              No Twofold account uses this email
+            </p>
+          )}
         </div>
 
         {/* Both states shown at once rather than one button that swaps its label. The complaint
             this replaces was that reopening looked like it did nothing; a control that displays
             which state the conversation is in cannot look like that, because the answer is on
             screen before and after the click. */}
-        <div
-          className="flex shrink-0 rounded-md bg-muted p-0.5"
-          role="group"
-          aria-label="Conversation status"
-        >
+        <div className="segmented support-status" role="group" aria-label="Conversation status">
           {(["open", "closed"] as const).map((status) => (
             <button
               key={status}
@@ -476,15 +485,10 @@ function Conversation({
               aria-pressed={latest.thread_status === status}
               disabled={busy !== null}
               onClick={() => setStatus(status)}
-              className={cn(
-                "flex items-center gap-1 rounded-[5px] px-2.5 py-1 text-xs font-medium capitalize transition-colors disabled:opacity-60",
-                latest.thread_status === status
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
+              className="segmented-option"
             >
-              {busy === status && <Loader2 className="h-3 w-3 animate-spin" />}
-              {status}
+              {busy === status && <Loader2 className="h-3 w-3 animate-spin" aria-hidden />}
+              {sentence(status)}
             </button>
           ))}
         </div>
@@ -504,16 +508,27 @@ function Conversation({
         <ThreadAttachments threadId={latest.thread_id} />
       </div>
 
-      <div className="space-y-2 border-t p-3">
+      <div className="space-y-3 border-t p-4">
         <Composer threadId={latest.thread_id} to={latest.email} onSent={onReplied} />
-        <Input
-          className="h-8 text-xs"
-          placeholder="Internal note — saved when you open or close this"
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          disabled={busy !== null}
-          aria-label="Internal note about how this was handled"
-        />
+        {/* Never sent: a different colour from the reply above, so the two cannot be confused. */}
+        <details className="support-note" open={Boolean(note)}>
+          <summary>
+            <StickyNote aria-hidden />
+            Internal note, only you see this
+          </summary>
+          <label className="sr-only" htmlFor={`note-${latest.thread_id}`}>
+            Internal note about how this was handled
+          </label>
+          <textarea
+            id={`note-${latest.thread_id}`}
+            className="input"
+            rows={2}
+            placeholder="Saved when you open or close this conversation"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            disabled={busy !== null}
+          />
+        </details>
       </div>
     </>
   );
@@ -716,15 +731,18 @@ function Composer({
   }
 
   return (
-    <div className="rounded-lg border bg-background focus-within:ring-1 focus-within:ring-ring">
+    <div className="support-composer">
+      <label className="field-label" htmlFor={`reply-${threadId}`}>
+        Reply to {to}
+      </label>
       <Textarea
+        id={`reply-${threadId}`}
         rows={3}
-        placeholder={`Reply to ${to}…`}
+        placeholder="Write a reply"
         value={body}
         onChange={(e) => setBody(e.target.value)}
         disabled={sending}
-        aria-label="Reply"
-        className="resize-none border-0 bg-transparent shadow-none focus-visible:ring-0"
+        className="resize-none"
       />
 
       {files.length > 0 && (
@@ -747,7 +765,7 @@ function Composer({
         </ul>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t px-2 py-1.5">
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
         <div className="flex items-center gap-3">
           <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground">
             {uploading ? (
@@ -779,7 +797,7 @@ function Composer({
             Close after sending
           </Label>
         </div>
-        <Button size="sm" disabled={sending || body.trim().length < 2} onClick={send}>
+        <Button disabled={sending || body.trim().length < 2} onClick={send}>
           {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           Send
         </Button>
@@ -846,7 +864,7 @@ function ThreadAttachments({ threadId }: { threadId: string }) {
 
   return (
     <div className="space-y-1.5 border-t pt-3">
-      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Files</p>
+      <p className="text-xs font-semibold text-muted-foreground">Files</p>
       <ul className="flex flex-wrap gap-2">
         {files.map((file) => (
           <li key={file.id}>
