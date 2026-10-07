@@ -1,7 +1,7 @@
 # Twofold email templates
 
 Four transactional emails as standalone HTML files, all wired into this site's own code
-(`support-received.html`, `support-internal-alert.html`, `waitlist-confirmation.html`,
+(`support-received.html`, `support-internal-alert.html`, `android-waitlist.html`, `feedback-received.html`,
 `waitlist-internal-alert.html` — sent via `lib/mail/renderTemplate.ts` + `lib/mail/zoho.ts`
 from `app/api/support/route.ts` / `app/api/waitlist/route.ts`).
 
@@ -30,20 +30,31 @@ the place to bring the richer copy back.
 |---|---|---|
 | `{{subject}}` | all four | Also fills `<title>` — `renderTemplate.ts`'s `extractSubject()` reads it back out for the actual email Subject header |
 | `{{preheader}}` | all four | Inbox preview line, ~90 chars |
-| `{{support_email}}` | support-received, waitlist-confirmation | `support@twofoldapp.com.au`, from `lib/mail/companyInfo.ts` |
+| `{{support_email}}` | support-received | `support@twofoldapp.com.au`, from `lib/mail/companyInfo.ts` |
 
 No physical mailing address appears anywhere in these — deliberately dropped rather than
 shown incorrectly (an email address isn't a substitute for one, and none of these currently
 need to satisfy anti-spam mailing-address requirements). Revisit if that changes.
 
-## waitlist-confirmation.html — to the user
+## android-waitlist.html — to the user
 
-`{{support_email}}`, `{{site_url}}`
+The redesigned waitlist confirmation (docs/TWOFOLD_WEBSITE.md, section 9.3), sent by
+`app/api/waitlist/route.ts`. Placeholders use the `{{ .Name }}` style, which `renderTemplate`
+reads alongside `{{name}}`: `{{ .Email }}` and `{{ .UnsubscribeURL }}`. The link leaves the
+waitlist for that address, by the token `join_android_waitlist` returns, and the message carries a
+one-click `List-Unsubscribe` header to `/api/unsubscribe` as well.
 
-No position/count, no referral link, no name — the waitlist form only collects an email
-address, so the greeting doesn't reference a name either ("You're on the list.", not
-"You're on the list, {{first_name}}."). "Leave the waitlist" links to a `mailto:` (manual,
-but real and functional today) rather than a real one-click unsubscribe endpoint.
+## feedback-received.html — to the user
+
+"Your idea is on the board", sent by `app/api/feedback/confirm/route.ts` after somebody posts a
+request, once, and only if they have not turned feedback updates off. Its footer carries an
+unsubscribe link for feedback updates and a link to the email preferences on `/account`.
+
+## Unsubscribing
+
+Every email that is not about an account, security, billing or support carries an unsubscribe
+link and the one-click headers, built by `lib/mail/unsubscribe.ts`. The lists, their tokens and
+the functions that change them are in `supabase/migrations/20261112000000_email_preferences.sql`.
 
 ## waitlist-internal-alert.html — to you
 

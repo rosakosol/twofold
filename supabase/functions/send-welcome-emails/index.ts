@@ -24,6 +24,7 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { closeQuietly, dotStuff, fromAddress, singleLine, smtpClient } from "../_shared/mail.ts";
+import { welcomeHtml } from "./template.ts";
 
 /// How far back a run will look. Belt to the migration's braces: that backfill stamps every
 /// profile that existed when it ran, so the first run has nothing old to find — but a restore, a
@@ -36,6 +37,8 @@ const MAX_AGE_HOURS = 48;
 const BATCH = 50;
 
 const SUPPORT_EMAIL = "support@twofoldapp.com.au";
+/// Where the footer's "Email preferences" link goes: the account page on the website.
+const PREFERENCES_URL = "https://www.twofoldapp.com.au/account#email";
 
 function subject(): string {
   return "Welcome to Twofold";
@@ -64,38 +67,20 @@ function textBody(firstName: string): string {
       "confirmed - but we'd rather take it off your hands than leave it sitting there.",
       "",
       "- Twofold",
+      "",
+      `Email preferences: ${PREFERENCES_URL}`,
     ].join("\n"),
   );
 }
 
-function htmlBody(firstName: string): string {
-  const greeting = firstName ? `Hi ${escapeHtml(firstName)},` : "Hi,";
-  return `<!DOCTYPE html>
-<html><body style="margin:0;padding:24px;background:#e4f4e6;font-family:Arial,Helvetica,sans-serif;color:#1c2a38;">
-  <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:20px;padding:32px;">
-    <h1 style="margin:0 0 16px;font-size:22px;color:#1c2a38;">Welcome to Twofold</h1>
-    <p style="margin:0 0 16px;font-size:15px;line-height:22px;">${greeting}</p>
-    <p style="margin:0 0 16px;font-size:15px;line-height:22px;">
-      Your Twofold account is ready. Twofold is for couples doing distance &mdash; track each
-      other's flights, save memories to the places they happened, and watch the miles you've
-      travelled for each other add up.
-    </p>
-    <p style="margin:0 0 24px;font-size:15px;line-height:22px;">
-      If you haven't already, invite your partner from the app &mdash; almost everything in
-      Twofold is built for two.
-    </p>
-    <hr style="border:0;border-top:1px solid rgba(28,42,56,0.09);margin:0 0 24px;">
-    <p style="margin:0 0 8px;font-size:15px;font-weight:bold;">Didn't sign up for this?</p>
-    <p style="margin:0;font-size:14px;line-height:21px;color:#5b6b7a;">
-      Someone may have mistyped their own email address and reached yours instead. If that's what
-      happened, reply to this note or write to
-      <a href="mailto:${SUPPORT_EMAIL}" style="color:#d1465a;font-weight:bold;text-decoration:none;">${SUPPORT_EMAIL}</a>
-      and we'll remove the account. Nobody can read your email or act as you &mdash; the address was
-      only typed in, never confirmed &mdash; but we'd rather take it off your hands than leave it
-      sitting there.
-    </p>
-  </div>
-</body></html>`;
+/// The redesigned template (template.ts), with a link to the email preferences on the website.
+function htmlBody(firstName: string, email: string): string {
+  return welcomeHtml({
+    firstName: escapeHtml(firstName),
+    email: escapeHtml(email),
+    preferencesUrl: PREFERENCES_URL,
+    supportEmail: SUPPORT_EMAIL,
+  });
 }
 
 function escapeHtml(value: string): string {
@@ -185,7 +170,7 @@ Deno.serve(async (req) => {
           replyTo: SUPPORT_EMAIL,
           subject: subject(),
           content: textBody(firstName),
-          html: htmlBody(firstName),
+          html: htmlBody(firstName, email),
         });
         sent++;
       } catch (err) {

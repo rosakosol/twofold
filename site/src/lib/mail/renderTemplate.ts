@@ -11,7 +11,11 @@ const templatesDir = path.join(process.cwd(), "src", "lib", "mail", "templates")
  * silently shipping a broken email. */
 export function renderTemplate(fileName: string, tokens: Record<string, string>): string {
   const raw = fs.readFileSync(path.join(templatesDir, `${fileName}.html`), "utf-8");
-  return raw.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (match, key: string) => {
+  // `{{token}}`, and the `{{ .Token }}` style the redesigned templates use (docs/TWOFOLD_WEBSITE.md,
+  // section 9.3). Their header comment is HTML, so it is stripped first: it documents the
+  // placeholders and would otherwise be filled in too.
+  const withoutHeader = raw.replace(/^\s*<!--[\s\S]*?-->\s*/, "");
+  return withoutHeader.replace(/\{\{\s*\.?([a-zA-Z0-9_]+)\s*\}\}/g, (match, key: string) => {
     if (!(key in tokens)) {
       console.warn(`[renderTemplate] ${fileName}.html: no value provided for {{${key}}}`);
       return match;

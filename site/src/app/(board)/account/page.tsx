@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { SubscriptionCard } from "@/components/account/SubscriptionCard";
 import { PartnerCard } from "@/components/account/PartnerCard";
 import { DangerZone } from "@/components/account/DangerZone";
+import { EmailPreferencesCard, type EmailPreferences } from "@/components/account/EmailPreferencesCard";
 import { parseSubscriptionHistory, type SubscriptionSnapshot } from "@/lib/account/subscription";
 
 export const metadata: Metadata = { title: "Your account" };
@@ -29,7 +30,7 @@ export default async function AccountPage() {
   // to Sydney. Awaited one after another they cost twice what they need to, and on a page that
   // shows nothing until all of them land that is the difference between quick and apparently
   // broken. Only the partner lookup below genuinely has to wait, because it needs the couple.
-  const [{ data: profile }, { data: couple }, { data: historyRow }, { data: archives }] = await Promise.all([
+  const [{ data: profile }, { data: couple }, { data: historyRow }, { data: archives }, { data: emailRows }] = await Promise.all([
     supabase
       .from("profiles")
       .select(
@@ -58,7 +59,10 @@ export default async function AccountPage() {
       .select("id, scheduled_purge_at")
       .eq("status", "dissolved")
       .order("scheduled_purge_at", { ascending: true }),
+    // Which emails this account gets, by its own address (20261112000000).
+    supabase.rpc("my_email_preferences"),
   ]);
+  const emailPrefs: EmailPreferences | null = Array.isArray(emailRows) && emailRows[0] ? emailRows[0] : null;
 
   const history = parseSubscriptionHistory(historyRow);
 
@@ -108,6 +112,8 @@ export default async function AccountPage() {
         togetherSince={couple?.started_dating_on ?? null}
         coupleId={couple?.id ?? null}
       />
+
+      <EmailPreferencesCard initial={emailPrefs} />
 
       <DangerZone
         email={user.email ?? ""}

@@ -4,7 +4,7 @@ import type { Database } from "@/lib/db/types";
 import { createZohoTransport } from "@/lib/mail/zoho";
 import { renderTemplate, extractSubject } from "@/lib/mail/renderTemplate";
 import { escapeHtml } from "@/lib/mail/escapeHtml";
-import { SUPPORT_EMAIL, SITE_URL } from "@/lib/mail/companyInfo";
+import { listUnsubscribeHeaders, unsubscribeUrl } from "@/lib/mail/unsubscribe";
 
 // Port of the old site/functions/api/waitlist.ts (Cloudflare Pages Function + D1) -
 // same validation/honeypot logic, writing to Supabase's waitlist_signups table instead
@@ -12,7 +12,7 @@ import { SUPPORT_EMAIL, SITE_URL } from "@/lib/mail/companyInfo";
 // /api/support uses - see lib/mail/zoho.ts, which is the only mail transport this
 // project has.
 //
-// Uses lib/mail/templates/waitlist-confirmation.html (to the signer) and
+// Uses lib/mail/templates/android-waitlist.html (to the signer) and
 // waitlist-internal-alert.html (to WAITLIST_NOTIFY_EMAIL) - see that folder's README.md.
 // Both were trimmed down from their original design: no referral/invite system, no
 // device/location/survey tracking, no admin dashboard, and no waitlist-position/signup-count
@@ -44,21 +44,51 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
   }
 
-  const { error } = await supabase.from("waitlist_signups").insert({ email });
-  if (error) {
-    // 23505 = Postgres unique_violation (the "already on the list" case).
-    if (error.code === "23505") {
-      return NextResponse.json({ error: "You're already on the list." }, { status: 409 });
+  // The same limiter the support form uses: this sends mail to an address a visitor typed, so
+  // without it the form is a way to send our email to anybody (see 20261110000500). Per caller
+  // and per address. A limiter outage lets the signup through rather than losing it.
+  for (const [bucket, subject, limit] of [
+    ["waitlist-ip", callerIP(request), 5],
+    ["waitlist-email", email, 2],
+  ] as const) {
+    const { data: allowed, error: limitError } = await supabase.rpc("consume_anon_rate_limit", {
+      p_bucket: bucket,
+      p_subject: subject,
+      p_limit: limit,
+      p_window: "01:00:00",
+    });
+    if (limitError) {
+      console.error(`[waitlist] rate limit unavailable (${bucket}):`, limitError.message);
+      break;
     }
-    return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 500 });
+    if (allowed === false) {
+      return NextResponse.json({ error: "Too many attempts. Please try again in an hour." }, { status: 429 });
+    }
   }
 
-  await sendEmails(email);
+  // Joins, and hands back the token the confirmation's "Leave the waitlist" link carries
+  // (20261112000000). "exists" is the already-on-the-list case.
+  const { data, error } = await supabase.rpc("join_android_waitlist", { p_email: email });
+  const result = Array.isArray(data) ? data[0] : null;
+  if (error || !result) {
+    return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 500 });
+  }
+  if (result.status === "exists") {
+    return NextResponse.json({ error: "You're already on the list." }, { status: 409 });
+  }
+
+  await sendEmails(email, result.token);
 
   return NextResponse.json({ ok: true });
 }
 
-async function sendEmails(email: string): Promise<void> {
+function callerIP(request: Request): string {
+  const forwarded = request.headers.get("x-forwarded-for");
+  if (forwarded) return forwarded.split(",")[0]!.trim();
+  return request.headers.get("x-real-ip")?.trim() || "unknown";
+}
+
+async function sendEmails(email: string, token: string): Promise<void> {
   const notifyEmail = process.env.WAITLIST_NOTIFY_EMAIL ?? "support@twofoldapp.com.au";
 
   let mailer: ReturnType<typeof createZohoTransport>;
@@ -73,11 +103,9 @@ async function sendEmails(email: string): Promise<void> {
   const { transport, from, sender } = mailer;
 
   try {
-    const confirmationHtml = renderTemplate("waitlist-confirmation", {
-      subject: "You're on the Twofold Android waitlist",
-      preheader: "Thanks for signing up - we'll email this address the moment Android is ready.",
-      support_email: SUPPORT_EMAIL,
-      site_url: SITE_URL,
+    const confirmationHtml = renderTemplate("android-waitlist", {
+      Email: escapeHtml(email),
+      UnsubscribeURL: escapeHtml(unsubscribeUrl(token, "android_waitlist")),
     });
 
     const alertHtml = renderTemplate("waitlist-internal-alert", {
@@ -94,8 +122,9 @@ async function sendEmails(email: string): Promise<void> {
       transport.sendMail({
         ...sender("announcement"),
         to: email,
-        subject: extractSubject(confirmationHtml),
+        subject: extractSubject(confirmationHtml).replace(/&#8217;/g, "\u2019"),
         html: confirmationHtml,
+        headers: listUnsubscribeHeaders(token, "android_waitlist"),
       }),
       // Internal, to us. Stays transactional - there is nobody outside to read the From.
       transport.sendMail({

@@ -1,11 +1,27 @@
-<!--
-  Welcome email. Sent once, after someone creates a Twofold account.
-  Placeholders to fill from your sender:
-    {{ .Name }}      First name from the profile. If it is empty, drop the comma and name from the heading.
-    {{ .OpenURL }}   A universal link that opens the app, falling back to the App Store
-                     (https://apps.apple.com/app/id6789054723).
--->
-<!DOCTYPE html>
+// The welcome email's HTML (docs/TWOFOLD_WEBSITE.md, section 9.3): the redesigned template,
+// light and dark, with Outlook fallbacks. Kept here, beside the function that sends it, as the one
+// copy; it was supabase/templates/welcome.html.
+//
+// Every value that came from a person (the name, the address) is escaped by the caller's
+// `escapeHtml` before it reaches here.
+
+const OPEN_URL = "https://apps.apple.com/app/id6789054723";
+
+export function welcomeHtml({
+  firstName,
+  email,
+  preferencesUrl,
+  supportEmail,
+}: {
+  firstName: string;
+  email: string;
+  preferencesUrl: string;
+  supportEmail: string;
+}): string {
+  // No name, no comma: "Welcome to Twofold" rather than "Welcome to Twofold, ".
+  const heading = firstName ? `Welcome to Twofold, ${firstName}` : "Welcome to Twofold";
+  const SUPPORT_EMAIL = supportEmail;
+  return `<!DOCTYPE html>
 <html lang="en" xmlns:v="urn:schemas-microsoft-com:vml">
 <head>
 <meta charset="utf-8">
@@ -50,7 +66,7 @@
     <tr><td class="card" style="background-color:#FFFFFF;border-radius:24px;border:1px solid rgba(14,26,38,.06);overflow:hidden;">
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;">
         <tr><td height="6" style="height:6px;line-height:6px;font-size:0;background-color:#1A6FD6;background-image:linear-gradient(90deg,#3A56D9 0%,#1A6FD6 35%,#00838F 70%,#00875F 100%);border-radius:24px 24px 0 0;">&nbsp;</td></tr>
-        <tr><td class="sp h1 ink" style="padding:40px 48px 0 48px;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',Arial,Helvetica,sans-serif;font-size:30px;font-weight:bold;line-height:38px;mso-line-height-rule:exactly;letter-spacing:-.01em;color:#0E1A26;">Welcome to Twofold, {{ .Name }}</td></tr>
+        <tr><td class="sp h1 ink" style="padding:40px 48px 0 48px;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',Arial,Helvetica,sans-serif;font-size:30px;font-weight:bold;line-height:38px;mso-line-height-rule:exactly;letter-spacing:-.01em;color:#0E1A26;">${heading}</td></tr>
         <tr><td class="sp body" style="padding:16px 48px 0 48px;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',Arial,Helvetica,sans-serif;font-size:16px;line-height:26px;mso-line-height-rule:exactly;color:#52606E;">You&#8217;ve got your own corner of the map now: a place for the flights you take to see each other, the countdowns in between, and the memories you make when you&#8217;re finally in the same city.</td></tr>
         <tr><td class="sp" style="padding:28px 48px 0 48px;">
           <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;">
@@ -63,18 +79,25 @@
           </table>
         </td></tr>
         <tr><td class="sp" style="padding:28px 48px 0 48px;">
-          <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" href="{{ .OpenURL }}" style="height:50px;v-text-anchor:middle;width:200px;" arcsize="50%" stroke="f" fillcolor="#1767D0"><center style="color:#FFFFFF;font-family:Arial,sans-serif;font-size:16px;font-weight:bold;">Open Twofold</center></v:roundrect><![endif]-->
+          <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" href="${OPEN_URL}" style="height:50px;v-text-anchor:middle;width:200px;" arcsize="50%" stroke="f" fillcolor="#1767D0"><center style="color:#FFFFFF;font-family:Arial,sans-serif;font-size:16px;font-weight:bold;">Open Twofold</center></v:roundrect><![endif]-->
           <!--[if !mso]><!--><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
             <td bgcolor="#1767D0" style="background-color:#1767D0;background-image:linear-gradient(135deg,#1A6FD6 0%,#1F49B8 100%);border-radius:999px;">
-              <a href="{{ .OpenURL }}" style="display:block;padding:15px 32px;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',Arial,Helvetica,sans-serif;font-size:16px;font-weight:bold;line-height:20px;color:#FFFFFF;text-decoration:none;">Open Twofold</a>
+              <a href="${OPEN_URL}" style="display:block;padding:15px 32px;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',Arial,Helvetica,sans-serif;font-size:16px;font-weight:bold;line-height:20px;color:#FFFFFF;text-decoration:none;">Open Twofold</a>
             </td></tr></table><!--<![endif]-->
         </td></tr>
         <tr><td class="sp body" style="padding:28px 48px 0 48px;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;mso-line-height-rule:exactly;color:#52606E;">Questions, or something not working? Reply to this email and a real person will get back to you.</td></tr>
+        <tr><td class="sp" style="padding:24px 48px 0 48px;">
+          <table role="presentation" class="well" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;background-color:#F6F9FC;border-radius:16px;border:1px solid #E3EAF0;">
+            <tr><td class="body" style="padding:16px 20px;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#52606E;">
+              <strong class="ink" style="color:#0E1A26;">Didn&#8217;t sign up for this?</strong> Someone may have mistyped their own email address and reached yours instead. Reply to this email or write to <a class="lnk" href="mailto:${SUPPORT_EMAIL}" style="color:#1767D0;">${SUPPORT_EMAIL}</a> and we&#8217;ll remove the account. Nobody can read your email or act as you: the address was only typed in, never confirmed.
+            </td></tr>
+          </table>
+        </td></tr>
         <tr><td style="height:40px;line-height:40px;font-size:0;">&nbsp;</td></tr>
       </table>
     </td></tr>
     <tr><td align="center" class="sp body" style="padding:26px 40px 0 40px;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',Arial,Helvetica,sans-serif;font-size:13px;line-height:20px;mso-line-height-rule:exactly;color:#52606E;">
-      You&#8217;re receiving this because you created a Twofold account with {{ .Email }}.
+      You&#8217;re receiving this because you created a Twofold account with ${email}. <a class="lnk" href="${preferencesUrl}" style="color:#1767D0;">Email preferences</a>
     </td></tr>
     <tr><td align="center" class="body" style="padding:10px 40px 0 40px;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',Arial,Helvetica,sans-serif;font-size:13px;line-height:20px;color:#52606E;">
       Twofold, made for the couples doing long distance.<br><a class="lnk" href="https://www.twofoldapp.com.au" style="color:#1767D0;text-decoration:none;">twofoldapp.com.au</a>
@@ -83,4 +106,5 @@
 </td></tr>
 </table>
 </body>
-</html>
+</html>`;
+}

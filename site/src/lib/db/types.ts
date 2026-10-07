@@ -535,6 +535,30 @@ export type Database = {
           },
         ]
       }
+      email_preferences: {
+        Row: {
+          email: string
+          feedback_updates: boolean
+          product_news: boolean
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          email: string
+          feedback_updates?: boolean
+          product_news?: boolean
+          token?: string
+          updated_at?: string
+        }
+        Update: {
+          email?: string
+          feedback_updates?: boolean
+          product_news?: boolean
+          token?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       faq_entries: {
         Row: {
           answer: string
@@ -833,6 +857,29 @@ export type Database = {
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      feedback_confirmations: {
+        Row: {
+          feature_id: string
+          sent_at: string
+        }
+        Insert: {
+          feature_id: string
+          sent_at?: string
+        }
+        Update: {
+          feature_id?: string
+          sent_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_confirmations_feature_id_fkey"
+            columns: ["feature_id"]
+            isOneToOne: true
+            referencedRelation: "feature_requests"
             referencedColumns: ["id"]
           },
         ]
@@ -2894,6 +2941,10 @@ export type Database = {
           projected_list_usd: number
         }[]
       }
+      apply_email_preference: {
+        Args: { p_email: string; p_enabled: boolean; p_list: string }
+        Returns: undefined
+      }
       archive_retention_interval: { Args: never; Returns: string }
       attach_support_attachments: {
         Args: { p_ids: string[]; p_request_id: string }
@@ -2905,6 +2956,18 @@ export type Database = {
         Returns: boolean
       }
       can_see_flight: { Args: { target_flight_id: string }; Returns: boolean }
+      claim_feedback_confirmation: {
+        Args: { p_feature_id: string }
+        Returns: {
+          category: string
+          description: string
+          display_name: string
+          email: string
+          slug: string
+          title: string
+          token: string
+        }[]
+      }
       close_dormant_account: {
         Args: { p_profile_id: string }
         Returns: undefined
@@ -2971,6 +3034,19 @@ export type Database = {
           profile_id: string
           stage: string
         }[]
+      }
+      email_preferences_by_token: {
+        Args: { p_token: string }
+        Returns: {
+          android_waitlist: boolean
+          feedback_updates: boolean
+          masked_email: string
+          product_news: boolean
+        }[]
+      }
+      email_preferences_token_for: {
+        Args: { p_email: string }
+        Returns: string
       }
       enable_flight_tracking: { Args: { p_flight_id: string }; Returns: Json }
       fetch_my_outgoing_connection_request: {
@@ -3110,6 +3186,13 @@ export type Database = {
       is_couple_member: { Args: { target_couple_id: string }; Returns: boolean }
       is_feedback_admin: { Args: { check_id?: string }; Returns: boolean }
       is_support_admin: { Args: { check_id?: string }; Returns: boolean }
+      join_android_waitlist: {
+        Args: { p_email: string }
+        Returns: {
+          status: string
+          token: string
+        }[]
+      }
       leave_couple: {
         Args: { p_couple_id: string }
         Returns: {
@@ -3200,6 +3283,15 @@ export type Database = {
         Returns: undefined
       }
       my_admin_roles: { Args: never; Returns: Json }
+      my_email_preferences: {
+        Args: never
+        Returns: {
+          android_waitlist: boolean
+          email: string
+          feedback_updates: boolean
+          product_news: boolean
+        }[]
+      }
       my_subscription_history: { Args: never; Returns: Json }
       places_by_ids: {
         Args: { p_ids: string[] }
@@ -3398,6 +3490,14 @@ export type Database = {
       }
       set_couple_archive_hidden: {
         Args: { p_couple_id: string; p_hidden: boolean }
+        Returns: undefined
+      }
+      set_email_preference_by_token: {
+        Args: { p_enabled: boolean; p_list: string; p_token: string }
+        Returns: boolean
+      }
+      set_my_email_preference: {
+        Args: { p_enabled: boolean; p_list: string }
         Returns: undefined
       }
       show_limit: { Args: never; Returns: number }

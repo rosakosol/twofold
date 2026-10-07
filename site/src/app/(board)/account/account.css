@@ -243,3 +243,36 @@
     width: 100%;
   }
 }
+
+/* ---------- Email preferences ---------- */
+
+.account-prefs {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.account-pref {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 60px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+  cursor: pointer;
+}
+.account-pref:first-of-type {
+  border-top: 0;
+}
+.account-pref > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--text-small);
+  color: var(--text-secondary);
+}
+.account-pref strong {
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--text);
+}

@@ -4,6 +4,8 @@
     {{ .Email }}            The address they signed up with.
     {{ .UnsubscribeURL }}   One-click removal from the waitlist. Keep it: the launch email
                             that follows is promotional, so Australia's Spam Act needs a way out.
+  Sent by site/src/app/api/waitlist/route.ts. The link leaves the waitlist for this address, by its
+  token, and the message also carries a one-click List-Unsubscribe header to the same place.
 -->
 <!DOCTYPE html>
 <html lang="en" xmlns:v="urn:schemas-microsoft-com:vml">

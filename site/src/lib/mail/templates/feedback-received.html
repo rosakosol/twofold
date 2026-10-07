@@ -5,7 +5,10 @@
     {{ .Title }}         The request title, as they wrote it.
     {{ .Description }}   The description; trim to about 240 characters. Remove the row if empty.
     {{ .Category }}      One of Flights, Memories, Games, Widgets, Notifications, Relationship, General.
-    {{ .RequestURL }}    Link to the request on twofoldapp.com.au/feedback.
+    {{ .RequestURL }}       Link to the request on twofoldapp.com.au/feedback.
+    {{ .UnsubscribeURL }}   Turns off feedback updates for this address, from its token.
+    {{ .PreferencesURL }}   The email preferences on twofoldapp.com.au/account.
+  Sent by site/src/app/api/feedback/confirm/route.ts. Every value is HTML-escaped before it goes in.
 -->
 <!DOCTYPE html>
 <html lang="en" xmlns:v="urn:schemas-microsoft-com:vml">
@@ -76,7 +79,8 @@
       </table>
     </td></tr>
     <tr><td align="center" class="sp body" style="padding:26px 40px 0 40px;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',Arial,Helvetica,sans-serif;font-size:13px;line-height:20px;mso-line-height-rule:exactly;color:#52606E;">
-      You&#8217;re receiving this because you posted a request on the Twofold Feedback board.
+      You&#8217;re receiving this because you posted a request on the Twofold Feedback board.<br>
+      <a class="lnk" href="{{ .UnsubscribeURL }}" style="color:#1767D0;">Unsubscribe from feedback updates</a> &middot; <a class="lnk" href="{{ .PreferencesURL }}" style="color:#1767D0;">Email preferences</a>
     </td></tr>
     <tr><td align="center" class="body" style="padding:10px 40px 0 40px;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',Arial,Helvetica,sans-serif;font-size:13px;line-height:20px;color:#52606E;">
       Twofold, made for the couples doing long distance.<br><a class="lnk" href="https://www.twofoldapp.com.au" style="color:#1767D0;text-decoration:none;">twofoldapp.com.au</a>

@@ -33,7 +33,17 @@ export function useCreateFeature() {
 
       throw new Error("Couldn't generate a unique slug after several attempts.");
     },
-    onSuccess: () => {
+    onSuccess: (created) => {
+      // The "your idea is on the board" email. Sent from the server, as this person, and only
+      // once (see /api/feedback/confirm); not awaited, because the request is posted either way
+      // and an email that fails to send is not a reason to tell anyone it didn't post.
+      if (created?.id) {
+        void fetch("/api/feedback/confirm", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ featureId: created.id }),
+        }).catch(() => {});
+      }
       // "list" (the old infinite-scroll query) and "roadmap" (what the board's flat
       // list + roadmap sections actually render from) both need invalidating so a new
       // request shows up immediately without a manual refresh.

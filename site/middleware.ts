@@ -23,6 +23,8 @@ export const config = {
     "/account/:path*",
     "/admin/:path*",
     "/feedback/:path*",
+    // The feedback confirmation email reads the poster's session.
+    "/api/feedback/:path*",
     "/studio/:path*",
     "/auth/:path*",
   ],
