@@ -4,10 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2, TriangleAlert } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import { APPLE_SUBSCRIPTIONS_URL, longDate } from "@/lib/account/subscription";
 
@@ -70,109 +66,111 @@ export function DangerZone({
   }
 
   return (
-    <Card className="border-destructive/40">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <TriangleAlert className="h-4 w-4 text-destructive" />
+    <section className="account-card is-danger" aria-labelledby="delete-title">
+      <div className="account-card-head">
+        <h2 id="delete-title">
+          <TriangleAlert aria-hidden />
           Delete your account
-        </CardTitle>
-        <CardDescription>This cannot be undone.</CardDescription>
-      </CardHeader>
+        </h2>
+      </div>
+      <p className="account-danger-lead">This cannot be undone.</p>
 
-      <CardContent className="space-y-4">
-        <ul className="space-y-2 text-sm text-muted-foreground">
-          <li>
-            Your name, photo, and login are permanently removed. You won&apos;t be able to sign back
-            in.
-          </li>
-          {/* Three states, matching DeleteAccountView: a live partner, an old archive, or neither.
-              The web had only the first two, so the archive sentence was shown to everybody without
-              a live partner — including somebody who has never connected to anyone, who was told
-              their history "stays with the person you shared it with" about a person who does not
-              exist. The app has always hidden these rows from that person for exactly that reason.
+      <ul className="account-consequences">
+        <li>
+          Your name, photo, and login are permanently removed. You won&apos;t be able to sign back
+          in.
+        </li>
+        {/* Three states, matching DeleteAccountView: a live partner, an old archive, or neither.
+            The web had only the first two, so the archive sentence was shown to everybody without
+            a live partner — including somebody who has never connected to anyone, who was told
+            their history "stays with the person you shared it with" about a person who does not
+            exist. The app has always hidden these rows from that person for exactly that reason.
 
-              The archive case gets its purge date rather than "90 days". Its clock started when the
-              connection dissolved, not today, so counting 90 from here would be wrong — and
-              `scheduled_purge_at` is the same date the app's Archived Data screen shows, which is
-              the point of reading it rather than computing one. */}
-          {hasPartner ? (
-            <>
-              <li>
-                Trips, memories, and photos you shared with {name} stay with them — deleting your
-                account doesn&apos;t erase their side of a shared history.
-              </li>
-              <li>
-                Deleting your account ends your connection, and your shared history is permanently
-                deleted for both of you 90 days after that. Nobody can bring that forward, and
-                nobody can extend it.
-              </li>
-            </>
-          ) : archivedCount > 0 ? (
+            The archive case gets its purge date rather than "90 days". Its clock started when the
+            connection dissolved, not today, so counting 90 from here would be wrong — and
+            `scheduled_purge_at` is the same date the app's Archived Data screen shows, which is
+            the point of reading it rather than computing one. */}
+        {hasPartner ? (
+          <>
             <li>
-              {archivedCount === 1
-                ? "Your archived history stays with the person you shared it with"
-                : "Your archived histories stay with the people you shared them with"}
-              , and {archivedCount === 1 ? "is" : "are"} permanently deleted
-              {longDate(earliestArchivePurgeAt)
-                ? ` on the date already set for ${archivedCount === 1 ? "it" : "the first of them"}, ${longDate(earliestArchivePurgeAt)}`
-                : " on the date already set"}
-              . Deleting your account doesn&apos;t erase their side of it, and doesn&apos;t change
-              that date.
+              Trips, memories, and photos you shared with {name} stay with them — deleting your
+              account doesn&apos;t erase their side of a shared history.
             </li>
-          ) : (
-            /* Never connected to anyone — so no shared history, no archive, and no 90-day clock,
-               because that clock belongs to an archive and they have none. Their solo games go
-               immediately: 20261111001100 made `scrub_account` delete them, on the grounds that
-               there is no second person whose history they also are, which is the only reason
-               anything gets an archive instead of a deletion. */
             <li>
-              You&apos;ve never been connected to a partner, so there&apos;s no shared history and
-              nothing waits 90 days. The games you played on your own are deleted with your account.
+              Deleting your account ends your connection, and your shared history is permanently
+              deleted for both of you 90 days after that. Nobody can bring that forward, and
+              nobody can extend it.
             </li>
-          )}
+          </>
+        ) : archivedCount > 0 ? (
           <li>
-            If you want to keep a copy, export it from the app before you delete your account — you
-            won&apos;t be able to sign in to get it afterwards.
+            {archivedCount === 1
+              ? "Your archived history stays with the person you shared it with"
+              : "Your archived histories stay with the people you shared them with"}
+            , and {archivedCount === 1 ? "is" : "are"} permanently deleted
+            {longDate(earliestArchivePurgeAt)
+              ? ` on the date already set for ${archivedCount === 1 ? "it" : "the first of them"}, ${longDate(earliestArchivePurgeAt)}`
+              : " on the date already set"}
+            . Deleting your account doesn&apos;t erase their side of it, and doesn&apos;t change
+            that date.
           </li>
-          {storeManagedSubscription && (
-            // The one thing deletion genuinely cannot do for them. delete-account cancels a website
-            // subscription before it deletes anything, and refuses to proceed if it can't — but an
-            // App Store subscription is Apple's, and saying nothing here would leave somebody
-            // paying for an account that no longer exists.
-            <li className="text-destructive">
-              Your subscription was bought through an app store, so deleting your account does not
-              cancel it. Cancel it yourself first —{" "}
-              <a
-                href={APPLE_SUBSCRIPTIONS_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline"
-              >
-                manage subscriptions
-              </a>
-              .
-            </li>
-          )}
-        </ul>
+        ) : (
+          /* Never connected to anyone — so no shared history, no archive, and no 90-day clock,
+             because that clock belongs to an archive and they have none. Their solo games go
+             immediately: 20261111001100 made `scrub_account` delete them, on the grounds that
+             there is no second person whose history they also are, which is the only reason
+             anything gets an archive instead of a deletion. */
+          <li>
+            You&apos;ve never been connected to a partner, so there&apos;s no shared history and
+            nothing waits 90 days. The games you played on your own are deleted with your account.
+          </li>
+        )}
+        <li>
+          If you want to keep a copy, export it from the app before you delete your account — you
+          won&apos;t be able to sign in to get it afterwards.
+        </li>
+        {storeManagedSubscription && (
+          // The one thing deletion genuinely cannot do for them. delete-account cancels a website
+          // subscription before it deletes anything, and refuses to proceed if it can't — but an
+          // App Store subscription is Apple's, and saying nothing here would leave somebody
+          // paying for an account that no longer exists.
+          <li className="account-consequence-warning">
+            Your subscription was bought through an app store, so deleting your account does not
+            cancel it. Cancel it yourself first —{" "}
+            <a
+              href={APPLE_SUBSCRIPTIONS_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline"
+            >
+              manage subscriptions
+            </a>
+            .
+          </li>
+        )}
+      </ul>
 
-        <div className="space-y-1.5 pt-2">
-          <Label htmlFor="confirm-email">
-            Type <span className="font-mono">{email}</span> to confirm
-          </Label>
-          <Input
-            id="confirm-email"
-            autoComplete="off"
-            value={confirmation}
-            onChange={(e) => setConfirmation(e.target.value)}
-            disabled={isDeleting}
-          />
-        </div>
+      <div className="field account-confirm">
+        <label className="field-label" htmlFor="confirm-email">
+          Type <span className="account-email">{email}</span> to confirm
+        </label>
+        <input
+          id="confirm-email"
+          className="input"
+          autoComplete="off"
+          spellCheck={false}
+          value={confirmation}
+          onChange={(e) => setConfirmation(e.target.value)}
+          disabled={isDeleting}
+        />
+      </div>
 
-        <Button variant="destructive" disabled={!canDelete || isDeleting} onClick={handleDelete}>
-          {isDeleting && <Loader2 className="h-4 w-4 animate-spin" />}
+      <div className="account-actions">
+        <button type="button" className="btn btn-danger" disabled={!canDelete || isDeleting} onClick={handleDelete}>
+          {isDeleting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
           Delete my account
-        </Button>
-      </CardContent>
-    </Card>
+        </button>
+      </div>
+    </section>
   );
 }

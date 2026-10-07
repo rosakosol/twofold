@@ -17,5 +17,6 @@ export default async function AccountLayout({ children }: { children: React.Reac
   const { data } = await supabase.auth.getUser();
   if (!data.user) redirect("/auth/sign-in?next=/account");
 
-  return <div className="mx-auto max-w-2xl px-4 py-10">{children}</div>;
+  // The page sets its own column (account.css): 760px, centred, per the website spec.
+  return children;
 }

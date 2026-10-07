@@ -154,7 +154,10 @@ export function longDate(iso: string | null): string | null {
   if (!iso) return null;
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+  // Australian format in Australian time, "1 October 2026" (docs/TWOFOLD_WEBSITE.md, section 9.1).
+  // `undefined` meant the server's locale and zone, which on Vercel is US English in UTC: an
+  // "October 1, 2026" for a renewal that falls on the 2nd in Melbourne.
+  return date.toLocaleDateString("en-AU", { year: "numeric", month: "long", day: "numeric", timeZone: "Australia/Melbourne" });
 }
 
 /** Apple's own subscription management page. Works on desktop and deep-links on iOS. */

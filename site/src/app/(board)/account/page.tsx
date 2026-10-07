@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import "./account.css";
 import { createClient } from "@/lib/supabase/server";
 import { SubscriptionCard } from "@/components/account/SubscriptionCard";
 import { PartnerCard } from "@/components/account/PartnerCard";
@@ -81,19 +82,28 @@ export default async function AccountPage() {
     expiresAt: profile?.subscription_expires_at ?? null,
   };
 
+  const email = user.email ?? "";
+  const initials = (profile?.first_name?.charAt(0) || email.charAt(0) || "?").toUpperCase();
+
   return (
-    <div className="space-y-8">
-      <header>
-        <h1 className="board-page-title">Your account</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {profile?.first_name ? `${profile.first_name} · ` : ""}
-          {user.email}
-        </p>
+    <div className="account-page">
+      <header className="account-head">
+        <span className="account-avatar" aria-hidden>
+          {initials}
+        </span>
+        <div>
+          <h1>Your account</h1>
+          <p>
+            {profile?.first_name ? `${profile.first_name}, ` : ""}
+            {email}
+          </p>
+        </div>
       </header>
 
-      <SubscriptionCard snapshot={snapshot} history={history} />
+      <SubscriptionCard snapshot={snapshot} history={history} userId={user.id} />
 
       <PartnerCard
+        myName={profile?.first_name || email}
         partnerName={partner?.first_name || null}
         togetherSince={couple?.started_dating_on ?? null}
         coupleId={couple?.id ?? null}

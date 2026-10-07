@@ -83,6 +83,16 @@
   background: var(--surface-raised);
 }
 
+/* The one destructive action on a page, such as deleting an account. */
+.btn-danger {
+  color: var(--on-accent);
+  background: var(--error);
+}
+.btn-danger:hover {
+  color: var(--on-accent);
+  filter: brightness(1.06);
+}
+
 /* For a button on a coloured gradient card, where an outline would read against the colour
    rather than the page. */
 .btn-white {

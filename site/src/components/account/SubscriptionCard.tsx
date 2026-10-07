@@ -1,11 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ExternalLink, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  ArrowLeftRight,
+  CalendarClock,
+  CheckCircle2,
+  ExternalLink,
+  HeartHandshake,
+  Loader2,
+  Store,
+  XCircle,
+} from "lucide-react";
+import { StatusPill } from "@/components/site/StatusPill";
+import { APP_STORE_URL } from "@/lib/marketing/config";
+import { fetchCustomerInfo } from "@/lib/marketing/billing";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,11 +47,29 @@ import {
 export function SubscriptionCard({
   snapshot,
   history,
+  userId,
 }: {
   snapshot: SubscriptionSnapshot;
   history: SubscriptionHistory;
+  /** For RevenueCat's billing page link, which a web subscription changes plan on. */
+  userId: string;
 }) {
   const control = subscriptionControl(snapshot);
+  // RevenueCat's own management page for a web subscription: cancelling, the card, receipts, and
+  // moving between Plus and Premium once those paths are set up in the RevenueCat dashboard
+  // (Product catalog, Subscription changes). Only fetched for a web subscription; null until it
+  // arrives, or if it cannot be had, when the card points at the receipt emails instead.
+  const [billingUrl, setBillingUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (control.kind !== "web") return;
+    let cancelled = false;
+    fetchCustomerInfo(userId).then((info) => {
+      if (!cancelled) setBillingUrl(info?.managementURL ?? null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [control.kind, userId]);
   const [isCancelling, setIsCancelling] = useState(false);
   // Set once the request succeeds. The row is NOT updated here — RevenueCat is the source of truth
   // and its webhook is the only writer — so the card reports what was asked for rather than
@@ -65,205 +92,191 @@ export function SubscriptionCard({
     toast.success("Your subscription won't renew.");
   }
 
+  const status = snapshot.active ? (
+    <StatusPill tone="success" icon={<CheckCircle2 />}>
+      {snapshot.isTrial === true ? "Free trial" : "Active"}
+    </StatusPill>
+  ) : history.everSubscribed ? (
+    <StatusPill tone="error" icon={<XCircle />}>
+      {endedBadgeLabel(history)}
+    </StatusPill>
+  ) : null;
+
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <CardTitle>Subscription</CardTitle>
-            {/* A node rather than a string, so a lapsed subscription can wear its status as a badge
-                — "Twofold", then Cancelled, then the date it stopped. The sentence in the body says
-                which tier it was and that it ended; repeating "ended <date>" up here as well said
-                the same thing twice in two different shapes. */}
-            <CardDescription className="flex flex-wrap items-center gap-1.5">
-              {snapshot.active ? (
-                activeSummary(snapshot)
-              ) : !history.everSubscribed ? (
-                "No subscription"
-              ) : (
-                <>
-                  Twofold
-                  {/* Red, because this is the one state on the card that costs the person
-                      something. "Cancelled" only when they chose to stop — see endedBadgeLabel. */}
-                  <Badge variant="destructive">{endedBadgeLabel(history)}</Badge>
-                  {longDate(history.endedAt)}
-                </>
-              )}
-            </CardDescription>
-          </div>
-          <div className="flex shrink-0 gap-2">
-            {/* Only on a positive `true`. Null means the webhook has not spoken for this
-                subscription yet, and a "Free trial" badge on somebody who is actually paying is a
-                worse error than no badge at all. */}
-            {snapshot.active && snapshot.isTrial === true && <Badge>Free trial</Badge>}
-            {snapshot.active && <Badge variant="secondary">{tierLabel(snapshot.tier)}</Badge>}
-          </div>
-        </div>
-      </CardHeader>
+    <section className="account-card" aria-labelledby="subscription-title">
+      <div className="account-card-head">
+        <h2 id="subscription-title">Subscription</h2>
+        {status}
+      </div>
 
-      <CardContent className="space-y-4">
-        {/* No free plan to be "on". Either a subscription is running or it is not, and for somebody
-            whose subscription has ended the useful thing is that fact and its date, not the name of
-            a tier that does not exist.
-
-            Three readings, because `endedAt` is null both while a subscription runs and for an
-            ending that was never recorded — see SubscriptionHistory. A guessed date is worse than
-            admitting there isn't one, since nobody reading a wrong date can tell it is wrong. */}
-        {control.kind === "none" && (
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              {!history.everSubscribed ? (
-                "You don't have a subscription."
-              ) : (
-                <>
-                  Your {history.lastTier ? tierLabel(history.lastTier) : "Twofold"} subscription
-                  {history.endedReason === "lapsed" ? " lapsed" : " ended"}
-                  {longDate(history.endedAt) ? ` on ${longDate(history.endedAt)}` : ""}
-                  {history.endedReason === "lapsed"
-                    ? " because a payment didn't go through."
-                    : "."}{" "}
-                  Resubscribe to get access to all of Twofold&apos;s features in the app again.
-                </>
-              )}
-            </p>
-            <Button render={<a href="/pricing">{history.everSubscribed ? "Resubscribe" : "See plans"}</a>} />
-          </div>
-        )}
-
-        {/* When the next payment is, or when access runs out. Shown for every active subscription
-            regardless of who sells it, because the date is a fact about the person's subscription
-            rather than about what this page can do to it — and it is the question the card was most
-            often failing to answer. Null for a grant that never expires. */}
-        {snapshot.active && renewalLine(snapshot) && (
-          <p className="text-sm text-muted-foreground">{renewalLine(snapshot)}</p>
-        )}
-
-        {control.kind === "web" && !requested && snapshot.willRenew !== false && (
+      {control.kind === "none" ? (
+        /* No free plan to be "on". For somebody whose subscription has ended, the useful thing is
+           that fact and its date. `endedAt` is null for an ending that was never recorded, and a
+           guessed date is worse than none. */
+        !history.everSubscribed ? (
           <>
-            {/* Three readings, not two. `isTrial` is null when the webhook has not yet seen this
-                subscription, and null is not false.
-
-                The trial sentence says what is certainly true — no charge — rather than when access
-                stops, which is not established. RevenueCat documents a paid period as running to its
-                end and says nothing about trials. An earlier version of this claimed access ended
-                immediately, on the strength of a sandbox subscription that looked like it: sandbox
-                compresses a fourteen-day trial to about four minutes and a month to five, so a
-                cancellation forty minutes in had in fact converted and renewed a dozen times, and was
-                ending at an ordinary period boundary. Worth knowing before trusting any duration
-                measured against test data. */}
-            {/* Bought here, so cancelling is ours to do. Changing tier is not — there is no
-                upgrade path on this page, and sending somebody to /pricing to buy a second
-                subscription would be the wrong answer, so it says where that actually happens. */}
-            <p className="text-sm text-muted-foreground">
-              You bought this on the website, so you can cancel it here. To move between Plus and
-              Premium, use the subscription screen in the app.
+            <p className="account-plan">No subscription</p>
+            <p className="account-muted">You don&apos;t have a subscription.</p>
+            <div className="account-actions">
+              <a className="btn btn-primary" href="/pricing">
+                See plans
+              </a>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="account-plan">
+              {history.lastTier ? tierLabel(history.lastTier) : "Twofold"}{" "}
+              {history.endedReason === "lapsed" ? "lapsed" : "ended"}
+              {longDate(history.endedAt) ? ` on ${longDate(history.endedAt)}` : ""}
             </p>
-            <p className="text-sm text-muted-foreground">
-              {snapshot.isTrial === true
-                ? "Cancelling ends your free trial, so you won't be charged."
-                : snapshot.isTrial === false
-                  ? "Cancelling stops the renewal. You keep everything until the end of the period you've already paid for."
-                  : "Cancelling stops the renewal, and if you're still in your free trial you won't be charged. Anything you've already paid for stays yours until the end of that period."}
+            <p className="account-muted">
+              {history.endedReason === "lapsed" ? "A payment didn't go through. " : ""}
+              Resubscribe to get access to all of Twofold&apos;s features in the app again.
             </p>
-            <AlertDialog>
-              <AlertDialogTrigger
-                render={
-                  <Button variant="outline" disabled={isCancelling}>
-                    {isCancelling && <Loader2 className="h-4 w-4 animate-spin" />}
-                    Cancel subscription
-                  </Button>
-                }
-              />
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Cancel your subscription?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {snapshot.isTrial === true
-                      ? `Your free trial won't convert, so you won't be charged for ${tierLabel(snapshot.tier)}.`
+            <ul className="account-rows">
+              <li>
+                <span className="account-row-icon" aria-hidden>
+                  <HeartHandshake />
+                </span>
+                <span>
+                  <strong>Your trips and memories are still there</strong>
+                  They stay exactly where they are. You can still open the app, read everything and export it;
+                  adding new things needs a subscription.
+                </span>
+              </li>
+            </ul>
+            <div className="account-actions">
+              <a className="btn btn-primary" href="/pricing">
+                Resubscribe
+              </a>
+              <a className="btn btn-secondary" href="/pricing#compare">
+                See plans
+              </a>
+            </div>
+          </>
+        )
+      ) : (
+        <>
+          <p className="account-plan">{tierLabel(snapshot.tier)}</p>
+          <ul className="account-rows">
+            {/* When the next payment is, or when access runs out, whoever sells it. */}
+            {renewalLine(snapshot) && (
+              <li>
+                <span className="account-row-icon" aria-hidden>
+                  <CalendarClock />
+                </span>
+                <span>
+                  <strong>{renewalLine(snapshot)}</strong>
+                  {control.kind === "web" && (requested || snapshot.willRenew === false)
+                    ? `This subscription won't renew, so there's nothing more to pay. You keep ${tierLabel(snapshot.tier)} until the end of the period you've paid for.`
+                    : snapshot.isTrial === true
+                      ? "Cancelling ends your free trial, so you won't be charged."
                       : snapshot.isTrial === false
-                        ? `It won't renew, and you'll keep ${tierLabel(snapshot.tier)} until the end of the period you've paid for.`
-                        : `It won't renew. If you're still in your free trial you won't be charged; otherwise you keep ${tierLabel(snapshot.tier)} until the end of the period you've paid for.`}
-                    {" "}
-                    If you&apos;re connected to a partner, they&apos;re covered by your subscription
-                    too and will lose it at the same time.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Keep it</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleCancel}>Cancel subscription</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </>
-        )}
-
-        {control.kind === "web" && (requested || snapshot.willRenew === false) && (
-          <p className="text-sm text-muted-foreground">
-            This subscription won&apos;t renew, so there&apos;s nothing more to pay. You keep{" "}
-            {tierLabel(snapshot.tier)} until the end of the period you&apos;ve paid for.
-          </p>
-        )}
-
-        {control.kind === "grant" && (
-          // Nothing to offer and nothing to warn about: a grant is not a purchase, so there is no
-          // renewal to stop, no card to fail, and no storefront to send anybody to.
-          <p className="text-sm text-muted-foreground">
-            This was given to you rather than bought, so there&apos;s nothing to pay and nothing to
-            cancel.
-          </p>
-        )}
-
-        {control.kind === "elsewhere" && (
-          <>
-            {/* What can be done where, rather than only what cannot be done here. The old sentence
-                stopped at "we can't cancel it for you", which leaves somebody who came to cancel
-                knowing only that they are in the wrong place. */}
-            <p className="text-sm text-muted-foreground">
-              You bought this through {control.storeLabel}, so {control.storeLabel} handles it —
-              cancelling, changing plan and your receipts all live there. We can&apos;t cancel it
-              for you from here, and a subscription cancelled there stops renewing everywhere,
-              including in the app.
-            </p>
-            {control.appleLink && (
-              <Button variant="outline" render={
-                <a href={APPLE_SUBSCRIPTIONS_URL} target="_blank" rel="noopener noreferrer">
-                  Manage in the App Store
-                  <ExternalLink className="h-4 w-4" />
-                </a>
-              } />
+                        ? "Cancelling stops the renewal. You keep everything until the end of the period you've already paid for."
+                        : "Cancelling stops the renewal, and if you're still in your free trial you won't be charged. Anything you've already paid for stays yours until the end of that period."}
+                </span>
+              </li>
             )}
-          </>
-        )}
+            <li>
+              <span className="account-row-icon" aria-hidden>
+                <Store />
+              </span>
+              <span>
+                {control.kind === "web" ? (
+                  <>
+                    <strong>Bought on the website</strong>
+                    So you can cancel it here.
+                  </>
+                ) : control.kind === "elsewhere" ? (
+                  <>
+                    <strong>Bought through {control.storeLabel}</strong>
+                    So {control.storeLabel} handles cancelling, changing plan and your receipts. A subscription
+                    cancelled there stops renewing everywhere, including in the app.
+                  </>
+                ) : control.kind === "grant" ? (
+                  <>
+                    <strong>Given to you</strong>
+                    It wasn&apos;t bought, so there&apos;s nothing to pay and nothing to cancel.
+                  </>
+                ) : (
+                  <>
+                    <strong>We can&apos;t tell where this was bought</strong>
+                    So we can&apos;t safely cancel it for you. Email{" "}
+                    <a href="mailto:support@twofoldapp.com.au">support@twofoldapp.com.au</a> and we&apos;ll sort it
+                    out.
+                  </>
+                )}
+              </span>
+            </li>
+            {(control.kind === "web" || control.kind === "elsewhere") && (
+              <li>
+                <span className="account-row-icon" aria-hidden>
+                  <ArrowLeftRight />
+                </span>
+                <span>
+                  <strong>Changing plan</strong>
+                  {/* Where it was bought is where it changes: a web subscription on its billing page,
+                      an App Store one in the app. */}
+                  {control.kind === "web"
+                    ? billingUrl
+                      ? "Move between Plus and Premium on your billing page."
+                      : "Move between Plus and Premium from the billing page linked in your receipt emails."
+                    : "Move between Plus and Premium from the subscription screen in the app."}
+                </span>
+              </li>
+            )}
+          </ul>
 
-        {control.kind === "unknown" && (
-          // Deliberately offers nothing. A subscription we cannot place is one we cannot promise to
-          // cancel, and a button that might silently fail is worse than a sentence that admits it.
-          <p className="text-sm text-muted-foreground">
-            You&apos;re subscribed, but we can&apos;t tell from here where it was bought — so we
-            can&apos;t safely cancel it for you. Email{" "}
-            <a href="mailto:support@twofoldapp.com.au" className="underline">
-              support@twofoldapp.com.au
-            </a>{" "}
-            and we&apos;ll sort it out.
-          </p>
-        )}
-      </CardContent>
-    </Card>
+          <div className="account-actions">
+            {control.kind === "web" && billingUrl && (
+              <a className="btn btn-secondary" href={billingUrl} target="_blank" rel="noopener noreferrer">
+                Change plan
+                <ExternalLink aria-hidden />
+              </a>
+            )}
+            {control.kind === "web" && !requested && snapshot.willRenew !== false && (
+              <AlertDialog>
+                <AlertDialogTrigger
+                  render={
+                    <button type="button" className="btn btn-secondary" disabled={isCancelling}>
+                      {isCancelling && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
+                      Cancel subscription
+                    </button>
+                  }
+                />
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Cancel your subscription?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {snapshot.isTrial === true
+                        ? `Your free trial won't convert, so you won't be charged for ${tierLabel(snapshot.tier)}.`
+                        : snapshot.isTrial === false
+                          ? `It won't renew, and you'll keep ${tierLabel(snapshot.tier)} until the end of the period you've paid for.`
+                          : `It won't renew. If you're still in your free trial you won't be charged; otherwise you keep ${tierLabel(snapshot.tier)} until the end of the period you've paid for.`}{" "}
+                      If you&apos;re connected to a partner, they&apos;re covered by your subscription too and will lose it
+                      at the same time.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Keep it</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleCancel}>Cancel subscription</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+            {control.kind === "elsewhere" && control.appleLink && (
+              <a className="btn btn-secondary" href={APPLE_SUBSCRIPTIONS_URL} target="_blank" rel="noopener noreferrer">
+                Manage in the App Store
+                <ExternalLink aria-hidden />
+              </a>
+            )}
+            <a className="btn btn-primary" href={APP_STORE_URL} data-appstore-link>
+              Open Twofold
+            </a>
+          </div>
+        </>
+      )}
+    </section>
   );
-}
-
-/** The line under "Subscription" while one is running. The lapsed case is composed in the header
- *  instead, because it carries a badge and this returns a string. */
-function activeSummary(snapshot: SubscriptionSnapshot): string {
-  // A trial says so instead of "since September 2026", which reads as a settled subscription and is
-  // the one thing somebody on day two of a trial most needs to know about their own account. Only on
-  // a positive `true`, for the same reason the badge is: an unknown falls through to the date.
-  if (snapshot.isTrial === true) return `${tierLabel(snapshot.tier)}, free trial`;
-  if (!snapshot.startedAt) return `${tierLabel(snapshot.tier)}, active`;
-  const started = new Date(snapshot.startedAt);
-  if (Number.isNaN(started.getTime())) return `${tierLabel(snapshot.tier)}, active`;
-  return `${tierLabel(snapshot.tier)} since ${started.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "long",
-  })}`;
 }

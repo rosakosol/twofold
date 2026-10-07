@@ -1,0 +1,245 @@
+/* ============================================================
+   The account page (docs/TWOFOLD_WEBSITE.md, section 9.1): one centred 760px column of cards.
+   ============================================================ */
+
+.account-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+  max-width: calc(760px + 2 * var(--page-pad));
+  margin: 0 auto;
+  padding: 48px var(--page-pad) calc(var(--section-space) / 2);
+  font-size: var(--text-body);
+}
+
+.account-head {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 8px;
+}
+.account-avatar {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--grad-this);
+  color: var(--on-dark);
+  font-size: 1.5rem;
+  font-weight: 700;
+  flex: none;
+}
+.account-head h1 {
+  font-size: var(--text-h2);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: var(--tracking-h2);
+}
+.account-head p {
+  margin-top: 4px;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Cards ---------- */
+
+.account-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 28px 32px;
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.account-card.is-centred {
+  align-items: center;
+  text-align: center;
+}
+.account-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.account-card-head h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-small);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.account-plan {
+  font-size: 1.875rem;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.account-muted {
+  color: var(--text-secondary);
+}
+.account-fine {
+  font-size: var(--text-small);
+  color: var(--text-secondary);
+}
+
+/* The icon rows: renewal, where it was bought, how to change plan. */
+.account-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.account-rows li {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.account-rows li > span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--text-secondary);
+  font-size: var(--text-small);
+}
+.account-rows strong {
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--text);
+}
+.account-rows a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.account-row-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--accent-tint);
+  color: var(--accent);
+  flex: none;
+}
+.account-row-icon svg {
+  width: 19px;
+  height: 19px;
+}
+
+.account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+.account-card.is-centred .account-actions {
+  justify-content: center;
+}
+
+/* ---------- Partner ---------- */
+
+.account-partner {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.account-partner .account-plan {
+  font-size: var(--text-h3);
+}
+.account-pair {
+  display: flex;
+  align-items: center;
+  flex: none;
+}
+.account-pair .pv-avatar {
+  width: 52px;
+  height: 52px;
+  font-size: 1.125rem;
+}
+.account-pair-heart {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin: 0 -6px;
+  z-index: 1;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--coral);
+}
+.account-pair-heart svg {
+  width: 17px;
+  height: 17px;
+  fill: currentColor;
+}
+.account-pair-empty {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 1.5px dashed var(--control-line);
+}
+
+/* ---------- Delete ---------- */
+
+.account-card.is-danger {
+  border-color: color-mix(in srgb, var(--error) 45%, var(--line));
+}
+.account-card.is-danger h2 {
+  color: var(--error);
+}
+.account-card.is-danger h2 svg {
+  width: 17px;
+  height: 17px;
+}
+.account-danger-lead {
+  font-size: var(--text-h3);
+  font-weight: 700;
+  color: var(--text);
+}
+.account-consequences {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding-left: 1.2em;
+  color: var(--text-secondary);
+  font-size: var(--text-small);
+}
+.account-consequences li::marker {
+  color: var(--error);
+}
+.account-consequence-warning {
+  color: var(--error);
+}
+.account-consequence-warning a {
+  color: inherit;
+  text-decoration: underline;
+}
+.account-confirm {
+  margin-top: 8px;
+}
+.account-email {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 560px) {
+  .account-card {
+    padding: 22px 20px;
+  }
+  .account-partner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .account-actions .btn {
+    width: 100%;
+  }
+}
