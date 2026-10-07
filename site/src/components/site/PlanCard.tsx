@@ -17,20 +17,40 @@ function eachOf(priceLabel: string) {
  * (getResolvedPlans), which the app's paywall copy follows too; the layout and the card's own
  * lines are the spec's. The featured plan, Premium, is emphasised and carries the badge.
  *
- * `action` replaces the default link to /pricing?plan=, for the pricing page's own checkout.
+ * The pricing page passes the period and the live figures from the offering, and its own checkout
+ * button as `action`; the home page uses the monthly defaults and links to /pricing.
  */
-export function PlanCard({ plan, action }: { plan: ResolvedPlan; action?: React.ReactNode }) {
-  const each = eachOf(plan.monthly.priceLabel);
+export function PlanCard({
+  plan,
+  action,
+  period = "monthly",
+  monthlyFigure = period === "monthly" ? plan.monthly.priceLabel : plan.yearly.perMonthLabel,
+  yearlyTotal = plan.yearly.priceLabel,
+  saving = null,
+}: {
+  plan: ResolvedPlan;
+  action?: React.ReactNode;
+  period?: "monthly" | "yearly";
+  /** What it costs a month for the two of you: the monthly price, or the yearly price by month. */
+  monthlyFigure?: string;
+  yearlyTotal?: string;
+  /** The yearly saving in percent, shown on the card in yearly mode. */
+  saving?: number | null;
+}) {
+  const each = eachOf(monthlyFigure);
   return (
     <article className={`plan-card${plan.featured ? " is-featured" : ""}`} aria-labelledby={`plan-${plan.id}-name`} data-plan={plan.id}>
       {plan.featured && <span className="plan-card-badge">Best for frequent flyers</span>}
+      {period === "yearly" && saving !== null && <span className="pill pill-success plan-card-save">Save {saving}%</span>}
       <h3 id={`plan-${plan.id}-name`}>{plan.name}</h3>
       <p className="plan-card-tagline">{plan.tagline}</p>
       <p className="plan-card-price">
-        <strong>{plan.monthly.priceLabel}</strong> a month for you both
+        <strong>{monthlyFigure}</strong> a month for you both
       </p>
       <p className="plan-card-each">
-        {each ? `That's ${each} each. ` : ""}Billed monthly, cancel any time.
+        {period === "monthly"
+          ? `${each ? `That's ${each} each. ` : ""}Billed monthly, cancel any time.`
+          : `Billed yearly at ${yearlyTotal}${each ? `, so ${each} each a month` : ""}. Cancel any time.`}
       </p>
       {action ?? (
         <Link className={`btn ${plan.featured ? "btn-primary" : "btn-secondary"}`} href={`/pricing?plan=${plan.id}`}>

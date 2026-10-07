@@ -1,0 +1,251 @@
+/* ============================================================
+   The pricing page (docs/TWOFOLD_WEBSITE.md, section 6). Plan cards, pills, the segmented
+   control and the accordion are shared components (src/styles/components.css).
+   ============================================================ */
+
+.pricing-hero {
+  padding: 56px 0 16px;
+  text-align: center;
+}
+.pricing-hero .page-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+.pricing-hero h1 {
+  max-width: 13ch;
+}
+.pricing-hero .lead {
+  max-width: 560px;
+}
+.pricing-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 560px;
+  font-size: var(--text-small);
+  color: var(--text-secondary);
+  text-align: left;
+}
+.pricing-note svg {
+  width: 18px;
+  height: 18px;
+  color: var(--success);
+  flex: none;
+}
+.pricing-signed-in {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px 16px;
+}
+
+.pricing-main {
+  padding: 16px 0 calc(var(--section-space) / 2);
+}
+.pricing-toggle {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 40px;
+}
+.pricing-toggle-save {
+  min-height: 22px;
+  padding: 1px 8px;
+  font-size: 0.75rem;
+}
+.pricing-currency {
+  margin-top: 20px;
+  text-align: center;
+  font-size: var(--text-small);
+  color: var(--text-secondary);
+}
+.pricing-error {
+  justify-content: center;
+  margin-top: 16px;
+}
+
+/* The panels that stand in for the cards: already subscribed, all set, the sign-in step, and
+   the checkout-unavailable note. */
+.pricing-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 40px 36px;
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  text-align: center;
+}
+.pricing-panel.is-emphasis {
+  background: var(--surface-emphasis);
+  border: 1.5px solid var(--accent);
+}
+.pricing-panel.is-form {
+  align-items: stretch;
+  max-width: 480px;
+  text-align: left;
+}
+.pricing-panel h2 {
+  font-size: var(--text-h3);
+  letter-spacing: -0.02em;
+}
+.pricing-panel > p {
+  color: var(--text-secondary);
+}
+.pricing-panel hr {
+  width: 100%;
+  margin: 10px 0 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+.pricing-panel-aside {
+  font-size: var(--text-small);
+  color: var(--text-secondary);
+}
+.pricing-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 6px;
+}
+.pricing-panel-oauth {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pricing-panel-or {
+  text-align: center;
+  font-size: var(--text-small);
+  color: var(--text-secondary);
+}
+.pricing-panel-links {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.pricing-submit {
+  width: 100%;
+  margin-top: 8px;
+}
+
+/* ---------- Comparison table ---------- */
+
+.pricing-section {
+  padding: calc(var(--section-space) / 2) 0;
+}
+.pricing-section-title {
+  margin-bottom: 32px;
+  text-align: center;
+  font-size: var(--text-h3);
+  letter-spacing: -0.02em;
+}
+.compare-scroll {
+  max-width: 880px;
+  margin: 0 auto;
+  overflow-x: auto;
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.compare-table {
+  width: 100%;
+  min-width: 520px;
+  border-collapse: collapse;
+  font-size: var(--text-small);
+}
+.compare-table th,
+.compare-table td {
+  height: 44px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--line);
+  text-align: center;
+}
+.compare-table tbody tr:last-child th,
+.compare-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.compare-table thead th {
+  font-weight: 700;
+  color: var(--text);
+}
+.compare-table th[scope="row"],
+.compare-table thead th:first-child {
+  text-align: left;
+  font-weight: 500;
+  color: var(--text);
+}
+.compare-table thead th:first-child {
+  font-weight: 700;
+}
+.compare-table td {
+  color: var(--text-secondary);
+  width: 22%;
+}
+.compare-yes,
+.compare-no {
+  /* Inline, so the cell's text-align centres it: Tailwind's base makes every svg a block. */
+  display: inline-block;
+}
+.compare-yes {
+  width: 20px;
+  height: 20px;
+  color: var(--success);
+  vertical-align: middle;
+}
+.compare-no {
+  width: 18px;
+  height: 18px;
+  color: var(--control-line);
+  vertical-align: middle;
+}
+
+/* ---------- Quiz banner and questions ---------- */
+
+.pricing-quiz {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 32px 36px;
+  border-radius: var(--radius-card);
+  background: var(--surface-emphasis);
+  border: 1px solid var(--line);
+}
+.pricing-quiz h2 {
+  font-size: var(--text-h3);
+  letter-spacing: -0.02em;
+}
+.pricing-quiz p {
+  margin-top: 6px;
+  color: var(--text-secondary);
+}
+.pricing-quiz .btn {
+  flex: none;
+}
+.pricing-faq {
+  max-width: calc(800px + 2 * var(--page-pad));
+}
+.pricing-more {
+  margin-top: 24px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 640px) {
+  .pricing-quiz {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 28px 24px;
+  }
+  .pricing-panel {
+    padding: 32px 22px;
+  }
+}

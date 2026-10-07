@@ -106,6 +106,19 @@
   text-decoration-thickness: 2px;
 }
 
+/* A text link that is really a button (an in-page action): .btn-link's look, no button chrome,
+   and still a 44px target. */
+.link-button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
 /* The App Store button: the primary button with the Apple glyph and "Download on the App Store"
    on one line. The older two-line badge markup (<small>Download on the</small><strong>App Store
    </strong>) is laid out on one line here too, until each page moves to <AppStoreButton>. */
@@ -502,6 +515,11 @@ select.input {
   color: var(--on-accent);
   font-size: var(--text-caption);
   font-weight: 600;
+}
+.plan-card-save {
+  position: absolute;
+  top: 24px;
+  right: 24px;
 }
 .plan-card h3 {
   font-size: var(--text-h3);

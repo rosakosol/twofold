@@ -135,7 +135,7 @@ export function EmailPasswordForm({
     <form className={chrome?.form} onSubmit={submit} noValidate>
       {mode === "create" && (
         <>
-          <label className="sr-only" htmlFor="signup-first-name">
+          <label className="field-label" htmlFor="signup-first-name">
             First name
           </label>
           <Field
@@ -151,7 +151,7 @@ export function EmailPasswordForm({
         </>
       )}
 
-      <label className="sr-only" htmlFor="signup-email">
+      <label className="field-label" htmlFor="signup-email">
         Email address
       </label>
       <Field
@@ -165,7 +165,7 @@ export function EmailPasswordForm({
         onChange={(event) => setEmail(event.target.value)}
       />
 
-      <label className="sr-only" htmlFor="signup-password">
+      <label className="field-label" htmlFor="signup-password">
         Password
       </label>
       <Field
@@ -180,7 +180,7 @@ export function EmailPasswordForm({
 
       {mode === "create" && (
         <>
-          <label className="sr-only" htmlFor="signup-confirm">
+          <label className="field-label" htmlFor="signup-confirm">
             Confirm password
           </label>
           <Field

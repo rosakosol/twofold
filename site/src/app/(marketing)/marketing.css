@@ -235,20 +235,6 @@ section {
   transition: transform 0.3s var(--ease), box-shadow 0.3s var(--ease);
 }
 
-.tone-sky{
-  background: linear-gradient(160deg, var(--sky-blue-light), var(--sky-blue-deep));
-}
-.tone-green{
-  background: linear-gradient(160deg, var(--leaf-green), var(--leaf-green-deep));
-}
-.tone-red{
-  background: linear-gradient(160deg, var(--heart-red), var(--heart-red-deep));
-}
-.tone-ink{
-  background: linear-gradient(160deg, #33455a, var(--ink));
-}
-
-.check-list,
 .feature-list {
   list-style: none;
   margin: 0;
@@ -257,7 +243,7 @@ section {
   flex-direction: column;
   gap: 12px;
 }
-.check-list li,
+
 .feature-list li {
   display: flex;
   align-items: flex-start;
@@ -266,8 +252,7 @@ section {
   font-size: 0.95rem;
   line-height: 1.45;
 }
-.check-list li .icon,
-.check-list li svg,
+
 .feature-list li .icon,
 .feature-list li svg {
   width: 18px;
@@ -462,28 +447,6 @@ section {
     display: none;
   }
 }
-.arrow-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  font-weight: 600;
-  color: var(--ink);
-  border-bottom: 2px solid var(--heart-red);
-  padding-bottom: 3px;
-}
-.arrow-link .icon,
-.arrow-link svg {
-  width: 16px;
-  height: 16px;
-  transition: transform 0.2s var(--ease);
-}
-.arrow-link:hover {
-  color: var(--ink);
-}
-.arrow-link:hover .icon,
-.arrow-link:hover svg {
-  transform: translateX(4px);
-}
 
 /* ============================================================
    Feature detail rows (features.html)
@@ -577,191 +540,35 @@ section {
    Pricing
    ============================================================ */
 
-.apple-note {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  margin-top: 22px;
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid var(--border-softer);
-  border-radius: var(--radius-pill);
-  padding: 9px 18px;
-  font-size: 0.86rem;
-  color: var(--subtle-ink);
-  box-shadow: var(--shadow-sm);
-}
-.apple-note .icon,
-.apple-note svg {
-  width: 15px;
-  height: 15px;
-  color: var(--ink);
-}
-
-.billing-toggle {
-  display: inline-flex;
-  background: rgba(255, 255, 255, 0.75);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-pill);
-  padding: 5px;
-  margin: 34px auto 0;
-  box-shadow: var(--shadow-sm);
-}
-.billing-toggle button {
-  border: none;
-  background: transparent;
-  font-family: var(--font-body);
-  font-weight: 600;
-  font-size: 0.9rem;
-  color: var(--subtle-ink);
-  padding: 9px 22px;
-  border-radius: var(--radius-pill);
-  cursor: pointer;
-  transition: all 0.25s var(--ease);
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-.billing-toggle button.active {
-  background: var(--ink);
-  color: #fff;
-  box-shadow: var(--shadow-sm);
-}
-.save-pill {
-  font-size: 0.68rem;
-  background: var(--leaf-green);
-  color: #fff;
-  padding: 2px 8px;
-  border-radius: var(--radius-pill);
-  font-weight: 600;
-}
-.billing-toggle button.active .save-pill {
-  background: rgba(255, 255, 255, 0.25);
-}
-
-.pricing-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 22px;
-  max-width: 780px;
-  margin: 44px auto 0;
-}
 /* Equal height regardless of how many bullets a plan has, with the CTA on a shared line.
    Two different nestings to cover: on /pricing each card sits inside an id wrapper (the
    scroll target for ?plan=), so the grid stretches the wrapper and the card has to be told
    to fill it; on the home page preview the card is the grid item itself. */
-.pricing-grid > * {
-  display: flex;
-}
-.plan {
-  position: relative;
-  padding: 34px 32px;
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-}
-.plan.feature {
-  box-shadow: var(--shadow-lg);
-  border-color: rgba(79, 169, 224, 0.4);
-}
 
 /* Tier identity, keyed off data-plan rather than .feature. `featured` says which card we are
    pushing and can be moved in Studio; this says which tier you are looking at, which cannot.
    With the "Most popular" badge gone the two cards were otherwise near-identical rectangles.
    Plus reads as one colour, Premium as the blue-to-green pair the whole brand is built on. */
-.plan[data-plan] {
-  /* Clips the accent rule to the card's own corner radius. */
-  overflow: hidden;
-}
-.plan[data-plan]::before {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto;
-  height: 4px;
-  background: var(--plan-accent);
-}
-.plan[data-plan="plus"] {
-  --plan-accent: linear-gradient(90deg, var(--sky-blue-light), var(--sky-blue-deep));
-}
-.plan[data-plan="premium"] {
-  --plan-accent: linear-gradient(90deg, var(--sky-blue-deep), var(--leaf-green));
-  /* A wash rather than a flat tint, so the card reads as richer without competing with the
-     white Plus card beside it for attention. Leaf green, matching the accent's far end and
-     the page's own background gradient, which also runs blue to green. */
-  background: linear-gradient(170deg, var(--card-bg) 55%, rgba(111, 191, 139, 0.07));
-}
 
 /* Yearly saving, per card. In flow rather than absolutely positioned like the old badge:
    overflow is hidden for the accent rule above, which would have clipped anything hanging
    over the top edge. */
-.plan-save {
-  align-self: center;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 14px;
-  padding: 5px 12px;
-  border-radius: var(--radius-pill);
-  background: rgba(79, 158, 108, 0.12);
-  color: var(--leaf-green-deep);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-.plan h3 {
-  font-size: 1.3rem;
-  margin-bottom: 4px;
-}
-.plan .plan-sub {
-  font-size: 0.9rem;
-  color: var(--faint-ink);
-  margin: 0 0 22px;
-}
+
 /* Centred explicitly: the card sits in a text-align:center section, but this is a flex
    container, so text-align never reached it and the price hung off the left edge while
    everything around it was centred. */
-.price-line {
-  display: flex;
-  align-items: baseline;
-  justify-content: center;
-  gap: 6px;
-}
+
 /* Body face, not the display serif. A price is a number to be read at a glance rather than
    a heading, and the plan name directly above it is sans too (h3 is --font-body site-wide),
    so the serif made the price the odd one out on its own card. "/mo" inherits the same. */
-.price-line .n {
-  font-family: var(--font-body);
-  font-size: 3rem;
-  font-weight: 600;
-  color: var(--ink);
-  line-height: 1;
-}
-.price-line .per {
-  font-size: 0.92rem;
-  color: var(--faint-ink);
-}
-.price-foot {
-  font-size: 0.82rem;
-  color: var(--faint-ink);
-  margin: 8px 0 24px;
-  min-height: 1em;
-}
-.plan .check-list {
-  margin-bottom: 28px;
-}
+
 /* Left-aligned against the centred card. A bullet is a sentence, not a heading: centring it
    ragged both edges, and a bullet long enough to wrap broke alignment with the tick beside
    it. The card's other text stays centred. */
-.plan .check-list li {
-  text-align: left;
-}
+
 /* margin-top:auto takes up whatever slack the shorter card has, so both buttons sit on the
    same line instead of floating wherever the feature list happens to end. */
-.plan .btn {
-  width: 100%;
-  margin-top: auto;
-}
+
 [data-plan].hidden {
   display: none;
 }
@@ -769,139 +576,30 @@ section {
 /* ============================================================
    Plan comparison table (/pricing, under the cards)
    ============================================================ */
-.compare-wrap {
-  max-width: 780px;
-  margin: 56px auto 0;
-  text-align: center;
-}
-.compare-intro {
-  color: var(--subtle-ink);
-  margin: 10px auto 0;
-  max-width: 60ch;
-}
+
 /* Scrolls inside its own box. Three columns of copy don't fit a narrow phone, and letting
    the table widen the page would put a horizontal scrollbar on every other section too. */
-.compare-scroll {
-  margin-top: 28px;
-  overflow-x: auto;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-softer);
-  background: var(--card-bg);
-  box-shadow: var(--shadow-md);
-}
-.compare-table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-  font-size: 0.95rem;
-}
-.compare-table th,
-.compare-table td {
-  padding: 14px 18px;
-  border-bottom: 1px solid var(--border-softer);
-}
-.compare-table tbody tr:last-child th,
-.compare-table tbody tr:last-child td {
-  border-bottom: 0;
-}
-.compare-table thead th {
-  background: var(--card-bg-alt);
-  /* Body face: these are small uppercase labels rather than headings, and the serif's
-     proportions fight the letter-spacing at this size. Matches the plan cards, whose prices
-     and names are both sans. */
-  font-family: var(--font-body);
-  font-size: 0.9rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--subtle-ink);
-  white-space: nowrap;
-}
+
 /* Row headers carry the feature name, so they stay left-aligned and readable while the two
    value columns are centred under their headings. */
-.compare-table tbody th {
-  font-weight: 600;
-  color: var(--ink);
-}
-.compare-table thead th:not(:first-child),
-.compare-cell {
-  text-align: center;
-  white-space: nowrap;
-}
-.compare-cell[data-state="no"] {
-  color: var(--faint-ink);
-}
+
 /* `margin-inline: auto`, not the cell's `text-align: center`: Tailwind's preflight (imported
    through globals.css, which this route group inherits) sets `svg { display: block }`, and a
    block box ignores text-align — the tick sat flush left. Same reason .feature-icon centres
    itself with an auto margin on narrow screens. */
-.compare-cell[data-state="yes"] .icon {
-  display: block;
-  margin-inline: auto;
-  width: 18px;
-  height: 18px;
-  color: var(--leaf-green-deep);
-}
-@media (max-width: 720px) {
-  .compare-wrap { margin-top: 40px; }
-  .compare-table { font-size: 0.88rem; }
-  .compare-table th,
-  .compare-table td { padding: 11px 12px; }
-}
-
-.pricing-foot {
-  text-align: center;
-  padding: 20px 0 0;
-}
-.pricing-foot .arrow-link {
-  border-bottom-color: var(--heart-red);
-}
 
 /* The two tiers stay side by side all the way down to the smallest phone rather than
    stacking. Being able to compare Plus against Premium without scrolling is the whole point
    of this page, and stacking puts the second card below the fold on every phone — so the
    card's internals scale down instead of the grid collapsing to one column. */
-@media (max-width: 720px) {
-  .pricing-grid { gap: 14px; max-width: 520px; }
-  .plan { padding: 28px 18px; }
-}
+
 /* Text is what drives the height here: at two-up each column is only ~105px wide, so every
    feature bullet wraps two or three times and the card grows tall and cramped. Everything
    below is sized down primarily to cut the number of wrapped lines, not just to fit. */
-@media (max-width: 480px) {
-  .pricing-grid { gap: 9px; }
-  .plan { padding: 20px 11px; }
-  .plan h3 { font-size: 0.92rem; line-height: 1.2; }
-  .plan .plan-sub { font-size: 0.7rem; line-height: 1.3; margin-bottom: 12px; }
-  .price-line .n { font-size: 1.55rem; }
-  .price-line .per { font-size: 0.68rem; }
-  .price-foot { font-size: 0.63rem; line-height: 1.3; margin: 4px 0 13px; }
-  .plan-save { font-size: 0.58rem; padding: 3px 8px; margin-bottom: 10px; letter-spacing: 0.02em; }
-  .plan .check-list { gap: 6px; margin-bottom: 15px; }
-  .plan .check-list li { font-size: 0.7rem; line-height: 1.3; gap: 5px; }
-  .plan .check-list li .icon,
-  .plan .check-list li svg { width: 12px; height: 12px; margin-top: 2px; }
-  /* .btn is nowrap by default, which would push "Opening checkout…" straight out of a
-     ~105px-wide card and give the page a horizontal scrollbar mid-purchase. */
-  .plan .btn { padding: 9px 7px; font-size: 0.74rem; line-height: 1.25; white-space: normal; }
-}
 
 /* Auth / purchase status states (functionality the reference doesn't show, since it
    has no real backend — kept, restyled with the reference's card/pill idiom). */
-.auth-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.86rem;
-  font-weight: 600;
-  color: var(--leaf-green-deep);
-  background: rgba(111, 191, 139, 0.12);
-  border-radius: var(--radius-pill);
-  padding: 9px 18px;
-}
-.auth-status .icon {
-  width: 16px;
-  height: 16px;
-}
+
 .form-status {
   min-height: 20px;
   margin: 14px 0 0;
@@ -978,44 +676,32 @@ section {
   }
 }
 
-/* The sign-in/signup form on /pricing. It wants .field-row's input treatment but not its layout:
-   that is a flex row with wrap, which is right for one field beside a button and wrong for five
-   stacked ones. Sharing the declarations below rather than copying them, so the two cannot drift. */
+/* The sign-in and sign-up form inside the pricing page's checkout (EmailPasswordForm with the
+   `auth-form` chrome): stacked, labelled pill fields like every other field on the site. */
 .auth-form {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
-
+.auth-form .field-label {
+  margin-top: 6px;
+}
 .auth-form input[type="text"],
 .auth-form input[type="email"],
 .auth-form input[type="password"] {
-  flex: 1 1 240px;
-  border: 1px solid var(--border-soft);
-  background: var(--card-bg-alt);
-  border-radius: var(--radius-pill);
-  padding: 13px 20px;
-  font-family: var(--font-body);
-  font-size: 0.95rem;
-  color: var(--ink);
-  outline: none;
-  transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
-}
-
-/* Undoes the `flex: 1 1 240px` above. That is a *width* basis in .field-row's row, and becomes a
-   240px *height* basis in this column — which is what rendered the signup fields tall enough to fill
-   the card. Everything else in that rule is wanted; only the flexing is row-shaped. Placed after it
-   deliberately: the selectors have equal specificity, so source order is what decides. */
-.auth-form input[type="text"],
-.auth-form input[type="email"],
-.auth-form input[type="password"] {
-  flex: 0 0 auto;
   width: 100%;
+  min-height: 50px;
+  padding: 0 20px;
+  border: 1px solid var(--control-line);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-body);
 }
-
-.auth-form input:focus {
-  border-color: var(--sky-blue);
-  box-shadow: 0 0 0 4px rgba(79, 169, 224, 0.14);
+.auth-form input::placeholder {
+  color: var(--text-secondary);
+  opacity: 1;
 }
 .hp-field {
   position: absolute !important;

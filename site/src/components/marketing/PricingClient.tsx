@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
-import { APP_STORE_URL, PLANS } from "@/lib/marketing/config";
+import { PLANS } from "@/lib/marketing/config";
 import type { ResolvedPlan } from "@/lib/marketing/sanity";
 import { getSession, onAuthChange, signInWithProvider } from "@/lib/marketing/auth";
 import {
@@ -28,9 +28,12 @@ import {
   type LivePrices,
 } from "@/lib/marketing/billing";
 import { priceLabelFor, perMonthLabelFor, yearlySavingPercent, savingPercent } from "@/lib/marketing/priceDisplay";
-import { Reveal } from "@/components/marketing/Reveal";
-import { PlanComparison } from "@/components/marketing/PlanComparison";
-import type { ResolvedPlanComparison } from "@/lib/marketing/planComparisonFallback";
+import Link from "next/link";
+import { CheckCircle2, LayoutGrid } from "lucide-react";
+import { AppStoreButton } from "@/components/site/AppStoreButton";
+import { PlanCard } from "@/components/site/PlanCard";
+import { SegmentedControl } from "@/components/site/SegmentedControl";
+import { StatusPill } from "@/components/site/StatusPill";
 
 const PENDING_KEY = "twofold_pending_plan";
 type PlanId = "plus" | "premium";
@@ -47,36 +50,19 @@ interface Pending {
  * modes does not unmount and remount the form (and empty the fields) on every render.
  */
 function MarketingSubmit(props: React.ComponentProps<"button">) {
-  return <button {...props} className="btn btn-primary" style={{ width: "100%" }} />;
+  return <button {...props} className="btn btn-primary pricing-submit" />;
 }
 
 /** The text link the shared reset panel gets back out through, drawn like every other one here. */
 function MarketingBackLink(props: React.ComponentProps<"button">) {
   return (
-    <button
-      type="button"
-      {...props}
-      className="text-link"
-      style={{ background: "none", border: "none", cursor: "pointer" }}
-    />
+    <button type="button" {...props} className="btn-link link-button" />
   );
 }
 
-function AppStoreBadge({ label = "Download on the" }: { label?: string }) {
-  return (
-    <a className="appstore-badge" data-appstore-link href={APP_STORE_URL} style={{ margin: "0 auto" }}>
-      <svg className="icon">
-        <use href="/assets/icons.svg#icon-apple" />
-      </svg>
-      <span className="badge-text">
-        <small>{label}</small>
-        <strong>App&nbsp;Store</strong>
-      </span>
-    </a>
-  );
-}
-
-function PlanCard({
+/** A plan card on this page: the shared card with the live figures from the offering, and this
+ *  page's own checkout button. */
+function PricedPlanCard({
   plan,
   period,
   buyingKey,
@@ -113,41 +99,27 @@ function PlanCard({
     savingPercent(packages.monthly.price, packages.yearly.price);
 
   return (
-    <div className={`card plan${plan.featured ? " feature" : ""}`} data-plan={plan.id}>
-      {period === "yearly" && saving !== null && <span className="plan-save">Save {saving}% vs monthly</span>}
-      <h3>{plan.name}</h3>
-      <p className="plan-sub">{plan.tagline}</p>
-      <div className="price-line">
-        <span className="n">{monthlyFigure}</span>
-        <span className="per">/mo</span>
-      </div>
-      <p className="price-foot">
-        {period === "yearly" ? `Billed yearly - works out to ${yearlyTotal}/yr` : "Billed monthly · cancel anytime"}
-      </p>
-      <ul className="check-list">
-        {plan.features.map((feature) => (
-          <li key={feature}>
-            <svg className="icon">
-              <use href="/assets/icons.svg#icon-check" />
-            </svg>
-            {feature}
-          </li>
-        ))}
-      </ul>
-      <button type="button" className={`btn ${plan.featured ? "btn-primary" : "btn-ghost"}`} disabled={isBuying} onClick={() => onBuy(plan.id, period)}>
-        {isBuying ? "Opening checkout…" : plan.ctaLabel}
-      </button>
-    </div>
+    <PlanCard
+      plan={plan}
+      period={period}
+      monthlyFigure={monthlyFigure}
+      yearlyTotal={yearlyTotal}
+      saving={saving}
+      action={
+        <button
+          type="button"
+          className={`btn ${plan.featured ? "btn-primary" : "btn-secondary"}`}
+          disabled={isBuying}
+          onClick={() => onBuy(plan.id, period)}
+        >
+          {isBuying ? "Opening checkout…" : "Start 14-day free trial"}
+        </button>
+      }
+    />
   );
 }
 
-function PricingContent({
-  plans,
-  comparison,
-}: {
-  plans: { plus: ResolvedPlan; premium: ResolvedPlan };
-  comparison: ResolvedPlanComparison;
-}) {
+function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: ResolvedPlan } }) {
   const searchParams = useSearchParams();
   const requestedPlan = searchParams.get("plan");
 
@@ -426,104 +398,86 @@ function PricingContent({
 
   return (
     <>
-      <header className="page-head">
-        <Reveal className="wrap">
-          <span className="eyebrow">
-            <svg className="icon">
-              <use href="/assets/icons.svg#icon-sparkle" />
-            </svg>
+      <section className="pricing-hero" aria-labelledby="pricing-title">
+        <div className="page-wrap">
+          <StatusPill tone="surface" icon={<LayoutGrid />}>
             Pricing
-          </span>
-          <h1>One subscription, shared by both of you</h1>
-          <p className="lead">Subscribe here on the web or right inside the app - either partner&apos;s subscription unlocks the full experience for you both.</p>
-          {/* Signed-out only. It describes something about to happen ("you'll sign in at
-              checkout"), so it's simply untrue once there's a session. The "Signed in as …" line
-              below replaces it, and says which account. Gated on !authLoading as well so a
-              signed-in visitor never sees it flash on first paint.
-
-              It named Apple until the sign-in step stopped forcing it. Naming one provider was the
-              visible half of a bug that cost people money: a Google or email account holder who
-              signed in with Apple got a second Supabase user, and their subscription attached to it.
-
-              It then said "the same account you use in the app", which assumed a reader who already
-              has one. Most people reading this page do not: anyone who installs the app first meets
-              a non-dismissable paywall during onboarding and subscribes there. The two groups this
-              page actually serves are people who found the site before the app, and people who quit
-              at that paywall — see migration 20261110001200, which exists because that is the most
-              likely place to stop. So it describes making an account, and treats already having one
-              as the other case rather than the assumed one. */}
-          {!authLoading && !session && (
-            <div className="apple-note">
-              <svg className="icon">
-                <use href="/assets/icons.svg#icon-check-circle" />
-              </svg>
-              You&apos;ll create your Twofold account at checkout - the same one you&apos;ll sign in
-              with when you download the app.
-            </div>
+          </StatusPill>
+          <h1 id="pricing-title">One subscription, both of you</h1>
+          <p className="lead">Either partner subscribes and you both get everything. Start with 14 days free.</p>
+          {/* Signed-out only: it describes something about to happen, so it's untrue once there's
+              a session. Most people here have no Twofold account yet (anyone who installs the app
+              first subscribes during onboarding), so it describes making one. */}
+          {!authLoading && !session && !signInFor && (
+            <p className="pricing-note">
+              <CheckCircle2 aria-hidden />
+              You&apos;ll create your Twofold account at checkout, the same one you&apos;ll sign in with when you
+              download the app.
+            </p>
           )}
-        </Reveal>
-      </header>
-
-      <section style={{ paddingTop: 30 }}>
-        <div className="wrap" style={{ textAlign: "center" }}>
           {!authLoading && session && (
-            <div style={{ marginBottom: 20 }}>
-              <span className="auth-status">
-                <svg className="icon">
-                  <use href="/assets/icons.svg#icon-check-circle" />
-                </svg>
+            <div className="pricing-signed-in">
+              <StatusPill tone="success" icon={<CheckCircle2 />}>
                 Signed in as {session.user.email || providerFallbackName(provider)}
-              </span>
-              <button
-                type="button"
-                className="text-link"
-                style={{ marginLeft: 12, background: "none", border: "none", cursor: "pointer" }}
-                onClick={handleSignOut}
-              >
+              </StatusPill>
+              <button type="button" className="btn-link pricing-signout" onClick={handleSignOut}>
                 Sign out
               </button>
             </div>
           )}
+        </div>
+      </section>
 
+      <section className="pricing-main" aria-label="Plans">
+        <div className="page-wrap">
           {subscribedTier ? (
-            <div className="card waitlist-card" style={{ marginTop: 12, maxWidth: 520, marginLeft: "auto", marginRight: "auto" }}>
-              <h3 style={{ marginBottom: 16 }}>
-                You already have Twofold {subscribedTier} - open the app and sign in with the same{" "}
-                {providerLabel(provider)} to use it.
-              </h3>
-              <AppStoreBadge label="Open on the" />
+            <div className="pricing-panel is-emphasis">
+              {/* eslint-disable-next-line @next/next/no-img-element -- fixed-size brand mark */}
+              <img src="/assets/globe-heart.png" alt="" width={48} height={48} />
+              <h2>You already have Twofold {subscribedTier}</h2>
+              <p>Open the app and sign in with the same {providerLabel(provider)} to use it.</p>
+              <div className="pricing-panel-actions">
+                <AppStoreButton label="Open on the App Store" />
+                <Link className="btn btn-secondary" href="/account">
+                  Manage subscription
+                </Link>
+              </div>
+              {subscribedTier === "Plus" && (
+                <>
+                  <hr />
+                  <p className="pricing-panel-aside">
+                    Thinking about Premium? Move between Plus and Premium from the subscription screen in the app.
+                  </p>
+                </>
+              )}
             </div>
           ) : purchaseSuccess ? (
-            <div ref={successRef} className="card waitlist-card" style={{ marginTop: 12, maxWidth: 560, marginLeft: "auto", marginRight: "auto" }}>
-              <h2 style={{ marginBottom: 10 }}>You&apos;re all set 🎉</h2>
-              <p style={{ marginBottom: 24 }}>
-                Download Twofold and sign in with the <strong>same {providerLabel(provider)}</strong> you just
-                used - your subscription will already be active.
+            <div ref={successRef} className="pricing-panel is-emphasis" role="status">
+              {/* eslint-disable-next-line @next/next/no-img-element -- fixed-size brand mark */}
+              <img src="/assets/globe-heart.png" alt="" width={48} height={48} />
+              <h2>You&apos;re all set</h2>
+              <p>
+                Download Twofold and sign in with the <strong>same {providerLabel(provider)}</strong> you just used. Your
+                subscription will already be active.
               </p>
-              <AppStoreBadge />
+              <div className="pricing-panel-actions">
+                <AppStoreButton />
+              </div>
             </div>
           ) : signInFor ? (
-            /* The sign-in step, shown in place of the cards once a plan is picked. It replaces an
-               immediate redirect to Apple — see attemptPurchase for why that was the wrong default.
-
-               All three of the app's methods are here, and that is the point rather than a nicety.
-               Apple and Google alone would have no correct option for somebody whose Twofold account
-               is an email address, and those people are disproportionately who this page is for: an
-               account is created at `.saveAccount`, *before* the onboarding paywall, so anyone who
-               quit at that paywall already has one. For them a provider button is not a login, it is
-               a second account and a stranded subscription.
-
-               Create is the default because most people here have no account at all — anyone who
-               installed the app first subscribed during onboarding. */
-            <div className="card waitlist-card" style={{ marginTop: 12, maxWidth: 460, marginLeft: "auto", marginRight: "auto", textAlign: "left" }}>
-              <h3 style={{ marginBottom: 6 }}>
+            /* The sign-in step, shown in place of the cards once a plan is picked. Apple, Google and
+               email are all here on purpose: somebody whose Twofold account is an email address has
+               no correct provider button, and a wrong one makes a second account and strands the
+               subscription. Create is the default because most people here have no account yet. */
+            <div className="pricing-panel is-form">
+              <h2>
                 {resetStage !== "off"
                   ? passwordResetCopy.title
                   : authMode === "create"
                     ? "Create your account"
                     : "Sign in"}
-              </h3>
-              <p style={{ marginBottom: 20 }}>
+              </h2>
+              <p>
                 {resetStage === "sent"
                   ? passwordResetCopy.sent
                   : resetStage === "form"
@@ -534,52 +488,49 @@ function PricingContent({
               </p>
 
               {resetStage !== "off" ? (
-                /* Shared with /auth/sign-in — see PasswordResetPanel on why the confirmation never
-                   says whether that address had an account, and why this is a panel on the card
-                   rather than a route: navigating away from here would abandon the plan that was
-                   picked, which lives in this tab's sessionStorage. */
+                /* Shared with /auth/sign-in. A panel rather than a route: navigating away would
+                   abandon the plan that was picked, which lives in this tab's sessionStorage. */
                 <PasswordResetPanel
                   stage={resetStage}
                   onStageChange={setResetStage}
                   onError={setSignInError}
                   busyLabel="Sending…"
                   sentNote={
-                    <p style={{ fontSize: "0.9em" }}>
-                      Leave this tab open. Once you&apos;ve set a new password, come back here and
-                      sign in &mdash; the {plans[signInFor.planId].name} plan you picked is still waiting,
-                      and checkout picks up where it left off.
+                    <p className="pricing-panel-aside">
+                      Leave this tab open. Once you&apos;ve set a new password, come back here and sign in. The{" "}
+                      {plans[signInFor.planId].name} plan you picked is still waiting, and checkout picks up where it
+                      left off.
                     </p>
                   }
                   chrome={{ form: "auth-form", Submit: MarketingSubmit, BackLink: MarketingBackLink }}
                 />
               ) : (
                 <>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    style={{ width: "100%", marginBottom: 8 }}
-                    disabled={oauthPending !== null}
-                    onClick={() => startOAuth("apple")}
-                  >
-                    {oauthPending === "apple" ? "Opening…" : "Continue with Apple"}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-ghost"
-                    style={{ width: "100%", marginBottom: 16 }}
-                    disabled={oauthPending !== null}
-                    onClick={() => startOAuth("google")}
-                  >
-                    {oauthPending === "google" ? "Opening…" : "Continue with Google"}
-                  </button>
+                  <div className="pricing-panel-oauth">
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      disabled={oauthPending !== null}
+                      onClick={() => startOAuth("apple")}
+                    >
+                      {oauthPending === "apple" ? "Opening…" : "Continue with Apple"}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      disabled={oauthPending !== null}
+                      onClick={() => startOAuth("google")}
+                    >
+                      {oauthPending === "google" ? "Opening…" : "Continue with Google"}
+                    </button>
+                  </div>
 
-                  <p style={{ textAlign: "center", fontSize: "0.85em", opacity: 0.7, marginBottom: 12 }}>or</p>
+                  <p className="pricing-panel-or">or</p>
 
-                  {/* Shared with /auth/sign-in — see EmailPasswordForm. It reports failures back up
-                      rather than rendering them, because the paragraph below is the same one the
-                      Apple/Google buttons write to. No `onSuccess`: the session lands via
-                      onAuthChange and the pending-plan resume runs from there, which is the path this
-                      form's sign-in actually takes (it changes the session in place, with no reload). */}
+                  {/* Shared with /auth/sign-in. It reports failures back up rather than rendering
+                      them, because the paragraph below is the same one the Apple and Google buttons
+                      write to. The session lands via onAuthChange and the pending-plan resume runs
+                      from there. */}
                   <EmailPasswordForm
                     mode={authMode}
                     onModeChange={setAuthMode}
@@ -587,7 +538,7 @@ function PricingContent({
                     chrome={{ form: "auth-form", Submit: MarketingSubmit }}
                   />
 
-                  <div style={{ marginTop: 16, textAlign: "center" }}>
+                  <div className="pricing-panel-links">
                     <MarketingBackLink
                       onClick={() => {
                         setAuthMode(authMode === "create" ? "signin" : "create");
@@ -598,13 +549,9 @@ function PricingContent({
                         ? "Already have a Twofold account? Sign in"
                         : "Need an account? Create one"}
                     </MarketingBackLink>
-                  </div>
-
-                  {/* Only on the sign-in side. Offering to reset a password to somebody in the middle
-                      of choosing one is noise, and /auth/sign-in and the app's own sign-in screen make
-                      the same distinction. */}
-                  {authMode === "signin" && (
-                    <div style={{ marginTop: 10, textAlign: "center" }}>
+                    {/* Only on the sign-in side: offering a reset to somebody choosing a password is
+                        noise, and /auth/sign-in and the app make the same distinction. */}
+                    {authMode === "signin" && (
                       <MarketingBackLink
                         onClick={() => {
                           setResetStage("form");
@@ -613,96 +560,92 @@ function PricingContent({
                       >
                         Forgot your password?
                       </MarketingBackLink>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </>
               )}
 
-              {/* Outside the branch: it carries the Apple/Google failures, the shared form's errors
-                  and a failed reset request alike, and a reset is the path people reach already
-                  locked out — the one place an error must not be swallowed. */}
+              {/* Outside the branch: it carries the Apple and Google failures, the form's errors and
+                  a failed reset request alike. */}
               {signInError && (
-                <p className="form-status" data-state="error" role="status" aria-live="polite">
+                <p className="field-error" role="status" aria-live="polite">
                   {signInError}
                 </p>
               )}
 
-              {/* Hidden while resetting, where the panel's own "Back to sign in" is the way out —
-                  two competing back controls on one card is a question, not a route. */}
+              {/* Hidden while resetting, where the panel's own "Back to sign in" is the way out. */}
               {resetStage === "off" && (
-                <div style={{ marginTop: 10, textAlign: "center" }}>
-                  <MarketingBackLink onClick={() => setSignInFor(null)}>
-                    Back to plans
-                  </MarketingBackLink>
+                <div className="pricing-panel-links">
+                  <MarketingBackLink onClick={() => setSignInFor(null)}>Back to plans</MarketingBackLink>
                 </div>
               )}
             </div>
           ) : (
             <>
-              <Reveal className="billing-toggle" role="group">
-                <button type="button" className={period === "monthly" ? "active" : undefined} onClick={() => setPeriod("monthly")}>
-                  Monthly
-                </button>
-                <button type="button" className={period === "yearly" ? "active" : undefined} onClick={() => setPeriod("yearly")}>
-                  Yearly
-                  {yearlySaving !== null && <span className="save-pill">Save {yearlySaving}%</span>}
-                </button>
-              </Reveal>
-
-              <div className="pricing-grid">
-                <div id="plan-plus">
-                  <PlanCard plan={plans.plus} period={period} buyingKey={buyingKey} onBuy={attemptPurchase} livePrices={livePrices} />
-                </div>
-                <div id="plan-premium">
-                  <PlanCard plan={plans.premium} period={period} buyingKey={buyingKey} onBuy={attemptPurchase} livePrices={livePrices} />
-                </div>
+              <div className="pricing-toggle">
+                <SegmentedControl
+                  label="Billing period"
+                  value={period}
+                  onChange={setPeriod}
+                  options={[
+                    { value: "monthly", label: "Monthly" },
+                    {
+                      value: "yearly",
+                      label: "Yearly",
+                      badge:
+                        yearlySaving !== null ? (
+                          <span className="pill pill-success pricing-toggle-save">Save {yearlySaving}%</span>
+                        ) : undefined,
+                    },
+                  ]}
+                />
               </div>
 
+              <div className="plan-cards">
+                <div id="plan-plus">
+                  <PricedPlanCard plan={plans.plus} period={period} buyingKey={buyingKey} onBuy={attemptPurchase} livePrices={livePrices} />
+                </div>
+                <div id="plan-premium">
+                  <PricedPlanCard plan={plans.premium} period={period} buyingKey={buyingKey} onBuy={attemptPurchase} livePrices={livePrices} />
+                </div>
+              </div>
+              <p className="pricing-currency">Prices in Australian dollars. The App Store shows your local currency.</p>
+
               {purchaseError && (
-                <p className="form-status" data-state="error" style={{ textAlign: "center", marginTop: 20 }}>
+                <p className="field-error pricing-error" role="status" aria-live="polite">
                   {purchaseError}
                 </p>
               )}
 
               {showFallback && (
-                <div className="card waitlist-card" style={{ marginTop: 28, maxWidth: 520, marginLeft: "auto", marginRight: "auto" }}>
-                  <h3 style={{ marginBottom: 8 }}>Web checkout is being finalized</h3>
-                  <p style={{ marginBottom: 20 }}>You can subscribe right now from the iOS app instead - it&apos;ll be ready here shortly.</p>
-                  <AppStoreBadge />
+                <div className="pricing-panel">
+                  <h2>Web checkout is being finalised</h2>
+                  <p>You can subscribe right now from the iOS app instead. It&apos;ll be ready here shortly.</p>
+                  <div className="pricing-panel-actions">
+                    <AppStoreButton />
+                  </div>
                 </div>
               )}
-
-              <PlanComparison comparison={comparison} />
             </>
           )}
 
-          {/* Below the comparison table, not the cards: someone still weighing the two plans
-              scrolls the table first, and the FAQ is the next thing they want if it didn't
-              settle it. Outside the purchase-state branch above so it survives checkout too. */}
-          <Reveal className="pricing-foot">
-            <a className="arrow-link" href="/faq">
-              More questions
-              <svg className="icon">
-                <use href="/assets/icons.svg#icon-arrow-right" />
-              </svg>
-            </a>
-          </Reveal>
+          {(subscribedTier || purchaseSuccess) && (
+            <p className="pricing-more">
+              <Link className="btn-link" href="/faq">
+                More questions
+              </Link>
+            </p>
+          )}
         </div>
       </section>
     </>
   );
 }
 
-export function PricingClient({
-  plans,
-  comparison,
-}: {
-  plans: { plus: ResolvedPlan; premium: ResolvedPlan };
-  comparison: ResolvedPlanComparison;
-}) {
+export function PricingClient({ plans }: { plans: { plus: ResolvedPlan; premium: ResolvedPlan } }) {
   return (
     <Suspense>
-      <PricingContent plans={plans} comparison={comparison} />
+      <PricingContent plans={plans} />
     </Suspense>
   );
 }

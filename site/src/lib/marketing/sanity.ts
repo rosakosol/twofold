@@ -21,20 +21,8 @@ export const sanityClient = createClient({
 
 export const SANITY_REVALIDATE_SECONDS = 60;
 
-export interface HeroDoc {
-  eyebrow?: string;
-  headline?: string;
-  subtext?: string;
-  heroNote?: string;
-}
-
-export async function getHero(): Promise<HeroDoc | null> {
-  return sanityClient.fetch(
-    `*[_id == "hero"][0]{ eyebrow, headline, subtext, heroNote }`,
-    {},
-    { next: { revalidate: SANITY_REVALIDATE_SECONDS } }
-  );
-}
+// The home page hero used to be the Studio's `hero` singleton (getHero). It now carries the
+// website spec's copy (docs/TWOFOLD_WEBSITE.md), in src/app/(marketing)/page.tsx.
 
 // Features used to be fetched from here (getFeatures/FeatureDoc), with featuresFallback.ts behind
 // them. The features page and the home page now carry the website spec's copy
@@ -138,22 +126,9 @@ export async function getResolvedPlans(): Promise<{ plus: ResolvedPlan; premium:
   return { plus: resolvedPlus, premium: resolvedPremium };
 }
 
-export interface PlanComparisonDoc {
-  heading?: string;
-  intro?: string;
-  rows?: { label?: string; plus?: string; premium?: string }[];
-}
-
-// The row-by-row table under the plan cards on /pricing. A singleton at a fixed id, same as
-// the hero — merged over the copy in code by resolvePlanComparison(), so an empty dataset
-// still renders a complete table.
-export async function getPlanComparison(): Promise<PlanComparisonDoc | null> {
-  return sanityClient.fetch(
-    `*[_id == "planComparison"][0]{ heading, intro, rows[]{ label, plus, premium } }`,
-    {},
-    { next: { revalidate: SANITY_REVALIDATE_SECONDS } }
-  );
-}
+// The comparison table on /pricing used to be the Studio's `planComparison` singleton
+// (getPlanComparison). It now carries the website spec's rows (docs/TWOFOLD_WEBSITE.md), in
+// src/app/(marketing)/pricing/page.tsx.
 
 export interface QuizQuestionDoc {
   question: string;
