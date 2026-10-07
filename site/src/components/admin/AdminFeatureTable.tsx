@@ -8,55 +8,56 @@ import { StatusSelect } from "@/components/admin/StatusSelect";
 import { PinToggle } from "@/components/admin/PinToggle";
 import { MergeDialog } from "@/components/admin/MergeDialog";
 import { DeleteConfirmDialog } from "@/components/admin/DeleteConfirmDialog";
+import { ConsoleEmpty } from "@/components/console/ConsoleUI";
 import type { FeatureDetail } from "@/lib/queries/useFeature";
 import type { FeatureCategory, FeatureStatus } from "@/lib/utils/constants";
 
 export function AdminFeatureTable({ features }: { features: FeatureDetail[] }) {
   if (features.length === 0) {
-    return <p className="py-12 text-center text-sm text-muted-foreground">No requests match these filters.</p>;
+    return <ConsoleEmpty title="No requests match these filters" />;
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm">
-        <thead className="border-b bg-muted/50 text-left text-xs text-muted-foreground">
+    <div className="console-table-wrap">
+      <table className="console-table">
+        <thead>
           <tr>
-            <th className="px-3 py-2 font-medium">Title</th>
-            <th className="px-3 py-2 font-medium">Category</th>
-            <th className="px-3 py-2 font-medium">Status</th>
-            <th className="px-3 py-2 font-medium">Votes</th>
-            <th className="px-3 py-2 font-medium">Comments</th>
-            <th className="px-3 py-2 font-medium">Pinned</th>
-            <th className="px-3 py-2 font-medium">Actions</th>
+            <th scope="col">Title</th>
+            <th scope="col">Category</th>
+            <th scope="col">Status</th>
+            <th scope="col">Votes</th>
+            <th scope="col">Comments</th>
+            <th scope="col">Pinned</th>
+            <th scope="col">
+              <span className="sr-only">Actions</span>
+            </th>
           </tr>
         </thead>
-        <tbody className="divide-y">
+        <tbody>
           {features.map((feature) => (
             <tr key={feature.id} className={feature.merged_into ? "opacity-50" : undefined}>
-              <td className="max-w-64 truncate px-3 py-2">
+              <td className="max-w-72 truncate">
                 {feature.title}
-                {feature.merged_into && (
-                  <span className="ml-1 text-xs text-muted-foreground">(merged)</span>
-                )}
+                {feature.merged_into && <span className="muted"> (merged)</span>}
               </td>
-              <td className="px-3 py-2">
+              <td>
                 <CategoryBadge category={feature.category as FeatureCategory} />
               </td>
-              <td className="px-3 py-2">
+              <td>
                 <StatusSelect featureId={feature.id} status={feature.status as FeatureStatus} />
               </td>
-              <td className="px-3 py-2 tabular-nums">{feature.upvote_count}</td>
-              <td className="px-3 py-2 tabular-nums">{feature.comment_count}</td>
-              <td className="px-3 py-2">
+              <td className="num">{feature.upvote_count}</td>
+              <td className="num">{feature.comment_count}</td>
+              <td>
                 <PinToggle featureId={feature.id} isPinned={feature.is_pinned} />
               </td>
-              <td className="px-3 py-2">
-                <div className="flex items-center gap-1">
+              <td>
+                <div className="flex items-center justify-end gap-1">
                   <Button
                     variant="ghost"
                     size="icon-sm"
                     className="text-muted-foreground"
-                    render={<Link href={`/admin/requests/${feature.id}`} aria-label="Edit" />}
+                    render={<Link href={`/admin/requests/${feature.id}`} aria-label={`Edit ${feature.title}`} />}
                   >
                     <Pencil className="h-4 w-4" />
                   </Button>

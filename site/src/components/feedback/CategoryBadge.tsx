@@ -1,6 +1,6 @@
-import { Badge } from "@/components/ui/badge";
 import { CATEGORY_LABELS, type FeatureCategory } from "@/lib/utils/constants";
 
+/** A request's category as a chip, as on the public board. */
 export function CategoryBadge({ category }: { category: FeatureCategory }) {
-  return <Badge variant="outline">{CATEGORY_LABELS[category]}</Badge>;
+  return <span className="pill pill-raised">{CATEGORY_LABELS[category] ?? category}</span>;
 }

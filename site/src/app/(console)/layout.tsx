@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import "@/styles/site-nav.css";
+import "@/styles/console.css";
 import { createClient } from "@/lib/supabase/server";
 import { isConsoleAdmin } from "@/lib/auth/isConsoleAdmin";
 import { ConsoleHeader } from "@/components/console/ConsoleHeader";
@@ -49,7 +50,7 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
     <div className="board-shell flex min-h-screen flex-1 flex-col">
       <ConsoleHeader />
       <main className="flex-1">
-        <div className="mx-auto max-w-6xl px-4 py-6">{children}</div>
+        <div className="console-main">{children}</div>
       </main>
     </div>
   );

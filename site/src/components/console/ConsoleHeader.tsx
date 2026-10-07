@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeft, Menu, X } from "lucide-react";
+import { ArrowLeft, ExternalLink, Menu, X } from "lucide-react";
 import { UserMenu } from "@/components/layout/UserMenu";
 import { SignedInNavItems } from "@/components/layout/SignedInNavItems";
 import { useAdminRoles } from "@/lib/auth/useAdminRoles";
@@ -78,12 +78,11 @@ export function ConsoleHeader() {
         <Link className="site-nav-brand" href="/admin">
           {/* eslint-disable-next-line @next/next/no-img-element -- fixed-size brand mark, matches SiteHeader's */}
           <img src="/assets/globe-heart.png" alt="" width={28} height={28} />
-          <span>
-            twofold <span className="site-nav-brand-tag">console</span>
-          </span>
+          <span>twofold</span>
+          <span className="site-nav-brand-tag">Console</span>
         </Link>
 
-        <nav>
+        <nav aria-label="Console">
           <ul className="site-nav-links">
             {CONSOLE_LINKS.filter((link) =>
               link.role === "billing" ? roles.billing : link.role === "support" ? roles.support : true,
@@ -91,9 +90,18 @@ export function ConsoleHeader() {
               const isActive = link.exact ? pathname === link.href : pathname.startsWith(link.href);
               return (
                 <li key={link.href}>
-                  <Link href={link.href} className={isActive ? "is-active" : undefined}>
-                    {link.label}
-                  </Link>
+                  {link.href === "/studio" ? (
+                    // Studio opens its own full-screen app, so it says so.
+                    <Link href={link.href} className="site-nav-external">
+                      {link.label}
+                      <ExternalLink aria-hidden />
+                      <span className="sr-only">(opens Sanity Studio)</span>
+                    </Link>
+                  ) : (
+                    <Link href={link.href} aria-current={isActive ? "page" : undefined}>
+                      {link.label}
+                    </Link>
+                  )}
                 </li>
               );
             })}
@@ -105,7 +113,7 @@ export function ConsoleHeader() {
 
         <div className="site-nav-actions">
           <Link href="/" className="site-nav-switch">
-            <ArrowLeft className="h-3.5 w-3.5" />
+            <ArrowLeft aria-hidden />
             <span>Website</span>
           </Link>
           <UserMenu />

@@ -1,0 +1,164 @@
+/* ============================================================
+   The admin console (docs/TWOFOLD_WEBSITE.md, section 9.2): the site's tokens in a denser layout.
+   Loaded by the (console) layout only.
+   ============================================================ */
+
+.console-main {
+  width: 100%;
+  max-width: calc(var(--content-max) + 2 * var(--page-pad));
+  margin: 0 auto;
+  padding: 32px var(--page-pad) 64px;
+  font-size: var(--text-small);
+}
+
+.console-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.console-head h1 {
+  font-size: 2.125rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
+.console-head p {
+  margin-top: 6px;
+  font-size: var(--text-small);
+  color: var(--text-secondary);
+}
+.console-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ---------- Stat tiles ---------- */
+
+.console-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin: 0 0 24px;
+}
+.console-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 18px;
+  border-radius: var(--radius-tile);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.console-stat dt {
+  font-size: var(--text-caption);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.console-stat dd {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.console-stat-hint {
+  font-size: var(--text-caption);
+  color: var(--text-secondary);
+}
+
+/* ---------- Cards, filters, tables ---------- */
+
+.console-card {
+  border-radius: var(--radius-tile);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.console-card-pad {
+  padding: 20px 22px;
+}
+.console-card h2 {
+  font-size: var(--text-body);
+  font-weight: 700;
+  color: var(--text);
+}
+
+.console-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.console-filters .console-search {
+  flex: 1 1 260px;
+  max-width: 420px;
+}
+
+.console-table-wrap {
+  overflow-x: auto;
+  border-radius: var(--radius-tile);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.console-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-small);
+}
+.console-table th {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  font-size: var(--text-caption);
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.console-table td {
+  height: 52px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+  vertical-align: middle;
+}
+.console-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.console-table .num {
+  font-variant-numeric: tabular-nums;
+}
+.console-table .muted {
+  color: var(--text-secondary);
+}
+.console-mono {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: var(--text-caption);
+}
+
+.console-empty {
+  padding: 48px 24px;
+  border-radius: var(--radius-tile);
+  border: 1px dashed var(--line-strong);
+  text-align: center;
+}
+.console-empty.is-success {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--success) 35%, var(--line));
+  background: var(--success-bg);
+}
+.console-empty-title {
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--text);
+}
+.console-empty-body {
+  max-width: 520px;
+  margin: 6px auto 0;
+  color: var(--text-secondary);
+}

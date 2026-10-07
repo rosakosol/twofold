@@ -86,6 +86,14 @@
   background: var(--surface-raised);
 }
 
+.site-nav-links a.site-nav-external {
+  gap: 6px;
+}
+.site-nav-external svg {
+  width: 13px;
+  height: 13px;
+}
+
 .site-nav-actions {
   margin-left: auto;
   display: flex;
