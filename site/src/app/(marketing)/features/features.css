@@ -59,6 +59,9 @@
 
 .features-row {
   padding: calc(var(--section-space) / 2) 0;
+  /* The glow halo is wider than its column; on a phone it ran 6px past the screen and the page
+     scrolled sideways. Clipped here, where it has already faded to nothing. */
+  overflow-x: clip;
   scroll-margin-top: 80px;
 }
 .features-row-grid {
