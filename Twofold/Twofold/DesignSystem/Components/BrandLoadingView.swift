@@ -22,7 +22,7 @@ struct BrandLoadingView: View {
             PulsingGlobeHeart()
 
             Text("twofold")
-                .font(.system(.title, design: .serif))
+                .font(.newsreader(.title))
                 .foregroundStyle(Theme.textPrimary)
                 .opacity(wordmarkVisible ? 1 : 0)
                 .offset(y: wordmarkVisible ? 0 : 6)

@@ -66,10 +66,10 @@ struct MemoryDetailView: View {
 
                             if !memory.note.isEmpty {
                                 Divider().padding(.vertical, Theme.Spacing.xs)
-                                // New York, 19pt (section 3): a note reads as something written by
+                                // Newsreader, 19pt (section 3): a note reads as something written by
                                 // hand, not as interface copy.
                                 Text(memory.note)
-                                    .font(.system(size: 19, design: .serif))
+                                    .font(.newsreader(size: 19, relativeTo: .body))
                                     .foregroundStyle(Theme.textPrimary)
                             }
 

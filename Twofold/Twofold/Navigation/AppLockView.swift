@@ -33,7 +33,7 @@ struct AppLockView: View {
                     }
 
                     Text("twofold")
-                        .font(.system(.title, design: .serif))
+                        .font(.newsreader(.title))
                         .foregroundStyle(Theme.textPrimary)
                 }
 

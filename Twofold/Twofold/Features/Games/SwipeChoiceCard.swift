@@ -221,7 +221,7 @@ struct SwipeChoiceCard<Content: View>: View {
             // Same serif wordmark treatment as WelcomeView's sign-in screen (just much smaller
             // here — that one is size 56 for a full-screen splash).
             Text("twofold")
-                .font(.system(size: 13, weight: .regular, design: .serif))
+                .font(.newsreader(size: 13))
                 .foregroundStyle(Theme.onFill)
         }
         // Matches the content's own inset from the card edge (see `content.padding(Theme.Spacing.lg)`

@@ -243,7 +243,7 @@ private struct CoverPageView: View {
 
                 VStack(spacing: Theme.Spacing.sm) {
                     Text("Our story")
-                        .font(.system(size: 44, weight: .bold, design: .serif))
+                        .font(.newsreader(size: 44, weight: .bold))
                         .foregroundStyle(Theme.textPrimary)
                     Text("\(selfName) & \(partnerName)")
                         .font(.title2.weight(.medium))
@@ -261,7 +261,7 @@ private struct CoverPageView: View {
                 Spacer()
 
                 Text("twofold")
-                    .font(.system(size: 22, weight: .regular, design: .serif))
+                    .font(.newsreader(size: 22))
                     .foregroundStyle(Theme.textSecondary.opacity(0.6))
             }
             .padding(60)
@@ -321,7 +321,7 @@ private struct StoryPageChrome<Content: View>: View {
             HStack {
                 Spacer()
                 Text("twofold")
-                    .font(.system(size: 12, design: .serif))
+                    .font(.newsreader(size: 12))
                     .foregroundStyle(Theme.textSecondary.opacity(0.5))
                 Spacer()
             }
@@ -513,7 +513,7 @@ private struct AttachmentImagePageView: View {
                 .scaledToFit()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             Text("twofold")
-                .font(.system(size: 10, design: .serif))
+                .font(.newsreader(size: 10))
                 .foregroundStyle(Theme.textSecondary.opacity(0.5))
         }
         .padding(30)

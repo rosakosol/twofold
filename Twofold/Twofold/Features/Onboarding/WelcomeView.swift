@@ -87,13 +87,7 @@ struct WelcomeView: View {
                         }
 
                     Text("twofold")
-                        .font(
-                            .system(
-                                size: 56,
-                                weight: .regular,
-                                design: .serif
-                            )
-                        )
+                        .font(.newsreader(size: 56))
                         .foregroundStyle(.white)
                 }
 
