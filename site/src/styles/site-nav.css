@@ -40,11 +40,8 @@
   align-items: center;
   gap: 10px;
   min-height: 44px;
-  font-family: var(--font-display);
+  /* Sizes the Wordmark SVG, which is drawn at this font-size; its colour comes from `color`. */
   font-size: 1.5rem;
-  /* Regular, as the app sets it (.system(design: .serif), weight .regular): New York is a
-     system face with a real 400, so nothing is synthesised. */
-  font-weight: 400;
   color: var(--text);
   text-decoration: none;
   flex-shrink: 0;
@@ -172,6 +169,59 @@
   height: 20px;
 }
 
+/* Light/dark (ThemeToggle). In the bar, the menu button's shape; below 860px it moves into the
+   folded menu as a row like the links, because a signed-out phone bar is full. */
+.site-nav-theme {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: background-color 0.2s var(--ease);
+}
+.site-nav-theme:hover {
+  background: var(--surface-raised);
+}
+.site-nav-theme svg {
+  width: 20px;
+  height: 20px;
+}
+.site-nav-theme-row {
+  display: none;
+}
+.site-nav-theme-row button {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--text-body);
+  font-weight: 600;
+  text-align: left;
+  transition: background-color 0.2s var(--ease), color 0.2s var(--ease);
+}
+.site-nav-theme-row button:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface-raised) 70%, transparent);
+}
+.site-nav-theme-row svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
 /* Rows that only appear in the folded menu: Account and Bookmarks, or Sign in. */
 .site-nav-signed-in {
   display: none;
@@ -213,8 +263,12 @@
     border-color: transparent;
     background: transparent;
   }
-  .site-nav-signed-in {
+  .site-nav-signed-in,
+  .site-nav-theme-row {
     display: block;
+  }
+  .site-nav-theme {
+    display: none;
   }
 }
 

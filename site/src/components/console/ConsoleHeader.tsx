@@ -6,7 +6,9 @@ import { usePathname } from "next/navigation";
 import { ArrowLeft, ExternalLink, Menu, X } from "lucide-react";
 import { UserMenu } from "@/components/layout/UserMenu";
 import { SignedInNavItems } from "@/components/layout/SignedInNavItems";
+import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { useAdminRoles } from "@/lib/auth/useAdminRoles";
+import { Wordmark } from "@/components/layout/Wordmark";
 
 /**
  * The console's own navbar, and the reason it is not `SiteHeader`.
@@ -75,10 +77,10 @@ export function ConsoleHeader() {
   return (
     <header className={`site-nav is-console${isScrolled ? " is-scrolled" : ""}${isOpen ? " is-open" : ""}`}>
       <div className="site-nav-inner">
-        <Link className="site-nav-brand" href="/admin">
+        <Link className="site-nav-brand" href="/admin" aria-label="Twofold console">
           {/* eslint-disable-next-line @next/next/no-img-element -- fixed-size brand mark, matches SiteHeader's */}
           <img src="/assets/globe-heart.png" alt="" width={28} height={28} />
-          <span>twofold</span>
+          <Wordmark />
           <span className="site-nav-brand-tag">Console</span>
         </Link>
 
@@ -108,6 +110,7 @@ export function ConsoleHeader() {
             {/* The same collapsed-menu gap as the other two navbars: this bar renders the same
                 UserMenu, so on a phone these were behind an unlabelled avatar here too. */}
             <SignedInNavItems />
+            <ThemeToggle variant="menu-row" />
           </ul>
         </nav>
 
@@ -116,6 +119,7 @@ export function ConsoleHeader() {
             <ArrowLeft aria-hidden />
             <span>Website</span>
           </Link>
+          <ThemeToggle />
           <UserMenu />
           {/* Without this the console's links are unreachable below 860px: site-nav.css hides
               `.site-nav-links` there unless the bar carries `.is-open`. */}

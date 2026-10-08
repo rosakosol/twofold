@@ -28,10 +28,8 @@
   align-items: center;
   gap: 10px;
   min-height: 44px;
-  font-family: var(--font-display);
+  /* Sizes the Wordmark SVG, as in the header. */
   font-size: 1.5rem;
-  /* Regular, like the header's wordmark and the app's. */
-  font-weight: 400;
   color: var(--text);
   text-decoration: none;
 }
