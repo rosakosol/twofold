@@ -14,11 +14,12 @@ Go-template syntax, not the simple `{{token}}` syntax below. It lives at
 would overwrite.
 
 The wordmark at the top of every template is the app's stacked `TwofoldBrandMark`: the globe
-(32px) above "twofold", 4px apart. The word is an image, `public/assets/wordmark-email-ink@2x.png`,
-with `wordmark-email-light@2x.png` swapped in by the dark-mode rules where a client supports them.
-Both come from the same outlines as the site's `src/components/layout/Wordmark.tsx` (New York at the
-app's title2 instance), because as text it only looked right in Apple Mail. The images are served
-from the live site, so deploy it before sending a template that uses them.
+(32px) above "twofold", 4px apart. The word is an image, `public/assets/wordmark-email-ink@3x.png`,
+with `wordmark-email-light@3x.png` swapped in by the dark-mode rules where a client supports them.
+Both are Newsreader (OFL), regular, the face the site's `src/components/layout/Wordmark.tsx` uses:
+as text, mail clients would fall back to whatever serif they have, and the app's New York can't be
+used here (Apple licenses it for mock-ups only). The images are served from the live site, so deploy
+it before sending a template that uses them.
 
 600px table layout, inline styles, hidden preheader span, bulletproof buttons,
 Georgia/Arial (email-safe stand-ins for Newsreader/Inter). Tested-shape markup for

@@ -1,10 +1,18 @@
 import type { Metadata } from "next";
+import { Newsreader } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/app/providers";
 import { THEME_INIT_SCRIPT } from "@/lib/theme/themeScript";
 
-// No web fonts: the site uses the system faces the app does, SF and New York on Apple devices
-// (--font-body and --font-display in src/styles/tokens.css, docs/TWOFOLD_WEBSITE.md section 2.3).
+// Text uses the system faces the app does, SF and New York on Apple devices (--font-body and
+// --font-display in src/styles/tokens.css, docs/TWOFOLD_WEBSITE.md section 2.3). The one web font
+// is the wordmark's: Newsreader (OFL), so "twofold" looks the same on every device. New York
+// itself can't be served: Apple licenses it for mock-ups, not for embedding.
+const wordmarkFont = Newsreader({
+  variable: "--font-wordmark",
+  subsets: ["latin"],
+  weight: "400",
+});
 
 export const metadata: Metadata = {
   title: {
@@ -26,7 +34,7 @@ export default function RootLayout({
   return (
     // suppressHydrationWarning: <html> is changed before React hydrates it, by the theme script
     // below (data-theme) and by DeviceClassSetter (its classes).
-    <html lang="en" className="no-js" suppressHydrationWarning>
+    <html lang="en" className={`no-js ${wordmarkFont.variable}`} suppressHydrationWarning>
       <head>
         {/* The stored light/dark choice, applied before first paint (lib/theme/themeScript.ts).
             A fixed string of our own: the one dangerouslySetInnerHTML in the app, and no input

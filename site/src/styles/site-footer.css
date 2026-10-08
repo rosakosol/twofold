@@ -28,7 +28,7 @@
   align-items: center;
   gap: 10px;
   min-height: 44px;
-  /* Sizes the Wordmark SVG, as in the header. */
+  /* The Wordmark takes this size, as in the header. */
   font-size: 1.5rem;
   color: var(--text);
   text-decoration: none;
