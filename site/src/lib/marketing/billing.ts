@@ -106,13 +106,19 @@ export async function getPurchases(rawAppUserId: string): Promise<Purchases | nu
   return purchases;
 }
 
-/** Returns the web offering (or RevenueCat's "current" as a fallback), or null if unavailable. */
-export async function fetchOfferings(appUserId: string): Promise<Offering | null> {
+/**
+ * Returns `offeringId` (the web offering by default), falling back to the web offering and then to
+ * RevenueCat's "current", or null if unavailable.
+ *
+ * The web offering as the first fallback, not "current": a returning-customer offering id that is
+ * set in config but missing from the dashboard must land on the offering this page always used.
+ */
+export async function fetchOfferings(appUserId: string, offeringId: string = WEB_OFFERING_ID): Promise<Offering | null> {
   const purchases = await getPurchases(appUserId);
   if (!purchases) return null;
   try {
     const offerings = await purchases.getOfferings();
-    return offerings?.all?.[WEB_OFFERING_ID] ?? offerings?.current ?? null;
+    return offerings?.all?.[offeringId] ?? offerings?.all?.[WEB_OFFERING_ID] ?? offerings?.current ?? null;
   } catch (err) {
     console.warn("[twofold] getOfferings failed", err);
     return null;
@@ -158,6 +164,13 @@ export interface LivePrice {
   amountMicros: number;
   /** ISO 4217, for formatting figures we derive ourselves. */
   currency: string;
+  /**
+   * Whether checkout would start this customer on a free trial. RevenueCat's `getOfferings` only
+   * returns the offers a customer is entitled to, so this is the product's trial filtered through
+   * its eligibility setting for the app user id the offering was read under. For an anonymous id
+   * it only says whether the product has a trial at all.
+   */
+  hasFreeTrial: boolean;
 }
 
 /** Keyed by the package identifier in config.ts's PLANS[..].monthly/yearly.packageId. */
@@ -173,8 +186,8 @@ export type LivePrices = Record<string, LivePrice>;
  * Returns {} on any failure rather than throwing. Every caller falls back to the labels in
  * config.ts / Studio, so a RevenueCat outage costs the localised currency, not the page.
  */
-export async function fetchLivePrices(appUserId: string): Promise<LivePrices> {
-  const offering = await fetchOfferings(appUserId);
+export async function fetchLivePrices(appUserId: string, offeringId?: string): Promise<LivePrices> {
+  const offering = await fetchOfferings(appUserId, offeringId);
   if (!offering?.availablePackages) return {};
 
   const prices: LivePrices = {};
@@ -188,6 +201,7 @@ export async function fetchLivePrices(appUserId: string): Promise<LivePrices> {
       formattedPrice: price.formattedPrice,
       amountMicros: price.amountMicros,
       currency: price.currency,
+      hasFreeTrial: product.freeTrialPhase != null,
     };
   }
   return prices;

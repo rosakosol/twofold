@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Check } from "lucide-react";
 import type { ResolvedPlan } from "@/lib/marketing/sanity";
+import { PLAN_CTA } from "@/lib/marketing/trialEligibility";
 
 /** "$9.99" and "$5.00": a price for two, and what it comes to each. */
 function eachOf(priceLabel: string) {
@@ -18,7 +19,8 @@ function eachOf(priceLabel: string) {
  * lines are the spec's. The featured plan, Premium, is emphasised and carries the badge.
  *
  * The pricing page passes the period and the live figures from the offering, and its own checkout
- * button as `action`; the home page uses the monthly defaults and links to /pricing.
+ * button as `action`; the home page uses the monthly defaults and links to /pricing, with
+ * `ctaLabel` saying whether that link is a trial (see trialEligibility.ts).
  */
 export function PlanCard({
   plan,
@@ -27,6 +29,7 @@ export function PlanCard({
   monthlyFigure = period === "monthly" ? plan.monthly.priceLabel : plan.yearly.perMonthLabel,
   yearlyTotal = plan.yearly.priceLabel,
   saving = null,
+  ctaLabel = PLAN_CTA.trial,
 }: {
   plan: ResolvedPlan;
   action?: React.ReactNode;
@@ -36,6 +39,8 @@ export function PlanCard({
   yearlyTotal?: string;
   /** The yearly saving in percent, shown on the card in yearly mode. */
   saving?: number | null;
+  /** The default link's label. Ignored when `action` is given. */
+  ctaLabel?: string;
 }) {
   const each = eachOf(monthlyFigure);
   return (
@@ -54,7 +59,7 @@ export function PlanCard({
       </p>
       {action ?? (
         <Link className={`btn ${plan.featured ? "btn-primary" : "btn-secondary"}`} href={`/pricing?plan=${plan.id}`}>
-          Start 14-day free trial
+          {ctaLabel}
         </Link>
       )}
       <ul className="plan-card-features">

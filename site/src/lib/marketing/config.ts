@@ -17,6 +17,18 @@ export const ENTITLEMENTS = {
 // groups the four Web Billing packages below.
 export const WEB_OFFERING_ID = "web_default";
 
+// An offering for people who have subscribed before, whose packages carry no free trial. Null
+// until one exists in the RevenueCat dashboard - do not set it to an id that is not there.
+//
+// Only needed if RevenueCat's own trial eligibility does not already stop a second trial: the
+// products in WEB_OFFERING_ID should be set to "Didn't have any subscription yet", which covers App
+// Store and web history under one customer. What that cannot see is the web customers created under
+// the old lowercase app user id (see `revenueCatAppUserId` in billing.ts), which RevenueCat treats
+// as a different person. When set, checkout and the live prices read this offering instead for
+// anyone `resolveTrialStanding` calls returning. Its packages must use the same identifiers as
+// PLANS below (`plus_monthly` and so on), because that is how `findPackage` finds them.
+export const RETURNING_CUSTOMER_OFFERING_ID: string | null = null;
+
 // Package identifiers within WEB_OFFERING_ID, and they must match the dashboard exactly —
 // `findPackage` looks packages up by this string, and a miss is silent: `pkg` comes back null and
 // the page shows its "web checkout is being finalized" card instead of a checkout.

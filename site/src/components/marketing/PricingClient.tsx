@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
-import { PLANS } from "@/lib/marketing/config";
+import { PLANS, RETURNING_CUSTOMER_OFFERING_ID } from "@/lib/marketing/config";
 import type { ResolvedPlan } from "@/lib/marketing/sanity";
 import { getSession, onAuthChange, signInWithProvider } from "@/lib/marketing/auth";
 import {
@@ -27,6 +27,8 @@ import {
   anonymousAppUserId,
   type LivePrices,
 } from "@/lib/marketing/billing";
+import { planCtaLabel, standingOffersTrial, type TrialStanding } from "@/lib/marketing/trialEligibility";
+import { resolveTrialStanding, useTrialStanding } from "@/lib/marketing/useTrialStanding";
 import { priceLabelFor, perMonthLabelFor, yearlySavingPercent, savingPercent } from "@/lib/marketing/priceDisplay";
 import Link from "next/link";
 import { CheckCircle2, LayoutGrid } from "lucide-react";
@@ -68,12 +70,14 @@ function PricedPlanCard({
   buyingKey,
   onBuy,
   livePrices,
+  standing,
 }: {
   plan: ResolvedPlan;
   period: Period;
   buyingKey: string | null;
   onBuy: (planId: PlanId, period: Period) => void;
   livePrices: LivePrices;
+  standing: TrialStanding;
 }) {
   const key = `${plan.id}-${period}`;
   const isBuying = buyingKey === key;
@@ -112,7 +116,9 @@ function PricedPlanCard({
           disabled={isBuying}
           onClick={() => onBuy(plan.id, period)}
         >
-          {isBuying ? "Opening checkout…" : "Start 14-day free trial"}
+          {isBuying
+            ? "Opening checkout…"
+            : planCtaLabel(standing, livePrices[packages[period].packageId]?.hasFreeTrial)}
         </button>
       }
     />
@@ -156,6 +162,16 @@ function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: Resol
   // magic-link session carried over from the feedback board, which shares this project.
   const provider = sessionProvider(session);
   const attemptedPendingResume = useRef(false);
+  // Whether the trial is ours to offer. Was a constant "Start 14-day free trial", which told
+  // somebody who had subscribed in the app last year that a trial was waiting for them.
+  const standing = useTrialStanding(authLoading ? undefined : (session?.user.id ?? null));
+  // The returning-customer offering, when one is configured and this is somebody it is for.
+  const returningOffering = standing === "returning" ? RETURNING_CUSTOMER_OFFERING_ID : null;
+  // The lead's trial sentence is about the plans as a whole, so it goes once RevenueCat says no
+  // package carries a trial for this customer. Until the offering loads, the standing decides.
+  const loadedPrices = Object.values(livePrices);
+  const leadOffersTrial =
+    standingOffersTrial(standing) && (loadedPrices.length === 0 || loadedPrices.some((p) => p.hasFreeTrial));
 
   // "Save 50%" was typed into the markup, so a price change in Stripe would have left it
   // advertising a discount that no longer existed. Derived from the live offering, falling
@@ -195,7 +211,14 @@ function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: Resol
     setBuyingKey(buyKey);
 
     try {
-      const offering = await fetchOfferings(currentSession.user.id);
+      // Resolved here rather than read from `standing`: the pending-plan resume reaches this before
+      // the hook has answered for a session that has only just arrived. Skipped entirely while no
+      // returning offering exists, so it costs nothing until one does.
+      const offeringId =
+        RETURNING_CUSTOMER_OFFERING_ID && (await resolveTrialStanding(currentSession.user.id)) === "returning"
+          ? RETURNING_CUSTOMER_OFFERING_ID
+          : undefined;
+      const offering = await fetchOfferings(currentSession.user.id, offeringId);
       const pkg = offering ? findPackage(offering, plan[billingPeriod].packageId) : null;
 
       if (!pkg) {
@@ -352,14 +375,14 @@ function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: Resol
     (async () => {
       const appUserId = session?.user.id ?? (await anonymousAppUserId());
       if (!appUserId || cancelled) return;
-      const prices = await fetchLivePrices(appUserId);
+      const prices = await fetchLivePrices(appUserId, returningOffering ?? undefined);
       if (!cancelled && Object.keys(prices).length) setLivePrices(prices);
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [session]);
+  }, [session, returningOffering]);
 
   // Arrive at the top, however you arrived.
   //
@@ -404,7 +427,9 @@ function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: Resol
             Pricing
           </StatusPill>
           <h1 id="pricing-title">One subscription, both of you</h1>
-          <p className="lead">Either partner subscribes and you both get everything. Start with 14 days free.</p>
+          <p className="lead">
+            Either partner subscribes and you both get everything.{leadOffersTrial ? " Start with 14 days free." : ""}
+          </p>
           {/* Signed-out only: it describes something about to happen, so it's untrue once there's
               a session. Most people here have no Twofold account yet (anyone who installs the app
               first subscribes during onboarding), so it describes making one. */}
@@ -603,10 +628,10 @@ function PricingContent({ plans }: { plans: { plus: ResolvedPlan; premium: Resol
 
               <div className="plan-cards">
                 <div id="plan-plus">
-                  <PricedPlanCard plan={plans.plus} period={period} buyingKey={buyingKey} onBuy={attemptPurchase} livePrices={livePrices} />
+                  <PricedPlanCard plan={plans.plus} period={period} buyingKey={buyingKey} onBuy={attemptPurchase} livePrices={livePrices} standing={standing} />
                 </div>
                 <div id="plan-premium">
-                  <PricedPlanCard plan={plans.premium} period={period} buyingKey={buyingKey} onBuy={attemptPurchase} livePrices={livePrices} />
+                  <PricedPlanCard plan={plans.premium} period={period} buyingKey={buyingKey} onBuy={attemptPurchase} livePrices={livePrices} standing={standing} />
                 </div>
               </div>
               <p className="pricing-currency">Prices in Australian dollars. The App Store shows your local currency.</p>

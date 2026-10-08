@@ -6,7 +6,7 @@ import { Download, Heart, Lock, Moon, Plane, PlaneLanding, Sun, Users } from "lu
 import "./home.css";
 import { AppStoreButton } from "@/components/site/AppStoreButton";
 import { PhoneMockup } from "@/components/site/PhoneMockup";
-import { PlanCard } from "@/components/site/PlanCard";
+import { HomePlans } from "@/components/marketing/HomePlans";
 import { StatusPill } from "@/components/site/StatusPill";
 import {
   AppNotification,
@@ -285,14 +285,7 @@ export default async function HomePage() {
       {/* 6. Pricing summary */}
       <section className="home-section" aria-labelledby="pricing-title">
         <div className="page-wrap">
-          <header className="home-section-head">
-            <h2 id="pricing-title">One subscription, both of you</h2>
-            <p className="lead">Start with a two-week free trial. Billed monthly, cancel any time.</p>
-          </header>
-          <div className="plan-cards">
-            <PlanCard plan={plans.plus} />
-            <PlanCard plan={plans.premium} />
-          </div>
+          <HomePlans plans={plans} />
           <p className="home-compare">
             <Link className="btn-link" href="/pricing#compare">
               Compare plans in full
