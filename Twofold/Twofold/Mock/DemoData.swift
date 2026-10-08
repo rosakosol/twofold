@@ -172,6 +172,41 @@ enum DemoData {
         return CurrentWeatherReading(symbolName: isDay ? "sun.max" : "moon.stars", temperatureC: isDay ? 19 : 13, isDaylight: isDay)
     }
 
+    /// A drawing on each pad, drawn right to the paper's edges (a frame, a heart, a note), the way
+    /// people actually use the canvas: the case a crop at the edges shows up in. Written once to
+    /// Caches at the canvas's own ~3:5 shape, like a downloaded pad.
+    static func drawingURL(_ name: String, note: String, colour: UIColor) -> URL? {
+        guard let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else { return nil }
+        let url = caches.appendingPathComponent("demo-pad-\(name).png")
+        if FileManager.default.fileExists(atPath: url.path) { return url }
+        let size = CGSize(width: 600, height: 1000)
+        let image = UIGraphicsImageRenderer(size: size).image { context in
+            UIColor.white.setFill()
+            context.fill(CGRect(origin: .zero, size: size))
+            colour.setStroke()
+            let frame = UIBezierPath(roundedRect: CGRect(x: 14, y: 14, width: size.width - 28, height: size.height - 28), cornerRadius: 40)
+            frame.lineWidth = 12
+            frame.stroke()
+            let heart = UIBezierPath()
+            heart.move(to: CGPoint(x: 300, y: 620))
+            heart.addCurve(to: CGPoint(x: 300, y: 380), controlPoint1: CGPoint(x: 80, y: 470), controlPoint2: CGPoint(x: 170, y: 290))
+            heart.addCurve(to: CGPoint(x: 300, y: 620), controlPoint1: CGPoint(x: 430, y: 290), controlPoint2: CGPoint(x: 520, y: 470))
+            heart.lineWidth = 14
+            heart.lineCapStyle = .round
+            heart.stroke()
+            let text = NSAttributedString(string: note, attributes: [
+                .font: UIFont(name: "Bradley Hand", size: 64) ?? UIFont.systemFont(ofSize: 60),
+                .foregroundColor: colour,
+            ])
+            text.draw(at: CGPoint(x: 60, y: 760))
+        }
+        try? image.pngData()?.write(to: url)
+        return url
+    }
+
+    static var myDrawingURL: URL? { drawingURL("sam", note: "miss you", colour: .systemBlue) }
+    static var partnerDrawingURL: URL? { drawingURL("alex", note: "see you soon", colour: .systemPink) }
+
     static let streak = 47
     static let dailyQuestion = "What's a small thing I do that makes you feel loved?"
 }

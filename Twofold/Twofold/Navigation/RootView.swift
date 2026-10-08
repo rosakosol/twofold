@@ -73,6 +73,10 @@ struct RootView: View {
     @State private var birthdayCelebration: BirthdayCelebration?
     #if DEBUG
     @State private var showingRecordExportScreenshot = false
+    #if DEBUG
+    /// `-demoScreen pads`: both drawing pads side by side, as tapping the Home card opens them.
+    @State private var showingDemoPads = false
+    #endif
     /// Which plan the paywall screenshot hook asked for, nil when it was not asked for.
     @State private var paywallScreenshotPlan: PaywallScreenshotPlan?
     #endif
@@ -369,6 +373,9 @@ struct RootView: View {
         #if DEBUG
         // Presented the way Settings presents it — inside a NavigationStack — so the toolbar the
         // export card refers to is there, rather than a bare view with the controls missing.
+        .fullScreenCover(isPresented: $showingDemoPads) {
+            DrawingPadPairView(myURL: appModel.myDrawingURL, partnerName: appModel.partner.name, partnerURL: appModel.partnerDrawingURL)
+        }
         .fullScreenCover(isPresented: $showingRecordExportScreenshot) {
             NavigationStack { RelationshipTimelineView() }
         }
@@ -687,6 +694,7 @@ struct RootView: View {
         case "memory": recordDeepLink = .memory(DemoData.firstDateID)
         case "trip": recordDeepLink = .trip(DemoData.reunionTripID)
         case "ourStory": showingRecordExportScreenshot = true
+        case "pads": showingDemoPads = true
         default: break
         }
     }

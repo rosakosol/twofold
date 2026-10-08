@@ -90,17 +90,17 @@ struct DrawingPadPairView: View {
                 // step between them.
                 //
                 // An overlay is sized *by* its parent and cannot push back, so the ratio holds
-                // whatever the image reports, and `clipShape` below crops what spills.
+                // whatever the image reports.
                 RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
                     .fill(.white)
-                    // Cropping gives up the top and bottom of each drawing in exchange for a pane
-                    // you can read at a glance, which is the trade this screen wants — it exists to
-                    // put the two next to each other, and the whole drawing is one tap away on the
-                    // pane itself.
                     .aspectRatio(paneAspectRatio, contentMode: .fit)
                     .overlay {
                         CachedRemoteImage(url: url) { image in
-                            image.resizable().scaledToFill()
+                            // Fitted, not filled. Filling a 3:4 pane with a ~3:5 drawing cut its top
+                            // and bottom off, and people draw right to the edges. The pane is white
+                            // paper, so the margins fitting leaves at the sides are invisible, and the
+                            // small inset keeps strokes in the corners clear of the rounded clip.
+                            image.resizable().scaledToFit().padding(Theme.Spacing.xs)
                         } placeholder: {
                             emptyState
                         }

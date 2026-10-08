@@ -2937,6 +2937,8 @@ extension AppModel {
         gameDecks = nonEmpty(GameContentStore.decks())
         gameDecksUnavailable = gameDecks?.isEmpty ?? true
         deckProgress = [:]
+        myDrawingURL = DemoData.myDrawingURL
+        partnerDrawingURL = DemoData.partnerDrawingURL
     }
 }
 #endif

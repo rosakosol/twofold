@@ -13,7 +13,7 @@
 //    -demoMode                     the sample couple, signed in, Premium, nothing fetched
 //    -demoTab home|travel|memories|games|stats
 //    -demoTravelSegment flights    the Travel sheet on Flights rather than Trips
-//    -demoScreen flight|memory|trip|connected|ourStory
+//    -demoScreen flight|memory|trip|connected|ourStory|pads
 //
 
 import Foundation
