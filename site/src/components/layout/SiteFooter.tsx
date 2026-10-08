@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Wordmark } from "@/components/layout/Wordmark";
 
 const COLUMNS = [
   {
@@ -34,7 +35,7 @@ export function SiteFooter() {
           <Link href="/" className="site-footer-wordmark" aria-label="Twofold home">
             {/* eslint-disable-next-line @next/next/no-img-element -- fixed-size brand mark */}
             <img src="/assets/globe-heart.png" alt="" width={26} height={26} />
-            <span aria-hidden>twofold</span>
+            <Wordmark />
           </Link>
           <p>The living map for long-distance couples. Track flights, close the distance, keep the memories.</p>
         </div>

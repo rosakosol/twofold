@@ -8,6 +8,7 @@
    Light on :root. Dark follows the system (`prefers-color-scheme`) unless the page says otherwise
    with data-theme on <html>: data-theme="light" keeps light on a dark system, data-theme="dark"
    forces dark. The dark values appear twice below for that reason; keep the two blocks identical.
+   data-theme is the visitor's choice from the header's toggle (src/lib/theme/themeScript.ts).
    ============================================================ */
 
 :root {
@@ -207,6 +208,39 @@
   --glow-indigo: rgba(58, 86, 217, 0.3);
   --glow-green: rgba(0, 135, 95, 0.2);
   --shadow-float: 0 20px 40px rgba(0, 0, 0, 0.35);
+}
+
+/* Content for one mode only, on the same rule as the tokens: the system unless data-theme says
+   otherwise. For the app captures, which come in a light and a dark version, and the theme
+   toggle's icon. A <picture> with a prefers-color-scheme <source> cannot do this, because a media
+   query cannot see data-theme. Pair it with loading="lazy" on images: browsers do not fetch a lazy
+   image that is display: none, so only the one showing is downloaded. These only ever hide, so
+   whatever display an element has otherwise is left alone. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .theme-light-only {
+    display: none;
+  }
+}
+:root[data-theme="dark"] .theme-light-only {
+  display: none;
+}
+@media not all and (prefers-color-scheme: dark) {
+  :root:not([data-theme="dark"]) .theme-dark-only {
+    display: none;
+  }
+}
+:root[data-theme="light"] .theme-dark-only {
+  display: none;
+}
+/* While the page follows the system, and once a choice is stored. For an above-the-fold image,
+   which cannot be lazy: a prefers-color-scheme <picture> that follows the system fetches only the
+   one capture, so it serves everyone who has not chosen, and the pair above takes over for those
+   who have (PhoneMockup). */
+:root[data-theme] .theme-system-only {
+  display: none;
+}
+:root:not([data-theme]) .theme-chosen-only {
+  display: none;
 }
 
 /* ============================================================

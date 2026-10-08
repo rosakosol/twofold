@@ -6,7 +6,9 @@ import { usePathname } from "next/navigation";
 import { Menu, SlidersHorizontal, X } from "lucide-react";
 import { UserMenu } from "@/components/layout/UserMenu";
 import { SignedInNavItems } from "@/components/layout/SignedInNavItems";
+import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { useAdminRoles } from "@/lib/auth/useAdminRoles";
+import { Wordmark } from "@/components/layout/Wordmark";
 
 /** The header's destinations (docs/TWOFOLD_WEBSITE.md, section 3). The wordmark is the way home. */
 const NAV_LINKS = [
@@ -24,8 +26,9 @@ function isCurrent(pathname: string, href: string) {
  * The website's one header, for the marketing pages and the feedback board, account and sign-in
  * pages alike. The console has its own (ConsoleHeader), on purpose.
  *
- * 72px: the wordmark, the nav pills, then on the right Download (signed out) or the account chip
- * (signed in). On a phone the pills fold into a menu behind a 44px button.
+ * 72px: the wordmark, the nav pills, then on the right the light/dark toggle and Download (signed
+ * out) or the account chip (signed in). On a phone the pills fold into a menu behind a 44px
+ * button; the toggle stays in the bar.
  */
 export function SiteHeader() {
   const pathname = usePathname();
@@ -58,7 +61,7 @@ export function SiteHeader() {
         <Link className="site-nav-brand" href="/" aria-label="Twofold home">
           {/* eslint-disable-next-line @next/next/no-img-element -- fixed-size brand mark */}
           <img src="/assets/globe-heart.png" alt="" width={28} height={28} />
-          <span aria-hidden>twofold</span>
+          <Wordmark />
         </Link>
         <nav aria-label="Main">
           <ul className="site-nav-links" id="site-nav-links">
@@ -74,6 +77,7 @@ export function SiteHeader() {
             })}
             {/* Account, Bookmarks or Sign in: only in the folded menu, see SignedInNavItems. */}
             <SignedInNavItems />
+            <ThemeToggle variant="menu-row" />
           </ul>
         </nav>
         <div className="site-nav-actions">
@@ -84,6 +88,7 @@ export function SiteHeader() {
               <span>Console</span>
             </Link>
           )}
+          <ThemeToggle />
           <UserMenu />
           <button
             type="button"

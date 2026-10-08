@@ -6,12 +6,20 @@ Four transactional emails as standalone HTML files, all wired into this site's o
 from `app/api/support/route.ts` / `app/api/waitlist/route.ts`).
 
 A related Supabase Auth email (password reset) is
-**not** sent by this code at all — it's configured directly in the Supabase Dashboard
-(Authentication → Emails) using Supabase's own `{{ .ConfirmationURL }}`-style Go-template
-syntax, not the simple `{{token}}` syntax below. A paste-ready copy lives at
-`supabase/templates/recovery.html` — see that folder's own note for what was dropped and
-why (its original, un-adapted source file was deleted from here once the adapted copy
-existed, to avoid two diverging versions of the same email sitting around).
+**not** sent by this code at all — Supabase Auth sends it, using its own `{{ .TokenHash }}`-style
+Go-template syntax, not the simple `{{token}}` syntax below. It lives at
+`supabase/templates/recovery.html`, is registered in `supabase/config.toml`
+(`[auth.email.template.recovery]`), and reaches the hosted project with
+`node scripts/push-auth-templates.mjs` — not by pasting into the Dashboard, which the next push
+would overwrite.
+
+The wordmark at the top of every template is the app's stacked `TwofoldBrandMark`: the globe
+(32px) above "twofold", 4px apart. The word is an image, `public/assets/wordmark-email-ink@3x.png`,
+with `wordmark-email-light@3x.png` swapped in by the dark-mode rules where a client supports them.
+Both are Newsreader (OFL), regular, the face the site's `src/components/layout/Wordmark.tsx` uses:
+as text, mail clients would fall back to whatever serif they have, and the app's New York can't be
+used here (Apple licenses it for mock-ups only). The images are served from the live site, so deploy
+it before sending a template that uses them.
 
 600px table layout, inline styles, hidden preheader span, bulletproof buttons,
 Georgia/Arial (email-safe stand-ins for Newsreader/Inter). Tested-shape markup for

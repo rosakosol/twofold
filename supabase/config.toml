@@ -265,6 +265,13 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
+# Auth email templates. These are the source of truth for the hosted project too, but reach it
+# through scripts/push-auth-templates.mjs, not `supabase config push`: that would also push this
+# file's local-only settings (site_url, SMTP off, max_frequency) over production's.
+[auth.email.template.recovery]
+subject = "Reset your password"
+content_path = "./supabase/templates/recovery.html"
+
 # Uncomment to customize email template
 # [auth.email.template.invite]
 # subject = "You have been invited"

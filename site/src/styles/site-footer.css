@@ -28,9 +28,8 @@
   align-items: center;
   gap: 10px;
   min-height: 44px;
-  font-family: var(--font-display);
+  /* The Wordmark takes this size, as in the header. */
   font-size: 1.5rem;
-  font-weight: 600;
   color: var(--text);
   text-decoration: none;
 }

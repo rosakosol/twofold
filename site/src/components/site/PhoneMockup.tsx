@@ -3,8 +3,16 @@ import { PHONE_SCREENS, PHONE_SHOT_HEIGHT, PHONE_SHOT_WIDTH, phoneScreenSrc, typ
 
 /**
  * An app screen in a phone frame (docs/TWOFOLD_WEBSITE.md, section 3). The screen is the light or
- * dark capture to match the visitor's appearance, chosen by the browser through <picture>, so it
+ * dark capture to match the page's theme, picked by CSS (`.theme-*-only` in tokens.css), so it
  * costs no script and never flashes the wrong one.
+ *
+ * Not a plain <picture>: its prefers-color-scheme <source> follows the system and cannot see the
+ * header's toggle. Both captures are in the markup instead, lazy, and a lazy image that is
+ * display: none is never fetched, so only the one showing downloads.
+ *
+ * An `eager` phone (the home hero) cannot be lazy, and both captures eager would fetch both. So it
+ * keeps the <picture> for visitors following the system, which is nearly everyone and fetches one,
+ * and adds the lazy pair for those who have chosen, who fetch the <picture>'s capture as well.
  */
 export function PhoneMockup({
   screen,
@@ -22,24 +30,23 @@ export function PhoneMockup({
   className?: string;
 }) {
   const common = { alt, width: PHONE_SHOT_WIDTH, height: PHONE_SHOT_HEIGHT, sizes };
-  const {
-    props: { srcSet: darkSrcSet },
-  } = getImageProps({ ...common, src: phoneScreenSrc(screen, "dark") });
   const { props: light } = getImageProps({ ...common, src: phoneScreenSrc(screen, "light") });
+  const { props: dark } = getImageProps({ ...common, src: phoneScreenSrc(screen, "dark") });
+  const chosen = eager ? " theme-chosen-only" : "";
 
   return (
     <figure className={["phone-mockup", className].filter(Boolean).join(" ")}>
       <div className="phone-bezel">
-        <picture>
-          <source media="(prefers-color-scheme: dark)" srcSet={darkSrcSet} sizes={sizes} />
-          <img
-            {...light}
-            alt={alt}
-            className="phone-screen"
-            loading={eager ? "eager" : "lazy"}
-            fetchPriority={eager ? "high" : undefined}
-          />
-        </picture>
+        {eager && (
+          <picture className="theme-system-only">
+            <source media="(prefers-color-scheme: dark)" srcSet={dark.srcSet} sizes={sizes} />
+            <img {...light} alt={alt} className="phone-screen" loading="eager" fetchPriority="high" />
+          </picture>
+        )}
+        {/* eslint-disable-next-line @next/next/no-img-element -- getImageProps output, see above */}
+        <img {...light} alt={alt} className={`phone-screen theme-light-only${chosen}`} loading="lazy" />
+        {/* eslint-disable-next-line @next/next/no-img-element -- getImageProps output, see above */}
+        <img {...dark} alt={alt} className={`phone-screen theme-dark-only${chosen}`} loading="lazy" />
       </div>
     </figure>
   );

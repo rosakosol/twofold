@@ -16,7 +16,9 @@ const nextConfig: NextConfig = {
   // `document.cookie` for every TanStack hook in `src/lib/queries`. That is inherent to this
   // architecture rather than a mistake — but it means any XSS is full session theft, including an
   // admin's, and a CSP is the cheap thing standing in the way. There is no XSS sink today: zero
-  // `dangerouslySetInnerHTML` and zero `innerHTML` in `src/`.
+  // `innerHTML` in `src/`, and one `dangerouslySetInnerHTML`, the light/dark script in
+  // app/layout.tsx, which is a constant string with no input in it. It is inline, so tightening
+  // the script directive below to a nonce or hash has to cover it.
   //
   // `unsafe-inline` for styles because Next injects them, and `unsafe-inline`/`unsafe-eval` for
   // scripts because Next's dev overlay and Sanity Studio both need them. That weakens the script

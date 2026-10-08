@@ -272,15 +272,15 @@ function AppleGoogleSignInButtons({
           a 384px card among 40px inputs, and matching the app's figures made them the loudest thing
           on the page. Google's own spec is smaller still (40px, 14px), so this stays inside it.
 
-          Solid black, not the app's light/dark pair. The app flips to white-on-dark via
-          `.signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)` because it has a
-          dark mode to adapt to; this site has none — nothing ever sets the `.dark` class globals.css
-          keys its dark variant off — so the black button is the only one that can be correct here. */}
+          Apple's adapts to the theme as the app's does, which flips it with
+          `.signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)`: black on light,
+          white on dark, through the `dark:` variant, so it follows the header's toggle as well as
+          the system. Google's stays its white "light" button in both, also as in the app. */}
       <button
         type="button"
         onClick={() => onPress("apple")}
         disabled={busy}
-        className="flex h-11 w-full items-center justify-center gap-2 rounded-full bg-black text-[15px] font-medium text-white disabled:pointer-events-none disabled:opacity-60"
+        className="flex h-11 w-full items-center justify-center gap-2 rounded-full bg-black text-[15px] font-medium text-white dark:bg-white dark:text-black disabled:pointer-events-none disabled:opacity-60"
       >
         {pending === "apple" ? (
           <Loader2 className="size-4 animate-spin" />
