@@ -253,7 +253,7 @@
   height: 100%;
   min-height: 340px;
 }
-.home-map > picture img {
+.home-map-shot {
   position: absolute;
   inset: 0;
   width: 100%;

@@ -1,15 +1,17 @@
 "use client"
 
-import { useTheme } from "next-themes"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react"
+import { useEffectiveTheme } from "@/lib/theme/useEffectiveTheme"
 
+// The site's own theme rather than Sonner's "system", which reads the media query and would miss
+// the header's toggle. next-themes, which shadcn's template used here, was never mounted.
 const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = "system" } = useTheme()
+  const theme = useEffectiveTheme() ?? "light"
 
   return (
     <Sonner
-      theme={theme as ToasterProps["theme"]}
+      theme={theme}
       className="toaster group"
       icons={{
         success: (

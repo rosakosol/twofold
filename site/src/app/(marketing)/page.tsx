@@ -54,16 +54,15 @@ function RomeMap() {
     height: PHONE_SHOT_HEIGHT,
     sizes: "(max-width: 900px) 90vw, 560px",
   };
-  const {
-    props: { srcSet: dark },
-  } = getImageProps({ ...common, src: phoneScreenSrc("memories-map", "dark") });
   const { props: light } = getImageProps({ ...common, src: phoneScreenSrc("memories-map", "light") });
+  const { props: dark } = getImageProps({ ...common, src: phoneScreenSrc("memories-map", "dark") });
+  // Both captures, the page's theme showing one: see PhoneMockup. Lazy, so the other is not fetched.
   return (
     <div className="home-map">
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcSet={dark} sizes={common.sizes} />
-        <img {...light} alt={common.alt} loading="lazy" />
-      </picture>
+      {/* eslint-disable-next-line @next/next/no-img-element -- getImageProps output */}
+      <img {...light} alt={common.alt} loading="lazy" className="home-map-shot theme-light-only" />
+      {/* eslint-disable-next-line @next/next/no-img-element -- getImageProps output */}
+      <img {...dark} alt={common.alt} loading="lazy" className="home-map-shot theme-dark-only" />
       <figure className="home-quote">
         {/* eslint-disable-next-line @next/next/no-img-element -- small fixed thumbnail */}
         <img src="/assets/home/first-date.webp" alt="" width={56} height={56} />
