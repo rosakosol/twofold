@@ -21,7 +21,8 @@
   gap: 22px;
 }
 .features-hero h1 {
-  max-width: 14ch;
+  /* In ch of the title's own size, so this follows the scale; two lines on a desktop. */
+  max-width: 20ch;
 }
 .features-hero .lead {
   max-width: 640px;

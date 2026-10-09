@@ -25,9 +25,9 @@
 .fb-head h1 {
   font-size: var(--text-display);
   font-weight: 700;
-  line-height: 1;
+  line-height: var(--leading-display);
   letter-spacing: var(--tracking-display);
-  max-width: 14ch;
+  max-width: 18ch;
   text-wrap: balance;
 }
 .fb-head .lead {

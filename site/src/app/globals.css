@@ -219,8 +219,9 @@
      its own clamp in feedback.css, /account used text-2xl and /feedback/bookmarks text-xl, so
      the same kind of heading was 41px, 24px or 20px depending on which page you were on. Held as
      a variable rather than a convention — the family on these headings drifted twice already by
-     being agreed rather than defined. */
-  --board-title: clamp(1.6rem, 3vw, 1.9rem);
+     being agreed rather than defined. Now the page-title step of the scale in tokens.css, the
+     size Feedback and /account use too. */
+  --board-title: var(--text-display);
 }
 
 /* The title at the top of a board page. Sans (the body face, like everything else in this

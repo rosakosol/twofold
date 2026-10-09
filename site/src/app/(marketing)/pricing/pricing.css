@@ -14,7 +14,8 @@
   gap: 20px;
 }
 .pricing-hero h1 {
-  max-width: 13ch;
+  /* In ch of the title's own size, so this follows the scale; two lines on a desktop. */
+  max-width: 18ch;
 }
 .pricing-hero .lead {
   max-width: 560px;

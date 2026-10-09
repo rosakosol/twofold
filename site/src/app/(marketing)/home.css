@@ -33,8 +33,12 @@
   align-items: flex-start;
   gap: 24px;
 }
+/* The one heading on the site above the page-title size (tokens.css). */
 .home-hero-copy h1 {
   max-width: 12ch;
+  font-size: var(--text-hero);
+  line-height: var(--leading-hero);
+  letter-spacing: var(--tracking-hero);
 }
 .home-hero-copy .lead {
   max-width: 540px;
@@ -188,9 +192,11 @@
 }
 .home-distance-number {
   margin-top: 28px;
-  font-size: clamp(3.25rem, 1rem + 9vw, 8rem);
+  /* A figure, not a heading, so it may outsize the hero; it came down with the scale (from
+     52 -> 128px) so it no longer dwarfs everything around it. 48 -> 72px. */
+  font-size: clamp(3rem, 2.3rem + 2.9vw, 4.5rem);
   line-height: 1;
-  letter-spacing: -0.05em;
+  letter-spacing: -0.045em;
 }
 .home-distance-line {
   max-width: 560px;

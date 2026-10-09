@@ -543,7 +543,8 @@ select.input {
   color: var(--text-secondary);
 }
 .plan-card-price strong {
-  font-size: 2.5rem;
+  /* Below the page title it sits under on /pricing. */
+  font-size: 2rem;
   font-weight: 700;
   letter-spacing: -0.03em;
   color: var(--text);

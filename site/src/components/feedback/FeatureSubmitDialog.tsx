@@ -152,7 +152,7 @@ export function FeatureSubmitDialog() {
       <DialogContent>
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Request a feature</DialogTitle>
+            <DialogTitle className="text-xl leading-tight font-semibold tracking-tight">Request a feature</DialogTitle>
             <DialogDescription>
               What would make Twofold better? Be specific - it helps other couples find and
               upvote the same idea instead of creating a duplicate.

@@ -32,10 +32,10 @@
   flex: none;
 }
 .account-head h1 {
-  font-size: var(--text-h2);
+  font-size: var(--text-display);
   font-weight: 700;
-  line-height: 1.05;
-  letter-spacing: var(--tracking-h2);
+  line-height: var(--leading-display);
+  letter-spacing: var(--tracking-display);
 }
 .account-head p {
   margin-top: 4px;

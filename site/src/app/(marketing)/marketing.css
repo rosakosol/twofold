@@ -22,15 +22,21 @@
   --nav-h: 72px;
 }
 
-html {
+/* Only while a marketing page is showing: the root outlives the page on a client-side move. */
+html:has(.marketing-shell) {
   scroll-behavior: smooth;
 }
 
 /* Headings are the body face, bold and tightly tracked (section 2.3). The serif is for the
-   wordmark and pull-quotes only. */
-h1,
-h2,
-h3 {
+   wordmark and pull-quotes only.
+
+   Every bare element rule in this file (headings, p, a, section) is scoped to `.marketing-shell`
+   through :where(), which keeps the selector's specificity at a plain element's. Unscoped, they
+   outlived the page: the app router keeps this stylesheet loaded after a client-side move to
+   /feedback or /account, and an unlayered `h2` beats any Tailwind utility, so the feature
+   request dialog's title (an h2 sized `text-base`) came up at section-heading size, and every
+   <section> on those pages picked up 84px of padding. Add new element rules the same way. */
+:where(.marketing-shell) :is(h1, h2, h3) {
   font-family: var(--font-body);
   color: var(--text);
 }
@@ -77,48 +83,44 @@ h3 {
    Typography
    ============================================================ */
 
-h1, h2, h3 {
+:where(.marketing-shell) :is(h1, h2, h3) {
   text-wrap: balance;
 }
-/* The clamp floors are what phones actually get: below ~630px the vw term is smaller than
-   the minimum, so the minimum is the phone size.
-   
-   Trimmed roughly 15% off the desktop caps and a little off the floors. A 4rem h1 was set when
-   these pages were mostly hero — it reads as shouting now that the same scale carries feature
-   rows, pricing and the FAQ, where a heading's job is to be found rather than to land. The vw
-   terms come down with the caps so the growth between phone and desktop stays even. */
-h1 {
+/* Sizes come from the scale in tokens.css; its clamp floors are what phones get. A page title
+   is `--text-display`, not a hero: a heading's job on Features, Pricing or the FAQ is to be
+   found rather than to land. Only the home hero opts up to `--text-hero` (home.css). */
+:where(.marketing-shell) h1 {
   font-size: var(--text-display);
-  line-height: 1;
+  line-height: var(--leading-display);
   letter-spacing: var(--tracking-display);
   margin: 0;
   font-weight: 700;
 }
-h2 {
+:where(.marketing-shell) h2 {
   font-size: var(--text-h2);
-  line-height: 1.06;
+  line-height: var(--leading-h2);
   letter-spacing: var(--tracking-h2);
   margin: 0;
   font-weight: 700;
 }
-h3 {
+:where(.marketing-shell) h3 {
   font-size: var(--text-h3);
   line-height: 1.2;
   letter-spacing: -0.015em;
   margin: 0;
   font-weight: 600;
 }
-p {
+:where(.marketing-shell) p {
   line-height: 1.6;
   text-wrap: pretty;
   margin: 0;
 }
-a {
+:where(.marketing-shell) a {
   text-decoration: none;
   transition: color 0.2s var(--ease);
   color: inherit;
 }
-a:hover {
+:where(.marketing-shell) a:hover {
   color: var(--accent);
 }
 
@@ -155,7 +157,7 @@ a:hover {
   color: var(--faint-ink);
 }
 
-section {
+:where(.marketing-shell) section {
   padding: 84px 0;
 }
 .section-head {
@@ -180,7 +182,7 @@ section {
     --wrap-pad: 20px;
     padding: 0 var(--wrap-pad);
   }
-  section {
+  :where(.marketing-shell) section {
     padding: 60px 0;
   }
 
