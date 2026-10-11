@@ -20,13 +20,13 @@ function Visual({ label, className, children }: { label: string; className: stri
   );
 }
 
-/** The trip countdown widget, small: coral, "22 days until Alex lands in Melbourne". */
+/** The trip countdown widget, small: coral, 22 days until Alex's trip from Rome to Melbourne. */
 export function CountdownWidget({ className }: { className?: string }) {
   return (
-    <Visual label="Trip countdown widget: next reunion in 22 days, until Alex lands in Melbourne" className={["pv-widget pv-countdown", className].filter(Boolean).join(" ")}>
+    <Visual label="Trip countdown widget: next reunion in 22 days, when Alex flies from Rome to Melbourne" className={["pv-widget pv-countdown", className].filter(Boolean).join(" ")}>
       <span className="pv-widget-label">Next reunion</span>
       <span className="pv-countdown-days">22 days</span>
-      <span className="pv-widget-sub">until Alex lands in Melbourne</span>
+      <span className="pv-widget-sub">until Alex flies to Melbourne</span>
     </Visual>
   );
 }
@@ -36,7 +36,7 @@ export function DrawingPadWidget({ className }: { className?: string }) {
   return (
     <Visual label="Drawing pad widget: Alex's drawing of a sun and a heart with the words good morning, left at 11:24 pm in Rome" className={["pv-widget pv-drawing", className].filter(Boolean).join(" ")}>
       <div className="pv-drawing-head">
-        <span className="pv-avatar pv-avatar-alex" aria-hidden>A</span>
+        <span className="pv-avatar pv-avatar-alex is-photo" aria-hidden>A</span>
         <span className="pv-drawing-who">From Alex</span>
         <span className="pv-drawing-when">11:24 pm in Rome</span>
       </div>
@@ -54,60 +54,62 @@ export function DrawingPadWidget({ className }: { className?: string }) {
   );
 }
 
-/** Today's question widget, on the daily-question gradient. */
+/** Today's deep question widget, on the daily-question gradient: Alex has answered, it's Sam's turn. */
 export function DailyQuestionWidget({ className }: { className?: string }) {
   return (
-    <Visual label="Today's question widget: What's a small thing I do that makes you feel loved? Both of you have answered." className={["pv-widget pv-daily", className].filter(Boolean).join(" ")}>
-      <span className="pv-widget-label">Today&rsquo;s question</span>
-      <span className="pv-daily-question">What&rsquo;s a small thing I do that makes you feel loved?</span>
+    <Visual label="Today's deep question widget: What's a criticism that changed how you work? Alex has answered." className={["pv-widget pv-daily", className].filter(Boolean).join(" ")}>
+      <span className="pv-widget-label">Today&rsquo;s deep question</span>
+      <span className="pv-daily-question">What&rsquo;s a criticism that changed how you work?</span>
       <span className="pv-daily-foot">
-        <Check aria-hidden /> Both answered
+        <Check aria-hidden /> Alex answered
       </span>
     </Visual>
   );
 }
 
-/** The streak row from the Games tab: a coral flame, 47 days, both answered today. */
+/** The streak row from the Games tab: a coral flame, and no streak yet. */
 export function StreakRow({ className }: { className?: string }) {
   return (
-    <Visual label="A 47-day streak, both answered today" className={["pv-streak", className].filter(Boolean).join(" ")}>
+    <Visual label="Start a streak: answer today's question together" className={["pv-streak", className].filter(Boolean).join(" ")}>
       <span className="pv-streak-flame">
         <Flame aria-hidden />
       </span>
       <span className="pv-streak-text">
-        <strong>47-day streak</strong>
-        <span>Both answered today</span>
+        <strong>Start a streak</strong>
+        <span>Answer today&rsquo;s question together</span>
       </span>
     </Visual>
   );
 }
 
-/** Alex's flight as a Live Activity on the Lock Screen: Doha to Melbourne, 86% of the way. */
+/** Alex's flight as a Live Activity on the Lock Screen: Rome to San Francisco, 86% of the way. */
 export function FlightLiveActivity({ className }: { className?: string }) {
   return (
-    <Visual label="Live Activity for flight QR904 from Doha to Melbourne: 86% complete, lands in 1 hour 47 minutes" className={["pv-live", className].filter(Boolean).join(" ")}>
+    <Visual label="Live Activity for Alex's flight UA506 from Rome to San Francisco: 1 hour 7 minutes to landing, left Rome at 4:24 pm, lands at 7:31 pm" className={["pv-live", className].filter(Boolean).join(" ")}>
       <div className="pv-live-head">
-        <span className="pv-avatar pv-avatar-alex" aria-hidden>A</span>
+        <span className="pv-avatar pv-avatar-alex is-photo" aria-hidden>A</span>
         <span className="pv-live-title">
           <strong>Alex is on the way</strong>
-          <span>Qatar Airways QR904</span>
+          <span>UA506 to San Francisco</span>
         </span>
         <span className="pv-live-eta">
-          <strong>1h 47m</strong>
-          <span>to land</span>
+          <strong>1h 7m</strong>
+          <span>to landing</span>
         </span>
       </div>
       <div className="pv-live-route">
-        <span className="pv-live-code">DOH</span>
         <span className="pv-live-track">
           <span className="pv-live-progress" />
           <Plane className="pv-live-plane" aria-hidden />
         </span>
-        <span className="pv-live-code">MEL</span>
       </div>
       <div className="pv-live-foot">
-        <span>Departed 8:05 pm</span>
-        <span>Gate 9 · Belt 4</span>
+        <span>
+          <span className="pv-live-code">FCO</span> 4:24 pm
+        </span>
+        <span>
+          <span className="pv-live-code">SFO</span> 7:31 pm
+        </span>
       </div>
     </Visual>
   );
@@ -137,10 +139,10 @@ export function WhosMoreLikelyCard({ className }: { className?: string }) {
       <span className="pv-likely-question">plan a surprise trip without telling the other?</span>
       <span className="pv-likely-choices">
         <span className="pv-likely-choice">
-          <span className="pv-avatar pv-avatar-alex">A</span>Alex
+          <span className="pv-avatar pv-avatar-alex is-photo">A</span>Alex
         </span>
         <span className="pv-likely-choice">
-          <span className="pv-avatar pv-avatar-sam">S</span>Sam
+          <span className="pv-avatar pv-avatar-sam is-photo">S</span>Sam
         </span>
       </span>
     </Visual>
@@ -150,12 +152,12 @@ export function WhosMoreLikelyCard({ className }: { className?: string }) {
 /** The flight widget, small: Alex's flight on the flight gradient. */
 export function FlightWidget({ className }: { className?: string }) {
   return (
-    <Visual label="Flight widget: Alex's flight QR904 from Doha to Melbourne, landing at 9:38 pm" className={["pv-widget pv-flight", className].filter(Boolean).join(" ")}>
+    <Visual label="Flight widget: Alex's flight UA506 from Rome to San Francisco, landing at 7:31 pm" className={["pv-widget pv-flight", className].filter(Boolean).join(" ")}>
       <span className="pv-widget-label">
-        <Plane aria-hidden /> QR904
+        <Plane aria-hidden /> UA506
       </span>
-      <span className="pv-flight-route">DOH &rarr; MEL</span>
-      <span className="pv-widget-sub">Alex lands at 9:38 pm</span>
+      <span className="pv-flight-route">FCO &rarr; SFO</span>
+      <span className="pv-widget-sub">Alex lands at 7:31 pm</span>
     </Visual>
   );
 }
@@ -164,17 +166,17 @@ export function FlightWidget({ className }: { className?: string }) {
  *  phone frame in place of a screenshot, since the Lock Screen cannot be captured from the app. */
 export function LockScreen() {
   return (
-    <div role="img" aria-label="Lock Screen with a Live Activity tracking Alex's flight, and the trip countdown and distance widgets" className="pv-lock">
-      <span className="pv-lock-date">Tuesday 6 October</span>
+    <div role="img" aria-label="Lock Screen on Wednesday 30 September with a Live Activity tracking Alex's flight UA506 to San Francisco, and widgets for 22 days until Alex and the 15,966 km from Rome to Melbourne" className="pv-lock">
+      <span className="pv-lock-date">Wed 30 Sep</span>
       <span className="pv-lock-time">9:41</span>
       <span className="pv-lock-widgets">
         <span className="pv-lock-widget">
           <strong>22 days</strong>
-          <span>to Alex</span>
+          <span>until Alex</span>
         </span>
         <span className="pv-lock-widget">
           <strong>15,966 km</strong>
-          <span>apart</span>
+          <span>Rome to Melbourne</span>
         </span>
       </span>
       <FlightLiveActivity className="pv-lock-live" />
@@ -185,12 +187,12 @@ export function LockScreen() {
 /** The printed Relationship Record's cover. */
 export function KeepsakeCover({ className }: { className?: string }) {
   return (
-    <Visual label="The printed Relationship Record: Our Relationship Record, Alex and Sam, 48 pages, PDF" className={["pv-keepsake", className].filter(Boolean).join(" ")}>
+    <Visual label="The printed Relationship Record: Our Relationship Record, Alex and Sam, as a PDF or Word document" className={["pv-keepsake", className].filter(Boolean).join(" ")}>
       {/* eslint-disable-next-line @next/next/no-img-element -- fixed-size brand mark */}
       <img src="/assets/globe-heart.png" alt="" width={40} height={40} />
       <span className="pv-keepsake-title">Our Relationship Record</span>
       <span className="pv-keepsake-names">Alex and Sam</span>
-      <span className="pv-keepsake-meta">48 pages, PDF</span>
+      <span className="pv-keepsake-meta">PDF or Word</span>
     </Visual>
   );
 }

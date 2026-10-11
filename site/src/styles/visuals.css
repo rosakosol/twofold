@@ -162,6 +162,21 @@
 .pv-avatar-sam {
   background: var(--grad-this);
 }
+/* The sample couple's photos, over their colour while the image loads. The initial stays in the
+   markup as the fallback and is hidden here. Only the sample couple: the account page's
+   PartnerCard uses the same colour classes for real people's initials. */
+.pv-avatar.is-photo {
+  /* Not font-size: 0, which sized rules like `.home-arc-end .pv-avatar` would override. */
+  color: transparent;
+  background-position: center;
+  background-size: cover;
+}
+.pv-avatar-alex.is-photo {
+  background-image: url("/assets/people/alex.webp"), var(--grad-coral);
+}
+.pv-avatar-sam.is-photo {
+  background-image: url("/assets/people/sam.webp"), var(--grad-this);
+}
 
 /* The flight's Live Activity on the Lock Screen. */
 .pv-live {
@@ -234,6 +249,11 @@
   display: flex;
   justify-content: space-between;
   font-size: var(--text-caption);
+}
+/* Each end's airport code, bold and at full strength, ahead of its time. */
+.pv-live-foot .pv-live-code {
+  font-size: inherit;
+  color: var(--on-dark);
 }
 
 /* An iOS notification on frosted dark glass. */
@@ -339,7 +359,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  aspect-ratio: 1206 / 2622;
+  aspect-ratio: 1179 / 2556;
   padding: 18cqw 5cqw 0;
   border-radius: 13.5cqw;
   background: radial-gradient(90% 60% at 80% 10%, color-mix(in srgb, var(--live-accent) 35%, transparent), transparent 70%), var(--grad-night);

@@ -129,7 +129,7 @@ export default async function HomePage() {
             <AppNotification
               className="home-hero-notification"
               title="Alex answered today's question"
-              body="Your turn. Keep your 47-day streak going."
+              body="Your turn. Answer it too and start your streak."
             />
             <CountdownWidget className="home-hero-countdown" />
           </div>
@@ -150,22 +150,22 @@ export default async function HomePage() {
               </g>
             </svg>
             <span className="home-arc-end is-start">
-              <span className="pv-avatar pv-avatar-alex" aria-hidden>A</span>
+              <span className="pv-avatar pv-avatar-alex is-photo" aria-hidden>A</span>
               <span>Alex, Rome</span>
             </span>
             <span className="home-arc-end is-end">
               <span>Sam, Melbourne</span>
-              <span className="pv-avatar pv-avatar-sam" aria-hidden>S</span>
+              <span className="pv-avatar pv-avatar-sam is-photo" aria-hidden>S</span>
             </span>
             <StatusPill tone="accent" icon={<Plane />} className="home-arc-chip">
-              Alex is in the air
+              22 days until Alex
             </StatusPill>
           </div>
           <h2 id="distance-title" className="home-distance-number">
             15,966 km
           </h2>
           <p className="home-distance-line">
-            Between Alex and Sam tonight. Twofold keeps count, and the number shrinks every time one of them boards.
+            Between Alex in Rome and Sam in Melbourne. Twofold keeps count, and the number shrinks every time one of them boards.
           </p>
         </div>
       </section>

@@ -5,7 +5,9 @@
 # Launches a Debug build on a simulator in -demoMode (Twofold/Twofold/App/DemoMode.swift): the sample
 # couple, Sam in Melbourne and Alex in Rome, with no backend and no real account. Captures each screen
 # the site shows, in light and dark, and writes them to site/public/assets/phone-screen/ as
-# <screen>-<light|dark>.webp. Re-run it whenever the app's look changes.
+# <screen>-<light|dark>-<set>.webp. Re-run it whenever the app's look changes, with SET one higher than
+# CAPTURE_SET in site/src/lib/marketing/phoneScreens.ts, then bump CAPTURE_SET to match: the image
+# optimiser caches by URL, so new captures need new file names.
 #
 #   scripts/capture-site-screens.sh <path/to/Twofold.app> [simulator-udid]
 #
@@ -28,18 +30,16 @@ ROOT=${0:A:h:h}
 OUT="$ROOT/site/public/assets/phone-screen"
 TMP=$(mktemp -d)
 WAIT=${WAIT:-10}
+SET=${SET:?set SET to the new capture set number, see the header}
 
 # name : launch arguments after -demoMode
 SCREENS=(
   "home:-demoTab home"
   "travel-trips:-demoTab travel"
   "travel-flights:-demoTab travel -demoTravelSegment flights"
-  "flight-tracking:-demoScreen flight"
-  "trip-details:-demoScreen trip"
   "memories-map:-demoTab memories"
   "memory-detail:-demoScreen memory"
   "games:-demoTab games"
-  "stats:-demoTab stats"
   "connected:-demoScreen connected"
   "our-story:-demoScreen ourStory"
 )
@@ -70,12 +70,12 @@ for mode in light dark; do
 done
 
 mkdir -p "$OUT"
-python3 - "$TMP" "$OUT" <<'PY'
+python3 - "$TMP" "$OUT" "$SET" <<'PY'
 import os, sys
 from PIL import Image
-src, out = sys.argv[1], sys.argv[2]
+src, out, cset = sys.argv[1], sys.argv[2], sys.argv[3]
 for f in sorted(os.listdir(src)):
     im = Image.open(os.path.join(src, f)).convert("RGB")
-    im.save(os.path.join(out, f.replace(".png", ".webp")), "WEBP", quality=88, method=6)
-    print(f"{f[:-4]}.webp {im.width}x{im.height}")
+    im.save(os.path.join(out, f.replace(".png", f"-{cset}.webp")), "WEBP", quality=88, method=6)
+    print(f"{f[:-4]}-{cset}.webp {im.width}x{im.height}")
 PY
