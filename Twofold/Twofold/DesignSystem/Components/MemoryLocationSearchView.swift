@@ -16,6 +16,8 @@ import CoreLocation
 import PostHog
 
 struct MemoryLocationSearchView: View {
+    /// Searching the memories map uses this too, where "Memory location" would be the wrong name.
+    var title: String = "Memory location"
     var onSelect: (Place) -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -160,7 +162,7 @@ struct MemoryLocationSearchView: View {
                 }
             }
             .searchable(text: $completer.queryFragment, prompt: "Type an address or place")
-            .navigationTitle("Memory location")
+            .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {

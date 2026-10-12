@@ -22,11 +22,11 @@ struct MemoriesMapView: View {
     /// Drives the staggered pin entrance below — same pattern onboarding's `MapSellView` mock
     /// already uses, just against the real `citiesWithMemories` list instead of mock data.
     @State private var shownCityIDs: Set<UUID> = []
-    /// Seeded from `initialRegion` on first appearance and otherwise only written when a city is
+    /// Seeded from `initialRegion` on first appearance and otherwise only written when a place is
     /// searched. See the `Map` below for why it is bound rather than an `initialPosition`.
     @State private var cameraPosition: MapCameraPosition = .automatic
     @State private var didSeedCamera = false
-    @State private var showingCitySearch = false
+    @State private var showingPlaceSearch = false
 
     // Not private, so SheetDetentWidthTests measures the detents this view actually uses
     // rather than its own copies of them — a copy would keep passing after a revert here.
@@ -67,7 +67,7 @@ struct MemoriesMapView: View {
 
         return ZStack(alignment: .top) {
             // A bound `position` seeded once, and written to only when the person asks the map to
-            // go somewhere (searching a city, below). The thing that fights pinch and pan is a
+            // go somewhere (searching for a place, below). The thing that fights pinch and pan is a
             // `.automatic` position rebound on every render, which keeps refitting to content —
             // same bug FlightMapView had. A binding the view leaves alone does not do that, and it
             // is the only way to move the camera on demand.
@@ -141,13 +141,16 @@ struct MemoriesMapView: View {
             .padding(.horizontal, Theme.Spacing.md)
             .padding(.top, Theme.Spacing.sm)
         }
-        .sheet(isPresented: $showingCitySearch) {
-            CitySearchView { place in
-                // Wide enough to take in a city and the towns around it, so memories just outside
-                // it are on screen too rather than needing another pinch to find.
+        .sheet(isPresented: $showingPlaceSearch) {
+            // The same search as adding a memory: places, addresses and landmarks, not only cities.
+            // Searching the map for "that café" and finding only its city was the complaint, and the
+            // pins here are memories, which are saved at exactly those places.
+            MemoryLocationSearchView(title: "Search the map") { place in
+                // Close enough to read the streets around a café or an address, wide enough that a
+                // city search still shows a good part of it and the pins nearby.
                 withAnimation(.easeInOut(duration: 0.6)) {
                     cameraPosition = .region(
-                        MKCoordinateRegion(center: place.coordinate, latitudinalMeters: 60_000, longitudinalMeters: 60_000)
+                        MKCoordinateRegion(center: place.coordinate, latitudinalMeters: 5_000, longitudinalMeters: 5_000)
                     )
                 }
             }
@@ -192,7 +195,7 @@ struct MemoriesMapView: View {
     /// an ocean is a lot of dragging; this jumps.
     private var searchButton: some View {
         Button {
-            showingCitySearch = true
+            showingPlaceSearch = true
         } label: {
             HStack(spacing: Theme.Spacing.sm) {
                 Image(systemName: "magnifyingglass")
