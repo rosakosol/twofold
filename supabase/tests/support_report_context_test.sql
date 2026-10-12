@@ -3,7 +3,7 @@
 -- are support admins' alone.
 
 begin;
-select plan(13);
+select plan(14);
 
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
 select id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', email, 'x', now(), now(), now()
@@ -87,6 +87,8 @@ select results_eq(
   'support sees who it is, how often they have been reported, the block and the relationship');
 select is((select count(*)::int from public.admin_report_context((select id from filed where label = 'not a report'))), 0,
   'a request naming nobody has no report context');
+select is((select reported_name from public.admin_support_requests(null, 200) where id = (select id from filed where label = 'report')),
+  'Rex', 'and the inbox list names who the report is about');
 
 reset role;
 select is((select count(*)::int from private.admin_audit_log where action = 'report.view'

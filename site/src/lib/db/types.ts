@@ -2944,6 +2944,8 @@ export type Database = {
           message: string
           name: string
           profile_id: string
+          reported_name: string
+          reported_profile_id: string
           source: string
           subject: string
           thread_handled_at: string
