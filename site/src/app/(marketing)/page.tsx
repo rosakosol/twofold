@@ -143,8 +143,9 @@ export default async function HomePage() {
             <svg viewBox="0 0 1200 300" aria-hidden className="home-arc-svg">
               <path className="home-arc-track" d="M60 250 Q600 -30 1140 250" pathLength={1} />
               <path className="home-arc-progress" d="M60 250 Q600 -30 1140 250" pathLength={1} />
-              {/* The plane at 62% of the way, turned along the curve. */}
-              <g transform="translate(729.6 118.1) rotate(7)">
+              {/* The plane at 62% of the way, turned along the curve. The path's nose points left, so
+                  it is mirrored to face Melbourne, where Alex is headed. */}
+              <g transform="translate(729.6 118.1) rotate(7) scale(-1 1)">
                 <circle r="22" className="home-arc-plane-bg" />
                 <path className="home-arc-plane" d="M-12 0 L-4 -2 L2 -11 L6 -11 L3 -2 L10 -2 L13 -6 L15 -6 L14 0 L15 6 L13 6 L10 2 L3 2 L6 11 L2 11 L-4 2 Z" />
               </g>
@@ -157,9 +158,6 @@ export default async function HomePage() {
               <span>Sam, Melbourne</span>
               <span className="pv-avatar pv-avatar-sam is-photo" aria-hidden>S</span>
             </span>
-            <StatusPill tone="accent" icon={<Plane />} className="home-arc-chip">
-              22 days until Alex
-            </StatusPill>
           </div>
           <h2 id="distance-title" className="home-distance-number">
             15,966 km
@@ -196,7 +194,7 @@ export default async function HomePage() {
               </div>
             </article>
             <article className="home-day-card">
-              <TimePills pills={[{ icon: "moon", label: "11:40 pm, theirs" }, { icon: "plane", label: "Departure day" }]} />
+              <TimePills pills={[{ icon: "moon", label: "10:10 pm, theirs" }, { icon: "plane", label: "Departure day" }]} />
               <h3>Watch them cross the world</h3>
               <p>Every gate change and delay, live on your Lock Screen, right up until it says they&rsquo;ve landed.</p>
               <div className="home-day-visual is-dark">

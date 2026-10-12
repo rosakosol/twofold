@@ -14,21 +14,23 @@ export const PHONE_SHOT_HEIGHT = 2556;
 /** What each screen shows, for its alt text (docs/TWOFOLD_WEBSITE.md, section 10: describe the
  *  screen, never "app screenshot"). */
 export const PHONE_SCREENS = {
-  home: "Twofold's Home screen: 11:24 pm for Alex in Rome, Alex's next flight from Rome to San Francisco on a map, and the 15,966 km between them",
+  home: "Twofold's Home screen: 11:24 pm for Alex in Rome, Alex's Emirates flight EK96 from Rome to Dubai en route and landing in 55 minutes, and the 15,966 km between them",
   "travel-trips": "The Travel tab: a globe, and their upcoming trips, Rome to Melbourne in 22 days, Melbourne to Rome in 98 and Melbourne to Tokyo in 119",
-  "travel-flights": "The Travel tab on Flights: Alex's flight UA506 from Rome to San Francisco, departing in 24 days, and a past flight from Melbourne to Singapore",
+  "travel-flights": "The Travel tab on Flights: Alex's Emirates flight EK96 from Rome to Dubai, en route and landing in 55 minutes, and a past flight from Melbourne to Singapore",
   "memories-map": "The Memories map of Rome, with photo pins where their memories happened",
   "memory-detail": "A memory called Our first date, at Trattoria Pizzeria Luzzi in Rome, with a photo and a note",
   games: "The Games tab: start a streak, today's deep question, and the couple games",
   connected: "The screen that says You're connected, with Alex and Sam's photos joined by a heart",
   "our-story": "Our story: 4 moments together, a timeline of their trips between Melbourne, Osaka and Tokyo",
+  // Captured by hand on a device: the script's simulator launches can't reach the Lock Screen.
+  "lock-screen": "The Lock Screen: 22 days until Melbourne, Alex and Sam 15,966 km apart, and a Live Activity for Alex's Emirates flight EK96 to Dubai, 55 minutes to landing",
 } as const;
 
 export type PhoneScreen = keyof typeof PHONE_SCREENS;
 
 /** Bumped whenever the captures are replaced: the image optimiser caches by URL, so a new capture
  *  under an old file name can keep serving the old picture. Rename the files to match. */
-const CAPTURE_SET = 2;
+const CAPTURE_SET = 4;
 
 export function phoneScreenSrc(screen: PhoneScreen, mode: "light" | "dark") {
   return `/assets/phone-screen/${screen}-${mode}-${CAPTURE_SET}.webp`;

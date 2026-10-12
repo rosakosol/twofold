@@ -34,22 +34,15 @@ export function CountdownWidget({ className }: { className?: string }) {
 /** The drawing pad widget, medium: Alex's note on the paper, left before bed in Rome. */
 export function DrawingPadWidget({ className }: { className?: string }) {
   return (
-    <Visual label="Drawing pad widget: Alex's drawing of a sun and a heart with the words good morning, left at 11:24 pm in Rome" className={["pv-widget pv-drawing", className].filter(Boolean).join(" ")}>
+    <Visual label="Drawing pad widget: Alex's handwritten note, missing you, with a heart, left at 11:24 pm in Rome" className={["pv-widget pv-drawing", className].filter(Boolean).join(" ")}>
       <div className="pv-drawing-head">
         <span className="pv-avatar pv-avatar-alex is-photo" aria-hidden>A</span>
         <span className="pv-drawing-who">From Alex</span>
         <span className="pv-drawing-when">11:24 pm in Rome</span>
       </div>
-      <svg className="pv-drawing-paper" viewBox="0 0 320 130" aria-hidden>
-        <g fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
-          {/* a sun */}
-          <circle cx="58" cy="62" r="20" />
-          <path d="M58 26v-10M58 108v-10M22 62H12M104 62H94M33 37l-7-7M90 94l-7-7M33 87l-7 7M90 30l-7 7" />
-          {/* a heart */}
-          <path className="pv-drawing-heart" d="M276 104c-10-8-16-14-12-20 3-5 10-4 12 2 2-6 9-7 12-2 4 6-2 12-12 20z" />
-        </g>
-        <text className="pv-drawing-words" x="124" y="74">good morning</text>
-      </svg>
+      {/* Alex's real drawing from the app's Drawing Pad widget, white paper made transparent. */}
+      {/* eslint-disable-next-line @next/next/no-img-element -- fixed-size drawing */}
+      <img className="pv-drawing-paper" src="/assets/drawing-missing-you.webp" alt="" width={142} height={242} />
     </Visual>
   );
 }
@@ -82,18 +75,18 @@ export function StreakRow({ className }: { className?: string }) {
   );
 }
 
-/** Alex's flight as a Live Activity on the Lock Screen: Rome to San Francisco, 86% of the way. */
+/** Alex's flight as a Live Activity on the Lock Screen: Emirates EK96, Rome to Dubai, 86% of the way. */
 export function FlightLiveActivity({ className }: { className?: string }) {
   return (
-    <Visual label="Live Activity for Alex's flight UA506 from Rome to San Francisco: 1 hour 7 minutes to landing, left Rome at 4:24 pm, lands at 7:31 pm" className={["pv-live", className].filter(Boolean).join(" ")}>
+    <Visual label="Live Activity for Alex's Emirates flight EK96 from Rome to Dubai: 55 minutes to landing, left Rome at 10:10 pm, lands at 5:50 am" className={["pv-live", className].filter(Boolean).join(" ")}>
       <div className="pv-live-head">
         <span className="pv-avatar pv-avatar-alex is-photo" aria-hidden>A</span>
         <span className="pv-live-title">
           <strong>Alex is on the way</strong>
-          <span>UA506 to San Francisco</span>
+          <span>Emirates EK96 to Dubai</span>
         </span>
         <span className="pv-live-eta">
-          <strong>1h 7m</strong>
+          <strong>55m</strong>
           <span>to landing</span>
         </span>
       </div>
@@ -105,10 +98,10 @@ export function FlightLiveActivity({ className }: { className?: string }) {
       </div>
       <div className="pv-live-foot">
         <span>
-          <span className="pv-live-code">FCO</span> 4:24 pm
+          <span className="pv-live-code">FCO</span> 10:10 pm
         </span>
         <span>
-          <span className="pv-live-code">SFO</span> 7:31 pm
+          <span className="pv-live-code">DXB</span> 5:50 am
         </span>
       </div>
     </Visual>
@@ -152,35 +145,13 @@ export function WhosMoreLikelyCard({ className }: { className?: string }) {
 /** The flight widget, small: Alex's flight on the flight gradient. */
 export function FlightWidget({ className }: { className?: string }) {
   return (
-    <Visual label="Flight widget: Alex's flight UA506 from Rome to San Francisco, landing at 7:31 pm" className={["pv-widget pv-flight", className].filter(Boolean).join(" ")}>
+    <Visual label="Flight widget: Alex's Emirates flight EK96 from Rome to Dubai, landing at 5:50 am" className={["pv-widget pv-flight", className].filter(Boolean).join(" ")}>
       <span className="pv-widget-label">
-        <Plane aria-hidden /> UA506
+        <Plane aria-hidden /> EK96
       </span>
-      <span className="pv-flight-route">FCO &rarr; SFO</span>
-      <span className="pv-widget-sub">Alex lands at 7:31 pm</span>
+      <span className="pv-flight-route">FCO &rarr; DXB</span>
+      <span className="pv-widget-sub">Alex lands at 5:50 am</span>
     </Visual>
-  );
-}
-
-/** The Lock Screen, drawn: the time, the flight's Live Activity and two widgets. Goes inside the
- *  phone frame in place of a screenshot, since the Lock Screen cannot be captured from the app. */
-export function LockScreen() {
-  return (
-    <div role="img" aria-label="Lock Screen on Wednesday 30 September with a Live Activity tracking Alex's flight UA506 to San Francisco, and widgets for 22 days until Alex and the 15,966 km from Rome to Melbourne" className="pv-lock">
-      <span className="pv-lock-date">Wed 30 Sep</span>
-      <span className="pv-lock-time">9:41</span>
-      <span className="pv-lock-widgets">
-        <span className="pv-lock-widget">
-          <strong>22 days</strong>
-          <span>until Alex</span>
-        </span>
-        <span className="pv-lock-widget">
-          <strong>15,966 km</strong>
-          <span>Rome to Melbourne</span>
-        </span>
-      </span>
-      <FlightLiveActivity className="pv-lock-live" />
-    </div>
   );
 }
 

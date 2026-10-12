@@ -64,20 +64,12 @@
   color: var(--paper-ink-secondary);
   font-weight: 600;
 }
+/* The drawing itself: portrait, so it sits centred on the pad at a fixed height. */
 .pv-drawing-paper {
-  width: 100%;
-  height: auto;
-  color: var(--paper-ink);
-}
-.pv-drawing-heart {
-  stroke: var(--tint-coral);
-  fill: color-mix(in srgb, var(--tint-coral) 18%, transparent);
-}
-.pv-drawing-words {
-  font-family: "Bradley Hand", "Segoe Print", "Comic Sans MS", cursive;
-  font-size: 32px;
-  font-weight: 700;
-  fill: var(--paper-ink);
+  display: block;
+  width: auto;
+  height: 132px;
+  margin: 0 auto;
 }
 
 /* Today's question, on the daily gradient. */
@@ -351,65 +343,6 @@
   font-size: 1.5rem;
   font-weight: 700;
   letter-spacing: -0.02em;
-}
-
-/* The Lock Screen, drawn inside a phone frame at the screenshots' proportions. */
-.pv-lock {
-  container-type: inline-size;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  aspect-ratio: 1179 / 2556;
-  padding: 18cqw 5cqw 0;
-  border-radius: 13.5cqw;
-  background: radial-gradient(90% 60% at 80% 10%, color-mix(in srgb, var(--live-accent) 35%, transparent), transparent 70%), var(--grad-night);
-  color: var(--on-dark);
-  overflow: hidden;
-}
-.pv-lock-date {
-  font-size: 5cqw;
-  font-weight: 600;
-}
-.pv-lock-time {
-  font-size: 26cqw;
-  font-weight: 700;
-  letter-spacing: -0.04em;
-  line-height: 1;
-}
-.pv-lock-widgets {
-  display: flex;
-  gap: 3cqw;
-  margin: 5cqw 0;
-}
-.pv-lock-widget {
-  display: flex;
-  flex-direction: column;
-  min-width: 34cqw;
-  padding: 3cqw 4cqw;
-  border-radius: 6cqw;
-  background: color-mix(in srgb, var(--on-dark) 16%, transparent);
-  font-size: 3.6cqw;
-}
-.pv-lock-widget strong {
-  font-size: 5cqw;
-}
-.pv-lock .pv-lock-live {
-  margin-top: auto;
-  margin-bottom: 8cqw;
-  padding: 4cqw;
-  border-radius: 7cqw;
-  font-size: 3.6cqw;
-  box-shadow: none;
-}
-.pv-lock .pv-lock-live * {
-  font-size: inherit;
-}
-.pv-lock .pv-lock-live .pv-live-eta strong {
-  font-size: 4.6cqw;
-}
-.pv-lock .pv-lock-live .pv-avatar {
-  width: 7cqw;
-  height: 7cqw;
 }
 
 /* The printed Relationship Record. */

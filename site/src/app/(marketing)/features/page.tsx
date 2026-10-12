@@ -12,7 +12,6 @@ import {
   FlightLiveActivity,
   FlightWidget,
   KeepsakeCover,
-  LockScreen,
   WhosMoreLikelyCard,
 } from "@/components/site/ProductVisuals";
 
@@ -108,11 +107,7 @@ const FEATURES: Feature[] = [
     ticks: ["Countdown, distance and flight-status widgets", "Live Activities for flights in progress", "More widget styles on Premium"],
     visual: (
       <div className="features-with-overlay">
-        <figure className="phone-mockup">
-          <div className="phone-bezel">
-            <LockScreen />
-          </div>
-        </figure>
+        <PhoneMockup screen="lock-screen" sizes={PHONE} />
         <div className="features-overlay is-stack">
           <CountdownWidget />
           <FlightWidget />
