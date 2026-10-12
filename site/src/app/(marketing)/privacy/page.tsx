@@ -42,8 +42,10 @@ export default async function PrivacyPage() {
         doodles and game answers). Signing in also means an email address, and a password if you
         choose one rather than Apple or Google - passwords are stored by our authentication
         provider as a salted hash we cannot read. If you choose to give a birthday, we store the
-        day and the month only - never the year, so we hold no date of birth and nothing that
-        reveals your age.
+        day and the month only - never the year, so we hold no date of birth or exact age. If you
+        turn on 18+ questions, we record that you confirmed you&apos;re 18 or older, and when;
+        turning them off removes that record. Your partner can see whether you&apos;ve turned them
+        on, but not when.
       </p>
 
       <h2>How it&apos;s shared with your partner</h2>
