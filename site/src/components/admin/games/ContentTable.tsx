@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Pencil, Trash2, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, Trash2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusPill } from "@/components/site/StatusPill";
 import { ConsoleEmpty } from "@/components/console/ConsoleUI";
@@ -19,11 +19,15 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { useGameContentList, useGameDecks } from "@/lib/queries/useGameContent";
+import { useGameContentForDeck, useGameContentPage, useGameDecks } from "@/lib/queries/useGameContent";
 import { useDeleteContent, useUpdateContent } from "@/lib/queries/useGameContentMutations";
 import { ContentForm } from "@/components/admin/games/ContentForm";
 import { deckIdOf, tierOf } from "@/lib/games/contentTypes";
-import type { ContentRow, ContentTypeConfig } from "@/lib/games/contentTypes";
+import type { ContentRow, ContentTypeConfig, TieredContentTypeKey } from "@/lib/games/contentTypes";
+
+/** Enough to scan a category without scrolling forever; the daily question bank alone is over a
+ * thousand entries, and rendering them all meant a thousand switches on one page. */
+const PAGE_SIZE = 50;
 
 function DeleteButton({ contentType, row }: { contentType: ContentTypeConfig; row: ContentRow }) {
   const [open, setOpen] = useState(false);
@@ -95,12 +99,21 @@ export function ContentTable({
   /** Scope the list to one deck's questions — used by the deck detail view. */
   deckFilter?: string;
 }) {
-  const { data: allRows, isLoading } = useGameContentList(contentType.key);
+  const [page, setPage] = useState(0);
+  // A deck is at most a dozen questions, so it loads whole; only the full table pages.
+  // Only deck-backed types are ever opened with a deckFilter; the daily bank has no deck_id.
+  const deckQuery = useGameContentForDeck(contentType.key as TieredContentTypeKey, deckFilter);
+  const pageQuery = useGameContentPage(contentType.key, page, PAGE_SIZE, !deckFilter);
   const { data: decks } = useGameDecks(contentType.gameType ?? undefined);
   const [editingRow, setEditingRow] = useState<ContentRow | null>(null);
   const [formOpen, setFormOpen] = useState(false);
 
-  const rows = deckFilter ? (allRows ?? []).filter((r) => deckIdOf(r) === deckFilter) : allRows;
+  const isLoading = deckFilter ? deckQuery.isLoading : pageQuery.isLoading;
+  const rows = deckFilter ? deckQuery.data : pageQuery.data?.rows;
+  const total = deckFilter ? (deckQuery.data?.length ?? 0) : (pageQuery.data?.total ?? 0);
+  const lastPage = Math.max(0, Math.ceil(total / PAGE_SIZE) - 1);
+  // Deleting the last entry on the last page would otherwise strand the view on an empty page.
+  if (!deckFilter && page > lastPage && pageQuery.data) setPage(lastPage);
   const deckTitleById = new Map((decks ?? []).map((d) => [d.id, `${d.emoji} ${d.title}`]));
   // In a deck's own view, category and tier come from the deck, so a row only says so when it
   // differs (docs/TWOFOLD_WEBSITE.md, section 9.2).
@@ -112,7 +125,7 @@ export function ContentTable({
   return (
     <div>
       <div className="mb-3 flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">{rows?.length ?? 0} entries</p>
+        <p className="text-sm text-muted-foreground">{total.toLocaleString()} entries</p>
         <Button
           size="sm"
           onClick={() => {
@@ -197,6 +210,34 @@ export function ContentTable({
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {!deckFilter && total > PAGE_SIZE && (
+        <div className="console-pager">
+          <p className="num">
+            Showing {page * PAGE_SIZE + 1} to {Math.min((page + 1) * PAGE_SIZE, total)} of {total.toLocaleString()}
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page === 0 || pageQuery.isFetching}
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+            >
+              <ChevronLeft className="h-4 w-4" aria-hidden />
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= lastPage || pageQuery.isFetching}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              Next
+              <ChevronRight className="h-4 w-4" aria-hidden />
+            </Button>
+          </div>
         </div>
       )}
 
