@@ -159,7 +159,11 @@ struct MemoryPhotosSheet: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                PhotosPicker(selection: $picked, maxSelectionCount: 8, matching: .images) {
+                // `.continuous`: every tap reaches `picked` as it happens. The default only hands
+                // the selection over when the picker's own Add button is pressed — the bar hidden
+                // below — so photos ticked here were never added. Clearing `picked` after each
+                // load (see `add`) also depends on this.
+                PhotosPicker(selection: $picked, maxSelectionCount: 8, selectionBehavior: .continuous, matching: .images) {
                     // Never drawn: an inline picker embeds the library itself and ignores its
                     // label. Required by the initialiser all the same.
                     EmptyView()
@@ -167,8 +171,9 @@ struct MemoryPhotosSheet: View {
                 .photosPickerStyle(.inline)
                 // The picker's own "Done"/"Cancel" bar would be a second, contradictory way out of
                 // a sheet that already has one, and it is not what finishes this job — the strip
-                // below is.
-                .photosPickerAccessoryVisibility(.hidden, edges: .bottom)
+                // below is. Every edge: iOS 26 moved that bar to the top, so hiding only the
+                // bottom left it showing.
+                .photosPickerAccessoryVisibility(.hidden, edges: .all)
 
                 Divider()
 

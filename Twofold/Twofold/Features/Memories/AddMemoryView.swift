@@ -343,6 +343,7 @@ struct AddMemoryView: View {
                         }
                     }
             }
+            .accessibilityLabel("Location")
 
             Spacer()
 
