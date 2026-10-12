@@ -63,7 +63,9 @@ struct MemoriesListView: View {
             // exact place that was tapped is the subject and showing the rest of its city would be
             // showing memories the pin doesn't stand for. The filter bar below is the opposite: it
             // is for finding a memory when you only remember roughly where you were.
-            if let initialLocationFilter, memory.place?.id != initialLocationFilter.id { return false }
+            // Same spot, not same id, so the list under a map pin holds every memory its count
+            // says it does — see `Place.isSameSpot(as:)`.
+            if let initialLocationFilter, memory.place?.isSameSpot(as: initialLocationFilter) != true { return false }
             if let cityFilter, memory.place?.displayCity != cityFilter { return false }
             if let yearFilter, Calendar.current.component(.year, from: memory.date) != yearFilter { return false }
             return true

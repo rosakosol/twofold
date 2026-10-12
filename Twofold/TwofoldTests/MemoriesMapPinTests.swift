@@ -59,8 +59,20 @@ struct MemoriesMapPinTests {
 
     // MARK: - Fixtures
 
+    /// Hands out a distinct position per place. Pins group by spot, so fixtures that all sat at
+    /// (0, 0) would collapse into one pin and stop testing what they were written to test.
+    private final class Positions {
+        private var next = 0
+        func take() -> Double {
+            next += 1
+            return Double(next) * 0.01
+        }
+    }
+    private let positions = Positions()
+
     private func place(_ name: String) -> Place {
-        Place(id: UUID(), city: name, country: "Testland", latitude: 0, longitude: 0)
+        let offset = positions.take()
+        return Place(id: UUID(), city: name, country: "Testland", latitude: offset, longitude: offset)
     }
 
     private func memory(_ title: String, _ place: Place?, daysAgo: Int) -> Memory {
@@ -150,5 +162,48 @@ struct MemoriesMapPinTests {
         }
         expectAgreement(memories, "interleaved")
         #expect(MemoriesMapView.cityPins(from: memories).map(\.place.city) == places.reversed().map(\.city))
+    }
+
+    // MARK: - Same spot, different place
+
+    /// A memory just added keeps the app's own place id until the next refresh, so a second memory
+    /// at a spot that already had one arrived under a different id. Grouped by id, it drew its own
+    /// pin exactly on top of the first, and the count that should have said 2 never appeared.
+    @Test("memories at the same spot share one pin even when their place ids differ")
+    func sameSpotDifferentIDs() {
+        let saved = Place(id: UUID(), city: "Fitzroy", country: "Australia", latitude: -37.79861, longitude: 144.97832)
+        let justAdded = Place(id: UUID(), city: "Fitzroy", country: "Australia", latitude: -37.79861, longitude: 144.97832)
+        let pins = MemoriesMapView.cityPins(from: [
+            memory("first", saved, daysAgo: 10),
+            memory("second", justAdded, daysAgo: 1),
+        ])
+        #expect(pins.count == 1)
+        #expect(pins.first?.count == 2)
+        #expect(pins.first?.id == saved.id, "the pin keeps the first place it saw, so its reveal doesn't restart")
+        #expect(pins.first?.newest?.title == "second")
+    }
+
+    /// The same café picked by search and by current location can come back named differently.
+    @Test("a spot named two ways is still one spot")
+    func sameSpotDifferentNames() {
+        let searched = Place(id: UUID(), city: "Brunetti", country: "Australia", latitude: -37.80001, longitude: 144.96612)
+        let current = Place(id: UUID(), city: "Carlton", country: "Australia", latitude: -37.80003, longitude: 144.96614)
+        #expect(searched.isSameSpot(as: current))
+        #expect(MemoriesMapView.cityPins(from: [
+            memory("a", searched, daysAgo: 2),
+            memory("b", current, daysAgo: 1),
+        ]).count == 1)
+    }
+
+    /// The tolerance is a few metres, not a neighbourhood: two places a block apart are two pins.
+    @Test("places a block apart stay separate")
+    func nearbyPlacesStaySeparate() {
+        let one = Place(id: UUID(), city: "Fitzroy", country: "Australia", latitude: -37.7986, longitude: 144.9783)
+        let blockAway = Place(id: UUID(), city: "Fitzroy", country: "Australia", latitude: -37.7996, longitude: 144.9783)
+        #expect(!one.isSameSpot(as: blockAway))
+        #expect(MemoriesMapView.cityPins(from: [
+            memory("a", one, daysAgo: 2),
+            memory("b", blockAway, daysAgo: 1),
+        ]).count == 2)
     }
 }

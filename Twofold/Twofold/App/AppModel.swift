@@ -429,7 +429,7 @@ final class AppModel {
     }
 
     func memories(in place: Place) -> [Memory] {
-        memories.filter { $0.place?.id == place.id }
+        memories.filter { $0.place?.isSameSpot(as: place) == true }
     }
 
     var citiesWithMemories: [Place] {

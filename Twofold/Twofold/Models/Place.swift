@@ -30,6 +30,26 @@ struct Place: Identifiable, Hashable, Codable {
         CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
     }
 
+    /// Where this place sits, to about ten metres (four decimal places). Integers rather than a
+    /// formatted string, so a coordinate a hair either side of zero doesn't split one spot in two.
+    struct Spot: Hashable {
+        let latitude: Int
+        let longitude: Int
+    }
+
+    var spot: Spot {
+        Spot(latitude: Int((latitude * 10_000).rounded()), longitude: Int((longitude * 10_000).rounded()))
+    }
+
+    /// Whether two places are one spot on a map. Sharing an id is not the only way: a memory just
+    /// added keeps the app's own place id until the next refresh swaps in the server's, a memory
+    /// drafted before pairing keeps it until it syncs, and the same spot picked by search and by
+    /// current location can come back under different names. Each of those drew its own pin
+    /// exactly on top of the other, so a spot holding two memories looked like it held one.
+    func isSameSpot(as other: Place) -> Bool {
+        id == other.id || spot == other.spot
+    }
+
     var timeZone: TimeZone? {
         timeZoneIdentifier.flatMap(TimeZone.init(identifier:))
     }

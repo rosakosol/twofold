@@ -278,28 +278,33 @@ struct MemoriesMapView: View {
 
     /// Pure, so the equivalence above can actually be proved rather than asserted — see
     /// `MemoriesMapPinTests`, which checks this against the naive three-scan version it replaced.
+    ///
+    /// Grouped by spot (`Place.spot`), not by place id: two memories at the same spot can carry
+    /// different place ids (see `Place.isSameSpot(as:)`), and grouped by id they drew two pins
+    /// exactly on top of each other, with no count. The pin takes the first place seen at that
+    /// spot, so its id and its reveal order stay what they were.
     static func cityPins(from memories: [Memory]) -> [CityPin] {
-        var order: [UUID] = []
-        var byPlace: [UUID: (place: Place, count: Int, newest: Memory?)] = [:]
+        var order: [Place.Spot] = []
+        var bySpot: [Place.Spot: (place: Place, count: Int, newest: Memory?)] = [:]
 
         for memory in memories {
             guard let place = memory.place else { continue }
-            if var existing = byPlace[place.id] {
+            if var existing = bySpot[place.spot] {
                 existing.count += 1
                 if let newest = existing.newest {
                     if memory.date > newest.date { existing.newest = memory }
                 } else {
                     existing.newest = memory
                 }
-                byPlace[place.id] = existing
+                bySpot[place.spot] = existing
             } else {
-                order.append(place.id)
-                byPlace[place.id] = (place, 1, memory)
+                order.append(place.spot)
+                bySpot[place.spot] = (place, 1, memory)
             }
         }
 
-        return order.compactMap { id in
-            guard let entry = byPlace[id] else { return nil }
+        return order.compactMap { spot in
+            guard let entry = bySpot[spot] else { return nil }
             return CityPin(place: entry.place, count: entry.count, newest: entry.newest)
         }
     }
