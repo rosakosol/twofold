@@ -27,23 +27,23 @@ enum GameTopic: String, CaseIterable, Hashable, Identifiable {
 
     var id: String { rawValue }
 
-    /// Sentence case for display. `rawValue` stays as the database writes it, since that is what
+    /// Title case for display. `rawValue` stays as the database writes it, since that is what
     /// content rows are matched on.
     var displayName: String {
         switch self {
         case .starters: "Starters"
-        case .getToKnowEachOther: "Get to know each other"
+        case .getToKnowEachOther: "Get to Know Each Other"
         case .relationship: "Relationship"
         case .travel: "Travel"
-        case .foodAndCulture: "Food & culture"
+        case .foodAndCulture: "Food & Culture"
         case .family: "Family"
-        case .moneyAndFinances: "Money & finances"
-        case .moralValues: "Moral values"
-        case .hobbiesAndLifestyle: "Hobbies & lifestyle"
+        case .moneyAndFinances: "Money & Finances"
+        case .moralValues: "Moral Values"
+        case .hobbiesAndLifestyle: "Hobbies & Lifestyle"
         case .history: "History"
-        case .generalKnowledge: "General knowledge"
-        case .edgyQuestions: "Edgy questions"
-        case .afterDark: "After dark"
+        case .generalKnowledge: "General Knowledge"
+        case .edgyQuestions: "Edgy Questions"
+        case .afterDark: "After Dark"
         }
     }
 
@@ -114,13 +114,13 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .triviaBattle: "Trivia battle"
-        case .moreLikely: "Who's more likely to"
-        case .thisOrThat: "This or that"
-        case .deepConversations: "Deep conversation"
+        case .triviaBattle: "Trivia Battle"
+        case .moreLikely: "Who's More Likely To"
+        case .thisOrThat: "This or That"
+        case .deepConversations: "Deep Conversation"
         case .sudoku: "Sudoku"
-        case .wordGuess: "Word guess"
-        case .wordSearch: "Word search"
+        case .wordGuess: "Word Guess"
+        case .wordSearch: "Word Search"
         case .connectFour: "Connect 4"
         }
     }
@@ -130,12 +130,12 @@ enum GameType: String, Codable, CaseIterable, Hashable, Identifiable {
     var shortLabel: String {
         switch self {
         case .triviaBattle: "Trivia"
-        case .moreLikely: "More likely"
-        case .thisOrThat: "This or that"
-        case .deepConversations: "Deep conversation"
+        case .moreLikely: "More Likely"
+        case .thisOrThat: "This or That"
+        case .deepConversations: "Deep Conversation"
         case .sudoku: "Sudoku"
-        case .wordGuess: "Word guess"
-        case .wordSearch: "Word search"
+        case .wordGuess: "Word Guess"
+        case .wordSearch: "Word Search"
         case .connectFour: "Connect 4"
         }
     }
@@ -318,6 +318,55 @@ struct GameDeck: Identifiable, Hashable {
     var tier: String
     var sortOrder: Int
     var questionCount: Int
+
+    /// Title-cased on the way in, so every screen and every path a deck arrives by (the server or
+    /// the offline copy) shows it the same way, whatever case it was typed in in the console.
+    init(id: UUID, topic: String, gameType: GameType, title: String, emoji: String, tier: String, sortOrder: Int, questionCount: Int) {
+        self.id = id
+        self.topic = topic
+        self.gameType = gameType
+        self.title = title.titleCased
+        self.emoji = emoji
+        self.tier = tier
+        self.sortOrder = sortOrder
+        self.questionCount = questionCount
+    }
+}
+
+extension String {
+    /// Title case: every word capitalised except short joining words ("a", "the", "of", "to" and
+    /// the like), which stay lowercase unless they open the title, close it, or follow a colon.
+    ///
+    /// Only first letters change. A word that already carries a capital past its first letter
+    /// (MBTI, iPhone) is left exactly as written, and so is the rest of every word.
+    var titleCased: String {
+        let minorWords: Set<String> = [
+            "a", "an", "the", "and", "but", "or", "nor", "for", "so", "yet",
+            "as", "at", "by", "in", "of", "on", "per", "to", "up", "via", "vs",
+        ]
+        let words = split(separator: " ", omittingEmptySubsequences: false).map(String.init)
+        let last = words.lastIndex { !$0.isEmpty }
+
+        func capitalizingFirstLetter(_ word: String) -> String {
+            guard let index = word.firstIndex(where: \.isLetter) else { return word }
+            if word[word.index(after: index)...].contains(where: \.isUppercase) { return word }
+            return word.replacingCharacters(in: index...index, with: word[index].uppercased())
+        }
+
+        var previousEndsClause = true
+        return words.enumerated().map { offset, word in
+            defer { if !word.isEmpty { previousEndsClause = word.hasSuffix(":") } }
+            let bare = word.lowercased().trimmingCharacters(in: .punctuationCharacters)
+            if minorWords.contains(bare), !previousEndsClause, offset != last {
+                return word.lowercased()
+            }
+            // Each half of a hyphenated word is a word: "Long-Distance", "Warm-Up".
+            return word.split(separator: "-", omittingEmptySubsequences: false)
+                .map { capitalizingFirstLetter(String($0)) }
+                .joined(separator: "-")
+        }
+        .joined(separator: " ")
+    }
 }
 
 /// Per-partner completion for one deck's session — counts only, never answer content, sourced
