@@ -256,7 +256,12 @@ struct DisconnectPartnerView: View {
             return base + "\n\n\(appModel.partner.name) is the one paying for your Twofold subscription — disconnecting will leave you without one, since you won't be covered by their purchase anymore. You can subscribe yourself to keep everything."
         }
         if isPayer {
-            return base + "\n\n\(appModel.partner.name) will lose premium access right away, since they're covered by your subscription. Your own subscription keeps going afterward — you can cancel it separately once you've disconnected, if you'd rather not keep paying."
+            // Named from the couple's actual tier: a Plus subscriber was told their partner would
+            // lose "premium" access, which is a plan they never had.
+            let access = appModel.subscriptionTier
+                .flatMap(SubscriptionTier.init(rawValue:))
+                .map { "their \($0.displayName) access" } ?? "their paid features"
+            return base + "\n\n\(appModel.partner.name) will lose \(access) right away, since they're covered by your subscription. Your own subscription keeps going afterward — you can cancel it separately once you've disconnected, if you'd rather not keep paying."
         }
         return base
     }
