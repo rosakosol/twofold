@@ -196,9 +196,8 @@ export interface AeroScheduledFlight {
   ident_icao?: string | null;
   ident_iata?: string | null;
   // Present only when `ident` is a codeshare/marketing designator — the identifier the
-  // flight's actual operating carrier uses. resolve-flight/index.ts uses this to drop
-  // marketing-only rows from a number-mode search (searching "QF94" shouldn't surface
-  // an American-Airlines-operated flight just because Qantas markets a seat on it).
+  // flight's actual operating carrier uses. resolve-flight/index.ts uses it to badge a row
+  // "Codeshare"; which rows are kept at all is decided by `ident` (isSearchedScheduleRow).
   actual_ident?: string | null;
   actual_ident_icao?: string | null;
   actual_ident_iata?: string | null;

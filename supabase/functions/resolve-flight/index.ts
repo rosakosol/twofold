@@ -18,6 +18,7 @@ import {
 import { airlineCodesMatch, lookupAirlineName } from "../_shared/airlines.ts";
 import { enforceRateLimit } from "../_shared/rate-limit.ts";
 import { type Candidate, mergeCandidates } from "../_shared/flight-candidates.ts";
+import { identIsSearchedDesignator, isSearchedScheduleRow, splitFlightDesignator } from "../_shared/flight-designator.ts";
 import { isFlightInProgress } from "../_shared/flight-schedule.ts";
 import { deriveFlightStatus } from "../_shared/flight-status.ts";
 
@@ -135,17 +136,6 @@ function toAeroTimestamp(date: Date): string {
   return date.toISOString().replace(/\.\d{3}Z$/, "Z");
 }
 
-// Splits a flight designator ("QF35", "qf035") into the airline code + numeric flight number
-// /schedules' own `airline`/`flight_number` query params want. Returns null on anything that
-// doesn't look like <letters><digits> — callers skip the /schedules lookup entirely rather than
-// guess, since an unfiltered /schedules call (no airline/flight_number) would return every
-// scheduled flight globally for the date window.
-function splitFlightDesignator(raw: string): { airline: string; flightNumber: number } | null {
-  const match = raw.trim().toUpperCase().match(/^([A-Z]{2,3})0*(\d+)$/);
-  if (!match) return null;
-  return { airline: match[1], flightNumber: Number(match[2]) };
-}
-
 // Whether the flight's real operator is the airline the caller actually searched for. AeroAPI's
 // /flights/{ident} exposes the true operator via operator/operator_icao/operator_iata,
 // independent of which ident was searched by; checked against whichever format the code happens
@@ -161,19 +151,6 @@ function splitFlightDesignator(raw: string): { airline: string; flightNumber: nu
 // It now only marks the result, so the client can badge it "Codeshare" — which
 // AddFlightResultsStepView already does, and which it deliberately never filters out in number
 // mode for exactly this reason.
-// Whether a resolved flight's own ident is the same designator the caller typed. Compared
-// numerically (and via airlineCodesMatch) rather than as strings, so "QF035" vs "QF35" and
-// IATA-vs-ICAO airline codes don't read as a mismatch and invent a bogus marketing number.
-function identIsSearchedDesignator(
-  ident: string | null | undefined,
-  designator: { airline: string; flightNumber: number },
-): boolean {
-  if (!ident) return false;
-  const parsed = splitFlightDesignator(ident);
-  if (!parsed) return false;
-  return parsed.flightNumber === designator.flightNumber && airlineCodesMatch(parsed.airline, designator.airline);
-}
-
 // The number to show the traveller, when it isn't the one AeroAPI answered with. Returns null if
 // any of the flight's own idents already matches what they typed.
 function marketingIdentFor(
@@ -556,11 +533,15 @@ Deno.serve(async (req) => {
             flightNumber: designator.flightNumber,
             origin: input.originIata,
           });
-          // Not filtered to operating-carrier-only any more — see isScheduledOperatingCarrier.
-          const scheduledFlights = filterPreferringSameDay(scheduled, input.date, () => input.deviceTimeZone);
+          // Not filtered to operating-carrier-only any more — see isScheduledOperatingCarrier. But
+          // filtered to the number they typed: /schedules includes codeshares by default, so QF35
+          // came back with a row for every partner's number on it too — numbers that aren't on
+          // this traveller's ticket, listed above their own. See isSearchedScheduleRow.
+          const searched = scheduled.filter((s) => isSearchedScheduleRow(s, designator));
+          const scheduledFlights = filterPreferringSameDay(searched, input.date, () => input.deviceTimeZone);
           scheduledCandidates = scheduledFlights.map((s) => fromScheduledFlight(s, !isScheduledOperatingCarrier(s)));
           scheduledLog = `window=[${schedStart},${schedEnd}] aeroapi returned ${scheduled.length}, ` +
-            `${scheduledCandidates.length} after same-day filter`;
+            `${searched.length} under the searched number, ${scheduledCandidates.length} after same-day filter`;
         } catch (err) {
           // A /schedules failure (e.g. date_end > 1 year out) shouldn't take down a request that
           // still has a legitimate (if possibly empty) /flights/{ident} result — log and continue
