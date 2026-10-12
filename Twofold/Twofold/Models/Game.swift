@@ -23,6 +23,7 @@ enum GameTopic: String, CaseIterable, Hashable, Identifiable {
     case history = "History"
     case generalKnowledge = "General Knowledge"
     case edgyQuestions = "Edgy Questions"
+    case afterDark = "After Dark"
 
     var id: String { rawValue }
 
@@ -42,6 +43,7 @@ enum GameTopic: String, CaseIterable, Hashable, Identifiable {
         case .history: "History"
         case .generalKnowledge: "General knowledge"
         case .edgyQuestions: "Edgy questions"
+        case .afterDark: "After dark"
         }
     }
 
@@ -59,6 +61,7 @@ enum GameTopic: String, CaseIterable, Hashable, Identifiable {
         case .history: "building.columns.fill"
         case .generalKnowledge: "lightbulb.fill"
         case .edgyQuestions: "flame.fill"
+        case .afterDark: "moon.stars.fill"
         }
     }
 
@@ -81,6 +84,7 @@ enum GameTopic: String, CaseIterable, Hashable, Identifiable {
         case .history: Theme.textSecondary
         case .generalKnowledge: Theme.indigo
         case .edgyQuestions: Theme.coral
+        case .afterDark: Theme.coral
         }
     }
 

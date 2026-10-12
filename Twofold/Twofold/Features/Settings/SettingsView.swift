@@ -189,6 +189,15 @@ struct SettingsView: View {
 
                         Divider()
 
+                        NavigationLink {
+                            AdultContentSettingsView()
+                        } label: {
+                            SettingsRow(title: "18+ questions", systemImage: "moon.stars.fill")
+                        }
+                        .buttonStyle(.plain)
+
+                        Divider()
+
                         HStack {
                             Label("Require \(appLock.methodName)", systemImage: "lock.fill")
                                 .foregroundStyle(Theme.textPrimary)

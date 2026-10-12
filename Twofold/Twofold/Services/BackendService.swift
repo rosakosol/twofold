@@ -3759,6 +3759,39 @@ enum BackendService {
         return id
     }
 
+    /// Where each partner stands on 18+ questions. Only whether the partner has opted in, never
+    /// when — `adult_content_status` doesn't hand that out.
+    struct AdultContentStatus: Decodable, Equatable {
+        var me: Bool
+        var partner: Bool
+        var hasPartner: Bool
+        enum CodingKeys: String, CodingKey { case me, partner, hasPartner = "has_partner" }
+
+        /// The decks only exist once both have opted in — the server's rule, mirrored for display.
+        var isUnlocked: Bool { me && partner && hasPartner }
+    }
+
+    static func fetchAdultContentStatus() async throws -> AdultContentStatus {
+        let rows: [AdultContentStatus] = try await supabase
+            .rpc("adult_content_status")
+            .execute()
+            .value
+        return rows.first ?? AdultContentStatus(me: false, partner: false, hasPartner: false)
+    }
+
+    /// Turning it on is also this person's statement that they're 18 or over: Twofold stores no
+    /// age, so the opt-in is the age check. Written only through this RPC; the column itself is
+    /// closed to clients.
+    static func setAdultContentOptIn(_ isOn: Bool) async throws {
+        struct Params: Encodable {
+            var pOn: Bool
+            enum CodingKeys: String, CodingKey { case pOn = "p_on" }
+        }
+        try await supabase
+            .rpc("set_adult_content_opt_in", params: Params(pOn: isOn))
+            .execute()
+    }
+
     /// Starts, or picks back up, a sudoku at this difficulty.
     ///
     /// `puzzleID` is the whole of the puzzle. There is no content row behind it and nothing to

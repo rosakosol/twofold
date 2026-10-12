@@ -26,11 +26,11 @@ struct TopicsSection: View {
                     // Every row's progress would otherwise read as a real, played-nothing 0%
                     // until `loadGameDecksIfNeeded()` (below) resolves — misleading for a
                     // returning couple who's actually made progress on most topics.
-                    ForEach(GameTopic.allCases) { topic in
+                    ForEach(GameTopic.allCases.filter { $0 != .afterDark }) { topic in
                         topicRowPlaceholder(topic)
                     }
                 } else {
-                    ForEach(GameTopic.allCases) { topic in
+                    ForEach(visibleTopics) { topic in
                         Button {
                             selectedTopic = topic
                         } label: {
@@ -45,6 +45,12 @@ struct TopicsSection: View {
         .sheet(item: $selectedTopic) { topic in
             TopicDetailView(topic: topic)
         }
+    }
+
+    /// After Dark only once it has decks, which the server hands out only after both partners
+    /// have opted in to 18+ questions. Before that it isn't locked or teased; it isn't there.
+    private var visibleTopics: [GameTopic] {
+        GameTopic.allCases.filter { $0 != .afterDark || !appModel.decks(for: .afterDark).isEmpty }
     }
 
     private func topicRow(_ topic: GameTopic) -> some View {

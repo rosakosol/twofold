@@ -163,6 +163,9 @@ final class AppModel {
     /// Per-deck completion counts for the couple — see `DeckProgress`/`get_deck_progress()`.
     /// Superseded `playedDeckIDs` (a deck has progress here the moment either partner starts it).
     private(set) var deckProgress: [UUID: DeckProgress]?
+    /// Where each partner stands on 18+ questions — see `setAdultContentOptIn(_:)`. Nil until
+    /// Settings asks.
+    private(set) var adultContentStatus: BackendService.AdultContentStatus?
 
     /// Whether the partner has actually redeemed an invite and joined — confirmed by the
     /// backend (an active `couples` row exists), not assumed the moment a code is shared.
@@ -1171,6 +1174,7 @@ final class AppModel {
         // happens to call `refreshGameDecks()` unconditionally.
         gameDecks = nil
         deckProgress = nil
+        adultContentStatus = nil
 
         // ---------------------------------------------------------------------------
         // Everything else this account put in memory
@@ -1772,6 +1776,23 @@ final class AppModel {
     /// caller can tell the difference.
     private func nonEmpty(_ decks: [GameDeck]) -> [GameDeck]? {
         decks.isEmpty ? nil : decks
+    }
+
+    func refreshAdultContentStatus() async {
+        adultContentStatus = try? await BackendService.fetchAdultContentStatus()
+    }
+
+    /// Opts this person in or out of 18+ questions, then brings the decks and the offline copy in
+    /// line straight away rather than at the next daily refresh: opting in should show the decks
+    /// as soon as the partner has too, and opting out should take them off this device now, not
+    /// tomorrow.
+    func setAdultContentOptIn(_ isOn: Bool) async throws {
+        try await BackendService.setAdultContentOptIn(isOn)
+        await refreshAdultContentStatus()
+        await refreshGameDecks()
+        if let payload = try? await BackendService.fetchGameContentPayload() {
+            GameContentStore.store(payload: payload)
+        }
     }
 
     /// Pulls the full deck-and-content catalogue onto the device so games work with no network.
