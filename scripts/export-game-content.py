@@ -174,7 +174,8 @@ def main():
 
     seed = {"version": 1, "decks": decks, "content": content}
     os.makedirs(os.path.dirname(OUTPUT), exist_ok=True)
-    with open(OUTPUT, "w") as handle:
+    # UTF-8 explicitly: deck emoji don't fit Windows' default code page (cp1252).
+    with open(OUTPUT, "w", encoding="utf-8") as handle:
         json.dump(seed, handle, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
 
     total = sum(len(rows) for rows in content.values())
