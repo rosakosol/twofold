@@ -171,19 +171,19 @@ struct DisconnectPartnerView: View {
             titleVisibility: .visible
         ) {
             Button("Disconnect and block", role: .destructive) {
-                // `block_profile` disconnects first when they are the current partner — see
-                // 20261023000000 — so this does not call `removePartner()` as well and cannot
-                // disagree with it about the order.
+                // Ends the same way as removing them, subscription offer included: blocking is
+                // a disconnect too, and the payer is left paying for a partner who's gone.
                 Task {
                     isBlocking = true
                     removePartnerError = nil
-                    do {
-                        try await BackendService.blockProfile(appModel.partner.id)
-                        isBlocking = false
+                    let failureReason = await appModel.blockPartner()
+                    isBlocking = false
+                    if let failureReason {
+                        removePartnerError = failureReason
+                    } else if isPayer {
+                        showingCancelSubscriptionOffer = true
+                    } else {
                         dismiss()
-                    } catch {
-                        isBlocking = false
-                        removePartnerError = "Couldn't block them. Please try again."
                     }
                 }
             }

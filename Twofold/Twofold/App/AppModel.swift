@@ -1431,6 +1431,29 @@ final class AppModel {
             return error.localizedDescription
         }
         Analytics.capture(Analytics.Event.partnerRemove)
+        await settleAfterLeavingCouple()
+        return nil
+    }
+
+    /// Ends the partnership and blocks them, in one step: `block_profile` disconnects first when
+    /// the person blocked is the current partner (20261023000000). Then settles exactly as
+    /// `removePartner()` does. The block button used to call the RPC and close the screen without
+    /// this, so the app went on showing the partner as connected until a pull-to-refresh reloaded
+    /// it. Returns nil on success, or a message saying what went wrong.
+    func blockPartner() async -> String? {
+        guard backendCoupleID != nil else { return "No partner to block." }
+        do {
+            try await BackendService.blockProfile(partner.id)
+        } catch {
+            return "Couldn't block them. Please try again."
+        }
+        Analytics.capture(Analytics.Event.partnerRemove)
+        await settleAfterLeavingCouple()
+        return nil
+    }
+
+    /// What follows the couple ending, however it ended.
+    private func settleAfterLeavingCouple() async {
         // The old code is now permanently invalid server-side (`redeem_invite_code` rejects a
         // non-"pending" code) — without clearing it, `PartnerConnectCard`'s `if inviteCode ==
         // nil` guard would reshare this same dead code to whoever the user invites next, and
@@ -1444,7 +1467,6 @@ final class AppModel {
         // user starts in and need that same nudge again.
         setupChecklistDismissed = false
         Task { await BackendService.resetSetupChecklistDismissed() }
-        return nil
     }
 
     /// Re-checks backend couple state without touching `isLoadingSession` — picks up a
