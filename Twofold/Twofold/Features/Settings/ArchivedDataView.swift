@@ -155,8 +155,11 @@ struct ArchivedCoupleDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+                // Every card here is stretched to the full width. A SectionCard is as wide as its
+                // content, so a card holding only short lines came out narrower than the rest.
                 SectionCard {
                     Text("With \(couple.partnerName)").font(.title3.weight(.bold))
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     if let startedDatingOn = couple.startedDatingOn {
                         Text("Together since \(startedDatingOn.formatted(date: .abbreviated, time: .omitted))")
                             .font(.caption)
@@ -218,6 +221,7 @@ struct ArchivedCoupleDetailView: View {
                         .font(.caption)
                         .foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
                 exportSection
