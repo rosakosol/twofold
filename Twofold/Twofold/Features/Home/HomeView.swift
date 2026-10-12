@@ -635,7 +635,7 @@ struct HomeView: View {
 
                 Text("Accept to start sharing trips, flights, and memories together.")
                     .font(.subheadline)
-                    .foregroundStyle(.white.opacity(0.9))
+                    .foregroundStyle(.white)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -644,11 +644,11 @@ struct HomeView: View {
                         .font(.subheadline.weight(.semibold))
                     Image(systemName: "chevron.right").font(.caption)
                 }
-                .foregroundStyle(Theme.onPrimaryButton)
+                .foregroundStyle(.white)
             }
             .padding(Theme.Spacing.lg)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Theme.primaryButtonGradient, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+            .background(Theme.primaryCardGradient, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         }
         .buttonStyle(.plain)
     }
@@ -685,7 +685,7 @@ struct HomeView: View {
 
                 Text("They haven't accepted yet — feel free to explore Twofold while you wait, or send them a nudge.")
                     .font(.subheadline)
-                    .foregroundStyle(.white.opacity(0.9))
+                    .foregroundStyle(.white)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -694,11 +694,11 @@ struct HomeView: View {
                         .font(.subheadline.weight(.semibold))
                     Image(systemName: "chevron.right").font(.caption)
                 }
-                .foregroundStyle(Theme.onPrimaryButton)
+                .foregroundStyle(.white)
             }
             .padding(Theme.Spacing.lg)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Theme.primaryButtonGradient, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+            .background(Theme.primaryCardGradient, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         }
         .buttonStyle(.plain)
     }
@@ -712,6 +712,11 @@ struct HomeView: View {
     /// Deliberately its own bold blue-gradient design (not another pale `SectionCard`) — this is
     /// the single highest-value action a solo user can take, so it gets real visual weight and
     /// copy that actually sells why, instead of reading as just another checklist item.
+    ///
+    /// `primaryCardGradient`, not the button gradient, with every line pure white. The button
+    /// gradient turns light blue in dark mode for navy text, so white on it was 2.2:1 there, and
+    /// "Get started" took the button's navy while everything around it stayed white. Same for the
+    /// two partner-request cards above.
     private var invitePartnerCard: some View {
         Button {
             showingPartnerSetup = true
@@ -735,7 +740,7 @@ struct HomeView: View {
 
                 Text("Twofold is built for couples. Connect with your partner to unlock \(partnerValuePropGameCount) questions and games, track each other's flights, and add shared trips and memories.")
                     .font(.subheadline)
-                    .foregroundStyle(.white.opacity(0.9))
+                    .foregroundStyle(.white)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -744,11 +749,11 @@ struct HomeView: View {
                         .font(.subheadline.weight(.semibold))
                     Image(systemName: "chevron.right").font(.caption)
                 }
-                .foregroundStyle(Theme.onPrimaryButton)
+                .foregroundStyle(.white)
             }
             .padding(Theme.Spacing.lg)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Theme.primaryButtonGradient, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+            .background(Theme.primaryCardGradient, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         }
         .buttonStyle(.plain)
     }

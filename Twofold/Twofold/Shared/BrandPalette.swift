@@ -134,6 +134,10 @@ enum Brand {
     )
     /// Text on `primaryButton`: white in light mode, `#0B0F16` in dark (6.8:1+).
     static let onPrimaryButton = Color.dynamic(light: 0xFFFFFF, dark: 0x0B0F16)
+    /// The primary blue held in both appearances, for a card that carries white text: the partner
+    /// prompts on Home. `primaryButton` turns light blue in dark mode, where white text measures
+    /// 2.2:1. White on this is 4.9:1 at its lightest, so text on it stays pure white, never faded.
+    static let primaryFixed = gradient(0x1A6FD6, 0x1F49B8)
 
     /// Streak, countdown, coral buttons. White text 4.7:1+.
     static let coralGradient = gradient(0xD23A52, 0xB8274A)

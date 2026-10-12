@@ -14,6 +14,7 @@
 //    -demoTab home|travel|memories|games|stats
 //    -demoTravelSegment flights    the Travel sheet on Flights rather than Trips
 //    -demoScreen flight|memory|trip|connected|ourStory|pads
+//    -demoPartner none             no partner connected: Home shows "Set up your partner"
 //
 
 import Foundation

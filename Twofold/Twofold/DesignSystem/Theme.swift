@@ -92,6 +92,8 @@ enum Theme {
     /// Primary buttons. Adapts: light blue in dark mode. Put `onPrimaryButton` text on it.
     static let primaryButtonGradient = Brand.primaryButton
     static let onPrimaryButton = Brand.onPrimaryButton
+    /// Cards with white text in the primary blue. Same in both appearances. All text on it white.
+    static let primaryCardGradient = Brand.primaryFixed
     static let coralGradient = Brand.coralGradient
     static let heroBlue = Brand.heroBlue
     static let heroBlueGreen = Brand.heroBlueGreen

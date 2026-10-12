@@ -2944,7 +2944,10 @@ extension AppModel {
         memories = DemoData.memories()
         hasCouple = true
         needsOnboarding = false
-        partnerConnected = true
+        // `-demoPartner none`: signed in on your own, which is the only state Home shows the
+        // "Set up your partner" card in. The request lookup counts as answered, as the card waits for it.
+        partnerConnected = DemoMode.argument("demoPartner") != "none"
+        hasResolvedOutgoingConnectionRequest = true
         partnerConnectedCelebrationShown = DemoMode.argument("demoScreen") != "connected"
         setupChecklistDismissed = true
         isSubscriptionActive = true
