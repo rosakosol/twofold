@@ -8,6 +8,25 @@
 
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
+// Installed by importing this module, so every function that sends mail gets it.
+//
+// Reported: an abuse report arrived in the inbox while the app said it couldn't be sent ("Try again
+// in a moment", the app's wording for a response with no error body: the function died rather than
+// refused). The send had succeeded; what failed was everything after it.
+//
+// denomailer keeps a reader running on the SMTP connection, and once the message is accepted and
+// the connection closed underneath it, that reader can reject with nothing awaiting it. The edge
+// runtime treats an unhandled rejection as fatal and tears the request down before the function
+// returns its success. `close()` already swallows its own errors, so guarding the close further
+// would not have helped. send-support-reply has the same shape, so a console reply could go out
+// while the console said it hadn't.
+//
+// Logged rather than ignored, so a rejection that does matter still shows in the function's logs.
+globalThis.addEventListener("unhandledrejection", (event) => {
+  console.error("[mail] unhandled rejection:", (event.reason as Error)?.message ?? event.reason);
+  event.preventDefault();
+});
+
 /// Throws rather than returning null when the mailbox isn't configured. A dormancy warning that
 /// silently fails to send is worse than a job that fails loudly: the deletion clock keeps running
 /// either way, and the whole point of the warning is that somebody gets told before their archive
