@@ -142,18 +142,30 @@ enum MemoryPhotoItem: Identifiable {
 /// unable to remove half of them: the ones they did not personally add are simply not in the
 /// picker to untick.
 ///
-/// So the two halves are separated. The picker above is only ever for adding, embedded inline
-/// rather than presented, and the strip below is the memory as it actually stands — every photo on
-/// it, whoever added it and wherever it came from, each removable. One list, one meaning, and
-/// nothing that can only be reached by the person who happened to take the picture.
+/// So the two halves are separated. The picker above is for adding, embedded inline rather than
+/// presented, and the strip below is the memory as it actually stands — every photo on it, whoever
+/// added it and wherever it came from, each removable. A tick in the picker means "added on this
+/// visit": ticking adds the photo, unticking takes it off again, and removing it from the strip
+/// unticks it. Photos already on the memory are never ticked, for the reason above.
+///
+/// The sheet never clears the picker's selection while someone is tapping. It used to, after each
+/// load, and a second tap landing while the first photo loaded was overwritten by that clear and
+/// lost. Instead each tick is tracked, while loading and once added, so a selection that arrives
+/// mid-load only loads what is new.
 struct MemoryPhotosSheet: View {
     let photos: [MemoryPhotoItem]
     let isBusy: Bool
-    var onAdd: ([Data]) async -> Void
+    /// Adds the photos and returns the strip entry each became, in the same order. Fewer ids than
+    /// photos means the rest were not added.
+    var onAdd: ([Data]) async -> [MemoryPhotoItem.ID]
     var onRemove: (MemoryPhotoItem) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var picked: [PhotosPickerItem] = []
+    /// Ticked items whose photo is on the strip, and which entry it is.
+    @State private var added: [PhotosPickerItem: MemoryPhotoItem.ID] = [:]
+    /// Ticked items still loading.
+    @State private var loading: Set<PhotosPickerItem> = []
     @State private var errorMessage: String?
 
     var body: some View {
@@ -161,8 +173,7 @@ struct MemoryPhotosSheet: View {
             VStack(spacing: 0) {
                 // `.continuous`: every tap reaches `picked` as it happens. The default only hands
                 // the selection over when the picker's own Add button is pressed — the bar hidden
-                // below — so photos ticked here were never added. Clearing `picked` after each
-                // load (see `add`) also depends on this.
+                // below — so photos ticked here were never added.
                 PhotosPicker(selection: $picked, maxSelectionCount: 8, selectionBehavior: .continuous, matching: .images) {
                     // Never drawn: an inline picker embeds the library itself and ignores its
                     // label. Required by the initialiser all the same.
@@ -188,7 +199,7 @@ struct MemoryPhotosSheet: View {
                 }
             }
             .onChange(of: picked) { _, items in
-                Task { await add(items) }
+                Task { await sync(items) }
             }
             .animation(.easeInOut(duration: 0.2), value: errorMessage)
         }
@@ -200,7 +211,7 @@ struct MemoryPhotosSheet: View {
                 Text(photos.isEmpty ? "No photos yet" : "On this memory")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(Theme.textSecondary)
-                if isBusy {
+                if isBusy || !loading.isEmpty {
                     ProgressView().controlSize(.small)
                 }
                 Spacer(minLength: 0)
@@ -265,6 +276,11 @@ struct MemoryPhotosSheet: View {
 
             Button {
                 onRemove(photo)
+                // Untick it too, if this visit added it, so the picker agrees with the strip.
+                if let item = added.first(where: { $0.value == photo.id })?.key {
+                    added[item] = nil
+                    picked.removeAll { $0 == item }
+                }
             } label: {
                 Image(systemName: "xmark.circle.fill")
                     .symbolRenderingMode(.palette)
@@ -280,17 +296,41 @@ struct MemoryPhotosSheet: View {
         .frame(width: 68, height: 68, alignment: .topLeading)
     }
 
-    private func add(_ items: [PhotosPickerItem]) async {
-        guard !items.isEmpty else { return }
-        errorMessage = nil
-        let (loaded, failedCount) = await MemoryPhotoImport.load(MemoryPhotoImport.keyed(items))
-        // Cleared before the await returns to the picker, so the library's ticks reset and the
-        // strip below is the only place a chosen photo appears. Two places showing the same
-        // selection would need reconciling every time either changed.
-        picked = []
-        if !loaded.isEmpty {
-            await onAdd(loaded.map(\.data))
+    /// Brings the strip in line with the picker's ticks: takes off what was unticked, and loads and
+    /// adds what is newly ticked. Runs once per change, and runs overlap — a tap can land while an
+    /// earlier one is still loading — so it only ever acts on items no earlier run has claimed.
+    private func sync(_ items: [PhotosPickerItem]) async {
+        let ticked = Set(items)
+        for (item, id) in added where !ticked.contains(item) {
+            added[item] = nil
+            if let photo = photos.first(where: { $0.id == id }) { onRemove(photo) }
         }
+
+        let fresh = items.filter { added[$0] == nil && !loading.contains($0) }
+        guard !fresh.isEmpty else { return }
+        loading.formUnion(fresh)
+        errorMessage = nil
+
+        // Keyed by our own ids: `itemIdentifier` is nil unless the picker is given a library.
+        let keyed = fresh.map { ($0, UUID().uuidString) }
+        let itemForKey = Dictionary(uniqueKeysWithValues: keyed.map { ($0.1, $0.0) })
+        let (loaded, failedCount) = await MemoryPhotoImport.load(keyed.map { (item: $0.0, key: $0.1) })
+        loading.subtract(fresh)
+
+        // Read now, not before the load: anything unticked meanwhile is not added.
+        let stillTicked = Set(picked)
+        let toAdd = loaded.filter { itemForKey[$0.key].map(stillTicked.contains) ?? false }
+        if !toAdd.isEmpty {
+            let ids = await onAdd(toAdd.map(\.data))
+            for (photo, id) in zip(toAdd, ids) {
+                if let item = itemForKey[photo.key] { added[item] = id }
+            }
+        }
+
+        // A photo that could not be loaded stays ticked otherwise, looking added when it isn't.
+        let loadedKeys = Set(loaded.map(\.key))
+        let failed = Set(keyed.filter { !loadedKeys.contains($0.1) }.map(\.0))
+        if !failed.isEmpty { picked.removeAll { failed.contains($0) } }
         errorMessage = MemoryPhotoImport.failureMessage(count: failedCount)
     }
 }

@@ -241,12 +241,16 @@ struct MemoryDetailView: View {
 
     // MARK: - Photos
 
-    private func addPhotos(_ imagesData: [Data]) async {
-        guard !imagesData.isEmpty, let current = memory else { return }
+    /// Returns the strip entry each new photo became, for `MemoryPhotosSheet` to untick by.
+    private func addPhotos(_ imagesData: [Data]) async -> [MemoryPhotoItem.ID] {
+        guard !imagesData.isEmpty, let current = memory else { return [] }
         isAddingPhotos = true
         errorMessage = nil
+        let before = Set(current.photos.map(\.id))
         await appModel.updateMemory(current, newImagesData: imagesData)
         isAddingPhotos = false
+        // Appended in order, so the new ones line up with `imagesData`.
+        return (memory?.photos ?? []).filter { !before.contains($0.id) }.map { MemoryPhotoItem.uploaded($0).id }
     }
 
     @ViewBuilder

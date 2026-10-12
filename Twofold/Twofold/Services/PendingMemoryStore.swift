@@ -58,7 +58,10 @@ enum PendingMemoryStore {
         for (index, data) in photosData.enumerated() {
             let url = photoURL(memoryID: memory.id, index: index)
             guard (try? data.write(to: url, options: [.atomic, .completeFileProtection])) != nil else { continue }
-            photos.append(MemoryPhoto(id: UUID(), path: "pending", url: url))
+            // Keeps each existing photo's id. A fresh one on every save gave every photo a new
+            // identity whenever one was added or removed, so nothing could hold on to one.
+            let id = index < memory.photos.count ? memory.photos[index].id : UUID()
+            photos.append(MemoryPhoto(id: id, path: "pending", url: url))
         }
         memory.photos = photos
 

@@ -36,9 +36,9 @@ final class OnboardingFirstMemoryUITests: XCTestCase {
         field.typeText(text)
     }
 
-    @MainActor
-    func testPickedPhotoReachesTheForm() throws {
-        let app = XCUIApplication()
+    /// Opens onboarding at the first memory, fills in a title and place, and opens the Photos
+    /// sheet with the library ready to tap. Returns the library's photo cells.
+    private func openPhotosSheet(_ app: XCUIApplication) -> XCUIElementQuery {
         app.launchArguments += ["-onboardingStep", "firstMemory"]
         app.launch()
 
@@ -64,12 +64,11 @@ final class OnboardingFirstMemoryUITests: XCTestCase {
             _ = app.navigationBars["Photos"].waitForExistence(timeout: 4)
         }
         XCTAssertTrue(app.navigationBars["Photos"].exists, "Photos sheet did not open")
-        capture(app, "Photos sheet")
 
-        // The inline picker's first library photo. Its grid cells carry this identifier; a bare
-        // `images.firstMatch` finds the privacy header's icon above them instead.
-        let firstPhoto = app.images.matching(identifier: "PXGGridLayout-Info").firstMatch
-        XCTAssertTrue(firstPhoto.waitForExistence(timeout: 15), "No photos in the inline picker")
+        // The library's photos carry this identifier; a bare `images.firstMatch` finds the
+        // privacy header's icon above them instead.
+        let photos = app.images.matching(identifier: "PXGGridLayout-Info")
+        XCTAssertTrue(photos.firstMatch.waitForExistence(timeout: 15), "No photos in the inline picker")
         // Let the grid finish laying out: it reports cells while still showing "Loading…".
         sleep(2)
         // The picker's first-run "Private Access to Photos" card covers the grid and eats a tap.
@@ -78,16 +77,61 @@ final class OnboardingFirstMemoryUITests: XCTestCase {
             ok.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
             sleep(1)
         }
-        // The picker runs out of process, so its cells report as not hittable; tap the spot instead.
-        firstPhoto.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-        sleep(1)
-        capture(app, "Just after tapping a photo")
+        capture(app, "Photos sheet")
+        return photos
+    }
 
+    /// The picker runs out of process, so its cells report as not hittable; tap the spot instead.
+    private func tapPhoto(_ photo: XCUIElement) {
+        photo.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+    }
+
+    @MainActor
+    func testPickedPhotoReachesTheForm() throws {
+        let app = XCUIApplication()
+        let photos = openPhotosSheet(app)
+
+        tapPhoto(photos.element(boundBy: 0))
         XCTAssertTrue(app.staticTexts["On this memory"].waitForExistence(timeout: 15), "Picked photo never reached the sheet's strip")
         capture(app, "Photo in the sheet")
 
         app.navigationBars["Photos"].buttons["Done"].tap()
         XCTAssertTrue(app.buttons["Remove photo"].waitForExistence(timeout: 10), "Picked photo is not on the form after closing the sheet")
         capture(app, "Photo on the form")
+    }
+
+    /// Two photos tapped back to back, the second before the first has loaded. Each tap reports
+    /// the whole selection so far, so a sheet that loads whatever it is handed adds the first
+    /// photo twice.
+    @MainActor
+    func testTwoQuickPicksAddTwoPhotos() throws {
+        let app = XCUIApplication()
+        let photos = openPhotosSheet(app)
+
+        tapPhoto(photos.element(boundBy: 0))
+        tapPhoto(photos.element(boundBy: 1))
+        XCTAssertTrue(app.staticTexts["On this memory"].waitForExistence(timeout: 15), "Picked photos never reached the sheet's strip")
+        // Long enough for any second load to land too.
+        sleep(3)
+        capture(app, "Two photos in the sheet")
+
+        app.navigationBars["Photos"].buttons["Done"].tap()
+        XCTAssertTrue(app.buttons["Remove photo"].waitForExistence(timeout: 10), "Picked photos are not on the form after closing the sheet")
+        sleep(1)
+        capture(app, "Two photos on the form")
+        XCTAssertEqual(app.buttons.matching(identifier: "Remove photo").count, 2, "Expected exactly the two photos picked")
+    }
+
+    /// A tick means "added on this visit", so unticking takes the photo back off.
+    @MainActor
+    func testUntickingRemovesThePhoto() throws {
+        let app = XCUIApplication()
+        let photos = openPhotosSheet(app)
+
+        tapPhoto(photos.element(boundBy: 0))
+        XCTAssertTrue(app.staticTexts["On this memory"].waitForExistence(timeout: 15), "Picked photo never reached the sheet's strip")
+        tapPhoto(photos.element(boundBy: 0))
+        XCTAssertTrue(app.staticTexts["No photos yet"].waitForExistence(timeout: 10), "Unticking left the photo on the memory")
+        capture(app, "Unticked")
     }
 }

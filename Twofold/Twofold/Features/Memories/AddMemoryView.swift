@@ -169,10 +169,14 @@ struct AddMemoryView: View {
                     photos: existingPhotos.map { .uploaded($0) } + pendingPhotos.map { .pending(id: $0.id, image: $0.image) },
                     isBusy: false,
                     onAdd: { data in
+                        var ids: [MemoryPhotoItem.ID] = []
                         for imageData in data {
-                            guard let image = UIImage(data: imageData) else { continue }
-                            pendingPhotos.append(PendingPhoto(image: Image(uiImage: image), data: imageData))
+                            guard let image = UIImage(data: imageData) else { break }
+                            let pending = PendingPhoto(image: Image(uiImage: image), data: imageData)
+                            pendingPhotos.append(pending)
+                            ids.append(MemoryPhotoItem.pending(id: pending.id, image: pending.image).id)
                         }
+                        return ids
                     },
                     onRemove: { item in
                         switch item {

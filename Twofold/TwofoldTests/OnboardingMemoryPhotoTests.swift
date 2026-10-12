@@ -56,4 +56,18 @@ struct OnboardingMemoryPhotoTests {
         #expect(restored?.memory.photos.count == 1)
     }
 
+    @Test("adding a photo to a draft keeps the ids of the photos already on it")
+    func photoIDsSurviveAnotherSave() async {
+        PendingMemoryStore.clear()
+        let model = AppModel()
+
+        let memory = await model.addMemory(title: "Where we met", place: nil, date: Date(), note: "", imagesData: [samplePhoto])
+        let firstID = memory.photos.first?.id
+        await model.updateMemory(memory, newImagesData: [samplePhoto])
+
+        let updated = model.memories.first { $0.id == memory.id }
+        #expect(updated?.photos.count == 2)
+        #expect(updated?.photos.first?.id == firstID, "the existing photo should keep its id, or nothing holding it can find it again")
+    }
+
 }
