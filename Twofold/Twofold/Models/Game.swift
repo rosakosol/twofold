@@ -21,6 +21,7 @@ enum GameTopic: String, CaseIterable, Hashable, Identifiable {
     case moralValues = "Moral Values"
     case hobbiesAndLifestyle = "Hobbies & Lifestyle"
     case history = "History"
+    case generalKnowledge = "General Knowledge"
     case edgyQuestions = "Edgy Questions"
 
     var id: String { rawValue }
@@ -39,6 +40,7 @@ enum GameTopic: String, CaseIterable, Hashable, Identifiable {
         case .moralValues: "Moral values"
         case .hobbiesAndLifestyle: "Hobbies & lifestyle"
         case .history: "History"
+        case .generalKnowledge: "General knowledge"
         case .edgyQuestions: "Edgy questions"
         }
     }
@@ -55,6 +57,7 @@ enum GameTopic: String, CaseIterable, Hashable, Identifiable {
         case .moralValues: "hands.sparkles.fill"
         case .hobbiesAndLifestyle: "figure.run"
         case .history: "building.columns.fill"
+        case .generalKnowledge: "lightbulb.fill"
         case .edgyQuestions: "flame.fill"
         }
     }
@@ -76,6 +79,7 @@ enum GameTopic: String, CaseIterable, Hashable, Identifiable {
         case .moralValues: Theme.indigo
         case .hobbiesAndLifestyle: Theme.success
         case .history: Theme.textSecondary
+        case .generalKnowledge: Theme.indigo
         case .edgyQuestions: Theme.coral
         }
     }
