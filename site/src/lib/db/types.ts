@@ -2768,6 +2768,17 @@ export type Database = {
           reason: string
         }[]
       }
+      admin_couple_archives: {
+        Args: { p_profile_id: string }
+        Returns: {
+          couple_id: string
+          dissolved_at: string
+          partner_deleted: boolean
+          partner_id: string
+          scheduled_purge_at: string
+          self_deleted: boolean
+        }[]
+      }
       admin_dissolve_couple: {
         Args: { p_couple_id: string; p_on_behalf_of: string; p_reason: string }
         Returns: {
@@ -2840,6 +2851,10 @@ export type Database = {
           most_recent: string
           profile_id: string
         }[]
+      }
+      admin_purge_couple_archive: {
+        Args: { p_couple_id: string; p_reason: string }
+        Returns: undefined
       }
       admin_record_action: {
         Args: {

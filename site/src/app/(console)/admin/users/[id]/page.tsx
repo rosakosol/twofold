@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
 import { AccountActions } from "@/components/console/AccountActions";
 import { AccountGrants } from "@/components/console/AccountGrants";
+import { AccountArchives, type CoupleArchive } from "@/components/console/AccountArchives";
 import { cancellability, type AccountDetail, type AuditEntry } from "@/lib/console/accountDetail";
 
 export const metadata: Metadata = { title: "Account" };
@@ -28,18 +29,19 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
   const { id } = await params;
   const supabase = await createClient();
 
-  // All four at once. Each is a round trip to Sydney, and run one after another they were the
+  // All five at once. Each is a round trip to Sydney, and run one after another they were the
   // reason this page felt like a dead link — four sequential waits before anything rendered.
   //
   // The gate is among them rather than in front of them. Every one of these RPCs checks
   // is_support_admin() in its own body and raises 42501 otherwise, so a non-admin firing the other
-  // three costs three refusals and learns nothing; the alternative is making every legitimate load
+  // four costs four refusals and learns nothing; the alternative is making every legitimate load
   // wait for a permission check whose answer is almost always yes.
-  const [{ data: isSupportAdmin }, detailResult, auditResult, overrideResult] = await Promise.all([
+  const [{ data: isSupportAdmin }, detailResult, auditResult, overrideResult, archivesResult] = await Promise.all([
     supabase.rpc("is_support_admin"),
     supabase.rpc("admin_account_detail", { p_profile_id: id }),
     supabase.rpc("admin_audit_for_subject", { p_profile_id: id, p_limit: 20 }),
     supabase.rpc("admin_flight_limit_override", { p_profile_id: id }),
+    supabase.rpc("admin_couple_archives", { p_profile_id: id }),
   ]);
 
   if (isSupportAdmin !== true) redirect("/admin");
@@ -50,6 +52,7 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
   const override = (overrideResult.data ?? null) as
     | { monthly_limit: number; note: string | null; created_at: string }
     | null;
+  const archives = (archivesResult.data ?? []) as CoupleArchive[];
 
   const subscription = cancellability(detail.subscription.store, detail.subscription.active);
 
@@ -185,6 +188,8 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
         subscriptionStore={detail.subscription.store}
         subscriptionActive={detail.subscription.active}
       />
+
+      <AccountArchives archives={archives} />
 
       <Card>
         <CardHeader>
