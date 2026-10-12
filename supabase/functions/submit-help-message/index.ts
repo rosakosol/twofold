@@ -36,6 +36,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 import { enforceRateLimit } from "../_shared/rate-limit.ts";
 import { dotStuff } from "../_shared/mail.ts";
+import { blockNotice } from "./block-notice.ts";
 
 // Every category now lands in one inbox - the old feedback@/support@ split went away with the
 // separate feedback form, since one categorised queue is simpler to actually monitor.
@@ -78,6 +79,14 @@ const MAX_SUBJECT_LENGTH = 200;
 // a support form to say. Lower than parse-flight-email's ten because the honest usage is rarer and
 // the failure mode is worse.
 const RATE_LIMIT = { bucket: "submit-help-message", limit: 5, window: "1 hour" };
+
+// Block notices count separately. Sharing the budget above would let blocking someone use up the
+// allowance for the report they might want to write straight afterwards, which is exactly when it
+// matters. Still capped, since block and unblock could otherwise be cycled to send mail; and each
+// notice has to name a block that exists (see below), so this is a ceiling on honest use.
+const BLOCK_RATE_LIMIT = { bucket: "submit-help-message-block", limit: 10, window: "1 hour" };
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /// Flattens anything that would end a header line.
 ///
@@ -123,6 +132,9 @@ interface ReportContext {
 }
 
 interface Input {
+  /// "block" for the notice the app sends after a block. Its wording is composed here from
+  /// `report`; any category, subject or message the caller sends with it is ignored.
+  kind?: string;
   category?: string;
   subject?: string;
   message: string;
@@ -149,8 +161,8 @@ function smtpClient(): SMTPClient {
 /// about before they read what happened. `singleLine` throughout: these values reach an SMTP body
 /// and a display name is attacker-controlled, so a newline in one must not be able to forge a
 /// header or a line of our own formatting.
-function reportContextLines(report: ReportContext): string[] {
-  const lines = ["*** ABUSE REPORT ***"];
+function reportContextLines(report: ReportContext, heading = "*** ABUSE REPORT ***"): string[] {
+  const lines = [heading];
   if (report.display_name) lines.push(`Reported: ${singleLine(report.display_name)}`);
   if (report.profile_id) lines.push(`Reported profile ID: ${singleLine(report.profile_id)}`);
   if (report.surface) lines.push(`Reached the reporter via: ${singleLine(report.surface)}`);
@@ -182,6 +194,18 @@ Deno.serve(async (req) => {
     return Response.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
+  const isBlockNotice = input.kind === "block";
+  if (isBlockNotice) {
+    if (!input.report?.profile_id || !UUID_PATTERN.test(input.report.profile_id)) {
+      return Response.json({ error: "'report.profile_id' is required for a block notice" }, { status: 400 });
+    }
+    const notice = blockNotice(input.report);
+    input.category = "Report Abuse";
+    input.subject = notice.subject;
+    input.message = notice.message;
+    input.game = undefined;
+  }
+
   if (!input.message || typeof input.message !== "string" || !input.message.trim()) {
     return Response.json({ error: "'message' is required" }, { status: 400 });
   }
@@ -208,8 +232,21 @@ Deno.serve(async (req) => {
   // invalid one — the picker supplies the category and the form requires the message — so in
   // practice this only affects someone poking at the endpoint by hand, who gets validation errors
   // instead of mail either way.
-  const limited = await enforceRateLimit(userClient, RATE_LIMIT);
+  const limited = await enforceRateLimit(userClient, isBlockNotice ? BLOCK_RATE_LIMIT : RATE_LIMIT);
   if (limited) return limited;
+
+  // Only a block that exists. RLS lets the caller read their own blocks and nobody else's, so this
+  // also settles that the notice is theirs to send.
+  if (isBlockNotice) {
+    const { data: block } = await userClient
+      .from("blocked_profiles")
+      .select("blocked_id")
+      .eq("blocked_id", input.report!.profile_id!)
+      .maybeSingle();
+    if (!block) {
+      return Response.json({ error: "No such block" }, { status: 404 });
+    }
+  }
 
   const fromAddress = Deno.env.get("ZOHO_FROM_ADDRESS") ?? Deno.env.get("ZOHO_SMTP_USER");
   if (!fromAddress) {
@@ -248,7 +285,7 @@ Deno.serve(async (req) => {
     `Category: ${input.category}`,
     `Account: ${user.email ?? "(no email on file)"} - ${user.id}`,
     "",
-    ...(input.report ? reportContextLines(input.report) : []),
+    ...(input.report ? reportContextLines(input.report, isBlockNotice ? "*** BLOCK NOTICE ***" : undefined) : []),
     ...(input.game ? gameContextLines(input.game) : []),
     dotStuff(input.message.trim()),
   ];

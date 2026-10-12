@@ -1442,12 +1442,16 @@ final class AppModel {
     /// it. Returns nil on success, or a message saying what went wrong.
     func blockPartner() async -> String? {
         guard backendCoupleID != nil else { return "No partner to block." }
+        // Taken now: settling below replaces `partner` with the empty solo placeholder.
+        let blocked = ReportedPersonContext(profileID: partner.id, displayName: partner.name, surface: .partner)
         do {
-            try await BackendService.blockProfile(partner.id)
+            try await BackendService.blockProfile(blocked.profileID)
         } catch {
             return "Couldn't block them. Please try again."
         }
         Analytics.capture(Analytics.Event.partnerRemove)
+        // Not awaited: support hearing about it is not something the person blocking should wait on.
+        Task { await HelpService.notifyBlock(of: blocked) }
         await settleAfterLeavingCouple()
         return nil
     }

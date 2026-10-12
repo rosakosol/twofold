@@ -173,7 +173,14 @@ struct ConnectionRequestReviewView: View {
     private func block() {
         isBlocking = true
         Task {
-            try? await BackendService.blockProfile(request.requesterId)
+            if (try? await BackendService.blockProfile(request.requesterId)) != nil {
+                let blocked = ReportedPersonContext(
+                    profileID: request.requesterId,
+                    displayName: request.requesterFirstName,
+                    surface: .connectionRequest
+                )
+                Task { await HelpService.notifyBlock(of: blocked) }
+            }
             isBlocking = false
             dismiss()
         }

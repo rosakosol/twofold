@@ -161,6 +161,13 @@ enum HelpService {
         ])
     }
 
+    /// Tells support that someone was blocked. Best effort: the block has already happened, and a
+    /// notice that fails to send must not make it look as though the block didn't. The server
+    /// composes the wording and checks the block exists, so this sends only who and from where.
+    static func notifyBlock(of person: ReportedPersonContext) async {
+        try? await submit(body: ["kind": "block", "report": person.payload])
+    }
+
     private static func submit(body: [String: Any]) async throws {
         guard let accessToken = BackendService.currentAccessToken else { throw HelpServiceError.notAuthenticated }
 
