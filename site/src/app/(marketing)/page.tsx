@@ -103,7 +103,7 @@ export default async function HomePage() {
             </div>
             <p className="home-hero-note">
               <Lock aria-hidden />
-              Encrypted, and only visible to your partner
+              Just for the two of you
             </p>
           </div>
 
@@ -255,7 +255,7 @@ export default async function HomePage() {
               </span>
               <span>
                 <strong>Private by default</strong>
-                <span>Your data is encrypted and only visible to your partner.</span>
+                <span>What you share stays between the two of you. We don&apos;t use it to show you ads or pass it to anyone who does.</span>
               </span>
             </li>
             <li>

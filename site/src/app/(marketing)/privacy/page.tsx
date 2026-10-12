@@ -54,6 +54,15 @@ export default async function PrivacyPage() {
         unless you choose to share them.
       </p>
 
+      <h2>Who else can see it</h2>
+      <p>
+        Twofold staff can access your data only when it&apos;s needed to provide support you&apos;ve
+        asked for or to fix a technical problem. We don&apos;t use your data to show you ads, or
+        pass it to anyone who does. If Twofold is ever sold or merged with another company, your
+        information may transfer to the new owner, who will remain bound by this policy for the
+        data it receives.
+      </p>
+
       <h2>How we use your information</h2>
       <ul>
         <li>To operate core features: distance tracking, flight status, memories, and games.</li>
@@ -78,8 +87,9 @@ export default async function PrivacyPage() {
       <h2>Your choices</h2>
       <p>
         You can edit or delete your profile information, memories, and trips within the app at any
-        time. Removing a partner archives shared data rather than deleting it immediately, so you
-        can permanently delete it afterward from Settings.
+        time. Removing a partner, or deleting your account, archives your shared data rather than
+        deleting it immediately, and it is permanently deleted 90 days later. If you and your
+        partner reconnect within those 90 days, you&apos;ll be offered it back.
       </p>
 
       <h2>Contact</h2>
