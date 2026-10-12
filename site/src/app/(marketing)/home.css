@@ -262,11 +262,14 @@
   /* The capture is the whole Memories screen; this frames the part of the map with the pins. */
   object-position: 50% 36%;
 }
-/* The dark capture's map is panned further west, which brings in the Jewish Ghetto pin and label
-   at its left edge. Zooming from the right edge crops that strip and keeps the photo pins. */
+/* The dark capture's map is panned further west, which brings the Jewish Ghetto pin and label in
+   at its left edge, ending about 41% of the way down. So the dark map starts just under it: full
+   width, natural height, shifted up by 42% of its own height. Unlike object-position, that cut
+   stays at the same place in the image however wide or tall the card is, and nothing is zoomed. */
 .home-map-shot.theme-dark-only {
-  scale: 1.18;
-  transform-origin: 100% 45%;
+  inset: 0 0 auto 0;
+  height: auto;
+  translate: 0 -42%;
 }
 .home-quote {
   position: absolute;

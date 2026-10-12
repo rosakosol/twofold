@@ -365,6 +365,8 @@
 .pv-keepsake-title {
   font-family: var(--font-display);
   font-size: 1.625rem;
+  /* Semibold: the serif's regular weight was too thin to read on the cover. */
+  font-weight: 600;
   line-height: 1.15;
 }
 .pv-keepsake-names {

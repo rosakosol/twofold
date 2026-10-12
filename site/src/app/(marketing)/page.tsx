@@ -53,6 +53,8 @@ function RomeMap() {
     width: PHONE_SHOT_WIDTH,
     height: PHONE_SHOT_HEIGHT,
     sizes: "(max-width: 900px) 90vw, 560px",
+    // Higher than the site's 75: the crop is shown larger than on a phone, so its labels need it.
+    quality: 90,
   };
   const { props: light } = getImageProps({ ...common, src: phoneScreenSrc("memories-map", "light") });
   const { props: dark } = getImageProps({ ...common, src: phoneScreenSrc("memories-map", "dark") });

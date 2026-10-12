@@ -9,6 +9,12 @@ const nextConfig: NextConfig = {
     root: path.join(__dirname),
   },
 
+  // 75 is the default for every image. 90 is for the home page's Memories map, a crop of a phone
+  // capture shown larger than on a phone, where 75 left the street labels soft.
+  images: {
+    qualities: [75, 90],
+  },
+
   // There were none of these at all.
   //
   // The reason it matters here more than on a typical marketing site: `@supabase/ssr` must set
