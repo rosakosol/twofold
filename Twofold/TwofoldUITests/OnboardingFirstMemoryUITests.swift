@@ -36,9 +36,8 @@ final class OnboardingFirstMemoryUITests: XCTestCase {
         field.typeText(text)
     }
 
-    /// Opens onboarding at the first memory, fills in a title and place, and opens the Photos
-    /// sheet with the library ready to tap. Returns the library's photo cells.
-    private func openPhotosSheet(_ app: XCUIApplication) -> XCUIElementQuery {
+    /// Opens onboarding at the first memory and fills in a title and place — everything Save needs.
+    private func fillInMemory(_ app: XCUIApplication) {
         app.launchArguments += ["-onboardingStep", "firstMemory"]
         app.launch()
 
@@ -58,6 +57,12 @@ final class OnboardingFirstMemoryUITests: XCTestCase {
         let gone = expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: search)
         wait(for: [gone], timeout: 10)
         sleep(1)
+    }
+
+    /// Fills in the memory, then opens the Photos sheet with the library ready to tap. Returns the
+    /// library's photo cells.
+    private func openPhotosSheet(_ app: XCUIApplication) -> XCUIElementQuery {
+        fillInMemory(app)
 
         for _ in 0..<3 where !app.navigationBars["Photos"].exists {
             app.buttons["Photos"].tap()
@@ -133,5 +138,36 @@ final class OnboardingFirstMemoryUITests: XCTestCase {
         tapPhoto(photos.element(boundBy: 0))
         XCTAssertTrue(app.staticTexts["No photos yet"].waitForExistence(timeout: 10), "Unticking left the photo on the memory")
         capture(app, "Unticked")
+    }
+
+    /// Reported: check that adding a memory during onboarding works. Saving has to close the sheet
+    /// and move onboarding on — `FirstMemoryView` advances from the sheet's `onDismiss`, so a save
+    /// that never dismisses leaves somebody on a form with no way forward but Skip.
+    @MainActor
+    func testSavingMovesOnboardingOn() throws {
+        let app = XCUIApplication()
+        fillInMemory(app)
+
+        let save = app.buttons["Save"]
+        XCTAssertTrue(save.isEnabled, "Save is disabled with a title and a place filled in")
+        save.tap()
+
+        XCTAssertTrue(app.buttons["Keep me updated"].waitForExistence(timeout: 15), "Saving did not move onboarding on to the next screen")
+        XCTAssertFalse(app.textFields["Memory title"].exists, "The memory form is still showing after saving")
+        capture(app, "After saving")
+    }
+
+    /// Skip is the only other way off this step (no Cancel, no swipe), so it has to work too.
+    @MainActor
+    func testSkippingMovesOnboardingOn() throws {
+        let app = XCUIApplication()
+        app.launchArguments += ["-onboardingStep", "firstMemory"]
+        app.launch()
+
+        XCTAssertTrue(app.textFields["Memory title"].waitForExistence(timeout: 300), "Never reached the first-memory form")
+        app.buttons["Skip"].tap()
+
+        XCTAssertTrue(app.buttons["Keep me updated"].waitForExistence(timeout: 15), "Skipping did not move onboarding on to the next screen")
+        capture(app, "After skipping")
     }
 }
