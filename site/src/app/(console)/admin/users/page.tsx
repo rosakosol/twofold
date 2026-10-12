@@ -11,7 +11,7 @@ import { ConsoleEmpty, ConsolePageHead } from "@/components/console/ConsoleUI";
 import { SegmentedControl } from "@/components/site/SegmentedControl";
 import { StatusPill } from "@/components/site/StatusPill";
 import { createClient } from "@/lib/supabase/client";
-import type { AccountSearchResult } from "@/lib/console/accountDetail";
+import type { AccountSearchResult, ReportedAccount } from "@/lib/console/accountDetail";
 
 const PAGE_SIZE = 20;
 /** How many accounts a filtered view loads to filter in the browser. admin_list_accounts pages but
@@ -24,11 +24,14 @@ const FILTERS = [
   { value: "deleted", label: "Deleted" },
   { value: "paired", label: "Paired" },
   { value: "subscribed", label: "Subscribed" },
+  { value: "reported", label: "Reported" },
 ] as const;
 type Filter = (typeof FILTERS)[number]["value"];
 
-function matches(row: AccountSearchResult, filter: Filter) {
+function matches(row: AccountSearchResult, filter: Filter, reported: Map<string, ReportedAccount>) {
   switch (filter) {
+    case "reported":
+      return (reported.get(row.profile_id)?.report_count ?? 0) > 0;
     case "active":
       return !row.deleted_at;
     case "deleted":
@@ -102,6 +105,19 @@ export default function UsersPage() {
     enabled: filtering,
   });
 
+  // Every reported account, with counts: one small read, keyed by id, that both the Reports column
+  // and the Reported filter look up in. Reporter identities stay on the account page.
+  const reportCounts = useQuery({
+    queryKey: ["admin", "reported-accounts"],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("admin_reported_accounts", { p_limit: 5000 });
+      if (error) throw error;
+      return new Map(((data ?? []) as ReportedAccount[]).map((row) => [row.profile_id, row]));
+    },
+  });
+  const reported = reportCounts.data ?? new Map<string, ReportedAccount>();
+
   const search = useQuery({
     queryKey: ["admin", "lookup", trimmed],
     queryFn: async () => {
@@ -113,14 +129,18 @@ export default function UsersPage() {
     enabled: searching,
   });
 
-  const filtered = filtering ? (everyone.data ?? []).filter((row) => matches(row, filter)) : [];
+  const filtered = filtering ? (everyone.data ?? []).filter((row) => matches(row, filter, reported)) : [];
   const rows: AccountSearchResult[] = searching
     ? (search.data ?? [])
     : filtering
       ? filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
       : (list.data ?? []);
   const total = filtering ? filtered.length : (list.data?.[0]?.total_count ?? 0);
-  const isFetching = searching ? search.isFetching : filtering ? everyone.isFetching : list.isFetching;
+  const isFetching = searching
+    ? search.isFetching
+    : filtering
+      ? everyone.isFetching || (filter === "reported" && reportCounts.isFetching)
+      : list.isFetching;
   const error = searching ? search.error : filtering ? everyone.error : list.error;
   const lastPage = Math.max(0, Math.ceil(total / PAGE_SIZE) - 1);
   const capped = filtering && (everyone.data?.[0]?.total_count ?? 0) > FILTER_LIMIT;
@@ -199,6 +219,7 @@ export default function UsersPage() {
                 <th scope="col">Status</th>
                 <th scope="col">Partner</th>
                 <th scope="col">Plan</th>
+                <th scope="col" className="num">Reports</th>
               </tr>
             </thead>
             <tbody>
@@ -234,6 +255,9 @@ export default function UsersPage() {
                       <span className="muted">None</span>
                     )}
                   </td>
+                  <td className="num">
+                    <ReportCount row={reported.get(row.profile_id)} />
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -259,5 +283,19 @@ export default function UsersPage() {
         </div>
       )}
     </div>
+  );
+}
+
+/** A reported account's report count, red once more than one person has reported them; a dash
+ *  for everyone else. Block notices are not reports and are not counted here. */
+function ReportCount({ row }: { row: ReportedAccount | undefined }) {
+  if (!row || row.report_count === 0) return <span className="muted">-</span>;
+  const title = `${row.report_count} ${row.report_count === 1 ? "report" : "reports"} from ${row.reporter_count} ${
+    row.reporter_count === 1 ? "person" : "people"
+  }`;
+  return (
+    <span title={title}>
+      <StatusPill tone={row.reporter_count > 1 ? "error" : "warning"}>{row.report_count}</StatusPill>
+    </span>
   );
 }

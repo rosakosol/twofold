@@ -517,3 +517,540 @@
 .usage-insight code {
   font-size: 0.95em;
 }
+
+/* ---------- One account (/admin/users/[id]) ----------
+   Sections with real headings, cards that stand off the page wash, label/value rows on a fixed
+   rhythm, and the destructive actions in a red-tinted zone of their own at the bottom. */
+
+.account-page {
+  /* Derived from --text so the edge reads in both modes: dark ink at 12% on the light wash, light
+     ink at 12% on the dark one. --line alone was why the cards blended into the page. */
+  --account-edge: color-mix(in srgb, var(--text) 12%, transparent);
+  --account-shadow: 0 1px 2px rgba(14, 26, 38, 0.05), 0 6px 18px rgba(14, 26, 38, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+}
+
+.account-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  margin-bottom: -24px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  width: fit-content;
+}
+.account-back:hover {
+  color: var(--text);
+}
+.account-back svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* The identity header. */
+.account-identity h1 {
+  font-size: 2.125rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.account-identity-email {
+  margin-top: 6px;
+  font-size: var(--text-body);
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.account-identity-meta {
+  margin-top: 2px;
+  color: var(--text-secondary);
+}
+.account-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 14px;
+}
+a.pill {
+  text-decoration: none;
+}
+a.pill:hover {
+  filter: brightness(0.95);
+}
+
+/* The in-page section links. Sticky under the console header on wider screens; on a phone it is a
+   row that scrolls sideways and stays where it is. */
+.account-nav {
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+  width: fit-content;
+  max-width: 100%;
+  margin: -16px 0 -12px;
+  padding: 4px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  border: 1px solid var(--account-edge);
+  backdrop-filter: saturate(1.4) blur(18px);
+  -webkit-backdrop-filter: saturate(1.4) blur(18px);
+}
+.account-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  color: var(--text-secondary);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.account-nav a:hover {
+  color: var(--text);
+  background: var(--surface-raised);
+}
+.account-nav a.is-danger {
+  color: var(--error);
+}
+@media (min-width: 761px) {
+  .account-nav {
+    position: sticky;
+    top: 84px;
+    z-index: 30;
+  }
+}
+
+.account-section {
+  /* The console header (72px) and the sticky section links, so a jump lands on the heading. */
+  scroll-margin-top: 140px;
+}
+.account-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2px 16px;
+  margin-bottom: 14px;
+}
+.account-section-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-h3);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.account-section-head h2 svg {
+  width: 20px;
+  height: 20px;
+}
+.account-section-head p {
+  color: var(--text-secondary);
+}
+
+.account-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.account-grid.is-safety {
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+}
+@media (max-width: 760px) {
+  .account-grid,
+  .account-grid.is-safety {
+    grid-template-columns: 1fr;
+  }
+}
+
+.account-card {
+  border-radius: var(--radius-tile);
+  background: var(--surface);
+  border: 1px solid var(--account-edge);
+  box-shadow: var(--account-shadow);
+  padding: 16px 20px;
+}
+/* Stacked cards directly in a section (archives); grid cells get their spacing from the gap. */
+.account-section > .account-card + .account-card {
+  margin-top: 16px;
+}
+.account-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin-bottom: 4px;
+}
+.account-card-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-body);
+  font-weight: 700;
+  color: var(--text);
+}
+.account-card-sub {
+  margin-bottom: 6px;
+  color: var(--text-secondary);
+}
+.account-card-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-caption);
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+}
+.account-card-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.account-card-link svg {
+  width: 13px;
+  height: 13px;
+}
+.account-hint {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 6px;
+  font-size: var(--text-caption);
+  color: var(--text-secondary);
+}
+
+/* Label/value rows: muted label left, value right, one height, a hairline between. */
+.account-facts {
+  margin: 0;
+}
+.account-facts > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 40px;
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+}
+.account-facts > div:first-child {
+  border-top: 0;
+}
+.account-facts dt {
+  flex: none;
+  color: var(--text-secondary);
+}
+.account-facts dd {
+  margin: 0;
+  min-width: 0;
+  text-align: right;
+  font-weight: 500;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.account-facts .is-alert dd {
+  color: var(--error);
+  font-weight: 600;
+}
+.account-empty-line {
+  padding: 6px 0 2px;
+  color: var(--text-secondary);
+}
+
+/* A row with an action: what it is, one line about it, the current value, and a button. */
+.account-actions {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.account-actions > li + li {
+  border-top: 1px solid var(--line);
+}
+.account-action {
+  display: flex;
+  align-items: center;
+  gap: 8px 16px;
+  min-height: 64px;
+  padding: 12px 0;
+}
+.account-actions > li:first-child .account-action {
+  padding-top: 4px;
+}
+.account-actions > li:last-child .account-action {
+  padding-bottom: 0;
+}
+.account-action-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.account-action-title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  color: var(--text);
+}
+.account-action-desc {
+  margin-top: 2px;
+  color: var(--text-secondary);
+}
+.account-action-value {
+  flex: none;
+  max-width: 45%;
+  color: var(--text);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.account-action-value .muted {
+  display: block;
+  font-size: var(--text-caption);
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+.account-action-button {
+  flex: none;
+}
+@media (max-width: 560px) {
+  .account-action {
+    flex-wrap: wrap;
+  }
+  .account-action-text {
+    flex-basis: 100%;
+  }
+  .account-action-value {
+    flex: 1 1 auto;
+    max-width: none;
+    text-align: left;
+  }
+  .account-action-button {
+    margin-left: auto;
+  }
+}
+
+/* The small (i) that opens the longer "why" behind a line. A real button, so it is in the tab
+   order; the glyph is small, the target is not. */
+.account-info {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  margin: -6px -2px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  vertical-align: middle;
+}
+.account-info:hover,
+.account-info[data-popup-open] {
+  color: var(--text);
+  background: var(--surface-raised);
+}
+.account-info:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.account-info svg {
+  width: 15px;
+  height: 15px;
+}
+.account-info-body {
+  line-height: 1.5;
+}
+.account-info-body p + p {
+  margin-top: 6px;
+}
+
+/* The danger zone: tinted, red-edged, and last. */
+.account-danger {
+  border-radius: var(--radius-tile);
+  border: 1px solid color-mix(in srgb, var(--error) 45%, transparent);
+  background: color-mix(in srgb, var(--error-bg) 65%, var(--surface));
+  padding: 16px 20px;
+}
+.account-danger .account-section-head {
+  margin-bottom: 6px;
+}
+.account-danger .account-section-head h2 {
+  color: var(--error);
+}
+.account-danger .account-actions > li + li {
+  border-top-color: color-mix(in srgb, var(--error) 22%, transparent);
+}
+
+/* A notice across the page: a deleted account. */
+.account-notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: -16px;
+  padding: 12px 16px;
+  border-radius: var(--radius-tile);
+  border: 1px solid color-mix(in srgb, var(--error) 35%, transparent);
+  background: var(--error-bg);
+  color: var(--text);
+}
+.account-notice > svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  color: var(--error);
+}
+
+/* Reports, one per row. */
+.account-reports {
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.account-reports > li {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.account-reports > li:last-child {
+  padding-bottom: 0;
+}
+.account-report-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+.account-report-line .muted,
+.account-report-by {
+  color: var(--text-secondary);
+}
+.account-report-by a {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.account-report-status {
+  margin-left: auto;
+}
+.account-report summary {
+  width: fit-content;
+  font-size: var(--text-caption);
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+}
+.account-report-quote {
+  margin-top: 6px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-raised);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.account-report-quote strong {
+  display: block;
+  margin-bottom: 2px;
+  white-space: normal;
+}
+.account-report-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: var(--text-caption);
+  color: var(--text-secondary);
+}
+.account-report-foot b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* Admin history: a compact table. */
+.account-history .console-table td {
+  height: 44px;
+  padding: 10px 14px 8px;
+  vertical-align: top;
+}
+.account-history .console-table th {
+  padding-top: 0;
+}
+.account-history .console-table td:first-child,
+.account-history .console-table th:first-child {
+  padding-left: 0;
+}
+.account-history .console-table td:last-child,
+.account-history .console-table th:last-child {
+  padding-right: 0;
+  text-align: right;
+  white-space: nowrap;
+}
+.account-history-reason {
+  margin-top: 2px;
+  font-size: var(--text-caption);
+  color: var(--text-secondary);
+}
+.account-history .account-history-by {
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.account-history-more {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: var(--text-caption);
+  color: var(--text-secondary);
+}
+@media (max-width: 560px) {
+  /* Three columns do not fit a phone: who and when sit under the action. */
+  .account-history .console-table thead {
+    display: none;
+  }
+  .account-history .console-table tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 2px 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .account-history .console-table tbody tr:first-child {
+    padding-top: 0;
+  }
+  .account-history .console-table td {
+    height: auto;
+    padding: 0;
+    border: 0;
+    font-size: var(--text-caption);
+  }
+  .account-history .console-table td:first-child {
+    grid-column: 1 / -1;
+    font-size: var(--text-small);
+  }
+}
+
+/* The confirm dialogs' list of consequences. */
+.account-dialog-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+  list-style: disc;
+  color: var(--text-secondary);
+}
+.account-dialog-list .is-alert {
+  color: var(--error);
+  font-weight: 600;
+}

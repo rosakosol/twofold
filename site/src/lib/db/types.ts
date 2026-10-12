@@ -2902,6 +2902,41 @@ export type Database = {
           were_partners: boolean
         }[]
       }
+      admin_reported_accounts: {
+        Args: { p_limit?: number }
+        Returns: {
+          block_notice_count: number
+          deleted_at: string
+          email: string
+          first_name: string
+          first_reported_at: string
+          last_reported_at: string
+          open_report_count: number
+          profile_id: string
+          report_count: number
+          reporter_count: number
+        }[]
+      }
+      admin_reports_about: {
+        Args: { p_profile_id: string }
+        Returns: {
+          created_at: string
+          is_block_notice: boolean
+          message: string
+          report_surface: string
+          reporter_deleted_at: string
+          reporter_email: string
+          reporter_first_name: string
+          reporter_id: string
+          request_id: string
+          source: string
+          subject: string
+          thread_handled_at: string
+          thread_handler_note: string
+          thread_id: string
+          thread_status: string
+        }[]
+      }
       admin_purge_couple_archive: {
         Args: { p_couple_id: string; p_reason: string }
         Returns: undefined

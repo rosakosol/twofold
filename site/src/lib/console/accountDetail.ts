@@ -95,11 +95,49 @@ export function cancellability(store: string | null, active: boolean): {
   if (!active) return { label: "No active subscription", ours: false };
   const normalised = store?.trim().toLowerCase() ?? "";
   if (normalised === "stripe" || normalised === "rc_billing") {
-    return { label: "Web — ours to cancel", ours: true };
+    return { label: "Web - ours to cancel", ours: true };
   }
   if (normalised === "") {
-    return { label: "Store unknown — not safe to cancel", ours: false };
+    return { label: "Store unknown - not safe to cancel", ours: false };
   }
-  if (normalised === "promotional") return { label: "Promotional grant — no billing to end", ours: false };
-  return { label: `${normalised.replace(/_/g, " ")} — not ours to cancel`, ours: false };
+  if (normalised === "promotional") return { label: "Promotional grant - no billing to end", ours: false };
+  return { label: `${normalised.replace(/_/g, " ")} - not ours to cancel`, ours: false };
+}
+
+/** One row of `public.admin_reported_accounts`: an account somebody has reported, with counts.
+ *  Block notices (the app telling support someone used the block button) are counted apart from
+ *  reports, so "reported 3 times" never means "reported once and blocked twice". */
+export interface ReportedAccount {
+  profile_id: string;
+  email: string | null;
+  first_name: string | null;
+  deleted_at: string | null;
+  report_count: number;
+  reporter_count: number;
+  block_notice_count: number;
+  open_report_count: number;
+  first_reported_at: string | null;
+  last_reported_at: string | null;
+}
+
+/** One row of `public.admin_reports_about`: a single report naming an account, and who sent it.
+ *  The reporter's email falls back to the address the request was filed under, which survives the
+ *  reporter deleting their account. */
+export interface ReportAboutAccount {
+  request_id: string;
+  thread_id: string | null;
+  created_at: string;
+  is_block_notice: boolean;
+  /** Where the reporter reached them from, as the app names it: "partner" or "connection request". */
+  report_surface: string | null;
+  subject: string | null;
+  message: string;
+  source: string;
+  reporter_id: string | null;
+  reporter_first_name: string | null;
+  reporter_email: string | null;
+  reporter_deleted_at: string | null;
+  thread_status: "open" | "closed" | null;
+  thread_handled_at: string | null;
+  thread_handler_note: string | null;
 }
