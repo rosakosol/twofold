@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   ChevronLeft,
+  PanelRight,
   Download,
   Inbox,
   StickyNote,
@@ -27,6 +28,8 @@ import { functionErrorMessage } from "@/lib/supabase/functionError";
 import { cn } from "@/lib/utils";
 import { ReportedAccountPanel } from "@/components/console/ReportedAccountPanel";
 import { SupportMacros } from "@/components/console/SupportMacros";
+import { CustomerPanel, type OtherConversation } from "@/components/console/CustomerPanel";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 
 export interface SupportRequest {
   id: string;
@@ -55,6 +58,9 @@ export interface SupportRequest {
   /** Ours or theirs. A thread reads as the conversation it is rather than as one side of it. */
   direction: string;
   created_at: string;
+  /** Who a Report Abuse request names (20261113001200). Absent on rows from before that shipped. */
+  reported_profile_id?: string | null;
+  reported_name?: string | null;
 }
 
 type Thread = SupportRequest[];
@@ -161,23 +167,65 @@ export function SupportQueue({
     return grouped;
   }, [requests, pinned]);
 
+  // Within whichever status is showing, so "open abuse reports" is the open filter plus this.
+  const [reportsOnly, setReportsOnly] = useState(false);
+  const reportCount = threads.filter((t) => reportOf(t) !== null).length;
+
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    if (!needle) return threads;
-    return threads.filter((thread) =>
+    const scoped = reportsOnly ? threads.filter((t) => reportOf(t) !== null) : threads;
+    if (!needle) return scoped;
+    return scoped.filter((thread) =>
       thread.some((m) =>
-        [m.name, m.email, m.subject, m.message, m.category].some((field) =>
+        [m.name, m.email, m.subject, m.message, m.category, m.reported_name].some((field) =>
           field?.toLowerCase().includes(needle),
         ),
       ),
     );
-  }, [threads, query]);
+  }, [threads, query, reportsOnly]);
 
   // Falling back to the first conversation means the panel is never empty for no reason on a wide
   // screen. `explicit` stays false until something is actually clicked, which is what keeps the
   // phone layout on the list rather than opening the top conversation on arrival.
   const explicit = selectedId !== null;
   const selected = visible.find((t) => t[0].thread_id === selectedId) ?? visible[0] ?? null;
+
+  // The customer panel: a column beside the conversation on wide screens, a sheet below that.
+  // Open by default, because the point is not having to go looking for who this is.
+  const [detailsOpen, setDetailsOpen] = useState(true);
+  const [detailsSheetOpen, setDetailsSheetOpen] = useState(false);
+  const customer = selected ? customerOf(selected) : null;
+  // Their other conversations among those loaded: same account where we know it, else same address.
+  const otherConversations: OtherConversation[] =
+    selected && customer
+      ? threads
+          .filter((t) => t[0].thread_id !== selected[0].thread_id)
+          .filter((t) => {
+            const other = customerOf(t);
+            return customer.profileId
+              ? other.profileId === customer.profileId
+              : Boolean(customer.email) && other.email === customer.email;
+          })
+          .map((t) => ({
+            threadId: t[0].thread_id,
+            subject: t[0].subject,
+            status: t[0].thread_status,
+            lastAt: t[0].thread_last_at,
+          }))
+      : [];
+  const customerPanel = selected && customer && (
+    <CustomerPanel
+      key={selected[0].thread_id}
+      profileId={customer.profileId}
+      email={customer.email}
+      reported={reportOf(selected)}
+      otherConversations={otherConversations}
+      onSelectConversation={(id) => {
+        setDetailsSheetOpen(false);
+        select(id);
+      }}
+    />
+  );
 
   function select(threadId: string) {
     if (pinned && pinned[0].thread_id !== threadId) setPinned(null);
@@ -239,6 +287,23 @@ export function SupportQueue({
               </Link>
             ))}
           </nav>
+
+          {/* Any status: abuse reports carry a 48-hour promise, so they need finding fast. */}
+          <button
+            type="button"
+            aria-pressed={reportsOnly}
+            onClick={() => setReportsOnly((on) => !on)}
+            className={cn(
+              "inline-flex w-full items-center justify-between rounded-md border px-2.5 py-1.5 text-xs",
+              reportsOnly ? "border-destructive/50 bg-destructive/10 text-destructive" : "text-muted-foreground hover:bg-accent",
+            )}
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <TriangleAlert className="h-3.5 w-3.5" aria-hidden />
+              Abuse reports only
+            </span>
+            <span className="font-medium">{reportCount}</span>
+          </button>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
@@ -276,23 +341,42 @@ export function SupportQueue({
       </aside>
 
       {/* ---------------------------------------------------------- conversation */}
-      <section className={cn("flex min-w-0 flex-1 flex-col", !explicit && "hidden md:flex")}>
-        {selected ? (
-          <Conversation
-            // Remounts on selection, which is what resets the draft reply and the note to the
-            // conversation being read rather than carrying the last one's text across.
-            key={selected[0].thread_id}
-            thread={selected}
-            onBack={() => setSelectedId(null)}
-            onStatusChanged={(status) => handleStatusChanged(selected, status)}
-            onReplied={() => router.refresh()}
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center p-6 text-center text-sm text-muted-foreground">
-            Select a conversation.
-          </div>
+      <section className={cn("flex min-w-0 flex-1", !explicit && "hidden md:flex")}>
+        <div className="flex min-w-0 flex-1 flex-col">
+          {selected ? (
+            <Conversation
+              // Remounts on selection, which is what resets the draft reply and the note to the
+              // conversation being read rather than carrying the last one's text across.
+              key={selected[0].thread_id}
+              thread={selected}
+              detailsOpen={detailsOpen}
+              onToggleDetails={() => setDetailsOpen((open) => !open)}
+              onOpenDetailsSheet={() => setDetailsSheetOpen(true)}
+              onBack={() => setSelectedId(null)}
+              onStatusChanged={(status) => handleStatusChanged(selected, status)}
+              onReplied={() => router.refresh()}
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center p-6 text-center text-sm text-muted-foreground">
+              Select a conversation.
+            </div>
+          )}
+        </div>
+
+        {/* ---------------------------------------------------------- customer */}
+        {customerPanel && detailsOpen && (
+          <aside className="hidden w-80 shrink-0 overflow-y-auto border-l xl:block" aria-label="Customer details">
+            {customerPanel}
+          </aside>
         )}
       </section>
+
+      <Sheet open={detailsSheetOpen} onOpenChange={setDetailsSheetOpen}>
+        <SheetContent className="overflow-y-auto p-0 xl:hidden">
+          <SheetTitle className="sr-only">Customer details</SheetTitle>
+          {customerPanel}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
@@ -317,6 +401,7 @@ function ThreadRow({
   // Abuse reports are the ones with a clock on them — the app promises a response within 48 hours
   // and tells the reporter we never say they got in touch. Marked so they are not skimmed past.
   const urgent = thread.some((m) => m.category === "Report Abuse");
+  const report = reportOf(thread);
   // The state a support queue is actually sorted by in someone's head: they spoke last, and nobody
   // has answered.
   const needsReply = isOpen && latest.direction === "inbound";
@@ -381,6 +466,11 @@ function ThreadRow({
               </span>
             )}
             {!isOpen && <span className="pill pill-neutral">Closed</span>}
+            {report && (
+              <span className="pill pill-error max-w-full truncate">
+                Reported: {report.name || "unnamed account"}
+              </span>
+            )}
           </span>
         </span>
       </button>
@@ -394,11 +484,17 @@ function ThreadRow({
 
 function Conversation({
   thread,
+  detailsOpen,
+  onToggleDetails,
+  onOpenDetailsSheet,
   onBack,
   onStatusChanged,
   onReplied,
 }: {
   thread: Thread;
+  detailsOpen: boolean;
+  onToggleDetails: () => void;
+  onOpenDetailsSheet: () => void;
   onBack: () => void;
   onStatusChanged: (status: "open" | "closed") => void;
   onReplied: () => void;
@@ -483,6 +579,22 @@ function Conversation({
             this replaces was that reopening looked like it did nothing; a control that displays
             which state the conversation is in cannot look like that, because the answer is on
             screen before and after the click. */}
+        {/* Two buttons for one control: beside the conversation on wide screens the panel is a
+            column to show or hide, below that it is a sheet to open. CSS picks, no media query. */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="hidden shrink-0 xl:inline-flex"
+          aria-pressed={detailsOpen}
+          onClick={onToggleDetails}
+        >
+          <PanelRight className="h-4 w-4" />
+          Details
+        </Button>
+        <Button variant="ghost" size="sm" className="shrink-0 xl:hidden" onClick={onOpenDetailsSheet}>
+          <PanelRight className="h-4 w-4" />
+          Details
+        </Button>
         <div className="segmented support-status" role="group" aria-label="Conversation status">
           {(["open", "closed"] as const).map((status) => (
             <button
@@ -914,4 +1026,21 @@ function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** Who a conversation is with: the account it matched, and the address it came from. */
+function customerOf(thread: Thread): { profileId: string | null; email: string | null } {
+  const theirs = thread.find((m) => m.direction === "inbound") ?? thread[0];
+  return {
+    profileId: thread.find((m) => m.matched_profile_id)?.matched_profile_id ?? null,
+    email: theirs.email,
+  };
+}
+
+/** The abuse report in a conversation, and who it names, or null for anything else. The name and
+ * id are missing on reports from before 20261113001200; it is still a report. */
+function reportOf(thread: Thread): { profileId: string | null; name: string | null } | null {
+  const report = thread.find((m) => m.category === "Report Abuse");
+  if (!report) return null;
+  return { profileId: report.reported_profile_id ?? null, name: report.reported_name ?? null };
 }
