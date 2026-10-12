@@ -175,6 +175,27 @@ final class GameSessionStore {
         roundContent[round.contentID]
     }
 
+    /// Says so when a card game has rounds with no card. Every game view treats "no card for the
+    /// next round" as "you've answered everything" and shows the finished screen, so without this
+    /// a deck whose cards the player can't read looked complete before they had played a round.
+    /// That is how a Plus couple met premium cards inside Plus decks: the content policies hide a
+    /// premium card below premium, and the session still had rounds for them.
+    /// `start_deck_session` no longer builds such rounds; this is for any that already exist.
+    /// Internal rather than private for `GameMissingContentTests`.
+    func flagMissingContent() {
+        // Only a game still being played. A finished one shows results, which don't need a card
+        // to draw.
+        guard let session, [.draft, .active, .waitingForPartner].contains(session.status) else { return }
+        switch session.gameType {
+        case .triviaBattle, .moreLikely, .thisOrThat, .deepConversations:
+            guard rounds.contains(where: { roundContent[$0.contentID] == nil }) else { return }
+            errorMessage = "Some of this game's cards couldn't be loaded, so it can't be played right now. Try another one."
+        // Generated on the device from the round's id — there is never content to load.
+        case .sudoku, .wordGuess, .wordSearch, .connectFour:
+            return
+        }
+    }
+
     /// Subscribes to realtime and re-fetches (never trusts the realtime payload itself) on
     /// every change — same idea as `FlightTrackingView.loadAndSubscribe()`, but split into its
     /// own method (call from a second, concurrent `.task`) so the view can render right after
@@ -214,6 +235,7 @@ final class GameSessionStore {
             rounds = detail.rounds
             roundContent = detail.content
             responses = detail.responses
+            flagMissingContent()
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -237,6 +259,7 @@ final class GameSessionStore {
                 .map { (contentID(of: $0), $0) }
         )
         responses = []
+        flagMissingContent()
         return true
     }
 
@@ -263,6 +286,7 @@ final class GameSessionStore {
             self.rounds = detail.rounds
             self.roundContent = detail.content
             self.responses = detail.responses
+            flagMissingContent()
             // Re-assert anything still mid-submit — see `inFlightSubmissions`'s doc comment for
             // why this fetch can legitimately be missing a write that's still in flight.
             for item in inFlightSubmissions {
