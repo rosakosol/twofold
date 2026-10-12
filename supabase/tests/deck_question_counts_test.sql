@@ -48,9 +48,12 @@ select is(
 -- The triggers that keep it that way, one content table at a time
 -- ---------------------------------------------------------------------------
 
+-- Each deck below is picked with room for one more: 20261113000200 refuses a question that would
+-- take a deck past its limit, and these tests are about the count, not the limit.
+
 -- trivia
 create temp table t_deck as
-select id from public.game_decks where game_type = 'trivia_battle' limit 1;
+select id from public.game_decks where game_type = 'trivia_battle' and active and question_count < private.deck_question_limit(game_type) limit 1;
 
 select is(
   (select question_count from public.game_decks where id = (select id from t_deck)),
@@ -78,7 +81,7 @@ select is(
 
 -- more likely
 create temp table m_deck as
-select id from public.game_decks where game_type = 'more_likely' limit 1;
+select id from public.game_decks where game_type = 'more_likely' and active and question_count < private.deck_question_limit(game_type) limit 1;
 
 insert into public.more_likely_prompts (id, deck_id, category, prompt)
 values ('11110000-0000-4000-8000-000000000002', (select id from m_deck), 'Test', 'Who?');
@@ -93,7 +96,7 @@ delete from public.more_likely_prompts where id = '11110000-0000-4000-8000-00000
 
 -- this or that
 create temp table x_deck as
-select id from public.game_decks where game_type = 'this_or_that' limit 1;
+select id from public.game_decks where game_type = 'this_or_that' and active and question_count < private.deck_question_limit(game_type) limit 1;
 
 insert into public.this_or_that_prompts (id, deck_id, category, option_a, option_b)
 values ('11110000-0000-4000-8000-000000000003', (select id from x_deck), 'Test', 'A', 'B');
@@ -108,7 +111,7 @@ delete from public.this_or_that_prompts where id = '11110000-0000-4000-8000-0000
 
 -- deep conversations
 create temp table d_deck as
-select id from public.game_decks where game_type = 'deep_conversations' limit 1;
+select id from public.game_decks where game_type = 'deep_conversations' and active and question_count < private.deck_question_limit(game_type) limit 1;
 
 insert into public.deep_conversation_topics (id, deck_id, category, topic)
 values ('11110000-0000-4000-8000-000000000004', (select id from d_deck), 'Test', 'Tell me about...');
@@ -125,7 +128,7 @@ delete from public.deep_conversation_topics where id = '11110000-0000-4000-8000-
 -- `update of deck_id` for exactly this, and getting only the new deck right would leave the old one
 -- overstating — the same direction as the drift this all started with.
 create temp table t_deck2 as
-select id from public.game_decks where game_type = 'trivia_battle' and id <> (select id from t_deck) limit 1;
+select id from public.game_decks where game_type = 'trivia_battle' and id <> (select id from t_deck) and active and question_count < private.deck_question_limit(game_type) limit 1;
 
 insert into public.trivia_questions (id, deck_id, category, question, options, correct_answer, difficulty)
 values ('11110000-0000-4000-8000-000000000005', (select id from t_deck), 'Test', 'Q?',

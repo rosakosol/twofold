@@ -126,8 +126,12 @@ export function ContentForm({ contentType, decks, editingRow, open, onOpenChange
         toast.success("Created");
       }
       onOpenChange(false);
-    } catch {
-      toast.error("Couldn't save — check the fields and try again.");
+    } catch (error) {
+      // A full deck (20261113000200) is refused with a message that says so and what to do;
+      // "check the fields" would send someone looking for a mistake that isn't there.
+      const { code, message } = (error ?? {}) as { code?: string; message?: string };
+      const deckIsFull = code === "23514" && Boolean(message?.includes("is full"));
+      toast.error(deckIsFull ? message : "Couldn't save — check the fields and try again.");
     }
   }
 
