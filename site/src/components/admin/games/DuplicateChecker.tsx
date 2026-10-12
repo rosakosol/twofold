@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { AlertTriangle, EyeOff, Pencil, RotateCcw } from "lucide-react";
 import { StatusPill } from "@/components/site/StatusPill";
 import { StatTiles } from "@/components/console/ConsoleUI";
@@ -154,7 +155,9 @@ function GameTypeChecker({ contentType }: { contentType: ContentTypeConfig }) {
                     size="sm"
                     className="h-7 gap-1 text-xs text-muted-foreground"
                     disabled={dismiss.isPending}
-                    onClick={() => dismiss.mutate({ idA: a.id, idB: b.id })}
+                    onClick={() =>
+                      dismiss.mutate({ idA: a.id, idB: b.id }, { onError: () => toast.error("Couldn't dismiss that pair.") })
+                    }
                   >
                     <EyeOff className="h-3.5 w-3.5" aria-hidden /> Not a duplicate
                   </Button>
@@ -195,7 +198,7 @@ function GameTypeChecker({ contentType }: { contentType: ContentTypeConfig }) {
                       size="sm"
                       className="h-7 gap-1 text-xs text-muted-foreground"
                       disabled={restore.isPending}
-                      onClick={() => restore.mutate(dismissal.id)}
+                      onClick={() => restore.mutate(dismissal.id, { onError: () => toast.error("Couldn't restore that pair.") })}
                     >
                       <RotateCcw className="h-3.5 w-3.5" /> Restore
                     </Button>
