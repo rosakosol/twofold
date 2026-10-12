@@ -40,6 +40,9 @@ import { blockNotice } from "./block-notice.ts";
 
 // Every category now lands in one inbox - the old feedback@/support@ split went away with the
 // separate feedback form, since one categorised queue is simpler to actually monitor.
+// Supabase's runtime global for work that continues after the response; see the send below.
+declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
+
 const RECIPIENT = "support@twofoldapp.com.au";
 
 // Mirrored in Swift (Services/HelpService.swift's SupportRequestCategory) for the picker - no
@@ -306,6 +309,7 @@ Deno.serve(async (req) => {
   const reportedID = input.report?.profile_id && UUID_PATTERN.test(input.report.profile_id)
     ? input.report.profile_id
     : null;
+  let recorded = false;
   try {
     const { error: recordError } = await userClient.rpc("submit_support_request", {
       p_category: input.category,
@@ -317,24 +321,66 @@ Deno.serve(async (req) => {
     });
     if (recordError) {
       console.error("[submit-help-message] could not record the request:", recordError.message);
+    } else {
+      recorded = true;
     }
   } catch (err) {
     console.error("[submit-help-message] could not record the request:", (err as Error).message);
   }
 
-  let client: SMTPClient | undefined;
+  // Once the request is in the inbox it has reached us, and that is what the person is told.
+  //
+  // Reported, twice: a report arrived by email while the app said "Couldn't send your message.
+  // Try again in a moment", the app's wording for a response with no error body. The mail had been
+  // accepted; the function never answered. denomailer's `send()` awaits its own cleanup after the
+  // server accepts the message, and that wait is on Zoho, which (as the `finally` below already
+  // says of `close()`) does not reliably finish the conversation. The cap below only ever covered
+  // `close()`. So the send resolved late or never, the runtime ended the request, and somebody who
+  // had successfully reported abuse was told they had not, and invited to report it again.
+  //
+  // The console reads the inbox, not the mailbox, so the email is now a notification about a
+  // request we already hold. It goes out after the response, and whatever it does then cannot
+  // reach the person. Only when the inbox insert failed is the email the sole copy, and then the
+  // response waits for it as before, because "sent" has to be true.
+  const sendMail = () => sendSupportEmail({
+    from: fromAddress,
+    to: RECIPIENT,
+    replyTo: user.email || undefined,
+    subject,
+    content: bodyLines.join("\n"),
+  });
+
+  if (recorded) {
+    EdgeRuntime.waitUntil(
+      sendMail().catch((err) => {
+        console.error("[submit-help-message] Zoho SMTP send failed (request is in the inbox):", (err as Error).message);
+      }),
+    );
+    return Response.json({ success: true });
+  }
+
   try {
-    client = smtpClient();
-    await client.send({
-      from: fromAddress,
-      to: RECIPIENT,
-      replyTo: user.email || undefined,
-      subject,
-      content: bodyLines.join("\n"),
-    });
+    await sendMail();
   } catch (err) {
     console.error("[submit-help-message] Zoho SMTP send failed:", (err as Error).message);
     return Response.json({ error: "Couldn't send your message - please try again" }, { status: 502 });
+  }
+
+  return Response.json({ success: true });
+});
+
+/// One send and the guarded close that has to follow it, so both paths above share them.
+async function sendSupportEmail(message: {
+  from: string;
+  to: string;
+  replyTo?: string;
+  subject: string;
+  content: string;
+}): Promise<void> {
+  let client: SMTPClient | undefined;
+  try {
+    client = smtpClient();
+    await client.send(message);
   } finally {
     // denomailer holds the TCP connection open otherwise, which keeps the isolate alive until
     // it's forcibly reaped. Two hazards make this more delicate than it looks, and `finally`
@@ -352,9 +398,7 @@ Deno.serve(async (req) => {
       new Promise((resolve) => setTimeout(resolve, 2000)),
     ]);
   }
-
-  return Response.json({ success: true });
-});
+}
 
 /* To invoke locally:
 
