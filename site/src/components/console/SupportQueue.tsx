@@ -25,6 +25,8 @@ import { createClient } from "@/lib/supabase/client";
 import { nullableArg } from "@/lib/db/nullableArg";
 import { functionErrorMessage } from "@/lib/supabase/functionError";
 import { cn } from "@/lib/utils";
+import { ReportedAccountPanel } from "@/components/console/ReportedAccountPanel";
+import { SupportMacros } from "@/components/console/SupportMacros";
 
 export interface SupportRequest {
   id: string;
@@ -407,6 +409,11 @@ function Conversation({
   const [note, setNote] = useState(latest.thread_handler_note ?? "");
   const [busy, setBusy] = useState<"open" | "closed" | null>(null);
   const isOpen = latest.thread_status === "open";
+  // The report itself, wherever it sits in the conversation: replies come after it, so `latest` is
+  // often ours rather than theirs.
+  const report = thread.find((m) => m.category === "Report Abuse");
+  // Theirs, for filling `{{name}}` in a saved reply: the newest message may be our own.
+  const theirName = thread.find((m) => m.direction === "inbound" && m.name)?.name ?? null;
 
   async function setStatus(status: "open" | "closed") {
     if (status === latest.thread_status) return;
@@ -501,6 +508,7 @@ function Conversation({
       )}
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
+        {report && <ReportedAccountPanel requestId={report.id} />}
         {inOrder.map((m) => (
           <Message key={m.id} message={m} />
         ))}
@@ -508,7 +516,7 @@ function Conversation({
       </div>
 
       <div className="space-y-3 border-t p-4">
-        <Composer threadId={latest.thread_id} to={latest.email} onSent={onReplied} />
+        <Composer threadId={latest.thread_id} to={latest.email} recipientName={theirName} onSent={onReplied} />
         {/* Never sent: a different colour from the reply above, so the two cannot be confused. */}
         <details className="support-note" open={Boolean(note)}>
           <summary>
@@ -631,10 +639,12 @@ function shortTime(value: string, now: number | null): string {
 function Composer({
   threadId,
   to,
+  recipientName,
   onSent,
 }: {
   threadId: string;
   to: string | null;
+  recipientName: string | null;
   onSent: () => void;
 }) {
   const [body, setBody] = useState("");
@@ -766,6 +776,14 @@ function Composer({
 
       <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
         <div className="flex items-center gap-3">
+          <SupportMacros
+            currentBody={body}
+            recipientName={recipientName}
+            disabled={sending}
+            // Into an empty box it is the reply; after something already written it goes below it,
+            // so a template never silently replaces what was typed.
+            onInsert={(text) => setBody((current) => (current.trim() ? `${current.trimEnd()}\n\n${text}` : text))}
+          />
           <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground">
             {uploading ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />

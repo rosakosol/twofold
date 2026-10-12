@@ -299,12 +299,21 @@ Deno.serve(async (req) => {
   //
   // No profile id or email is passed: `submit_support_request` resolves both from the caller's own
   // JWT, so a request cannot be filed against somebody else.
+  //
+  // The reported person is passed, though, because the console reads this row and not the email:
+  // without it a report reached the inbox as the reporter's words with nothing saying who they were
+  // about. The RPC keeps it only on a Report Abuse request from a signed-in caller.
+  const reportedID = input.report?.profile_id && UUID_PATTERN.test(input.report.profile_id)
+    ? input.report.profile_id
+    : null;
   try {
     const { error: recordError } = await userClient.rpc("submit_support_request", {
       p_category: input.category,
       p_message: input.message,
       p_subject: trimmedSubject || null,
       p_source: "app",
+      p_reported_profile_id: reportedID,
+      p_report_surface: input.report?.surface ? singleLine(input.report.surface) : null,
     });
     if (recordError) {
       console.error("[submit-help-message] could not record the request:", recordError.message);

@@ -2461,6 +2461,33 @@ export type Database = {
           },
         ]
       }
+      support_macros: {
+        Row: {
+          body: string
+          created_at: string
+          created_by: string | null
+          id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       support_requests: {
         Row: {
           attachments_state: string
@@ -2474,6 +2501,8 @@ export type Database = {
           message_id: string | null
           name: string | null
           profile_id: string | null
+          report_surface: string | null
+          reported_profile_id: string | null
           seq: number
           source: string
           subject: string | null
@@ -2493,6 +2522,8 @@ export type Database = {
           message_id?: string | null
           name?: string | null
           profile_id?: string | null
+          report_surface?: string | null
+          reported_profile_id?: string | null
           seq?: never
           source: string
           subject?: string | null
@@ -2512,6 +2543,8 @@ export type Database = {
           message_id?: string | null
           name?: string | null
           profile_id?: string | null
+          report_surface?: string | null
+          reported_profile_id?: string | null
           seq?: never
           source?: string
           subject?: string | null
@@ -2850,6 +2883,23 @@ export type Database = {
           first_name: string
           most_recent: string
           profile_id: string
+        }[]
+      }
+      admin_report_context: {
+        Args: { p_request_id: string }
+        Returns: {
+          account_deleted_at: string
+          are_partners: boolean
+          blocked_by_count: number
+          distinct_reporters: number
+          email: string
+          first_name: string
+          joined_at: string
+          report_surface: string
+          reported_profile_id: string
+          reporter_blocked_them: boolean
+          times_reported: number
+          were_partners: boolean
         }[]
       }
       admin_purge_couple_archive: {
@@ -3568,6 +3618,8 @@ export type Database = {
           p_email?: string
           p_message: string
           p_name?: string
+          p_report_surface?: string
+          p_reported_profile_id?: string
           p_source?: string
           p_subject?: string
         }
