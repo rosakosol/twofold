@@ -21,6 +21,7 @@ struct ConnectFourEntryView: View {
     @State private var errorMessage: String?
     @State private var records: [GameRecord] = []
     @State private var showingPaywall = false
+    @State private var history: [BackendService.ConnectFourHistoryEntry] = []
 
     /// Premium since 20261111000700, when chess was withdrawn and this took its place as a named
     /// Premium game. The server refuses too — `start_connect_four_session` raises
@@ -50,6 +51,10 @@ struct ConnectFourEntryView: View {
                     .foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
 
+                if let unseen = unseenResult {
+                    lastResultCard(unseen)
+                }
+
                 if isPremium {
                     startButton
                 } else {
@@ -62,6 +67,8 @@ struct ConnectFourEntryView: View {
                         .foregroundStyle(Theme.error)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+
+                previousGames
             }
             .padding(Theme.Spacing.md)
         }
@@ -70,7 +77,12 @@ struct ConnectFourEntryView: View {
         .navigationBarTitleDisplayMode(.inline)
         // Reloaded every time the screen appears: coming back after a game is exactly when the
         // record has changed.
-        .task { records = await BackendService.fetchGameRecords() }
+        .task {
+            async let fetchedRecords = BackendService.fetchGameRecords()
+            async let fetchedHistory = try? BackendService.fetchConnectFourHistory()
+            records = await fetchedRecords
+            history = await fetchedHistory ?? history
+        }
         .navigationDestination(item: $route) { started in
             ConnectFourGameView(sessionID: started.id)
         }
@@ -130,6 +142,107 @@ struct ConnectFourEntryView: View {
         .disabled(isStarting)
     }
 
+    // MARK: - Results
+
+    /// The newest game, if it has ended with a result this phone hasn't shown yet.
+    ///
+    /// Reported: a game that ended while you were elsewhere vanished. Play hands back the current
+    /// board or starts a new one, so the finished game was never on screen again, and who won went
+    /// unseen. Now it waits here until it has been looked at.
+    private var unseenResult: BackendService.ConnectFourHistoryEntry? {
+        guard let latest = history.first, latest.status == .completed, latest.outcome != nil,
+              !ConnectFourSeenResults.hasSeen(latest.id)
+        else { return nil }
+        return latest
+    }
+
+    private func lastResultCard(_ entry: BackendService.ConnectFourHistoryEntry) -> some View {
+        SectionCard {
+            VStack(spacing: Theme.Spacing.sm) {
+                Text("Your last game finished")
+                    .font(.headline)
+                    .foregroundStyle(Theme.textPrimary)
+                Text(outcomeText(entry))
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.textSecondary)
+                Button("See the board") { route = StartedConnectFour(id: entry.id) }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Theme.accent)
+            }
+            .frame(maxWidth: .infinity)
+        }
+    }
+
+    /// Every recent board: when it ended and how. Tapping one opens it, finished, with its result.
+    @ViewBuilder
+    private var previousGames: some View {
+        let finished = history.filter(\.isFinished)
+        if !finished.isEmpty {
+            VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                Text("Previous games")
+                    .font(.headline)
+                    .foregroundStyle(Theme.textPrimary)
+                    .padding(.top, Theme.Spacing.sm)
+                SectionCard {
+                    VStack(spacing: 0) {
+                        ForEach(Array(finished.enumerated()), id: \.element.id) { index, entry in
+                            if index > 0 { Divider() }
+                            Button { open(entry) } label: { historyRow(entry) }
+                                .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func historyRow(_ entry: BackendService.ConnectFourHistoryEntry) -> some View {
+        HStack(spacing: Theme.Spacing.sm) {
+            Image(systemName: outcomeIcon(entry))
+                .foregroundStyle(entry.winnerID == BackendService.currentUserID ? Theme.success : Theme.textSecondary)
+                .frame(width: 24)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(outcomeText(entry))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                Text(entry.endedAt.formatted(date: .abbreviated, time: .omitted))
+                    .font(.caption)
+                    .foregroundStyle(Theme.textSecondary)
+            }
+            Spacer(minLength: Theme.Spacing.sm)
+            Image(systemName: isPremium ? "chevron.right" : "lock.fill")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Theme.textSecondary)
+                .accessibilityHidden(true)
+        }
+        .padding(.vertical, Theme.Spacing.sm)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+    }
+
+    private func outcomeText(_ entry: BackendService.ConnectFourHistoryEntry) -> String {
+        guard let outcome = entry.outcome else { return "Ended with no winner" }
+        if outcome == "win", let winner = entry.winnerID {
+            return winner == BackendService.currentUserID ? "You won" : "\(appModel.partner.name) won"
+        }
+        return "A draw"
+    }
+
+    private func outcomeIcon(_ entry: BackendService.ConnectFourHistoryEntry) -> String {
+        guard entry.outcome != nil else { return "flag.slash" }
+        return entry.winnerID == nil ? "equal.circle" : "trophy.fill"
+    }
+
+    /// Results are Premium, like Connect 4 itself and like Word Guess's: on Plus the row says how it
+    /// went, and tapping it offers Premium.
+    private func open(_ entry: BackendService.ConnectFourHistoryEntry) {
+        if isPremium {
+            route = StartedConnectFour(id: entry.id)
+        } else {
+            showingPaywall = true
+        }
+    }
+
     private func start() {
         isStarting = true
         errorMessage = nil
@@ -147,6 +260,25 @@ struct ConnectFourEntryView: View {
 
 private struct StartedConnectFour: Identifiable, Hashable {
     let id: UUID
+}
+
+/// Which finished games this phone has shown, so the entry screen offers a result until it has
+/// been seen and not after. On the device rather than the server: "seen" is about this screen,
+/// and the worst a lost record can do is offer a result once more. Cleared on sign-out.
+enum ConnectFourSeenResults {
+    static let key = "connectFour.seenResults"
+
+    static func hasSeen(_ sessionID: UUID) -> Bool {
+        (UserDefaults.standard.stringArray(forKey: key) ?? []).contains(sessionID.uuidString)
+    }
+
+    static func markSeen(_ sessionID: UUID) {
+        var seen = UserDefaults.standard.stringArray(forKey: key) ?? []
+        guard !seen.contains(sessionID.uuidString) else { return }
+        seen.append(sessionID.uuidString)
+        // Only the newest matter: the card only ever asks about the latest game.
+        UserDefaults.standard.set(Array(seen.suffix(50)), forKey: key)
+    }
 }
 
 #Preview {

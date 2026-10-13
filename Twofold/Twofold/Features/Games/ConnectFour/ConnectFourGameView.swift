@@ -94,6 +94,8 @@ struct ConnectFourGameView: View {
         // Only celebrates a win this player had. Confetti over a loss is the app congratulating
         // somebody for being beaten, and a draw is not a result to throw anything at either.
         .onChange(of: store.isFinished, initial: true) { _, finished in
+            // Seen here, on the board: the entry screen stops offering this result once it has been.
+            if finished { ConnectFourSeenResults.markSeen(store.sessionID) }
             guard finished, store.didIWin == true, celebratedSession != store.sessionID else { return }
             celebratedSession = store.sessionID
             confettiTrigger.toggle()

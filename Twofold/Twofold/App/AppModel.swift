@@ -1100,7 +1100,7 @@ final class AppModel {
     /// App Store's own prompt is rate-limited per device regardless, so clearing them would only
     /// mean asking somebody who already said yes a second time.
     private static func clearAccountScopedDefaults() {
-        for key in ["dormancy.lastTouchedOn", "streakRepairOfferedForMissedDate"] {
+        for key in ["dormancy.lastTouchedOn", "streakRepairOfferedForMissedDate", ConnectFourSeenResults.key] {
             UserDefaults.standard.removeObject(forKey: key)
         }
     }

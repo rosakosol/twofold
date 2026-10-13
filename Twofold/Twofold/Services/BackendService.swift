@@ -4109,6 +4109,44 @@ enum BackendService {
     /// Its own subscription rather than an addition to `subscribeToGameSession`: that one watches
     /// `game_responses`, which a turn-based game never writes, and every other game would pay for a
     /// channel filter it has no use for.
+    /// One past Connect 4 game, as the entry screen lists it.
+    struct ConnectFourHistoryEntry: Identifiable, Hashable, Decodable {
+        let id: UUID
+        let status: GameSessionStatus
+        let createdAt: Date
+        let updatedAt: Date
+        let completedAt: Date?
+        /// Who won. Nil for a draw, and for a game ended or expired without a result.
+        let winnerID: UUID?
+        /// "win", a kind of draw, or nil for a game still going or closed without a result
+        /// (20261015000100).
+        let outcome: String?
+
+        enum CodingKeys: String, CodingKey {
+            case id, status, outcome
+            case createdAt = "created_at"
+            case updatedAt = "updated_at"
+            case completedAt = "completed_at"
+            case winnerID = "winner_id"
+        }
+
+        var isFinished: Bool { status == .completed || status == .abandoned || status == .archived }
+        var endedAt: Date { completedAt ?? updatedAt }
+    }
+
+    /// The couple's recent Connect 4 games, newest first. One query: the outcome is stored on the
+    /// session when the game ends, so nothing has to be replayed to list who won.
+    static func fetchConnectFourHistory(limit: Int = 30) async throws -> [ConnectFourHistoryEntry] {
+        try await supabase
+            .from("game_sessions")
+            .select("id, status, created_at, updated_at, completed_at, winner_id, outcome")
+            .eq("game_type", value: GameType.connectFour.rawValue)
+            .order("created_at", ascending: false)
+            .limit(limit)
+            .execute()
+            .value
+    }
+
     static func subscribeToGameMoves(sessionID: UUID) -> (channel: RealtimeChannelV2, stream: AsyncStream<Void>) {
         let channel = supabase.channel("game_moves_\(sessionID.uuidString)")
         let moves = channel.postgresChange(InsertAction.self, table: "game_moves", filter: .eq("session_id", value: sessionID.uuidString))
