@@ -3855,6 +3855,70 @@ enum BackendService {
         }
     }
 
+    /// One past Sudoku, as the difficulty screen lists it.
+    struct SudokuHistoryEntry: Identifiable, Hashable {
+        let id: UUID
+        let playedAt: Date
+        let difficulty: SudokuDifficulty?
+        /// This person's solving time, once they've completed the grid.
+        let mine: TimeInterval?
+        /// Theirs, once both have finished: RLS keeps a partner's response back until then.
+        let partner: TimeInterval?
+        let isAbandoned: Bool
+    }
+
+    /// The couple's recent puzzles, newest first, in one request: each session with its round (for
+    /// the difficulty) and whichever responses the caller is allowed to see.
+    static func fetchSudokuHistory(limit: Int = 30) async throws -> [SudokuHistoryEntry] {
+        struct Row: Decodable {
+            struct Round: Decodable { let difficulty: SudokuDifficulty? }
+            struct Response: Decodable {
+                let responderId: UUID
+                let answer: GameAnswerPayload
+                enum CodingKeys: String, CodingKey { case answer, responderId = "responder_id" }
+            }
+            let id: UUID
+            let status: GameSessionStatus
+            let createdAt: Date
+            let rounds: [Round]
+            let responses: [Response]
+            enum CodingKeys: String, CodingKey {
+                case id, status
+                case createdAt = "created_at"
+                case rounds = "game_session_rounds"
+                case responses = "game_responses"
+            }
+        }
+
+        let rows: [Row] = try await supabase
+            .from("game_sessions")
+            .select("id, status, created_at, game_session_rounds(difficulty), game_responses(responder_id, answer)")
+            .eq("game_type", value: GameType.sudoku.rawValue)
+            .order("created_at", ascending: false)
+            .limit(limit)
+            .execute()
+            .value
+
+        let me = currentUserID
+        // A time only for a grid that was completed: a saved board in progress has an elapsed time
+        // too, and it is not a result.
+        func time(_ response: Row.Response?) -> TimeInterval? {
+            guard let response, let summary = SudokuPlayState.summary(from: response.answer.value),
+                  summary.isComplete else { return nil }
+            return summary.elapsed
+        }
+        return rows.map { row in
+            SudokuHistoryEntry(
+                id: row.id,
+                playedAt: row.createdAt,
+                difficulty: row.rounds.first?.difficulty,
+                mine: time(row.responses.first { $0.responderId == me }),
+                partner: time(row.responses.first { $0.responderId != me }),
+                isAbandoned: row.status == .abandoned
+            )
+        }
+    }
+
     /// One past Word Guess game, as the entry screen lists it.
     struct WordGuessHistoryEntry: Identifiable, Hashable {
         let id: UUID

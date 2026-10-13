@@ -20,6 +20,7 @@ struct SudokuDifficultyPickerView: View {
     @State private var showingPaywall = false
     @State private var errorMessage: String?
     @State private var stats: SudokuStats?
+    @State private var history: [BackendService.SudokuHistoryEntry] = []
 
     /// Seeds the table so previews and screenshots can show a real history without two people
     /// having to go and play one. `loadStats()` leaves whatever is here if its fetch fails, which
@@ -50,6 +51,8 @@ struct SudokuDifficultyPickerView: View {
                         .font(.caption)
                         .foregroundStyle(Theme.error)
                 }
+
+                previousGames
             }
             .padding(Theme.Spacing.md)
         }
@@ -64,7 +67,11 @@ struct SudokuDifficultyPickerView: View {
         }
         // Reloaded every time the screen appears, not just once: finishing a puzzle and coming
         // back here is exactly when the numbers have changed.
-        .task { await loadStats() }
+        .task {
+            async let fetchedHistory = try? BackendService.fetchSudokuHistory()
+            await loadStats()
+            history = await fetchedHistory ?? history
+        }
     }
 
     /// The running record, across every puzzle both of them finished.
@@ -181,6 +188,80 @@ struct SudokuDifficultyPickerView: View {
         .buttonStyle(.plain)
         .disabled(starting != nil)
         .accessibilityHint(locked ? "Requires Twofold Premium" : "")
+    }
+
+    // MARK: - Previous games
+
+    /// Recent puzzles: the difficulty, the day, and both times once there are times to show. The
+    /// same shape as Word Guess's list, for the same reasons.
+    @ViewBuilder
+    private var previousGames: some View {
+        let shown = history.filter { !$0.isAbandoned }
+        if !shown.isEmpty {
+            VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                Text("Previous games")
+                    .font(.headline)
+                    .foregroundStyle(Theme.textPrimary)
+                    .padding(.top, Theme.Spacing.sm)
+                SectionCard {
+                    VStack(spacing: 0) {
+                        ForEach(Array(shown.enumerated()), id: \.element.id) { index, entry in
+                            if index > 0 { Divider() }
+                            Button { open(entry) } label: { historyRow(entry) }
+                                .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func historyRow(_ entry: BackendService.SudokuHistoryEntry) -> some View {
+        HStack(spacing: Theme.Spacing.sm) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(entry.difficulty.map { "\($0.displayName) Sudoku" } ?? "Sudoku")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                Text(entry.playedAt.formatted(date: .abbreviated, time: .omitted))
+                    .font(.caption)
+                    .foregroundStyle(Theme.textSecondary)
+            }
+            Spacer(minLength: Theme.Spacing.sm)
+            VStack(alignment: .trailing, spacing: 2) {
+                timeLine(name: "You", time: entry.mine, pending: "Not finished")
+                timeLine(name: appModel.partner.name, time: entry.partner, pending: entry.mine == nil ? "" : "Waiting")
+            }
+            Image(systemName: entry.mine != nil && entry.partner != nil && !isPremium ? "lock.fill" : "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Theme.textSecondary)
+                .accessibilityHidden(true)
+        }
+        .padding(.vertical, Theme.Spacing.sm)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+    }
+
+    @ViewBuilder
+    private func timeLine(name: String, time: TimeInterval?, pending: String) -> some View {
+        if let time {
+            Text("\(name): \(PuzzleClock.text(time))")
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(Theme.textPrimary)
+        } else if !pending.isEmpty {
+            Text("\(name): \(pending)")
+                .font(.caption)
+                .foregroundStyle(Theme.textSecondary)
+        }
+    }
+
+    /// A finished puzzle's results are Premium, as Word Guess's are; one still in play opens on any
+    /// plan, since that is only picking it back up.
+    private func open(_ entry: BackendService.SudokuHistoryEntry) {
+        if entry.mine != nil && entry.partner != nil && !isPremium {
+            showingPaywall = true
+        } else {
+            route = StartedPuzzle(id: entry.id, resumed: true)
+        }
     }
 
     private func start(_ difficulty: SudokuDifficulty) {
