@@ -315,15 +315,44 @@ struct WordGuessGameView: View {
     @ViewBuilder
     private func finishedSection(play: WordGuessPlayState) -> some View {
         if let theirs = store.partnerResult {
-            WordGuessComparisonView(comparison: WordGuessComparison(
-                mine: WordGuessSummary(
-                    guessCount: play.guesses.count,
-                    solved: play.isSolved,
-                    elapsed: play.elapsed
-                ),
-                theirs: theirs,
-                partnerName: appModel.partner.name
-            ))
+            VStack(spacing: Theme.Spacing.md) {
+                WordGuessComparisonView(comparison: WordGuessComparison(
+                    mine: WordGuessSummary(
+                        guessCount: play.guesses.count,
+                        solved: play.isSolved,
+                        elapsed: play.elapsed
+                    ),
+                    theirs: theirs,
+                    partnerName: appModel.partner.name
+                ))
+
+                // Their board, under yours: how they got there, not only how many tries it took.
+                // Only ever here, after both have finished, so it cannot spoil a board in play.
+                if let partnerPlay = store.partnerPlay {
+                    SectionCard {
+                        VStack(spacing: Theme.Spacing.sm) {
+                            Text("\(appModel.partner.name)'s guesses")
+                                .font(.headline)
+                                .foregroundStyle(Theme.textPrimary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            WordGuessBoardView(
+                                play: partnerPlay,
+                                draft: "",
+                                isDraftRejected: false,
+                                tileSide: 40
+                            )
+                        }
+                    }
+
+                    WordGuessShareButton(card: WordGuessShareCard(
+                        mine: play,
+                        theirs: partnerPlay,
+                        myName: appModel.currentUser.name,
+                        partnerName: appModel.partner.name,
+                        date: store.playedAt ?? .now
+                    ))
+                }
+            }
         } else {
             waitingCard(play: play)
         }

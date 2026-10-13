@@ -52,6 +52,11 @@ final class WordGuessGameStore {
     /// board ends, so a row cannot appear here for a board still in play and cannot spoil anyone's
     /// guesses.
     private(set) var partnerResult: WordGuessSummary?
+    /// Their whole finished board, guesses and all, so the results can show how they got there and
+    /// not just how many tries it took. Visible on exactly the same terms as `partnerResult`.
+    private(set) var partnerPlay: WordGuessPlayState?
+    /// When this word was played, for the share card: a game opened from the history is not today's.
+    private(set) var playedAt: Date?
 
     private var responderID: UUID?
     private var clock: Task<Void, Never>?
@@ -96,6 +101,8 @@ final class WordGuessGameStore {
             play = Self.furtherAlong(fromServer, fromDevice) ?? WordGuessPlayState(answer: word)
             hasSubmitted = fromServer?.isComplete == true
             partnerResult = me.flatMap { Self.partnerResult(in: detail, me: $0) }
+            partnerPlay = me.flatMap { Self.partnerPlay(in: detail, me: $0, answer: word) }
+            playedAt = detail.session.createdAt
             phase = .ready
         } catch {
             phase = .failed(error.localizedDescription)
@@ -254,6 +261,18 @@ final class WordGuessGameStore {
         guard let me = responderID else { return }
         guard let detail = try? await BackendService.fetchGameSession(id: sessionID) else { return }
         partnerResult = Self.partnerResult(in: detail, me: me)
+        if let word = answer {
+            partnerPlay = Self.partnerPlay(in: detail, me: me, answer: word)
+        }
+    }
+
+    private static func partnerPlay(
+        in detail: BackendService.GameSessionDetail,
+        me: UUID,
+        answer: String
+    ) -> WordGuessPlayState? {
+        guard let theirs = detail.responses.first(where: { $0.responderID != me }) else { return nil }
+        return WordGuessPlayState.decoded(from: theirs.answerValue, answer: answer)
     }
 
     private static func partnerResult(

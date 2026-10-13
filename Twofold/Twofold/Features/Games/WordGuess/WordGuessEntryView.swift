@@ -21,6 +21,7 @@ struct WordGuessEntryView: View {
     @State private var errorMessage: String?
     @State private var records: [GameRecord] = []
     @State private var limitReached = false
+    @State private var history: [BackendService.WordGuessHistoryEntry] = []
 
     private var isPremium: Bool { appModel.subscriptionTier == "premium" }
 
@@ -53,6 +54,8 @@ struct WordGuessEntryView: View {
                 }
 
                 allowanceNote
+
+                previousGames
             }
             .padding(Theme.Spacing.md)
         }
@@ -61,7 +64,12 @@ struct WordGuessEntryView: View {
         .navigationBarTitleDisplayMode(.inline)
         // Reloaded every time the screen appears, not once: coming back here after playing is
         // exactly when the numbers have changed.
-        .task { records = await BackendService.fetchGameRecords() }
+        .task {
+            async let fetchedRecords = BackendService.fetchGameRecords()
+            async let fetchedHistory = try? BackendService.fetchWordGuessHistory()
+            records = await fetchedRecords
+            history = await fetchedHistory ?? history
+        }
         .navigationDestination(item: $route) { sessionID in
             WordGuessGameView(sessionID: sessionID)
         }
@@ -148,6 +156,97 @@ struct WordGuessEntryView: View {
                 .frame(maxWidth: .infinity)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    // MARK: - Previous games
+
+    /// Every recent word, newest first: when it was, what it was, and how each of you did.
+    ///
+    /// The word shows only once you've finished that board, so a game still in play is never spoiled
+    /// by its own row, and your partner's score only once you both have (the database keeps their
+    /// response from you until then).
+    @ViewBuilder
+    private var previousGames: some View {
+        if !history.isEmpty {
+            VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                Text("Previous games")
+                    .font(.headline)
+                    .foregroundStyle(Theme.textPrimary)
+                    .padding(.top, Theme.Spacing.sm)
+
+                SectionCard {
+                    VStack(spacing: 0) {
+                        ForEach(Array(history.enumerated()), id: \.element.id) { index, entry in
+                            if index > 0 { Divider() }
+                            Button { open(entry) } label: { historyRow(entry) }
+                                .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func historyRow(_ entry: BackendService.WordGuessHistoryEntry) -> some View {
+        HStack(spacing: Theme.Spacing.sm) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(entry.mine == nil ? "In progress" : (WordGuessWords.answer(for: entry.puzzleID)?.uppercased() ?? "—"))
+                    .font(.subheadline.weight(.semibold).monospaced())
+                    .foregroundStyle(Theme.textPrimary)
+                Text(entry.playedAt.formatted(date: .abbreviated, time: .omitted))
+                    .font(.caption)
+                    .foregroundStyle(Theme.textSecondary)
+            }
+            Spacer(minLength: Theme.Spacing.sm)
+            VStack(alignment: .trailing, spacing: 2) {
+                scoreLine(name: "You", summary: entry.mine, pending: "Not finished")
+                scoreLine(
+                    name: appModel.partner.name,
+                    summary: entry.partner,
+                    pending: entry.mine == nil ? "" : "Waiting"
+                )
+            }
+            if canOpen(entry) {
+                Image(systemName: entry.mine != nil && entry.partner != nil && !isPremium ? "lock.fill" : "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Theme.textSecondary)
+                    .accessibilityHidden(true)
+            }
+        }
+        .padding(.vertical, Theme.Spacing.sm)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+    }
+
+    @ViewBuilder
+    private func scoreLine(name: String, summary: WordGuessSummary?, pending: String) -> some View {
+        if let summary {
+            Text("\(name): \(Text(WordGuessComparison.scoreText(summary)))")
+                .font(.caption)
+                .foregroundStyle(summary.solved ? Theme.textPrimary : Theme.textSecondary)
+        } else if !pending.isEmpty {
+            Text("\(name): \(pending)")
+                .font(.caption)
+                .foregroundStyle(Theme.textSecondary)
+        }
+    }
+
+    /// An abandoned game has nothing to open; anything else opens on the board.
+    private func canOpen(_ entry: BackendService.WordGuessHistoryEntry) -> Bool {
+        entry.status != .abandoned
+    }
+
+    /// A finished game's results are a Premium feature: on Plus the row says how it went, and tapping
+    /// it offers Premium. A game still being played opens on any plan, since that is only resuming
+    /// it, the same as the Play button.
+    private func open(_ entry: BackendService.WordGuessHistoryEntry) {
+        guard canOpen(entry) else { return }
+        let finished = entry.mine != nil && entry.partner != nil
+        if finished && !isPremium {
+            showingPaywall = true
+        } else {
+            route = entry.id
         }
     }
 

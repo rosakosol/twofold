@@ -3855,6 +3855,72 @@ enum BackendService {
         }
     }
 
+    /// One past Word Guess game, as the entry screen lists it.
+    struct WordGuessHistoryEntry: Identifiable, Hashable {
+        let id: UUID
+        /// The round's content id, which is the puzzle: `WordGuessWords.answer(for:)` turns it into
+        /// the word. The word itself is never stored.
+        let puzzleID: UUID
+        let playedAt: Date
+        let status: GameSessionStatus
+        /// Nil until this person has finished the board.
+        let mine: WordGuessSummary?
+        /// Nil until both have finished: RLS hides a partner's response before then, which is what
+        /// keeps their score from spoiling a board still in play.
+        let partner: WordGuessSummary?
+    }
+
+    /// The couple's recent Word Guess games, newest first, in one request: each session with its
+    /// round and whichever responses the caller is allowed to see.
+    static func fetchWordGuessHistory(limit: Int = 30) async throws -> [WordGuessHistoryEntry] {
+        struct Row: Decodable {
+            struct Round: Decodable {
+                let contentId: UUID
+                enum CodingKeys: String, CodingKey { case contentId = "content_id" }
+            }
+            struct Response: Decodable {
+                let responderId: UUID
+                let answer: GameAnswerPayload
+                enum CodingKeys: String, CodingKey { case answer, responderId = "responder_id" }
+            }
+            let id: UUID
+            let status: GameSessionStatus
+            let createdAt: Date
+            let rounds: [Round]
+            let responses: [Response]
+            enum CodingKeys: String, CodingKey {
+                case id, status
+                case createdAt = "created_at"
+                case rounds = "game_session_rounds"
+                case responses = "game_responses"
+            }
+        }
+
+        let rows: [Row] = try await supabase
+            .from("game_sessions")
+            .select("id, status, created_at, game_session_rounds(content_id), game_responses(responder_id, answer)")
+            .eq("game_type", value: GameType.wordGuess.rawValue)
+            .order("created_at", ascending: false)
+            .limit(limit)
+            .execute()
+            .value
+
+        let me = currentUserID
+        return rows.compactMap { row in
+            guard let puzzleID = row.rounds.first?.contentId else { return nil }
+            let mine = row.responses.first { $0.responderId == me }
+            let theirs = row.responses.first { $0.responderId != me }
+            return WordGuessHistoryEntry(
+                id: row.id,
+                puzzleID: puzzleID,
+                playedAt: row.createdAt,
+                status: row.status,
+                mine: mine.flatMap { WordGuessPlayState.summary(from: $0.answer.value) },
+                partner: theirs.flatMap { WordGuessPlayState.summary(from: $0.answer.value) }
+            )
+        }
+    }
+
     static func startWordGuessSession() async throws -> WordGuessSessionStart {
         do {
             // `returns table` comes back as a set, so this decodes as an array of one.
