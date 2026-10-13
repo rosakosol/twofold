@@ -8,8 +8,12 @@
 -- pointed at cards the couple could not read, and with no card to draw the app showed the
 -- finished screen.
 --
--- Pinned two ways: the data no longer holds such a card, and start_deck_session will not build a
--- round on one even if a deck is mis-tagged again later.
+-- Pinned two ways: the data no longer holds such a card, and it cannot be made to again.
+-- 20261113001500 made a card's tier follow its deck's, so the mis-tagging this test used to
+-- re-create on purpose is now overwritten as it happens: the plus couple gets every card, and a
+-- deck whose cards were all set to premium still starts. Before that, this checked that
+-- start_deck_session left such cards out, which was the workaround for a state that can no longer
+-- arise.
 
 begin;
 select plan(6);
@@ -44,6 +48,7 @@ select is(
 );
 
 -- Two plus decks, re-broken on purpose: one with a single premium card, one with nothing else.
+-- Neither sticks (see the header), which is what the checks below are about.
 select set_config('test.mixed', (
   select d.id::text from public.game_decks d
   where d.tier = 'plus' and d.active and d.game_type = 'this_or_that'
@@ -79,8 +84,8 @@ select set_config('test.plus_session',
 
 select is(
   (select total_rounds from public.game_sessions where id = current_setting('test.plus_session')::uuid),
-  current_setting('test.mixed_cards')::int - 1,
-  'a plus couple''s session leaves out the card it cannot read'
+  current_setting('test.mixed_cards')::int,
+  'setting a plus deck''s card to premium does not stick: the plus couple gets every card'
 );
 
 -- The property the app depends on: every round has a card this player can read.
@@ -92,10 +97,9 @@ select is(
   'and every round it built is one the plus partner can read'
 );
 
-select throws_ok(
+select lives_ok(
   format('select public.start_deck_session(%L::uuid)', current_setting('test.all_premium')),
-  'This deck has no content',
-  'a plus deck with no card the couple can read refuses to start, rather than starting empty'
+  'nor does setting all of them: the deck still starts for a plus couple'
 );
 
 -- ---------------------------------------------------------------------------
@@ -113,7 +117,7 @@ select is(
 
 select lives_ok(
   format('select public.start_deck_session(%L::uuid)', current_setting('test.all_premium')),
-  'and can start the deck a plus couple cannot'
+  'and so does a premium couple'
 );
 
 select * from finish();
