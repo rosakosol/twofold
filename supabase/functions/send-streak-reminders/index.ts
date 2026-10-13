@@ -26,6 +26,7 @@ import { sendAPNs } from "../_shared/apns.ts";
 
 interface Input {
   final?: boolean;
+  morning?: boolean;
 }
 
 // One row per person, not per couple. Each partner has their own local-midnight boundary now (see
@@ -39,6 +40,7 @@ interface StreakReminderTarget {
   next_boundary: string;
   current_streak: number;
   early_reminder_sent_date: string | null;
+  morning_reminder_sent_date: string | null;
   final_reminder_sent_date: string | null;
 }
 
@@ -61,10 +63,18 @@ Deno.serve(async (req) => {
     // Malformed body falls back to the original early-reminder behavior rather than failing
     // the whole cron run over it.
   }
-  const isFinal = input.final === true;
+  // Three reminders, each a distance before the person's own local midnight. The morning one
+  // (20261113001700) is fourteen hours out, which is 10am; it shares the daily streak reminder's
+  // preference, being the same reminder at the start of the day rather than towards its end.
+  const kind: "morning" | "early" | "final" = input.final === true
+    ? "final"
+    : input.morning === true
+    ? "morning"
+    : "early";
+  const isFinal = kind === "final";
   const prefColumn = isFinal ? "streak_ending_reminder" : "daily_streak_reminder";
-  const dedupColumn = isFinal ? "final_reminder_sent_date" : "early_reminder_sent_date";
-  const windowMinutes = isFinal ? 60 : 360;
+  const dedupColumn = `${kind}_reminder_sent_date`;
+  const windowMinutes = { morning: 14 * 60, early: 360, final: 60 }[kind];
 
   const serviceClient = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -148,14 +158,19 @@ Deno.serve(async (req) => {
     // answer today, so that's a stronger nudge than the generic copy below.
     const currentStreak = target.current_streak ?? 0;
 
-    const title = isFinal ? "1 hour left!" : "Keep your streak going";
-    const body = isFinal
-      ? (currentStreak > 0
-        ? `Only 1 hour left to keep your ${currentStreak} day streak - answer today's question now 🔥`
-        : "Only 1 hour left today - answer now before the day ends.")
-      : (currentStreak > 0
+    // The morning one has the day ahead of it, so it says so rather than counting down.
+    const title = { morning: "Today's question is ready", early: "Keep your streak going", final: "1 hour left!" }[kind];
+    const body = {
+      morning: currentStreak > 0
+        ? `You're on a ${currentStreak} day streak - start today with today's question ☀️`
+        : "A new question for you two - answer it whenever you're ready ☀️",
+      early: currentStreak > 0
         ? `You're on a ${currentStreak} day streak - answer today's question to keep it going 🔥`
-        : "Today's question is waiting - answer it before the day ends.");
+        : "Today's question is waiting - answer it before the day ends.",
+      final: currentStreak > 0
+        ? `Only 1 hour left to keep your ${currentStreak} day streak - answer today's question now 🔥`
+        : "Only 1 hour left today - answer now before the day ends.",
+    }[kind];
 
     for (const token of tokens) {
       try {
@@ -180,7 +195,7 @@ Deno.serve(async (req) => {
       .from("streak_reminder_sends")
       .upsert({
         profile_id: target.profile_id,
-        reminder_kind: isFinal ? "final" : "early",
+        reminder_kind: kind,
         sent_for_date: target.local_date,
         updated_at: new Date().toISOString(),
       }, { onConflict: "profile_id,reminder_kind" });
@@ -188,6 +203,6 @@ Deno.serve(async (req) => {
     remindedCount++;
   }
 
-  console.log(`[send-streak-reminders] reminded ${remindedCount} of ${rows.length} target(s) (final=${isFinal})`);
+  console.log(`[send-streak-reminders] reminded ${remindedCount} of ${rows.length} target(s) (kind=${kind})`);
   return Response.json({ reminded: remindedCount });
 });
