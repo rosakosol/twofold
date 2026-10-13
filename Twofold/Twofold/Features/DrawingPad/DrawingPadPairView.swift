@@ -62,6 +62,9 @@ struct DrawingPadPairView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Close") { dismiss() }
                 }
+                ToolbarItem(placement: .topBarTrailing) {
+                    DrawingShareButton(myURL: myURL, myName: "You", partnerURL: partnerURL, partnerName: partnerName)
+                }
             }
         }
         .fullScreenCover(item: $focused) { pad in

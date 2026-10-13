@@ -146,6 +146,10 @@ struct DrawingPadEditorView: View {
                 ForEach(Self.penColorPalette, id: \.name) { swatch in
                     Button {
                         penColor = swatch.color
+                        // Picking a colour means drawing with it. Left on the eraser, the next
+                        // stroke rubbed out instead, in no colour at all. A shape tool stays, since
+                        // the colour is for it too.
+                        if tool == .eraser { tool = .pen }
                     } label: {
                         Label(swatch.name, systemImage: penColor == swatch.color ? "checkmark.circle.fill" : "circle.fill")
                     }
