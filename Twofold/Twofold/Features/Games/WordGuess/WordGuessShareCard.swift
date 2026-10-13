@@ -8,7 +8,8 @@
 //  yet without telling them what it was.
 //
 //  Fixed colours, rendered dark (see `WordGuessShareButton`): it is an image that leaves the app,
-//  so it looks the same whatever the sender's phone is set to.
+//  so it looks the same whatever the sender's phone is set to. On Twofold's blue rather than the
+//  game's green, which a correct tile is too.
 //
 
 import SwiftUI
@@ -48,7 +49,9 @@ struct WordGuessShareCard: View {
         .foregroundStyle(.white)
         .padding(24)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(GameType.wordGuess.gradient)
+        // Twofold's own blue (the app's primary buttons) rather than Word Guess's green, which is
+        // also the colour of a correct tile: on green, the tiles that matter most disappeared.
+        .background(Brand.primaryFixed)
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 
@@ -68,6 +71,12 @@ struct WordGuessShareCard: View {
                         ForEach(Array(WordGuessEvaluation.marks(guess: guess, answer: play.answer).enumerated()), id: \.offset) { _, mark in
                             RoundedRectangle(cornerRadius: 4, style: .continuous)
                                 .fill(mark.tileColor)
+                                // A faint edge so a grey "not in the word" tile still reads as a
+                                // tile against the blue.
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                        .strokeBorder(.white.opacity(0.25), lineWidth: 1)
+                                )
                                 .frame(width: 22, height: 22)
                         }
                     }
