@@ -66,7 +66,9 @@ struct AdultContentSettingsView: View {
                         .foregroundStyle(Theme.error)
                 }
 
-                Text("After Dark decks are part of Premium. Nothing in them is shown to anyone else, and turning this off removes them from this device.")
+                // No tier named: After Dark mixes Plus and Premium decks, and each deck shows its own
+                // lock in Games. Naming one plan here was wrong the moment a deck moved to the other.
+                Text("Nothing in these decks is shown to anyone else, and turning this off removes them from this device.")
                     .font(.caption2)
                     .foregroundStyle(Theme.textSecondary)
                     .padding(.horizontal, Theme.Spacing.xs)
