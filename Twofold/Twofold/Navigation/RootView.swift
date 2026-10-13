@@ -87,6 +87,8 @@ struct RootView: View {
     /// Non-tab widget destinations (a specific flight/memory/the drawing pad) that need their
     /// own screen rather than just switching tabs.
     @State private var recordDeepLink: WidgetDeepLink.Destination?
+    /// A link that arrived before the app could act on it — see `.onOpenURL`.
+    @State private var pendingOpenURL: URL?
     /// A Stats card a deep link asked for, consumed by `PassportView` once it appears. Without it
     /// the Days Together widget landed on whichever card happened to be open from last time.
     @State private var pendingStatsSection: StatsSection?
@@ -320,29 +322,17 @@ struct RootView: View {
         // for the pre-account case (that branch isn't mounted here, so there's no double
         // handling). This is what makes an invite link work for anyone who already has an
         // account, paired or not — previously it was a silent no-op for them.
+        //
+        // Held, then handled once the app can act on it — the same shape as notification taps
+        // below. Handled on arrival, a link that launched the app cold met `isLoadingSession`
+        // and a `hasCouple` still false, and was dropped: every widget tapped with the app closed
+        // opened it wherever it had been rather than where the widget pointed.
         .onOpenURL { url in
-            guard appModel.hasCouple else { return }
-            if let code = InviteCode.code(from: url) {
-                pendingInviteCode = code
-                return
-            }
-            guard let destination = WidgetDeepLink.destination(for: url) else { return }
-            switch destination {
-            case .paywall:
-                showingPaywallFromWidget = true
-            case .flight, .memory, .trip, .drawingPad, .partnerDrawingPad:
-                if appModel.isSubscriptionActive {
-                    recordDeepLink = destination
-                }
-            case .home:
-                selectedTab = .home
-            case .memories:
-                selectedTab = .memories
-            case .passport(let section):
-                pendingStatsSection = section
-                selectedTab = .passport
-            }
+            pendingOpenURL = url
+            consumePendingOpenURL()
         }
+        .onChange(of: appModel.isLoadingSession) { _, _ in consumePendingOpenURL() }
+        .onChange(of: appModel.hasResolvedSubscription) { _, _ in consumePendingOpenURL() }
         .sheet(isPresented: Binding(get: { pendingInviteCode != nil }, set: { if !$0 { pendingInviteCode = nil } })) {
             RedeemPartnerCodeView(prefilledCode: pendingInviteCode)
         }
@@ -518,6 +508,55 @@ struct RootView: View {
     /// part of it deliberately: this presents over the whole app, including the non-dismissable
     /// lapsed-subscription paywall, so an old notification left sitting in Notification Center
     /// from before a lapse must not become a way back into premium gameplay.
+    /// Handles a held link once it can be, and holds it a little longer when it cannot yet. See
+    /// `.onOpenURL`.
+    private func consumePendingOpenURL() {
+        guard let url = pendingOpenURL, !appModel.isLoadingSession else { return }
+        // Signed out: onboarding's own handler deals with the links that mean anything there.
+        guard appModel.hasCouple else {
+            pendingOpenURL = nil
+            return
+        }
+        if let code = InviteCode.code(from: url) {
+            pendingInviteCode = code
+            pendingOpenURL = nil
+            return
+        }
+        guard let destination = WidgetDeepLink.destination(for: url) else {
+            pendingOpenURL = nil
+            return
+        }
+        switch destination {
+        case .paywall:
+            showingPaywallFromWidget = true
+        case .flight, .memory, .trip, .drawingPad, .partnerDrawingPad:
+            // Waits for the answer rather than reading a `false` that only means "not known yet",
+            // which on a cold launch is what it always was.
+            guard appModel.hasResolvedSubscription else { return }
+            if appModel.isSubscriptionActive {
+                recordDeepLink = destination
+            } else {
+                // Used to do nothing at all: the app opened and the tap went nowhere. The widget
+                // shows its own locked state when it knows, but its snapshot can be older than the
+                // subscription, and the paywall at least says why.
+                showingPaywallFromWidget = true
+            }
+        case .home:
+            selectedTab = .home
+        case .travel:
+            selectedTab = .trips
+        case .memories:
+            selectedTab = .memories
+        case .dailyQuestion:
+            appModel.isDailyQuestionOpenRequested = true
+            selectedTab = .games
+        case .passport(let section):
+            pendingStatsSection = section
+            selectedTab = .passport
+        }
+        pendingOpenURL = nil
+    }
+
     private var isReadyForNotificationRoute: Bool {
         !appModel.isLoadingSession && appModel.hasCouple && appModel.isSubscriptionActive
     }
@@ -764,8 +803,10 @@ struct RootView: View {
             gameDeepLink = SessionRoute(id: sessionID, gameType: gameType)
         case .dailyQuestion:
             // The push is scheduled before anyone has opened (and so created) the day's session,
-            // so it carries no id. `DailyActivityCard`'s own `.task` resolves and opens it; landing
-            // on the tab it sits at the top of is the reliable way in.
+            // so it carries no id. The tab used to be as far as this went, which left the question
+            // itself a tap away; `DailyActivityCard` now opens it when asked, resolving the session
+            // the way a tap would.
+            appModel.isDailyQuestionOpenRequested = true
             selectedTab = .games
         case .flight(let id):
             recordDeepLink = .flight(id)
@@ -843,7 +884,7 @@ struct RootView: View {
             // this resolves, so it opens immediately and fills in rather than gating on a load.
             DrawingPadFullScreenView(title: appModel.partner.name, url: appModel.partnerDrawingURL)
                 .task { await appModel.loadDrawingPads() }
-        case .paywall, .home, .memories, .passport:
+        case .paywall, .home, .travel, .memories, .passport, .dailyQuestion:
             EmptyView()
         }
     }

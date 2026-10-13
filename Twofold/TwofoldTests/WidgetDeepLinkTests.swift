@@ -81,6 +81,17 @@ struct WidgetDeepLinkTests {
         #expect(destination("twofold://memory/\(memoryID.uuidString)") == .memory(memoryID))
     }
 
+    /// The Daily Question widget, and the Smart Rotating one when it is showing the question, used
+    /// to open the Home tab, leaving today's question two taps away.
+    @Test func theDailyQuestionWidgetOpensTheQuestion() {
+        #expect(destination("twofold://daily-question") == .dailyQuestion)
+    }
+
+    /// A flight widget with no flight to show used to open the Stats tab.
+    @Test func aFlightWidgetWithNoFlightOpensTravel() {
+        #expect(destination("twofold://travel") == .travel)
+    }
+
     @Test func aForeignSchemeIsIgnored() {
         #expect(destination("https://twofold.app/passport/relationship") == nil)
         #expect(destination("twofold://somewhere-we-dont-ship") == nil)

@@ -25,7 +25,11 @@ enum WidgetDeepLink {
         /// only their drawing — and the "<partner> saved a new drawing" push both land.
         case partnerDrawingPad
         case home
+        /// The Travel tab: trips and flights. Where a flight widget with no flight to show lands.
+        case travel
         case memories
+        /// Today's deep question, open. Where the Daily Question widget lands.
+        case dailyQuestion
         /// The Stats tab, optionally on a named card. Days Together is about the relationship, so
         /// it asks for that one by name instead of landing on whichever card was last open.
         case passport(StatsSection?)
@@ -44,7 +48,9 @@ enum WidgetDeepLink {
         case "drawing-pad": return .drawingPad
         case "partner-drawing-pad": return .partnerDrawingPad
         case "home": return .home
+        case "travel": return .travel
         case "memories": return .memories
+        case "daily-question": return .dailyQuestion
         // `twofold://passport` for the tab, `twofold://passport/relationship` for a named card.
         case "passport":
             // Matched case-insensitively: `StatsSection`'s raw values are the *display* strings

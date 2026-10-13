@@ -66,7 +66,8 @@ struct DailyQuestionWidgetView: View {
                 WidgetEmptyState(systemImage: "bubble.left.and.bubble.right.fill", message: "Today's question appears here", gradient: Brand.dailyQuestion)
             }
         }
-        .widgetURL(URL(string: "twofold://home"))
+        // Straight into today's question rather than the Home tab, which left it two taps away.
+        .widgetURL(URL(string: "twofold://daily-question"))
     }
 
     @ViewBuilder

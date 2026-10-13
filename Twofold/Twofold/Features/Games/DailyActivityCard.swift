@@ -24,6 +24,7 @@ struct DailyActivityCard: View {
     /// Drives the repair row below the streak.
     @State private var repairStore = StreakRepairStore()
     @State private var isRepairing = false
+    @State private var showingDailyQuestion = false
     /// The streak a repair is being bought for, and the sheet's whole reason to exist.
     ///
     /// Driven off its own state rather than `appModel.streakRepair`, and attached to the card
@@ -86,8 +87,8 @@ struct DailyActivityCard: View {
 
             repairRow
 
-            NavigationLink {
-                dailyDestination
+            Button {
+                showingDailyQuestion = true
             } label: {
                 HStack(spacing: Theme.Spacing.sm) {
                     ShimmeringGlobeHeart()
@@ -135,6 +136,16 @@ struct DailyActivityCard: View {
                 .contentShape(RoundedRectangle(cornerRadius: innerRadius, style: .continuous))
             }
             .buttonStyle(.plain)
+        }
+        // A destination rather than a `NavigationLink` so something other than a tap can open it:
+        // the Daily Question widget and the daily push both ask for it by setting
+        // `isDailyQuestionOpenRequested`. `initial: true` covers the link that arrived before this
+        // card was on screen.
+        .navigationDestination(isPresented: $showingDailyQuestion) { dailyDestination }
+        .onChange(of: appModel.isDailyQuestionOpenRequested, initial: true) { _, requested in
+            guard requested else { return }
+            appModel.isDailyQuestionOpenRequested = false
+            showingDailyQuestion = true
         }
         .task { await appModel.startOrResumeDailyQuestion() }
         // On the card, not on `repairRow` — see `repairingStreakAtRisk` for why that mattered.

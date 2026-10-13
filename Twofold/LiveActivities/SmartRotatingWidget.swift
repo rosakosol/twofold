@@ -103,7 +103,7 @@ struct SmartRotatingWidgetView: View {
         if isLocked { return URL(string: "twofold://paywall") }
         switch entry.slide {
         case .flight(let flight, _): return URL(string: "twofold://flight/\(flight.id.uuidString)")
-        case .question: return URL(string: "twofold://home")
+        case .question: return URL(string: "twofold://daily-question")
         case .drawing: return URL(string: "twofold://partner-drawing-pad")
         case .memory(_, let memoryID): return URL(string: "twofold://memory/\(memoryID.uuidString)")
         case .together: return URL(string: "twofold://passport/relationship")

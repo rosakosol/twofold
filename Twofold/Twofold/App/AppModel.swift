@@ -166,6 +166,11 @@ final class AppModel {
     /// Where each partner stands on 18+ questions — see `setAdultContentOptIn(_:)`. Nil until
     /// Settings asks.
     private(set) var adultContentStatus: BackendService.AdultContentStatus?
+    /// Set by the Daily Question widget's link and the daily question push, and consumed by
+    /// `DailyActivityCard`, which opens today's question and clears it. A flag rather than a
+    /// navigation call because the card may not be on screen yet: the Games tab is still appearing
+    /// when the link arrives.
+    var isDailyQuestionOpenRequested = false
 
     /// Whether the partner has actually redeemed an invite and joined — confirmed by the
     /// backend (an active `couples` row exists), not assumed the moment a code is shared.

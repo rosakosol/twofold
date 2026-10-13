@@ -148,7 +148,8 @@ struct FlightTrackingWidgetView: View {
     private var deepLinkURL: URL? {
         if isLocked { return URL(string: "twofold://paywall") }
         if let flightID = entry.flightID { return URL(string: "twofold://flight/\(flightID.uuidString)") }
-        return URL(string: "twofold://passport")
+        // No flight to show: Travel, where one is added, rather than the Stats tab it used to open.
+        return URL(string: "twofold://travel")
     }
 
     var body: some View {
