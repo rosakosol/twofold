@@ -1740,7 +1740,7 @@ final class AppModel {
         // a minute of waiting to be handed decks that were on the device the whole time.
         // -demoMode takes the on-device catalogue too: there is no account to ask.
         guard NetworkMonitor.shared.isConnected, !DemoMode.isOn else {
-            gameDecks = nonEmpty(GameContentStore.decks())
+            gameDecks = nonEmpty(decksShown(GameContentStore.decks()))
             gameDecksUnavailable = gameDecks?.isEmpty ?? true
             // Every topic bar on the hub is counted from this. Left nil it reads as zero decks
             // completed — telling a couple who has finished forty of them that they have finished
@@ -1757,7 +1757,12 @@ final class AppModel {
         // to every game, so with no network this was an empty hub — the screen a couple reaches
         // on the flight where they have hours and nothing else to do. `GameContentStore` carries
         // the same decks, from the bundled seed or from the last online refresh.
-        gameDecks = fetchedDecks ?? nonEmpty(GameContentStore.decks())
+        // Before filtering: whether 18+ decks are shown depends on it, and on a first load nothing
+        // has asked yet.
+        if adultContentStatus == nil, (fetchedDecks ?? []).contains(where: \.isAdult) {
+            await refreshAdultContentStatus()
+        }
+        gameDecks = (fetchedDecks.map(decksShown)).flatMap(nonEmpty) ?? nonEmpty(decksShown(GameContentStore.decks()))
         deckProgress = try? await progress
         if deckProgress != nil { recordGameStateForOffline() }
         // Distinguishes "haven't asked yet" from "asked and there's nothing to show", which
@@ -1775,6 +1780,18 @@ final class AppModel {
         // above; this only refreshes the offline copy for later, so nothing on screen is waiting
         // on it.
         Task.detached(priority: .background) { await Self.refreshGameContentIfStale() }
+    }
+
+    /// 18+ decks only once both partners have opted in.
+    ///
+    /// The server already holds them back from everyone else (20261113000900), so for nearly every
+    /// account this removes nothing. It exists for the accounts the server does show them to:
+    /// content admins, whose admin policy reads every deck so the console can manage them. The app
+    /// signs in as the same account, so without this an admin saw After Dark with the switch off.
+    /// It also covers an offline copy cached before somebody opted out. Unknown status hides them.
+    private func decksShown(_ decks: [GameDeck]) -> [GameDeck] {
+        let unlocked = adultContentStatus?.isUnlocked ?? false
+        return decks.filter { !$0.isAdult || unlocked }
     }
 
     /// Empty means "the fetch produced nothing", which is not a usable fallback — keep nil so the

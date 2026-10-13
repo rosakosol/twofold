@@ -318,10 +318,13 @@ struct GameDeck: Identifiable, Hashable {
     var tier: String
     var sortOrder: Int
     var questionCount: Int
+    /// An 18+ deck (After Dark). Shown only once both partners have opted in — see
+    /// `AppModel.decksShown(_:)` for why the app checks this even though the server already does.
+    var isAdult: Bool
 
     /// Title-cased on the way in, so every screen and every path a deck arrives by (the server or
     /// the offline copy) shows it the same way, whatever case it was typed in in the console.
-    init(id: UUID, topic: String, gameType: GameType, title: String, emoji: String, tier: String, sortOrder: Int, questionCount: Int) {
+    init(id: UUID, topic: String, gameType: GameType, title: String, emoji: String, tier: String, sortOrder: Int, questionCount: Int, isAdult: Bool = false) {
         self.id = id
         self.topic = topic
         self.gameType = gameType
@@ -330,6 +333,7 @@ struct GameDeck: Identifiable, Hashable {
         self.tier = tier
         self.sortOrder = sortOrder
         self.questionCount = questionCount
+        self.isAdult = isAdult
     }
 }
 

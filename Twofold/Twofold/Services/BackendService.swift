@@ -3667,16 +3667,18 @@ enum BackendService {
         var tier: String
         var sortOrder: Int
         var questionCount: Int
+        /// Optional so a payload from before 20261113000900 still decodes.
+        var adult: Bool?
 
         enum CodingKeys: String, CodingKey {
-            case id, topic, title, emoji, tier
+            case id, topic, title, emoji, tier, adult
             case gameType = "game_type"
             case sortOrder = "sort_order"
             case questionCount = "question_count"
         }
 
         func toModel() -> GameDeck {
-            GameDeck(id: id, topic: topic, gameType: gameType, title: title, emoji: emoji, tier: tier, sortOrder: sortOrder, questionCount: questionCount)
+            GameDeck(id: id, topic: topic, gameType: gameType, title: title, emoji: emoji, tier: tier, sortOrder: sortOrder, questionCount: questionCount, isAdult: adult ?? false)
         }
     }
 
@@ -3731,7 +3733,7 @@ enum BackendService {
         async let moreLikely = rows("more_likely_prompts", "id,deck_id,prompt,category,tier")
         async let thisOrThat = rows("this_or_that_prompts", "id,deck_id,option_a,option_b,category,tier")
         async let deep = rows("deep_conversation_topics", "id,deck_id,topic,category,tier")
-        async let decks = rows("game_decks", "id,topic,game_type,title,emoji,tier,sort_order,question_count")
+        async let decks = rows("game_decks", "id,topic,game_type,title,emoji,tier,sort_order,question_count,adult")
 
         let payload: [String: AnyJSON] = [
             "version": .integer(1),

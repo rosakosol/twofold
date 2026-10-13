@@ -46,9 +46,11 @@ enum GameContentStore {
         var tier: String
         var sortOrder: Int
         var questionCount: Int
+        /// Absent from the bundled seed and from caches written before 18+ decks existed.
+        var adult: Bool?
 
         enum CodingKeys: String, CodingKey {
-            case id, topic, title, emoji, tier
+            case id, topic, title, emoji, tier, adult
             case gameType = "game_type"
             case sortOrder = "sort_order"
             case questionCount = "question_count"
@@ -168,7 +170,8 @@ enum GameContentStore {
                 emoji: row.emoji,
                 tier: row.tier,
                 sortOrder: row.sortOrder,
-                questionCount: row.questionCount
+                questionCount: row.questionCount,
+                isAdult: row.adult ?? false
             )
         }
     }
