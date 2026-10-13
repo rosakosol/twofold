@@ -2885,6 +2885,14 @@ export type Database = {
           profile_id: string
         }[]
       }
+      admin_prepare_password_reset: {
+        Args: {
+          p_acknowledge_adds_password?: boolean
+          p_profile_id: string
+          p_reason: string
+        }
+        Returns: string
+      }
       admin_report_context: {
         Args: { p_request_id: string }
         Returns: {

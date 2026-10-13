@@ -6,6 +6,7 @@ import { AccountGrants, type FlightOverride } from "@/components/console/Account
 import { AccountArchives, type CoupleArchive } from "@/components/console/AccountArchives";
 import { AccountReports } from "@/components/console/AccountReports";
 import { AccountHistory } from "@/components/console/AccountHistory";
+import { AccountSignIn } from "@/components/console/AccountSignIn";
 import { AccountCard, AccountSection, Fact, Facts } from "@/components/console/AccountLayout";
 import { InfoTip } from "@/components/console/InfoTip";
 import {
@@ -17,7 +18,7 @@ import {
 import { daysAgo, shortDate } from "@/lib/console/format";
 
 /**
- * One account, laid out: who it is and the gist in the header, then Overview, Safety, Grants,
+ * One account, laid out: who it is and the gist in the header, then Overview, Safety, Sign-in, Grants,
  * the danger zone and the admin history as sections with their own headings and in-page links.
  *
  * Takes what the page fetched and fetches nothing, so the page owns every RPC (and the audit row
@@ -52,6 +53,7 @@ export function AccountDetailView({
   const sections = [
     { id: "overview", label: "Overview" },
     { id: "safety", label: "Safety" },
+    { id: "sign-in", label: "Sign-in" },
     { id: "grants", label: "Grants" },
     ...(archives.length > 0 ? [{ id: "archives", label: "Archives" }] : []),
     { id: "danger", label: "Danger zone", danger: true },
@@ -239,6 +241,13 @@ export function AccountDetailView({
           </AccountCard>
         </div>
       </AccountSection>
+
+      <AccountSignIn
+        profileId={detail.profile.id}
+        email={email}
+        providers={detail.auth.providers}
+        deleted={Boolean(deletedAt)}
+      />
 
       <AccountGrants
         profileId={detail.profile.id}
