@@ -657,10 +657,13 @@ a.pill:hover {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
-  align-items: start;
+  /* Cards side by side share a height, so each row of the grid reads as one band. */
+  align-items: stretch;
 }
 .account-grid.is-safety {
   grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+  /* Except here: Reports can run long, and a stretched Blocks card would be mostly empty. */
+  align-items: start;
 }
 @media (max-width: 760px) {
   .account-grid,
