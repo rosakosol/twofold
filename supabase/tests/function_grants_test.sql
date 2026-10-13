@@ -161,7 +161,7 @@ select is(
 -- The two deliberate exceptions, asserted so a future sweep of "close everything to anon" cannot
 -- take them out by tidiness. Both serve callers who have no account by design.
 select ok(
-  has_function_privilege('anon', 'public.submit_support_request(text, text, text, text, text, text)', 'EXECUTE'),
+  has_function_privilege('anon', 'public.submit_support_request(text, text, text, text, text, text, uuid, text)', 'EXECUTE'),
   'the website contact form can still file a support request without a session'
 );
 select ok(
