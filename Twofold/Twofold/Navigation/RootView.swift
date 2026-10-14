@@ -548,6 +548,11 @@ struct RootView: View {
         case .memories:
             selectedTab = .memories
         case .dailyQuestion:
+            // Waits for the subscription answer like the gated links above. Answering needs a
+            // subscription, and the question screen checks for one the moment it opens: on a cold
+            // launch that was before anybody knew, so a subscriber tapping the widget with the app
+            // closed was shown "needs a subscription" instead of the question.
+            guard appModel.hasResolvedSubscription else { return }
             appModel.isDailyQuestionOpenRequested = true
             selectedTab = .games
         case .passport(let section):
