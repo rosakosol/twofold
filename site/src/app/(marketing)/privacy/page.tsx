@@ -55,6 +55,11 @@ export default async function PrivacyPage() {
         of the app. Personal notes (like your nickname for your partner) stay private to you
         unless you choose to share them.
       </p>
+      <p>
+        Your profile photo and first name are visible to your partner, and to anyone you send an
+        invite link to while it&apos;s open. If you block someone, they can no longer see your photo
+        or your profile.
+      </p>
 
       <h2>Who else can see it</h2>
       <p>
