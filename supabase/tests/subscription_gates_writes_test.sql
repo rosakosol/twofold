@@ -127,10 +127,13 @@ reset role;
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"eeeeeeee-9999-0000-0000-00000000000b","role":"authenticated"}';
 
-select lives_ok(
+-- Since 20261114005100 nobody inserts directly: codes come only from create_invite_code, which
+-- chooses the expiry and the lookup limit itself.
+select throws_ok(
   $$ insert into public.invite_codes (code, inviter_id, status, expires_at)
-     values ('PAIDPAID', 'eeeeeeee-9999-0000-0000-00000000000b', 'pending', now() + interval '3 days') $$,
-  'a subscriber can'
+     values ('PAIDPAID', 'eeeeeeee-9999-0000-0000-00000000000b', 'pending', 'infinity') $$,
+  '42501', NULL,
+  'nor can a subscriber: codes are made only by create_invite_code'
 );
 
 select is(
