@@ -33,6 +33,7 @@ import { type AeroFlight, fetchAirportCoordinates, fetchFlightByFaId } from "../
 import { enforceRateLimit } from "../_shared/rate-limit.ts";
 import { deriveFlightStatus } from "../_shared/flight-status.ts";
 import { type MappedAeroFields, mapAeroFlightToRow } from "../_shared/flight-sync.ts";
+import { isWithinAllowance } from "./allowance.ts";
 
 interface PendingCandidate {
   identIata?: string | null;
@@ -262,10 +263,17 @@ Deno.serve(async (req) => {
   // than locked against: this is a commercial allowance, not a security boundary, and one extra
   // flight's polling is cheaper than a reservation protocol that has to compensate every lookup
   // that fails after the slot was taken.
-  const { data: allowance } = await userClient.rpc("flight_allowance", { p_couple_id: couple.id });
+  //
+  // A failed read is refused, as the subscription check above refuses one: it used to be ignored,
+  // which left the limit at 0, which this line used to read as unlimited. See allowance.ts.
+  const { data: allowance, error: allowanceErr } = await userClient.rpc("flight_allowance", { p_couple_id: couple.id });
+  if (allowanceErr) {
+    console.error("[add-flight] allowance check failed:", allowanceErr.message);
+    return Response.json({ error: "Couldn't check your flight allowance. Please try again." }, { status: 503 });
+  }
   const usedBefore = Number(allowance?.used ?? 0);
   const monthlyLimit = Number(allowance?.limit ?? 0);
-  const withinAllowance = monthlyLimit <= 0 || usedBefore < monthlyLimit;
+  const withinAllowance = isWithinAllowance(allowance);
 
   let aeroFlight: AeroFlight | null = null;
   let mapped: MappedAeroFields;
