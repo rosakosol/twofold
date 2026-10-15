@@ -11,6 +11,23 @@ export function replyToAddress(sender: string, token: string): string {
   return `${sender.slice(0, at)}+t${token}${sender.slice(at)}`;
 }
 
+/// The thread's address if it is one bare address we can safely put in `to`, otherwise null.
+///
+/// denomailer splits `Name <addr>` itself, validates only `addr`, and writes `Name` into the DATA
+/// stream as the To header with no escaping. So a stored address shaped like
+/// `x\r\n\r\n...\r\n.\r\n... <someone@example.com>` passes its check and injects headers, a body,
+/// or through the lone "." SMTP commands on our authenticated session. The website form validated
+/// the format, but `submit_support_request` was callable directly with no check until
+/// 20261114003100, so rows written before that are not to be trusted either.
+///
+/// Refusing is right rather than cleaning: an address that had to be repaired is not one we know
+/// belongs to the person who wrote in.
+export function replyRecipient(email: string | null | undefined): string | null {
+  const value = (email ?? "").trim();
+  if (value.length === 0 || value.length > 320) return null;
+  return /^[^\s\x00-\x1f\x7f<>,;"@]+@[^\s\x00-\x1f\x7f<>,;"@]+\.[^\s\x00-\x1f\x7f<>,;"@]+$/.test(value) ? value : null;
+}
+
 /// "Cannot sign in" -> "Re: Cannot sign in", and "Re: Cannot sign in" -> itself.
 ///
 /// Stacking prefixes is what produces "Re: Re: Fwd: Re:" after a few exchanges. Our own thread key
@@ -91,5 +108,8 @@ export function replyHtml(body: string): string {
 export function usableAsInReplyTo(messageId: string | null | undefined): string | undefined {
   const value = (messageId ?? "").trim();
   if (!value.includes("@")) return undefined;
+  // Written into In-Reply-To and References verbatim, and denomailer does not escape either. A
+  // Message-ID never contains whitespace, so one that does is not one, and must not reach a header.
+  if (/[\s\x00-\x1f\x7f]/.test(value)) return undefined;
   return value.startsWith("<") ? value : `<${value}>`;
 }

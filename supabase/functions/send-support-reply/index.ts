@@ -34,7 +34,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { closeQuietly, dotStuff, fromAddress, singleLine, smtpClient } from "../_shared/mail.ts";
 import { presign, r2ConfigFromEnv } from "../_shared/r2.ts";
-import { replyHtml, replySubject, replyText, replyToAddress, usableAsInReplyTo } from "./compose.ts";
+import { replyHtml, replyRecipient, replySubject, replyText, replyToAddress, usableAsInReplyTo } from "./compose.ts";
 import { serveWithCors } from "../_shared/cors.ts";
 
 interface Body {
@@ -95,6 +95,10 @@ Deno.serve(serveWithCors(async (req) => {
   // deno-lint-ignore no-explicit-any
   const t = thread as any;
   if (!t.email) return bad("That conversation has no address to reply to.", 409);
+  // The address is the correspondent's, typed by a stranger; see replyRecipient for what a
+  // malformed one does to the message.
+  const recipient = replyRecipient(t.email);
+  if (!recipient) return bad("That conversation's address isn't one we can send to.", 409);
 
   const sender = fromAddress();
   if (!sender) {
@@ -151,7 +155,7 @@ Deno.serve(serveWithCors(async (req) => {
     client = smtpClient();
     await client.send({
       from: sender,
-      to: t.email,
+      to: recipient,
       // The token comes home here. singleLine because this value reaches a header, the same
       // treatment submit-help-message already gives its subject.
       replyTo: singleLine(replyToAddress(sender, t.token)),

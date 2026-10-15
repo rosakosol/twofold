@@ -6,7 +6,7 @@
 // the hardest kind of wrong to notice.
 
 import { assertEquals } from "jsr:@std/assert@1";
-import { replyHtml, replySubject, replyText, replyToAddress, usableAsInReplyTo } from "./compose.ts";
+import { replyHtml, replyRecipient, replySubject, replyText, replyToAddress, usableAsInReplyTo } from "./compose.ts";
 
 Deno.test("the token is inserted before the @, as a plus address", () => {
   assertEquals(
@@ -102,4 +102,39 @@ Deno.test("a real Message-ID is used, with angle brackets either way", () => {
 Deno.test("nothing at all is absent rather than empty", () => {
   assertEquals(usableAsInReplyTo(null), undefined);
   assertEquals(usableAsInReplyTo("   "), undefined);
+});
+
+Deno.test("a Message-ID carrying a line break never reaches In-Reply-To", () => {
+  // denomailer writes In-Reply-To and References verbatim.
+  assertEquals(usableAsInReplyTo("<abc@example.com>\r\nBcc: other@example.com"), undefined);
+  assertEquals(usableAsInReplyTo("abc@example.com x"), undefined);
+});
+
+// The recipient. Typed by a stranger into a form with no session, and denomailer writes whatever
+// precedes `<addr>` into the DATA stream unescaped.
+
+Deno.test("an ordinary address is the recipient, trimmed", () => {
+  assertEquals(replyRecipient("  someone@example.com "), "someone@example.com");
+  assertEquals(replyRecipient("first.last+tag@mail.example.co.uk"), "first.last+tag@mail.example.co.uk");
+});
+
+Deno.test("an address carrying a display name with line breaks is refused", () => {
+  // The exploit shape: denomailer validates only what is inside the brackets, and this passes it.
+  const injected = "x\r\n\r\nInjected body\r\n.\r\nMAIL FROM:support@twofoldapp.com.au <victim@example.com>";
+  assertEquals(replyRecipient(injected), null);
+  assertEquals(replyRecipient("Someone <someone@example.com>"), null);
+  assertEquals(replyRecipient("someone@example.com\nBcc: other@example.com"), null);
+});
+
+Deno.test("a list of addresses is not one address", () => {
+  assertEquals(replyRecipient("a@example.com, b@example.com"), null);
+  assertEquals(replyRecipient("a@example.com;b@example.com"), null);
+});
+
+Deno.test("nothing, or nothing like an address, is refused", () => {
+  assertEquals(replyRecipient(null), null);
+  assertEquals(replyRecipient(""), null);
+  assertEquals(replyRecipient("no-at-sign"), null);
+  assertEquals(replyRecipient("two@@example.com"), null);
+  assertEquals(replyRecipient(`${"a".repeat(320)}@example.com`), null);
 });
