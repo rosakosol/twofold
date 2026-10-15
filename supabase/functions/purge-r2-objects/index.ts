@@ -30,12 +30,17 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { presign, r2ConfigFromEnv } from "../_shared/r2.ts";
+import { isServiceRoleRequest } from "./auth.ts";
 
 /// Per invocation. The queue drains over several runs rather than holding one long request open,
 /// and cron comes round again.
 const BATCH = 500;
 
 Deno.serve(async (req) => {
+  // Cron only. See auth.ts for what an ordinary signed-in caller could read here without it.
+  if (!isServiceRoleRequest(req, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"))) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
   if (req.method !== "POST") {
     return Response.json({ error: "Method not allowed" }, { status: 405 });
   }

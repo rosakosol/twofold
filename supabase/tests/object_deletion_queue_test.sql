@@ -72,7 +72,10 @@ select set_eq(
       ('flight-documents/cccc0000-0000-4000-8000-00000000000a/f11f0000-0000-4000-8000-00000000000a/boarding.pdf'),
       ('flight-documents/cccc0000-0000-4000-8000-00000000000a/7211f000-0000-4000-8000-00000000000a/itinerary.pdf'),
       ('drawing-pads/cccc0000-0000-4000-8000-00000000000a/aaaa1111-0000-4000-8000-000000000001/pad.png'),
-      ('drawing-pads/cccc0000-0000-4000-8000-00000000000a/aaaa1111-0000-4000-8000-000000000002/pad.png')$$,
+      ('drawing-pads/cccc0000-0000-4000-8000-00000000000a/aaaa1111-0000-4000-8000-000000000002/pad.png'),
+      -- The form the app uploads: Swift UUIDs interpolate uppercase. See 20261114001300.
+      ('drawing-pads/CCCC0000-0000-4000-8000-00000000000A/AAAA1111-0000-4000-8000-000000000001/pad.png'),
+      ('drawing-pads/CCCC0000-0000-4000-8000-00000000000A/AAAA1111-0000-4000-8000-000000000002/pad.png')$$,
   'every object the couple owns, with its bucket prefix, and nothing else'
 );
 
@@ -80,12 +83,17 @@ select set_eq(
 -- The purge
 -- ---------------------------------------------------------------------------
 
+-- A purge only ever takes an archive (20261114001200), so A is dissolved first, as the cron and
+-- the admin purge both require.
+update public.couples set status = 'dissolved', dissolved_at = now()
+where id = 'cccc0000-0000-4000-8000-00000000000a';
+
 select public.purge_couple_data('cccc0000-0000-4000-8000-00000000000a');
 
 select is(
   (select count(*)::int from public.pending_object_deletions),
-  6,
-  'the purge enqueued all six, and did so before the cascade removed the rows naming them'
+  8,
+  'the purge enqueued all eight, and did so before the cascade removed the rows naming them'
 );
 
 select is(
@@ -138,7 +146,7 @@ select lives_ok(
 
 select is(
   (select count(*)::int from public.pending_object_deletions),
-  6,
+  8,
   'and enqueues nothing new'
 );
 
