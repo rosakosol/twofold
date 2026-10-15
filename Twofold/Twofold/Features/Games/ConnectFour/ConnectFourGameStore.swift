@@ -45,6 +45,10 @@ final class ConnectFourGameStore {
     private(set) var rejection: String?
     /// The column this player last dropped into, for the board to animate it.
     private(set) var lastMoveColumn: Int?
+    /// The server refused a move because the couple's Premium has lapsed (20261114005000). Set from
+    /// the refusal as well as read from the subscription, because the app's idea of the tier can be
+    /// a moment behind the server's.
+    private(set) var needsPremium = false
 
     private var responderID: UUID?
     private var channel: RealtimeChannelV2?
@@ -120,12 +124,20 @@ final class ConnectFourGameStore {
             // this is also the moment a move the partner made a fraction earlier arrives.
             await refresh()
         } catch let error as BackendError {
+            if "\(error)".contains("connect_four_requires_premium") {
+                needsPremium = true
+                return
+            }
             // The three named outcomes are what a shared board does when two people are quick:
             // saying them plainly beats an error dialog. Whatever the board really looks like
             // arrives with the refresh.
             rejection = error.errorDescription
             await refresh()
         } catch {
+            if "\(error)".contains("connect_four_requires_premium") {
+                needsPremium = true
+                return
+            }
             rejection = error.localizedDescription
         }
     }

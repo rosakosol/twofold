@@ -21,6 +21,7 @@ struct ConnectFourGameView: View {
     @State private var endFailed: String?
     @State private var confettiTrigger = false
     @State private var celebratedSession: UUID?
+    @State private var showingPaywall = false
 
     init(sessionID: UUID) {
         _store = State(initialValue: ConnectFourGameStore(sessionID: sessionID))
@@ -38,7 +39,11 @@ struct ConnectFourGameView: View {
                 GameErrorState(message: message)
                     .padding(Theme.Spacing.lg)
             case .ready:
-                content
+                if isPaused {
+                    pausedForPremium
+                } else {
+                    content
+                }
             }
 
             ConfettiBurstView(trigger: confettiTrigger)
@@ -111,6 +116,37 @@ struct ConnectFourGameView: View {
             Text("\(appModel.partner.name) has been told it's their move.")
         }
         .postHogScreenView("Games: Connect 4")
+    }
+
+    /// A game still in play when the couple's Premium has lapsed. Connect 4 is Premium to play,
+    /// not only to start, and the server refuses moves without it; this says so instead of a board
+    /// that won't take a disc. A finished game is a result, not play, so it still shows.
+    private var isPaused: Bool {
+        guard !store.isFinished else { return false }
+        return store.needsPremium
+            || (appModel.hasResolvedSubscription && appModel.subscriptionTier != "premium")
+    }
+
+    private var pausedForPremium: some View {
+        VStack(spacing: Theme.Spacing.md) {
+            Image(systemName: "pause.circle.fill")
+                .font(.system(size: 52))
+                .foregroundStyle(Theme.accent)
+            Text("This game is paused")
+                .font(.title3.weight(.bold))
+                .foregroundStyle(Theme.textPrimary)
+            Text("Connect 4 is part of Premium, and Premium has ended. Your board is saved just as you left it, so you can both pick up where you left off once Premium is back.")
+                .font(.subheadline)
+                .foregroundStyle(Theme.textSecondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            Button("See Premium") { showingPaywall = true }
+                .buttonStyle(.twofoldPrimary)
+        }
+        .padding(Theme.Spacing.lg)
+        .sheet(isPresented: $showingPaywall) {
+            NavigationStack { PaywallView(initialTier: .premium) }
+        }
     }
 
     private var content: some View {

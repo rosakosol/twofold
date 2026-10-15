@@ -567,10 +567,14 @@ function Conversation({
           </p>
           {/* Worth saying rather than leaving blank: it usually means they wrote in from an address
               they never signed up with, which is itself the answer to "why can't they sign in". */}
+          {/* A website-form address is whatever was typed, so it is never linked to an account by
+              itself (20261114005000). Saying "no account uses this email" would be wrong for it. */}
           {!latest.matched_profile_id && latest.email && (
             <p className="support-unmatched">
               <TriangleAlert aria-hidden />
-              No Twofold account uses this email
+              {thread.every((m) => m.direction !== "inbound" || m.source === "web")
+                ? "Sent from the website form. The address isn't verified, so it isn't linked to an account"
+                : "No Twofold account uses this email"}
             </p>
           )}
         </div>

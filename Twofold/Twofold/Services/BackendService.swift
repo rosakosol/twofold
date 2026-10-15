@@ -559,14 +559,22 @@ enum BackendService {
             var accountDeletedAt: String?
             enum CodingKeys: String, CodingKey { case accountDeletedAt = "account_deleted_at" }
         }
-        let rows: [Row]? = try? await supabase
-            .from("profiles")
-            .select("account_deleted_at")
-            .eq("id", value: userID)
-            .limit(1)
-            .execute()
-            .value
-        return rows?.first?.accountDeletedAt != nil
+        do {
+            let rows: [Row] = try await supabase
+                .from("profiles")
+                .select("account_deleted_at")
+                .eq("id", value: userID)
+                .limit(1)
+                .execute()
+                .value
+            return rows.first?.accountDeletedAt != nil
+        } catch {
+            // The server refuses every request from a deleted account (20261114005000), this one
+            // included, with "account_deleted". That refusal is the answer, not a failed check:
+            // read as "not deleted", it left a deleted account signed in to a wall of errors.
+            // Anything else (offline, a timeout) still means "don't know", so not deleted.
+            return "\(error)".contains("account_deleted")
+        }
     }
 
     /// Everything about a solo (pre-pairing) user worth restoring on relaunch: their own
