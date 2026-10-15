@@ -24,6 +24,14 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { presign, r2ConfigFromEnv } from "../_shared/r2.ts";
 
 Deno.serve(async (req) => {
+  // Requiring "a JWT" was not requiring the cron: every signed-in user's access token is one, and
+  // the gateway's `verify_jwt` cannot tell them apart from the service key. So the caller is
+  // checked here, the way `archive-stale-games` and `purge-dormant-accounts` already do.
+  const expected = `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`;
+  if (req.headers.get("Authorization") !== expected) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   if (req.method !== "POST") {
     return Response.json({ error: "Method not allowed" }, { status: 405 });
   }

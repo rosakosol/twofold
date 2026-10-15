@@ -28,6 +28,14 @@ interface Pending {
 }
 
 Deno.serve(async (req) => {
+  // Cron only. `verify_jwt` lets any signed-in user's token through, and this runs as the service
+  // role and spends Zoho API quota on every call — so the caller is checked here, the same explicit
+  // check `archive-stale-games` makes.
+  const expected = `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`;
+  if (req.headers.get("Authorization") !== expected) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   if (req.method !== "POST") {
     return Response.json({ error: "Method not allowed" }, { status: 405 });
   }
