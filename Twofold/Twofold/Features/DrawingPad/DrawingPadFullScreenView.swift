@@ -17,7 +17,10 @@ struct DrawingPadFullScreenView: View {
     /// was built for and still its usual caller. `DrawingPadPairView` also opens *your* pad from
     /// here, where that same composition would read "You's pad".
     var screenTitle: String?
+    /// Whose pad this is, for the share sheet's card and stickers. No share button without one.
+    var owner: Person? = nil
     @Environment(\.dismiss) private var dismiss
+    @State private var sharing = false
 
     var body: some View {
         NavigationStack {
@@ -52,6 +55,19 @@ struct DrawingPadFullScreenView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Close") { dismiss() }
                 }
+                if owner != nil, url != nil {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button { sharing = true } label: {
+                            Image(systemName: "square.and.arrow.up")
+                        }
+                        .accessibilityLabel("Share drawing")
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $sharing) {
+            if let owner {
+                DrawingShareSheet(pads: [.init(person: owner, url: url)])
             }
         }
         .postHogScreenView("Drawing Pad: Partner View")

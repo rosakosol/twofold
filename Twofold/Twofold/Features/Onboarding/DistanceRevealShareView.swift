@@ -116,7 +116,7 @@ struct DistanceRevealShareView: View {
         // responsive, but the exported PNG should always come out the same deliberate size.
         // Matches `DistanceSnapshotCard`'s own outer frame width.
         // Handed the scheme explicitly for the same reason as the other share screens — see
-        // GameResultsShareView's note.
+        // GameShareCard.renderedImage.
         let renderer = ImageRenderer(content: view.frame(width: Self.cardWidth).environment(\.colorScheme, colorScheme))
         renderer.scale = displayScale
         return renderer.uiImage

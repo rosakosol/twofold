@@ -22,6 +22,7 @@ struct ConnectFourGameView: View {
     @State private var confettiTrigger = false
     @State private var celebratedSession: UUID?
     @State private var showingPaywall = false
+    @State private var shareData: GameResultShareData?
 
     init(sessionID: UUID) {
         _store = State(initialValue: ConnectFourGameStore(sessionID: sessionID))
@@ -62,6 +63,30 @@ struct ConnectFourGameView: View {
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 GameBackButton(action: { dismiss() })
+            }
+        }
+        .toolbar {
+            // Once there is a board worth showing: in progress or finished.
+            if store.phase == .ready && !store.moves.isEmpty {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        shareData = .connectFour(
+                            board: store.board,
+                            status: shareStatus,
+                            firstIsMe: store.myDisc == .first,
+                            me: appModel.currentUser,
+                            partner: appModel.partner
+                        )
+                    } label: {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                    .accessibilityLabel("Share")
+                }
+            }
+        }
+        .sheet(isPresented: Binding(get: { shareData != nil }, set: { if !$0 { shareData = nil } })) {
+            if let shareData {
+                GameShareSheet(data: shareData)
             }
         }
         .toolbar {
@@ -262,6 +287,15 @@ struct ConnectFourGameView: View {
         return store.didIWin == true
             ? "Four in a row. Start another from the games list."
             : "They got four in a row. Start another from the games list."
+    }
+
+    /// The card's status line, in names rather than "you": it is read by whoever it is sent to.
+    private var shareStatus: String {
+        let me = appModel.currentUser.name, partner = appModel.partner.name
+        if store.closedWithoutResult { return String(localized: "Game ended") }
+        if store.isDraw { return String(localized: "A draw") }
+        if let didIWin = store.didIWin { return String(localized: "\(didIWin ? me : partner) wins") }
+        return String(localized: "\(store.isMyTurn ? me : partner)'s move")
     }
 
     private func endGame() {

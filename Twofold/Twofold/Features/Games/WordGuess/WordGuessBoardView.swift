@@ -20,18 +20,19 @@ extension WordGuessMark {
     /// information, and a muted version of it would be harder to read at a glance than the letter.
     var tileColor: Color {
         switch self {
-        case .correct: Theme.successFill
-        case .present: Theme.yellowFill
-        case .absent: Color.dynamic(light: 0x52606E, dark: 0x3A4453)
+        case .correct: Theme.Share.tileCorrect
+        case .present: Theme.Share.tilePresent
+        case .absent: Theme.Share.tileAbsent
         }
     }
 
-    /// White on green and grey; dark ink on yellow, where white would be about 2:1. Fixed in
-    /// both appearances, like the fills under it.
+    /// White on green; dark ink on yellow, where white would be about 2:1; and on a wrong tile,
+    /// whichever reads on it: dark ink on light mode's pale tile, white on dark mode's.
     var tileTextColor: Color {
         switch self {
         case .present: Theme.inkOnFixedLight
-        case .correct, .absent: .white
+        case .correct: .white
+        case .absent: Theme.Share.tileAbsentText
         }
     }
 

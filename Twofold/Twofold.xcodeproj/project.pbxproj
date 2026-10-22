@@ -671,6 +671,7 @@
 				INFOPLIST_KEY_NSCameraUsageDescription = "Twofold uses your camera to capture boarding passes and travel documents.";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Twofold can use Face ID to keep your relationship private if someone else picks up your phone.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Twofold uses your location to automatically set your city so we can show accurate timezones, weather, and distance with your partner.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Twofold saves the share cards and stickers you choose to your photo library.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -712,6 +713,7 @@
 				INFOPLIST_KEY_NSCameraUsageDescription = "Twofold uses your camera to capture boarding passes and travel documents.";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Twofold can use Face ID to keep your relationship private if someone else picks up your phone.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Twofold uses your location to automatically set your city so we can show accurate timezones, weather, and distance with your partner.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Twofold saves the share cards and stickers you choose to your photo library.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

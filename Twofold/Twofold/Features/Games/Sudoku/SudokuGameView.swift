@@ -135,7 +135,7 @@ struct SudokuGameView: View {
         }
         .sheet(isPresented: $showingShare) {
             if let shareData {
-                GameResultsShareView(data: shareData)
+                GameShareSheet(data: shareData)
             }
         }
         // Keyed on the session rather than on the view's lifetime: "play another" replaces `store`

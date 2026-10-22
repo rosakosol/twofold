@@ -64,7 +64,7 @@ struct DrawingPadCard: View {
         .fullScreenCover(item: $fullScreen) { destination in
             switch destination {
             case .partnerPad:
-                DrawingPadFullScreenView(title: appModel.partner.name, url: appModel.partnerDrawingURL)
+                DrawingPadFullScreenView(title: appModel.partner.name, url: appModel.partnerDrawingURL, owner: appModel.partner)
             case .bothPads:
                 DrawingPadPairView(
                     myURL: appModel.myDrawingURL,

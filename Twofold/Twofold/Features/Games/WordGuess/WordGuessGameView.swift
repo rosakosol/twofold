@@ -26,6 +26,7 @@ struct WordGuessGameView: View {
     /// animates on any *change* of its trigger.
     @State private var confettiTrigger = false
     @State private var celebratedSession: UUID?
+    @State private var shareData: GameResultShareData?
 
     init(sessionID: UUID) {
         _store = State(initialValue: WordGuessGameStore(sessionID: sessionID))
@@ -64,6 +65,11 @@ struct WordGuessGameView: View {
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 GameBackButton(action: { dismiss() })
+            }
+        }
+        .sheet(isPresented: Binding(get: { shareData != nil }, set: { if !$0 { shareData = nil } })) {
+            if let shareData {
+                GameShareSheet(data: shareData)
             }
         }
         .task(id: store.sessionID) {
@@ -344,13 +350,19 @@ struct WordGuessGameView: View {
                         }
                     }
 
-                    WordGuessShareButton(card: WordGuessShareCard(
-                        mine: play,
-                        theirs: partnerPlay,
-                        myName: appModel.currentUser.name,
-                        partnerName: appModel.partner.name,
-                        date: store.playedAt ?? .now
-                    ))
+                    Button {
+                        shareData = .wordGuess(
+                            mine: play,
+                            theirs: partnerPlay,
+                            me: appModel.currentUser,
+                            partner: appModel.partner,
+                            date: store.playedAt ?? .now
+                        )
+                    } label: {
+                        Label("Share results", systemImage: "square.and.arrow.up")
+                            .font(.headline)
+                    }
+                    .buttonStyle(.twofoldPrimary)
                 }
             }
         } else {

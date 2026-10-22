@@ -887,7 +887,7 @@ struct RootView: View {
             // — arriving here straight from a notification tap on a cold launch is the normal
             // case, not the edge one. `DrawingPadFullScreenView` shows its own empty state while
             // this resolves, so it opens immediately and fills in rather than gating on a load.
-            DrawingPadFullScreenView(title: appModel.partner.name, url: appModel.partnerDrawingURL)
+            DrawingPadFullScreenView(title: appModel.partner.name, url: appModel.partnerDrawingURL, owner: appModel.partner)
                 .task { await appModel.loadDrawingPads() }
         case .paywall, .home, .travel, .memories, .passport, .dailyQuestion:
             EmptyView()

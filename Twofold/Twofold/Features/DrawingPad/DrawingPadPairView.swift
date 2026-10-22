@@ -28,6 +28,8 @@ struct DrawingPadPairView: View {
     private let paneAspectRatio: CGFloat = 3.0 / 4.0
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(AppModel.self) private var appModel
+    @State private var sharing = false
 
     /// Tapping a pane opens that drawing on its own. Side by side on a phone gives each one less
     /// than half the screen's width, which is enough to compare the two and not always enough to
@@ -43,6 +45,7 @@ struct DrawingPadPairView: View {
         /// possessive form that is right for a partner ("Sam's pad") is wrong for your own.
         let screenTitle: String
         let url: URL?
+        let owner: Person
     }
 
     var body: some View {
@@ -51,8 +54,8 @@ struct DrawingPadPairView: View {
                 ScreenBackground()
 
                 HStack(alignment: .top, spacing: Theme.Spacing.md) {
-                    pane(name: "You", screenTitle: "Your pad", url: myURL)
-                    pane(name: partnerName, screenTitle: "\(partnerName)'s pad", url: partnerURL)
+                    pane(name: "You", screenTitle: "Your pad", url: myURL, owner: appModel.currentUser)
+                    pane(name: partnerName, screenTitle: "\(partnerName)'s pad", url: partnerURL, owner: appModel.partner)
                 }
                 .padding(Theme.Spacing.md)
             }
@@ -62,21 +65,33 @@ struct DrawingPadPairView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Close") { dismiss() }
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    DrawingShareButton(myURL: myURL, myName: "You", partnerURL: partnerURL, partnerName: partnerName)
+                // Hidden while neither pad has a drawing: two empty pages are nothing to send.
+                if myURL != nil || partnerURL != nil {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button { sharing = true } label: {
+                            Image(systemName: "square.and.arrow.up")
+                        }
+                        .accessibilityLabel("Share drawings")
+                    }
                 }
             }
         }
         .fullScreenCover(item: $focused) { pad in
-            DrawingPadFullScreenView(title: pad.name, url: pad.url, screenTitle: pad.screenTitle)
+            DrawingPadFullScreenView(title: pad.name, url: pad.url, screenTitle: pad.screenTitle, owner: pad.owner)
+        }
+        .sheet(isPresented: $sharing) {
+            DrawingShareSheet(pads: [
+                .init(person: appModel.currentUser, url: myURL),
+                .init(person: appModel.partner, url: partnerURL),
+            ])
         }
         .postHogScreenView("Drawing Pad: Both")
     }
 
-    private func pane(name: String, screenTitle: String, url: URL?) -> some View {
+    private func pane(name: String, screenTitle: String, url: URL?, owner: Person) -> some View {
         VStack(spacing: Theme.Spacing.sm) {
             Button {
-                focused = FocusedPad(name: name, screenTitle: screenTitle, url: url)
+                focused = FocusedPad(name: name, screenTitle: screenTitle, url: url, owner: owner)
             } label: {
                 // The paper, and the only thing in this pane allowed to decide how big it is.
                 //

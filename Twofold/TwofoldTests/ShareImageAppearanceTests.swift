@@ -87,14 +87,55 @@ struct ShareImageAppearanceTests {
             partnerAnswer: "Said yes.",
             dailyStreak: 12
         )
-        let layout = try #require(data.availableLayouts.first)
+        let content = try #require(data.shareCards.first)
 
         func render(_ style: ShareCardStyle, _ scheme: ColorScheme) throws -> Data? {
-            let card = GameResultsShareCard(data: data, layout: layout, style: style)
-            return try #require(ImageRenderer(content: card.frame(width: 360).environment(\.colorScheme, scheme)).uiImage).pngData()
+            let card = GameShareCard(kind: data.shareKind, look: style, content: content, me: data.me, partner: data.partner)
+            return try #require(ImageRenderer(content: card.environment(\.colorScheme, scheme)).uiImage).pngData()
         }
 
         #expect(try render(.night, .dark) == render(.night, .light), "a share style changed with the phone's appearance")
         #expect(try render(.night, .light) != render(.paper, .light), "Night and Paper rendered the same picture")
+    }
+
+    /// SHARE_REDESIGN.md §3.1: every card is 4:5 and exports at 1080 × 1350px, whatever is on it.
+    @Test("a game card exports at 1080 × 1350px")
+    func gameCardExportSize() throws {
+        let card = GameShareCard(
+            kind: .trivia, look: .deck,
+            content: .score(deck: "Around the World", columns: [.init(value: "8", name: "Dara"), .init(value: "6", name: "Rosa")], caption: "correct out of 11"),
+            me: MockData.dara, partner: MockData.rosa
+        )
+        let image = try #require(card.renderedImage())
+        #expect(image.size.width * image.scale == 1080)
+        #expect(image.size.height * image.scale == 1350)
+    }
+
+    /// "Copy as text" carries the full answers, one card per Deep Conversation question, and the sign-off.
+    @Test("a deck shares one card per question, and its text ends with the sign-off")
+    func deckCardsAndText() {
+        let data = GameResultShareData(
+            gameType: .deepConversations,
+            title: "Getting to Know Each Other",
+            isDaily: false,
+            me: MockData.dara,
+            partner: MockData.rosa,
+            matchPercent: nil,
+            triviaMyScore: nil,
+            triviaPartnerScore: nil,
+            triviaTotalRounds: nil,
+            deepConversationRounds: [
+                GameResultShareRound(question: "First?", myAnswer: "One.", partnerAnswer: ""),
+                GameResultShareRound(question: "Second?", myAnswer: "Two.", partnerAnswer: "Deux."),
+            ],
+            dailyStreak: nil
+        )
+        #expect(data.shareCards.count == 2)
+        #expect(data.includesPartnerWords)
+        let text = data.shareText(for: 0)
+        #expect(text.hasPrefix("Deep Conversation · Getting to Know Each Other"))
+        #expect(text.contains("Dara: One."))
+        #expect(text.contains("Rosa: Skipped this one"))
+        #expect(text.hasSuffix("via twofold"))
     }
 }

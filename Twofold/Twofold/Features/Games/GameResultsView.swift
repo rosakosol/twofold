@@ -169,7 +169,7 @@ struct GameResultsView: View {
             store.gameIssueContext(gameType: gameType, deckTitle: title, myID: myID)
         }
         .sheet(isPresented: $showingShare) {
-            GameResultsShareView(data: shareData)
+            GameShareSheet(data: shareData)
         }
         .navigationDestination(item: $resetRoute) { route in
             gameDestinationView(gameType: route.gameType, sessionID: route.id, topic: resetTopic)

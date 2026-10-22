@@ -42,6 +42,20 @@ extension AvatarView {
         guard let image = UIImage(data: imageData) else { return }
         AvatarImageCache.shared.store(image, for: url)
     }
+
+    /// Puts the person's photo in the memory cache, so an `ImageRenderer` drawing an `AvatarView`
+    /// gets the photo rather than initials: the renderer draws one pass and never waits on `load()`.
+    @MainActor
+    static func prefetch(_ person: Person) async {
+        guard let url = person.avatarURL, AvatarImageCache.shared.image(for: url) == nil else { return }
+        if let onDisk = RemoteImageDiskCache.image(for: url) {
+            AvatarImageCache.shared.store(onDisk, for: url)
+            return
+        }
+        guard let (data, _) = try? await URLSession.shared.data(from: url), let image = UIImage(data: data) else { return }
+        AvatarImageCache.shared.store(image, for: url)
+        RemoteImageDiskCache.store(data, for: url)
+    }
 }
 
 /// Shows the person's uploaded photo when they have one, falling back to an

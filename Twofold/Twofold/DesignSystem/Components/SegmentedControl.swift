@@ -20,6 +20,8 @@ struct TwofoldSegmentedControl<Value: Hashable>: View {
     var accessibilityLabel: String = ""
     /// Segments shown but not selectable, the way `.disabled` on a picker row works.
     var disabledValues: Set<Value> = []
+    /// The share sheets use 40 (SHARE_REDESIGN.md §2).
+    var segmentHeight: CGFloat = 36
 
     @Namespace private var pill
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -37,7 +39,7 @@ struct TwofoldSegmentedControl<Value: Hashable>: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.75)
                         .foregroundStyle(isSelected ? Theme.textPrimary : Theme.textSecondary)
-                        .frame(maxWidth: .infinity, minHeight: 36)
+                        .frame(maxWidth: .infinity, minHeight: segmentHeight)
                         .padding(.horizontal, Theme.Spacing.sm)
                         .background {
                             if isSelected {

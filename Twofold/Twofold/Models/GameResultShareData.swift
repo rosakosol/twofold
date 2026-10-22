@@ -10,8 +10,8 @@
 
 import Foundation
 
-/// One topic + both answers from a multi-round Deep Conversations deck — lets the share sheet
-/// offer a "choose a topic to feature" picker. Deep Conversations answers are free text with no
+/// One topic + both answers from a multi-round Deep Conversations deck — each becomes its own card
+/// in the share sheet, swiped between. Deep Conversations answers are free text with no
 /// right answer to compare against (unlike This-or-That/More-Likely's `matchPercent`), so this is
 /// deliberately about picking *which* exchange to show off, never whether the two of you "matched."
 struct GameResultShareRound: Identifiable {
@@ -28,7 +28,7 @@ struct GameResultShareData {
     let me: Person
     let partner: Person
 
-    // MARK: Score snapshot layout
+    // MARK: Scores
 
     /// 0...100 — thisOrThat / moreLikely only.
     let matchPercent: Int?
@@ -40,13 +40,10 @@ struct GameResultShareData {
     /// it). nil for every other game type.
     let deepConversationRounds: [GameResultShareRound]?
 
-    // MARK: Single-round layouts (daily streak / names & answer / speech bubble)
+    // MARK: Single round
 
-    /// The question+both-answers currently featured on the `.namesAndAnswer`/`.speechBubble`
-    /// layouts. Set once from the Daily Question's own (and only) round; for a multi-round Deep
-    /// Conversations deck these start nil and `GameResultsShareView` overwrites them from
-    /// whichever entry in `deepConversationRounds` the person picks — `var`, not `let`, for
-    /// exactly that reason.
+    /// The Daily Question's one question and both answers. nil for a multi-round deck, whose
+    /// rounds are in `deepConversationRounds`.
     var singleRoundQuestion: String?
     var myAnswer: String?
     var partnerAnswer: String?
@@ -72,28 +69,73 @@ struct GameResultShareData {
     var sudokuMyAids: SudokuSolveSummary? = nil
     var sudokuPartnerAids: SudokuSolveSummary? = nil
 
-    /// The Daily Question has no score/match stat to headline — `scoreSnapshot` would render as
-    /// just a brand mark and avatars — so it's skipped there in favor of the two single-Q&A
-    /// layouts. Deep Conversations decks have no match/score concept either (free text, nothing
-    /// to compare), so they skip `scoreSnapshot` too and go straight to the two single-Q&A
-    /// layouts once a topic's been picked (see `GameResultsShareView.selectedRoundIndex`). Every
-    /// other game type gets `scoreSnapshot`.
-    var availableLayouts: [GameResultShareLayout] {
-        if isDaily {
-            var layouts: [GameResultShareLayout] = []
-            if dailyStreak != nil, singleRoundQuestion != nil {
-                layouts.append(.dailyStreak)
-            }
-            if singleRoundQuestion != nil {
-                layouts.append(.namesAndAnswer)
-                layouts.append(.speechBubble)
-            }
-            return layouts
-        }
-        if gameType == .deepConversations {
-            guard deepConversationRounds?.isEmpty == false else { return [] }
-            return [.namesAndAnswer, .speechBubble]
-        }
-        return [.scoreSnapshot]
+    // MARK: Word Guess
+
+    /// Both finished boards and the day's date — Word Guess only. The card shows the colours of
+    /// each guess and never the letters, so it can go to someone who hasn't played the word yet.
+    var wordGuessMine: WordGuessPlayState? = nil
+    var wordGuessTheirs: WordGuessPlayState? = nil
+    var playedAt: Date? = nil
+
+    // MARK: Connect 4
+
+    /// The board, row 0 at the top. Shared while a game is still going, too.
+    var connectFourCells: [ConnectFourBoard.Disc?]? = nil
+    /// "Ewin's move", "Rosa wins", "A draw".
+    var connectFourStatus: String? = nil
+    /// Who played first, which decides whose pieces are whose.
+    var connectFourFirstIsMe = false
+    /// The four in a row, when the game was won.
+    var connectFourWinning: [Int] = []
+
+    static func wordGuess(
+        mine: WordGuessPlayState,
+        theirs: WordGuessPlayState,
+        me: Person,
+        partner: Person,
+        date: Date
+    ) -> GameResultShareData {
+        GameResultShareData(
+            gameType: .wordGuess,
+            title: GameType.wordGuess.displayName,
+            isDaily: true,
+            me: me,
+            partner: partner,
+            matchPercent: nil,
+            triviaMyScore: nil,
+            triviaPartnerScore: nil,
+            triviaTotalRounds: nil,
+            deepConversationRounds: nil,
+            dailyStreak: nil,
+            wordGuessMine: mine,
+            wordGuessTheirs: theirs,
+            playedAt: date
+        )
+    }
+
+    static func connectFour(
+        board: ConnectFourBoard,
+        status: String,
+        firstIsMe: Bool,
+        me: Person,
+        partner: Person
+    ) -> GameResultShareData {
+        GameResultShareData(
+            gameType: .connectFour,
+            title: GameType.connectFour.displayName,
+            isDaily: false,
+            me: me,
+            partner: partner,
+            matchPercent: nil,
+            triviaMyScore: nil,
+            triviaPartnerScore: nil,
+            triviaTotalRounds: nil,
+            deepConversationRounds: nil,
+            dailyStreak: nil,
+            connectFourCells: board.cells,
+            connectFourStatus: status,
+            connectFourFirstIsMe: firstIsMe,
+            connectFourWinning: board.winningLine()?.cells ?? []
+        )
     }
 }

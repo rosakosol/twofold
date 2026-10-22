@@ -23,6 +23,8 @@ struct DrawingPadEditorView: View {
     @State private var isSaving = false
     @State private var backgroundImage: UIImage?
     @State private var hasLoadedBackground = false
+    /// The canvas as it stands, saved or not, while the share sheet is up.
+    @State private var sharedCanvas: UIImage?
 
     /// A fixed swatch set rather than the system ColorPicker's full spectrum+sliders UI — lets
     /// picking a color be a single tap that auto-closes the menu (ColorPicker's own popover has
@@ -83,6 +85,15 @@ struct DrawingPadEditorView: View {
                     Button("Close") { dismiss() }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        sharedCanvas = renderCanvas()
+                    } label: {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                    .accessibilityLabel("Share drawing")
+                    .disabled(elements.isEmpty && backgroundImage == nil)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     Button("Clear") {
                         elements.removeAll()
                         redoStack.removeAll()
@@ -103,6 +114,11 @@ struct DrawingPadEditorView: View {
             }
             .task {
                 await loadExistingDrawing()
+            }
+        }
+        .sheet(isPresented: Binding(get: { sharedCanvas != nil }, set: { if !$0 { sharedCanvas = nil } })) {
+            if let sharedCanvas {
+                DrawingShareSheet(pads: [.init(person: appModel.currentUser, url: nil, image: sharedCanvas)])
             }
         }
         .postHogScreenView("Drawing Pad: Editor")
@@ -207,15 +223,21 @@ struct DrawingPadEditorView: View {
         elements.append(last)
     }
 
-    private func save() {
-        isSaving = true
+    /// The canvas flattened to an image, the same way it is saved.
+    private func renderCanvas() -> UIImage? {
         let renderer = ImageRenderer(
             content: DrawingCanvasView(elements: .constant(elements), redoStack: .constant([]), tool: .pen, backgroundImage: backgroundImage)
                 .frame(width: canvasSize.width, height: canvasSize.height)
         )
         renderer.scale = 2
+        return renderer.uiImage
+    }
+
+    private func save() {
+        isSaving = true
+        let image = renderCanvas()
         Task {
-            if let uiImage = renderer.uiImage, let data = uiImage.pngData() {
+            if let uiImage = image, let data = uiImage.pngData() {
                 await appModel.saveMyDrawing(imageData: data)
             }
             isSaving = false
