@@ -12,6 +12,15 @@ struct DrawingPadEditorView: View {
 
     @State private var elements: [DrawingElement] = []
     @State private var redoStack: [DrawingElement] = []
+    /// What each Clear wiped, newest last, so Undo can bring it back. Undo first takes back anything
+    /// drawn since the clear; once that's gone, the next Undo restores the pad as it was.
+    @State private var clearedPads: [ClearedPad] = []
+
+    private struct ClearedPad {
+        let elements: [DrawingElement]
+        let redoStack: [DrawingElement]
+        let backgroundImage: UIImage?
+    }
     @State private var tool: DrawingTool = .pen
     /// The palette's own black, not `Theme.textPrimary` — see `penColorPalette` for why the pad can't use
     /// appearance-adaptive colours. Starting on `Theme.textPrimary` meant a dark-mode user's very first
@@ -95,6 +104,7 @@ struct DrawingPadEditorView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Clear") {
+                        clearedPads.append(ClearedPad(elements: elements, redoStack: redoStack, backgroundImage: backgroundImage))
                         elements.removeAll()
                         redoStack.removeAll()
                         backgroundImage = nil
@@ -136,7 +146,7 @@ struct DrawingPadEditorView: View {
 
     private var bottomToolbar: some View {
         HStack(spacing: Theme.Spacing.xl) {
-            toolButton(systemImage: "arrow.uturn.backward", label: "Undo", isDisabled: elements.isEmpty, action: undo)
+            toolButton(systemImage: "arrow.uturn.backward", label: "Undo", isDisabled: elements.isEmpty && clearedPads.isEmpty, action: undo)
             toolButton(systemImage: "arrow.uturn.forward", label: "Redo", isDisabled: redoStack.isEmpty, action: redo)
             toolButton(systemImage: "eraser", label: "Eraser", isActive: tool == .eraser) { tool = .eraser }
 
@@ -214,8 +224,13 @@ struct DrawingPadEditorView: View {
     }
 
     private func undo() {
-        guard let last = elements.popLast() else { return }
-        redoStack.append(last)
+        if let last = elements.popLast() {
+            redoStack.append(last)
+        } else if let cleared = clearedPads.popLast() {
+            elements = cleared.elements
+            redoStack = cleared.redoStack
+            backgroundImage = cleared.backgroundImage
+        }
     }
 
     private func redo() {
