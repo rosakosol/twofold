@@ -170,48 +170,71 @@
   background-image: url("/assets/people/sam.webp"), var(--grad-this);
 }
 
-/* The flight's Live Activity on the Lock Screen. */
+/* The flight's Live Activity on the Lock Screen, after the app's own (the Lock Screen capture):
+   dark frosted glass with a faint edge, the traveller's photo in a white ring, the time left large in the accent
+   blue, and the plane riding the progress bar in a blue knob. */
 .pv-live {
   width: 100%;
   max-width: 380px;
-  padding: 16px 18px;
-  border-radius: 26px;
-  background: var(--live-activity);
+  padding: 18px 18px 16px;
+  border-radius: 28px;
+  /* Frosted glass, like the Lock Screen's: a dark tint over a strong blur, so whatever is behind
+     shows only as soft colour, never as legible text. */
+  background: color-mix(in srgb, var(--live-activity) 66%, transparent);
+  /* Unprefixed only: the build adds -webkit- for Safari itself. Writing both made it keep just
+     the -webkit- one, which Chrome and Edge ignore, so they showed the tint with no blur. */
+  backdrop-filter: blur(24px) saturate(1.6);
+  border: 1px solid color-mix(in srgb, var(--on-dark) 10%, transparent);
   color: var(--on-dark);
   box-shadow: var(--shadow-float);
+}
+/* No blur to be had: a tint alone would let the text behind read through, so go solid. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .pv-live {
+    background: var(--live-activity);
+  }
 }
 .pv-live-head {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+}
+.pv-live-head .pv-avatar {
+  width: 44px;
+  height: 44px;
+  border: 2px solid var(--on-dark);
 }
 .pv-live-title,
 .pv-live-eta {
   display: flex;
   flex-direction: column;
-  font-size: var(--text-caption);
-  line-height: 1.3;
+  line-height: 1.25;
+}
+.pv-live-title strong {
+  font-size: 1.0625rem;
+  font-weight: 600;
 }
 .pv-live-title span,
-.pv-live-eta span,
-.pv-live-foot {
-  color: color-mix(in srgb, var(--on-dark) 78%, transparent);
+.pv-live-eta span {
+  font-size: 0.9375rem;
+  color: color-mix(in srgb, var(--on-dark) 70%, transparent);
 }
 .pv-live-eta {
   margin-left: auto;
   text-align: right;
 }
 .pv-live-eta strong {
-  font-size: 1.125rem;
+  font-size: 1.625rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--live-accent);
 }
 .pv-live-route {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin: 16px 0 10px;
+  margin: 18px 0 14px;
 }
 .pv-live-code {
-  font-size: var(--text-small);
   font-weight: 700;
 }
 .pv-live-track {
@@ -227,24 +250,33 @@
   border-radius: 2px;
   background: var(--live-accent);
 }
-.pv-live-plane {
+.pv-live-knob {
   position: absolute;
   left: 86%;
   top: 50%;
-  width: 18px;
-  height: 18px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
   translate: -50% -50%;
+  background: var(--live-accent);
+  color: var(--live-activity);
+}
+.pv-live-plane {
+  width: 14px;
+  height: 14px;
   rotate: 45deg;
   fill: currentColor;
 }
 .pv-live-foot {
   display: flex;
   justify-content: space-between;
-  font-size: var(--text-caption);
+  font-size: 0.9375rem;
+  color: color-mix(in srgb, var(--on-dark) 88%, transparent);
 }
 /* Each end's airport code, bold and at full strength, ahead of its time. */
 .pv-live-foot .pv-live-code {
-  font-size: inherit;
   color: var(--on-dark);
 }
 
@@ -259,7 +291,6 @@
   border-radius: 22px;
   background: var(--glass-dark);
   backdrop-filter: blur(24px) saturate(1.6);
-  -webkit-backdrop-filter: blur(24px) saturate(1.6);
   color: var(--on-dark);
   box-shadow: var(--shadow-float);
 }
@@ -294,10 +325,13 @@
   color: var(--on-dark);
   box-shadow: var(--shadow-float);
 }
+/* Bold system sans, as the app sets the question on its card (SF Pro on Apple devices). */
 .pv-likely-question {
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 1.375rem;
+  font-weight: 700;
   line-height: 1.25;
+  letter-spacing: -0.01em;
 }
 .pv-likely-choices {
   display: flex;

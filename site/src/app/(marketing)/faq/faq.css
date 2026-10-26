@@ -159,7 +159,6 @@
     padding: 10px var(--page-pad);
     background: color-mix(in srgb, var(--surface) 86%, transparent);
     backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
     overflow-x: auto;
   }
   .faq-topics ul {

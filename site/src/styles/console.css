@@ -596,7 +596,6 @@ a.pill:hover {
   background: color-mix(in srgb, var(--surface) 96%, transparent);
   border: 1px solid var(--account-edge);
   backdrop-filter: saturate(1.4) blur(18px);
-  -webkit-backdrop-filter: saturate(1.4) blur(18px);
 }
 .account-nav a {
   display: inline-flex;

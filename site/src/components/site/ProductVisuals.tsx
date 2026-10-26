@@ -83,7 +83,7 @@ export function FlightLiveActivity({ className }: { className?: string }) {
         <span className="pv-avatar pv-avatar-alex is-photo" aria-hidden>A</span>
         <span className="pv-live-title">
           <strong>Alex is on the way</strong>
-          <span>Emirates EK96 to Dubai</span>
+          <span>EK96 to Dubai</span>
         </span>
         <span className="pv-live-eta">
           <strong>55m</strong>
@@ -93,7 +93,9 @@ export function FlightLiveActivity({ className }: { className?: string }) {
       <div className="pv-live-route">
         <span className="pv-live-track">
           <span className="pv-live-progress" />
-          <Plane className="pv-live-plane" aria-hidden />
+          <span className="pv-live-knob">
+            <Plane className="pv-live-plane" aria-hidden />
+          </span>
         </span>
       </div>
       <div className="pv-live-foot">
