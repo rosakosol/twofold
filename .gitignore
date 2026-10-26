@@ -65,3 +65,5 @@ site/AGENTS.md
 site/CLAUDE.md
 docs/TWOFOLD_DESIGN.md
 docs/TWOFOLD_WEBSITE.md
+# Marketing exports (scripts/export-marketing-content.py)
+/exports/
