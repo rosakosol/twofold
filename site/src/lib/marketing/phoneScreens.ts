@@ -30,7 +30,7 @@ export type PhoneScreen = keyof typeof PHONE_SCREENS;
 
 /** Bumped whenever the captures are replaced: the image optimiser caches by URL, so a new capture
  *  under an old file name can keep serving the old picture. Rename the files to match. */
-const CAPTURE_SET = 5;
+const CAPTURE_SET = 6;
 
 export function phoneScreenSrc(screen: PhoneScreen, mode: "light" | "dark") {
   return `/assets/phone-screen/${screen}-${mode}-${CAPTURE_SET}.webp`;
