@@ -144,15 +144,54 @@ export function WhosMoreLikelyCard({ className }: { className?: string }) {
   );
 }
 
-/** The flight widget, small: Alex's flight on the flight gradient. */
-export function FlightWidget({ className }: { className?: string }) {
+/**
+ * The flight widget, small, after the app's own (LiveActivities/FlightTrackingWidget.swift), in
+ * the three states it shows EK96 in:
+ * - `partner`: Alex's flight before departure, his photo in the corner.
+ * - `mine`: your own flight before departure, the airline's badge in place of a photo.
+ * - `in-air`: Alex's flight under way, the time to landing over a progress line.
+ */
+export function FlightWidget({
+  state = "in-air",
+  className,
+}: {
+  state?: "partner" | "mine" | "in-air";
+  className?: string;
+}) {
+  const inAir = state === "in-air";
+  const label = inAir
+    ? "Flight widget: Alex's flight EK96 from Rome to Dubai, 86% complete, lands in 55 minutes"
+    : `Flight widget: ${state === "mine" ? "your" : "Alex's"} flight EK96 from Rome to Dubai, departs in 24 days 8 hours`;
   return (
-    <Visual label="Flight widget: Alex's Emirates flight EK96 from Rome to Dubai, landing at 5:50 am" className={["pv-widget pv-flight", className].filter(Boolean).join(" ")}>
-      <span className="pv-widget-label">
-        <Plane aria-hidden /> EK96
+    <Visual label={label} className={["pv-widget pv-flight", className].filter(Boolean).join(" ")}>
+      <span className="pv-flight-head">
+        {state === "mine" ? (
+          <span className="pv-flight-airline" aria-hidden>
+            EK
+          </span>
+        ) : (
+          <span className="pv-avatar pv-avatar-alex is-photo" aria-hidden>
+            A
+          </span>
+        )}
+        EK96
       </span>
-      <span className="pv-flight-route">FCO &rarr; DXB</span>
-      <span className="pv-widget-sub">Alex lands at 5:50 am</span>
+      <span className="pv-flight-when">
+        <span>{inAir ? "Lands in" : "Departs in"}</span>
+        <strong>{inAir ? "55m" : "24d 8h"}</strong>
+      </span>
+      {inAir ? (
+        <span className="pv-flight-rail" aria-hidden>
+          <span className="pv-flight-rail-done" />
+          <span className="pv-flight-rail-marker">
+            <Plane />
+          </span>
+        </span>
+      ) : (
+        <span className="pv-flight-route">
+          FCO <Plane aria-hidden /> DXB
+        </span>
+      )}
     </Visual>
   );
 }

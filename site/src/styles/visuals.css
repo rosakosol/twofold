@@ -355,28 +355,114 @@
 }
 
 /* The flight widget, small. */
+/* The flight widget, small, after the app's (FlightTrackingWidget.swift): photo or airline badge
+   and the flight number at the top, then "Departs in" / "Lands in" over the time left, then the
+   route, or the progress line once it is in the air. */
 .pv-flight {
   width: 170px;
   aspect-ratio: 1;
-  padding: 18px;
-  justify-content: space-between;
+  padding: 16px;
+  gap: 2px;
   background: var(--highlight), var(--grad-this);
 }
-.pv-flight .pv-widget-label {
-  display: inline-flex;
+.pv-flight-head {
+  display: flex;
   align-items: center;
   gap: 6px;
+  font-size: 0.8125rem;
+  font-weight: 700;
 }
-.pv-flight .pv-widget-label svg {
-  width: 15px;
-  height: 15px;
-  rotate: 45deg;
+.pv-flight-head .pv-avatar {
+  width: 26px;
+  height: 26px;
+  border: 1.5px solid var(--on-dark);
+}
+.pv-flight-airline {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--on-dark) 22%, transparent);
+  font-size: 0.5625rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+.pv-flight-when {
+  display: flex;
+  flex-direction: column;
+  margin-top: auto;
+}
+.pv-flight-when span {
+  font-size: 0.75rem;
+  font-weight: 600;
+  opacity: 0.92;
+}
+.pv-flight-when strong {
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
 }
 .pv-flight-route {
-  margin-top: auto;
-  font-size: 1.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+  font-size: 0.75rem;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  opacity: 0.92;
+}
+.pv-flight-route svg {
+  width: 12px;
+  height: 12px;
+  rotate: 45deg;
+  fill: currentColor;
+}
+/* The journey so far: a line, with a white marker where the plane is (86%, as on the Lock Screen). */
+.pv-flight-rail {
+  position: relative;
+  height: 24px;
+  margin: 8px 12px 0;
+}
+.pv-flight-rail::before,
+.pv-flight-rail-done {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  height: 4px;
+  border-radius: 2px;
+  translate: 0 -50%;
+}
+.pv-flight-rail::before {
+  right: 0;
+  background: color-mix(in srgb, var(--on-dark) 30%, transparent);
+}
+.pv-flight-rail-done {
+  width: 86%;
+  background: var(--on-dark);
+}
+.pv-flight-rail-marker {
+  position: absolute;
+  left: 86%;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  translate: -50% -50%;
+  background: var(--on-dark);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+/* The plane in the marker, in the widget's blue, as the app draws it (0x1A6FD6). */
+.pv-flight-rail-marker svg {
+  width: 13px;
+  height: 13px;
+  rotate: 45deg;
+  color: #1a6fd6;
+  fill: currentColor;
 }
 
 /* The printed Relationship Record. */
