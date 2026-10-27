@@ -18,7 +18,7 @@ export const PHONE_SCREENS = {
   "travel-trips": "The Travel tab: a globe, and their upcoming trips, Rome to Melbourne in 22 days, Melbourne to Rome in 98 and Melbourne to Tokyo in 119",
   "travel-flights": "The Travel tab on Flights: Alex's Emirates flight EK96 from Rome to Dubai, en route and landing in 55 minutes, and a past flight from Melbourne to Singapore",
   "memories-map": "The Memories map of Rome, with photo pins where their memories happened",
-  "memory-detail": "A memory called Our first date, at Trattoria Pizzeria Luzzi in Rome, with a photo and a note",
+  "memory-detail": "A memory called Our first date, at Trattoria Pizzeria Luzzi in Rome on 3 April 2026, with a photo of pizza and the note: you were 20 mins late but I didn't care, it was worth the wait",
   games: "The Games tab: start a streak, today's deep question, and the couple games",
   connected: "The screen that says You're connected, with Alex and Sam's photos joined by a heart",
   "our-story": "Our story: 4 moments together, a timeline of their trips between Melbourne, Osaka and Tokyo",
@@ -30,7 +30,7 @@ export type PhoneScreen = keyof typeof PHONE_SCREENS;
 
 /** Bumped whenever the captures are replaced: the image optimiser caches by URL, so a new capture
  *  under an old file name can keep serving the old picture. Rename the files to match. */
-const CAPTURE_SET = 6;
+const CAPTURE_SET = 7;
 
 export function phoneScreenSrc(screen: PhoneScreen, mode: "light" | "dark") {
   return `/assets/phone-screen/${screen}-${mode}-${CAPTURE_SET}.webp`;

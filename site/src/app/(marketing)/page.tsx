@@ -69,7 +69,7 @@ function RomeMap() {
         {/* eslint-disable-next-line @next/next/no-img-element -- small fixed thumbnail */}
         <img src="/assets/home/first-date.webp" alt="" width={56} height={56} />
         <div>
-          <blockquote>&ldquo;You were wearing a red sundress and I couldn&rsquo;t stop looking at you.&rdquo;</blockquote>
+          <blockquote>&ldquo;you were 20 mins late but i didn&rsquo;t care - it was worth the wait :)&rdquo;</blockquote>
           <figcaption>
             <strong>Our first date</strong>
             <span>Trattoria Pizzeria Luzzi, Rome</span>
