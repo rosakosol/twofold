@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
+import { safeNext } from "@/lib/auth/safeNext";
 import { Loader2, MailCheck } from "lucide-react";
 import { EmailPasswordForm, type EmailPasswordMode } from "@/components/auth/EmailPasswordForm";
 import {
@@ -49,12 +50,12 @@ function SignInForm() {
   const searchParams = useSearchParams();
 
   // Same rule as /auth/callback's own `next` handling, and for the same reason: this arrives from
-  // the query string, so only a single-slash relative path is honoured. "//evil.com" is
-  // protocol-relative and "https://evil.com" absolute, and either one handed to
-  // `location.assign` below would be an open redirect fired by a successful sign-in — the worst
-  // possible moment, since the victim has just proved they trust the page.
-  const requestedNext = searchParams.get("next");
-  const next = requestedNext && /^\/(?!\/)/.test(requestedNext) ? requestedNext : "/feedback";
+  // the query string, and handed to `location.assign` below an off-site value would be an open
+  // redirect fired by a successful sign-in — the worst possible moment, since the victim has just
+  // proved they trust the page. See `safeNext` for why a shape check was not enough. Any fixed
+  // origin works here: only whether the value stays on it matters, and this renders on the server
+  // too, where there is no `window.location`.
+  const next = safeNext(searchParams.get("next"), "https://twofold.invalid");
 
   // Set by /auth/callback when it couldn't complete the exchange. Without rendering it,
   // a failed sign-in returns to this page looking untouched.

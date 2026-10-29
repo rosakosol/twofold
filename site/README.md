@@ -157,6 +157,7 @@ is or is not public. In short:
 | Variable | Needed for |
 | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_URL` / `_ANON_KEY` | everything |
+| `SUPABASE_SERVICE_ROLE_KEY` | server only, never `NEXT_PUBLIC_`; `/api/waitlist` and `/api/support`, whose database functions the public key may not call |
 | `NEXT_PUBLIC_SANITY_PROJECT_ID` / `_DATASET` / `_API_VERSION` | marketing copy + Studio |
 | `NEXT_PUBLIC_REVENUECAT_WEB_BILLING_API_KEY` | web checkout on `/pricing` |
 | `ZOHO_SMTP_USER` / `_PASSWORD` / `_HOST` / `_PORT` | `/api/support`, `/api/waitlist` |
@@ -181,12 +182,11 @@ There is no test suite here. The things worth pinning are pinned in the database
 
 **All migrations live in the repo-root `supabase/migrations/`, not here.**
 
-`site/supabase/` exists and is misleading. It holds 15 migration files from July 2026, and
-**none of them has ever been applied** — the tables they describe were created by hand in the
-dashboard instead, and were finally captured in source control by repo-root
-`20261109000600_feedback_board_schema.sql`, read back from production with
-`pg_dump`. The folder is also not linked to any project. Running `db push` from here would
-try to create tables that already exist.
+The feedback board's tables were created by hand in the dashboard and captured in source control
+by repo-root `20261109000600_feedback_board_schema.sql`, read back from production with `pg_dump`.
+A `site/supabase/` folder of older, never-applied migrations used to sit here; it was deleted
+because it disagreed with production (its `is_feedback_admin` had no role check and was granted to
+anon) and running `db push` from it would have tried to create tables that already exist.
 
 So, from the **repo root**:
 

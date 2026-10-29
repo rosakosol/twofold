@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { safeNext } from "@/lib/auth/safeNext";
 
 /**
  * Handles the OAuth (Apple/Google) redirect back from Supabase, and any other flow that
@@ -19,13 +20,10 @@ export async function GET(request: NextRequest) {
   const code = params.get("code");
   const origin = request.nextUrl.origin;
 
-  // `next` arrives from the query string, so it is caller-controlled. Only a single-slash
-  // relative path is honoured: "//evil.com" and "https://evil.com" are protocol-relative and
-  // absolute respectively, and either would send a freshly-signed-in user off-site the moment
-  // this is ever built with `new URL(next, origin)` instead of concatenation.
-  const requestedNext = params.get("next");
-  const next =
-    requestedNext && /^\/(?!\/)/.test(requestedNext) ? requestedNext : "/feedback";
+  // `next` arrives from the query string, so it is caller-controlled. Only a path on this site is
+  // honoured (see `safeNext`); the redirect below concatenates it onto our origin, which is safe
+  // today, but the check should not depend on that line never changing.
+  const next = safeNext(params.get("next"), origin);
 
   function failed(reason: string) {
     console.warn("[feedback] auth callback failed", reason);

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import type { Database } from "@/lib/db/types";
+import { createServiceClient } from "@/lib/supabase/service";
 import { createZohoTransport } from "@/lib/mail/zoho";
 import { renderTemplate, extractSubject } from "@/lib/mail/renderTemplate";
 import { escapeHtml } from "@/lib/mail/escapeHtml";
@@ -21,12 +20,12 @@ import { listUnsubscribeHeaders, unsubscribeUrl } from "@/lib/mail/unsubscribe";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// No cookies/user session involved (anonymous, unauthenticated form) - a plain
-// anon-key client is simpler and more correct here than the cookie-based SSR client
-// used elsewhere in this app for signed-in requests.
-const supabase = createClient<Database>(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
-
 export async function POST(request: Request) {
+  // Service role, not the public key: `join_android_waitlist` returns the address's email-preferences
+  // token and `consume_anon_rate_limit` trusts the limit it is given, so neither may be callable by
+  // anyone holding the public key (see lib/supabase/service.ts). This route is the only way in.
+  const supabase = createServiceClient();
+
   let body: { email?: string; company?: string };
   try {
     body = await request.json();

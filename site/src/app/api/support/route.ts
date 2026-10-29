@@ -3,7 +3,7 @@ import { createZohoTransport } from "@/lib/mail/zoho";
 import { renderTemplate, extractSubject } from "@/lib/mail/renderTemplate";
 import { escapeHtml } from "@/lib/mail/escapeHtml";
 import { SUPPORT_EMAIL, SITE_URL } from "@/lib/mail/companyInfo";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { nullableArg } from "@/lib/db/nullableArg";
 
 // Web counterpart to the iOS app's submit-help-message edge function
@@ -111,7 +111,11 @@ export async function POST(request: Request) {
   // picks a new recipient for each send, which is the whole point of a relay — so it is the IP
   // that has to carry the limit. The email bucket is the narrower one, and stops the same address
   // being mailed repeatedly from a rotating source.
-  const supabase = await createClient();
+  //
+  // Service role for both the limiter and the request row: neither function is callable with the
+  // public key any more, so a script can no longer flood the queue or fill someone else's buckets
+  // without going through this route (see lib/supabase/service.ts).
+  const supabase = createServiceClient();
   const ip = callerIP(request);
   const allowed = await withinRateLimit(supabase, [
     { bucket: "support-ip", subject: ip, limit: 5 },
@@ -130,10 +134,9 @@ export async function POST(request: Request) {
   // Recorded before the email, and never allowed to stop it.
   //
   // The email is what actually notifies anybody; the row is what makes a queue possible, so a
-  // visitor's request still reaches somebody even if this fails. It runs with the anon key like
-  // every other query from this app — `submit_support_request` is security definer and resolves
-  // attribution itself, so a visitor with no session gets a row with a null profile and the
-  // address they typed, which the console matches to an account at read time.
+  // visitor's request still reaches somebody even if this fails. It runs as the service role, with
+  // no user, so `submit_support_request` records a null profile and the address typed, which the
+  // console matches to an account at read time.
   try {
     const { error } = await supabase.rpc("submit_support_request", {
       p_category: category,
