@@ -85,6 +85,12 @@ final class WordSearchGameStore {
             hasSubmitted = fromServer?.isComplete == true
             partnerResult = me.flatMap { Self.partnerResult(in: detail, me: $0) }
             phase = .ready
+
+            // Finished here but never delivered: the one send failed, and nothing else retries it.
+            // Left alone the session never completes and both partners are stuck on this grid.
+            if play?.isComplete == true, !hasSubmitted {
+                submitResult()
+            }
         } catch {
             phase = .failed(error.localizedDescription)
         }

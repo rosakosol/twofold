@@ -104,6 +104,15 @@ final class WordGuessGameStore {
             partnerPlay = me.flatMap { Self.partnerPlay(in: detail, me: $0, answer: word) }
             playedAt = detail.session.createdAt
             phase = .ready
+
+            // Finished on this device but never heard of by the server: the one send in
+            // `submitGuess` failed (no signal, or the app was closed before it landed). Nothing
+            // else ever sends it, and until it does the session stays open, so the partner waits on
+            // a result that already exists and "Play today's word" resumes this board for both of
+            // them indefinitely. Opening the board is the moment to deliver it.
+            if play?.isComplete == true, !hasSubmitted {
+                submitResult()
+            }
         } catch {
             phase = .failed(error.localizedDescription)
         }

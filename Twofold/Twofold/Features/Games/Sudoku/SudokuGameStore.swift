@@ -127,6 +127,12 @@ final class SudokuGameStore {
             }
             recomputeConflicts()
             phase = .ready
+
+            // Solved here but never delivered: the one send failed, and nothing else retries it.
+            // Left alone the session never completes and both partners are stuck on this grid.
+            if play?.isComplete == true, !hasSubmitted {
+                submitSolve()
+            }
         } catch {
             phase = .failed(error.localizedDescription)
         }
