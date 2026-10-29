@@ -2,10 +2,15 @@
 //  JourneyLockScreenView.swift
 //  LiveActivities
 //
-//  Riffs on the onboarding mockup's visual language (LiveActivitySellView.swift, in the main
-//  app — a hand-drawn preview, not real ActivityKit) for a consistent look, now backed by real
-//  ContentState: airline logo + flight number + Twofold mark up top, a countdown, origin/
-//  destination either side of a progress rail.
+//  The Lock Screen Live Activity: the traveller's photo and a line about them ("Alex is on the
+//  way", "EK96 to Dubai"), a live countdown in the accent on the right, a progress bar with the
+//  plane riding it, and both airports with their times underneath.
+//
+//  Worded for whoever holds the phone. Each device starts its own Live Activity and knows whether
+//  its viewer is the one flying, so the traveller reads "You're on the way" and the person waiting
+//  reads the traveller's name.
+//
+//  `LiveActivitySellView` (onboarding) draws a copy of this card; change the two together.
 //
 
 import ActivityKit
@@ -15,105 +20,171 @@ import WidgetKit
 struct JourneyLockScreenView: View {
     let context: ActivityViewContext<JourneyActivityAttributes>
 
-    private var status: FlightStatus? { FlightStatus(rawValue: context.state.status) }
+    private var attributes: JourneyActivityAttributes { context.attributes }
+    private var state: JourneyActivityAttributes.ContentState { context.state }
+    private var status: FlightStatus? { FlightStatus(rawValue: state.status) }
     private var tint: Color { LiveActivityPalette.liveActivityAccent }
 
+    private var departure: Date? { state.actualDeparture ?? state.estimatedDeparture ?? state.scheduledDeparture }
+    private var arrival: Date? { state.actualArrival ?? state.estimatedArrival ?? state.scheduledArrival }
+
+    private enum Phase { case beforeTakeOff, inAir, landed, cancelled, diverted }
+
+    private var phase: Phase {
+        switch status {
+        case .cancelled: .cancelled
+        case .diverted: .diverted
+        case .landed, .arrived: .landed
+        // Boarding is still at the gate, so it counts down to take-off rather than to landing.
+        case .departed, .inAir, .landingSoon: .inAir
+        default: .beforeTakeOff
+        }
+    }
+
     var body: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 8) {
-                airlineLogo(size: 28)
+        VStack(spacing: 16) {
+            HStack(alignment: .center, spacing: 12) {
+                WidgetAvatarView(
+                    person: attributes.viewerIsTraveler ? .me : .partner,
+                    name: attributes.travelerName,
+                    size: 44
+                )
+
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(context.attributes.flightNumber)
-                        .font(.headline.weight(.bold))
+                    Text(headline)
+                        .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(.white)
-                    if let airlineName = context.attributes.airlineName {
-                        Text(airlineName)
-                            .font(.caption2)
-                            .foregroundStyle(.white.opacity(0.6))
-                            .lineLimit(1)
-                    }
+                    Text(subtitle)
+                        .font(.system(size: 15))
+                        .foregroundStyle(.white.opacity(0.7))
                 }
-                Spacer()
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+
+                Spacer(minLength: 8)
+
+                countdown
             }
 
-            VStack(alignment: .center, spacing: 2) {
-                journeyTimeRemainingText(context.state)
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundStyle(.white.opacity(context.isStale ? 0.5 : 1))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                    .frame(maxWidth: .infinity, alignment: .center)
+            progressBar
 
-                // Past the content's stale date, whatever this card last heard is no longer
-                // something it can stand behind — the flight has almost certainly landed and
-                // nothing has been able to say so (see LiveActivityManager.staleDate). Saying that
-                // plainly beats continuing to assert "departing shortly" hours after the fact,
-                // which is what this used to do.
-                if context.isStale {
-                    Text("Tap to refresh — this may be out of date")
-                        .font(.caption2)
-                        .foregroundStyle(.white.opacity(0.55))
-                        .multilineTextAlignment(.center)
-                } else if context.state.isReunion {
-                    // Addressed to whoever is holding the phone. Each device starts its own Live
-                    // Activity and knows its own viewer, so the traveller and the person waiting
-                    // see the same flight described from their own side of it. This line used to
-                    // be written only for the person waiting, which told a traveller watching
-                    // their own flight that they were on their way to themselves.
-                    Text(context.attributes.viewerIsTraveler
-                         ? "On the way to \(context.attributes.partnerName) ❤️"
-                         : "\(context.attributes.travelerName) is on the way to you ❤️")
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.6))
-                        .multilineTextAlignment(.center)
-                        .lineLimit(2)
-                        .frame(maxWidth: .infinity)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .center)
-
-            HStack(alignment: .center, spacing: 10) {
-                airportColumn(code: context.attributes.originCode, city: context.attributes.originCity, time: context.state.actualDeparture ?? context.state.estimatedDeparture ?? context.state.scheduledDeparture, alignment: .leading)
-
-                progressRail
-
-                airportColumn(code: context.attributes.destinationCode, city: context.attributes.destinationCity, time: context.state.actualArrival ?? context.state.estimatedArrival ?? context.state.scheduledArrival, alignment: .trailing)
+            HStack {
+                airport(code: attributes.originCode, time: departure)
+                Spacer(minLength: 8)
+                airport(code: attributes.destinationCode, time: arrival)
             }
         }
-        .padding(.horizontal, 18)
-        .padding(.top, 18)
-        .padding(.bottom, 18)
+        .padding(18)
     }
 
-    /// The real `GlobeHeart` brand mark. This used to render as a grey square: ActivityKit
-    /// requires Live Activity image assets to have a resolution no larger than the
-    /// presentation itself, and the asset was an 833×751px PNG in the 1x slot — the system
-    /// refused to draw it regardless of the layout frame. The imageset now ships properly
-    /// downscaled 1x/2x/3x renditions (32pt nominal), which renders fine.
-    /// Cached by the main app (`WidgetSnapshotWriter`) into the App Group container whenever
-    /// `activeOrUpcomingFlight` changes — this extension has no network access of its own, same
-    /// reasoning as `FlightTrackingWidget`'s identical helper. Renders nothing (not a fallback
-    /// glyph) when there's no cached logo yet, so a couple's very first tracked flight doesn't
-    /// show a placeholder that never gets replaced this session.
+    // MARK: - Wording
+
+    private var headline: String {
+        let name = attributes.travelerName
+        let mine = attributes.viewerIsTraveler
+        switch phase {
+        case .cancelled: return String(localized: "Flight cancelled")
+        case .diverted: return String(localized: "Flight diverted")
+        case .landed: return mine ? String(localized: "You've landed") : String(localized: "\(name) has landed")
+        case .inAir:
+            // On a reunion the person waiting is who the flight is coming to.
+            if state.isReunion {
+                return mine
+                    ? String(localized: "On the way to \(attributes.partnerName)")
+                    : String(localized: "\(name) is on the way to you")
+            }
+            return mine ? String(localized: "You're on the way") : String(localized: "\(name) is on the way")
+        case .beforeTakeOff:
+            return mine ? String(localized: "You fly soon") : String(localized: "\(name) flies soon")
+        }
+    }
+
+    /// "EK96 to Dubai". Past the content's stale date nothing has been heard for too long to stand
+    /// behind (see `LiveActivityManager.staleDate`), so it says that instead.
+    private var subtitle: String {
+        if context.isStale { return String(localized: "Tap to refresh — may be out of date") }
+        let destination = attributes.destinationCity ?? attributes.destinationCode
+        return String(localized: "\(attributes.flightNumber) to \(destination)")
+    }
+
+    // MARK: - Countdown
+
+    /// A date-anchored `Text`, so it ticks on the Lock Screen between pushes. Once its moment has
+    /// passed it says what is happening instead, because a relative date counts back up again.
     @ViewBuilder
-    private func airlineLogo(size: CGFloat) -> some View {
-        if let uiImage = WidgetImageDecoding.downsampled(WidgetImageCache.readAirlineLogoImage(), pointSize: 24) {
-            Image(uiImage: uiImage)
-                .resizable()
-                .scaledToFit()
-                .frame(width: size, height: size)
-                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+    private var countdown: some View {
+        VStack(alignment: .trailing, spacing: 0) {
+            switch phase {
+            case .cancelled, .diverted:
+                EmptyView()
+            case .landed:
+                bigValue(Text("Landed"))
+                if let arrival { caption(Text(arrival, style: .time)) }
+            case .inAir:
+                if let arrival, arrival > .now {
+                    bigValue(Text(arrival, style: .relative))
+                    caption(Text("to landing"))
+                } else {
+                    bigValue(Text("Landing"))
+                }
+            case .beforeTakeOff:
+                if let departure, departure > .now {
+                    bigValue(Text(departure, style: .relative))
+                    caption(Text("to take-off"))
+                } else {
+                    bigValue(Text(status == .boarding ? "Boarding" : "Soon"))
+                }
+            }
         }
+        .opacity(context.isStale ? 0.5 : 1)
     }
 
-    /// `time` is nil when the provider hasn't supplied any schedule data for this leg yet —
-    /// renders "—" rather than a fabricated live "now" (see `JourneyActivityAttributes
-    /// .ContentState`'s doc comment).
-    private func airportColumn(code: String, city: String?, time: Date?, alignment: HorizontalAlignment) -> some View {
-        VStack(alignment: alignment, spacing: 2) {
+    private func bigValue(_ text: Text) -> some View {
+        text
+            .font(.system(size: 28, weight: .bold))
+            .foregroundStyle(tint)
+            .multilineTextAlignment(.trailing)
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+    }
+
+    private func caption(_ text: Text) -> some View {
+        text
+            .font(.system(size: 15))
+            .foregroundStyle(.white.opacity(0.7))
+            .lineLimit(1)
+    }
+
+    // MARK: - Route
+
+    private var progressBar: some View {
+        GeometryReader { geo in
+            let progress = phase == .landed ? 1 : min(1, max(0, state.progress))
+            let x = geo.size.width * progress
+            ZStack(alignment: .leading) {
+                Capsule().fill(.white.opacity(0.22)).frame(height: 4)
+                Capsule().fill(tint).frame(width: max(4, x), height: 4)
+                // Navy on the light accent: white on #6AA5F5 is about 2.4:1, under the 3:1 an icon
+                // needs; navy is 7.6:1.
+                Image(systemName: "airplane")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(LiveActivityPalette.onAccent)
+                    .frame(width: 26, height: 26)
+                    .background(tint, in: Circle())
+                    .position(x: min(max(13, x), geo.size.width - 13), y: geo.size.height / 2)
+            }
+            .frame(height: geo.size.height)
+        }
+        .frame(height: 26)
+        .accessibilityHidden(true)
+    }
+
+    /// `time` is nil when the provider hasn't supplied any schedule for this leg yet: "—", never a
+    /// made-up "now".
+    private func airport(code: String, time: Date?) -> some View {
+        HStack(spacing: 5) {
             Text(code)
-                .font(.system(size: 22, weight: .bold))
-                .foregroundStyle(.white)
+                .font(.system(size: 17, weight: .semibold))
             Group {
                 if let time {
                     Text(time, style: .time)
@@ -121,41 +192,10 @@ struct JourneyLockScreenView: View {
                     Text("—")
                 }
             }
-            .font(.subheadline)
-            .foregroundStyle(.white.opacity(0.7))
+            .font(.system(size: 17))
+            .opacity(0.85)
         }
-        .frame(minWidth: 60, alignment: alignment == .leading ? .leading : .trailing)
-    }
-
-    private var progressRail: some View {
-        GeometryReader { geo in
-            let progressX = geo.size.width * context.state.progress
-            let midY = geo.size.height / 2
-
-            ZStack {
-                Path { path in
-                    path.move(to: CGPoint(x: 0, y: midY))
-                    path.addLine(to: CGPoint(x: progressX, y: midY))
-                }
-                .stroke(tint, lineWidth: 2)
-
-                Path { path in
-                    path.move(to: CGPoint(x: progressX, y: midY))
-                    path.addLine(to: CGPoint(x: geo.size.width, y: midY))
-                }
-                .stroke(.white.opacity(0.25), style: StrokeStyle(lineWidth: 2, dash: [3, 4]))
-
-                // Navy on the light accent: white on #6AA5F5 is about 2.4:1, under the 3:1 an icon
-                // needs; #0B0F16 is 7.6:1.
-                Image(systemName: "airplane")
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(Color(hex: 0x0B0F16))
-                    .padding(4)
-                    .background(tint, in: Circle())
-                    .position(x: progressX, y: midY)
-            }
-        }
-        .frame(height: 20)
-        .frame(maxWidth: .infinity)
+        .foregroundStyle(.white)
+        .lineLimit(1)
     }
 }

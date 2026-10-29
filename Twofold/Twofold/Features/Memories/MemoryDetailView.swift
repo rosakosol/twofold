@@ -286,6 +286,11 @@ struct MemoryDetailView: View {
         .background(.white, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
         .shadow(color: Theme.Shadow.color, radius: Theme.Shadow.radius, y: Theme.Shadow.y)
         .rotationEffect(.degrees(-2))
+        // No wider than a photograph would be. The 320pt height is fixed, so on a wide screen (an
+        // unfolded iPhone Duo) a full-width polaroid became a long strip that cropped every photo
+        // to a sliver. Narrower than this, as on every other iPhone, nothing changes.
+        .frame(maxWidth: 440)
+        .frame(maxWidth: .infinity)
         // While an upload is going. This used to live inside the edit button, which no longer
         // exists, and the picker dismisses before the photo appears — so with nothing here at all,
         // a slow upload looks like a tap that did nothing.

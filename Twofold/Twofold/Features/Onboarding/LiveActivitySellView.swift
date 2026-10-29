@@ -28,7 +28,6 @@ struct LiveActivitySellView: View {
     // regardless of where either partner actually lives.
     private let originCode = "LHR"
     private let destinationCode = "PER"
-    private let airportCodeFontSize: CGFloat = 22
 
     /// Real (not device-timezone-relative) London/Perth local departure/arrival wall-clock
     /// times for this route — not run through `Text(date, style: .time)` like the real widget
@@ -80,54 +79,51 @@ struct LiveActivitySellView: View {
         }
     }
 
-    /// Line-for-line copy of `JourneyLockScreenView`'s real body — same spacing (12/18/8/2/10),
-    /// same font sizes/weights, no app logo (the real one has none, since iOS names the app), same
-    /// static (non-pulsing) progress-rail badge, so what someone sees here really is what they'll
-    /// see on their Lock Screen once they track a real flight. The "Updated Xm ago" text the real
-    /// widget shows is left out here — during onboarding there's no real update to report yet,
-    /// and a fixed "just now" read as decorative rather than informative. The system itself
-    /// supplies the blurred dark backdrop and rounded-corner clip for a real Live Activity —
-    /// `.regularMaterial` forced to dark here approximates that, since a plain onboarding screen
-    /// has no ActivityKit presentation context to inherit it from.
+    /// A copy of `JourneyLockScreenView`'s real layout, with the same sizes and weights: the
+    /// partner's photo and "<name> is on the way", the countdown in the accent on the right, the
+    /// progress bar, and both airports. The system supplies a real Live Activity's dark blurred
+    /// backdrop and rounded clip; `.regularMaterial` forced dark stands in for it here, since an
+    /// onboarding screen has no ActivityKit presentation to inherit one from.
     private var lockScreenMock: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 8) {
-                // The real Qantas tailfin logo (QF9 is a real Qantas-operated route) — same
-                // `AirlineLogoView` the live app uses everywhere else, rather than a generic
-                // airplane glyph standing in for "some airline."
-                AirlineLogoView(url: AirlineLogo.url(forIATACode: "QF"), size: 28)
+        VStack(spacing: 16) {
+            HStack(alignment: .center, spacing: 12) {
+                partnerAvatar
+
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("QF10")
-                        .font(.headline.weight(.bold))
+                    Text("\(partnerName) is on the way")
+                        .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(.white)
-                    Text("Qantas")
-                        .font(.caption2)
-                        .foregroundStyle(.white.opacity(0.6))
+                    Text("QF10 to Perth")
+                        .font(.system(size: 15))
+                        .foregroundStyle(.white.opacity(0.7))
                 }
-                Spacer()
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+
+                Spacer(minLength: 8)
+
+                // Consistent with the progress bar below: 45% of the 16h 50m flight left.
+                VStack(alignment: .trailing, spacing: 0) {
+                    Text("7h 35m")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundStyle(accent)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                    Text("to landing")
+                        .font(.system(size: 15))
+                        .foregroundStyle(.white.opacity(0.7))
+                }
             }
 
-            VStack(alignment: .center, spacing: 2) {
-                // Consistent with the progress rail below (0.55 elapsed of the 16h 50m total —
-                // see its doc comment): 45% of 16h 50m remaining ≈ 7h 35m.
-                Text("7h 35m left")
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                    .frame(maxWidth: .infinity, alignment: .center)
-            }
-            .frame(maxWidth: .infinity, alignment: .center)
+            progressBar
 
-            HStack(alignment: .center, spacing: 10) {
-                airportColumn(code: originCode, time: illustrativeDepartureLabel, alignment: .leading)
-                progressRail
-                airportColumn(code: destinationCode, time: illustrativeArrivalLabel, alignment: .trailing)
+            HStack {
+                airport(code: originCode, time: illustrativeDepartureLabel)
+                Spacer(minLength: 8)
+                airport(code: destinationCode, time: illustrativeArrivalLabel)
             }
         }
-        .padding(.horizontal, 18)
-        .padding(.top, 18)
-        .padding(.bottom, 18)
+        .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
@@ -137,55 +133,59 @@ struct LiveActivitySellView: View {
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 
-    private func airportColumn(code: String, time: String, alignment: HorizontalAlignment) -> some View {
-        VStack(alignment: alignment, spacing: 2) {
-            Text(code)
-                .font(.system(size: airportCodeFontSize, weight: .bold))
-                .foregroundStyle(.white)
-                .lineLimit(1)
-            Text(time)
-                .font(.subheadline)
-                .foregroundStyle(.white.opacity(0.7))
-        }
-        .frame(minWidth: 60, alignment: alignment == .leading ? .leading : .trailing)
-    }
+    /// The Live Activity's one accent, the same value `LiveActivityPalette.liveActivityAccent` uses.
+    private var accent: Color { Color(hex: 0x6AA5F5) }
 
-    /// Identical to the real Live Activity's progress rail — solid tint up to progress, dashed
-    /// remainder, a plain icon-in-circle riding the progress point. No pulse/scale animation:
-    /// WidgetKit's Live Activity views are effectively static (system-driven state updates only),
-    /// so a continuously-animating badge here would show something the real one never does.
-    ///
-    /// 0.55 — comfortably past the midpoint of the 16h 50m illustrative flight, matching the
-    /// "7h 35m left" headline above — rather than derived from any real elapsed time, since the
-    /// departure/arrival labels are now fixed display strings, not real `Date`s to measure from.
-    private var progressRail: some View {
-        GeometryReader { geo in
-            let progressX = geo.size.width * 0.55
-            let midY = geo.size.height / 2
-
-            ZStack {
-                Path { path in
-                    path.move(to: CGPoint(x: 0, y: midY))
-                    path.addLine(to: CGPoint(x: progressX, y: midY))
+    /// The photo they added for their partner a few screens back, or their initial.
+    @ViewBuilder
+    private var partnerAvatar: some View {
+        Group {
+            if let data = onboarding.partnerPhotoData, let image = UIImage(data: data) {
+                Image(uiImage: image).resizable().scaledToFill()
+            } else {
+                ZStack {
+                    Circle().fill(Theme.coralFill)
+                    Text(String(partnerName.prefix(1)).uppercased())
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(.white)
                 }
-                .stroke(Color(hex: 0x6AA5F5), lineWidth: 2)
-
-                Path { path in
-                    path.move(to: CGPoint(x: progressX, y: midY))
-                    path.addLine(to: CGPoint(x: geo.size.width, y: midY))
-                }
-                .stroke(.white.opacity(0.25), style: StrokeStyle(lineWidth: 2, dash: [3, 4]))
-
-                Image(systemName: "airplane")
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(Color(hex: 0x0B0F16))
-                    .padding(4)
-                    .background(Color(hex: 0x6AA5F5), in: Circle())
-                    .position(x: progressX, y: midY)
             }
         }
-        .frame(height: 20)
-        .frame(maxWidth: .infinity)
+        .frame(width: 44, height: 44)
+        .clipShape(Circle())
+        .overlay(Circle().strokeBorder(.white, lineWidth: 2))
+    }
+
+    private func airport(code: String, time: String) -> some View {
+        HStack(spacing: 5) {
+            Text(code)
+                .font(.system(size: 17, weight: .semibold))
+            Text(time)
+                .font(.system(size: 17))
+                .opacity(0.85)
+        }
+        .foregroundStyle(.white)
+        .lineLimit(1)
+    }
+
+    /// The real card's bar, at 0.55 of the way: static, because a Live Activity only changes when
+    /// its state does.
+    private var progressBar: some View {
+        GeometryReader { geo in
+            let x = geo.size.width * 0.55
+            ZStack(alignment: .leading) {
+                Capsule().fill(.white.opacity(0.22)).frame(height: 4)
+                Capsule().fill(accent).frame(width: x, height: 4)
+                Image(systemName: "airplane")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(Color(hex: 0x0B0F16))
+                    .frame(width: 26, height: 26)
+                    .background(accent, in: Circle())
+                    .position(x: x, y: geo.size.height / 2)
+            }
+            .frame(height: geo.size.height)
+        }
+        .frame(height: 26)
     }
 }
 
