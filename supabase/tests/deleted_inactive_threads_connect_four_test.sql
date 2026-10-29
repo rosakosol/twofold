@@ -67,11 +67,11 @@ select is((select count(*)::int from public.feedback_admins where profile_id = '
 
 -- An existing thread, from real mail sent by here@ under a subject.
 create temporary table t (label text, id uuid) on commit drop;
-grant all on t to anon, authenticated;
+grant all on t to anon, authenticated, service_role;
 insert into t select 'mail', public.ingest_support_email('decisions-1@mail', 'here@decisions.test', 'Here', 'Billing question', 'first', now(), null);
 insert into t select 'mail again', public.ingest_support_email('decisions-2@mail', 'here@decisions.test', 'Here', 'Re: Billing question', 'second', now(), null);
 
-set local role anon;
+set local role service_role;
 select set_config('request.jwt.claim.sub', '', true);
 insert into t select 'web', public.submit_support_request(
   p_category => 'Other', p_message => 'stranger', p_subject => 'Billing question',

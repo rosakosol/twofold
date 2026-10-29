@@ -34,8 +34,9 @@ select is(
   '2455', 'with the folder id it will be asked about'
 );
 
--- A form submission has nothing to ask Zoho about, so it is never queued.
-set local role anon;
+-- A form submission has nothing to ask Zoho about, so it is never queued. (The website's route files
+-- it as the service role.)
+set local role service_role;
 select set_config('request.jwt.claim.sub','',true);
 select public.submit_support_request('Bug Report','From the website form',null,'w@inb.test','W','web');
 reset role;

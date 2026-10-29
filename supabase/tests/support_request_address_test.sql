@@ -1,7 +1,7 @@
 -- An anonymous support request's address is one plain address, or the request is refused.
 --
--- The website route validates the format, but `submit_support_request` is callable directly with
--- the publishable key, and the address it stores is the `to` of every reply. denomailer writes the
+-- The website route validates the format, but the function must not rely on that: the address it
+-- stores is the `to` of every reply. denomailer writes the
 -- display-name half of `Name <addr>` into the message unescaped, so a stored address with line
 -- breaks in it is header, body, and SMTP-command injection the moment an admin answers.
 
@@ -13,8 +13,10 @@ values ('c0a5c0a5-add2-4000-8000-000000000001', '00000000-0000-0000-0000-0000000
 insert into public.profiles (id, first_name) values ('c0a5c0a5-add2-4000-8000-000000000001', 'Kit')
 on conflict (id) do update set first_name = excluded.first_name;
 
-set local role anon;
-select set_config('request.jwt.claims', '{"role":"anon"}', true);
+-- As the website's route calls it: the service role, with no user (20261115000000 took the anon
+-- grant away).
+set local role service_role;
+select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
 select throws_ok(
   $$ select public.submit_support_request('Other', 'hi', null,

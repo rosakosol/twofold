@@ -60,8 +60,8 @@ select is((select reported_profile_id from public.support_requests where id = (s
   null, 'nor can a report about yourself');
 select isnt((select id from filed where label = 'old shape'), null, 'existing callers are unaffected');
 
--- Anonymous: the website form. It cannot name an account.
-set local role anon;
+-- Anonymous: the website form, which calls it as the service role. It cannot name an account.
+set local role service_role;
 select set_config('request.jwt.claim.sub', '', true);
 select lives_ok($$ select public.submit_support_request(
   p_category => 'Report Abuse', p_message => 'Anon report', p_email => 'x@y.test', p_source => 'web',

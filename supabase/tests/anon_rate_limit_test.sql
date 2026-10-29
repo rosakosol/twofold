@@ -7,11 +7,23 @@
 -- This function was written after that and has to not repeat it.
 
 begin;
-select plan(11);
+select plan(13);
 
 create extension if not exists pgtap;
 
-set local role anon;
+-- ---------------------------------------------------------------------------
+-- Who may call it
+-- ---------------------------------------------------------------------------
+
+-- The site's route handlers, as the service role, and nobody else. Callable with the public key,
+-- anybody could fill somebody else's buckets — the limit is whatever the caller passes — and lock
+-- that person out of the support form (20261115000000).
+select ok(not has_function_privilege('anon', 'public.consume_anon_rate_limit(text, text, integer, interval)', 'EXECUTE'),
+  'the public key cannot call the limiter');
+select ok(not has_function_privilege('authenticated', 'public.consume_anon_rate_limit(text, text, integer, interval)', 'EXECUTE'),
+  'nor can a signed-in user');
+
+set local role service_role;
 
 -- ---------------------------------------------------------------------------
 -- Counting
@@ -31,7 +43,7 @@ select is(
   3,
   'the refused attempt was not recorded'
 );
-set local role anon;
+set local role service_role;
 
 -- ---------------------------------------------------------------------------
 -- Isolation
@@ -66,12 +78,12 @@ select isnt(
 -- The bypass this function was written after
 -- ---------------------------------------------------------------------------
 
-set local role anon;
+set local role service_role;
 -- Back-dated so the rows are genuinely older than `now()`; inside one transaction `now()` does
 -- not advance, so a purge keyed on a tiny window has nothing to match without this.
 reset role;
 update public.anon_rate_limit_events set occurred_at = now() - interval '5 minutes' where bucket = 'probe';
-set local role anon;
+set local role service_role;
 
 -- The attack: a legal, positive, tiny window. It is allowed, because nothing was written in the
 -- last microsecond — that part is correct and expected.

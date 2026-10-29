@@ -158,15 +158,19 @@ select is(
   'no admin or usage function is callable without a session'
 );
 
--- The two deliberate exceptions, asserted so a future sweep of "close everything to anon" cannot
--- take them out by tidiness. Both serve callers who have no account by design.
+-- These two were once deliberate exceptions, granted to anon for the website's contact form. They
+-- no longer are (20261115000000): the site's route handler calls them as the service role, because
+-- with the public key anybody could flood the support queue or fill somebody else's rate-limit
+-- buckets without going near the site. Signed-in users keep the support function for the app.
 select ok(
-  has_function_privilege('anon', 'public.submit_support_request(text, text, text, text, text, text, uuid, text)', 'EXECUTE'),
-  'the website contact form can still file a support request without a session'
+  not has_function_privilege('anon', 'public.submit_support_request(text, text, text, text, text, text, uuid, text)', 'EXECUTE')
+  and has_function_privilege('authenticated', 'public.submit_support_request(text, text, text, text, text, text, uuid, text)', 'EXECUTE'),
+  'support requests are filed by signed-in users or the website''s server, never the public key'
 );
 select ok(
-  has_function_privilege('anon', 'public.consume_anon_rate_limit(text, text, integer, interval)', 'EXECUTE'),
-  'and the limiter in front of it can still be consumed by the visitor it is limiting'
+  not has_function_privilege('anon', 'public.consume_anon_rate_limit(text, text, integer, interval)', 'EXECUTE')
+  and has_function_privilege('service_role', 'public.consume_anon_rate_limit(text, text, integer, interval)', 'EXECUTE'),
+  'and the limiter in front of it is consumed only by the website''s server'
 );
 
 select * from finish();

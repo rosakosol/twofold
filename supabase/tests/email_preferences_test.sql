@@ -5,7 +5,7 @@
 -- feedback confirmation goes once, to the author, and not to someone who turned it off.
 
 begin;
-select plan(19);
+select plan(20);
 
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
 select id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', email, 'x', now(), now(), now()
@@ -19,14 +19,24 @@ insert into public.profiles (id, first_name) values
 on conflict (id) do update set first_name = excluded.first_name;
 
 -- ---------------------------------------------------------------------------
--- Joining the waitlist, as a visitor
+-- Joining the waitlist, through the site
 -- ---------------------------------------------------------------------------
 
+-- Not with the public key: the function returns the address's token, so a direct call would hand
+-- anybody's unsubscribe credential to anyone (20261115000000). The site's route calls it as the
+-- service role.
 set local role anon;
+select throws_ok($$ select * from public.join_android_waitlist('victim@example.com') $$, '42501', null,
+  'the public key cannot call it directly');
+reset role;
+
+set local role service_role;
 
 select is((select status from public.join_android_waitlist(' Jo@Example.com ')), 'joined', 'a new address joins');
 select is((select status from public.join_android_waitlist('jo@example.com')), 'exists', 'the same address, any case, already exists');
 select throws_ok($$ select * from public.join_android_waitlist('not an email') $$, '22023', null, 'a non-address is refused');
+reset role;
+set local role anon;
 select throws_ok($$ select * from public.email_preferences $$, '42501', null, 'the table itself is not readable');
 
 reset role;

@@ -1,6 +1,7 @@
--- `submit_support_request` is callable by `anon`, because the website's form serves visitors who
--- cannot sign in — often precisely because signing in is what they are writing about. That makes it
--- the only anon-reachable write in the console's whole surface, so its two properties are the ones
+-- `submit_support_request` serves visitors who cannot sign in — often precisely because signing in
+-- is what they are writing about — through the website's route, which calls it as the service role
+-- with no user (it was callable with the public key until 20261115000000). That makes it the only
+-- write in the console's surface with no account behind it, so its two properties are the ones
 -- worth pinning:
 --
 --   * Attribution is resolved inside the function, never taken from the call. A profile_id
@@ -15,7 +16,7 @@
 -- for themselves and their partner and what they deliberately wrote TO us in order to be helped.
 
 begin;
-select plan(14);
+select plan(15);
 
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
 select id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', email, 'x', now(), now(), now()
@@ -76,12 +77,24 @@ select is(
 -- does not care what role is set, so `set role anon` on its own leaves the previous sender signed
 -- in — and this section would then assert the anonymous path while exercising the authenticated
 -- one, passing for the wrong reason.
+--
+-- A visitor's request reaches the database through the website's route, as the service role: the
+-- public key may no longer call this directly (20261115000000), or a script could flood the queue
+-- without going near the site.
 set local role anon;
+select set_config('request.jwt.claim.sub', '', true);
+select throws_ok(
+  $$ select public.submit_support_request('Other', 'spam', null, 'anyone@tickets.test', null, 'web') $$,
+  '42501', null, 'the public key cannot file a request directly'
+);
+reset role;
+
+set local role service_role;
 select set_config('request.jwt.claim.sub', '', true);
 
 select lives_ok(
   $$ select public.submit_support_request('Account & Subscription', 'I cannot sign in at all', null, 'locked-out@tickets.test', 'Jo', 'web') $$,
-  'and so can a visitor who cannot sign in, which is the whole reason anon may call this'
+  'and so can a visitor who cannot sign in, through the website'
 );
 
 reset role;
@@ -101,7 +114,7 @@ select is(
 -- Validation
 -- ---------------------------------------------------------------------------
 
-set local role anon;
+set local role service_role;
 select set_config('request.jwt.claim.sub', '', true);
 
 select throws_ok(
@@ -117,6 +130,10 @@ select throws_ok(
 -- ---------------------------------------------------------------------------
 -- Nobody reads it but support
 -- ---------------------------------------------------------------------------
+
+reset role;
+set local role anon;
+select set_config('request.jwt.claim.sub', '', true);
 
 select throws_ok(
   $$ select * from public.support_requests $$,
