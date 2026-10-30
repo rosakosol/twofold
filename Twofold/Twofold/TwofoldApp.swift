@@ -17,7 +17,9 @@ struct TwofoldApp: App {
     }
 
     var body: some Scene {
-        // One window only: Info.plist sets `UIApplicationSupportsMultipleScenes` to false.
+        // One window only: Info.plist sets `UIApplicationSupportsMultipleScenes` to false. That
+        // needs `INFOPLIST_KEY_UIApplicationSceneManifest_Generation = NO` on this target, or
+        // Xcode's generated manifest replaces the plist's and turns multiple scenes back on.
         //
         // iPhone Duo turns multiple scenes on by default, and this app is not built for two
         // windows. `RootView` keeps the app lock, the subscription store and the launch pipeline

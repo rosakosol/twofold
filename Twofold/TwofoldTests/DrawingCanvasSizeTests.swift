@@ -232,10 +232,16 @@ struct DrawingCanvasSizeTests {
     func aspectFitRect() {
         let bounds = CGSize(width: 300, height: 400)
         // Wider than the bounds: full width, letterboxed top and bottom.
-        #expect(
-            DrawingCanvasGeometry.aspectFitRect(for: CGSize(width: 900, height: 520), in: bounds)
-                == CGRect(x: 0, y: (400 - 300 * 520 / 900) / 2, width: 300, height: 300 * 520 / 900)
-        )
+        // `CGFloat` spelled out: with bare literals `CGRect`'s `Int` initialiser is chosen and the
+        // height truncates to 173. Compared within a rounding error, since 520 x (300 / 900) and
+        // 300 x 520 / 900 can differ in the last bit.
+        let wide = DrawingCanvasGeometry.aspectFitRect(for: CGSize(width: 900, height: 520), in: bounds)
+        let height: CGFloat = 300 * 520 / 900
+        let expected = CGRect(x: 0, y: (400 - height) / 2, width: 300, height: height)
+        #expect(abs(wide.minX - expected.minX) < 0.001)
+        #expect(abs(wide.minY - expected.minY) < 0.001)
+        #expect(abs(wide.width - expected.width) < 0.001)
+        #expect(abs(wide.height - expected.height) < 0.001)
         // Taller than the bounds (an old ~3:5 pad): full height, margins at the sides.
         #expect(
             DrawingCanvasGeometry.aspectFitRect(for: CGSize(width: 300, height: 500), in: bounds)
@@ -270,8 +276,12 @@ struct DrawingCanvasSizeTests {
 
         init(_ image: UIImage) throws {
             let cg = try #require(image.cgImage)
-            width = cg.width
-            height = cg.height
+            // Locals, not `self.width`/`self.height`: the closure below would capture `self`
+            // before `bytes` is set.
+            let width = cg.width
+            let height = cg.height
+            self.width = width
+            self.height = height
             var buffer = [UInt8](repeating: 0, count: width * height * 4)
             let drawn = buffer.withUnsafeMutableBytes { raw -> Bool in
                 guard let context = CGContext(
