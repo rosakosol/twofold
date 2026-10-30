@@ -70,6 +70,9 @@ final class SudokuGameStore {
     private var responderID: UUID?
     private var clock: Task<Void, Never>?
     private var hasSubmitted = false
+    /// The solve's one send while it is in flight, so "Play another" can wait for it — see
+    /// `startAnother(difficulty:using:)`.
+    private var submission: Task<Void, Never>?
     private var channel: RealtimeChannelV2?
 
     var difficulty: SudokuDifficulty? { generated?.difficulty }
@@ -136,6 +139,40 @@ final class SudokuGameStore {
         } catch {
             phase = .failed(error.localizedDescription)
         }
+    }
+
+    // MARK: - Ending and replacing the session
+
+    /// Ends this puzzle for both partners, and drops the device's copy of the grid with it.
+    func abandon(using actions: any SudokuSessionActions = LiveSudokuSessionActions()) async throws {
+        stopClock()
+        try await actions.abandon(sessionID: sessionID)
+        // The device's own copy goes too, or the grid would sit in the cache forever — harmless,
+        // but it is the abandoned puzzle's last trace and nothing will ever ask for it again.
+        if let me = responderID ?? BackendService.currentUserID {
+            SudokuProgressCache.remove(sessionID: sessionID, responderID: me)
+        }
+    }
+
+    /// The session behind "Play another", at `difficulty`.
+    ///
+    /// Never ends the puzzle just solved. It used to, for a solo player, on the belief that a solo
+    /// session never reaches `completed` and `start_sudoku_session` would hand the solved grid back.
+    /// The belief was wrong: `advance_game_session`'s solo branch completes the session on its one
+    /// response, and `abandon_game_session` has no status guard, so the abandon turned a finished
+    /// result into an abandonment — gone from Previous games and from the Completed history.
+    /// `start_sudoku_session` resumes only `active` and `waiting_for_partner`, so a completed
+    /// session is passed over without anything being ended.
+    ///
+    /// What does need waiting for is the solve itself. The solo button is on screen the moment the
+    /// grid is finished, while the one insert is still in flight; starting before it lands would
+    /// find this session still `active` and resume it, handing back the grid just solved.
+    func startAnother(
+        difficulty: SudokuDifficulty,
+        using actions: any SudokuSessionActions = LiveSudokuSessionActions()
+    ) async throws -> BackendService.SudokuSessionStart {
+        await submission?.value
+        return try await actions.start(difficulty: difficulty)
     }
 
     // MARK: - Playing
@@ -250,7 +287,7 @@ final class SudokuGameStore {
         hasSubmitted = true
         let encoded = play.encoded
         let id = sessionID
-        Task {
+        submission = Task {
             do {
                 try await BackendService.submitGameResponse(
                     sessionID: id, roundNumber: 1, answerValue: encoded, isCorrect: true
@@ -374,5 +411,23 @@ final class SudokuGameStore {
         clock?.cancel()
         clock = nil
         persistLocally()
+    }
+}
+
+/// The two session-level calls the puzzle screen makes, behind a protocol so a test can see which
+/// of them a flow actually reaches — "Play another" must never reach `abandon`, and nothing short
+/// of watching the calls can tell a flow that ends the session from one that does not.
+protocol SudokuSessionActions {
+    func start(difficulty: SudokuDifficulty) async throws -> BackendService.SudokuSessionStart
+    func abandon(sessionID: UUID) async throws
+}
+
+struct LiveSudokuSessionActions: SudokuSessionActions {
+    func start(difficulty: SudokuDifficulty) async throws -> BackendService.SudokuSessionStart {
+        try await BackendService.startSudokuSession(difficulty: difficulty)
+    }
+
+    func abandon(sessionID: UUID) async throws {
+        try await BackendService.abandonGameSession(id: sessionID)
     }
 }

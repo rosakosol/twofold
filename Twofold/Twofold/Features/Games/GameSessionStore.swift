@@ -158,6 +158,27 @@ final class GameSessionStore {
         return GameLogic.answeredRoundNumbers(responses: responses, responderID: myID).count >= session.totalRounds
     }
 
+    /// What the deck games' leading toolbar button does.
+    enum BackButtonAction: Equatable {
+        /// Still answering, or revisiting a round: the view's `handleBack()`, which steps back a
+        /// round or asks before leaving.
+        case inRound
+        /// Nothing left to protect: close the screen.
+        case leave
+    }
+
+    /// Never nil, and that is the point. The four deck games hide the system back button, and inside
+    /// `RootView`'s notification `fullScreenCover` — the root of a fresh `NavigationStack` — there
+    /// is no system button to fall back on anyway. This used to return no button at all for the
+    /// error and abandoned states, both reachable from a push (offline, or a session abandoned by
+    /// `leave_couple` after the reminder went out), and that screen then had no way out short of
+    /// force-quitting. Neither state has anything to step back through or confirm, so both leave.
+    func backButtonAction(myID: UUID) -> BackButtonAction {
+        guard errorMessage == nil, session?.status != .abandoned else { return .leave }
+        if !hasAnsweredAllRounds(myID: myID) || viewingRoundNumber != nil { return .inRound }
+        return .leave
+    }
+
     func myResponse(for round: GameSessionRound, myID: UUID) -> GameResponse? {
         responses.first { $0.roundNumber == round.roundNumber && $0.responderID == myID }
     }

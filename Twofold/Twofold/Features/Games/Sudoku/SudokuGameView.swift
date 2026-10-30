@@ -179,17 +179,9 @@ struct SudokuGameView: View {
     /// silently swapped itself for a different one under the same screen would be the same
     /// surprise this is here to fix.
     private func abandon() {
-        let id = store.sessionID
-        store.stopClock()
         Task {
             do {
-                try await BackendService.abandonGameSession(id: id)
-                // The device's own copy goes too, or the grid would sit in the cache forever —
-                // harmless, but it is the abandoned puzzle's last trace and nothing will ever ask
-                // for it again.
-                if let me = BackendService.currentUserID {
-                    SudokuProgressCache.remove(sessionID: id, responderID: me)
-                }
+                try await store.abandon()
                 dismiss()
             } catch {
                 abandonFailed = error.localizedDescription
@@ -251,18 +243,9 @@ struct SudokuGameView: View {
         Task {
             defer { isStartingRematch = false }
             do {
-                // A solo session never reaches `completed`: `advance_game_session` waits for a
-                // second responder who is never coming, so it sits in `waiting_for_partner` and
-                // `start_sudoku_session` would hand back this same solved grid. Ending it first is
-                // what makes the next one new. Paired, the session is already `completed` by the
-                // time this button exists — both times are on screen — so there is nothing to end.
-                if !appModel.hasCouple {
-                    try await BackendService.abandonGameSession(id: store.sessionID)
-                    if let me = BackendService.currentUserID {
-                        SudokuProgressCache.remove(sessionID: store.sessionID, responderID: me)
-                    }
-                }
-                let started = try await BackendService.startSudokuSession(difficulty: difficulty)
+                // Nothing is ended first, solo or paired: see `startAnother` for why the puzzle
+                // just solved has to survive this.
+                let started = try await store.startAnother(difficulty: difficulty)
                 store.stopClock()
                 store.stopRealtime()
                 resumed = started.resumed

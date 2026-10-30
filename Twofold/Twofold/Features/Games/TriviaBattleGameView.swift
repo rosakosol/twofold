@@ -141,13 +141,16 @@ struct TriviaBattleGameView: View {
                     // room.
                     .fixedSize(horizontal: false, vertical: true)
             }
-            if isActivelyPlaying {
-                ToolbarItem(placement: .topBarLeading) {
-                    GameBackButton(action: handleBack)
-                }
-            } else if isDoneWithMyRounds {
-                ToolbarItem(placement: .topBarLeading) {
-                    GameBackButton(action: { dismiss() })
+            // In every state, including the error and abandoned ones: the system button is hidden
+            // below, and inside the notification cover it never existed. See
+            // `GameSessionStore.backButtonAction(myID:)`. Decided at tap time, not when the toolbar
+            // was built, so a load landing in between cannot leave it acting on a stale state.
+            ToolbarItem(placement: .topBarLeading) {
+                GameBackButton {
+                    switch store.backButtonAction(myID: myID) {
+                    case .inRound: handleBack()
+                    case .leave: dismiss()
+                    }
                 }
             }
             // Not offered once results are showing — GameResultsView has its own toolbar
@@ -162,7 +165,7 @@ struct TriviaBattleGameView: View {
                 }
             }
         }
-        .navigationBarBackButtonHidden(isActivelyPlaying || isDoneWithMyRounds)
+        .navigationBarBackButtonHidden(true)
         .interactivePopGestureDisabled(isActivelyPlaying || isDoneWithMyRounds)
         .gameIssueReportSheet(isPresented: $showingReportSheet) {
             store.gameIssueContext(gameType: .triviaBattle, deckTitle: title, myID: myID)
