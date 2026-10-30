@@ -2,18 +2,23 @@
 //  DrawingCanvasSizeTests.swift
 //  TwofoldTests
 //
-//  The size the drawing pad renders at, which has to be the canvas's own.
+//  The size and shape the drawing pad is drawn and saved at.
 //
-//  `DrawingCanvasView` stretches `backgroundImage` to fill whatever size its `Canvas` is given,
-//  while strokes are drawn at the absolute coordinates they were recorded at. So the render size is
-//  not a detail: get it wrong by any amount and every new stroke lands displaced relative to the
-//  drawing underneath it. Reported as a new layer shifting left after saving.
+//  `DrawingCanvasView` used to stretch `backgroundImage` to fill whatever size its `Canvas` was
+//  given, while strokes were drawn at the absolute coordinates they were recorded at. So the render
+//  size was not a detail: get it wrong by any amount and every new stroke landed displaced relative
+//  to the drawing underneath it. Reported as a new layer shifting left after saving.
 //
 //  The editor used to measure itself with a `GeometryReader` in a `.background()` applied *after*
 //  `.padding(Theme.Spacing.md)`, which measures the padded container rather than the canvas. These
 //  measure both orderings against a real hosting controller, because the difference is a fact about
 //  SwiftUI's modifier order rather than about this app, and it is the kind of thing that reads as
 //  equivalent right up until someone looks at the pixels.
+//
+//  The second half is the shape (DUO-3, HOME-11): the canvas took the shape of whatever room it was
+//  given — a sheet, a full-screen cover, a folded or unfolded iPhone Duo — and the saved PNG with
+//  it, so a pad opened through a different route was stretched and the stretch saved. Those tests
+//  render the real saved image and read its pixels.
 //
 
 import Testing
@@ -126,5 +131,167 @@ struct DrawingCanvasSizeTests {
             wrapped.width == bare.width - Theme.Spacing.md * 2,
             "the canvas reported the padded container's width instead of its own"
         )
+    }
+
+    // MARK: - Shape
+
+    /// The rooms the editor actually gets: the Home sheet and the notification's full-screen cover
+    /// on the same phone (different heights), and an iPhone Duo folded and unfolded in landscape.
+    @Test(
+        "the canvas is the same shape in any room it is given",
+        arguments: [
+            CGSize(width: 358, height: 560),
+            CGSize(width: 358, height: 640),
+            CGSize(width: 434, height: 520),
+            CGSize(width: 900, height: 520),
+        ]
+    )
+    func canvasKeepsItsShape(room: CGSize) async {
+        var reported: CGSize = .zero
+        let window = await present(
+            DrawingCanvasView(
+                elements: .constant([]),
+                redoStack: .constant([]),
+                tool: .pen,
+                onSizeChange: { reported = $0 }
+            )
+            .frame(width: room.width, height: room.height)
+        )
+        defer { dismantle(window) }
+
+        #expect(reported != .zero, "the canvas never laid out")
+        #expect(
+            abs(reported.width / reported.height - DrawingCanvasGeometry.aspectRatio) < 0.01,
+            "a \(room) room gave a \(reported) canvas, so the pad's shape still comes from the device"
+        )
+        // Fitted, so it uses the room it has on its tighter axis rather than shrinking arbitrarily.
+        #expect(abs(reported.width - room.width) < 0.5 || abs(reported.height - room.height) < 0.5)
+    }
+
+    @Test("the saved image is one fixed size, whatever screen it was drawn on")
+    func savedImageIsFixedSize() throws {
+        let image = try #require(DrawingCanvasView.renderedImage(elements: [], backgroundImage: nil))
+        let cg = try #require(image.cgImage)
+        #expect(cg.width == 1200)
+        #expect(cg.height == 1600)
+    }
+
+    /// A pad saved before the shape was fixed: here a 1:2 image, narrower than 3:4. Drawn into the
+    /// full rect it would be stretched sideways to cover the canvas, and saved that way.
+    @Test("an older pad of another shape is fitted, not stretched")
+    func legacyBackgroundIsFitted() throws {
+        let legacy = solidImage(size: CGSize(width: 300, height: 600), color: .black)
+        let image = try #require(DrawingCanvasView.renderedImage(elements: [], backgroundImage: legacy))
+        let pixels = try Pixels(image)
+
+        // Fitted into 600 x 800 pt, a 1:2 image is 400 pt wide, centred: x 100...500 pt.
+        #expect(pixels.isDark(xFraction: 0.5, yFraction: 0.5), "the old drawing should still be there")
+        #expect(
+            !pixels.isDark(xFraction: 50.0 / 600, yFraction: 0.5),
+            "the margin beside a narrower old pad is ink, so it was stretched to fill the canvas"
+        )
+        #expect(!pixels.isDark(xFraction: 550.0 / 600, yFraction: 0.5))
+        // Fills the height, so no letterbox top and bottom.
+        #expect(pixels.isDark(xFraction: 0.5, yFraction: 10.0 / 800))
+    }
+
+    /// A stroke recorded on one size of screen lands in the same place, at the same relative
+    /// thickness, in the saved image — the property that broke when the canvas changed size
+    /// mid-drawing (a Duo folding) and at every save, which renders at a different size from the
+    /// screen.
+    @Test(
+        "a stroke drawn at any canvas size lands in the same place when saved",
+        arguments: [CGSize(width: 358, height: 477.33), CGSize(width: 390, height: 520)]
+    )
+    func strokeSurvivesTheResize(drawnOn canvas: CGSize) throws {
+        // What `DrawingCanvasView.handleDrag` records for a 5 pt pen line across the middle.
+        let from = CGPoint(x: canvas.width * 0.25, y: canvas.height * 0.5)
+        let to = CGPoint(x: canvas.width * 0.75, y: canvas.height * 0.5)
+        let element = DrawingElement(
+            tool: .line,
+            points: [DrawingElement.normalized(from, in: canvas), DrawingElement.normalized(to, in: canvas)],
+            color: .black,
+            lineWidth: 5 / canvas.width
+        )
+        let image = try #require(DrawingCanvasView.renderedImage(elements: [element], backgroundImage: nil))
+        let pixels = try Pixels(image)
+
+        #expect(pixels.isDark(xFraction: 0.5, yFraction: 0.5), "the line isn't across the middle of the saved pad")
+        #expect(pixels.isDark(xFraction: 0.3, yFraction: 0.5))
+        #expect(!pixels.isDark(xFraction: 0.2, yFraction: 0.5), "the line runs past where it was drawn")
+        #expect(!pixels.isDark(xFraction: 0.8, yFraction: 0.5))
+        // On screen the line was 5 / width of the pad wide; scaled to the 600 pt export that is
+        // over 7.5 pt, so 3.5 pt off its centre is still ink. A width left at 5 pt is not.
+        let offset = 3.5 / DrawingCanvasGeometry.exportPointSize.height
+        #expect(pixels.isDark(xFraction: 0.5, yFraction: 0.5 - offset), "the stroke didn't scale with the pad")
+        #expect(pixels.isDark(xFraction: 0.5, yFraction: 0.5 + offset))
+        #expect(!pixels.isDark(xFraction: 0.5, yFraction: 0.5 - 4 * offset))
+    }
+
+    @Test("aspect-fit centres an image on its tighter axis")
+    func aspectFitRect() {
+        let bounds = CGSize(width: 300, height: 400)
+        // Wider than the bounds: full width, letterboxed top and bottom.
+        #expect(
+            DrawingCanvasGeometry.aspectFitRect(for: CGSize(width: 900, height: 520), in: bounds)
+                == CGRect(x: 0, y: (400 - 300 * 520 / 900) / 2, width: 300, height: 300 * 520 / 900)
+        )
+        // Taller than the bounds (an old ~3:5 pad): full height, margins at the sides.
+        #expect(
+            DrawingCanvasGeometry.aspectFitRect(for: CGSize(width: 300, height: 500), in: bounds)
+                == CGRect(x: 30, y: 0, width: 240, height: 400)
+        )
+        // Already the shape: the whole rect.
+        #expect(
+            DrawingCanvasGeometry.aspectFitRect(for: CGSize(width: 1200, height: 1600), in: bounds)
+                == CGRect(origin: .zero, size: bounds)
+        )
+        // A degenerate image can't divide by zero.
+        #expect(DrawingCanvasGeometry.aspectFitRect(for: .zero, in: bounds) == CGRect(origin: .zero, size: bounds))
+    }
+
+    // MARK: - Pixels
+
+    private func solidImage(size: CGSize, color: UIColor) -> UIImage {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        return UIGraphicsImageRenderer(size: size, format: format).image { context in
+            color.setFill()
+            context.fill(CGRect(origin: .zero, size: size))
+        }
+    }
+
+    /// An image redrawn into a known RGBA layout, so a pixel can be read without caring how the
+    /// renderer happened to encode it. Row 0 is the top of the image.
+    private struct Pixels {
+        let width: Int
+        let height: Int
+        let bytes: [UInt8]
+
+        init(_ image: UIImage) throws {
+            let cg = try #require(image.cgImage)
+            width = cg.width
+            height = cg.height
+            var buffer = [UInt8](repeating: 0, count: width * height * 4)
+            let drawn = buffer.withUnsafeMutableBytes { raw -> Bool in
+                guard let context = CGContext(
+                    data: raw.baseAddress, width: width, height: height, bitsPerComponent: 8,
+                    bytesPerRow: width * 4, space: CGColorSpaceCreateDeviceRGB(),
+                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+                ) else { return false }
+                context.draw(cg, in: CGRect(x: 0, y: 0, width: width, height: height))
+                return true
+            }
+            try #require(drawn)
+            bytes = buffer
+        }
+
+        func isDark(xFraction: CGFloat, yFraction: CGFloat) -> Bool {
+            let x = min(width - 1, Int(xFraction * CGFloat(width)))
+            let y = min(height - 1, Int(yFraction * CGFloat(height)))
+            let i = (y * width + x) * 4
+            let luminance = (Int(bytes[i]) + Int(bytes[i + 1]) + Int(bytes[i + 2])) / 3
+            return luminance < 128
+        }
     }
 }

@@ -21,11 +21,12 @@ struct DrawingPadPairView: View {
     let partnerName: String
     let partnerURL: URL?
 
-    /// Width-to-height of each pane. Deliberately *not* the canvas's own ~3:5: at half the screen
-    /// each, two panes of that shape are tall thin columns, which is the thing this shape exists to
-    /// avoid. 3:4 reads as a picture rather than a strip, and leaves the gradient visible above and
-    /// below the pair instead of running them the full height of the screen.
-    private let paneAspectRatio: CGFloat = 3.0 / 4.0
+    /// Width-to-height of each pane. 3:4 was chosen here first, against the canvas's old
+    /// device-shaped ~3:5: at half the screen each, two panes of that shape are tall thin columns.
+    /// 3:4 reads as a picture rather than a strip, and leaves the gradient visible above and below
+    /// the pair. The canvas is now fixed to this same shape (`DrawingCanvasGeometry`), so a pad
+    /// saved since fills its pane; older pads of other shapes are fitted inside it.
+    private let paneAspectRatio: CGFloat = DrawingCanvasGeometry.aspectRatio
 
     @Environment(\.dismiss) private var dismiss
     @Environment(AppModel.self) private var appModel
@@ -114,8 +115,8 @@ struct DrawingPadPairView: View {
                     .aspectRatio(paneAspectRatio, contentMode: .fit)
                     .overlay {
                         CachedRemoteImage(url: url) { image in
-                            // Fitted, not filled. Filling a 3:4 pane with a ~3:5 drawing cut its top
-                            // and bottom off, and people draw right to the edges. The pane is white
+                            // Fitted, not filled. Filling a 3:4 pane with an older ~3:5 drawing cut its
+                            // top and bottom off, and people draw right to the edges. The pane is white
                             // paper, so the margins fitting leaves at the sides are invisible, and the
                             // small inset keeps strokes in the corners clear of the rounded clip.
                             image.resizable().scaledToFit().padding(Theme.Spacing.xs)

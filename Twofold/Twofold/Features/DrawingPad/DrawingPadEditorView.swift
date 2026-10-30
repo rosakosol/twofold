@@ -28,10 +28,16 @@ struct DrawingPadEditorView: View {
     /// Referencing the palette entry rather than repeating the literal also keeps the menu's
     /// selected-checkmark (`penColor == swatch.color`) true on open.
     @State private var penColor: Color = DrawingPadEditorView.defaultPenColor
-    @State private var canvasSize: CGSize = CGSize(width: 600, height: 600)
     @State private var isSaving = false
     @State private var backgroundImage: UIImage?
     @State private var hasLoadedBackground = false
+    /// Until the saved pad has loaded, Save is off: saving earlier would upload the new strokes on
+    /// a blank background over the drawing that was still on its way.
+    @State private var isLoadingBackground = true
+    /// The saved pad couldn't be fetched, so whatever's on the canvas isn't the whole drawing.
+    @State private var backgroundLoadFailed = false
+    @State private var confirmingReplace = false
+    @State private var saveFailed = false
     /// The canvas as it stands, saved or not, while the share sheet is up.
     @State private var sharedCanvas: UIImage?
 
@@ -68,21 +74,25 @@ struct DrawingPadEditorView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // Size comes from the canvas itself, not from a GeometryReader out here. This
-                // used to read the size of the *padded* container — 2 x Spacing.md larger on each
-                // axis — and `save()` then rendered into that oversized frame, stretching the
-                // background image while the strokes stayed at their recorded coordinates.
+                if backgroundLoadFailed {
+                    loadFailedNotice
+                }
+
+                // The canvas keeps its own fixed shape (see `DrawingCanvasGeometry`), so it is
+                // usually narrower or shorter than the room here. The flexible frame centres it in
+                // that room and keeps the toolbar at the bottom, rather than letting the stack
+                // shrink to the canvas and float the toolbar up the screen.
                 DrawingCanvasView(
                     elements: $elements,
                     redoStack: $redoStack,
                     tool: tool,
                     color: penColor,
-                    backgroundImage: backgroundImage,
-                    onSizeChange: { canvasSize = $0 }
+                    backgroundImage: backgroundImage
                 )
                     .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                     .shadow(color: .black.opacity(0.1), radius: 8, y: 4)
                     .padding(Theme.Spacing.md)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 bottomToolbar
             }
@@ -109,21 +119,46 @@ struct DrawingPadEditorView: View {
                         redoStack.removeAll()
                         backgroundImage = nil
                     }
-                    .disabled(elements.isEmpty && backgroundImage == nil)
+                    // Off while loading too: a Clear before the saved pad arrives would be undone
+                    // by its arrival, or (undone itself) restore a snapshot that never had it.
+                    .disabled((elements.isEmpty && backgroundImage == nil) || isLoadingBackground)
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(action: save) {
+                    Button {
+                        if backgroundLoadFailed {
+                            confirmingReplace = true
+                        } else {
+                            save()
+                        }
+                    } label: {
                         if isSaving {
                             ProgressView()
                         } else {
                             Text("Save").fontWeight(.semibold)
                         }
                     }
-                    .disabled(isSaving)
+                    .disabled(isSaving || isLoadingBackground)
                 }
             }
             .task {
                 await loadExistingDrawing()
+            }
+            .confirmationDialog(
+                "Replace your saved drawing?",
+                isPresented: $confirmingReplace,
+                titleVisibility: .visible
+            ) {
+                Button("Replace drawing", role: .destructive, action: save)
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Your saved drawing couldn't be loaded, so saving now replaces it with only what's on this pad.")
+            }
+            // Stays open on failure, strokes and all. It used to dismiss whatever happened, which
+            // threw the drawing away without a word.
+            .alert("Couldn't save your drawing", isPresented: $saveFailed) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Your drawing is still here. Check your connection and try saving again.")
             }
         }
         .sheet(isPresented: Binding(get: { sharedCanvas != nil }, set: { if !$0 { sharedCanvas = nil } })) {
@@ -135,13 +170,41 @@ struct DrawingPadEditorView: View {
     }
 
     /// Loads whatever's already saved to the pad so re-opening it continues the drawing instead
-    /// of silently starting blank (and `save()` overwriting it with just the new strokes). The
-    /// URL is already cache-busted by `uploadDrawingPad`, so a fresh network fetch here is safe.
+    /// of silently starting blank (and `save()` overwriting it with just the new strokes). A
+    /// failure is reported rather than shown as an empty pad — see `DrawingPadLoader`.
     private func loadExistingDrawing() async {
-        guard !hasLoadedBackground, let url = appModel.myDrawingURL else { return }
+        guard !hasLoadedBackground else { return }
         hasLoadedBackground = true
-        guard let (data, _) = try? await URLSession.shared.data(from: url), let image = UIImage(data: data) else { return }
-        backgroundImage = image
+        isLoadingBackground = true
+        defer { isLoadingBackground = false }
+        switch await DrawingPadLoader.load(appModel.myDrawingURL) {
+        case .blank:
+            backgroundLoadFailed = false
+        case .loaded(let image):
+            backgroundImage = image
+            backgroundLoadFailed = false
+        case .failed:
+            backgroundLoadFailed = true
+        }
+    }
+
+    private var loadFailedNotice: some View {
+        HStack(spacing: Theme.Spacing.sm) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(Theme.accent)
+            Text("Couldn't load your saved drawing.")
+                .font(.footnote)
+                .foregroundStyle(Theme.textPrimary)
+            Spacer()
+            Button("Try again") {
+                hasLoadedBackground = false
+                Task { await loadExistingDrawing() }
+            }
+            .font(.footnote.weight(.semibold))
+            .disabled(isLoadingBackground)
+        }
+        .padding(.horizontal, Theme.Spacing.md)
+        .padding(.top, Theme.Spacing.sm)
     }
 
     private var bottomToolbar: some View {
@@ -240,23 +303,23 @@ struct DrawingPadEditorView: View {
 
     /// The canvas flattened to an image, the same way it is saved.
     private func renderCanvas() -> UIImage? {
-        let renderer = ImageRenderer(
-            content: DrawingCanvasView(elements: .constant(elements), redoStack: .constant([]), tool: .pen, backgroundImage: backgroundImage)
-                .frame(width: canvasSize.width, height: canvasSize.height)
-        )
-        renderer.scale = 2
-        return renderer.uiImage
+        DrawingCanvasView.renderedImage(elements: elements, backgroundImage: backgroundImage)
     }
 
     private func save() {
         isSaving = true
         let image = renderCanvas()
         Task {
+            var saved = false
             if let uiImage = image, let data = uiImage.pngData() {
-                await appModel.saveMyDrawing(imageData: data)
+                saved = await appModel.saveMyDrawing(imageData: data)
             }
             isSaving = false
-            dismiss()
+            if saved {
+                dismiss()
+            } else {
+                saveFailed = true
+            }
         }
     }
 }

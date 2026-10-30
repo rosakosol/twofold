@@ -1916,22 +1916,39 @@ final class AppModel {
 
     /// Only available once paired — there's no couple to namespace the storage path under
     /// beforehand, and no partner pad to make the feature meaningful yet.
-    func saveMyDrawing(imageData: Data) async {
-        guard let backendCoupleID else { return }
-        let uploadedURL = try? await BackendService.uploadDrawingPad(coupleID: backendCoupleID, personID: currentUser.id, imageData: imageData)
-        if let uploadedURL {
-            // We already hold the bytes that were just uploaded, so put them in the disk cache
-            // rather than making the next reader download what we just sent. This also keeps the
-            // offline copy correct: without it, a save followed by going offline would show the
-            // *previous* drawing back again, since that is what was still cached under this path.
-            RemoteImageDiskCache.store(imageData, for: uploadedURL)
+    ///
+    /// Returns whether the drawing reached the server, so the editor can stay open with the strokes
+    /// still on it when it didn't.
+    func saveMyDrawing(imageData: Data) async -> Bool {
+        // -demoMode: nothing is saved, and the editor closes as it always has rather than
+        // reporting a failure in the middle of a screenshot run.
+        if DemoMode.isOn { return true }
+        guard let backendCoupleID else { return false }
+        let personID = currentUser.id
+        return await commitMyDrawing(imageData: imageData) {
+            try await BackendService.uploadDrawingPad(coupleID: backendCoupleID, personID: personID, imageData: $0)
         }
+    }
+
+    /// `saveMyDrawing` after the couple check, with the upload passed in so a failed one can be
+    /// tested without a network.
+    ///
+    /// A failure leaves `myDrawingURL` alone. This used to assign the upload's `try?` result
+    /// unconditionally, so a failed save set it to `nil`: Home showed the pad as empty, and the
+    /// next editor session had no URL to load from, opened blank, and on save overwrote the real
+    /// drawing on the server with whatever was drawn in it.
+    func commitMyDrawing(imageData: Data, upload: (Data) async throws -> URL) async -> Bool {
+        guard let uploadedURL = try? await upload(imageData) else { return false }
+        // We already hold the bytes that were just uploaded, so put them in the disk cache
+        // rather than making the next reader download what we just sent. This also keeps the
+        // offline copy correct: without it, a save followed by going offline would show the
+        // *previous* drawing back again, since that is what was still cached under this path.
+        RemoteImageDiskCache.store(imageData, for: uploadedURL)
         myDrawingURL = uploadedURL
-        if uploadedURL != nil {
-            Analytics.capture(Analytics.Event.doodleSave)
-            Task { await BackendService.notifyPartner(event: .drawingSaved) }
-            Task { await WidgetSnapshotWriter.refresh(appModel: self) }
-        }
+        Analytics.capture(Analytics.Event.doodleSave)
+        Task { await BackendService.notifyPartner(event: .drawingSaved) }
+        Task { await WidgetSnapshotWriter.refresh(appModel: self) }
+        return true
     }
 
     /// Serializing entry point — see `inFlightAdopt`'s doc comment for why this can't just be
