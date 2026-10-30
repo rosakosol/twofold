@@ -22,7 +22,9 @@ struct PaywallView: View {
     /// success screen; the settings entry point leaves it as a no-op and just dismisses.
     /// `RootView`'s forced (lapsed-subscription) case also leaves it a no-op — that screen
     /// routes reactively off `AppModel.isSubscriptionActive` instead (see `markSubscriptionActive`).
-    var onSubscribed: () -> Void = {}
+    /// Also called by a successful restore, which is why it is told which of the two happened:
+    /// onboarding's success screen used to announce a fourteen-day trial for both.
+    var onSubscribed: (SubscriptionOutcome) -> Void = { _ in }
     /// Must be `false` for every call site that isn't a genuine `.sheet`/`.fullScreenCover` —
     /// `RootView`'s forced re-subscribe gate (also shows "Sign Out" instead of a close button
     /// there, the only way out of a lapsed/no subscription) and onboarding's pushed `.paywall`
@@ -67,7 +69,7 @@ struct PaywallView: View {
     /// rather than the default. Only the App Store screenshot hook passes it today; every real
     /// call site takes the default, so the yearly card stays pre-selected as it always was.
     init(
-        onSubscribed: @escaping () -> Void = {},
+        onSubscribed: @escaping (SubscriptionOutcome) -> Void = { _ in },
         isDismissable: Bool = true,
         initialTier: SubscriptionTier = .plus,
         initialPeriod: BillingPeriod = .yearly
@@ -88,6 +90,12 @@ struct PaywallView: View {
 
     private var selectedPricedPackage: PricedPackage? {
         store.package(for: selectedTier, period: selectedPeriod)
+    }
+
+    /// The free trial the selected plan would really start for this Apple Account, or `nil` —
+    /// no offer on the product, already used, or not known. Every line of trial copy keys off this.
+    private var selectedFreeTrial: FreeTrialOffer? {
+        selectedPricedPackage.flatMap(store.freeTrial(for:))
     }
 
     /// The tier actually active for this purchaser's *couple* right now — prefers the fresh
@@ -290,7 +298,7 @@ struct PaywallView: View {
     private var primaryButtonTitle: String {
         if isAlreadySubscribedToSelectedTier { return "Current plan" }
         if isSubscribedToADifferentTier { return "Manage subscription" }
-        return selectedPricedPackage == nil ? "Not available" : "Start my 14-day free trial"
+        return selectedPricedPackage == nil ? "Not available" : PaywallTrialCopy.primaryTitle(trial: selectedFreeTrial)
     }
 
     private var legalFooter: some View {
@@ -367,13 +375,19 @@ struct PaywallView: View {
         return "\(formatted) / person / month"
     }
 
-    /// "14 days free, then $X.XX/month" (or /year, matching whichever period is selected) — shown
-    /// as a small disclosure under the primary CTA, never hardcoded to "/month" regardless of the
-    /// actual selection, since that would misstate the real renewal price for a yearly pick.
+    /// "14 days free, then $X.XX a year" when the selected plan really has an eligible trial,
+    /// otherwise the price and renewal on their own — shown as a small disclosure under the
+    /// primary CTA, never hardcoded to "/month" regardless of the actual selection, since that
+    /// would misstate the real renewal price for a yearly pick. The trial length comes from the
+    /// product's own introductory offer, not from this file.
     private var trialCaption: String? {
         guard let priced = selectedPricedPackage else { return nil }
         let periodLabel = selectedPeriod == .monthly ? "month" : "year"
-        return "14 days free, then \(priced.package.storeProduct.localizedPriceString) a \(periodLabel)"
+        return PaywallTrialCopy.caption(
+            trial: selectedFreeTrial,
+            localizedPrice: priced.package.storeProduct.localizedPriceString,
+            periodLabel: periodLabel
+        )
     }
 
     /// "Save X%" badge for the yearly card, comparing its effective monthly cost against the
@@ -460,7 +474,14 @@ struct PaywallView: View {
         defer { isPurchasing = false }
         do {
             guard let customerInfo = try await store.purchase(pricedPackage) else { return }
-            await handleEntitlementChange(customerInfo, event: Analytics.Event.purchaseComplete)
+            // What the purchase actually started, read back from the entitlement rather than
+            // assumed from what the button said.
+            let entitlement = customerInfo.entitlements.active[pricedPackage.tier.entitlementIdentifier]
+            let outcome = SubscriptionOutcome.afterPurchase(
+                entitlementIsInTrial: entitlement?.periodType == .trial,
+                terms: IntroductoryOfferTerms(pricedPackage.package.storeProduct.introductoryDiscount)
+            )
+            await handleEntitlementChange(customerInfo, event: Analytics.Event.purchaseComplete, outcome: outcome)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -473,7 +494,7 @@ struct PaywallView: View {
             let customerInfo = try await store.restore()
             if let tier = SubscriptionTier.active(in: customerInfo) {
                 // Dismissal moves to the notice's OK button, so the confirmation is actually seen.
-                await handleEntitlementChange(customerInfo, event: Analytics.Event.restoreComplete, dismissOnCompletion: false)
+                await handleEntitlementChange(customerInfo, event: Analytics.Event.restoreComplete, outcome: .restored, dismissOnCompletion: false)
                 let entitlement = customerInfo.entitlements.active.values.first { !$0.willRenew }
                 if let expiry = entitlement?.expirationDate {
                     // The case that brought this to light: restoring a *cancelled* subscription
@@ -500,7 +521,12 @@ struct PaywallView: View {
     /// owns those columns now and refuses the client. `markSubscriptionActive` is what `RootView`'s
     /// gate actually reads anyway (see its doc comment), so a buyer is through the paywall the
     /// moment the purchase completes rather than waiting on a webhook round trip.
-    private func handleEntitlementChange(_ customerInfo: CustomerInfo, event: String, dismissOnCompletion: Bool = true) async {
+    private func handleEntitlementChange(
+        _ customerInfo: CustomerInfo,
+        event: String,
+        outcome: SubscriptionOutcome,
+        dismissOnCompletion: Bool = true
+    ) async {
         guard let tier = SubscriptionTier.active(in: customerInfo) else { return }
         appModel.markSubscriptionActive(tier: tier.dbValue)
         Analytics.capture(event, properties: ["tier": tier.dbValue])
@@ -518,7 +544,7 @@ struct PaywallView: View {
         // the webhook and the nightly reconcile both still apply.
         Task { await BackendService.syncSubscriptionFromStore() }
 
-        onSubscribed()
+        onSubscribed(outcome)
         // Only when reached as a dismissable sheet/push — RootView's forced gate has nothing to
         // dismiss to and already routes itself off `appModel.isSubscriptionActive` flipping.
         if isDismissable && dismissOnCompletion { dismiss() }

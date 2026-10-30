@@ -51,6 +51,17 @@ final class AppModel {
     /// instead of restarting, and it never opens the paywall: resuming lands on `.invitePartner`,
     /// which leads to the trial screen and the same non-dismissable wall.
     var hasSavedOnboardingProgress = false
+
+    /// Advances every time `resetAccountScopedState()` runs, which is every way an account ends on
+    /// this device: sign-out, deletion, and a deleted account found at sign-in.
+    ///
+    /// For state this class cannot reach. `OnboardingCoordinatorView` keeps its `OnboardingModel`
+    /// as `@State`, and stays mounted across a sign-out because `hasCouple` is false on both sides
+    /// of it. Nothing reset that model, so signing out from the onboarding paywall left a
+    /// signed-out user on the paywall (a purchase there lands on RevenueCat's anonymous id), and
+    /// "Go back" or "Start a new signup" kept the previous account's names, photos and invite code
+    /// for whoever started next. The coordinator watches this and builds a fresh model.
+    private(set) var accountGeneration = 0
     /// Set when "Sign in" produced a brand-new account instead of resuming an existing one, which
     /// is what Apple's Hide My Email does to anyone who already signed up with their real address:
     /// the relay `...@privaterelay.appleid.com` is a different email, so Supabase makes a different
@@ -1147,6 +1158,7 @@ final class AppModel {
     /// not been configured — which it has not been, in a unit test. This half is the half that was
     /// wrong, and it is pure.
     func resetAccountScopedState() {
+        accountGeneration += 1
         lastRegisteredPushTokenHex = nil
         hasCouple = false
         // Account-scoped like everything else here, and the one whose absence had teeth: it

@@ -44,12 +44,40 @@ final class AppLockService {
     /// only have Touch ID, Optic ID, or no biometrics enrolled at all).
     var methodName: String {
         let context = LAContext()
-        guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: nil) else { return "Passcode" }
-        switch context.biometryType {
+        let canEvaluate = context.canEvaluatePolicy(.deviceOwnerAuthentication, error: nil)
+        return Self.methodName(for: context.biometryType, canEvaluate: canEvaluate)
+    }
+
+    /// The SF Symbol for the same method, so the unlock button's glyph and its label always name
+    /// the same thing. The button used to pick "faceid" for anything that was not "Passcode",
+    /// which put a Face ID face beside the words "Touch ID" on every Touch ID phone (iPhone Duo
+    /// among them).
+    var methodSymbolName: String {
+        let context = LAContext()
+        let canEvaluate = context.canEvaluatePolicy(.deviceOwnerAuthentication, error: nil)
+        return Self.methodSymbolName(for: context.biometryType, canEvaluate: canEvaluate)
+    }
+
+    /// Split from the properties above so the mapping is testable — `LAContext` reports the
+    /// simulator's own hardware, whatever a test would like it to be. `biometryType` is only
+    /// meaningful once `canEvaluatePolicy` has been called, which is why both are taken together.
+    static func methodName(for biometryType: LABiometryType, canEvaluate: Bool) -> String {
+        guard canEvaluate else { return "Passcode" }
+        switch biometryType {
         case .faceID: return "Face ID"
         case .touchID: return "Touch ID"
         case .opticID: return "Optic ID"
         default: return "Passcode"
+        }
+    }
+
+    static func methodSymbolName(for biometryType: LABiometryType, canEvaluate: Bool) -> String {
+        guard canEvaluate else { return "lock.fill" }
+        switch biometryType {
+        case .faceID: return "faceid"
+        case .touchID: return "touchid"
+        case .opticID: return "opticid"
+        default: return "lock.fill"
         }
     }
 

@@ -17,6 +17,13 @@ struct TwofoldApp: App {
     }
 
     var body: some Scene {
+        // One window only: Info.plist sets `UIApplicationSupportsMultipleScenes` to false.
+        //
+        // iPhone Duo turns multiple scenes on by default, and this app is not built for two
+        // windows. `RootView` keeps the app lock, the subscription store and the launch pipeline
+        // as per-window `@State`, all running against this one `AppModel`. A second window would
+        // run session restore twice, lock independently of the first, and race it for a
+        // notification route. Split View beside another app is unaffected.
         WindowGroup {
             RootView()
                 .environment(appModel)

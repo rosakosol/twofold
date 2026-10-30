@@ -120,6 +120,19 @@ struct OnboardingCoordinatorView: View {
         .onChange(of: appModel.needsOnboarding) { syncFromAppModel() }
         .onChange(of: appModel.isSubscriptionActive) { syncFromAppModel() }
         .onChange(of: appModel.hasSavedOnboardingProgress) { syncFromAppModel() }
+        // A fresh model whenever an account ends, because this view outlives the sign-out and its
+        // `@State` would otherwise carry the old flow forward. Signing out from the onboarding
+        // paywall left a signed-out user standing on it, with `path` still ending in `.paywall`;
+        // "Go back" and "Start a new signup" kept the previous account's name, photos and invite
+        // code, so the next "Get started" opened on somebody else's answers.
+        //
+        // Replaced rather than cleared field by field: `resetAfterDeletedAccount()` is that list,
+        // and it has already fallen behind the properties it is meant to cover. An empty `path`
+        // pops the stack back to whichever root the signed-out state shows, which is Welcome.
+        .onChange(of: appModel.accountGeneration) {
+            onboarding = OnboardingModel()
+            syncFromAppModel()
+        }
         .onOpenURL { url in
             // Google's sign-in flow redirects back into the app via its own URL scheme.
             if GIDSignIn.sharedInstance.handle(url) { return }
@@ -310,7 +323,10 @@ struct OnboardingCoordinatorView: View {
             // would call `dismiss()` right after `onSubscribed()` appends `.purchaseSuccess`,
             // popping both it and this screen off `onboarding.path` in the same run-loop turn —
             // the white screen bug this comment is here to prevent regressing.
-            PaywallView(onSubscribed: { onboarding.path.append(.purchaseSuccess) }, isDismissable: false)
+            PaywallView(onSubscribed: { outcome in
+                onboarding.subscriptionOutcome = outcome
+                onboarding.path.append(.purchaseSuccess)
+            }, isDismissable: false)
         case .purchaseSuccess:
             PurchaseSuccessView()
         case .saveAccount:

@@ -54,6 +54,14 @@ struct TripsListView: View {
     @State private var showingBulkDeleteConfirm = false
     @State private var hapticTrigger = false
 
+    /// The side the system's bars sit on when they are a vertical column rather than a bar along
+    /// the bottom (iPhone Duo's outer display, and its inner one in landscape). `nil` means the
+    /// ordinary floating tab bar at the bottom, which is all iOS before 27.1 ever reports.
+    @State private var toolbarVerticalEdge: HorizontalEdge?
+    /// The bottom safe-area inset, read off the full-screen `GeometryReader` below. Only used when
+    /// the bars are vertical, where it is the home indicator's strip and nothing else.
+    @State private var bottomSafeAreaInset: CGFloat = 0
+
     /// The drag handle's own frame. `dragHandle` pins itself to exactly this, so the panel's own
     /// arithmetic can rely on it rather than measuring it too.
     private let dragHandleHeight: CGFloat = 44
@@ -104,7 +112,24 @@ struct TripsListView: View {
     /// this file's own header comment), so nothing here gets automatic bottom-safe-area clearance
     /// from it. The old flat `Theme.Spacing.lg` wasn't real tab-bar clearance, just ordinary
     /// breathing room, so the card's own bottom edge ended up sitting behind/under the tab bar.
-    private let peekBottomClearance: CGFloat = 100
+    private var peekBottomClearance: CGFloat {
+        tabBarIsAtBottom ? 100 : verticalBarsBottomClearance
+    }
+
+    /// Whether the 100pt (and 88pt) clearances below are clearing anything. They were calibrated
+    /// against a tab bar floating along the bottom. When the bars are a column on the side there
+    /// is no bar down there, and the same 100pt left a band of empty panel above the home
+    /// indicator on the display where height is shortest.
+    private var tabBarIsAtBottom: Bool { toolbarVerticalEdge == nil }
+
+    /// What the bottom needs when nothing but the home indicator is there: its own inset, less the
+    /// gap the panel already floats above the screen edge by, plus ordinary breathing room.
+    private var verticalBarsBottomClearance: CGFloat {
+        max(bottomSafeAreaInset - panelBottomGap, 0) + Theme.Spacing.md
+    }
+
+    /// How far the panel's bottom edge floats above the screen's.
+    private let panelBottomGap: CGFloat = 12
 
     /// What the empty-state hint gets instead of `peekBottomClearance`.
     ///
@@ -113,7 +138,9 @@ struct TripsListView: View {
     /// it, so the slack is a visible fraction of the whole thing rather than a margin inside it.
     /// Measured against the tab bar itself — its buttons start 79pt above the panel's bottom edge,
     /// so this clears them with a little to spare and nothing more.
-    private let emptyPeekBottomClearance: CGFloat = 88
+    private var emptyPeekBottomClearance: CGFloat {
+        tabBarIsAtBottom ? 88 : verticalBarsBottomClearance
+    }
     private let panelAnimation: Animation = .spring(response: 0.35, dampingFraction: 0.86)
 
     enum TripsTab: String, CaseIterable {
@@ -182,7 +209,16 @@ struct TripsListView: View {
                 // the screen.
                 let topBreathingRoom: CGFloat = 64
                 let expandedHeight = proxy.size.height - proxy.safeAreaInsets.top - topBreathingRoom
-                let panelWidth = max(0, proxy.size.width - horizontalInset * 2)
+                // The side insets as well as the panel's own margin. Zero on an ordinary portrait
+                // iPhone, so nothing changes there. On iPhone Duo the tab bar and status bar are a
+                // column down one side, and the panel used to run full width underneath it: the
+                // trailing chevrons, the segmented header and the row buttons sat under tab
+                // buttons, and taps went to whichever was on top. Ignoring the safe area is still
+                // what lets the panel reach behind a bottom tab bar; it just no longer forgets
+                // the sides while doing it.
+                let leadingInset = proxy.safeAreaInsets.leading + horizontalInset
+                let trailingInset = proxy.safeAreaInsets.trailing + horizontalInset
+                let panelWidth = max(0, proxy.size.width - leadingInset - trailingInset)
 
                 ZStack(alignment: .bottom) {
                     // `TripsGlobeView` shrinks its own rendered content below its layout frame
@@ -247,11 +283,19 @@ struct TripsListView: View {
                         }
                     )
                     .frame(width: panelWidth, alignment: .top)
-                    .padding(.bottom, 12)
+                    // Unequal when a vertical bar takes one side; the two add back up to the full
+                    // width, so the centred `ZStack` puts the panel exactly between them.
+                    .padding(.leading, leadingInset)
+                    .padding(.trailing, trailingInset)
+                    .padding(.bottom, panelBottomGap)
                 }
                 .ignoresSafeArea()
+                .onChange(of: proxy.safeAreaInsets.bottom, initial: true) { _, inset in
+                    bottomSafeAreaInset = inset
+                }
             }
             .ignoresSafeArea()
+            .modifier(ToolbarVerticalEdgeReader(edge: $toolbarVerticalEdge))
             // Pushed onto this same `NavigationStack` (not presented as a sheet) — tapping a trip
             // or flight card now moves to an in-line screen the same way the rest of the app's
             // "tap a row, see its detail" flows do, rather than opening a second modal on top of
@@ -635,8 +679,11 @@ struct TripsListView: View {
 
     /// Clears the floating tab bar's own height plus a little breathing room below the last row —
     /// there's no shared constant for the system tab bar's height to reference, so this is a
-    /// calibrated literal, same as `peekHeight`/`topBreathingRoom` above.
-    private let bottomListClearance: CGFloat = 100
+    /// calibrated literal, same as `peekHeight`/`topBreathingRoom` above. With the bars on the
+    /// side there is no tab bar below the list to clear; see `tabBarIsAtBottom`.
+    private var bottomListClearance: CGFloat {
+        tabBarIsAtBottom ? 100 : verticalBarsBottomClearance
+    }
 
     @ViewBuilder
     private var tripSections: some View {
@@ -892,4 +939,31 @@ struct TripsListView: View {
 #Preview {
     TripsListView()
         .environment(AppModel())
+}
+
+/// Copies `EnvironmentValues.toolbarVerticalEdge` into a binding, because that value exists only
+/// from iOS 27.1 and this app still runs on 26. Before 27.1 the bars are always along the bottom,
+/// so leaving the binding `nil` is the right answer there rather than a fallback.
+private struct ToolbarVerticalEdgeReader: ViewModifier {
+    @Binding var edge: HorizontalEdge?
+
+    func body(content: Content) -> some View {
+        if #available(iOS 27.1, *) {
+            content.modifier(Reader(edge: $edge))
+        } else {
+            content
+        }
+    }
+
+    @available(iOS 27.1, *)
+    private struct Reader: ViewModifier {
+        @Environment(\.toolbarVerticalEdge) private var toolbarVerticalEdge
+        @Binding var edge: HorizontalEdge?
+
+        func body(content: Content) -> some View {
+            content.onChange(of: toolbarVerticalEdge, initial: true) { _, newValue in
+                edge = newValue
+            }
+        }
+    }
 }

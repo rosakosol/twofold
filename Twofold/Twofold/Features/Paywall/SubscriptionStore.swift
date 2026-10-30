@@ -126,6 +126,17 @@ final class SubscriptionStore {
     private(set) var loadState: PaywallLoadState = .idle
     private(set) var pricedPackages: [PricedPackage] = []
 
+    /// The free trial each product would actually give this Apple Account, keyed by product
+    /// identifier. A product is absent when it has no free-trial offer or the account is not (or
+    /// not known to be) eligible — see FreeTrialOffer.swift for why "unknown" counts as no.
+    private(set) var freeTrials: [String: FreeTrialOffer] = [:]
+
+    @ObservationIgnored private let introEligibility: IntroOfferEligibilityChecking
+
+    init(introEligibility: IntroOfferEligibilityChecking = RevenueCatIntroOfferEligibilityChecker()) {
+        self.introEligibility = introEligibility
+    }
+
     /// Just the entitlement check — `RootView`'s gate only ever needs this, not a product
     /// catalog fetch.
     ///
@@ -166,6 +177,27 @@ final class SubscriptionStore {
         pricedPackages.first { $0.tier == tier && $0.period == period }
     }
 
+    func freeTrial(for pricedPackage: PricedPackage) -> FreeTrialOffer? {
+        freeTrials[pricedPackage.package.storeProduct.productIdentifier]
+    }
+
+    func freeTrial(for tier: SubscriptionTier, period: BillingPeriod) -> FreeTrialOffer? {
+        package(for: tier, period: period).flatMap(freeTrial(for:))
+    }
+
+    /// Asks which of these offers this Apple Account may take. Only products that have a free
+    /// trial are asked about, and a product with none is left out of `freeTrials` either way.
+    /// Separate from `loadOfferings` so a test can drive it with a fake checker and plain terms.
+    func resolveFreeTrials(_ terms: [String: IntroductoryOfferTerms]) async {
+        let trialTerms = terms.filter { $0.value.isFreeTrial }
+        guard !trialTerms.isEmpty else {
+            freeTrials = [:]
+            return
+        }
+        let eligibility = await introEligibility.eligibility(forProductIdentifiers: Array(trialTerms.keys))
+        freeTrials = FreeTrialOffer.resolve(terms: trialTerms, eligibility: eligibility)
+    }
+
     /// Fetches the RevenueCat dashboard's "current" Offering and resolves its packages into
     /// `pricedPackages` for `PaywallView` to render. Explicit `do/catch` here (unlike the silent
     /// `try?` used for `refreshEntitlementsOnly()`/login/logout elsewhere) since a failure here
@@ -185,6 +217,15 @@ final class SubscriptionStore {
                 return
             }
             pricedPackages = packages
+            // Before `.loaded`, not after, so the button never reads "Subscribe" and then rewrites
+            // itself into a trial offer a beat later (or the other way round).
+            await resolveFreeTrials(Dictionary(
+                packages.compactMap { priced in
+                    IntroductoryOfferTerms(priced.package.storeProduct.introductoryDiscount)
+                        .map { (priced.package.storeProduct.productIdentifier, $0) }
+                },
+                uniquingKeysWith: { first, _ in first }
+            ))
             loadState = .loaded
         } catch {
             loadState = .failed(error.localizedDescription)

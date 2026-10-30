@@ -47,7 +47,7 @@ struct AppLockView: View {
                     authenticate()
                 } label: {
                     HStack(spacing: Theme.Spacing.sm) {
-                        Image(systemName: appLock.methodName == "Passcode" ? "lock.fill" : "faceid")
+                        Image(systemName: appLock.methodSymbolName)
                         Text("Unlock with \(appLock.methodName)")
                     }
                 }

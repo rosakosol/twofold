@@ -2,7 +2,8 @@
 //  PurchaseSuccessView.swift
 //  Twofold
 //
-//  Only reached after a real StoreKit purchase completes (see PaywallView's onSubscribed).
+//  Reached after a real StoreKit purchase completes, or a restore finds one (see PaywallView's
+//  onSubscribed).
 //
 
 import SwiftUI
@@ -20,7 +21,10 @@ struct PurchaseSuccessView: View {
     var body: some View {
         OnboardingScaffold(
             title: "You're all set",
-            subtitle: "Your 14-day free trial has started.",
+            // From what the paywall reports, not a constant. This used to say "Your 14-day free
+            // trial has started." to everyone, including a restore and an account that was not
+            // eligible for a trial and had just been charged.
+            subtitle: (onboarding.subscriptionOutcome ?? .purchased(freeTrial: nil)).successSubtitle,
             content: {
                 VStack(spacing: Theme.Spacing.lg) {
                     Text("❤️")

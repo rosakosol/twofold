@@ -154,6 +154,10 @@ final class OnboardingModel {
     /// wrong in that case and are skipped.
     var connectedOnRedeem = false
 
+    /// What the paywall's `onSubscribed` reported, for `PurchaseSuccessView`'s subtitle: a trial
+    /// that really started, a paid purchase, or a restore. `nil` until then.
+    var subscriptionOutcome: SubscriptionOutcome?
+
     /// Set once the user has responded to the system notification prompt (either way) —
     /// lets the app avoid ever re-prompting.
     var notificationsGranted: Bool?
@@ -220,6 +224,7 @@ final class OnboardingModel {
         partnerPhotoData = nil
 
         notificationsGranted = nil
+        subscriptionOutcome = nil
 
         cachedIllustrativeOriginCity = nil
     }
