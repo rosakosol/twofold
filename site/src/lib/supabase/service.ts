@@ -17,7 +17,9 @@ export function createServiceClient() {
   if (typeof window !== "undefined") {
     throw new Error("createServiceClient is server-only");
   }
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  // Trimmed: a key pasted into the Vercel dashboard easily picks up a trailing newline, and
+  // Supabase answers that with "Invalid API key" rather than anything that points at the paste.
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   if (!key) throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set");
   return createClient<Database>(process.env.NEXT_PUBLIC_SUPABASE_URL!, key, {
     auth: { persistSession: false, autoRefreshToken: false },
