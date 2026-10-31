@@ -89,7 +89,7 @@ struct WordSearchGameView: View {
             // `start_word_search_session` resumes per couple and theme, so one grid is shared
             // between them and ending it ends it for both.
             Text(
-                appModel.hasCouple
+                appModel.partnerConnected
                 ? "This ends it for both of you — \(appModel.partner.name)'s progress on this grid goes too. You'll be able to start a new one straight away."
                 : "You'll be able to start a new grid straight away."
             )
@@ -237,7 +237,7 @@ struct WordSearchGameView: View {
             // Outside the card: `GameReminderButton` is filled with `Theme.surface` so it
             // reads as raised against the page, which is the one colour it would disappear into
             // inside a `SectionCard`. Same placement the deck games use.
-            if appModel.hasCouple {
+            if appModel.partnerConnected {
                 GameReminderButton(isSending: isSendingReminder, action: remindPartner)
             }
         }
@@ -254,7 +254,7 @@ struct WordSearchGameView: View {
                     .font(.title3.weight(.bold))
                     .foregroundStyle(Theme.textPrimary)
 
-                if appModel.hasCouple {
+                if appModel.partnerConnected {
                     Text("Your time is saved. You'll see how it compares once \(appModel.partner.name) has cleared theirs.")
                         .font(.caption)
                         .foregroundStyle(Theme.textSecondary)

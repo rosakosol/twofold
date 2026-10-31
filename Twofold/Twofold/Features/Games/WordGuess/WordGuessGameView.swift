@@ -377,7 +377,7 @@ struct WordGuessGameView: View {
             // Outside the card: `GameReminderButton` is filled with `Theme.surface` so it
             // reads as raised against the page, which is the one colour it would disappear into
             // inside a `SectionCard`. Same placement the deck games use.
-            if appModel.hasCouple {
+            if appModel.partnerConnected {
                 GameReminderButton(isSending: isSendingReminder, action: remindPartner)
             }
         }
@@ -409,7 +409,7 @@ struct WordGuessGameView: View {
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(Theme.textPrimary)
 
-                if appModel.hasCouple {
+                if appModel.partnerConnected {
                     // Shorter than it was ("Your result is saved. You'll see how it compares
                     // once ... has played theirs."), which ran to three lines on a narrow phone
                     // and said twice over what the card already shows by existing.
