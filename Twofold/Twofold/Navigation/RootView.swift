@@ -109,8 +109,12 @@ struct RootView: View {
     /// install before anyone signed in, or whoever was here before a `logIn` that failed — never
     /// reliably the person now looking at the screen. Treating its entitlements as theirs would
     /// mean a device holding a subscription rather than an account.
+    ///
+    /// A test run's store answer stands for this account's own, the way a signed-in customer's
+    /// would — see `AppModel.deviceTier()`.
     private var deviceHoldsEntitlement: Bool {
-        !Purchases.shared.isAnonymous && subscriptionStore.isSubscribed
+        if E2ELaunch.isOn { return subscriptionStore.isSubscribed }
+        return Purchases.isConfigured && !Purchases.shared.isAnonymous && subscriptionStore.isSubscribed
     }
 
     var body: some View {

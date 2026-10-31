@@ -92,6 +92,16 @@ enum RevenueCatConfig {
         //
         // A genuinely fresh install still starts anonymous, which is correct: there is no id to use
         // yet, and `logIn` aliases it the moment sign-in gives us one.
-        Purchases.configure(withAPIKey: apiKey, appUserID: BackendService.currentUserID?.uuidString)
+        //
+        // An end-to-end test run leaves the SDK unconfigured unless it is testing purchases, and
+        // even then configures it anonymously: RevenueCat has no local stack, so every call it
+        // makes reaches the production project, and a test account's id has no business there.
+        // Every `Purchases.shared` caller that a test can reach checks `Purchases.isConfigured`
+        // first, since an unconfigured `shared` traps.
+        guard E2ELaunch.configuresRevenueCat else { return }
+        Purchases.configure(
+            withAPIKey: apiKey,
+            appUserID: E2ELaunch.isOn ? nil : BackendService.currentUserID?.uuidString
+        )
     }
 }

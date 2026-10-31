@@ -40,6 +40,15 @@ protocol IntroOfferEligibilityChecking {
 /// which is the check Apple applies when the purchase goes through.
 struct RevenueCatIntroOfferEligibilityChecker: IntroOfferEligibilityChecking {
     func eligibility(forProductIdentifiers productIdentifiers: [String]) async -> [String: IntroOfferEligibility] {
+        // A test run says what Apple would for the account it seeded: the StoreKit configuration
+        // file has no purchase history, so the real check would call everyone eligible, including
+        // the lapsed subscriber whose missing trial copy is the thing being tested.
+        if let tier = E2ELaunch.tier {
+            return Dictionary(uniqueKeysWithValues: productIdentifiers.map { ($0, tier.introEligibility) })
+        }
+        guard Purchases.isConfigured else {
+            return Dictionary(uniqueKeysWithValues: productIdentifiers.map { ($0, .unknown) })
+        }
         let answers = await Purchases.shared.checkTrialOrIntroDiscountEligibility(productIdentifiers: productIdentifiers)
         return answers.mapValues { answer in
             switch answer.status {

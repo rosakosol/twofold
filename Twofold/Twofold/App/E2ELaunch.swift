@@ -1,0 +1,123 @@
+//
+//  E2ELaunch.swift
+//  Twofold
+//
+//  What the end-to-end UI tests ask of a launch: start from a clean device, sign in as an account
+//  the test runner has just created, and answer "what does this device's store say I hold" without
+//  asking RevenueCat. See `TwofoldUITests/E2E` for the other half, which seeds the account.
+//
+//  Every UI test used to inherit whatever the simulator happened to be signed in as, against
+//  production. Two runs of the same test saw two different couples; a test that wrote anything
+//  wrote it into a real one; and a simulator that was signed out turned most of the suite into
+//  skips. The harness creates a fresh account per test on the local stack instead, and this is the
+//  app's side of that: the account arrives in the environment and the app takes its ordinary
+//  signed-in path from there.
+//
+//  Launch environment, all read only when `TWOFOLD_E2E=1`:
+//
+//    TWOFOLD_E2E_EMAIL / _PASSWORD   sign in with these before the launch pipeline runs. Leave
+//                                    both out to start signed out (Welcome).
+//    TWOFOLD_E2E_TIER                none | plus | premium | lapsed — what the device's store
+//                                    reports for this account. The server side is seeded to match.
+//    TWOFOLD_E2E_STOREKIT=1          configure RevenueCat (anonymously) so the paywall can load
+//                                    products from the scheme's StoreKit configuration file.
+//    TWOFOLD_E2E_KEEP_DEVICE=1       skip the clean-device reset, for a second launch that must see
+//                                    what the first one left behind (the offline tests).
+//
+//  Refused outright unless the build is pointed at a loopback Supabase (`SupabaseConfig
+//  .isLocalLoopback`). Both halves of this — erasing the session, and signing in with a password
+//  from the environment — are things that must never happen against real accounts, and a test
+//  scheme with `SUPABASE_ENV` unticked by mistake would otherwise do exactly that.
+//
+//  DEBUG only, the same way `SupabaseConfig`'s overrides and `DemoMode` are: in a release build
+//  `isOn` is a constant false and the environment is never read, so none of this exists in an
+//  archive however the machine that built it is configured.
+//
+
+import Foundation
+import Security
+
+enum E2ELaunch {
+    /// What the device's store says this account holds. `lapsed` is distinct from `none` only in
+    /// what Apple would say about a free trial: somebody who subscribed before has used the group's
+    /// introductory offer, and somebody who never did has not.
+    enum Tier: String {
+        case none, plus, premium, lapsed
+
+        /// The entitlement RevenueCat would report on this device.
+        var storeTier: SubscriptionTier? {
+            switch self {
+            case .plus: .plus
+            case .premium: .premium
+            case .none, .lapsed: nil
+            }
+        }
+
+        /// Apple's rule, one introductory offer per subscription group per Apple Account: only
+        /// someone who has never subscribed is offered the trial.
+        var introEligibility: IntroOfferEligibility {
+            self == .none ? .eligible : .ineligible
+        }
+    }
+
+    #if DEBUG
+    private static let environment = ProcessInfo.processInfo.environment
+
+    static let isOn: Bool = {
+        guard environment["TWOFOLD_E2E"] == "1" else { return false }
+        // Loud rather than ignored. A silently-ignored flag would run the test against whatever
+        // the build points at, which by default is production.
+        guard SupabaseConfig.isLocalLoopback else {
+            fatalError("TWOFOLD_E2E=1 needs SUPABASE_ENV=local (or a loopback SUPABASE_URL). Refusing to run end-to-end setup against \(SupabaseConfig.projectURL).")
+        }
+        return true
+    }()
+
+    static var credentials: (email: String, password: String)? {
+        guard isOn,
+              let email = environment["TWOFOLD_E2E_EMAIL"], !email.isEmpty,
+              let password = environment["TWOFOLD_E2E_PASSWORD"], !password.isEmpty
+        else { return nil }
+        return (email, password)
+    }
+
+    /// Nil outside a test run, which is what keeps every caller on its real RevenueCat path.
+    static var tier: Tier? {
+        guard isOn else { return nil }
+        return environment["TWOFOLD_E2E_TIER"].flatMap(Tier.init(rawValue:)) ?? Tier.none
+    }
+
+    /// Whether RevenueCat is configured at all in this run. Off by default, so a test run makes no
+    /// calls to RevenueCat's servers — which are production's, there is no local one. The purchase
+    /// tests turn it on, and get an anonymous customer: `identifyWithRevenueCat` is skipped, so no
+    /// test account's id is ever sent there.
+    static var configuresRevenueCat: Bool {
+        !isOn || environment["TWOFOLD_E2E_STOREKIT"] == "1"
+    }
+
+    /// Erases what a previous run, or a person using this simulator by hand, left on the device.
+    ///
+    /// Called first thing in `TwofoldApp.init()`, before anything reads the session or the
+    /// defaults: `RevenueCatConfig.configure()` reads the Keychain session for its user id, and
+    /// `AppLockService` reads its flag when `RootView` is built — a lock left on by hand would
+    /// otherwise sit in front of every test.
+    ///
+    /// The Keychain item is deleted directly rather than through `supabase.auth.signOut()`, which
+    /// is async and would revoke the refresh token on the server too. A session from a hand-run
+    /// against production must not be touched there; it only has to stop being this device's.
+    static func prepareCleanDeviceIfRequested() {
+        guard isOn, environment["TWOFOLD_E2E_KEEP_DEVICE"] != "1" else { return }
+        if let domain = Bundle.main.bundleIdentifier {
+            UserDefaults.standard.removePersistentDomain(forName: domain)
+        }
+        SessionKeychainStorage.removeAll()
+        AppModel.clearPersistedAccountState()
+    }
+    #else
+    static let isOn = false
+    static var credentials: (email: String, password: String)? { nil }
+    static var tier: Tier? { nil }
+    static var configuresRevenueCat: Bool { true }
+    static func prepareCleanDeviceIfRequested() {}
+    #endif
+}

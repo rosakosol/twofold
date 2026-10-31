@@ -152,7 +152,14 @@ final class SubscriptionStore {
     /// rather than the cache hit it was — the correct trade when its answer is about to be
     /// persisted as the couple's tier.
     func refreshEntitlementsOnly() async {
-        guard let info = try? await Purchases.shared.customerInfo(fetchPolicy: .fetchCurrent) else { return }
+        // A test run's store answer, standing in for RevenueCat's — see E2ELaunch.swift.
+        if let tier = E2ELaunch.tier {
+            subscribedTier = tier.storeTier
+            hasResolvedEntitlements = true
+            return
+        }
+        guard Purchases.isConfigured,
+              let info = try? await Purchases.shared.customerInfo(fetchPolicy: .fetchCurrent) else { return }
         subscribedTier = SubscriptionTier.active(in: info)
         hasResolvedEntitlements = true
     }
@@ -161,6 +168,9 @@ final class SubscriptionStore {
     /// fetch above only catches at the next foreground. Renewals, upgrades and expiries all arrive
     /// here without the app having to ask.
     func entitlementUpdates() -> AsyncStream<SubscriptionTier?> {
+        // Nothing will ever change it in a test run with RevenueCat left unconfigured, and an
+        // unconfigured `shared` traps.
+        guard Purchases.isConfigured else { return AsyncStream { $0.finish() } }
         let stream = Purchases.shared.customerInfoStream
         return AsyncStream { continuation in
             let task = Task {
@@ -205,6 +215,11 @@ final class SubscriptionStore {
     /// silently shows nothing on a network hiccup is a real App Store review risk, not just bad UX.
     func loadOfferings() async {
         loadState = .loading
+        guard Purchases.isConfigured else {
+            // Only reachable in an end-to-end run that did not ask for StoreKit.
+            loadState = .failed("No subscription plans are available right now.")
+            return
+        }
         do {
             let offerings = try await Purchases.shared.offerings()
             guard let current = offerings.current else {
@@ -271,6 +286,7 @@ final class SubscriptionStore {
     }
 
     func restore() async throws -> CustomerInfo {
+        guard Purchases.isConfigured else { throw ConsumableError.unavailable }
         let info = try await Purchases.shared.restorePurchases()
         subscribedTier = SubscriptionTier.active(in: info)
         return info

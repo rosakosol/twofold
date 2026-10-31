@@ -80,4 +80,17 @@ enum SupabaseConfig {
     /// True whenever this build is pointed at something other than production. Handy for putting a
     /// visible marker in the UI so a screenshot from a local stack is never mistaken for real data.
     static var isUsingProduction: Bool { resolved.url == Production.url }
+
+    /// True only when this build talks to a Supabase on this machine — the CLI's local stack, or a
+    /// custom `SUPABASE_URL` that is itself a loopback address.
+    ///
+    /// The end-to-end launch path (`E2ELaunch`) refuses to run unless this holds. It signs in with
+    /// a password passed in the environment and wipes the device's session first, and the one place
+    /// either of those must never happen is against real accounts. Checked on the host rather than
+    /// on `SUPABASE_ENV`, so a LAN address set by hand for a physical device does not count either:
+    /// that is still somebody's machine, not a stack a test runner created.
+    static var isLocalLoopback: Bool {
+        guard let host = resolved.url.host?.lowercased() else { return false }
+        return host == "127.0.0.1" || host == "localhost" || host == "::1"
+    }
 }

@@ -97,6 +97,18 @@ struct SessionKeychainStorage: AuthLocalStorage {
         }
     }
 
+    #if DEBUG
+    /// Every session item this storage has ever written, gone. For `E2ELaunch`'s clean-device
+    /// reset only, which has to run before the Supabase client exists and so cannot ask it which
+    /// keys it uses.
+    static func removeAll() {
+        SecItemDelete([
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+        ] as CFDictionary)
+    }
+    #endif
+
     /// Rewrites an item written by an earlier build to the stricter accessibility.
     ///
     /// Attribute-only, via `SecItemUpdate` — the data is not touched and the item is never

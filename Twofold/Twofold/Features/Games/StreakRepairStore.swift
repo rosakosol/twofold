@@ -73,7 +73,7 @@ final class StreakRepairStore {
             return
         }
         #endif
-        guard product == nil else { return }
+        guard product == nil, Purchases.isConfigured else { return }
         phase = .loadingPrice
         let products = await Purchases.shared.products([RevenueCatConfig.ProductIdentifier.streakRepair])
         product = products.first

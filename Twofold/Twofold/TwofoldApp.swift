@@ -7,6 +7,9 @@ struct TwofoldApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
+        // First, because the two lines after it read what it erases. A no-op outside an
+        // end-to-end test run, and compiled out of Release — see E2ELaunch.swift.
+        E2ELaunch.prepareCleanDeviceIfRequested()
         RevenueCatConfig.configure()
         AnalyticsConfig.configure()
         // Reclassifies what earlier versions already wrote. Setting a protection class on a write

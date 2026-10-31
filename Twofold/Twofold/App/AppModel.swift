@@ -471,6 +471,11 @@ final class AppModel {
             applyDemoState()
             return
         }
+        // Before the cache read below, so the test's account is the one whose cache is looked
+        // for — `E2ELaunch` has already emptied the Keychain, so there is no other.
+        if let credentials = E2ELaunch.credentials {
+            await signInForEndToEndTest(credentials)
+        }
         #endif
 
         // Cache first, always — not only when we already believe we're offline.
@@ -503,6 +508,24 @@ final class AppModel {
         guard await BackendService.restoreSession() != nil else { return }
         await loadSignedInState()
     }
+
+    #if DEBUG
+    /// The end-to-end harness's sign-in, standing in for the Apple and Google sheets a UI test
+    /// cannot drive. Through `BackendService.signIn` — the same call the email form makes — so the
+    /// session lands in the Keychain exactly as a real one does, and `restoreSession` carries on
+    /// down its ordinary signed-in path as if this were any returning launch.
+    ///
+    /// A failure stops the app rather than leaving it on Welcome. The account was created moments
+    /// ago by the test itself, so a refusal means the harness is broken, and a test that then
+    /// waited thirty seconds for a Home screen would report the wrong thing.
+    private func signInForEndToEndTest(_ credentials: (email: String, password: String)) async {
+        do {
+            try await BackendService.signIn(email: credentials.email, password: credentials.password)
+        } catch {
+            fatalError("E2E sign-in as \(credentials.email) failed: \(error)")
+        }
+    }
+    #endif
 
     /// Replays the last-known trips/flights/memories from disk. Only ever called once the live
     /// fetches have already failed, so it can't overwrite fresher server data.
@@ -860,16 +883,25 @@ final class AppModel {
     ///
     /// `customerInfo()` is served from the SDK's cache unless it is stale, so this is cheap.
     private func deviceHoldsEntitlement() async -> Bool {
-        guard !Purchases.shared.isAnonymous,
-              let info = try? await Purchases.shared.customerInfo() else { return false }
-        return SubscriptionTier.active(in: info) != nil
+        await Self.deviceTier() != nil
+    }
+
+    /// This account's tier as the device's store reports it, or nil when it holds none — or when
+    /// the store's customer is anonymous, which is somebody else as far as this account goes.
+    ///
+    /// An end-to-end test answers from `E2ELaunch.tier` instead, the way a signed-in RevenueCat
+    /// customer would: the test seeds the server to match, so the two halves agree as they do for
+    /// a real subscriber whose webhook has landed.
+    static func deviceTier() async -> SubscriptionTier? {
+        if let tier = E2ELaunch.tier { return tier.storeTier }
+        guard Purchases.isConfigured, !Purchases.shared.isAnonymous,
+              let info = try? await Purchases.shared.customerInfo() else { return nil }
+        return SubscriptionTier.active(in: info)
     }
 
     private func resolvedSubscriptionActive(backendSaysActive: Bool) async -> Bool {
         if backendSaysActive { return true }
-        guard !Purchases.shared.isAnonymous,
-              let info = try? await Purchases.shared.customerInfo() else { return false }
-        let deviceTier = SubscriptionTier.active(in: info)
+        let deviceTier = await Self.deviceTier()
         if deviceTier != nil {
             // This device is entitled and the row says otherwise, so the row is out of date — ask
             // the server to go and re-read RevenueCat.
@@ -958,7 +990,8 @@ final class AppModel {
     /// itself rather than deeper in `adopt`/`adoptSoloProfile` since both of those paths need it
     /// equally and neither should have to remember to call it separately.
     private func identifyWithRevenueCat() async {
-        guard let userID = BackendService.currentUserID else { return }
+        // Never in a test run: see `RevenueCatConfig.configure()`.
+        guard !E2ELaunch.isOn, let userID = BackendService.currentUserID else { return }
         if (try? await Purchases.shared.logIn(userID.uuidString)) == nil {
             // One retry — a `logIn` failure here (typically a network blip right at launch/sign-in)
             // is exactly what leaves RevenueCat on its anonymous ID for the rest of the session,
@@ -1029,7 +1062,9 @@ final class AppModel {
     /// Shared by `signOut()` and `deleteAccount()` — both end with the device in the same
     /// signed-out state, whether the account still exists (just logged out of) or not (deleted).
     private func clearLocalSessionState() async {
-        _ = try? await Purchases.shared.logOut()
+        if Purchases.isConfigured {
+            _ = try? await Purchases.shared.logOut()
+        }
         PostHogSDK.shared.reset()
         // Without this, Home Screen widgets and Live Activities kept showing the signed-out
         // account's (and their partner's) name, photos, anniversary date, and upcoming trip/

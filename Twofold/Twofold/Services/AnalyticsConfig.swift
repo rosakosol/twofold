@@ -33,6 +33,9 @@ enum AnalyticsConfig {
 
     static func configure() {
         guard !projectToken.isEmpty else { return }
+        // A test run's events are not anybody's behaviour, and PostHog has only the production
+        // project to send them to. Left un-set-up, every `PostHogSDK.shared` call is a no-op.
+        guard !E2ELaunch.isOn else { return }
         let config = PostHogConfig(projectToken: projectToken, host: host)
         config.captureScreenViews = false
         PostHogSDK.shared.setup(config)
