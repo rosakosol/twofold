@@ -2,11 +2,13 @@
 //  FlightTrackingWidget.swift
 //  LiveActivities
 //
-//  Plus tier — replaces FlightStatusWidget. Mirrors the in-app progress-rail treatment
-//  (JourneyLockScreenView's progressRail: solid-to-dashed line + a marker riding the current
-//  progress), but rides the traveler's avatar instead of a plain plane icon when one's set —
-//  same idea as FlightMapView's travelerMarker. Small and Medium share the same layout (like
-//  DrawingPadWidget) — there's no route map here (that was Large-only and got dropped along with
+//  Plus tier — replaces FlightStatusWidget. Whose flight it is in the corner (the partner's photo,
+//  or the airline's logo for your own or one with no passenger set), "Lands in 55m" large, and the
+//  plane riding a progress rail. The photo used to ride the rail instead of the plane; it moved up
+//  beside the flight number so the rail reads as the journey at a glance, the same as the Lock
+//  Screen Live Activity.
+//  Small and Medium share the same layout (like DrawingPadWidget); Medium adds the status and
+//  route underneath. There's no route map here (that was Large-only and got dropped along with
 //  the WidgetSnapshotWriter map-rendering pipeline it needed).
 //
 
@@ -67,20 +69,17 @@ struct FlightTrackingProvider: TimelineProvider {
         let flight = snapshot?.nextFlight
         let now = Date.now
 
-        // The moments worth a guaranteed entry: take-off and touchdown, plus a coarse walk across
-        // the flight so the progress rail creeps forward rather than jumping a quarter at a time.
-        var moments: Set<Date> = [now]
-        if let departure = flight?.bestDeparture, departure > now { moments.insert(departure) }
-        if let arrival = flight?.bestArrival, arrival > now { moments.insert(arrival) }
-        for minutes in stride(from: 15, through: 240, by: 15) {
-            moments.insert(now.addingTimeInterval(Double(minutes) * 60))
-        }
-        // A cap well under WidgetKit's own, since it budgets refreshes per widget per day and
-        // there is no value in a denser walk than the rail can visibly show.
-        let dates = moments.sorted().prefix(24)
+        // On the minute marks before take-off and touchdown, so the big "55m" is right to the
+        // minute (see `TimeMath.countdownMoments`), with take-off and touchdown themselves among
+        // them. The rail moves on the same entries. WidgetKit's daily budget counts reloads, not
+        // entries, so a dense timeline costs one reload like a sparse one; the cap only bounds the
+        // work of rendering it ahead.
+        let targets = [flight?.bestDeparture, flight?.bestArrival].compactMap { $0 }
+        let dates = TimeMath.countdownMoments(to: targets, from: now).prefix(150)
 
         let entries = dates.map { entry(from: snapshot, at: $0) }
-        let nextRefresh = dates.last ?? now.addingTimeInterval(900)
+        // Nothing to count down to: look again in fifteen minutes, as before.
+        let nextRefresh = dates.count > 1 ? dates.last! : now.addingTimeInterval(900)
         completion(Timeline(entries: entries, policy: .after(nextRefresh)))
     }
 
@@ -128,8 +127,13 @@ struct FlightTrackingWidgetView: View {
     private var isLocked: Bool { WidgetTier.isLocked(required: WidgetTier.plus, current: entry.subscriptionTier) }
 
     /// Whose flight it is decides the layout (section 7): the partner's leads with their photo, your
-    /// own with the airline's logo. Nobody set reads as the partner's, the common case.
+    /// own with the airline's logo.
     private var isMine: Bool { entry.travelerIsMe == true }
+
+    /// Only a flight with the partner actually on it shows their photo. One with no passenger set
+    /// (`travelerIsMe` nil) used to be read as theirs, which put the partner's face on what was
+    /// often your own flight; it gets the airline's logo, which claims it for neither of you.
+    private var isPartners: Bool { entry.travelerIsMe == false }
 
     private var isDeparted: Bool { (entry.bestDeparture ?? .distantFuture) <= entry.date }
     private var target: Date? { isDeparted ? entry.bestArrival : entry.bestDeparture }
@@ -180,27 +184,32 @@ struct FlightTrackingWidgetView: View {
                 travelDayDetails
             } else {
                 countdown(status: status)
-                progressRail(markerSize: 24)
+                Spacer(minLength: 0)
+                progressRail(markerSize: 30)
             }
-            Text(routeLine(status: status))
-                .font(.system(size: 12, weight: .semibold))
-                .opacity(0.92)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
+            // Medium only: the small widget is the photo, the countdown and the rail, nothing else.
+            if family == .systemMedium {
+                Text(routeLine(status: status))
+                    .font(.system(size: 12, weight: .semibold))
+                    .opacity(0.92)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
         }
     }
 
     /// Photo or logo, the flight number, and a delay pill when there is one.
     private var header: some View {
-        HStack(spacing: 6) {
-            if isMine {
-                airlineLogo(size: 22)
+        HStack(spacing: 8) {
+            if isPartners {
+                WidgetAvatarView(person: .partner, name: entry.partnerName, size: 34)
             } else {
-                WidgetAvatarView(person: .partner, name: entry.partnerName, size: 26)
+                airlineLogo(size: 28)
             }
             Text(entry.flightNumber ?? "")
-                .font(.system(size: 13, weight: .bold))
+                .font(.system(size: 17, weight: .bold))
                 .lineLimit(1)
+                .minimumScaleFactor(0.7)
             Spacer(minLength: 0)
             if let delayMinutes {
                 // "Delayed 6 min" (section 7): the warning colours on a white pill, icon and word,
@@ -219,21 +228,27 @@ struct FlightTrackingWidgetView: View {
         }
     }
 
-    /// "Departs in" or "Lands in", then the time left, counting down live.
+    /// "Departs in" or "Lands in", then the time left: "55m", "3h 12m", "2d 4h".
+    ///
+    /// A string per timeline entry rather than `Text(_, style: .relative)`, which can only say
+    /// "55 min" and has no form short enough to stand this large. The provider puts an entry on
+    /// every minute mark of the last hour, so it is still right to the minute.
     @ViewBuilder
     private func countdown(status: FlightStatus) -> some View {
         Text(isDeparted ? "Lands in" : "Departs in")
-            .font(.system(size: 12, weight: .semibold))
+            .font(.system(size: 15, weight: .semibold))
             .opacity(0.92)
         if let target, target > entry.date {
-            Text(target, style: .relative)
-                .font(.system(size: family == .systemMedium ? 30 : 24, weight: .bold))
+            Text(TimeMath.compactDuration(target.timeIntervalSince(entry.date)))
+                .font(.system(size: 44, weight: .bold))
                 .lineLimit(1)
-                .minimumScaleFactor(0.6)
+                .minimumScaleFactor(0.5)
                 .widgetAccentable()
         } else {
             Text(status.displayLabel)
-                .font(.system(size: 24, weight: .bold))
+                .font(.system(size: 28, weight: .bold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
                 .widgetAccentable()
         }
     }
@@ -302,8 +317,9 @@ struct FlightTrackingWidgetView: View {
         }
     }
 
-    /// The journey as a line, the traveller's photo (or the plane, for your own flight) as the
-    /// marker riding it.
+    /// The journey as a line: white where it has flown, faint where it has yet to, a dot at the
+    /// destination, and the plane in a white disc riding it. Whose flight it is lives in the
+    /// header, so the marker is always the plane.
     private func progressRail(markerSize: CGFloat) -> some View {
         GeometryReader { geo in
             let inset = markerSize / 2
@@ -311,22 +327,20 @@ struct FlightTrackingWidgetView: View {
             let progressX = inset + travel * min(1, max(0, entry.progress))
             let midY = geo.size.height / 2
             ZStack {
-                Capsule().fill(.white.opacity(0.3)).frame(height: 4)
+                Capsule().fill(.white.opacity(0.3)).frame(width: travel, height: 5)
                     .position(x: geo.size.width / 2, y: midY)
-                Capsule().fill(.white).frame(width: progressX, height: 4)
-                    .position(x: progressX / 2, y: midY)
-                Group {
-                    if isMine {
-                        Image(systemName: "airplane")
-                            .font(.system(size: markerSize * 0.45, weight: .bold))
-                            .foregroundStyle(Color(hex: 0x1A6FD6))
-                            .frame(width: markerSize, height: markerSize)
-                            .background(.white, in: Circle())
-                    } else {
-                        WidgetAvatarView(person: .partner, name: entry.partnerName, size: markerSize)
-                    }
-                }
-                .position(x: progressX, y: midY)
+                Circle().fill(.white.opacity(0.45)).frame(width: 7, height: 7)
+                    .position(x: inset + travel, y: midY)
+                Capsule().fill(.white).frame(width: max(0, progressX - inset), height: 5)
+                    .position(x: inset + max(0, progressX - inset) / 2, y: midY)
+                Image(systemName: "airplane")
+                    .font(.system(size: markerSize * 0.45, weight: .bold))
+                    // The gradient's own blue, fixed: the disc is white in both appearances.
+                    .foregroundStyle(Color(hex: 0x1A6FD6))
+                    .frame(width: markerSize, height: markerSize)
+                    .background(.white, in: Circle())
+                    .shadow(color: .black.opacity(0.15), radius: 3, y: 1)
+                    .position(x: progressX, y: midY)
             }
         }
         .frame(height: markerSize + 4)

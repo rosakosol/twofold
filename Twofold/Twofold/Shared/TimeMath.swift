@@ -92,6 +92,29 @@ enum TimeMath {
         return "\(minutes)m"
     }
 
+    /// When a widget showing `compactDuration` to any of `targets` needs a timeline entry, so the
+    /// figure it shows is right to the minute without the app running.
+    ///
+    /// `compactDuration` is a plain string, worked out once per entry, not a `Text(style:)` that
+    /// the system ticks — there is no live style that reads "55m". So the entries sit on the
+    /// target's own minute marks, where the figure changes: every minute in the last hour before a
+    /// target, every five minutes before that, within `horizon` of now. Further out the figure is
+    /// in hours or days, and five minutes is finer than anyone reads it.
+    static func countdownMoments(to targets: [Date], from now: Date, horizon: TimeInterval = 3 * 3600) -> [Date] {
+        let end = now.addingTimeInterval(horizon)
+        var moments: Set<Date> = [now]
+        for target in targets where target > now {
+            let nearest = max(0, Int((target.timeIntervalSince(end) / 60).rounded(.up)))
+            let furthest = Int((target.timeIntervalSince(now) / 60).rounded(.down))
+            guard nearest <= furthest else { continue }
+            for minutesBefore in nearest...furthest where minutesBefore <= 60 || minutesBefore % 5 == 0 {
+                let moment = target.addingTimeInterval(-Double(minutesBefore) * 60)
+                if moment > now { moments.insert(moment) }
+            }
+        }
+        return moments.sorted()
+    }
+
     /// Whole calendar days between two instants — the number of times the date changes between
     /// them, not the number of 24-hour spans that fit.
     ///
