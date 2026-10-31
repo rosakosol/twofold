@@ -206,7 +206,7 @@ struct FlightTrackingWidgetView: View {
             } else if isMine {
                 WidgetAvatarView(person: .me, name: entry.myName, size: 34)
             } else {
-                airlineLogo(size: 28)
+                airlineLogo(size: 34)
             }
             Text(entry.flightNumber ?? "")
                 .font(.system(size: 17, weight: .bold))
@@ -325,9 +325,10 @@ struct FlightTrackingWidgetView: View {
                 .widgetAccentedRenderingMode(.fullColor)
                 .scaledToFit()
                 .frame(width: size, height: size)
-                .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: size * 0.2, style: .continuous))
         } else {
             Image(systemName: "airplane").font(.system(size: size * 0.7, weight: .bold))
+                .frame(width: size, height: size)
         }
     }
 
