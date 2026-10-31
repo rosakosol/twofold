@@ -1,0 +1,38 @@
+{
+  "configurations" : [
+    {
+      "id" : "4E2D0B6C-1F7A-4C1B-9E55-2B7C1D0A6F01",
+      "name" : "Default",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:Twofold.xcodeproj",
+      "identifier" : "DB8C95002FFC501C00E0E71E",
+      "name" : "Twofold"
+    }
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:Twofold.xcodeproj",
+        "identifier" : "DB8C950D2FFC502100E0E71E",
+        "name" : "TwofoldTests"
+      }
+    },
+    {
+      "skippedTests" : [
+        "PaywallTrialCopyE2ETests"
+      ],
+      "target" : {
+        "containerPath" : "container:Twofold.xcodeproj",
+        "identifier" : "DB8C95172FFC502100E0E71E",
+        "name" : "TwofoldUITests"
+      }
+    }
+  ],
+  "version" : 1
+}

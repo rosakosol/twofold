@@ -78,7 +78,7 @@ matter most, the games, and every Supabase edge function with its caller. For wh
 | **LiveActivities** | [`Twofold/LiveActivities/`](Twofold/LiveActivities/) | Widget extension: the flight Live Activity and 10 widgets (see [Widgets and Live Activities](#widgets-and-live-activities)) |
 | **TwofoldShareExtension** | [`Twofold/TwofoldShareExtension/`](Twofold/TwofoldShareExtension/) | Share sheet target for booking emails. It only queues the shared text in the App Group; the main app does the parsing (see [flow 4](#4-importing-a-flight-from-an-email)) |
 | **TwofoldTests** | [`Twofold/TwofoldTests/`](Twofold/TwofoldTests/) | Unit tests, about 80 files: game logic, stores, offline caches, deep-link parsing, subscription gates |
-| **TwofoldUITests** | [`Twofold/TwofoldUITests/`](Twofold/TwofoldUITests/) | UI tests: walkthrough, sign-in, notification deep links, offline games, legal consent |
+| **TwofoldUITests** | [`Twofold/TwofoldUITests/`](Twofold/TwofoldUITests/) | End-to-end UI tests against the local stack — see [End-to-end UI tests](#end-to-end-ui-tests) |
 
 The app and its extensions share the App Group `group.com.orangefinch.Twofold`, used for widget
 snapshots and queued shares. Files under `Twofold/Twofold/` are file-system-synchronised into the
@@ -927,14 +927,79 @@ Relevant migrations: `20261004000000` (the clock, the cron and restore-on-re-pai
 * **Edge function tests:** `*.test.ts` files beside each function and in `_shared/`. Run them with
   Deno, as described in the Supabase README. [`scripts/check-functions.sh`](scripts/check-functions.sh)
   type-checks every function the way deploy builds it.
-* **iOS tests:** the `TwofoldTests` and `TwofoldUITests` schemes.
-  [`scripts/seed-test-couple.py`](scripts/seed-test-couple.py) creates two paired accounts, so UI tests
-  can skip onboarding.
+* **iOS unit tests:** `TwofoldTests`, in the Twofold scheme's default test plan.
+* **iOS end-to-end tests:** see [End-to-end UI tests](#end-to-end-ui-tests) below.
 * **Other scripts:** `export-game-content.py` (offline game seed), `scrape-airline-logos.ts` (fills
   R2 with logos), and the R2 migration tools `copy-storage-to-r2.ts`, `delete-storage-originals.ts`
   and `delete-r2-objects.ts`.
 * **DEBUG launch arguments** used by UI tests and screenshots: `-onboardingStep`,
   `-notificationRoute`, `-paywallScreenshot`, `-recordExportScreenshot`.
+
+### End-to-end UI tests
+
+Every test in `TwofoldUITests` runs against the **local** Supabase stack, as accounts it creates for
+itself. Nothing in the suite talks to the production project, and no test depends on what the
+simulator was last signed in as.
+
+1. **Start the stack** (from the repo root; Docker Desktop must be running). Only the services the
+   app needs are started — add `realtime` back if a test needs live partner updates:
+
+   ```sh
+   supabase start -x studio,logflare,vector,imgproxy,mailpit,edge-runtime,realtime,supavisor,postgres-meta --ignore-health-check
+   ```
+
+   If migrations are behind, `supabase db reset --local`. A test whose stack is down fails at once
+   with this command in its message.
+
+   Then write the stack's keys where the test runner reads them. The file is git-ignored: the
+   secret key is the CLI's fixed local default, but GitHub refuses any push carrying one.
+
+   ```sh
+   supabase status -o env > .env.e2e.local
+   ```
+2. **Run** the Twofold scheme's default test plan (`Twofold.xctestplan`: unit tests and every UI
+   test except the purchase ones), one simulator, no parallel testing:
+
+   ```sh
+   cd Twofold
+   xcodebuild test -project Twofold.xcodeproj -scheme Twofold \
+     -destination 'platform=iOS Simulator,name=iPhone 17' \
+     -only-testing:TwofoldUITests -parallel-testing-enabled NO
+   ```
+
+   Paywall tests that need real products are in `Twofold-Purchases.xctestplan`, which attaches
+   `Twofold.storekit` (add `-testPlan Twofold-Purchases`). That plan has the app configure
+   RevenueCat anonymously, so it does reach RevenueCat's API for the offering; the default plan
+   leaves RevenueCat and PostHog unconfigured and reaches nothing but `127.0.0.1`.
+
+**How it works.** A test subclasses `E2ETestCase`, builds a `Scenario`, and launches:
+
+```swift
+let scenario = try await Scenario.pairedPlus()      // .solo(), .pairedPremium(), .lapsed(), .midOnboarding()
+try await scenario.addMemory(title: "Where we met") // optional: addTrip, startSudoku
+let app = launch(scenario)                          // or launchSignedOut()
+waitForSignedInApp(app)
+```
+
+* `Scenario` (in [`TwofoldUITests/E2E/`](Twofold/TwofoldUITests/E2E/)) creates uniquely named accounts
+  through the local Auth admin API and pairs them through the app's own RPCs, as the people who call
+  them (`create_invite_code` → `redeem_invite_code` → `respond_to_connection_request`). Accounts are
+  never reused, so there is no reset step; `supabase db reset --local` clears the pile when wanted.
+* **Tier, server side**, is written the way the RevenueCat webhook writes it: the `profiles.subscription_*`
+  columns and `subscription_events` rows, with the local service-role key (the client is refused
+  those writes). **Client side**, `TWOFOLD_E2E_TIER` tells the app what its store holds, in place of
+  RevenueCat. The scenario sets both, so they agree.
+* **Sign-in** is `TWOFOLD_E2E_EMAIL`/`_PASSWORD`, which the app uses with the same email sign-in the
+  form calls, before its launch pipeline runs. With `TWOFOLD_E2E=1` the app also wipes the device's
+  session and defaults first. All of it is DEBUG only and refused unless the app is pointed at a
+  loopback Supabase (see [`E2ELaunch.swift`](Twofold/Twofold/App/E2ELaunch.swift)).
+
+**Adding a scenario:** add a static constructor to `Scenario` that composes `makeAccount`,
+`completeOnboarding`, `pair` and `apply(tier:to:)`, and put any new seeding call beside `addTrip`.
+Use an RPC as the account wherever the app has one; reach for `.service` only for what the app is
+never allowed to write itself. Never add test-only SQL to `supabase/migrations` — it would ship.
+Find elements by accessibility identifier or label, adding an identifier to the view only where a
+label is not unique.
 
 ## Known gaps
 
